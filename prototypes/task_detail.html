@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜タスク詳細</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F8FA;--white:#FFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFDBFE;
+  --green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --orange:#EA580C;--orange-l:#FFF7ED;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600}.ur{font-size:10px;color:var(--muted)}
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+/* TOPBAR */
+.topbar{padding:0 24px;border-bottom:1px solid var(--border);background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.topbar-top{padding:12px 0;display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;padding:5px 8px;border-radius:5px;border:none;background:none;font-family:'Noto Sans JP',sans-serif;transition:all .1s}
+.back-btn:hover{background:var(--bg);color:var(--text2)}
+.breadcrumb{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-g:hover{background:var(--bg)}
+/* TASK HEADER */
+.task-header{padding:16px 24px 14px;background:var(--white);border-bottom:1px solid var(--border)}
+.th-top{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.th-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:4px;border:1px solid var(--border);display:inline-block;margin-bottom:5px}
+.th-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:22px;letter-spacing:-.5px}
+.th-case{font-size:13px;color:var(--muted);margin-top:3px;cursor:pointer}
+.th-case:hover{color:var(--blue);text-decoration:underline}
+/* STATUS */
+.status-select-wrap{position:relative;display:inline-block}
+.status-select-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.status-select-btn::after{content:'▾';font-size:10px;opacity:.7}
+.status-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:var(--sh3);min-width:160px;z-index:50;overflow:hidden;display:none}
+.status-dropdown.open{display:block}
+.status-opt{padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.status-opt:hover{background:var(--bg)}
+.status-opt.current{background:var(--blue-l);color:var(--blue)}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* STATUS FLOW */
+.sf-wrap{display:flex;align-items:flex-start}
+.sf-item{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;flex:1;cursor:pointer}
+.sf-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);position:relative;z-index:1;transition:all .2s}
+.sf-dot.passed{background:var(--blue);opacity:.4}
+.sf-dot.active{background:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.2);width:12px;height:12px}
+.sf-label{font-size:10px;color:var(--muted2);white-space:nowrap;text-align:center;transition:color .2s}
+.sf-label.active{color:var(--blue);font-weight:600}
+.sf-line{position:absolute;top:5px;left:50%;right:-50%;height:1px;background:var(--border2);z-index:0;transition:background .3s}
+.sf-line.passed{background:var(--blue);opacity:.35}
+.sf-item:last-child .sf-line{display:none}
+/* TAGS */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tb{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.tg{background:var(--green-l);color:var(--green);border:1px solid #A7F3D0}
+.ta{background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A}
+.tr{background:var(--red-l);color:var(--red);border:1px solid #FECACA}
+.tp{background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE}
+.tgr{background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;border:1px solid transparent}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+/* CONTENT */
+.content{padding:20px 24px;flex:1}
+.layout2{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+/* CARDS */
+.sec{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);margin-bottom:14px;overflow:hidden}
+.sec-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sec-icon{font-size:14px}
+.sec-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px}
+.sec-edit{margin-left:auto;font-size:11px;color:var(--blue);cursor:pointer;padding:3px 8px;border-radius:4px;border:1px solid var(--blue-m);background:var(--blue-l)}
+.sec-body{padding:14px 18px}
+/* FIELDS */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.fr{padding:7px 0;border-bottom:1px solid rgba(0,0,0,.03);display:flex;flex-direction:column;gap:2px}
+.fr:last-child{border-bottom:none}
+.fr.full{grid-column:1/-1}
+.fl{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.3px}
+.fv{font-size:13px;font-weight:500;color:var(--text2)}
+.fv.mono{font-family:'DM Mono',monospace;font-size:12px}
+.fv.empty{color:var(--muted2);font-weight:400;font-style:italic;font-size:12px}
+.avsm{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.check-on{color:var(--green);font-weight:600}
+.check-off{color:var(--muted2)}
+/* RIGHT COLUMN */
+.case-card{background:linear-gradient(135deg,#1E40AF,#2563EB);border-radius:12px;padding:16px 18px;color:#fff;margin-bottom:14px}
+.case-card-label{font-size:10px;font-weight:600;opacity:.7;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.case-card-name{font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:700;margin-bottom:2px}
+.case-card-sub{font-size:12px;opacity:.8;margin-bottom:10px}
+.case-card-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+.case-card-key{opacity:.7}.case-card-val{font-family:'DM Mono',monospace}
+.case-card-link{display:block;margin-top:10px;text-align:center;padding:6px;border-radius:6px;background:rgba(255,255,255,.15);font-size:11px;font-weight:600;color:#fff;cursor:pointer;transition:background .15s}
+.case-card-link:hover{background:rgba(255,255,255,.25)}
+/* QI */
+.qi-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.04);font-size:12px}
+.qi-row:last-child{border-bottom:none}
+.qi-key{color:var(--muted)}
+.qi-val{font-weight:500;color:var(--text2)}
+/* TIMELINE */
+.tl-item{display:flex;gap:10px;padding:8px 0}
+.tl-dot-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.tl-dot{width:8px;height:8px;border-radius:50%;margin-top:4px}
+.tl-line{width:1px;flex:1;background:var(--border);margin-top:4px}
+.tl-content{flex:1}
+.tl-text{font-size:12px;color:var(--text2)}
+.tl-time{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px}
+/* PROCEDURE */
+.procedure-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.9;color:var(--text2);white-space:pre-line}
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-ov.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:14px;box-shadow:var(--sh3);width:580px;max-width:90vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;transform:scale(.96);transition:transform .2s}
+.modal-ov.open .modal{transform:scale(1)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;flex:1}
+.modal-close{width:28px;height:28px;border-radius:6px;border:none;background:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .1s}
+.modal-close:hover{background:var(--red-l);color:var(--red)}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+/* DOC GRID */
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.doc-card{border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s}
+.doc-card:hover{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.doc-card.selected{border-color:var(--blue);background:var(--blue-l)}
+.doc-card-icon{font-size:22px;margin-bottom:6px}
+.doc-card-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.doc-card-desc{font-size:11px;color:var(--muted);line-height:1.5}
+.doc-variant{margin-top:14px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.doc-variant-title{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.doc-variant-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;transition:background .1s}
+.doc-variant-opt:hover{background:var(--white)}
+.doc-variant-opt.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.doc-variant-radio{width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.doc-variant-opt.active .doc-variant-radio{border-color:var(--blue)}
+.doc-variant-opt.active .doc-variant-radio::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--blue)}
+/* PROGRESS */
+.gen-progress{text-align:center;padding:30px 0}
+.gen-bar-bg{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:16px 0}
+.gen-bar{height:100%;background:var(--blue);border-radius:3px;transition:width 1.5s ease}
+.gen-text{font-size:12px;color:var(--muted);margin-top:8px}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#065F46;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:var(--sh3);opacity:0;transform:translateY(10px);transition:all .3s;z-index:200;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item" onclick="location.href='schedule.html'"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item active" onclick="location.href='task.html'"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-top">
+      <button class="back-btn" onclick="location.href='task.html'">← タスク一覧</button>
+      <span style="color:var(--border2)">|</span>
+      <div class="breadcrumb">
+        <span>タスク管理</span><span style="color:var(--muted2)">›</span>
+        <span id="bc-detail" style="color:var(--text2);font-weight:500"></span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-g" id="docGenBtn" onclick="openDocModal()" style="display:none">📄 文書作成</button>
+        <button class="btn btn-p">✏️ 編集</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK HEADER -->
+  <div class="task-header">
+    <div class="th-top">
+      <div style="flex:1">
+        <div class="th-id" id="th-id"></div>
+        <div class="th-name" id="th-name"></div>
+        <div class="th-case" id="th-case" onclick="goToCase()"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding-top:4px">
+        <div class="status-select-wrap" id="statusWrap">
+          <div class="status-select-btn" id="statusBtn" onclick="toggleStatusDrop()"></div>
+          <div class="status-dropdown" id="statusDrop"></div>
+        </div>
+        <span class="tag" id="th-priority"></span>
+      </div>
+    </div>
+    <div class="sf-wrap" id="sf-wrap"></div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="layout2">
+      <!-- LEFT COLUMN -->
+      <div id="left-col"></div>
+      <!-- RIGHT COLUMN -->
+      <div id="right-col" style="position:sticky;top:90px"></div>
+    </div>
+  </div>
+</main>
+
+<!-- DOC GEN MODAL -->
+<div class="modal-ov" id="docModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="sec-icon">📄</span>
+      <div class="modal-title">文書作成</div>
+      <button class="modal-close" onclick="closeDocModal()">✕</button>
+    </div>
+    <div class="modal-body" id="docModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeDocModal()">キャンセル</button>
+      <button class="btn btn-p" id="docGenSubmit" onclick="generateDoc()" disabled>作成する</button>
+    </div>
+  </div>
+</div>
+
+<!-- GEN PROGRESS MODAL -->
+<div class="modal-ov" id="genProgressModal">
+  <div class="modal" style="width:400px">
+    <div class="modal-body">
+      <div class="gen-progress">
+        <div style="font-size:28px;margin-bottom:8px">🤖</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px" id="genTitle">文書を生成中...</div>
+        <div class="gen-bar-bg"><div class="gen-bar" id="genBar" style="width:0%"></div></div>
+        <div class="gen-text" id="genText">案件情報を取得しています...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== CONSTANTS ==========
+const STATUSES = ['未着手','対応中','Wチェック待ち','差戻し','完了','保留','キャンセル'];
+const STATUS_COLOR = {'未着手':'#6B7280','対応中':'#2563EB','Wチェック待ち':'#7C3AED','差戻し':'#DC2626','完了':'#059669','保留':'#D97706','キャンセル':'#9CA3AF'};
+const STATUS_BG = {'未着手':'#F3F4F6','対応中':'#EFF6FF','Wチェック待ち':'#F5F3FF','差戻し':'#FEF2F2','完了':'#F0FDF4','保留':'#FFFBEB','キャンセル':'#F3F4F6'};
+const STATUS_BORDER = {'未着手':'#E5E7EB','対応中':'#BFDBFE','Wチェック待ち':'#DDD6FE','差戻し':'#FECACA','完了':'#BBF7D0','保留':'#FDE68A','キャンセル':'#E5E7EB'};
+const AC = {'田中':'#2563EB','山本':'#7C3AED','佐藤':'#059669','伊藤':'#D97706','鈴木':'#EA580C'};
+const SF_STATUSES = ['未着手','対応中','Wチェック待ち','完了'];
+
+// ========== SECTION DEFINITIONS (83 items) ==========
+const SECTION_DEFS = {
+  'koseki': {
+    icon:'📜', title:'戸籍・相続人調査',
+    showWhen: t => t.cat==='戸籍',
+    fields:[
+      {key:'city',label:'請求先市区町村'},
+      {key:'kosekiType',label:'請求した戸籍の種類'},
+      {key:'reqDate',label:'請求日',type:'date'},
+      {key:'arrDate',label:'到着日',type:'date'},
+      {key:'shortage',label:'不足有無'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'nayose': {
+    icon:'🗂️', title:'名寄せ・評価証明',
+    showWhen: t => t.cat==='名寄せ' || t.cat==='評価証明',
+    fields:[
+      {key:'city',label:'請求先市区町村'},
+      {key:'reqType',label:'請求種別'},
+      {key:'reqDate',label:'請求日',type:'date'},
+      {key:'arrDate',label:'到着日',type:'date'},
+      {key:'newProp',label:'新規不動産判明'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'deposit': {
+    icon:'🏦', title:'財産調査（預貯金）',
+    showWhen: t => t.cat==='財産調査(預貯金)',
+    fields:[
+      {key:'bank',label:'金融機関名'},
+      {key:'branch',label:'支店'},
+      {key:'investigationType',label:'調査種別'},
+      {key:'investigationBaseDate',label:'調査基準日'},
+      {key:'mailType',label:'郵便種別'},
+      {key:'frozen',label:'凍結済',type:'bool'},
+      {key:'reservation',label:'要予約',type:'bool'},
+      {key:'preparedBy',label:'準備した人'},
+      {key:'visitedBy',label:'行った担当者'},
+      {key:'originalLocation',label:'原本所在'},
+      {key:'reqDate',label:'郵送・窓口請求日',type:'date'},
+      {key:'arrDate',label:'書類到着日（完了日）',type:'date'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'securities': {
+    icon:'📈', title:'財産調査（証券・信託）',
+    showWhen: t => t.cat==='財産調査(証券)',
+    fields:[
+      {key:'company',label:'証券会社名/信託銀行名'},
+      {key:'branch',label:'支店'},
+      {key:'stock',label:'銘柄名'},
+      {key:'investigationType',label:'調査種別'},
+      {key:'investigationBaseDate',label:'調査基準日'},
+      {key:'mailType',label:'郵便種別'},
+      {key:'reqDate',label:'郵送・窓口請求日',type:'date'},
+      {key:'arrDate',label:'書類到着日（完了日）',type:'date'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'cancellation': {
+    icon:'🔒', title:'解約手続き',
+    showWhen: t => t.cat==='解約手続き',
+    fields:[
+      {key:'bank',label:'金融機関名/証券会社名'},
+      {key:'branch',label:'支店'},
+      {key:'accountType',label:'口座種別'},
+      {key:'frozen',label:'凍結済',type:'bool'},
+      {key:'reservation',label:'要予約',type:'bool'},
+      {key:'checkSheet',label:'確認シートチェック',type:'bool'},
+      {key:'idDocs',label:'本人確認書類',type:'bool'},
+      {key:'transferTo',label:'解約金振込先',full:true},
+      {key:'processDate',label:'手続日',type:'date'},
+      {key:'completeDate',label:'完了日',type:'date'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'postal': {
+    icon:'✉️', title:'郵送管理',
+    showWhen: t => t.cat==='郵便処理' || (t.ext && t.ext.mailType),
+    fields:[
+      {key:'mailType',label:'郵便種別'},
+      {key:'sendTo',label:'送付先'},
+      {key:'sendDate',label:'発送日',type:'date'},
+      {key:'arrDate',label:'到着日',type:'date'},
+      {key:'tracking',label:'追跡番号'},
+      {key:'docs',label:'同封書類',full:true}
+    ]
+  },
+  'realestate': {
+    icon:'🏠', title:'不動産',
+    showWhen: t => t.cat==='不動産' || t.cat==='登記申請書作成',
+    fields:[
+      {key:'addr',label:'不動産所在地',full:true},
+      {key:'propType',label:'物件種別'},
+      {key:'agent',label:'査定依頼先'},
+      {key:'agentReqDate',label:'査定依頼日',type:'date'},
+      {key:'amount',label:'査定金額',type:'currency'},
+      {key:'applyDate',label:'登記申請日',type:'date'},
+      {key:'completeDate',label:'登記完了日',type:'date'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'tax': {
+    icon:'🧾', title:'相続税・税理士連携',
+    showWhen: t => t.ext && t.ext.taxAdvisor,
+    fields:[
+      {key:'taxAdvisor',label:'税理士名'},
+      {key:'contactDate',label:'連絡日',type:'date'},
+      {key:'instruction',label:'指示内容',full:true},
+      {key:'deadline',label:'申告期限',type:'date'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'agreement': {
+    icon:'📋', title:'財産目録・協議書',
+    showWhen: t => t.cat==='協議書' || t.cat==='財産目録',
+    fields:[
+      {key:'sendMethod',label:'送付方法'},
+      {key:'sendDate',label:'送付日',type:'date'},
+      {key:'replyDue',label:'回答期限',type:'date'},
+      {key:'collectStatus',label:'署名回収状況',full:true},
+      {key:'allCollected',label:'全員回収完了',type:'bool'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  },
+  'accounting': {
+    icon:'💰', title:'経理・精算',
+    showWhen: t => t.ext && t.ext.settleStatus,
+    fields:[
+      {key:'settleStatus',label:'精算ステータス'},
+      {key:'deliveryDate',label:'原本納品日',type:'date'},
+      {key:'receiptCollected',label:'原本受領書回収',type:'bool'},
+      {key:'memo',label:'メモ',full:true}
+    ]
+  }
+};
+
+// ========== DOC MAPPING ==========
+const TASK_DOC_MAP = {
+  '戸籍': [{id:'koseki_req',icon:'📜',name:'戸籍等請求書',desc:'市区町村への戸籍謄本・住民票等の請求書',
+    variants:['行政書士法人オーシャン','司法書士法人オーシャン','いきいきライフ協会','いきいきライフ（検認）','EAJ復代理','LM復代理']}],
+  '名寄せ': [{id:'nayose_req',icon:'🗂️',name:'名寄帳・評価証明請求書',desc:'固定資産証明等申請書',
+    variants:['行政書士法人オーシャン','司法書士法人オーシャン','EAJ復代理','LM復代理','いきいきライフ協会']}],
+  '評価証明': [{id:'nayose_req',icon:'🗂️',name:'名寄帳・評価証明請求書',desc:'固定資産証明等申請書',
+    variants:['行政書士法人オーシャン','司法書士法人オーシャン','EAJ復代理','LM復代理','いきいきライフ協会']}],
+  '協議書': [{id:'agreement',icon:'📄',name:'遺産分割協議書',desc:'相続人全員の署名捺印による遺産分割内容'}],
+  '財産目録': [{id:'inventory',icon:'📊',name:'財産目録',desc:'預貯金・証券・不動産の一覧表'}],
+  '郵便処理': [{id:'envelope',icon:'✉️',name:'封筒（角2/長形3号）',desc:'宛名印刷済み封筒の作成'}],
+  'その他作成物': [
+    {id:'contract',icon:'📝',name:'委任契約書',desc:'依頼者との業務委任契約書',variants:['行政書士単独','司法書士単独','行政・司法連名']},
+    {id:'delegation',icon:'🔖',name:'委任状',desc:'各種手続き用の委任状'},
+    {id:'invoice_adv',icon:'💴',name:'請求書（前受金）',desc:'着手時の前受金請求書',variants:['行政書士','司法書士']},
+    {id:'invoice_fin',icon:'💴',name:'請求書（確定）',desc:'業務完了後の確定請求書',variants:['行政書士','司法書士']},
+    {id:'receipt',icon:'🧾',name:'領収書',desc:'入金確認後の領収書',variants:['行政書士','司法書士']},
+    {id:'custody',icon:'📦',name:'原本預かり証',desc:'預かった原本書類の証明書'},
+    {id:'return_receipt',icon:'📦',name:'原本受領証',desc:'原本返却時の受領証明書'}
+  ]
+};
+
+// ========== CASE DATA ==========
+const caseData = {
+  'R7-A00123': {name:'山田 花子',deceased:'山田 太郎',deathDate:'2025/09/15',status:'対応中',contractType:'行政書士法人オーシャン',managementId:'R7-A00123',office:'クレアトール'},
+  'R7-A00127': {name:'中村 さくら',deceased:'中村 義雄',deathDate:'2025/10/01',status:'対応中',contractType:'行政書士法人オーシャン',managementId:'R7-A00127',office:'クレアトール'},
+  'R7-A00126': {name:'高橋 誠',deceased:'高橋 正義',deathDate:'2025/08/20',status:'対応中',contractType:'司法書士法人オーシャン',managementId:'R7-A00126',office:'藤沢'},
+  'R7-A00124': {name:'鈴木 一郎',deceased:'鈴木 花江',deathDate:'2025/07/10',status:'対応中',contractType:'行政書士法人オーシャン',managementId:'R7-A00124',office:'港南台'},
+  'R7-A00122': {name:'松本 隆',deceased:'松本 和子',deathDate:'2025/06/01',status:'対応中',contractType:'行政・司法連名',managementId:'R7-A00122',office:'クレアトール'},
+  'R7-A00120': {name:'渡辺 明美',deceased:'渡辺 健一',deathDate:'2025/03/15',status:'完了',contractType:'行政書士法人オーシャン',managementId:'R7-A00120',office:'クレアトール'}
+};
+
+// ========== TASK DATA (same as task.html + enriched ext) ==========
+const tasks = [
+  {id:'T001',title:'戸籍請求書作成（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'対応中',phase:'Phase1:相続人調査',cat:'戸籍',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/20',note:'横浜市中区役所・藤沢市役所への請求。附票も合わせて取得。',issued:'2025/11/12',
+    expenseStatus:'未精算',expenseTotal:4500,
+    procedure:'【作業手順】\n① 案件の「戸籍請求先市区町村」を確認する\n② 所定フォルダのテンプレートを開き、被相続人名・委託者・使用目的を転記する\n③ 記載内容に不足がある場合は正確性に判断する\n④ 作成後、管理担当に確認依頼してから完了にする',
+    ext:{city:'横浜市中区役所',kosekiType:'全部事項証明/除籍謄本/改製原戸籍',reqDate:'2025/11/13',arrDate:'',shortage:'なし',mailType:'レターパック青',sendTo:'横浜市中区役所 戸籍係',tracking:'',docs:'戸籍等請求書、委任状コピー、返信用封筒、小為替'}},
+  {id:'T002',title:'金融機関調査 三菱UFJ銀行（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase2:財産調査',cat:'財産調査(預貯金)',priority:'急ぎ',assignee:'田中',wcheck:'',due:'2025/11/18',note:'残高証明（相続開始日基準）。通帳あり。凍結済み。',issued:'2025/11/12',
+    expenseStatus:'未精算',expenseTotal:1520,
+    procedure:'【作業手順】\n① 金融機関の必要書類一覧を確認する\n② 委任状・法定相続情報一覧図・本人確認書類のコピーを準備する\n③ レターパック青で郵送し、追跡番号を記録する\n④ 到着後、残高証明書の内容を財産目録に転記する',
+    ext:{bank:'三菱UFJ銀行',branch:'渋谷支店',investigationType:'残高証明(相続開始日)',investigationBaseDate:'2025/09/15',mailType:'レターパック青',frozen:true,reservation:false,preparedBy:'田中',visitedBy:'',originalLocation:'事務所保管',reqDate:'',arrDate:'',memo:'通帳あり。経過利息も合わせて取得。'}},
+  {id:'T003',title:'不動産評価・査定手配（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase3:不動産・相続税',cat:'登記申請書作成',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/11/25',note:'港区赤坂の戸建て。築32年。エリアA評価。',issued:'2025/11/13',
+    ext:{addr:'東京都港区赤坂1-1-1',propType:'戸建',agent:'東急リバブル港区店',agentReqDate:'',amount:'',applyDate:'',completeDate:'',memo:'築32年。エリアA評価。'}},
+  {id:'T004',title:'相続関係図作成（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'Wチェック待ち',phase:'Phase1:相続人調査',cat:'戸籍',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/22',note:'相続人5名。代襲相続あり。関係図の確認依頼中。',issued:'2025/11/10',
+    expenseStatus:'精算済',expenseTotal:6800,
+    procedure:'【作業手順】\n① 取得済み戸籍から相続人を特定し一覧化する\n② 代襲相続・数次相続の有無を確認する\n③ 相続関係図テンプレートに情報を入力する\n④ Wチェック担当に確認を依頼し、修正があれば反映する',
+    ext:{city:'横浜市戸塚区役所',kosekiType:'全部事項証明/除籍謄本',reqDate:'2025/11/05',arrDate:'2025/11/09',shortage:'なし'}},
+  {id:'T005',title:'野村証券 残高照会（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'対応中',phase:'Phase2:財産調査',cat:'財産調査(証券)',priority:'急ぎ',assignee:'田中',wcheck:'',due:'2025/11/17',note:'被相続人口座。銘柄複数あり。相続開始日基準。',issued:'2025/11/11',
+    ext:{company:'野村証券',branch:'渋谷支店',stock:'複数銘柄（トヨタ・ソニー等）',investigationType:'残高照会',investigationBaseDate:'2025/10/01',mailType:'書留',reqDate:'2025/11/12',arrDate:'',memo:'特別口座の確認も必要。'}},
+  {id:'T006',title:'遺産分割協議書作成（高橋誠案件）',case:'高橋 誠',caseId:'R7-A00126',status:'対応中',phase:'Phase4:遺産分割',cat:'協議書',priority:'通常',assignee:'田中',wcheck:'',due:'2025/11/28',note:'単独相続。シンプルな内容。金融資産のみ。',issued:'2025/11/08',
+    ext:{sendMethod:'郵送',sendDate:'',replyDue:'2025/12/05',collectStatus:'山田花子: 未送付 / 山田太郎: 未送付',allCollected:false,memo:'単独相続。シンプルな内容。'}},
+  {id:'T007',title:'横浜銀行 口座解約手続き（高橋誠案件）',case:'高橋 誠',caseId:'R7-A00126',status:'未着手',phase:'Phase5:登記・解約',cat:'解約手続き',priority:'通常',assignee:'山本',wcheck:'',due:'2025/12/05',note:'藤沢支店。凍結済み。確認シート要確認。',issued:'2025/11/09',
+    ext:{bank:'横浜銀行',branch:'藤沢支店',accountType:'預貯金',frozen:true,reservation:true,checkSheet:false,idDocs:false,transferTo:'高橋 誠 / みずほ銀行横浜支店 普通 1234567',processDate:'',completeDate:'',memo:'解約金は依頼者口座に振込。'}},
+  {id:'T008',title:'税理士紹介・連携（松本隆案件）',case:'松本 隆',caseId:'R7-A00122',status:'完了',phase:'Phase3:不動産・相続税',cat:'その他作成物',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/11/10',note:'山田税理士事務所に紹介済み。取引履歴5年指示あり。',issued:'2025/11/01',
+    ext:{taxAdvisor:'山田税理士事務所',contactDate:'2025/11/08',instruction:'取引履歴5年分、経過利息取得の指示あり。相続税申告期限に注意。',deadline:'2026/04/01',memo:''}},
+  {id:'T009',title:'名寄帳請求（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'差戻し',phase:'Phase1:相続人調査',cat:'名寄せ',priority:'急ぎ',assignee:'田中',wcheck:'佐藤',due:'2025/11/16',note:'渋谷区・目黒区の2箇所。差戻し：目黒区の地番追記が必要。',issued:'2025/11/09',
+    expenseStatus:'未精算',expenseTotal:2400,
+    ext:{city:'渋谷区・目黒区',reqType:'名寄帳',reqDate:'2025/11/10',arrDate:'',newProp:'なし',memo:'差戻し理由：目黒区の地番追記が必要。'}},
+  {id:'T010',title:'委任状・書類一式郵送（鈴木一郎案件）',case:'鈴木 一郎',caseId:'R7-A00124',status:'未着手',phase:'Phase2:財産調査',cat:'郵便処理',priority:'外出タスク',assignee:'山本',wcheck:'',due:'2025/11/19',note:'横浜銀行・みずほ銀行向け。レターパック青で発送予定。',issued:'2025/11/13',
+    ext:{mailType:'レターパック青',sendTo:'横浜銀行港南台支店 / みずほ銀行横浜支店',sendDate:'',arrDate:'',tracking:'',docs:'委任状、法定相続情報一覧図、返信用封筒、本人確認書類コピー'}},
+  {id:'T011',title:'財産目録作成（松本隆案件）',case:'松本 隆',caseId:'R7-A00122',status:'対応中',phase:'Phase4:遺産分割',cat:'財産目録',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/30',note:'不動産・証券・預貯金含む。相続税申告あり。',issued:'2025/11/10',
+    ext:{sendMethod:'メール',sendDate:'',replyDue:'',collectStatus:'',allCollected:false,memo:'不動産3筆、預貯金4口座、証券2口座。'}},
+  {id:'T012',title:'登記申請書作成（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase5:登記・解約',cat:'登記申請書作成',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/12/10',note:'港区赤坂1-1-1。協議書の署名完了後に着手予定。',issued:'2025/11/14',
+    ext:{addr:'東京都港区赤坂1-1-1',propType:'戸建',agent:'',agentReqDate:'',amount:'',applyDate:'',completeDate:'',memo:'協議書の署名完了後に着手予定。'}},
+  {id:'T013',title:'精算・請求書作成（渡辺明美案件）',case:'渡辺 明美',caseId:'R7-A00120',status:'完了',phase:'Phase6:完了・精算',cat:'その他作成物',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/10/25',note:'完了済み。原本納品・受領書回収済み。',issued:'2025/10/01',
+    ext:{settleStatus:'完了',deliveryDate:'2025/10/30',receiptCollected:true,memo:''}}
+];
+
+// ========== INIT ==========
+let currentTask = null;
+let selectedDoc = null;
+let selectedVariant = null;
+
+function init() {
+  const id = new URLSearchParams(window.location.search).get('id') || 'T001';
+  currentTask = tasks.find(t => t.id === id);
+  if (!currentTask) { document.querySelector('.content').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">タスクが見つかりません</div>'; return; }
+  renderPage();
+}
+
+function renderPage() {
+  const t = currentTask;
+  const c = caseData[t.caseId] || {};
+
+  // Breadcrumb
+  document.getElementById('bc-detail').textContent = t.id + ' · ' + t.title;
+
+  // Header
+  document.getElementById('th-id').textContent = t.id + ' · ' + t.phase + ' · ' + t.cat;
+  document.getElementById('th-name').textContent = t.title;
+  document.getElementById('th-case').innerHTML = '📋 ' + t.case + ' (' + t.caseId + ')';
+
+  // Status
+  renderStatus();
+
+  // Priority tag
+  const prEl = document.getElementById('th-priority');
+  if (t.priority === '急ぎ') { prEl.className = 'tag tr'; prEl.textContent = '🚨 急ぎ'; }
+  else if (t.priority === '外出タスク') { prEl.className = 'tag ta'; prEl.textContent = '🚗 外出タスク'; }
+  else { prEl.className = 'tag tgr'; prEl.textContent = '通常'; }
+
+  // Status flow
+  renderStatusFlow();
+
+  // Doc gen button
+  const docs = TASK_DOC_MAP[t.cat];
+  document.getElementById('docGenBtn').style.display = docs ? '' : 'none';
+
+  // Left column
+  renderLeftColumn();
+
+  // Right column
+  renderRightColumn();
+}
+
+function renderStatus() {
+  const t = currentTask;
+  const btn = document.getElementById('statusBtn');
+  btn.textContent = t.status;
+  btn.style.background = STATUS_BG[t.status];
+  btn.style.color = STATUS_COLOR[t.status];
+  btn.style.borderColor = STATUS_BORDER[t.status];
+
+  document.getElementById('statusDrop').innerHTML = STATUSES.map(s =>
+    `<div class="status-opt ${s===t.status?'current':''}" onclick="changeStatus('${s}')">
+      <div class="status-dot" style="background:${STATUS_COLOR[s]}"></div>${s}
+    </div>`).join('');
+}
+
+function renderStatusFlow() {
+  const t = currentTask;
+  const si = SF_STATUSES.indexOf(t.status);
+  const isTerminal = ['完了','保留','キャンセル'].includes(t.status);
+  document.getElementById('sf-wrap').innerHTML = SF_STATUSES.map((s, i) => {
+    const passed = isTerminal && s === '完了' ? true : i < si;
+    const active = isTerminal ? (s === '完了' && t.status === '完了') : i === si;
+    return `<div class="sf-item">
+      <div class="sf-dot ${passed?'passed':''} ${active?'active':''}"></div>
+      <div class="sf-label ${active?'active':''}">${s}</div>
+      <div class="sf-line ${passed?'passed':''}"></div>
+    </div>`;
+  }).join('');
+}
+
+// ========== LEFT COLUMN ==========
+function renderLeftColumn() {
+  const t = currentTask;
+  const avColor = AC[t.assignee] || '#6B7280';
+  const wcColor = AC[t.wcheck] || '#6B7280';
+
+  // Due date
+  const today = new Date('2025/11/14');
+  const due = new Date(t.due);
+  const diff = Math.ceil((due - today) / (1000*60*60*24));
+  const dueColor = t.status==='完了' ? 'var(--muted)' : diff<0 ? 'var(--red)' : diff<=3 ? 'var(--amber)' : 'var(--text2)';
+  const dueLabel = t.status==='完了' ? t.due : diff<0 ? `⚠️ ${Math.abs(diff)}日超過 (${t.due})` : diff===0 ? `⏰ 今日締切 (${t.due})` : diff<=3 ? `⚡ あと${diff}日 (${t.due})` : t.due;
+
+  let html = '';
+
+  // Section 1: Basic Info
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">📋</span><span class="sec-title">基本情報</span></div>
+    <div class="sec-body"><div class="fg">
+      <div class="fr"><div class="fl">タスク件名</div><div class="fv">${t.title}</div></div>
+      <div class="fr"><div class="fl">起票日</div><div class="fv mono">${t.issued}</div></div>
+      <div class="fr"><div class="fl">期限</div><div class="fv" style="color:${dueColor};font-weight:600">${dueLabel}</div></div>
+      <div class="fr"><div class="fl">ステータス</div><div class="fv"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;background:${STATUS_BG[t.status]};color:${STATUS_COLOR[t.status]};border:1px solid ${STATUS_BORDER[t.status]}">${t.status}</span></div></div>
+      <div class="fr"><div class="fl">優先度</div><div class="fv">${t.priority}</div></div>
+      ${t.expenseStatus ? `<div class="fr"><div class="fl">精算ステータス</div><div class="fv"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;background:${t.expenseStatus==='精算済'?'var(--green-l)':'var(--amber-l)'};color:${t.expenseStatus==='精算済'?'var(--green)':'var(--amber)'}">${t.expenseStatus}</span></div></div>` : ''}
+      ${t.expenseTotal !== undefined ? `<div class="fr"><div class="fl">実費合計</div><div class="fv mono" style="font-weight:700;color:var(--blue)">¥${t.expenseTotal.toLocaleString()}</div></div>` : ''}
+    </div></div>
+  </div>`;
+
+  // Section 2: Assignee
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">👥</span><span class="sec-title">担当</span></div>
+    <div class="sec-body"><div class="fg">
+      <div class="fr"><div class="fl">担当者</div><div class="fv"><div style="display:flex;align-items:center;gap:6px"><div class="avsm" style="background:${avColor}">${t.assignee[0]}</div>${t.assignee}</div></div></div>
+      <div class="fr"><div class="fl">Wチェック担当</div><div class="fv">${t.wcheck ? `<div style="display:flex;align-items:center;gap:6px"><div class="avsm" style="background:${wcColor}">${t.wcheck[0]}</div>${t.wcheck}</div>` : '<span class="fv empty">未設定</span>'}</div></div>
+    </div></div>
+  </div>`;
+
+  // Section 3: Content/Classification
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">📂</span><span class="sec-title">内容・分類</span></div>
+    <div class="sec-body"><div class="fg">
+      <div class="fr"><div class="fl">フェーズ</div><div class="fv"><span class="tag tb">${t.phase}</span></div></div>
+      <div class="fr"><div class="fl">タスクカテゴリ</div><div class="fv"><span class="tag tp">${t.cat}</span></div></div>
+      <div class="fr full"><div class="fl">表題（作業内容）</div><div class="fv">${t.note || '<span class="fv empty">未入力</span>'}</div></div>
+    </div></div>
+  </div>`;
+
+  // Category-specific sections
+  Object.entries(SECTION_DEFS).forEach(([key, sec]) => {
+    if (sec.showWhen(t)) {
+      html += renderSection(sec, t.ext || {});
+    }
+  });
+
+  // Procedure
+  if (t.procedure) {
+    html += `<div class="sec">
+      <div class="sec-header"><span class="sec-icon">📖</span><span class="sec-title">作業手順</span></div>
+      <div class="sec-body"><div class="procedure-box">${t.procedure}</div></div>
+    </div>`;
+  }
+
+  document.getElementById('left-col').innerHTML = html;
+}
+
+function renderSection(sec, ext) {
+  const fieldsHTML = sec.fields.map(f => {
+    const val = ext[f.key];
+    let display = '';
+    if (f.type === 'bool') {
+      display = val ? '<span class="check-on">✅ はい</span>' : '<span class="check-off">☐ いいえ</span>';
+    } else if (f.type === 'date') {
+      display = val ? `<span class="fv mono">${val}</span>` : '<span class="fv empty">未設定</span>';
+    } else if (f.type === 'currency') {
+      display = val ? `<span class="fv mono" style="font-weight:700">¥${Number(val).toLocaleString()}</span>` : '<span class="fv empty">未設定</span>';
+    } else {
+      display = val || '<span class="fv empty">未入力</span>';
+    }
+    return `<div class="fr ${f.full?'full':''}"><div class="fl">${f.label}</div><div class="fv">${display}</div></div>`;
+  }).join('');
+
+  return `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">${sec.icon}</span><span class="sec-title">${sec.title}</span></div>
+    <div class="sec-body"><div class="fg">${fieldsHTML}</div></div>
+  </div>`;
+}
+
+// ========== RIGHT COLUMN ==========
+function renderRightColumn() {
+  const t = currentTask;
+  const c = caseData[t.caseId] || {};
+
+  let html = '';
+
+  // Case summary card
+  html += `<div class="case-card">
+    <div class="case-card-label">関連案件</div>
+    <div class="case-card-name">${c.name || t.case}</div>
+    <div class="case-card-sub">被相続人：${c.deceased || '—'}</div>
+    <div class="case-card-row"><span class="case-card-key">管理番号</span><span class="case-card-val">${t.caseId}</span></div>
+    <div class="case-card-row"><span class="case-card-key">死亡日</span><span class="case-card-val">${c.deathDate || '—'}</span></div>
+    <div class="case-card-row"><span class="case-card-key">契約形態</span><span class="case-card-val" style="font-family:'Noto Sans JP';font-size:10px">${c.contractType || '—'}</span></div>
+    <div class="case-card-row"><span class="case-card-key">拠点</span><span class="case-card-val" style="font-family:'Noto Sans JP'">${c.office || '—'}</span></div>
+    <div class="case-card-link" onclick="goToCase()">📋 案件詳細を開く →</div>
+  </div>`;
+
+  // Quick info
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">⚡</span><span class="sec-title">クイック情報</span></div>
+    <div class="sec-body">
+      <div class="qi-row"><span class="qi-key">フェーズ</span><span class="qi-val">${t.phase.split(':')[1] || t.phase}</span></div>
+      <div class="qi-row"><span class="qi-key">カテゴリ</span><span class="qi-val">${t.cat}</span></div>
+      <div class="qi-row"><span class="qi-key">起票日</span><span class="qi-val" style="font-family:'DM Mono',monospace">${t.issued}</span></div>
+      <div class="qi-row"><span class="qi-key">期限</span><span class="qi-val" style="font-family:'DM Mono',monospace">${t.due}</span></div>
+      ${t.expenseTotal !== undefined ? `<div class="qi-row"><span class="qi-key">実費合計</span><span class="qi-val" style="font-family:'DM Mono',monospace;color:var(--blue);font-weight:700">¥${t.expenseTotal.toLocaleString()}</span></div>` : ''}
+    </div>
+  </div>`;
+
+  // Timeline
+  const timeline = buildTimeline(t);
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">🕐</span><span class="sec-title">タイムライン</span></div>
+    <div class="sec-body">${timeline.map((item, i) =>
+      `<div class="tl-item">
+        <div class="tl-dot-wrap">
+          <div class="tl-dot" style="background:${item.color}"></div>
+          ${i < timeline.length - 1 ? '<div class="tl-line"></div>' : ''}
+        </div>
+        <div class="tl-content">
+          <div class="tl-text">${item.text}</div>
+          <div class="tl-time">${item.time}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
+  // Documents section
+  const taskDocs = getTaskDocs(t);
+  html += `<div class="sec">
+    <div class="sec-header"><span class="sec-icon">📁</span><span class="sec-title">関連ドキュメント</span><span style="margin-left:auto;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted)">${taskDocs.length}件</span></div>
+    <div class="sec-body">
+      ${taskDocs.length > 0 ? taskDocs.map(d => {
+        const stStyle = d.status==='完了'?'background:var(--green-l);color:var(--green);border:1px solid #A7F3D0':d.status==='送付済'?'background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE':d.status==='返送待ち'?'background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A':'background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.04)">
+          <span style="font-size:16px">${d.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--text2)">${d.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${d.type} · ${d.date}</div>
+          </div>
+          <span style="display:inline-flex;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;${stStyle};white-space:nowrap">${d.status}</span>
+        </div>`;
+      }).join('') : '<div style="text-align:center;padding:16px 0;color:var(--muted2);font-size:12px">まだドキュメントがありません</div>'}
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-g" style="flex:1;font-size:11px;justify-content:center" onclick="location.href='document_list.html'">📁 全件表示</button>
+        <button class="btn btn-g" style="flex:1;font-size:11px;justify-content:center" onclick="goToCase()">📋 案件書類</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('right-col').innerHTML = html;
+}
+
+function getTaskDocs(t) {
+  const docMap = {
+    '戸籍': [{name:'戸籍等請求書',type:'PDF',icon:'📄',status:'送付済',date:'2025/10/22'},{name:'封筒（角2）',type:'PDF',icon:'✉️',status:'作成済',date:'2025/10/22'}],
+    '名寄帳': [{name:'名寄帳・評価証明請求',type:'PDF',icon:'📄',status:'返送待ち',date:'2025/11/05'}],
+    '委任契約': [{name:'委任契約書',type:'Word',icon:'📋',status:'完了',date:'2025/10/15'},{name:'委任状',type:'PDF',icon:'📝',status:'完了',date:'2025/10/15'}],
+    '前受金': [{name:'請求書（前受金）',type:'PDF',icon:'💰',status:'完了',date:'2025/10/16'}],
+    '法定相続情報': [{name:'法定相続情報一覧図',type:'PDF',icon:'⚖️',status:'送付済',date:'2025/11/01'}],
+    '原本': [{name:'原本預かり証',type:'PDF',icon:'📋',status:'完了',date:'2025/10/17'}],
+  };
+  for (const [key, docs] of Object.entries(docMap)) {
+    if (t.cat && t.cat.includes(key) || t.title && t.title.includes(key)) return docs;
+  }
+  return [];
+}
+
+function buildTimeline(t) {
+  const items = [];
+  items.push({text:'タスク起票',time:t.issued,color:'var(--blue)'});
+  if (t.ext.reqDate) items.push({text:'書類請求',time:t.ext.reqDate,color:'var(--purple)'});
+  if (t.ext.sendDate) items.push({text:'郵送発送',time:t.ext.sendDate,color:'var(--orange)'});
+  if (t.ext.arrDate) items.push({text:'書類到着',time:t.ext.arrDate,color:'var(--green)'});
+  if (t.ext.contactDate) items.push({text:'税理士連絡',time:t.ext.contactDate,color:'var(--amber)'});
+  if (t.status === 'Wチェック待ち') items.push({text:'Wチェック依頼中',time:'確認待ち',color:'var(--purple)'});
+  if (t.status === '差戻し') items.push({text:'差戻し',time:'修正対応中',color:'var(--red)'});
+  if (t.status === '完了') items.push({text:'タスク完了',time:t.due,color:'var(--green)'});
+  if (!items.some(i => i.text.includes('完了')) && t.status !== '完了') {
+    items.push({text:'完了予定',time:t.due,color:'var(--border2)'});
+  }
+  return items;
+}
+
+// ========== STATUS ==========
+function toggleStatusDrop() {
+  document.getElementById('statusDrop').classList.toggle('open');
+}
+
+function changeStatus(s) {
+  currentTask.status = s;
+  document.getElementById('statusDrop').classList.remove('open');
+  renderStatus();
+  renderStatusFlow();
+  renderLeftColumn();
+  showToast('ステータスを「' + s + '」に変更しました');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#statusWrap')) {
+    document.getElementById('statusDrop').classList.remove('open');
+  }
+});
+
+// ========== DOC MODAL ==========
+function openDocModal() {
+  const docs = TASK_DOC_MAP[currentTask.cat] || [];
+  if (!docs.length) return;
+  selectedDoc = null;
+  selectedVariant = null;
+
+  let html = '<div class="doc-grid">';
+  docs.forEach(d => {
+    html += `<div class="doc-card" id="dc-${d.id}" onclick="selectDoc('${d.id}')">
+      <div class="doc-card-icon">${d.icon}</div>
+      <div class="doc-card-name">${d.name}</div>
+      <div class="doc-card-desc">${d.desc}</div>
+    </div>`;
+  });
+  html += '</div>';
+  html += '<div id="variantArea"></div>';
+
+  document.getElementById('docModalBody').innerHTML = html;
+  document.getElementById('docGenSubmit').disabled = true;
+  document.getElementById('docModal').classList.add('open');
+}
+
+function selectDoc(id) {
+  const docs = TASK_DOC_MAP[currentTask.cat] || [];
+  const doc = docs.find(d => d.id === id);
+  if (!doc) return;
+
+  selectedDoc = doc;
+  selectedVariant = null;
+
+  document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('dc-' + id).classList.add('selected');
+
+  // Show variants if any
+  const area = document.getElementById('variantArea');
+  if (doc.variants && doc.variants.length > 1) {
+    // Auto-select based on case contract type
+    const c = caseData[currentTask.caseId] || {};
+    const autoMatch = doc.variants.find(v => c.contractType && c.contractType.includes(v.split('法人')[0]));
+
+    area.innerHTML = `<div class="doc-variant">
+      <div class="doc-variant-title">テンプレートパターン（契約形態に応じて選択）</div>
+      ${doc.variants.map((v, i) => {
+        const isAuto = autoMatch === v;
+        if (isAuto) selectedVariant = v;
+        return `<div class="doc-variant-opt ${isAuto?'active':''}" onclick="selectVariant(this,'${v.replace(/'/g,"\\'")}')">
+          <div class="doc-variant-radio"></div>
+          <span>${v}${isAuto ? ' （自動選択）' : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+    document.getElementById('docGenSubmit').disabled = !selectedVariant;
+  } else {
+    area.innerHTML = '';
+    selectedVariant = doc.variants ? doc.variants[0] : null;
+    document.getElementById('docGenSubmit').disabled = false;
+  }
+}
+
+function selectVariant(el, v) {
+  selectedVariant = v;
+  document.querySelectorAll('.doc-variant-opt').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('docGenSubmit').disabled = false;
+}
+
+function closeDocModal() {
+  document.getElementById('docModal').classList.remove('open');
+}
+
+function generateDoc() {
+  if (!selectedDoc) return;
+  closeDocModal();
+
+  // Show progress
+  const pm = document.getElementById('genProgressModal');
+  pm.classList.add('open');
+  document.getElementById('genTitle').textContent = '「' + selectedDoc.name + '」を生成中...';
+  document.getElementById('genBar').style.width = '0%';
+  document.getElementById('genText').textContent = '案件情報を取得しています...';
+
+  setTimeout(() => {
+    document.getElementById('genBar').style.width = '40%';
+    document.getElementById('genText').textContent = 'テンプレートに差し込み中...';
+  }, 500);
+  setTimeout(() => {
+    document.getElementById('genBar').style.width = '80%';
+    document.getElementById('genText').textContent = '文書を仕上げています...';
+  }, 1200);
+  setTimeout(() => {
+    document.getElementById('genBar').style.width = '100%';
+    document.getElementById('genText').textContent = '完了！';
+  }, 1800);
+  setTimeout(() => {
+    pm.classList.remove('open');
+    showToast('✅ 「' + selectedDoc.name + '」を作成しました');
+  }, 2300);
+}
+
+// ========== NAV ==========
+function goToCase() {
+  location.href = 'case_detail.html';
+}
+
+// ========== TOAST ==========
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ========== START ==========
+init();
+</script>
+</body>
+</html>

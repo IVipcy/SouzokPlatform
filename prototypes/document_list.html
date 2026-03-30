@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜ドキュメント管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F8FA;--white:#FFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFCFFF;
+  --green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --orange:#EA580C;--orange-l:#FFF7ED;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh1:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600}.ur{font-size:10px;color:var(--muted)}
+
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sb{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;width:240px;transition:border-color .15s,box-shadow .15s}
+.sb:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.sb input{background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;width:100%}
+.sb input::placeholder{color:var(--muted2)}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-g:hover{background:var(--bg)}
+
+/* CONTENT */
+.content{padding:20px 24px;flex:1}
+
+/* SUMMARY CARDS */
+.sum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.sc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--sh0);cursor:pointer;transition:box-shadow .15s,border-color .15s;border-top:3px solid transparent}
+.sc:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.sc.active{border-top-color:var(--blue);background:var(--blue-l)}
+.sc-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.sc-val{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;line-height:1;letter-spacing:-.5px}
+.sc-sub{font-size:10px;color:var(--muted);margin-top:4px}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-select{padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--white);color:var(--text2);cursor:pointer;transition:border-color .15s}
+.filter-select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+
+/* TABLE */
+.tbl-wrap{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover{background:var(--bg)}
+
+/* STATUS BADGES */
+.st-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.st-created{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.st-sent{background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE}
+.st-waiting{background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A}
+.st-done{background:var(--green-l);color:var(--green);border:1px solid #A7F3D0}
+.st-error{background:var(--red-l);color:var(--red);border:1px solid #FECACA}
+
+/* DOC TYPE ICON */
+.doc-type-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.doc-type-pdf{background:#FEF2F2;color:var(--red)}
+.doc-type-word{background:var(--blue-l);color:var(--blue)}
+.doc-type-excel{background:var(--green-l);color:var(--green)}
+
+/* LINK */
+.link{color:var(--blue);text-decoration:none;font-weight:500;cursor:pointer;transition:color .1s}
+.link:hover{color:#1D4ED8;text-decoration:underline}
+
+/* TAG */
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.tag-cat{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+
+/* ACTIONS */
+.act-group{display:flex;gap:4px}
+.act-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .12s;color:var(--muted)}
+.act-btn:hover{background:var(--bg);border-color:var(--border2);color:var(--text2)}
+.act-btn.danger:hover{background:var(--red-l);border-color:#FECACA;color:var(--red)}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-top:1px solid var(--border);background:var(--white)}
+.pg-info{font-size:11px;color:var(--muted)}
+.pg-btns{display:flex;gap:4px}
+.pg-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted);transition:all .1s}
+.pg-btn:hover{background:var(--bg);border-color:var(--border2)}
+.pg-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#111827;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:200;opacity:0;transform:translateY(10px);transition:all .3s;box-shadow:var(--sh3)}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* EMPTY STATE */
+.empty-state{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.35}
+.empty-text{font-size:13px;margin-bottom:4px}
+.empty-sub{font-size:11px;color:var(--muted2)}
+
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item" onclick="location.href='schedule.html'"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item" onclick="location.href='task.html'"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item active"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title">ドキュメント管理</div><div class="page-bc">相続プラットフォーム / ドキュメント管理</div></div>
+    <div class="tbr">
+      <div class="sb"><span style="color:var(--muted2);font-size:12px">🔍</span><input type="text" placeholder="文書名・案件名で検索" id="searchInput" oninput="applyFilters()"></div>
+      <button class="btn btn-g" onclick="exportCSV()">📥 CSV出力</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- サマリー -->
+    <div class="sum-grid">
+      <div class="sc active" onclick="filterByStatus('all',this)">
+        <div class="sc-label">全ドキュメント</div>
+        <div class="sc-val" id="cnt-all">0</div>
+        <div class="sc-sub">登録文書</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('作成済',this)">
+        <div class="sc-label">作成済</div>
+        <div class="sc-val" style="color:var(--blue)" id="cnt-created">0</div>
+        <div class="sc-sub">確認待ち</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('送付済',this)">
+        <div class="sc-label">送付済</div>
+        <div class="sc-val" style="color:var(--purple)" id="cnt-sent">0</div>
+        <div class="sc-sub">発送完了</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('返送待ち',this)">
+        <div class="sc-label">返送待ち</div>
+        <div class="sc-val" style="color:var(--amber)" id="cnt-waiting">0</div>
+        <div class="sc-sub">到着待ち</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('完了',this)">
+        <div class="sc-label">完了</div>
+        <div class="sc-val" style="color:var(--green)" id="cnt-done">0</div>
+        <div class="sc-sub">処理済み</div>
+      </div>
+    </div>
+
+    <!-- フィルタバー -->
+    <div class="filter-bar">
+      <select class="filter-select" id="filterCase" onchange="applyFilters()">
+        <option value="">全案件</option>
+      </select>
+      <select class="filter-select" id="filterType" onchange="applyFilters()">
+        <option value="">全文書種別</option>
+        <option>戸籍等請求書</option>
+        <option>名寄帳・評価証明請求</option>
+        <option>委任契約書</option>
+        <option>委任状</option>
+        <option>請求書（前受金）</option>
+        <option>請求書（確定）</option>
+        <option>領収書</option>
+        <option>封筒</option>
+        <option>原本預かり証</option>
+        <option>原本受領証</option>
+      </select>
+      <select class="filter-select" id="filterAssignee" onchange="applyFilters()">
+        <option value="">全担当者</option>
+        <option>田中</option>
+        <option>山本</option>
+        <option>佐藤</option>
+        <option>伊藤</option>
+      </select>
+      <select class="filter-select" id="filterFormat" onchange="applyFilters()">
+        <option value="">全形式</option>
+        <option>PDF</option>
+        <option>Word</option>
+        <option>Excel</option>
+      </select>
+      <button class="btn btn-g" onclick="resetFilters()" style="margin-left:auto;font-size:11px">✕ フィルタ解除</button>
+    </div>
+
+    <!-- テーブル -->
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th style="width:28px"><input type="checkbox" id="checkAll" onchange="toggleAll(this.checked)"></th>
+            <th>文書名</th>
+            <th>案件</th>
+            <th>関連タスク</th>
+            <th>ステータス</th>
+            <th>担当者</th>
+            <th>作成日</th>
+            <th style="width:100px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="docTableBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty-state" style="display:none">
+        <div class="empty-icon">📁</div>
+        <div class="empty-text">該当するドキュメントがありません</div>
+        <div class="empty-sub">フィルタ条件を変更するか、新しい文書を作成してください</div>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== SAMPLE DATA =====
+const documents = [
+  {id:'D001',name:'戸籍等請求書',format:'PDF',icon:'📄',case_name:'中村 太郎',case_id:'R7-A00127',task:'戸籍収集（被相続人）',task_id:'T0301',status:'完了',assignee:'山本',assignee_color:'#059669',created:'2025/11/01'},
+  {id:'D002',name:'戸籍等請求書',format:'PDF',icon:'📄',case_name:'中村 太郎',case_id:'R7-A00127',task:'戸籍収集（相続人）',task_id:'T0302',status:'送付済',assignee:'山本',assignee_color:'#059669',created:'2025/11/03'},
+  {id:'D003',name:'委任契約書',format:'Word',icon:'📝',case_name:'中村 太郎',case_id:'R7-A00127',task:'委任契約締結',task_id:'T0101',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/10/28'},
+  {id:'D004',name:'委任状',format:'PDF',icon:'📄',case_name:'中村 太郎',case_id:'R7-A00127',task:'委任状取得',task_id:'T0102',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/10/28'},
+  {id:'D005',name:'名寄帳・評価証明請求',format:'PDF',icon:'📄',case_name:'中村 太郎',case_id:'R7-A00127',task:'名寄帳取得',task_id:'T0401',status:'返送待ち',assignee:'佐藤',assignee_color:'#D97706',created:'2025/11/05'},
+  {id:'D006',name:'請求書（前受金）',format:'PDF',icon:'💰',case_name:'中村 太郎',case_id:'R7-A00127',task:'前受金請求',task_id:'T0103',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/10/29'},
+  {id:'D007',name:'封筒（角2）',format:'PDF',icon:'✉️',case_name:'中村 太郎',case_id:'R7-A00127',task:'戸籍収集（被相続人）',task_id:'T0301',status:'作成済',assignee:'山本',assignee_color:'#059669',created:'2025/11/01'},
+  {id:'D008',name:'戸籍等請求書',format:'PDF',icon:'📄',case_name:'佐藤 花子',case_id:'R7-A00130',task:'戸籍収集（被相続人）',task_id:'T0301',status:'作成済',assignee:'伊藤',assignee_color:'#7C3AED',created:'2025/11/10'},
+  {id:'D009',name:'委任契約書',format:'Word',icon:'📝',case_name:'佐藤 花子',case_id:'R7-A00130',task:'委任契約締結',task_id:'T0101',status:'送付済',assignee:'田中',assignee_color:'#2563EB',created:'2025/11/08'},
+  {id:'D010',name:'委任状',format:'PDF',icon:'📄',case_name:'佐藤 花子',case_id:'R7-A00130',task:'委任状取得',task_id:'T0102',status:'返送待ち',assignee:'田中',assignee_color:'#2563EB',created:'2025/11/08'},
+  {id:'D011',name:'戸籍等請求書',format:'PDF',icon:'📄',case_name:'田口 一郎',case_id:'R7-A00133',task:'戸籍収集（被相続人）',task_id:'T0301',status:'送付済',assignee:'佐藤',assignee_color:'#D97706',created:'2025/11/12'},
+  {id:'D012',name:'請求書（前受金）',format:'PDF',icon:'💰',case_name:'田口 一郎',case_id:'R7-A00133',task:'前受金請求',task_id:'T0103',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/11/11'},
+  {id:'D013',name:'名寄帳・評価証明請求',format:'PDF',icon:'📄',case_name:'田口 一郎',case_id:'R7-A00133',task:'名寄帳取得',task_id:'T0401',status:'作成済',assignee:'佐藤',assignee_color:'#D97706',created:'2025/11/13'},
+  {id:'D014',name:'原本預かり証',format:'PDF',icon:'📋',case_name:'中村 太郎',case_id:'R7-A00127',task:'原本預かり',task_id:'T0104',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/10/30'},
+  {id:'D015',name:'委任契約書',format:'Word',icon:'📝',case_name:'田口 一郎',case_id:'R7-A00133',task:'委任契約締結',task_id:'T0101',status:'完了',assignee:'田中',assignee_color:'#2563EB',created:'2025/11/10'},
+  {id:'D016',name:'領収書',format:'PDF',icon:'🧾',case_name:'中村 太郎',case_id:'R7-A00127',task:'入金確認',task_id:'T0601',status:'作成済',assignee:'田中',assignee_color:'#2563EB',created:'2025/11/14'},
+  {id:'D017',name:'戸籍等請求書',format:'PDF',icon:'📄',case_name:'高橋 正義',case_id:'R7-A00135',task:'戸籍収集（被相続人）',task_id:'T0301',status:'返送待ち',assignee:'伊藤',assignee_color:'#7C3AED',created:'2025/11/13'},
+  {id:'D018',name:'封筒（長形3号）',format:'PDF',icon:'✉️',case_name:'佐藤 花子',case_id:'R7-A00130',task:'委任契約書送付',task_id:'T0105',status:'送付済',assignee:'伊藤',assignee_color:'#7C3AED',created:'2025/11/09'},
+];
+
+// ===== STATE =====
+let currentStatus='all';
+let currentPage=1;
+const perPage=10;
+let checked=new Set();
+
+// ===== INIT =====
+function init(){
+  // populate case filter
+  const cases=[...new Set(documents.map(d=>d.case_name))];
+  const sel=document.getElementById('filterCase');
+  cases.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)});
+  renderAll();
+}
+
+function renderAll(){
+  const filtered=getFiltered();
+  renderCounts(filtered);
+  renderTable(filtered);
+  renderPagination(filtered);
+}
+
+function getFiltered(){
+  const search=document.getElementById('searchInput').value.toLowerCase();
+  const fCase=document.getElementById('filterCase').value;
+  const fType=document.getElementById('filterType').value;
+  const fAssignee=document.getElementById('filterAssignee').value;
+  const fFormat=document.getElementById('filterFormat').value;
+  return documents.filter(d=>{
+    if(currentStatus!=='all'&&d.status!==currentStatus)return false;
+    if(fCase&&d.case_name!==fCase)return false;
+    if(fType&&d.name!==fType)return false;
+    if(fAssignee&&d.assignee!==fAssignee)return false;
+    if(fFormat&&d.format!==fFormat)return false;
+    if(search&&!d.name.toLowerCase().includes(search)&&!d.case_name.toLowerCase().includes(search)&&!d.task.toLowerCase().includes(search))return false;
+    return true;
+  });
+}
+
+function renderCounts(filtered){
+  const all=currentStatus==='all'?filtered.length:documents.length;
+  document.getElementById('cnt-all').textContent=currentStatus==='all'?filtered.length:documents.length;
+  document.getElementById('cnt-created').textContent=documents.filter(d=>d.status==='作成済').length;
+  document.getElementById('cnt-sent').textContent=documents.filter(d=>d.status==='送付済').length;
+  document.getElementById('cnt-waiting').textContent=documents.filter(d=>d.status==='返送待ち').length;
+  document.getElementById('cnt-done').textContent=documents.filter(d=>d.status==='完了').length;
+}
+
+function renderTable(filtered){
+  const body=document.getElementById('docTableBody');
+  const empty=document.getElementById('emptyState');
+  const start=(currentPage-1)*perPage;
+  const page=filtered.slice(start,start+perPage);
+
+  if(filtered.length===0){
+    body.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+
+  body.innerHTML=page.map(d=>{
+    const stClass=d.status==='作成済'?'st-created':d.status==='送付済'?'st-sent':d.status==='返送待ち'?'st-waiting':d.status==='完了'?'st-done':'st-error';
+    const fmtClass=d.format==='PDF'?'doc-type-pdf':d.format==='Word'?'doc-type-word':'doc-type-excel';
+    const isChecked=checked.has(d.id)?'checked':'';
+    return `<tr>
+      <td><input type="checkbox" value="${d.id}" ${isChecked} onchange="toggleCheck('${d.id}',this.checked)"></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="doc-type-icon ${fmtClass}">${d.icon}</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">${d.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${d.format} · ${d.id}</div>
+          </div>
+        </div>
+      </td>
+      <td><a class="link" onclick="goCase('${d.case_id}')">${d.case_name}</a><div style="font-size:10px;color:var(--muted)">${d.case_id}</div></td>
+      <td><a class="link" onclick="goTask('${d.task_id}')">${d.task}</a></td>
+      <td><span class="st-badge ${stClass}">${d.status}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:20px;height:20px;border-radius:50%;background:${d.assignee_color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">${d.assignee[0]}</div>
+          <span style="font-size:12px">${d.assignee}</span>
+        </div>
+      </td>
+      <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${d.created}</span></td>
+      <td>
+        <div class="act-group">
+          <button class="act-btn" title="プレビュー" onclick="showToast('プレビューを開きます')">👁</button>
+          <button class="act-btn" title="ダウンロード" onclick="showToast('ダウンロードを開始します')">⬇</button>
+          <button class="act-btn danger" title="削除" onclick="deleteDoc('${d.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination(filtered){
+  const total=Math.ceil(filtered.length/perPage)||1;
+  const pg=document.getElementById('pagination');
+  pg.innerHTML=`
+    <div class="pg-info">${filtered.length}件中 ${Math.min((currentPage-1)*perPage+1,filtered.length)}〜${Math.min(currentPage*perPage,filtered.length)}件を表示</div>
+    <div class="pg-btns">
+      ${Array.from({length:total},(_,i)=>`<button class="pg-btn ${i+1===currentPage?'active':''}" onclick="goPage(${i+1})">${i+1}</button>`).join('')}
+    </div>`;
+}
+
+// ===== FILTERS =====
+function filterByStatus(st,el){
+  currentStatus=st;
+  currentPage=1;
+  document.querySelectorAll('.sc').forEach(s=>s.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderAll();
+}
+
+function applyFilters(){
+  currentPage=1;
+  renderAll();
+}
+
+function resetFilters(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('filterCase').value='';
+  document.getElementById('filterType').value='';
+  document.getElementById('filterAssignee').value='';
+  document.getElementById('filterFormat').value='';
+  currentStatus='all';
+  currentPage=1;
+  document.querySelectorAll('.sc').forEach(s=>s.classList.remove('active'));
+  document.querySelector('.sc').classList.add('active');
+  renderAll();
+}
+
+// ===== ACTIONS =====
+function goPage(n){currentPage=n;renderAll();}
+function goCase(id){location.href='case_detail.html?id='+id;}
+function goTask(id){location.href='task_detail.html?id='+id;}
+
+function toggleAll(v){
+  const filtered=getFiltered();
+  const start=(currentPage-1)*perPage;
+  const page=filtered.slice(start,start+perPage);
+  page.forEach(d=>{if(v)checked.add(d.id);else checked.delete(d.id)});
+  renderAll();
+}
+function toggleCheck(id,v){if(v)checked.add(id);else checked.delete(id);}
+
+function deleteDoc(id){
+  if(!confirm('このドキュメントを削除しますか？'))return;
+  const idx=documents.findIndex(d=>d.id===id);
+  if(idx>=0)documents.splice(idx,1);
+  renderAll();
+  showToast('ドキュメントを削除しました');
+}
+
+function exportCSV(){
+  const filtered=getFiltered();
+  const header='ID,文書名,形式,案件名,案件ID,関連タスク,ステータス,担当者,作成日';
+  const rows=filtered.map(d=>`${d.id},${d.name},${d.format},${d.case_name},${d.case_id},${d.task},${d.status},${d.assignee},${d.created}`);
+  const csv='\uFEFF'+header+'\n'+rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='documents_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  showToast('CSVをダウンロードしました');
+}
+
+// ===== TOAST =====
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+init();
+</script>
+</body>
+</html>

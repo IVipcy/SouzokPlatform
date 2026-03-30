@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜請求・入金管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F8FA;--white:#FFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFDBFE;
+  --green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --teal:#0891B2;--teal-l:#ECFEFF;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600}.ur{font-size:10px;color:var(--muted)}
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sb{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;width:210px;transition:border-color .15s}
+.sb:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.sb input{background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;width:100%}
+.sb input::placeholder{color:var(--muted2)}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-g:hover{background:var(--bg)}
+.btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{background:#0E7490}
+/* CONTENT */
+.content{padding:20px 24px;flex:1}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--sh0);cursor:pointer;transition:box-shadow .15s,border-color .15s;border-top:3px solid transparent}
+.kc:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.kc.sel{border-top-color:var(--blue);background:var(--blue-l)}
+.kl{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.kv{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;line-height:1;letter-spacing:-.5px}
+.ks{font-size:10px;color:var(--muted);margin-top:4px}
+/* TABS */
+.tabs{display:flex;gap:2px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:3px;box-shadow:var(--sh0);margin-bottom:16px}
+.tab{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:none;transition:all .1s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.tab:hover{color:var(--text2);background:var(--bg)}
+.tab.active{background:var(--blue);color:#fff;font-weight:600}
+.tab-cnt{font-size:10px;font-family:'DM Mono',monospace;opacity:.85}
+/* TABLE */
+.tw{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden}
+.tm{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.tmt{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px}
+.rc{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;background:var(--bg);padding:2px 8px;border-radius:4px}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;padding:9px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .08s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#FAFBFF}
+tbody td{padding:11px 14px;vertical-align:middle}
+/* STATUS BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.b-none{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}
+.b-adv-req{background:#EFF6FF;color:#3B82F6;border-color:#BFDBFE}
+.b-adv-paid{background:var(--teal-l);color:var(--teal);border-color:#A5F3FC}
+.b-fin-req{background:var(--purple-l);color:var(--purple);border-color:#DDD6FE}
+.b-paid{background:var(--green-l);color:var(--green);border-color:#A7F3D0}
+.b-partial{background:var(--amber-l);color:var(--amber);border-color:#FDE68A}
+/* AMOUNT */
+.amt{font-family:'DM Mono',monospace;font-size:12px;font-weight:500}
+.amt.large{font-size:13px;font-weight:700;color:var(--text)}
+.amt.pos{color:var(--green)}
+.amt.neg{color:var(--red)}
+.amt.dim{color:var(--muted)}
+/* CSV IMPORT */
+.csv-area{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden;margin-bottom:16px}
+.csv-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.csv-body{padding:18px}
+.drop-zone{border:2px dashed var(--border2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue);background:var(--blue-l)}
+.drop-zone.drag{border-style:solid}
+.drop-icon{font-size:36px;margin-bottom:10px;opacity:.5}
+.drop-text{font-size:13px;font-weight:500;color:var(--text2)}
+.drop-sub{font-size:11px;color:var(--muted);margin-top:4px}
+/* MATCHING */
+.match-row{display:flex;align-items:stretch;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.match-row:last-child{border-bottom:none}
+.match-bank{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px}
+.match-arrow{display:flex;align-items:center;font-size:18px;color:var(--muted);flex-shrink:0;padding:0 4px}
+.match-case{flex:1;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;cursor:pointer;transition:all .12s}
+.match-case:hover{border-color:var(--blue);background:var(--blue-l)}
+.match-case.matched{border-color:var(--green);background:var(--green-l)}
+.match-case.unmatched{border-color:var(--amber);background:var(--amber-l)}
+.match-case.nomatch{border-color:var(--red-l);background:var(--red-l)}
+.match-action{display:flex;align-items:center;flex-shrink:0}
+.match-label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-bottom:3px}
+.ml-ok{background:var(--green-l);color:var(--green)}
+.ml-warn{background:var(--amber-l);color:var(--amber)}
+.ml-ng{background:var(--red-l);color:var(--red)}
+.ml-manual{background:var(--purple-l);color:var(--purple)}
+/* DETAIL PANEL */
+.dp{position:fixed;top:0;right:0;bottom:0;width:460px;background:var(--white);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .28s cubic-bezier(.16,1,.3,1);z-index:100;box-shadow:var(--sh3)}
+.dp.open{transform:translateX(0)}
+.ph{padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1}
+.pcl{width:26px;height:26px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .12s}
+.pcl:hover{background:var(--red-l);color:var(--red)}
+.pb{padding:16px 20px}
+.ps{margin-bottom:20px}
+.pst{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.pr{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid rgba(0,0,0,.03)}
+.pr:last-child{border-bottom:none}
+.pk{color:var(--muted)}
+.pv{font-weight:500;color:var(--text2)}
+/* STATUS FLOW (payment) */
+.pay-flow{display:flex;align-items:flex-start;gap:0;margin-top:10px}
+.pf-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;cursor:pointer}
+.pf-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);z-index:1;transition:all .15s}
+.pf-dot.passed{background:var(--green);opacity:.5}
+.pf-dot.active{background:var(--green);box-shadow:0 0 0 3px rgba(5,150,105,.2);width:12px;height:12px}
+.pf-label{font-size:9px;color:var(--muted2);white-space:nowrap;text-align:center}
+.pf-label.active{color:var(--green);font-weight:600}
+.pf-line{position:absolute;top:5px;left:50%;right:-50%;height:1px;background:var(--border2);z-index:0}
+.pf-line.passed{background:var(--green);opacity:.4}
+.pf-item:last-child .pf-line{display:none}
+/* STATUS CHANGE DROPDOWN */
+.st-drop-wrap{position:relative}
+.st-drop-btn{width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--border);background:var(--white);font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between}
+.st-drop-btn:hover{border-color:var(--blue)}
+.st-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh3);z-index:50;overflow:hidden;display:none}
+.st-dropdown.open{display:block}
+.st-opt{padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.st-opt:hover{background:var(--bg)}
+.st-opt.cur{background:var(--blue-l);color:var(--blue)}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(17,24,39,.4);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(2px)}
+.modal-ov.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:14px;box-shadow:var(--sh3);width:500px;max-width:90vw;overflow:hidden;transform:translateY(8px);transition:transform .2s}
+.modal-ov.open .modal{transform:translateY(0)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;flex:1}
+.mcl{width:28px;height:28px;border-radius:6px;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:all .1s}
+.mcl:hover{background:var(--red-l);color:var(--red)}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.form-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.form-input{width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:500;z-index:300;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.ov{position:fixed;inset:0;background:rgba(17,24,39,.2);z-index:99;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(1px)}
+.ov.active{opacity:1;pointer-events:all}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item" onclick="location.href='schedule.html'"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item" onclick="location.href='task.html'"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item active"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title">請求・入金管理</div><div class="page-bc">相続プラットフォーム / 請求・入金管理</div></div>
+    <div class="tbr">
+      <div class="sb"><span style="color:var(--muted2);font-size:12px">🔍</span><input type="text" placeholder="案件名・依頼者で検索" id="si" oninput="applyFilter()"></div>
+      <button class="btn btn-g" onclick="switchView('csv')">🏦 銀行CSV取込</button>
+      <button class="btn btn-p" onclick="openInvoiceModal()">＋ 請求書発行</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- KPI -->
+    <div class="kpi-grid">
+      <div class="kc" onclick="filterByStatus('all',this)">
+        <div class="kl">今月請求合計 <span style="font-size:18px">💴</span></div>
+        <div class="kv">¥8.4M</div>
+        <div class="ks">12件</div>
+      </div>
+      <div class="kc" onclick="filterByStatus('未請求',this)">
+        <div class="kl">未請求 <span style="font-size:18px">📋</span></div>
+        <div class="kv" style="color:var(--muted)">3</div>
+        <div class="ks">請求書未発行</div>
+      </div>
+      <div class="kc" onclick="filterByStatus('入金待ち',this)">
+        <div class="kl">入金待ち <span style="font-size:18px">⏳</span></div>
+        <div class="kv" style="color:var(--amber)">5</div>
+        <div class="ks">¥3,960,000</div>
+      </div>
+      <div class="kc" onclick="filterByStatus('入金済',this)">
+        <div class="kl">入金済 <span style="font-size:18px">✅</span></div>
+        <div class="kv" style="color:var(--green)">4</div>
+        <div class="ks">今月確定</div>
+      </div>
+      <div class="kc" onclick="filterByStatus('一部入金',this)">
+        <div class="kl">一部入金 <span style="font-size:18px">⚠️</span></div>
+        <div class="kv" style="color:var(--red)">1</div>
+        <div class="ks">差額確認要</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchView('list',this)">☰ 請求一覧</button>
+      <button class="tab" onclick="switchView('csv',this)">🏦 銀行CSV突合</button>
+    </div>
+
+    <!-- 請求一覧 -->
+    <div id="view-list">
+      <div class="tw">
+        <div class="tm">
+          <div class="tmt">請求・入金一覧</div>
+          <div class="rc" id="rc">12件</div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>案件</th><th>入金ステータス</th><th>請求金額</th><th>入金済額</th><th>差額</th><th>受注担当</th><th>依頼日</th><th>操作</th>
+          </tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 銀行CSV突合 -->
+    <div id="view-csv" style="display:none">
+      <div class="csv-area">
+        <div class="csv-header">
+          <span style="font-size:16px">🏦</span>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px">銀行CSV取込・突合</div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn btn-g" onclick="loadSampleCSV()">サンプルデータで試す</button>
+            <button class="btn btn-p" onclick="document.getElementById('csvFile').click()">📁 CSVファイルを選択</button>
+            <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSV(this)">
+          </div>
+        </div>
+        <div class="csv-body">
+          <div id="dropZone" class="drop-zone" ondragover="e=event;e.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+            <div class="drop-icon">📄</div>
+            <div class="drop-text">CSVファイルをここにドラッグ＆ドロップ</div>
+            <div class="drop-sub">または上の「CSVファイルを選択」ボタンから選択<br>対応フォーマット：三菱UFJ・みずほ・三井住友・ゆうちょ</div>
+          </div>
+          <div id="matchResult" style="display:none;margin-top:16px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px">突合結果</div>
+              <div id="matchSummary"></div>
+              <div style="margin-left:auto;display:flex;gap:8px">
+                <button class="btn btn-g" onclick="resetCSV()">やり直す</button>
+                <button class="btn btn-teal" onclick="applyAllMatch()">✓ 一括消込</button>
+              </div>
+            </div>
+            <div id="matchRows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="ov" id="ov" onclick="closePanel()"></div>
+
+<!-- 詳細パネル -->
+<div class="dp" id="dp">
+  <div class="ph">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px" id="dp-meta"></div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:17px" id="dp-name"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px" id="dp-dec"></div>
+      </div>
+      <button class="pcl" onclick="closePanel()">✕</button>
+    </div>
+    <!-- 入金ステータスフロー -->
+    <div class="pay-flow" id="payFlow"></div>
+  </div>
+  <div class="pb" id="dp-body"></div>
+</div>
+
+<!-- 請求書発行モーダル -->
+<div class="modal-ov" id="invoiceModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📄 請求書発行</div>
+      <button class="mcl" onclick="closeInvoiceModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div class="form-label">案件を選択 *</div>
+          <select id="inv-case" class="form-input">
+            <option value="">選択してください</option>
+            <option>R7-A00123 · 山田 花子</option>
+            <option>R7-A00125 · 佐藤 美智子</option>
+            <option>R7-A00127 · 中村 さくら</option>
+            <option>R7-A00129 · 加藤 由美</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">請求種別 *</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-g" id="inv-adv" onclick="setInvType('前受金')" style="flex:1">前受金請求</button>
+            <button class="btn btn-g" id="inv-fin" onclick="setInvType('確定請求')" style="flex:1">確定請求</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="form-label">請求金額（税込）</div>
+            <input type="text" id="inv-amount" class="form-input" placeholder="¥0">
+          </div>
+          <div>
+            <div class="form-label">請求日</div>
+            <input type="date" id="inv-date" class="form-input" value="2025-11-14">
+          </div>
+        </div>
+        <div>
+          <div class="form-label">振込先</div>
+          <select class="form-input">
+            <option>オーシャン司法書士法人口座（三菱UFJ 渋谷支店）</option>
+            <option>クレアトール行政書士事務所口座</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">備考</div>
+          <textarea class="form-input" rows="2" placeholder="振込期限・分割払い条件など"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeInvoiceModal()">キャンセル</button>
+      <button class="btn btn-g">プレビュー</button>
+      <button class="btn btn-p" onclick="issueInvoice()">発行する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 入金消込モーダル -->
+<div class="modal-ov" id="payModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">💰 入金消込</div>
+      <button class="mcl" onclick="closePayModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px" id="pay-case-info"></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="form-label">入金日 *</div>
+            <input type="date" id="pay-date" class="form-input" value="2025-11-14">
+          </div>
+          <div>
+            <div class="form-label">入金額 *</div>
+            <input type="text" id="pay-amount" class="form-input" placeholder="¥0">
+          </div>
+        </div>
+        <div>
+          <div class="form-label">入金ステータス変更先</div>
+          <select id="pay-status" class="form-input">
+            <option>入金確認済</option>
+            <option>完了</option>
+            <option>入金待ち</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">差額メモ</div>
+          <input type="text" id="pay-memo" class="form-input" placeholder="差額がある場合の理由など">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closePayModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="recordPayment()">消込登録</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PAY_STATUS_META={
+  '下書き':{cls:'b-none',color:'#6B7280',order:0},
+  '実費集計中':{cls:'b-adv-req',color:'#3B82F6',order:1},
+  '確認待ち':{cls:'b-adv-paid',color:'#0891B2',order:2},
+  '発行済':{cls:'b-fin-req',color:'#7C3AED',order:3},
+  '入金待ち':{cls:'b-partial',color:'#D97706',order:4},
+  '入金確認済':{cls:'b-paid',color:'#059669',order:5},
+  '完了':{cls:'b-paid',color:'#059669',order:6},
+};
+const PAY_FLOW=['下書き','実費集計中','確認待ち','発行済','入金待ち','入金確認済','完了'];
+const AC={'田中':'#2563EB','山本':'#7C3AED','佐藤':'#059669','伊藤':'#D97706'};
+
+let invoices=[
+  {id:'INV-001',caseId:'R7-A00123',name:'山田 花子',dec:'山田 太郎',assignee:'田中',bs:'クレアトール',
+   payStatus:'入金待ち',invoiceAmt:1980000,advAmt:990000,paidAmt:990000,date:'2025/11/01',
+   advDate:'2025/11/05',advPaidDate:'2025/11/08',finalDate:'',finalPaidDate:'',
+   adminAmt:1100000,judAmt:880000,partnerRatio:0.15,note:'',
+   expenses:[
+     {item:'戸籍取得費',amount:4500,date:'2025/11/05',task:'戸籍請求書作成'},
+     {item:'郵送費（レターパック）',amount:520,date:'2025/11/10',task:'名寄帳請求'},
+     {item:'登記事項証明書',amount:600,date:'2025/11/12',task:'不動産評価・査定手配'},
+   ]},
+  {id:'INV-002',caseId:'R7-A00124',name:'鈴木 一郎',dec:'鈴木 次郎',assignee:'山本',bs:'共同ビル',
+   payStatus:'発行済',invoiceAmt:550000,advAmt:0,paidAmt:0,date:'2025/11/05',
+   advDate:'',advPaidDate:'',finalDate:'2025/11/10',finalPaidDate:'',
+   adminAmt:330000,judAmt:220000,partnerRatio:0,note:''},
+  {id:'INV-003',caseId:'R7-A00125',name:'佐藤 美智子',dec:'佐藤 健一',assignee:'田中',bs:'クレアトール',
+   payStatus:'下書き',invoiceAmt:660000,advAmt:0,paidAmt:0,date:'2025/11/08',
+   advDate:'',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:440000,judAmt:220000,partnerRatio:0,note:'検討中のため未請求'},
+  {id:'INV-004',caseId:'R7-A00126',name:'高橋 誠',dec:'高橋 幸子',assignee:'山本',bs:'藤沢',
+   payStatus:'完了',invoiceAmt:330000,advAmt:165000,paidAmt:330000,date:'2025/10/20',
+   advDate:'2025/10/22',advPaidDate:'2025/10/25',finalDate:'2025/11/02',finalPaidDate:'2025/11/05',
+   adminAmt:220000,judAmt:110000,partnerRatio:0.10,note:''},
+  {id:'INV-005',caseId:'R7-A00127',name:'中村 さくら',dec:'中村 義雄',assignee:'田中',bs:'クレアトール',
+   payStatus:'入金待ち',invoiceAmt:1980000,advAmt:990000,paidAmt:990000,date:'2025/10/15',
+   advDate:'2025/10/17',advPaidDate:'2025/10/20',finalDate:'',finalPaidDate:'',
+   adminAmt:1100000,judAmt:880000,partnerRatio:0.20,note:'',
+   expenses:[
+     {item:'戸籍取得費（渋谷区）',amount:3400,date:'2025/10/22',task:'戸籍請求書作成'},
+     {item:'戸籍取得費（目黒区）',amount:3400,date:'2025/10/25',task:'名寄帳請求'},
+     {item:'郵送費（レターパック×2）',amount:1040,date:'2025/10/28',task:'委任状郵送'},
+     {item:'固定資産評価証明書',amount:400,date:'2025/11/01',task:'不動産調査'},
+   ]},
+  {id:'INV-006',caseId:'R7-A00128',name:'伊藤 浩二',dec:'伊藤 はる',assignee:'山本',bs:'共同ビル',
+   payStatus:'下書き',invoiceAmt:0,advAmt:0,paidAmt:0,date:'2025/11/10',
+   advDate:'',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:0,judAmt:0,partnerRatio:0,note:'面談設定済・未受注'},
+  {id:'INV-007',caseId:'R7-A00120',name:'渡辺 明美',dec:'渡辺 健三',assignee:'田中',bs:'クレアトール',
+   payStatus:'完了',invoiceAmt:440000,advAmt:220000,paidAmt:440000,date:'2025/09/01',
+   advDate:'2025/09/03',advPaidDate:'2025/09/08',finalDate:'2025/10/20',finalPaidDate:'2025/10/28',
+   adminAmt:330000,judAmt:110000,partnerRatio:0,note:'',
+   expenses:[
+     {item:'戸籍取得費',amount:2250,date:'2025/09/10',task:'戸籍請求'},
+     {item:'郵送費（レターパック）',amount:520,date:'2025/09/15',task:'書類郵送'},
+   ]},
+  {id:'INV-008',caseId:'R7-A00129',name:'加藤 由美',dec:'加藤 正夫',assignee:'田中',bs:'クレアトール',
+   payStatus:'下書き',invoiceAmt:0,advAmt:0,paidAmt:0,date:'2025/11/11',
+   advDate:'',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:0,judAmt:0,partnerRatio:0,note:'架電段階'},
+  {id:'INV-009',caseId:'R7-A00122',name:'松本 隆',dec:'松本 文子',assignee:'田中',bs:'クレアトール',
+   payStatus:'確認待ち',invoiceAmt:1980000,advAmt:990000,paidAmt:0,date:'2025/10/25',
+   advDate:'2025/10/28',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:1100000,judAmt:880000,partnerRatio:0.15,note:'前受金入金待ち'},
+  {id:'INV-010',caseId:'R7-A00130',name:'井上 恵子',dec:'井上 博',assignee:'山本',bs:'共同ビル',
+   payStatus:'実費集計中',invoiceAmt:330000,advAmt:165000,paidAmt:0,date:'2025/11/09',
+   advDate:'2025/11/12',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:220000,judAmt:110000,partnerRatio:0,note:''},
+  {id:'INV-011',caseId:'R7-A00131',name:'木村 浩',dec:'木村 千代',assignee:'田中',bs:'クレアトール',
+   payStatus:'入金待ち',invoiceAmt:660000,advAmt:330000,paidAmt:200000,date:'2025/11/06',
+   advDate:'2025/11/08',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:440000,judAmt:220000,partnerRatio:0,note:'130,000円差額あり。振込名義確認中'},
+  {id:'INV-012',caseId:'R7-A00121',name:'小林 大輔',dec:'小林 静江',assignee:'山本',bs:'藤沢',
+   payStatus:'下書き',invoiceAmt:0,advAmt:0,paidAmt:0,date:'2025/10/05',
+   advDate:'',advPaidDate:'',finalDate:'',finalPaidDate:'',
+   adminAmt:0,judAmt:0,partnerRatio:0,note:'失注'},
+];
+
+const sampleBankData=[
+  {date:'2025/11/13',name:'ナカムラ サクラ',amount:990000,ref:'R7-A00127'},
+  {date:'2025/11/12',name:'マツモト タカシ',amount:990000,ref:''},
+  {date:'2025/11/11',name:'イノウエ ケイコ',amount:165000,ref:'R7-A00130'},
+  {date:'2025/11/10',name:'ワタナベ アキミ',amount:50000,ref:''},
+  {date:'2025/11/09',name:'スズキ イチロウ',amount:550000,ref:'R7-A00124'},
+];
+
+let curStatus='all';
+let currentInvId=null;
+let invType='前受金';
+
+function fmt(n){if(!n&&n!==0)return'—';return'¥'+n.toLocaleString();}
+
+function renderTable(){
+  let data=[...invoices];
+  const q=document.getElementById('si').value.toLowerCase();
+  if(q)data=data.filter(i=>i.name.includes(q)||i.caseId.toLowerCase().includes(q));
+  if(curStatus==='未請求')data=data.filter(i=>i.payStatus==='下書き');
+  else if(curStatus==='入金待ち')data=data.filter(i=>['実費集計中','確認待ち','発行済','入金待ち'].includes(i.payStatus));
+  else if(curStatus==='入金済')data=data.filter(i=>i.payStatus==='入金確認済'||i.payStatus==='完了');
+  else if(curStatus==='一部入金')data=data.filter(i=>i.payStatus==='入金待ち'&&i.paidAmt>0&&i.paidAmt<i.invoiceAmt);
+  document.getElementById('rc').textContent=data.length+'件';
+  const av=AC;
+  document.getElementById('tb').innerHTML=data.map(inv=>{
+    const m=PAY_STATUS_META[inv.payStatus]||PAY_STATUS_META['未請求'];
+    const avC=av[inv.assignee]||'#6B7280';
+    const diff=inv.invoiceAmt-inv.paidAmt;
+    const diffClass=diff>0?'neg':diff===0&&inv.invoiceAmt>0?'pos':'dim';
+    return`<tr onclick="openPanel('${inv.id}')">
+      <td>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--bg);padding:1px 5px;border-radius:3px;display:inline-block;margin-bottom:3px">${inv.caseId}</div>
+        <div style="font-weight:600;font-size:13px">${inv.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${inv.bs}</div>
+      </td>
+      <td><span class="badge ${m.cls}">${inv.payStatus}</span></td>
+      <td><span class="amt large">${fmt(inv.invoiceAmt)}</span></td>
+      <td><span class="amt ${inv.paidAmt>0?'pos':'dim'}">${fmt(inv.paidAmt)}</span></td>
+      <td><span class="amt ${diffClass}">${diff>0?fmt(diff):diff===0&&inv.invoiceAmt>0?'完納':'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:5px;font-size:12px"><div style="width:20px;height:20px;border-radius:50%;background:${avC};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${inv.assignee[0]}</div>${inv.assignee}</div></td>
+      <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${inv.date}</span></td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${inv.invoiceAmt>0&&inv.payStatus!=='完了'&&inv.payStatus!=='入金確認済'?`<button class="btn" style="padding:4px 8px;font-size:10px;background:var(--green-l);color:var(--green);border:1px solid #A7F3D0" onclick="event.stopPropagation();openPayModal('${inv.id}')">消込</button>`:''}
+          <button class="btn btn-g" style="padding:4px 8px;font-size:10px" onclick="event.stopPropagation();openPanel('${inv.id}')">詳細</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterByStatus(s,el){
+  curStatus=s;
+  document.querySelectorAll('.kc').forEach(k=>k.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+  renderTable();
+}
+
+function applyFilter(){renderTable();}
+
+// ===== PANEL =====
+function openPanel(id){
+  const inv=invoices.find(x=>x.id===id);if(!inv)return;
+  const m=PAY_STATUS_META[inv.payStatus]||PAY_STATUS_META['未請求'];
+  document.getElementById('dp-meta').textContent=inv.id+' · '+inv.bs;
+  document.getElementById('dp-name').textContent=inv.name;
+  document.getElementById('dp-dec').textContent='被相続人：'+inv.dec;
+  // フロー
+  const si=PAY_FLOW.indexOf(inv.payStatus);
+  document.getElementById('payFlow').innerHTML=PAY_FLOW.map((s,i)=>{
+    const p=i<si,a=s===inv.payStatus;
+    return`<div class="pf-item"><div class="pf-dot ${a?'active':p?'passed':''}"></div><div class="pf-label ${a?'active':''}" style="font-size:8px">${s}</div><div class="pf-line ${p?'passed':''}"></div></div>`;
+  }).join('');
+  const diff=inv.invoiceAmt-inv.paidAmt;
+  document.getElementById('dp-body').innerHTML=`
+    <div class="ps"><div class="pst">入金ステータス変更</div>
+      <div class="st-drop-wrap">
+        <button class="st-drop-btn" onclick="toggleStDrop('${inv.id}')">
+          <span class="badge ${m.cls}">${inv.payStatus}</span>
+          <span style="font-size:11px;color:var(--muted)">▾</span>
+        </button>
+        <div class="st-dropdown" id="st-drop-${inv.id}">
+          ${Object.keys(PAY_STATUS_META).map(s=>`<div class="st-opt ${s===inv.payStatus?'cur':''}" onclick="changePayStatus('${inv.id}','${s}')">
+            <div class="st-dot" style="background:${PAY_STATUS_META[s].color}"></div>${s}
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="ps"><div class="pst">📋 請求情報</div>
+      <div class="pr"><span class="pk">案件ID</span><span class="pv" style="font-family:'DM Mono',monospace">${inv.caseId}</span></div>
+      <div class="pr"><span class="pk">依頼日</span><span class="pv">${inv.date}</span></div>
+      <div class="pr"><span class="pk">請求合計（税込）</span><span class="pv" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--blue)">${fmt(inv.invoiceAmt)}</span></div>
+      <div class="pr"><span class="pk">行政書士報酬</span><span class="pv" style="font-family:'DM Mono',monospace">${fmt(inv.adminAmt)}</span></div>
+      <div class="pr"><span class="pk">司法書士報酬</span><span class="pv" style="font-family:'DM Mono',monospace">${fmt(inv.judAmt)}</span></div>
+      ${inv.partnerRatio?`<div class="pr"><span class="pk">パートナー報酬額</span><span class="pv" style="font-family:'DM Mono',monospace;color:var(--purple)">${fmt(Math.round(inv.invoiceAmt*inv.partnerRatio))} <span style="font-size:10px;color:var(--muted)">(${(inv.partnerRatio*100).toFixed(0)}%)</span></span></div>`:''}
+    </div>
+    <div class="ps"><div class="pst">💰 入金状況</div>
+      <div class="pr"><span class="pk">前受金請求額</span><span class="pv" style="font-family:'DM Mono',monospace">${fmt(inv.advAmt)}</span></div>
+      <div class="pr"><span class="pk">前受金請求日</span><span class="pv">${inv.advDate||'—'}</span></div>
+      <div class="pr"><span class="pk">前受金入金日</span><span class="pv">${inv.advPaidDate||'—'}</span></div>
+      <div class="pr"><span class="pk">確定請求日</span><span class="pv">${inv.finalDate||'—'}</span></div>
+      <div class="pr"><span class="pk">確定入金日</span><span class="pv">${inv.finalPaidDate||'—'}</span></div>
+      <div class="pr"><span class="pk">入金済合計</span><span class="pv" style="font-family:'DM Mono',monospace;color:var(--green)">${fmt(inv.paidAmt)}</span></div>
+      <div class="pr"><span class="pk">差額</span><span class="pv" style="font-family:'DM Mono',monospace;color:${diff>0?'var(--red)':diff===0&&inv.invoiceAmt>0?'var(--green)':'var(--muted)'}">${diff>0?fmt(diff):diff===0&&inv.invoiceAmt>0?'完納 ✓':'—'}</span></div>
+    </div>
+    ${inv.expenses&&inv.expenses.length>0?`<div class="ps"><div class="pst">🧾 立替実費明細</div>
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:var(--bg)">
+            <th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">項目</th>
+            <th style="text-align:right;padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">金額</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">日付</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">関連タスク</th>
+          </tr></thead>
+          <tbody>${inv.expenses.map(e=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 10px;font-weight:500;color:var(--text2)">${e.item}</td>
+            <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-weight:500">${fmt(e.amount)}</td>
+            <td style="padding:6px 10px;font-family:'DM Mono',monospace;color:var(--muted);font-size:10px">${e.date}</td>
+            <td style="padding:6px 10px;color:var(--muted);font-size:10px">${e.task}</td>
+          </tr>`).join('')}
+          <tr style="background:var(--bg)">
+            <td style="padding:7px 10px;font-weight:700;font-size:11px">合計</td>
+            <td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--blue)">${fmt(inv.expenses.reduce((s,e)=>s+e.amount,0))}</td>
+            <td colspan="2"></td>
+          </tr></tbody>
+        </table>
+      </div>
+    </div>`:''}
+    ${inv.note?`<div class="ps"><div class="pst">📝 メモ</div><div style="background:var(--amber-l);border:1px solid #FDE68A;border-radius:7px;padding:10px 12px;font-size:12px;line-height:1.7;color:#92400E">${inv.note}</div></div>`:''}
+    ${diff>0&&inv.payStatus!=='完了'&&inv.payStatus!=='入金確認済'?`<div style="padding-top:4px"><button class="btn btn-p" style="width:100%" onclick="openPayModal('${inv.id}')">💰 入金消込を登録する</button></div>`:''}
+  `;
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('ov').classList.add('active');
+}
+
+function closePanel(){
+  document.getElementById('dp').classList.remove('open');
+  document.getElementById('ov').classList.remove('active');
+}
+
+function toggleStDrop(id){
+  const d=document.getElementById('st-drop-'+id);
+  d.classList.toggle('open');
+}
+
+function changePayStatus(id,s){
+  const inv=invoices.find(x=>x.id===id);if(!inv)return;
+  inv.payStatus=s;
+  document.querySelectorAll('.st-dropdown').forEach(d=>d.classList.remove('open'));
+  openPanel(id);
+  renderTable();
+  showToast(`入金ステータスを「${s}」に変更しました`);
+}
+
+// ===== CSV =====
+function switchView(v,el){
+  document.getElementById('view-list').style.display=v==='list'?'':'none';
+  document.getElementById('view-csv').style.display=v==='csv'?'':'none';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  else document.querySelectorAll('.tab')[v==='csv'?1:0].classList.add('active');
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  loadSampleCSV();
+}
+function handleCSV(){loadSampleCSV();}
+
+function loadSampleCSV(){
+  document.getElementById('dropZone').style.display='none';
+  document.getElementById('matchResult').style.display='block';
+  renderMatchRows();
+}
+
+function resetCSV(){
+  document.getElementById('dropZone').style.display='';
+  document.getElementById('matchResult').style.display='none';
+}
+
+function renderMatchRows(){
+  const auto=sampleBankData.filter(r=>r.ref).length;
+  const manual=sampleBankData.filter(r=>!r.ref).length;
+  document.getElementById('matchSummary').innerHTML=`
+    <span style="background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid #A7F3D0">自動突合 ${auto}件</span>
+    <span style="background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid #FDE68A;margin-left:5px">要確認 ${manual}件</span>`;
+
+  document.getElementById('matchRows').innerHTML=sampleBankData.map((row,i)=>{
+    const matched=invoices.find(inv=>inv.caseId===row.ref);
+    const autoMatch=!!matched;
+    const amtMatch=matched&&matched.advAmt===row.amount;
+    let statusCls='unmatched',statusLabel='要確認',statusLabelCls='ml-warn';
+    if(autoMatch&&amtMatch){statusCls='matched';statusLabel='自動突合 ✓';statusLabelCls='ml-ok';}
+    else if(autoMatch&&!amtMatch){statusCls='unmatched';statusLabel='金額不一致';statusLabelCls='ml-warn';}
+    else{statusCls='nomatch';statusLabel='手動対応';statusLabelCls='ml-ng';}
+    return`<div class="match-row">
+      <div class="match-bank">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">銀行明細</div>
+        <div style="font-weight:600;font-size:13px;font-family:'DM Mono',monospace">${fmt(row.amount)}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${row.name}</div>
+        <div style="font-size:10px;color:var(--muted)">${row.date}</div>
+      </div>
+      <div class="match-arrow">→</div>
+      <div class="match-case ${statusCls}">
+        <div class="match-label ${statusLabelCls}">${statusLabel}</div>
+        ${matched?`<div style="font-weight:600;font-size:12px">${matched.name}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${matched.caseId}</div>
+          ${!amtMatch?`<div style="font-size:10px;color:var(--amber);margin-top:3px">⚠️ 請求額 ${fmt(matched.advAmt)} との差額：${fmt(Math.abs(row.amount-matched.advAmt))}</div>`:''}
+        `:`<div style="color:var(--muted);font-size:12px">対応案件が見つかりません</div>
+          <div style="margin-top:6px"><select style="font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--white);font-family:'Noto Sans JP',sans-serif"><option>案件を選択...</option>${invoices.map(inv=>`<option>${inv.caseId} · ${inv.name}</option>`).join('')}</select></div>`}
+      </div>
+      <div class="match-action" style="padding-left:8px">
+        ${autoMatch&&amtMatch?`<button class="btn" style="font-size:11px;background:var(--green-l);color:var(--green);border:1px solid #A7F3D0;padding:5px 10px" onclick="confirmMatch(${i})">消込</button>`
+        :`<button class="btn btn-g" style="font-size:11px;padding:5px 10px" onclick="confirmMatch(${i})">手動消込</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function confirmMatch(i){
+  const row=sampleBankData[i];
+  if(row.ref){
+    const inv=invoices.find(x=>x.caseId===row.ref);
+    if(inv){
+      inv.paidAmt+=row.amount;
+      inv.payStatus=inv.paidAmt>=inv.invoiceAmt?'入金確認済':inv.paidAmt>0?'入金待ち':'入金確認済';
+      inv.advPaidDate='2025/11/14';
+    }
+  }
+  renderTable();
+  renderMatchRows();
+  showToast(`${fmt(row.amount)} を消込しました ✓`);
+}
+
+function applyAllMatch(){
+  sampleBankData.filter(r=>r.ref).forEach(row=>{
+    const inv=invoices.find(x=>x.caseId===row.ref);
+    if(inv&&inv.advAmt===row.amount){
+      inv.paidAmt+=row.amount;
+      inv.payStatus='入金確認済';
+      inv.advPaidDate='2025/11/14';
+    }
+  });
+  renderTable();
+  showToast('自動突合された3件を一括消込しました ✓');
+  setTimeout(()=>{switchView('list',document.querySelectorAll('.tab')[0]);},1200);
+}
+
+// ===== INVOICE MODAL =====
+function openInvoiceModal(){document.getElementById('invoiceModal').classList.add('open')}
+function closeInvoiceModal(){document.getElementById('invoiceModal').classList.remove('open')}
+
+let invTypeSelected='前受金';
+function setInvType(t){
+  invTypeSelected=t;
+  ['前受金','確定請求'].forEach(x=>{
+    const id=x==='前受金'?'inv-adv':'inv-fin';
+    const el=document.getElementById(id);
+    if(x===t){el.style.background='var(--blue)';el.style.color='#fff';el.style.border='1px solid var(--blue)';}
+    else{el.style.background='';el.style.color='';el.style.border='';}
+  });
+}
+setInvType('前受金');
+
+function issueInvoice(){
+  const caseSel=document.getElementById('inv-case').value;
+  const amount=document.getElementById('inv-amount').value;
+  if(!caseSel){showToast('案件を選択してください');return;}
+  closeInvoiceModal();
+  showToast(`${invTypeSelected}請求書を発行しました`);
+}
+
+// ===== PAY MODAL =====
+let payTargetId=null;
+function openPayModal(id){
+  payTargetId=id;
+  const inv=invoices.find(x=>x.id===id);if(!inv)return;
+  document.getElementById('pay-case-info').innerHTML=`
+    <div style="font-weight:600">${inv.name} <span style="font-size:11px;font-weight:400;color:var(--muted)">${inv.caseId}</span></div>
+    <div style="margin-top:5px;display:flex;gap:16px">
+      <span style="color:var(--muted)">請求額：</span><span style="font-family:'DM Mono',monospace;font-weight:600">${fmt(inv.invoiceAmt)}</span>
+      <span style="color:var(--muted)">既入金：</span><span style="font-family:'DM Mono',monospace;color:var(--green)">${fmt(inv.paidAmt)}</span>
+    </div>`;
+  document.getElementById('pay-amount').value=fmt(inv.advAmt&&!inv.advPaidDate?inv.advAmt:inv.invoiceAmt-inv.paidAmt);
+  document.getElementById('payModal').classList.add('open');
+}
+function closePayModal(){document.getElementById('payModal').classList.remove('open')}
+
+function recordPayment(){
+  if(!payTargetId)return;
+  const inv=invoices.find(x=>x.id===payTargetId);if(!inv)return;
+  const s=document.getElementById('pay-status').value;
+  inv.payStatus=s;
+  if(s==='入金確認済')inv.advPaidDate='2025/11/14';
+  else if(s==='完了'){inv.finalPaidDate='2025/11/14';inv.paidAmt=inv.invoiceAmt;}
+  closePayModal();
+  closePanel();
+  renderTable();
+  showToast('入金消込を登録しました ✓');
+}
+
+// ===== TOAST =====
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.st-drop-wrap'))
+    document.querySelectorAll('.st-dropdown').forEach(d=>d.classList.remove('open'));
+});
+
+renderTable();
+</script>
+</body>
+</html>

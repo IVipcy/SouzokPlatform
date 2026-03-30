@@ -1,0 +1,201 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import Modal from '@/components/ui/Modal'
+import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import type { TaskRow, TaskTemplateRow } from '@/types'
+
+type Props = {
+  isOpen: boolean
+  onClose: () => void
+  caseId: string
+  taskTemplates: TaskTemplateRow[]
+  existingTasks: TaskRow[]
+  onSaved: () => void
+}
+
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTemplates, existingTasks, onSaved }: Props) {
+  const existingKeys = new Set(existingTasks.map(t => t.template_key).filter(Boolean))
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const templatesByPhase = DB_PHASES.map(phase => ({
+    phase,
+    label: getPhaseLabel(phase),
+    color: getPhaseColor(phase),
+    templates: taskTemplates.filter(t => t.phase === phase),
+  })).filter(g => g.templates.length > 0)
+
+  const selectableTemplates = taskTemplates.filter(t => !existingKeys.has(t.key))
+
+  const toggleTemplate = (key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selected.size === selectableTemplates.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(selectableTemplates.map(t => t.key)))
+    }
+  }
+
+  const togglePhase = (phase: string) => {
+    const phaseTemplates = selectableTemplates.filter(t => t.phase === phase)
+    const allSelected = phaseTemplates.every(t => selected.has(t.key))
+    setSelected(prev => {
+      const next = new Set(prev)
+      phaseTemplates.forEach(t => {
+        if (allSelected) next.delete(t.key)
+        else next.add(t.key)
+      })
+      return next
+    })
+  }
+
+  const handleGenerate = async () => {
+    if (selected.size === 0) return
+
+    setSaving(true)
+    setError('')
+
+    const tasksToInsert = taskTemplates
+      .filter(t => selected.has(t.key))
+      .map(t => ({
+        case_id: caseId,
+        template_key: t.key,
+        title: t.label,
+        phase: t.phase,
+        category: t.category,
+        status: '未着手',
+        priority: '通常',
+        procedure_text: t.procedure_text,
+        sort_order: t.sort_order,
+      }))
+
+    const supabase = createClient()
+    const { error: dbError } = await supabase.from('tasks').insert(tasksToInsert)
+
+    setSaving(false)
+
+    if (dbError) {
+      setError(`生成に失敗しました: ${dbError.message}`)
+      return
+    }
+
+    setSelected(new Set())
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="タスク一括生成"
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <span className="text-sm text-gray-500 mr-auto">
+            {selected.size} 件選択
+          </span>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            キャン��ル
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={saving || selected.size === 0}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? '生成中...' : `${selected.size} 件生���`}
+          </button>
+        </>
+      }
+    >
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">
+          テンプレートから生成するタスクを選択してください
+        </p>
+        <button
+          onClick={toggleAll}
+          className="text-xs text-blue-600 font-medium hover:underline"
+        >
+          {selected.size === selectableTemplates.length ? '全解除' : '全選択'}
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {templatesByPhase.map(group => {
+          const selectable = group.templates.filter(t => !existingKeys.has(t.key))
+          const selectedInPhase = selectable.filter(t => selected.has(t.key)).length
+
+          return (
+            <div key={group.phase} className="border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => togglePhase(group.phase)}
+                className="w-full px-4 py-2.5 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: group.color }}
+                />
+                <span className="text-sm font-semibold text-gray-900 flex-1 text-left">
+                  {group.label}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {selectedInPhase}/{selectable.length}
+                </span>
+              </button>
+              <div className="divide-y divide-gray-50">
+                {group.templates.map(template => {
+                  const exists = existingKeys.has(template.key)
+                  return (
+                    <label
+                      key={template.key}
+                      className={`flex items-center gap-3 px-4 py-2 text-sm ${
+                        exists
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'cursor-pointer hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(template.key)}
+                        disabled={exists}
+                        onChange={() => toggleTemplate(template.key)}
+                        className="accent-blue-600 w-3.5 h-3.5"
+                      />
+                      <span className="flex-1 text-gray-700">{template.label}</span>
+                      <span className="text-[10px] text-gray-400 font-mono">{template.category}</span>
+                      {exists && (
+                        <span className="text-[10px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
+                          生成済
+                        </span>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Modal>
+  )
+}

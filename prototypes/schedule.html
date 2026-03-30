@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜スケジュール</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F8FA;--white:#FFFFFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFCFFF;
+  --green:#059669;--green-l:#ECFDF5;--green-m:#A7F3D0;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --orange:#EA580C;--orange-l:#FFF7ED;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh1:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600;color:var(--text)}
+.ur{font-size:10px;color:var(--muted)}
+
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-g:hover{background:var(--bg)}
+.content{padding:16px 24px;flex:1;display:flex;flex-direction:column;gap:14px}
+
+/* ツールバー */
+.cal-toolbar{display:flex;align-items:center;gap:10px}
+.month-nav{display:flex;align-items:center;gap:6px}
+.month-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);transition:all .12s}
+.month-btn:hover{background:var(--bg);color:var(--text2)}
+.month-label{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px;min-width:130px}
+.today-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--white);font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .12s;font-family:'Noto Sans JP',sans-serif}
+.today-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+.view-tabs{display:flex;gap:2px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:3px;box-shadow:var(--sh0)}
+.vt{padding:5px 12px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:none;transition:all .1s;font-family:'Noto Sans JP',sans-serif}
+.vt.active{background:var(--blue);color:#fff}
+
+/* カレンダーグリッド */
+.cal-wrap{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden;flex:1}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border)}
+.cal-dow{text-align:center;padding:9px 4px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px}
+.cal-dow:first-child{color:var(--red)}
+.cal-dow:last-child{color:var(--blue)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);flex:1}
+
+.cal-cell{
+  border-right:1px solid var(--border);border-bottom:1px solid var(--border);
+  min-height:110px;padding:6px;cursor:pointer;transition:background .08s;
+  position:relative;overflow:hidden;
+}
+.cal-cell:nth-child(7n){border-right:none}
+.cal-cell.other-month .day-num{color:var(--muted2)}
+.cal-cell.today{background:#FAFBFF}
+.cal-cell:hover{background:#FAFBFF}
+.cal-cell.selected{background:var(--blue-l)}
+
+.day-num{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--text2);
+  border-radius:50%;margin-bottom:4px;flex-shrink:0;
+}
+.cal-cell.today .day-num{
+  background:var(--blue);color:#fff;font-weight:700;
+}
+.day-num.sun{color:var(--red)}
+.day-num.sat{color:var(--blue)}
+
+/* イベントチップ */
+.ev-chip{
+  font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;
+  margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:opacity .1s;line-height:1.5;
+}
+.ev-chip:hover{opacity:.8}
+.ev-more{font-size:9px;color:var(--muted);padding:0 4px;cursor:pointer}
+.ev-more:hover{color:var(--blue)}
+
+/* ウィークビュー */
+.week-grid{display:flex;flex:1;overflow:hidden}
+.week-time{width:48px;flex-shrink:0;border-right:1px solid var(--border);padding-top:36px}
+.time-slot{height:48px;display:flex;align-items:flex-start;justify-content:center;padding-top:2px}
+.time-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2)}
+.week-cols{flex:1;overflow-x:auto}
+.week-inner{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));min-width:840px;height:100%}
+.week-col{}
+.week-col-head{text-align:center;padding:6px 4px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1}
+.wc-dow{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:1px}
+.wc-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text)}
+.wc-num.today{width:32px;height:32px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:14px}
+.week-cells{position:relative;border-right:1px solid var(--border)}
+.week-hour-line{height:48px;border-bottom:1px solid rgba(228,231,236,.6)}
+.week-event{
+  position:absolute;left:2px;right:2px;
+  border-radius:4px;padding:2px 5px;
+  font-size:10px;font-weight:600;cursor:pointer;
+  transition:opacity .1s;overflow:hidden;
+}
+.week-event:hover{opacity:.85}
+
+/* サイドパネル */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:90;backdrop-filter:blur(2px)}
+.ov.open{display:block}
+.dp{position:fixed;top:0;right:0;bottom:0;width:400px;background:var(--white);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .28s cubic-bezier(.16,1,.3,1);z-index:100;box-shadow:var(--sh3)}
+.dp.open{transform:translateX(0)}
+.dp-head{padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1;display:flex;align-items:flex-start;justify-content:space-between}
+.dp-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px}
+.dp-close{width:26px;height:26px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .12s}
+.dp-close:hover{background:var(--red-l);color:var(--red);border-color:#FECACA}
+.dp-body{padding:18px 20px}
+.dp-section{margin-bottom:20px}
+.dp-sec-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.dp-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border)}
+.dp-row:last-child{border-bottom:none}
+.dp-key{font-size:12px;color:var(--muted)}
+.dp-val{font-size:12px;font-weight:600;color:var(--text);text-align:right;max-width:200px}
+
+/* 予定追加モーダル */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;backdrop-filter:blur(2px);align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:16px;padding:28px;width:100%;max-width:480px;box-shadow:var(--sh3);animation:mUp .25s cubic-bezier(.16,1,.3,1) both}
+@keyframes mUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:18px;margin-bottom:20px}
+.mf-group{margin-bottom:14px}
+.mf-label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.mf-input,.mf-select,.mf-textarea{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;background:var(--white)}
+.mf-input:focus,.mf-select:focus,.mf-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.mf-textarea{resize:vertical;min-height:72px}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mf-type-btns{display:flex;gap:6px;flex-wrap:wrap}
+.type-btn{padding:6px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--white);font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .12s;font-family:'Noto Sans JP',sans-serif}
+.type-btn.active{border-color:currentColor}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-cancel{padding:9px 18px;border-radius:7px;border:1px solid var(--border);background:var(--white);font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'Noto Sans JP',sans-serif}
+.btn-save{padding:9px 20px;border-radius:7px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.btn-save:hover{background:#1D4ED8}
+
+/* ミニリスト（サイドに予定一覧） */
+.side-list{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--sh0)}
+.sl-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.sl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .1s}
+.sl-item:last-child{border-bottom:none}
+.sl-item:hover{opacity:.75}
+.sl-dot{width:3px;border-radius:2px;flex-shrink:0;margin-top:2px;align-self:stretch}
+.sl-body{}
+.sl-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:1px}
+.sl-name{font-size:12px;font-weight:600;color:var(--text)}
+.sl-case{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* 担当者フィルタ */
+.member-filter{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.member-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:100px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;font-size:11px;font-weight:600;color:var(--text2);transition:all .12s}
+.member-chip.active{color:#fff;border-color:transparent}
+.mc-dot{width:7px;height:7px;border-radius:50%}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div>
+      <div class="logo-text">相続プラットフォーム</div>
+      <div class="logo-sub">OCEAN · INHERITANCE</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item active"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item" onclick="location.href='task.html'"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card">
+      <div class="av">田</div>
+      <div><div class="un">田中 受注</div><div class="ur">受注担当</div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">スケジュール</div>
+      <div class="page-bc">相続プラットフォーム / スケジュール</div>
+    </div>
+    <div class="tbr">
+      <!-- 担当者フィルタ -->
+      <div class="member-filter" id="memberFilter">
+        <span style="font-size:11px;color:var(--muted);font-weight:600">担当者:</span>
+        <div class="member-chip active" style="background:#2563EB;border-color:#2563EB" data-member="all" onclick="toggleMember('all',this)">
+          <span>全員</span>
+        </div>
+        <div class="member-chip" data-member="tanaka" onclick="toggleMember('tanaka',this)">
+          <span class="mc-dot" style="background:#2563EB"></span>田中
+        </div>
+        <div class="member-chip" data-member="sato" onclick="toggleMember('sato',this)">
+          <span class="mc-dot" style="background:#7C3AED"></span>佐藤
+        </div>
+        <div class="member-chip" data-member="yamamoto" onclick="toggleMember('yamamoto',this)">
+          <span class="mc-dot" style="background:#059669"></span>山本
+        </div>
+        <div class="member-chip" data-member="ito" onclick="toggleMember('ito',this)">
+          <span class="mc-dot" style="background:#D97706"></span>伊藤
+        </div>
+      </div>
+      <button class="btn btn-p" onclick="openAddModal()">＋ 予定追加</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- ツールバー -->
+    <div class="cal-toolbar">
+      <div class="month-nav">
+        <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button class="month-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <button class="today-btn" onclick="goToday()">今日</button>
+      <div style="margin-left:auto">
+        <div class="view-tabs">
+          <button class="vt active" id="vt-month" onclick="setView('month',this)">月</button>
+          <button class="vt" id="vt-week" onclick="setView('week',this)">週</button>
+          <button class="vt" id="vt-list" onclick="setView('list',this)">リスト</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- カレンダー本体 -->
+    <div class="cal-wrap" id="calWrap">
+      <!-- JS で描画 -->
+    </div>
+  </div>
+</main>
+
+<!-- オーバーレイ -->
+<div class="ov" id="ov" onclick="closePanel()"></div>
+
+<!-- 詳細パネル -->
+<div class="dp" id="dp">
+  <div class="dp-head">
+    <div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:3px" id="dp-type-label"></div>
+      <div class="dp-title" id="dp-title"></div>
+    </div>
+    <button class="dp-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="dp-body" id="dp-body"></div>
+</div>
+
+<!-- 予定追加モーダル -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-title">📅 予定を追加</div>
+
+    <div class="mf-group">
+      <label class="mf-label">予定の種類</label>
+      <div class="mf-type-btns" id="typeButtons">
+        <button class="type-btn active" data-type="interview" style="color:#2563EB;border-color:#2563EB" onclick="selectType('interview',this)">👤 面談</button>
+        <button class="type-btn" data-type="task" style="color:#7C3AED" onclick="selectType('task',this)">✅ タスク期限</button>
+        <button class="type-btn" data-type="deadline" style="color:#DC2626" onclick="selectType('deadline',this)">⚠️ 申告期限</button>
+        <button class="type-btn" data-type="other" style="color:#059669" onclick="selectType('other',this)">📌 その他</button>
+      </div>
+    </div>
+
+    <div class="mf-group">
+      <label class="mf-label">タイトル</label>
+      <input class="mf-input" type="text" id="m-title" placeholder="予定のタイトルを入力">
+    </div>
+
+    <div class="mf-row">
+      <div class="mf-group">
+        <label class="mf-label">日付</label>
+        <input class="mf-input" type="date" id="m-date">
+      </div>
+      <div class="mf-group">
+        <label class="mf-label">担当者</label>
+        <select class="mf-select" id="m-member">
+          <option value="tanaka">田中</option>
+          <option value="sato">佐藤</option>
+          <option value="yamamoto">山本</option>
+          <option value="ito">伊藤</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mf-row">
+      <div class="mf-group">
+        <label class="mf-label">開始時刻</label>
+        <input class="mf-input" type="time" id="m-start" value="10:00">
+      </div>
+      <div class="mf-group">
+        <label class="mf-label">終了時刻</label>
+        <input class="mf-input" type="time" id="m-end" value="11:00">
+      </div>
+    </div>
+
+    <div class="mf-group">
+      <label class="mf-label">関連案件</label>
+      <select class="mf-select" id="m-case">
+        <option value="">— 案件なし —</option>
+        <option value="R7-A00123">R7-A00123 · 山田 花子</option>
+        <option value="R7-A00124">R7-A00124 · 鈴木 一郎</option>
+        <option value="R7-A00125">R7-A00125 · 高橋 誠</option>
+        <option value="R7-A00126">R7-A00126 · 中村 さくら</option>
+        <option value="R7-A00127">R7-A00127 · 松本 隆</option>
+      </select>
+    </div>
+
+    <div class="mf-group">
+      <label class="mf-label">メモ</label>
+      <textarea class="mf-textarea" id="m-note" placeholder="備考・場所・来所手段など"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveEvent()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== データ ====== */
+const MEMBER_COLOR = {
+  tanaka: '#2563EB', sato: '#7C3AED', yamamoto: '#059669', ito: '#D97706'
+};
+const MEMBER_LABEL = {tanaka:'田中', sato:'佐藤', yamamoto:'山本', ito:'伊藤'};
+const TYPE_CONFIG = {
+  interview: {icon:'👤', label:'面談', bg:'#EFF4FF', color:'#2563EB'},
+  task:      {icon:'✅', label:'タスク期限', bg:'#F5F3FF', color:'#7C3AED'},
+  deadline:  {icon:'⚠️', label:'申告期限', bg:'#FEF2F2', color:'#DC2626'},
+  other:     {icon:'📌', label:'その他', bg:'#ECFDF5', color:'#059669'},
+};
+
+let events = [
+  {id:1,type:'interview',title:'山田花子様 面談',date:'2025-11-17',start:'10:00',end:'11:30',member:'tanaka',caseId:'R7-A00123',caseName:'山田 花子',note:'港区赤坂の不動産・金融資産案件。相続税申告あり。'},
+  {id:2,type:'interview',title:'鈴木一郎様 面談',date:'2025-11-18',start:'14:00',end:'15:00',member:'sato',caseId:'R7-A00124',caseName:'鈴木 一郎',note:'単独相続。預貯金のみ。'},
+  {id:3,type:'task',title:'戸籍請求 期限',date:'2025-11-20',start:'',end:'',member:'tanaka',caseId:'R7-A00123',caseName:'山田 花子',note:'横浜市中区・藤沢市役所'},
+  {id:4,type:'deadline',title:'相続税申告期限',date:'2025-11-30',start:'',end:'',member:'tanaka',caseId:'R7-A00123',caseName:'山田 花子',note:'申告期限（死亡日から10ヶ月）'},
+  {id:5,type:'interview',title:'中村さくら様 面談（再面談）',date:'2025-11-19',start:'13:00',end:'14:00',member:'yamamoto',caseId:'R7-A00127',caseName:'中村 さくら',note:'名寄帳差戻し後の確認面談'},
+  {id:6,type:'task',title:'遺産分割協議書 署名回収期限',date:'2025-11-28',start:'',end:'',member:'sato',caseId:'R7-A00126',caseName:'高橋 誠',note:'回答期限 12/5'},
+  {id:7,type:'interview',title:'松本隆様 財産目録確認',date:'2025-11-14',start:'11:00',end:'12:00',member:'ito',caseId:'R7-A00122',caseName:'松本 隆',note:'不動産・証券・預貯金含む複合案件'},
+  {id:8,type:'other',title:'月次報告 パートナーMTG',date:'2025-11-25',start:'16:00',end:'17:00',member:'tanaka',caseId:'',caseName:'',note:'LP向け月次報告'},
+  {id:9,type:'interview',title:'渡辺明美様 書類説明',date:'2025-11-21',start:'10:30',end:'11:30',member:'sato',caseId:'R7-A00120',caseName:'渡辺 明美',note:'原本・受領書の納品'},
+  {id:10,type:'task',title:'横浜銀行 解約手続き期限',date:'2025-12-05',start:'',end:'',member:'yamamoto',caseId:'R7-A00124',caseName:'鈴木 一郎',note:'藤沢支店。要予約'},
+];
+
+let curDate = new Date(2025, 10, 1); // 2025年11月
+let curView = 'month';
+let selectedMembers = ['all'];
+let selectedType = 'interview';
+let nextId = 11;
+
+/* ====== 初期化 ====== */
+document.addEventListener('DOMContentLoaded', () => {
+  // 今日の日付をモーダルのデフォルトに
+  const today = new Date();
+  document.getElementById('m-date').value = today.toISOString().slice(0,10);
+  render();
+});
+
+/* ====== 担当者フィルタ ====== */
+function toggleMember(member, el) {
+  if (member === 'all') {
+    selectedMembers = ['all'];
+    document.querySelectorAll('.member-chip').forEach(c => {
+      c.classList.remove('active');
+      c.style.background = '';c.style.borderColor = '';c.style.color = '';
+    });
+    el.classList.add('active');
+    el.style.background = '#2563EB';el.style.borderColor = '#2563EB';el.style.color = '#fff';
+  } else {
+    // allを外す
+    const allChip = document.querySelector('[data-member="all"]');
+    allChip.classList.remove('active');
+    allChip.style.background = '';allChip.style.borderColor = '';allChip.style.color = '';
+    selectedMembers = selectedMembers.filter(m=>m!=='all');
+
+    if (el.classList.contains('active')) {
+      el.classList.remove('active');
+      el.style.background = '';el.style.borderColor = '';el.style.color = '';
+      selectedMembers = selectedMembers.filter(m=>m!==member);
+      if (!selectedMembers.length) {
+        selectedMembers = ['all'];
+        allChip.classList.add('active');
+        allChip.style.background = '#2563EB';allChip.style.borderColor = '#2563EB';allChip.style.color = '#fff';
+      }
+    } else {
+      el.classList.add('active');
+      const color = MEMBER_COLOR[member];
+      el.style.background = color;el.style.borderColor = color;el.style.color = '#fff';
+      selectedMembers.push(member);
+    }
+  }
+  render();
+}
+
+function filteredEvents() {
+  if (selectedMembers.includes('all')) return events;
+  return events.filter(e => selectedMembers.includes(e.member));
+}
+
+/* ====== ビュー切替 ====== */
+function setView(v, el) {
+  curView = v;
+  document.querySelectorAll('.vt').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function changeMonth(d) {
+  curDate = new Date(curDate.getFullYear(), curDate.getMonth() + d, 1);
+  render();
+}
+
+function goToday() {
+  curDate = new Date();
+  curDate.setDate(1);
+  render();
+}
+
+/* ====== メインレンダリング ====== */
+function render() {
+  const label = curDate.toLocaleDateString('ja-JP', {year:'numeric', month:'long'});
+  document.getElementById('monthLabel').textContent = label;
+  const wrap = document.getElementById('calWrap');
+  if (curView === 'month') renderMonth(wrap);
+  else if (curView === 'week') renderWeek(wrap);
+  else renderList(wrap);
+}
+
+/* ====== 月ビュー ====== */
+function renderMonth(wrap) {
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  const first = new Date(y, m, 1);
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const startDow = first.getDay(); // 0=日
+  const today = new Date();
+
+  const DOW = ['日','月','火','水','木','金','土'];
+  let html = `<div style="display:flex;flex-direction:column;height:100%">
+    <div class="cal-head">${DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('')}</div>
+    <div class="cal-grid" style="flex:1">`;
+
+  // 前月のセル
+  const prevLast = new Date(y, m, 0).getDate();
+  for (let i=0; i<startDow; i++) {
+    const d = prevLast - startDow + i + 1;
+    html += `<div class="cal-cell other-month"><div class="day-num">${d}</div></div>`;
+  }
+
+  // 当月
+  const evs = filteredEvents();
+  for (let d=1; d<=lastDay; d++) {
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = d===today.getDate() && m===today.getMonth() && y===today.getFullYear();
+    const dow = new Date(y,m,d).getDay();
+    const dayEvs = evs.filter(e=>e.date===dateStr);
+
+    html += `<div class="cal-cell${isToday?' today':''}" onclick="onDayClick('${dateStr}')">
+      <div class="day-num${dow===0?' sun':dow===6?' sat':''}">${d}</div>`;
+
+    dayEvs.slice(0,3).forEach(ev => {
+      const cfg = TYPE_CONFIG[ev.type];
+      html += `<div class="ev-chip" style="background:${cfg.bg};color:${cfg.color}"
+        onclick="event.stopPropagation();openEventPanel(${ev.id})"
+        title="${ev.title}">
+        ${cfg.icon} ${ev.title}
+      </div>`;
+    });
+    if (dayEvs.length > 3) {
+      html += `<div class="ev-more">+${dayEvs.length-3}件</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // 次月
+  const totalCells = startDow + lastDay;
+  const remaining = (7 - totalCells % 7) % 7;
+  for (let d=1; d<=remaining; d++) {
+    html += `<div class="cal-cell other-month"><div class="day-num">${d}</div></div>`;
+  }
+
+  html += `</div></div>`;
+  wrap.innerHTML = html;
+}
+
+/* ====== 週ビュー ====== */
+function renderWeek(wrap) {
+  const dow = curDate.getDay();
+  const weekStart = new Date(curDate);
+  weekStart.setDate(curDate.getDate() - dow);
+  const today = new Date();
+  const DOWS = ['日','月','火','水','木','金','土'];
+  const evs = filteredEvents();
+
+  let html = `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div style="display:flex;border-bottom:1px solid var(--border)">
+      <div style="width:48px;flex-shrink:0"></div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(7,1fr)">`;
+
+  for (let i=0; i<7; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
+    const isToday = d.toDateString() === today.toDateString();
+    html += `<div class="week-col-head">
+      <div class="wc-dow">${DOWS[d.getDay()]}</div>
+      <div class="${isToday?'wc-num today':'wc-num'}">${d.getDate()}</div>
+    </div>`;
+  }
+  html += `</div></div>
+  <div style="display:flex;flex:1;overflow-y:auto">
+    <div class="week-time">`;
+
+  for (let h=8; h<=20; h++) {
+    html += `<div class="time-slot"><span class="time-label">${String(h).padStart(2,'0')}:00</span></div>`;
+  }
+  html += `</div><div style="flex:1;display:grid;grid-template-columns:repeat(7,1fr);position:relative">`;
+
+  for (let i=0; i<7; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
+    const dateStr = d.toISOString().slice(0,10);
+    const dayEvs = evs.filter(e=>e.date===dateStr && e.start);
+
+    html += `<div style="position:relative;border-right:1px solid var(--border)">`;
+    for (let h=8; h<=20; h++) {
+      html += `<div class="week-hour-line"></div>`;
+    }
+    dayEvs.forEach(ev=>{
+      if (!ev.start) return;
+      const [sh,sm] = ev.start.split(':').map(Number);
+      const [eh,em] = (ev.end||ev.start).split(':').map(Number);
+      const top = (sh - 8) * 48 + sm * 0.8;
+      const height = Math.max(((eh*60+em) - (sh*60+sm)) * 0.8, 24);
+      const cfg = TYPE_CONFIG[ev.type];
+      html += `<div class="week-event" style="top:${top}px;height:${height}px;background:${cfg.bg};color:${cfg.color};border-left:3px solid ${cfg.color}"
+        onclick="openEventPanel(${ev.id})" title="${ev.title}">
+        <span>${ev.start}</span> ${ev.title}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div></div></div>`;
+  wrap.innerHTML = html;
+}
+
+/* ====== リストビュー ====== */
+function renderList(wrap) {
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  const evs = filteredEvents()
+    .filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear()===y && d.getMonth()===m;
+    })
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  if (!evs.length) {
+    wrap.innerHTML = `<div style="padding:60px;text-align:center;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:12px">📭</div>
+      <div style="font-size:13px">この月の予定はありません</div>
+    </div>`;
+    return;
+  }
+
+  // 日付別グループ
+  const groups = {};
+  evs.forEach(e=>{
+    if(!groups[e.date]) groups[e.date]=[];
+    groups[e.date].push(e);
+  });
+
+  let html = `<div style="padding:16px">`;
+  Object.keys(groups).sort().forEach(dateStr=>{
+    const d = new Date(dateStr);
+    const dow = ['日','月','火','水','木','金','土'][d.getDay()];
+    const isToday = d.toDateString()===new Date().toDateString();
+    html += `<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:${isToday?'var(--blue)':'var(--text2)'}">
+          ${dateStr.slice(5).replace('-','/')} (${dow})${isToday?' 今日':''}
+        </div>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>`;
+
+    groups[dateStr].forEach(ev=>{
+      const cfg = TYPE_CONFIG[ev.type];
+      const mc = MEMBER_COLOR[ev.member];
+      html += `<div class="sl-item" onclick="openEventPanel(${ev.id})" style="padding:10px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;background:var(--white)">
+        <div class="sl-dot" style="background:${cfg.color}"></div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:11px;background:${cfg.bg};color:${cfg.color};padding:2px 7px;border-radius:4px;font-weight:600">${cfg.icon} ${cfg.label}</span>
+            ${ev.start?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${ev.start}${ev.end?'–'+ev.end:''}</span>`:''}
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${ev.title}</div>
+          ${ev.caseName?`<div style="font-size:11px;color:var(--muted);margin-top:2px">📋 ${ev.caseName} · ${ev.caseId}</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:22px;height:22px;border-radius:50%;background:${mc};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${MEMBER_LABEL[ev.member][0]}</div>
+          <span style="font-size:11px;color:var(--muted)">${MEMBER_LABEL[ev.member]}</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+/* ====== イベント詳細パネル ====== */
+function openEventPanel(id) {
+  const ev = events.find(e=>e.id===id);
+  if (!ev) return;
+  const cfg = TYPE_CONFIG[ev.type];
+  document.getElementById('dp-type-label').innerHTML = `<span style="background:${cfg.bg};color:${cfg.color};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">${cfg.icon} ${cfg.label}</span>`;
+  document.getElementById('dp-title').textContent = ev.title;
+
+  const mc = MEMBER_COLOR[ev.member];
+  let html = `<div class="dp-section">
+    <div class="dp-sec-title">予定情報</div>
+    <div class="dp-row"><span class="dp-key">日付</span><span class="dp-val">${ev.date.replace(/-/g,'/')}</span></div>
+    ${ev.start?`<div class="dp-row"><span class="dp-key">時刻</span><span class="dp-val">${ev.start}${ev.end?' – '+ev.end:''}</span></div>`:''}
+    <div class="dp-row"><span class="dp-key">担当者</span>
+      <span class="dp-val" style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+        <span style="width:18px;height:18px;border-radius:50%;background:${mc};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${MEMBER_LABEL[ev.member][0]}</span>
+        ${MEMBER_LABEL[ev.member]}
+      </span>
+    </div>
+    ${ev.caseId?`<div class="dp-row"><span class="dp-key">関連案件</span><span class="dp-val">${ev.caseName}<br><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${ev.caseId}</span></span></div>`:''}
+    ${ev.note?`<div class="dp-row"><span class="dp-key">メモ</span><span class="dp-val" style="font-size:11px;line-height:1.6">${ev.note}</span></div>`:''}
+  </div>`;
+
+  if (ev.caseId) {
+    html += `<div style="margin-top:16px">
+      <button class="btn btn-g" style="width:100%;justify-content:center" onclick="location.href='case_detail.html'">📋 案件詳細を開く</button>
+    </div>`;
+  }
+  html += `<div style="margin-top:8px">
+    <button class="btn btn-g" style="width:100%;justify-content:center;color:var(--red)" onclick="deleteEvent(${id})">🗑 この予定を削除</button>
+  </div>`;
+
+  document.getElementById('dp-body').innerHTML = html;
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('ov').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('dp').classList.remove('open');
+  document.getElementById('ov').classList.remove('open');
+}
+
+function deleteEvent(id) {
+  if (!confirm('この予定を削除しますか？')) return;
+  events = events.filter(e=>e.id!==id);
+  closePanel();
+  render();
+}
+
+function onDayClick(dateStr) {
+  document.getElementById('m-date').value = dateStr;
+  openAddModal();
+}
+
+/* ====== 予定追加モーダル ====== */
+function openAddModal() {
+  document.getElementById('m-title').value = '';
+  document.getElementById('m-note').value = '';
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalBg').classList.remove('open');
+}
+
+function selectType(type, el) {
+  selectedType = type;
+  document.querySelectorAll('.type-btn').forEach(b=>{
+    b.classList.remove('active');
+    b.style.borderColor='';b.style.background='';
+  });
+  el.classList.add('active');
+  const color = TYPE_CONFIG[type].color;
+  el.style.borderColor = color;el.style.background = TYPE_CONFIG[type].bg;
+}
+
+function saveEvent() {
+  const title = document.getElementById('m-title').value.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const date = document.getElementById('m-date').value;
+  if (!date) { alert('日付を選択してください'); return; }
+
+  events.push({
+    id: nextId++,
+    type: selectedType,
+    title,
+    date,
+    start: document.getElementById('m-start').value,
+    end: document.getElementById('m-end').value,
+    member: document.getElementById('m-member').value,
+    caseId: document.getElementById('m-case').value,
+    caseName: document.getElementById('m-case').options[document.getElementById('m-case').selectedIndex].text.split('·')[1]?.trim()||'',
+    note: document.getElementById('m-note').value,
+  });
+
+  closeModal();
+  render();
+}
+</script>
+</body>
+</html>

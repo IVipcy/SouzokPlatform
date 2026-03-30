@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜案件編集</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F8FA;--white:#FFFFFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;--red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh1:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+
+/* ===== SIDEBAR ===== */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px;text-decoration:none}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600;color:var(--text)}
+.ur{font-size:10px;color:var(--muted)}
+
+/* ===== MAIN LAYOUT ===== */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-g:hover{background:var(--bg)}
+.content{padding:20px 24px;flex:1}
+
+/* ===== CASE SELECTION ===== */
+.th{background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px}
+.td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.case-row{cursor:pointer;transition:background .1s}
+.case-row:hover{background:var(--bg)}
+.case-status{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;background:#EFF6FF;color:#3B82F6;border:1px solid #BFDBFE;margin-top:10px}
+.case-status::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+/* case select table styles handled by .th .td .case-row */
+.new-case-icon{width:48px;height:48px;background:var(--bg);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.new-case-label{font-size:14px;font-weight:600;color:var(--text2)}
+.new-case-sub{font-size:11px;color:var(--muted)}
+
+/* ===== STEP TABS ===== */
+.step-tabs-wrap{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:4px;display:flex;gap:2px;overflow-x:auto;margin-bottom:6px;box-shadow:var(--sh0)}
+.step-tabs-wrap::-webkit-scrollbar{display:none}
+.step-tab-item{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .12s;border:none;background:none;font-family:'Noto Sans JP',sans-serif;position:relative}
+.step-tab-item:hover{color:var(--text2);background:var(--bg)}
+.step-tab-item.active{background:var(--blue);color:#fff;font-weight:600}
+.step-tab-item.done{color:var(--green)}
+.step-tab-item.done::after{content:' \2713';font-size:10px}
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .4s ease}
+
+/* ===== FORM STYLES ===== */
+.form-area{max-width:800px}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.section-icon{width:40px;height:40px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.section-title{font-size:18px;font-weight:700;color:var(--text);letter-spacing:.3px}
+.section-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+.card{background:var(--white);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:var(--sh0);border:1px solid var(--border)}
+.card-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.required-dot{width:6px;height:6px;background:var(--red);border-radius:50%;display:inline-block}
+
+.input-field{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:11px 14px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);transition:border-color .2s,box-shadow .2s;-webkit-appearance:none}
+.input-field:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1);background:#fff}
+textarea.input-field{resize:vertical;min-height:80px;line-height:1.6}
+
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ===== PILLS ===== */
+.pill-group{display:flex;flex-wrap:wrap;gap:8px}
+.pill{padding:9px 16px;border-radius:100px;border:1.5px solid var(--border);font-size:13px;font-weight:500;color:var(--muted);background:var(--bg);cursor:pointer;transition:all .15s;user-select:none}
+.pill:active{transform:scale(.96)}
+.pill.selected{background:var(--blue);border-color:var(--blue);color:#fff}
+.pill.selected.multi{background:#1D4ED8;border-color:#1D4ED8}
+
+/* ===== TOGGLE CARDS ===== */
+.toggle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:600px){.toggle-grid{grid-template-columns:repeat(2,1fr)}}
+.toggle-card{border:1.5px solid var(--border);border-radius:10px;padding:12px 10px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg);user-select:none}
+.toggle-card:active{transform:scale(.97)}
+.toggle-card .tc-icon{font-size:20px;margin-bottom:4px}
+.toggle-card .tc-label{font-size:12px;font-weight:500;color:var(--muted)}
+.toggle-card.on{background:var(--green-l);border-color:var(--green)}
+.toggle-card.on .tc-label{color:var(--green);font-weight:700}
+
+/* ===== NUMBER STEPPER ===== */
+.number-stepper{display:flex;align-items:center;gap:0;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;width:160px}
+.stepper-btn{width:44px;height:44px;background:none;border:none;font-size:20px;color:var(--blue);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.stepper-btn:active{background:rgba(37,99,235,.08)}
+.stepper-val{flex:1;text-align:center;font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text);border:none;background:none;width:60px}
+
+/* ===== HEIR/PROP BLOCK ===== */
+.heir-block{border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;background:var(--bg);position:relative}
+.heir-number{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+.btn-remove{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;border:none;background:var(--red-l);color:var(--red);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.btn-add{width:100%;padding:14px;border:2px dashed var(--border);border-radius:10px;background:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Noto Sans JP',sans-serif}
+.btn-add:hover{border-color:var(--blue);background:var(--blue-l)}
+
+/* ===== CALC BOX ===== */
+.calc-box{background:linear-gradient(135deg,#1E3A5F 0%,#0F2440 100%);border-radius:12px;padding:18px 20px;color:#fff;margin-bottom:14px}
+.calc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.calc-row:last-child{border-bottom:none}
+.calc-row-label{font-size:12px;color:rgba(255,255,255,.6)}
+.calc-row-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:#60A5FA}
+.calc-row-val.warn{color:var(--amber)}
+.calc-row-val.danger{color:#FC8181}
+.tax-badge{display:inline-block;padding:4px 12px;border-radius:100px;font-size:13px;font-weight:700;margin-top:8px}
+.tax-badge.required{background:#FC8181;color:#fff}
+.tax-badge.not-required{background:var(--green);color:#fff}
+.tax-badge.unknown{background:rgba(255,255,255,.2);color:rgba(255,255,255,.7)}
+
+/* ===== RANK ===== */
+.rank-display{display:flex;align-items:center;gap:16px;margin-top:12px}
+.rank-circle{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;font-family:'DM Mono',monospace;flex-shrink:0;transition:all .3s}
+.rank-S{background:#FEF3C7;color:#B45309;box-shadow:0 4px 12px rgba(245,200,66,.3)}
+.rank-A{background:#DBEAFE;color:#1D4ED8;box-shadow:0 4px 12px rgba(37,99,235,.2)}
+.rank-B{background:#F0FDF4;color:#15803D;box-shadow:0 4px 12px rgba(21,128,61,.15)}
+.rank-C{background:#FFF7ED;color:#C2410C;box-shadow:0 4px 12px rgba(194,65,12,.15)}
+.rank-D{background:#FEF2F2;color:#B91C1C;box-shadow:0 4px 12px rgba(185,28,28,.15)}
+.rank-unknown{background:var(--border);color:var(--muted)}
+.rank-desc{font-size:13px;color:var(--muted);line-height:1.5}
+
+/* ===== CONFIRM ===== */
+.confirm-section{margin-bottom:20px}
+.confirm-title{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:0 0 8px;border-bottom:1.5px solid var(--border);margin-bottom:12px}
+.confirm-row{display:flex;padding:8px 0;border-bottom:1px solid var(--bg);gap:12px}
+.confirm-key{font-size:12px;color:var(--muted);flex:0 0 140px;padding-top:1px}
+.confirm-val{font-size:14px;font-weight:500;color:var(--text);flex:1;word-break:break-all}
+.confirm-val.empty{color:var(--border);font-style:italic}
+.chip{display:inline-block;background:var(--blue-l);border:1px solid #BFDBFE;color:var(--blue);font-size:12px;font-weight:600;padding:2px 10px;border-radius:100px;margin:2px 2px 2px 0}
+
+/* ===== BOTTOM BAR (in content) ===== */
+.bottom-bar{display:flex;justify-content:flex-end;gap:10px;padding:16px 0;margin-top:8px;border-top:1px solid var(--border)}
+.btn-prev{flex:0 0 auto;padding:12px 20px;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.btn-prev:hover{background:var(--bg)}
+.btn-next{flex:0 0 auto;padding:12px 32px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;box-shadow:var(--sh1)}
+.btn-next:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-next:active{transform:scale(.98)}
+.btn-submit{background:var(--green);box-shadow:0 4px 12px rgba(5,150,105,.25)}
+.btn-submit:hover{background:#047857}
+
+/* ===== SUCCESS ===== */
+.success-view{text-align:center;padding:60px 20px}
+.success-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--green) 0%,#047857 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 24px;box-shadow:0 8px 24px rgba(5,150,105,.3);color:#fff}
+.success-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px}
+.success-sub{font-size:14px;color:var(--muted);line-height:1.7}
+.json-box{background:#1E1E1E;border-radius:12px;padding:20px;margin-top:24px;text-align:left;overflow-x:auto}
+.json-box pre{font-family:'DM Mono',monospace;font-size:11px;color:#D4D4D4;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.btn-copy{display:block;width:100%;margin-top:12px;padding:12px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.btn-restart{display:block;width:100%;margin-top:8px;padding:12px;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+
+/* ===== REC BAR ===== */
+.rec-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#1E293B;border-radius:10px;margin-bottom:14px;box-shadow:var(--sh1);transition:all .3s}
+.rec-bar.hidden-bar{display:none}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:#FC8181;flex-shrink:0;animation:recPulse 1s infinite}
+@keyframes recPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.rec-dot.paused{animation:none;background:var(--amber)}
+.rec-dot.stopped{animation:none;background:var(--muted)}
+.rec-timer{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:#fff;min-width:52px}
+.rec-label{font-size:12px;color:rgba(255,255,255,.5);flex:1}
+.rec-btn{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;flex-shrink:0}
+.rec-btn:active{transform:scale(.9)}
+.rec-btn.pause{background:rgba(255,255,255,.15);color:#fff}
+.rec-btn.stop{background:#FC8181;color:#fff}
+
+/* ===== REC TOGGLE ===== */
+.rec-toggle{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:var(--bg);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.rec-toggle.recording{background:#FC8181;border-color:#FC8181;color:#fff;animation:recPulse 1.2s infinite}
+
+/* ===== AI STYLES ===== */
+.ai-filled{border-color:var(--green)!important;background:#ECFDF5!important;box-shadow:0 0 0 3px rgba(5,150,105,.12)!important}
+.ai-badge{display:inline-flex;align-items:center;gap:4px;background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:8px;vertical-align:middle;letter-spacing:.5px}
+.ai-pill{border-color:var(--green)!important;background:var(--green-l)!important;color:var(--green)!important;font-weight:700!important}
+.ai-overlay{position:fixed;inset:0;background:rgba(17,24,39,.85);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.ai-overlay-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--blue) 0%,#1D4ED8 100%);display:flex;align-items:center;justify-content:center;font-size:32px;animation:aiPulse 1.5s infinite}
+@keyframes aiPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(37,99,235,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 16px rgba(37,99,235,0)}}
+.ai-overlay-title{font-size:18px;font-weight:700;color:#fff}
+.ai-overlay-sub{font-size:13px;color:rgba(255,255,255,.55);text-align:center;line-height:1.7}
+.ai-progress-steps{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.ai-step{display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,.4);transition:color .3s}
+.ai-step.active{color:#60A5FA}
+.ai-step.done{color:rgba(255,255,255,.7)}
+.ai-step-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);flex-shrink:0;transition:background .3s}
+.ai-step.active .ai-step-dot{background:#60A5FA;animation:recPulse 1s infinite}
+.ai-step.done .ai-step-dot{background:#60A5FA;animation:none}
+
+.divider{height:1px;background:var(--border);margin:16px 0}
+.spacer{height:12px}
+.flex-row{display:flex;align-items:center;gap:10px}
+.hidden{display:none!important}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">&#9878;&#65039;</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon">&#128202;</span>ダッシュボード</a>
+    <a class="nav-item" href="intake.html"><span class="nav-icon">&#128203;</span>案件一覧</a>
+    <a class="nav-item active" href="meeting_input.html"><span class="nav-icon">📝</span>案件編集</a>
+    <a class="nav-item" href="task.html"><span class="nav-icon">&#9989;</span>タスク一覧</a>
+    <div class="nav-sec">書類・経理</div>
+    <a class="nav-item" href="document_list.html"><span class="nav-icon">&#128193;</span>ドキュメント</a>
+    <a class="nav-item" href="schedule.html"><span class="nav-icon">&#128197;</span>スケジュール</a>
+    <a class="nav-item" href="billing.html"><span class="nav-icon">&#128176;</span>請求管理</a>
+    <a class="nav-item" href="report.html"><span class="nav-icon">&#128200;</span>レポート</a>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title">案件編集（AI音声入力対応）</div><div class="page-bc">相続プラットフォーム / 案件編集</div></div>
+    <div class="tbr">
+      <div class="date-badge" id="headerDate" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)"></div>
+      <button class="rec-toggle" id="recToggleBtn" onclick="toggleFullRecording()" title="面談全体を録音">&#127908;&#65039;</button>
+      <button class="btn btn-g" onclick="backToSelect()">&#128281; 案件選択に戻る</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Case selection screen (Step 0) -->
+    <div id="caseSelectScreen">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:18px;letter-spacing:-.3px;margin-bottom:4px">面談設定済 案件一覧</div>
+          <div style="font-size:13px;color:var(--muted)">案件を選択するか、新規で面談を作成してください</div>
+        </div>
+        <button class="btn btn-p" onclick="selectCase('new')" style="flex-shrink:0">＋ 新規面談を作成</button>
+      </div>
+      <!-- Search -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div style="flex:1;position:relative">
+          <input type="text" id="caseSearch" placeholder="案件名・依頼者名・電話番号で検索" oninput="filterCases()" style="width:100%;padding:10px 14px 10px 36px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans JP',sans-serif;background:var(--white);color:var(--text);outline:none;transition:border-color .2s">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted)">🔍</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap" id="caseCount"></div>
+      </div>
+      <!-- Table -->
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden">
+        <table style="width:100%;border-collapse:collapse" id="caseTable">
+          <thead>
+            <tr>
+              <th class="th">案件番号</th>
+              <th class="th">案件名</th>
+              <th class="th">依頼者</th>
+              <th class="th">電話番号</th>
+              <th class="th">面談日時</th>
+              <th class="th">ステータス</th>
+              <th class="th" style="width:80px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="caseTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Meeting form screen -->
+    <div id="meetingFormScreen" style="display:none">
+      <!-- REC BAR -->
+      <div class="rec-bar hidden-bar" id="recBar">
+        <div class="rec-dot" id="recDot"></div>
+        <div class="rec-timer" id="recTimer">00:00</div>
+        <div class="rec-label" id="recLabel">録音中...</div>
+        <button class="rec-btn pause" id="recPauseBtn" onclick="pauseResume()">&#9208;</button>
+        <button class="rec-btn stop" onclick="stopFullRecording()">&#9632;</button>
+      </div>
+
+      <!-- Step tabs -->
+      <div class="step-tabs-wrap" id="stepNav"></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+      <!-- Form content -->
+      <div class="form-area" id="mainContent"></div>
+
+      <!-- Bottom nav -->
+      <div class="bottom-bar" id="bottomBar">
+        <button class="btn-prev" id="btnPrev" onclick="prevStep()">&#8592; 戻る</button>
+        <button class="btn-next" id="btnNext" onclick="nextStep()">次へ &#8594;</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ============================================================
+// SAMPLE CASES
+// ============================================================
+const SAMPLE_CASES = [
+  {id:'C2025-0082', name:'高橋 守 様 相続案件', client:'高橋 恵子', phone:'03-3333-4444', meetingDate:'2026/03/27 10:00', status:'面談設定済'},
+  {id:'C2025-0085', name:'渡辺 正雄 様 相続案件', client:'渡辺 美智子', phone:'048-555-6666', meetingDate:'2026/03/27 14:00', status:'面談設定済'},
+  {id:'C2025-0087', name:'伊藤 清 様 相続案件', client:'伊藤 良子', phone:'080-1111-2222', meetingDate:'2026/03/28 10:30', status:'面談設定済'},
+  {id:'C2025-0089', name:'中村 太郎 様 相続案件', client:'中村 花子', phone:'03-1234-5678', meetingDate:'2026/03/28 14:00', status:'面談設定済'},
+  {id:'C2025-0090', name:'佐藤 一郎 様 相続案件', client:'佐藤 美咲', phone:'090-9876-5432', meetingDate:'2026/03/29 10:00', status:'面談設定済'},
+  {id:'C2025-0091', name:'田中 義男 様 相続案件', client:'田中 和子', phone:'045-111-2222', meetingDate:'2026/03/30 13:30', status:'面談設定済'},
+  {id:'C2025-0093', name:'山本 勝 様 相続案件', client:'山本 節子', phone:'044-777-8888', meetingDate:'2026/03/31 11:00', status:'面談設定済'},
+  {id:'C2025-0094', name:'小林 哲也 様 相続案件', client:'小林 裕子', phone:'03-9999-0000', meetingDate:'2026/04/01 15:00', status:'面談設定済'},
+];
+
+let selectedCaseId = null;
+
+function renderCaseSelect(cases) {
+  const list = cases || SAMPLE_CASES;
+  document.getElementById('caseCount').textContent = `${list.length} 件`;
+  const tbody = document.getElementById('caseTableBody');
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">検索条件に一致する案件がありません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `<tr class="case-row" onclick="selectCase('${c.id}')">
+    <td class="td"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">${c.id}</span></td>
+    <td class="td"><span style="font-weight:600;color:var(--text)">${c.name}</span></td>
+    <td class="td">${c.client}</td>
+    <td class="td"><span style="font-family:'DM Mono',monospace;font-size:11px">${c.phone}</span></td>
+    <td class="td"><span style="font-family:'DM Mono',monospace;font-size:11px">${c.meetingDate}</span></td>
+    <td class="td"><span style="display:inline-flex;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)">${c.status}</span></td>
+    <td class="td"><button style="padding:5px 12px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:11px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();selectCase('${c.id}')">選択</button></td>
+  </tr>`).join('');
+}
+
+function filterCases() {
+  const q = (document.getElementById('caseSearch').value || '').toLowerCase();
+  if (!q) { renderCaseSelect(); return; }
+  const filtered = SAMPLE_CASES.filter(c =>
+    c.id.toLowerCase().includes(q) ||
+    c.name.toLowerCase().includes(q) ||
+    c.client.toLowerCase().includes(q) ||
+    c.phone.includes(q)
+  );
+  renderCaseSelect(filtered);
+}
+
+function selectCase(id) {
+  selectedCaseId = id;
+  document.getElementById('caseSelectScreen').style.display = 'none';
+  document.getElementById('meetingFormScreen').style.display = 'block';
+
+  // Pre-fill data if selecting existing case
+  if (id !== 'new') {
+    const c = SAMPLE_CASES.find(x => x.id === id);
+    if (c) {
+      // Extract deceased name from case name
+      const deceasedName = c.name.replace(' 様 相続案件','');
+      data.Deceased_Name = deceasedName;
+      data.Client_Name = c.client;
+      data.Client_Phone = c.phone;
+    }
+  }
+
+  buildNav();
+  renderStep(0);
+}
+
+function backToSelect() {
+  document.getElementById('caseSelectScreen').style.display = 'block';
+  document.getElementById('meetingFormScreen').style.display = 'none';
+  // Reset form
+  Object.keys(data).forEach(k => {
+    if (Array.isArray(data[k])) data[k] = [];
+    else if (typeof data[k] === 'boolean') data[k] = false;
+    else if (k === 'Order_Date') data[k] = new Date().toISOString().slice(0,10);
+    else data[k] = '';
+  });
+  currentStep = 0;
+  completedSteps.clear();
+  AI_FILLED_FIELDS.clear();
+  selectedCaseId = null;
+}
+
+// ============================================================
+// DATA MODEL
+// ============================================================
+const data = {
+  // 基本
+  Sales_Owner: '', Order_Date: new Date().toISOString().slice(0,10), Difficulty: '',
+  // 依頼者
+  Client_Name: '', Client_Kana: '', Client_Phone: '', Client_Mobile: '', Client_Email: '',
+  Client_Zip: '', Client_Address: '', Client_Birthday: '', Client_Gaiji: '',
+  Contact_Preference: [], Customer_Number: '',
+  // 被相続人
+  Deceased_Name: '', Deceased_Kana: '', Deceased_Birthday: '', Date_of_Death: '',
+  Deceased_Address: '', Deceased_Domicile: '',
+  // 相続人
+  heirs: [],
+  // 受注内容
+  Procedure_Type: [], Other_Procedure: '', Additional_Services: [],
+  Task_Koseki: false, Task_Chart: false, Task_Legal_Info: false, Task_RealEstate: false,
+  Task_Finance: false, Task_Inventory: false, Task_Agreement: false, Task_Registration: false,
+  Task_Cancel: false, Task_Letter: false, Task_Will: false, Task_Petition: false,
+  Task_Contract: false, Task_Appraisal: false,
+  // 受注ルート
+  Lead_Source: '', LP_Partner_Name: '', Partner_Rep: '', Referral_To: '', Referral_Rep: '',
+  Referral_Sheet_Done: false,
+  // 不動産（物件概要）
+  Property_Sale: '', Resident_Status: '', Resident_Name: '', Title_Deed: false,
+  Tax_Notice: false, Valuation_Method: '', RE_Agent: '', Sale_Schedule: '',
+  Property_Type: '', Building_Age: '', Area_Rating: '', Sale_Urgency: '',
+  Mansion_Note: false, Property_General_Notes: '', Property_Rank: '',
+  // 不動産明細（複数件）
+  properties: [],
+  // 分割内容（複数件）
+  divisions: [],
+  // 金融（複数件）
+  bank_accounts: [],
+  securities: [],
+  trust_banks: [],
+  // 金融（共通）
+  Passbook_Status: '', Cancellation_Support: '', Bank_Names: '',
+  // 資産・相続税
+  Total_Asset_Estimate: '', Tax_Filing_Required: '', Tax_Advisor_Referral: '',
+  Tax_Advisor_Name: '', Tax_Filing_Deadline: '',
+  // 遺産分割
+  Client_Intention: '', Distribution_Policy: '', Distribution_Proposal: '',
+  Agreement_Signing: '', Inventory_Items: [], Tax_Case_Reference: false,
+  // 郵送
+  Mailing_Destination: '', Alt_Mailing_Address: '', Important_Notes: '', Survey_Document: '',
+  // 遺言
+  Will_Type: '', Will_Storage: '', Will_Execution: '', Iryubun_Risk: '', Bequest: '',
+  Creation_Location: '', Notary_Office: '',
+  // 信託
+  Trust_Type: '',
+  // 生命保険
+  Insurance_Proposal: '', Insurance_Company: '', Insurance_Detail: '',
+  Insurance_Assoc_Inquiry: '', Insurance_Inquiry_Notes: '',
+};
+
+// ============================================================
+// STEPS CONFIG
+// ============================================================
+const STEPS = [
+  { id: 'basic',      label: '基本情報',   icon: '📋' },
+  { id: 'client',     label: '依頼者',     icon: '👤' },
+  { id: 'deceased',   label: '被相続人',   icon: '📁' },
+  { id: 'heirs',      label: '相続人',     icon: '👨‍👩‍👧' },
+  { id: 'order',      label: '受注内容',   icon: '📝' },
+  { id: 'property',   label: '不動産',     icon: '🏠' },
+  { id: 'propdetail', label: '不動産明細', icon: '📍' },
+  { id: 'finance',    label: '金融・税',   icon: '💴' },
+  { id: 'findetail',  label: '金融詳細',   icon: '🏦' },
+  { id: 'division',   label: '分割・遺言', icon: '⚖️' },
+  { id: 'confirm',    label: '確認',       icon: '✅' },
+];
+
+let currentStep = 0;
+const completedSteps = new Set();
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('headerDate').textContent =
+    new Date().toLocaleDateString('ja-JP', {year:'numeric',month:'2-digit',day:'2-digit'});
+  renderCaseSelect();
+});
+
+function buildNav() {
+  const nav = document.getElementById('stepNav');
+  nav.innerHTML = STEPS.map((s, i) =>
+    `<div class="step-tab-item ${i===0?'active':''}" id="tab_${i}" onclick="goStep(${i})">${s.label}</div>`
+  ).join('');
+}
+
+function updateNav() {
+  STEPS.forEach((_, i) => {
+    const tab = document.getElementById(`tab_${i}`);
+    if (!tab) return;
+    tab.className = 'step-tab-item' +
+      (i === currentStep ? ' active' : '') +
+      (completedSteps.has(i) && i !== currentStep ? ' done' : '');
+  });
+  const pct = ((currentStep + 1) / STEPS.length) * 100;
+  const pf = document.getElementById('progressFill');
+  if (pf) pf.style.width = pct + '%';
+  document.getElementById(`tab_${currentStep}`)?.scrollIntoView({inline:'center',behavior:'smooth'});
+}
+
+function goStep(i) {
+  currentStep = i;
+  renderStep(i);
+}
+
+function nextStep() {
+  completedSteps.add(currentStep);
+  if (currentStep < STEPS.length - 1) {
+    currentStep++;
+    renderStep(currentStep);
+    document.getElementById('meetingFormScreen').scrollTop = 0;
+    window.scrollTo(0, 0);
+  } else {
+    showSuccess();
+  }
+}
+
+function prevStep() {
+  if (currentStep > 0) {
+    currentStep--;
+    renderStep(currentStep);
+    window.scrollTo(0, 0);
+  }
+}
+
+function renderStep(i) {
+  updateNav();
+  const main = document.getElementById('mainContent');
+  const step = STEPS[i];
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const bottomBar = document.getElementById('bottomBar');
+  bottomBar.style.display = 'flex';
+  btnPrev.style.display = i === 0 ? 'none' : 'block';
+  const isLast = i === STEPS.length - 1;
+  btnNext.textContent = isLast ? '✓ 送信・確定' : '次へ →';
+  btnNext.className = 'btn-next' + (isLast ? ' btn-submit' : '');
+
+  const renders = {
+    basic:      renderBasic,
+    client:     renderClient,
+    deceased:   renderDeceased,
+    heirs:      renderHeirs,
+    order:      renderOrder,
+    property:   renderProperty,
+    propdetail: renderPropDetail,
+    finance:    renderFinance,
+    findetail:  renderFinDetail,
+    division:   renderDivision,
+    confirm:    renderConfirm,
+  };
+  main.innerHTML = '';
+  renders[step.id]();
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function sectionHeader(icon, title, sub='') {
+  return `<div class="section-header">
+    <div class="section-icon">${icon}</div>
+    <div><div class="section-title">${title}</div>${sub?`<div class="section-sub">${sub}</div>`:''}</div>
+  </div>`;
+}
+
+function card(label, content, required=false) {
+  return `<div class="card">
+    <div class="card-label">${required?'<span class="required-dot"></span>':''}${label}</div>
+    ${content}
+  </div>`;
+}
+
+function textInput(key, placeholder='', type='text') {
+  const val = data[key] || '';
+  const aiClass = AI_FILLED_FIELDS.has(key) ? ' ai-filled' : '';
+  const aiBadge = AI_FILLED_FIELDS.has(key) ? '<span class="ai-badge">✦ AI入力</span>' : '';
+  return `${aiBadge}<input class="input-field${aiClass}" type="${type}" value="${val}"
+    placeholder="${placeholder}"
+    oninput="data['${key}']=this.value;AI_FILLED_FIELDS.delete('${key}')"
+    onblur="updateCalc()">`;
+}
+
+function dateInput(key) {
+  const val = data[key] || '';
+  const aiClass = AI_FILLED_FIELDS.has(key) ? ' ai-filled' : '';
+  const aiBadge = AI_FILLED_FIELDS.has(key) ? '<span class="ai-badge">✦ AI入力</span>' : '';
+  return `${aiBadge}<input class="input-field${aiClass}" type="date" value="${val}"
+    onchange="data['${key}']=this.value;AI_FILLED_FIELDS.delete('${key}');updateCalc()">`;
+}
+
+function textareaInput(key, placeholder='') {
+  const val = data[key] || '';
+  const aiClass = AI_FILLED_FIELDS.has(key) ? ' ai-filled' : '';
+  const aiBadge = AI_FILLED_FIELDS.has(key) ? '<span class="ai-badge">✦ AI入力</span>' : '';
+  return `${aiBadge}<textarea class="input-field${aiClass}" placeholder="${placeholder}"
+    oninput="data['${key}']=this.value;AI_FILLED_FIELDS.delete('${key}')">${val}</textarea>`;
+}
+
+function pills(key, options, multi=false) {
+  const aiBadge = AI_FILLED_FIELDS.has(key) ? '<span class="ai-badge">✦ AI入力</span>' : '';
+  return `${aiBadge}<div class="pill-group">${options.map(o => {
+    const isSelected = multi
+      ? (data[key]||[]).includes(o)
+      : data[key] === o;
+    const isAi = isSelected && AI_FILLED_FIELDS.has(key);
+    const cls = 'pill' + (isSelected ? (multi?' selected multi':' selected') : '') + (isAi ? ' ai-pill' : '');
+    return `<div class="${cls}" onclick="togglePill('${key}','${o}',${multi})">${o}</div>`;
+  }).join('')}</div>`;
+}
+
+function togglePill(key, val, multi) {
+  if (multi) {
+    if (!Array.isArray(data[key])) data[key] = [];
+    const idx = data[key].indexOf(val);
+    if (idx >= 0) data[key].splice(idx, 1);
+    else data[key].push(val);
+  } else {
+    data[key] = data[key] === val ? '' : val;
+  }
+  renderStep(currentStep);
+  updateCalc();
+}
+
+function toggleCards(tasks) {
+  return `<div class="toggle-grid">${tasks.map(([key, icon, label]) => {
+    const on = data[key];
+    return `<div class="toggle-card ${on?'on':''}" onclick="data['${key}']=!data['${key}'];renderStep(currentStep)">
+      <div class="tc-icon">${icon}</div>
+      <div class="tc-label">${label}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function toggleCheck(key, label) {
+  const on = data[key];
+  return `<div class="pill ${on?'selected':''}" onclick="data['${key}']=!data['${key}'];renderStep(currentStep)">${on?'✓ ':''} ${label}</div>`;
+}
+
+// ============================================================
+// STEP RENDERS
+// ============================================================
+function renderBasic() {
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('📋', '基本情報', '面談開始時に確認する項目') +
+    card('面談日', dateInput('Order_Date'), true) +
+    card('受注担当', textInput('Sales_Owner','担当者名を入力'), true) +
+    card('難易度', pills('Difficulty', ['高','中','低'])) +
+    card('受注ルート', pills('Lead_Source', ['LP','公益社','はせがわ','その他'])) +
+    (data.Lead_Source === 'LP' ? card('LP名・担当者',
+      `<div style="display:grid;gap:10px">
+        ${textInput('LP_Partner_Name','LP会社名')}
+        ${textInput('Partner_Rep','担当者名')}
+      </div>`) : '') +
+    '<div class="spacer"></div>';
+}
+
+function renderClient() {
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('👤', '依頼者情報', '面談にご来所された方の情報') +
+    card('氏名', `<div style="display:grid;gap:10px">${textInput('Client_Name','山田 太郎', 'text')}${textInput('Client_Kana','やまだ たろう','text')}</div>`, true) +
+    card('生年月日', dateInput('Client_Birthday')) +
+    card('連絡先', `<div style="display:grid;gap:10px">
+      ${textInput('Client_Phone','03-0000-0000','tel')}
+      ${textInput('Client_Mobile','090-0000-0000','tel')}
+      ${textInput('Client_Email','example@email.com','email')}
+    </div>`) +
+    card('連絡先希望', pills('Contact_Preference', ['自宅TEL','携帯','メール'], true)) +
+    card('住所', `<div style="display:grid;gap:10px">
+      ${textInput('Client_Zip','〒000-0000')}
+      ${textInput('Client_Address','都道府県 市区町村 番地')}
+    </div>`) +
+    card('外字有無', pills('Client_Gaiji', ['あり','なし'])) +
+    card('郵送先', pills('Mailing_Destination', ['依頼者住所','その他'])) +
+    (data.Mailing_Destination === 'その他' ? card('郵送先住所', textInput('Alt_Mailing_Address','郵送先住所を入力')) : '') +
+    '<div class="spacer"></div>';
+}
+
+function renderDeceased() {
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('📁', '被相続人情報', 'お亡くなりになった方の情報') +
+    card('氏名', `<div style="display:grid;gap:10px">${textInput('Deceased_Name','田中 花子')}${textInput('Deceased_Kana','たなか はなこ')}</div>`, true) +
+    card('生年月日', dateInput('Deceased_Birthday')) +
+    card('死亡日（相続開始日）', dateInput('Date_of_Death'), true) +
+    card('住所', textInput('Deceased_Address','〒000-0000 都道府県 市区町村 番地')) +
+    card('本籍', textInput('Deceased_Domicile','本籍地を入力')) +
+    card('財産調査使用書類', pills('Survey_Document', ['委任状','契約書'])) +
+    '<div class="spacer"></div>';
+}
+
+function renderHeirs() {
+  const m = document.getElementById('mainContent');
+  let heirHTML = '';
+  data.heirs.forEach((h, i) => {
+    heirHTML += `<div class="heir-block">
+      <div class="heir-number">相続人 ${i+1}</div>
+      <button class="btn-remove" onclick="removeHeir(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <input class="input-field" placeholder="氏名" value="${h.Heir_Name||''}"
+          oninput="data.heirs[${i}].Heir_Name=this.value">
+        <input class="input-field" placeholder="ふりがな" value="${h.Heir_Kana||''}"
+          oninput="data.heirs[${i}].Heir_Kana=this.value">
+        <div class="pill-group">${['配偶者','子','父母','兄弟姉妹','代襲相続人','その他'].map(rel => {
+          const sel = h.Relationship === rel;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.heirs[${i}].Relationship='${rel}';renderStep(currentStep)">${rel}</div>`;
+        }).join('')}</div>
+        <div class="flex-row">
+          <div class="pill ${h.Legal_Heir?'selected':''}"
+            onclick="data.heirs[${i}].Legal_Heir=!data.heirs[${i}].Legal_Heir;renderStep(currentStep);updateCalc()">
+            ${h.Legal_Heir?'✓ ':''} 法定相続人
+          </div>
+        </div>
+        <input class="input-field" placeholder="生年月日" type="date" value="${h.Heir_Birthday||''}"
+          onchange="data.heirs[${i}].Heir_Birthday=this.value">
+        <textarea class="input-field" placeholder="住所" style="min-height:60px"
+          oninput="data.heirs[${i}].Heir_Address=this.value">${h.Heir_Address||''}</textarea>
+        <textarea class="input-field" placeholder="本籍" style="min-height:60px"
+          oninput="data.heirs[${i}].Heir_Domicile=this.value">${h.Heir_Domicile||''}</textarea>
+        <input class="input-field" placeholder="電話番号" type="tel" value="${h.Heir_Phone||''}"
+          oninput="data.heirs[${i}].Heir_Phone=this.value">
+        <input class="input-field" placeholder="メールアドレス" type="email" value="${h.Heir_Email||''}"
+          oninput="data.heirs[${i}].Heir_Email=this.value">
+      </div>
+    </div>`;
+  });
+  m.innerHTML = sectionHeader('👨‍👩‍👧', '相続人情報', '法定相続人数は基礎控除の計算に使用') +
+    heirHTML +
+    `<button class="btn-add" onclick="addHeir()">＋ 相続人を追加</button>` +
+    '<div class="spacer"></div>';
+}
+
+function addHeir() {
+  data.heirs.push({ Heir_Name:'', Heir_Kana:'', Relationship:'', Legal_Heir: true,
+    Heir_Birthday:'', Heir_Address:'', Heir_Domicile:'', Heir_Phone:'', Heir_Email:'' });
+  renderStep(currentStep);
+}
+
+function removeHeir(i) {
+  data.heirs.splice(i, 1);
+  renderStep(currentStep);
+  updateCalc();
+}
+
+function renderOrder() {
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('📝', '受注内容', '受任する業務の範囲を確認') +
+    card('手続区分', pills('Procedure_Type',
+      ['手続一式','登記','遺言','放棄'], true), true) +
+    card('付帯サービス', pills('Additional_Services', ['相続税申告','不動産売却','生命保険'], true)) +
+    card('受任業務チェック', toggleCards([
+      ['Task_Koseki','📜','戸籍'],
+      ['Task_Chart','🗂️','相関図'],
+      ['Task_Legal_Info','⚖️','法定相続情報'],
+      ['Task_RealEstate','🏠','不動産'],
+      ['Task_Finance','💴','金融資産'],
+      ['Task_Inventory','📋','目録'],
+      ['Task_Agreement','📄','協議書'],
+      ['Task_Registration','🏛️','登記'],
+      ['Task_Cancel','🔒','解約'],
+      ['Task_Letter','✉️','手紙'],
+      ['Task_Will','📜','遺言起案'],
+      ['Task_Petition','🏛️','申立書'],
+      ['Task_Contract','📝','契約書起案'],
+      ['Task_Appraisal','🏡','不動産査定'],
+    ])) +
+    card('特記事項・備考', textareaInput('Important_Notes','特別な事情・注意事項があれば記入')) +
+    '<div class="spacer"></div>';
+}
+
+function renderProperty() {
+  const hasProp = data.Task_RealEstate || data.Additional_Services?.includes('不動産売却');
+  const m = document.getElementById('mainContent');
+  if (!hasProp) {
+    m.innerHTML = sectionHeader('🏠','不動産','受注内容で「不動産」を選択していません') +
+      `<div class="card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:40px;margin-bottom:12px">🏠</div>
+        <div style="color:var(--muted);font-size:14px;">不動産案件でない場合はスキップできます。<br>不動産関連の業務を受任する場合は「受注内容」で選択してください。</div>
+      </div>`;
+    return;
+  }
+  const rank = calcPropertyRank();
+  const rankDescs = {S:'最優先で査定・売却推進',A:'早めの査定推進',B:'通常対応',C:'慎重に判断',D:'売却困難・要注意','確認中':'エリア・築年数を確認してください'};
+  m.innerHTML = sectionHeader('🏠', '不動産', '不動産評価ランクが売却スピードに影響します') +
+    card('物件種別', pills('Property_Type', ['戸建','マンション','土地','収益物件','その他'])) +
+    card('住人有無', pills('Resident_Status', ['空き家','居住中（相続人）','居住中（第三者）/賃貸中'])) +
+    (data.Resident_Status && data.Resident_Status.includes('居住中') ?
+      card('住人名', textInput('Resident_Name','住人の氏名')) : '') +
+    card('エリア評価', pills('Area_Rating', ['人気エリア','標準','不人気エリア'])) +
+    card('築年数', `<div class="flex-row">
+      <div class="number-stepper">
+        <button class="stepper-btn" onclick="changeAge(-5)">−</button>
+        <input class="stepper-val" type="number" value="${data.Building_Age||0}"
+          oninput="data.Building_Age=parseInt(this.value)||0;updateCalc();renderStep(currentStep)">
+        <button class="stepper-btn" onclick="changeAge(5)">＋</button>
+      </div>
+      <span style="font-size:14px;color:var(--muted)">年</span>
+    </div>`) +
+    card('不動産評価ランク（自動判定）',
+      `<div class="rank-display">
+        <div class="rank-circle rank-${rank}">${rank}</div>
+        <div class="rank-desc">${rankDescs[rank]||''}</div>
+      </div>`) +
+    card('売却意向', pills('Property_Sale', ['あり','なし','検討中'])) +
+    card('売却緊急度', pills('Sale_Urgency', ['高（即対応）','中','低'])) +
+    card('書類確認', `<div class="pill-group">
+      ${toggleCheck('Title_Deed','権利書あり')}
+      ${toggleCheck('Tax_Notice','納税通知書あり')}
+      ${toggleCheck('Mansion_Note','マンション敷地注意')}
+    </div>`) +
+    card('不動産業者・売却時期', `<div style="display:grid;gap:10px">
+      ${textInput('RE_Agent','業者名（すでに相談中の場合）')}
+      ${textInput('Sale_Schedule','売却希望時期')}
+    </div>`) +
+    card('不動産備考', textareaInput('Property_General_Notes','同居状況・特記事項など')) +
+    '<div class="spacer"></div>';
+}
+
+function changeAge(delta) {
+  data.Building_Age = Math.max(0, (parseInt(data.Building_Age)||0) + delta);
+  renderStep(currentStep);
+  updateCalc();
+}
+
+// ============================================================
+// 不動産明細 複数件
+// ============================================================
+function renderPropDetail() {
+  const hasProp = data.Task_RealEstate || data.Additional_Services?.includes('不動産売却');
+  const m = document.getElementById('mainContent');
+  if (!hasProp) {
+    m.innerHTML = sectionHeader('📍','不動産明細','受注内容で「不動産」を選択していません') +
+      `<div class="card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:40px;margin-bottom:12px">📍</div>
+        <div style="color:var(--muted);font-size:14px;">不動産案件でない場合はスキップできます。</div>
+      </div>`;
+    return;
+  }
+  let html = '';
+  data.properties.forEach((p, i) => {
+    html += `<div class="heir-block">
+      <div class="heir-number">不動産明細 ${i+1}</div>
+      <button class="btn-remove" onclick="removeProp(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <input class="input-field" placeholder="所在地（市区町村〜番地）" value="${p.Property_Address||''}"
+          oninput="data.properties[${i}].Property_Address=this.value">
+        <input class="input-field" placeholder="名寄せ請求先（市区町村名）" value="${p.Nayose_Destination||''}"
+          oninput="data.properties[${i}].Nayose_Destination=this.value">
+        <input class="input-field" placeholder="評価証明請求先（市区町村名）" value="${p.Eval_Cert_Dest||''}"
+          oninput="data.properties[${i}].Eval_Cert_Dest=this.value">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-top:4px;">調査情報参照元</div>
+        <div class="pill-group">${['名寄せ参照','権利書参照','納税通知書参照'].map(opt => {
+          const sel = (p.Survey_Source||[]).includes(opt);
+          return `<div class="pill ${sel?'selected multi':''}"
+            onclick="toggleArrItem('properties',${i},'Survey_Source','${opt}');renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-top:4px;">取得書類</div>
+        <div class="pill-group">
+          ${[['Registry_Info','登記情報取得'],['Map_Info','公図取得'],['Land_Survey','地積測量図'],['Road_Price','路線価']].map(([key,label]) => {
+            const on = p[key];
+            return `<div class="pill ${on?'selected':''}"
+              onclick="data.properties[${i}]['${key}']=!data.properties[${i}]['${key}'];renderStep(currentStep)">${on?'✓ ':''}${label}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+  m.innerHTML = sectionHeader('📍', '不動産明細', '物件ごとに所在地・調査情報を入力') +
+    html +
+    `<button class="btn-add" onclick="addProp()">＋ 不動産明細を追加</button>` +
+    '<div class="spacer"></div>';
+}
+
+function addProp() {
+  data.properties.push({
+    Property_Address:'', Nayose_Destination:'', Eval_Cert_Dest:'',
+    Survey_Source:[], Registry_Info:false, Map_Info:false, Land_Survey:false, Road_Price:false
+  });
+  renderStep(currentStep);
+}
+
+function removeProp(i) {
+  data.properties.splice(i, 1);
+  renderStep(currentStep);
+}
+
+// ============================================================
+// 金融詳細 複数件
+// ============================================================
+function renderFinDetail() {
+  const m = document.getElementById('mainContent');
+
+  // --- 預貯金 ---
+  let bankHTML = '';
+  data.bank_accounts.forEach((b, i) => {
+    bankHTML += `<div class="heir-block">
+      <div class="heir-number">預貯金 ${i+1}</div>
+      <button class="btn-remove" onclick="removeBank(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <input class="input-field" placeholder="金融機関名（例：横浜銀行）" value="${b.Bank_Name||''}"
+          oninput="data.bank_accounts[${i}].Bank_Name=this.value">
+        <input class="input-field" placeholder="支店名" value="${b.Branch_Name||''}"
+          oninput="data.bank_accounts[${i}].Branch_Name=this.value">
+        <div class="pill-group">
+          ${[['Cancel_Flag','解約有'],['Safe_Box','貸金庫有']].map(([key,label]) => {
+            const on = b[key];
+            return `<div class="pill ${on?'selected':''}"
+              onclick="data.bank_accounts[${i}]['${key}']=!data.bank_accounts[${i}]['${key}'];renderStep(currentStep)">${on?'✓ ':''}${label}</div>`;
+          }).join('')}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">調査内容</div>
+        <div class="pill-group">${['全店調査','残高証明','取引履歴','経過利息','現存確認'].map(opt => {
+          const keyMap = {'全店調査':'All_Branch_Survey','残高証明':'Balance_Cert','取引履歴':'Transaction_History','経過利息':'Accrued_Interest','現存確認':'Existence_Check'};
+          const key = keyMap[opt];
+          const sel = b[key] === '要';
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.bank_accounts[${i}]['${key}']=data.bank_accounts[${i}]['${key}']==='要'?'不要':'要';renderStep(currentStep)">${sel?'✓ ':''}${opt}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">残高証明基準日</div>
+        <div class="pill-group">${['相続開始日','現在','その他'].map(opt => {
+          const sel = b.Balance_Base_Date === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.bank_accounts[${i}].Balance_Base_Date='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">現存確認基準日</div>
+        <div class="pill-group">${['相続開始日','その他'].map(opt => {
+          const sel = b.Existence_Base_Date === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.bank_accounts[${i}].Existence_Base_Date='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">取引履歴期間</div>
+        <div class="pill-group">${['相続開始日より3年','相続開始日より5年','その他'].map(opt => {
+          const sel = b.Transaction_Period === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.bank_accounts[${i}].Transaction_Period='${opt}';data.bank_accounts[${i}].Transaction_Period_Num=(opt==='相続開始日より3年'?3:opt==='相続開始日より5年'?5:null);renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <input class="input-field" placeholder="備考" value="${b.Bank_Notes||''}"
+          oninput="data.bank_accounts[${i}].Bank_Notes=this.value">
+      </div>
+    </div>`;
+  });
+
+  // --- 証券 ---
+  let secHTML = '';
+  data.securities.forEach((s, i) => {
+    secHTML += `<div class="heir-block">
+      <div class="heir-number">証券 ${i+1}</div>
+      <button class="btn-remove" onclick="removeSec(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <input class="input-field" placeholder="証券会社名（例：野村證券）" value="${s.Securities_Name||''}"
+          oninput="data.securities[${i}].Securities_Name=this.value">
+        <input class="input-field" placeholder="支店名" value="${s.Sec_Branch||''}"
+          oninput="data.securities[${i}].Sec_Branch=this.value">
+        <input class="input-field" placeholder="銘柄名" value="${s.Stock_Name||''}"
+          oninput="data.securities[${i}].Stock_Name=this.value">
+        <div class="pill-group">
+          ${[['Sec_Cancel','解約有']].map(([key,label]) => {
+            const on = s[key];
+            return `<div class="pill ${on?'selected':''}"
+              onclick="data.securities[${i}]['${key}']=!data.securities[${i}]['${key}'];renderStep(currentStep)">${on?'✓ ':''}${label}</div>`;
+          }).join('')}
+          ${[['Sec_All_Branch','全店調査'],['Sec_Balance','残高照会']].map(opt => {
+            const key = opt[0], label = opt[1];
+            const sel = s[key] === '要';
+            return `<div class="pill ${sel?'selected':''}"
+              onclick="data.securities[${i}]['${key}']=data.securities[${i}]['${key}']==='要'?'不要':'要';renderStep(currentStep)">${sel?'✓ ':''}${label}</div>`;
+          }).join('')}
+        </div>
+        <input class="input-field" placeholder="備考" value="${s.Sec_Notes||''}"
+          oninput="data.securities[${i}].Sec_Notes=this.value">
+      </div>
+    </div>`;
+  });
+
+  // --- 信託銀行 ---
+  let trustHTML = '';
+  data.trust_banks.forEach((t, i) => {
+    trustHTML += `<div class="heir-block">
+      <div class="heir-number">信託銀行 ${i+1}</div>
+      <button class="btn-remove" onclick="removeTrust(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <input class="input-field" placeholder="信託銀行名（例：みずほ信託銀行）" value="${t.Trust_Bank||''}"
+          oninput="data.trust_banks[${i}].Trust_Bank=this.value">
+        <input class="input-field" placeholder="銘柄名" value="${t.TA_Stock||''}"
+          oninput="data.trust_banks[${i}].TA_Stock=this.value">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">調査内容</div>
+        <div class="pill-group">${[['Share_Cert','所有株式数証明'],['Unclaimed_Dividend','未受領配当金'],['Share_Cert_Special','特別口座証明']].map(opt => {
+          const key = opt[0], label = opt[1];
+          const sel = t[key] === '要';
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.trust_banks[${i}]['${key}']=data.trust_banks[${i}]['${key}']==='要'?'不要':'要';renderStep(currentStep)">${sel?'✓ ':''}${label}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">端株手続き</div>
+        <div class="pill-group">${['移管','売却'].map(opt => {
+          const sel = t.Odd_Lot === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.trust_banks[${i}].Odd_Lot='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <div class="pill-group">
+          ${[['TA_Cancel','解約有']].map(([key,label]) => {
+            const on = t[key];
+            return `<div class="pill ${on?'selected':''}"
+              onclick="data.trust_banks[${i}]['${key}']=!data.trust_banks[${i}]['${key}'];renderStep(currentStep)">${on?'✓ ':''}${label}</div>`;
+          }).join('')}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">調査基準日</div>
+        <div class="pill-group">${['相続開始日','現時点','その他'].map(opt => {
+          const sel = t.TA_Base_Date === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.trust_banks[${i}].TA_Base_Date='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <input class="input-field" placeholder="備考" value="${t.TA_Notes||''}"
+          oninput="data.trust_banks[${i}].TA_Notes=this.value">
+      </div>
+    </div>`;
+  });
+
+  m.innerHTML =
+    sectionHeader('🏦', '金融詳細', '預貯金・証券・信託銀行を機関ごとに入力') +
+    `<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;margin-top:4px;">💰 預貯金</div>` +
+    bankHTML +
+    `<button class="btn-add" onclick="addBank()" style="margin-bottom:20px">＋ 預貯金を追加</button>` +
+    `<div class="divider"></div>` +
+    `<div style="font-size:14px;font-weight:700;color:var(--text);margin:16px 0 12px;">📈 証券</div>` +
+    secHTML +
+    `<button class="btn-add" onclick="addSec()" style="margin-bottom:20px">＋ 証券を追加</button>` +
+    `<div class="divider"></div>` +
+    `<div style="font-size:14px;font-weight:700;color:var(--text);margin:16px 0 12px;">🏛️ 信託銀行・株主名簿管理人</div>` +
+    trustHTML +
+    `<button class="btn-add" onclick="addTrust()">＋ 信託銀行を追加</button>` +
+    '<div class="spacer"></div>';
+}
+
+function addBank()  { data.bank_accounts.push({ Bank_Name:'', Branch_Name:'', Cancel_Flag:false, Safe_Box:false, All_Branch_Survey:'', Balance_Cert:'', Transaction_History:'', Accrued_Interest:'', Existence_Check:'', Existence_Base_Date:'', Balance_Base_Date:'', Transaction_Period:'', Transaction_Period_Num:null, Bank_Notes:'' }); renderStep(currentStep); }
+function removeBank(i) { data.bank_accounts.splice(i,1); renderStep(currentStep); }
+function addSec()   { data.securities.push({ Securities_Name:'', Sec_Branch:'', Sec_Cancel:false, Stock_Name:'', Sec_All_Branch:'', Sec_Balance:'', Sec_Notes:'' }); renderStep(currentStep); }
+function removeSec(i)  { data.securities.splice(i,1); renderStep(currentStep); }
+function addTrust() { data.trust_banks.push({ Trust_Bank:'', TA_Stock:'', Share_Cert:'', Unclaimed_Dividend:'', Odd_Lot:'', TA_Cancel:false, Share_Cert_Special:'', TA_Base_Date:'', TA_Notes:'' }); renderStep(currentStep); }
+function removeTrust(i){ data.trust_banks.splice(i,1); renderStep(currentStep); }
+
+function toggleArrItem(collection, idx, key, val) {
+  const arr = data[collection][idx][key] || [];
+  const pos = arr.indexOf(val);
+  if (pos >= 0) arr.splice(pos,1); else arr.push(val);
+  data[collection][idx][key] = arr;
+}
+
+function renderFinance() {
+  const legalHeirCount = data.heirs.filter(h => h.Legal_Heir).length;
+  const basicDeduction = 3000 + 600 * legalHeirCount;
+  const assetRaw = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,'')) || 0;
+  const assetMan = assetRaw;
+  const taxable = assetMan - basicDeduction;
+  const taxStatus = data.Total_Asset_Estimate
+    ? (taxable > 0 ? 'required' : 'not-required')
+    : 'unknown';
+  const taxLabel = { required:'申告　要', 'not-required':'申告　不要', unknown:'確認中' };
+  let deadline = '';
+  if (data.Date_of_Death) {
+    const d = new Date(data.Date_of_Death);
+    d.setMonth(d.getMonth() + 10);
+    deadline = d.toLocaleDateString('ja-JP', {year:'numeric',month:'2-digit',day:'2-digit'});
+    data.Tax_Filing_Deadline = d.toISOString().slice(0,10);
+  }
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('💴', '金融資産・相続税', '資産合計から相続税申告の要否を自動判定') +
+    card('金融機関（判明分）', textareaInput('Bank_Names','例：きらぼし銀行、三菱UFJ銀行、野村証券')) +
+    card('通帳の状況', pills('Passbook_Status', ['即日預かり','送ってもらう','紛失'])) +
+    card('解約サポート', pills('Cancellation_Support', ['受注','受注していない','検討中','未提案'])) +
+    `<div class="card">
+      <div class="card-label">資産合計概算（万円）</div>
+      <input class="input-field" type="number" value="${data.Total_Asset_Estimate||''}"
+        placeholder="例：3500"
+        oninput="data.Total_Asset_Estimate=this.value;renderStep(currentStep)"
+        style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;">
+    </div>` +
+    `<div class="calc-box">
+      <div class="calc-row">
+        <span class="calc-row-label">法定相続人数</span>
+        <span class="calc-row-val">${legalHeirCount} 名</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">基礎控除額</span>
+        <span class="calc-row-val">${basicDeduction.toLocaleString()} 万円</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">資産合計（概算）</span>
+        <span class="calc-row-val">${assetMan ? assetMan.toLocaleString()+' 万円' : '未入力'}</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-row-label">課税見込額</span>
+        <span class="calc-row-val ${taxable>0?'danger':''}">
+          ${assetMan ? (taxable>0?'+':'')+taxable.toLocaleString()+' 万円' : '—'}
+        </span>
+      </div>
+      <div style="margin-top:12px">
+        <span class="tax-badge ${taxStatus}">${taxLabel[taxStatus]}</span>
+        ${deadline ? `<span style="font-size:12px;color:rgba(255,255,255,0.5);margin-left:12px">申告期限：${deadline}</span>` : ''}
+      </div>
+    </div>` +
+    '<div class="spacer"></div>' +
+    card('税理士紹介', pills('Tax_Advisor_Referral', ['有','無','検討中'])) +
+    (data.Tax_Advisor_Referral === '有' ? card('税理士名・事務所', textInput('Tax_Advisor_Name','税理士名・事務所名')) : '') +
+    '<div class="spacer"></div>';
+}
+
+function renderDivision() {
+  const m = document.getElementById('mainContent');
+
+  let divHTML = '';
+  data.divisions.forEach((d, i) => {
+    divHTML += `<div class="heir-block">
+      <div class="heir-number">分割内容 ${i+1}</div>
+      <button class="btn-remove" onclick="removeDiv(${i})">✕</button>
+      <div style="display:grid;gap:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">財産区分</div>
+        <div class="pill-group">${['不動産','金融資産(預貯金)','金融資産(株・投資信託)','債務・諸費用','その他(貸金庫・生命保険等)'].map(opt => {
+          const sel = d.Asset_Category === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.divisions[${i}].Asset_Category='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;">分割方法</div>
+        <div class="pill-group">${['代償分割','売却後分配'].map(opt => {
+          const sel = d.Split_Method === opt;
+          return `<div class="pill ${sel?'selected':''}"
+            onclick="data.divisions[${i}].Split_Method='${opt}';renderStep(currentStep)">${opt}</div>`;
+        }).join('')}</div>
+        <input class="input-field" placeholder="取得者・割合（例：長男1/2、次男1/2）" value="${d.Acquirer_Ratio||''}"
+          oninput="data.divisions[${i}].Acquirer_Ratio=this.value">
+        <input class="input-field" placeholder="端数取得者（金融資産のみ）" value="${d.Fraction_Acquirer||''}"
+          oninput="data.divisions[${i}].Fraction_Acquirer=this.value">
+        <textarea class="input-field" placeholder="確定内容・備考" style="min-height:60px"
+          oninput="data.divisions[${i}].Confirmed_Detail=this.value">${d.Confirmed_Detail||''}</textarea>
+      </div>
+    </div>`;
+  });
+
+  m.innerHTML = sectionHeader('⚖️', '遺産分割・遺言', '分割方針と遺言の有無を確認') +
+    card('依頼者の意向', textareaInput('Client_Intention','例：長男が不動産を取得し、残りを3人で均等に分けたい')) +
+    card('分配方針', pills('Distribution_Policy', ['法定相続','2次相続を踏まえて','その他'])) +
+    card('分配方針の提案', pills('Distribution_Proposal', ['あり','なし'])) +
+    card('協議書の調印方法', pills('Agreement_Signing',
+      ['依頼者から各相続人へ','OCから各相続人へ','オーシャンで調印','その他'])) +
+    card('財産目録の記載区分', pills('Inventory_Items',
+      ['不動産','金融資産','債務・負債','諸費用・経費','生命保険','その他'], true)) +
+    `<div style="font-size:14px;font-weight:700;color:var(--text);margin:16px 0 12px;">📋 分割内容明細</div>` +
+    divHTML +
+    `<button class="btn-add" onclick="addDiv()" style="margin-bottom:20px">＋ 分割内容を追加</button>` +
+    `<div class="divider"></div>` +
+    sectionHeader('📜', '遺言', '遺言がある場合・遺言作成業務がある場合') +
+    card('遺言種別', pills('Will_Type', ['自筆','公正証書','その他'])) +
+    card('遺言保管', pills('Will_Storage', ['お客様保管','ご案内していない','ご案内済(検討中)','ご依頼'])) +
+    card('遺言執行', pills('Will_Execution', ['執行不要','ご案内していない','ご案内済(検討中)','ご依頼'])) +
+    card('遺留分リスク / 遺贈', `<div class="pill-group">
+      <div class="pill ${data.Iryubun_Risk==='有'?'selected':''}" onclick="togglePill('Iryubun_Risk','有',false)">遺留分リスク：有</div>
+      <div class="pill ${data.Iryubun_Risk==='無'?'selected':''}" onclick="togglePill('Iryubun_Risk','無',false)">遺留分リスク：無</div>
+      <div class="pill ${data.Bequest==='有'?'selected':''}" onclick="togglePill('Bequest','有',false)">遺贈：有</div>
+      <div class="pill ${data.Bequest==='無'?'selected':''}" onclick="togglePill('Bequest','無',false)">遺贈：無</div>
+    </div>`) +
+    `<div class="divider"></div>` +
+    sectionHeader('🛡️', '生命保険', '生命保険の照会・提案') +
+    card('生命保険提案', pills('Insurance_Proposal', ['提案した','提案しない'])) +
+    card('生命保険協会照会', pills('Insurance_Assoc_Inquiry', ['未実施','照会済','回答済'])) +
+    (data.Insurance_Proposal === '提案した' ? card('保険会社・種類', `<div style="display:grid;gap:10px">
+      ${textInput('Insurance_Company','保険会社名')}
+      ${textInput('Insurance_Detail','保険種類・金額')}
+    </div>`) : '') +
+    '<div class="spacer"></div>';
+}
+
+function addDiv()   { data.divisions.push({ Asset_Category:'', Split_Method:'', Acquirer_Ratio:'', Fraction_Acquirer:'', Confirmed_Detail:'' }); renderStep(currentStep); }
+function removeDiv(i){ data.divisions.splice(i,1); renderStep(currentStep); }
+
+function renderConfirm() {
+  const legalHeirCount = data.heirs.filter(h=>h.Legal_Heir).length;
+  const basicDeduction = 3000 + 600 * legalHeirCount;
+  const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,''))||0;
+  const taxable = assetMan - basicDeduction;
+  const taxStatus = data.Total_Asset_Estimate ? (taxable > 0 ? '要' : '不要') : '確認中';
+  const rank = calcPropertyRank();
+
+  function row(label, val) {
+    const isEmpty = !val || (Array.isArray(val) && val.length === 0);
+    if (Array.isArray(val)) {
+      return `<div class="confirm-row">
+        <div class="confirm-key">${label}</div>
+        <div class="confirm-val">${val.length ? val.map(v=>`<span class="chip">${v}</span>`).join('') : '<span class="empty">未入力</span>'}</div>
+      </div>`;
+    }
+    return `<div class="confirm-row">
+      <div class="confirm-key">${label}</div>
+      <div class="confirm-val ${isEmpty?'empty':''}">${isEmpty ? '未入力' : String(val).replace(/\n/g,'<br>')}</div>
+    </div>`;
+  }
+
+  function section(title, rows) {
+    return `<div class="confirm-section">
+      <div class="confirm-title">${title}</div>
+      ${rows}
+    </div>`;
+  }
+
+  const m = document.getElementById('mainContent');
+  m.innerHTML = sectionHeader('✅', '入力内容の確認', '内容を確認して「送信・確定」してください') +
+    `<div class="card">` +
+    section('基本情報',
+      row('面談日', data.Order_Date) +
+      row('受注担当', data.Sales_Owner) +
+      row('難易度', data.Difficulty) +
+      row('受注ルート', data.Lead_Source)
+    ) +
+    section('依頼者',
+      row('氏名', data.Client_Name) +
+      row('ふりがな', data.Client_Kana) +
+      row('TEL', data.Client_Phone || data.Client_Mobile) +
+      row('連絡先希望', data.Contact_Preference)
+    ) +
+    section('被相続人',
+      row('氏名', data.Deceased_Name) +
+      row('死亡日', data.Date_of_Death) +
+      row('住所', data.Deceased_Address)
+    ) +
+    section('相続人',
+      data.heirs.length === 0 ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>' :
+      data.heirs.map((h,i)=>row(`相続人${i+1}`, `${h.Heir_Name} （${h.Relationship}）${h.Legal_Heir?'　✓法定':''}`)).join('')
+    ) +
+    section('受注内容',
+      row('手続区分', data.Procedure_Type) +
+      row('付帯サービス', data.Additional_Services)
+    ) +
+    section('不動産',
+      row('売却有無', data.Property_Sale) +
+      row('住人有無', data.Resident_Status) +
+      row('評価ランク', rank) +
+      row('売却緊急度', data.Sale_Urgency)
+    ) +
+    section('資産・相続税',
+      row('資産合計概算', data.Total_Asset_Estimate ? data.Total_Asset_Estimate+'万円' : '') +
+      row('法定相続人数', legalHeirCount+'名') +
+      row('基礎控除額', basicDeduction.toLocaleString()+'万円') +
+      row('相続税申告', taxStatus) +
+      row('申告期限', data.Tax_Filing_Deadline)
+    ) +
+    section('遺産分割',
+      row('依頼者の意向', data.Client_Intention) +
+      row('分配方針', data.Distribution_Policy)
+    ) +
+    section('不動産明細',
+      data.properties.length === 0
+        ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>'
+        : data.properties.map((p,i)=>row(`物件${i+1}`, p.Property_Address||'所在地未入力')).join('')
+    ) +
+    section('預貯金',
+      data.bank_accounts.length === 0
+        ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>'
+        : data.bank_accounts.map((b,i)=>row(`口座${i+1}`, `${b.Bank_Name||'—'} ${b.Branch_Name||''}`.trim())).join('')
+    ) +
+    section('証券',
+      data.securities.length === 0
+        ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>'
+        : data.securities.map((s,i)=>row(`証券${i+1}`, `${s.Securities_Name||'—'} ${s.Stock_Name||''}`.trim())).join('')
+    ) +
+    section('信託銀行',
+      data.trust_banks.length === 0
+        ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>'
+        : data.trust_banks.map((t,i)=>row(`信託${i+1}`, `${t.Trust_Bank||'—'} ${t.TA_Stock||''}`.trim())).join('')
+    ) +
+    section('分割内容',
+      data.divisions.length === 0
+        ? '<div class="confirm-row"><div class="confirm-val empty">未入力</div></div>'
+        : data.divisions.map((d,i)=>row(`分割${i+1}`, `${d.Asset_Category||'—'} / ${d.Split_Method||'—'} / ${d.Acquirer_Ratio||'—'}`)).join('')
+    ) +
+    `</div>`;
+}
+
+// ============================================================
+// CALC HELPERS
+// ============================================================
+function calcPropertyRank() {
+  const area = data.Area_Rating;
+  const status = data.Resident_Status;
+  const age = parseInt(data.Building_Age)||0;
+  if (!area && !status && !age) return '確認中';
+  if (area === '人気エリア' && status === '空き家' && age <= 20) return 'S';
+  if (area === '人気エリア' || (status === '空き家' && age <= 30)) return 'A';
+  if (area === '標準') return 'B';
+  if (area === '不人気エリア' || age > 40) return 'C';
+  return 'B';
+}
+
+function updateCalc() {
+  data.Property_Rank = calcPropertyRank();
+  const legalHeirCount = data.heirs.filter(h=>h.Legal_Heir).length;
+  const basicDeduction = 3000 + 600 * legalHeirCount;
+  const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,''))||0;
+  if (data.Total_Asset_Estimate) {
+    data.Tax_Filing_Required = assetMan > basicDeduction ? '要' : '不要';
+  }
+  if (data.Date_of_Death) {
+    const d = new Date(data.Date_of_Death);
+    d.setMonth(d.getMonth() + 10);
+    data.Tax_Filing_Deadline = d.toISOString().slice(0,10);
+  }
+}
+
+// ============================================================
+// SUCCESS (案件詳細に保存)
+// ============================================================
+function showSuccess() {
+  updateCalc();
+  document.getElementById('bottomBar').style.display = 'none';
+  document.getElementById('stepNav').style.display = 'none';
+
+  const json = buildPayload();
+  const m = document.getElementById('mainContent');
+  m.innerHTML = `<div class="success-view">
+    <div class="success-icon">✓</div>
+    <div class="success-title">入力完了！</div>
+    <div class="success-sub">
+      ${data.Deceased_Name} 様の相続案件<br>
+      担当：${data.Sales_Owner || '—'}
+    </div>
+
+    <button id="btnSave" onclick="saveToCase()"
+      style="display:block;width:100%;margin-top:24px;padding:16px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;box-shadow:var(--sh2);">
+      💾 案件詳細に保存
+    </button>
+
+    <div style="height:1px;background:var(--border);margin:20px 0;"></div>
+
+    <div class="json-box">
+      <pre id="jsonOutput">${JSON.stringify(json, null, 2)}</pre>
+    </div>
+    <button class="btn-copy" onclick="copyJson()">📋 JSONをコピー</button>
+    <button class="btn-restart" onclick="backToSelect()">🔄 案件選択に戻る</button>
+  </div>`;
+}
+
+function saveToCase() {
+  const btn = document.getElementById('btnSave');
+  if (btn) { btn.textContent = '保存中...'; btn.disabled = true; }
+
+  // Simulate save
+  setTimeout(() => {
+    showSaveSuccessModal();
+  }, 800);
+}
+
+function showSaveSuccessModal() {
+  const existing = document.getElementById('saveSuccessModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'saveSuccessModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:400px;padding:32px;text-align:center;box-shadow:var(--sh3);">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--green) 0%,#047857 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(5,150,105,.3);color:#fff;">✓</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">案件詳細に保存しました</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:24px;">${data.Deceased_Name || ''} 様の相続案件</div>
+      <div style="display:grid;gap:8px;">
+        <button onclick="document.getElementById('saveSuccessModal').remove();backToSelect()"
+          style="padding:13px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          案件選択に戻る
+        </button>
+        <button onclick="document.getElementById('saveSuccessModal').remove()"
+          style="padding:13px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          閉じる
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function buildPayload() {
+  updateCalc();
+  const legalHeirCount = data.heirs.filter(h=>h.Legal_Heir).length;
+  const basicDeduction = 3000 + 600 * legalHeirCount;
+  const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,''))||0;
+  return {
+    Deal_Name: `${data.Deceased_Name} 相続案件`,
+    Stage: '面談設定済',
+    Order_Date: data.Order_Date,
+    Sales_Owner: data.Sales_Owner,
+    Difficulty: data.Difficulty,
+    Lead_Source: data.Lead_Source,
+    LP_Partner_Name: data.LP_Partner_Name,
+    Client_Name: data.Client_Name,
+    Client_Kana: data.Client_Kana,
+    Client_Phone: data.Client_Phone,
+    Client_Mobile: data.Client_Mobile,
+    Client_Email: data.Client_Email,
+    Contact_Preference: data.Contact_Preference.join(';'),
+    Deceased_Name: data.Deceased_Name,
+    Deceased_Kana: data.Deceased_Kana,
+    Deceased_Birthday: data.Deceased_Birthday,
+    Date_of_Death: data.Date_of_Death,
+    Deceased_Address: data.Deceased_Address,
+    Procedure_Type: data.Procedure_Type.join(';'),
+    Additional_Services: data.Additional_Services.join(';'),
+    Task_Koseki: data.Task_Koseki,
+    Task_Chart: data.Task_Chart,
+    Task_RealEstate: data.Task_RealEstate,
+    Task_Finance: data.Task_Finance,
+    Task_Inventory: data.Task_Inventory,
+    Task_Agreement: data.Task_Agreement,
+    Task_Registration: data.Task_Registration,
+    Task_Cancel: data.Task_Cancel,
+    Task_Appraisal: data.Task_Appraisal,
+    Property_Sale: data.Property_Sale,
+    Resident_Status: data.Resident_Status,
+    Title_Deed: data.Title_Deed,
+    Property_Type: data.Property_Type,
+    Building_Age: data.Building_Age,
+    Area_Rating: data.Area_Rating,
+    Property_Rank: calcPropertyRank(),
+    Sale_Urgency: data.Sale_Urgency,
+    Passbook_Status: data.Passbook_Status,
+    Cancellation_Support: data.Cancellation_Support,
+    Total_Asset_Estimate: assetMan || null,
+    Basic_Deduction: basicDeduction,
+    Taxable_Estimate: assetMan ? assetMan - basicDeduction : null,
+    Tax_Filing_Required: data.Tax_Filing_Required,
+    Tax_Filing_Deadline: data.Tax_Filing_Deadline,
+    Tax_Advisor_Referral: data.Tax_Advisor_Referral,
+    Client_Intention: data.Client_Intention,
+    Distribution_Policy: data.Distribution_Policy,
+    Will_Type: data.Will_Type,
+    Insurance_Proposal: data.Insurance_Proposal,
+    Important_Notes: data.Important_Notes,
+    heirs: data.heirs.map(h => ({
+      Heir_Name: h.Heir_Name,
+      Heir_Kana: h.Heir_Kana,
+      Relationship: h.Relationship,
+      Legal_Heir: h.Legal_Heir,
+    })),
+    properties: data.properties,
+    bank_accounts: data.bank_accounts,
+    securities: data.securities,
+    trust_banks: data.trust_banks,
+    divisions: data.divisions,
+    _legal_heir_count: legalHeirCount,
+    Meeting_Transcript: data.Meeting_Transcript || '',
+    AI_Summary: data.AI_Summary || '',
+  };
+}
+
+function copyJson() {
+  const text = document.getElementById('jsonOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = '✓ コピーしました！';
+    setTimeout(() => btn.textContent = '📋 JSONをコピー', 2000);
+  });
+}
+
+// ============================================================
+// 音声機能
+// ============================================================
+let mediaRecorder = null;
+let audioChunks = [];
+let recSeconds = 0;
+let recInterval = null;
+let recPaused = false;
+let transcriptLog = [];
+let fullTranscript = '';
+let fullRecognition = null;
+
+function toggleFullRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    stopFullRecording();
+  } else {
+    startFullRecording();
+  }
+}
+
+async function startFullRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    recSeconds = 0;
+    recPaused = false;
+    transcriptLog = [];
+    fullTranscript = '';
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.start(1000);
+
+    recInterval = setInterval(() => {
+      if (!recPaused) {
+        recSeconds++;
+        document.getElementById('recTimer').textContent = formatTime(recSeconds);
+      }
+    }, 1000);
+
+    document.getElementById('recBar').classList.remove('hidden-bar');
+    document.getElementById('recToggleBtn').classList.add('recording');
+    document.getElementById('recDot').className = 'rec-dot';
+    document.getElementById('recLabel').textContent = '録音中 — 面談終了後に■で停止';
+
+    startFullTranscription();
+
+  } catch(e) {
+    alert('マイクへのアクセスを許可してください');
+  }
+}
+
+function startFullTranscription() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  fullRecognition = new SR();
+  fullRecognition.lang = 'ja-JP';
+  fullRecognition.continuous = true;
+  fullRecognition.interimResults = false;
+
+  fullRecognition.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript;
+        const time = formatTime(recSeconds);
+        transcriptLog.push({ time, text });
+        fullTranscript += text + '。';
+        const label = document.getElementById('recLabel');
+        if (label) label.textContent = '「' + text.slice(0,20) + (text.length>20?'…':'') + '」';
+      }
+    }
+  };
+
+  fullRecognition.onend = () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try { fullRecognition.start(); } catch(e) {}
+    }
+  };
+
+  try { fullRecognition.start(); } catch(e) {}
+}
+
+function pauseResume() {
+  if (!mediaRecorder) return;
+  recPaused = !recPaused;
+  if (recPaused) {
+    mediaRecorder.pause();
+    document.getElementById('recDot').className = 'rec-dot paused';
+    document.getElementById('recPauseBtn').textContent = '▶';
+    document.getElementById('recLabel').textContent = '一時停止中';
+    if (fullRecognition) fullRecognition.stop();
+  } else {
+    mediaRecorder.resume();
+    document.getElementById('recDot').className = 'rec-dot';
+    document.getElementById('recPauseBtn').textContent = '⏸';
+    document.getElementById('recLabel').textContent = '録音中...';
+    startFullTranscription();
+  }
+}
+
+function stopFullRecording() {
+  if (!mediaRecorder) return;
+
+  mediaRecorder.onstop = async () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    await processWithWhisperAndClaude(audioBlob);
+  };
+
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  clearInterval(recInterval);
+  if (fullRecognition) fullRecognition.stop();
+
+  document.getElementById('recBar').classList.add('hidden-bar');
+  document.getElementById('recToggleBtn').classList.remove('recording');
+  document.getElementById('recToggleBtn').textContent = '📄';
+  mediaRecorder = null;
+}
+
+// ============================================================
+// Whisper + Claude 自動入力
+// ============================================================
+const AI_FILLED_FIELDS = new Set();
+
+const PROXY_BASE = 'https://your-api-proxy.example.com'; // placeholder
+
+async function processWithWhisperAndClaude(audioBlob) {
+  showAiOverlay('step1');
+
+  try {
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'ja');
+
+    const whisperRes = await fetch(`${PROXY_BASE}/api/whisper`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!whisperRes.ok) throw new Error('Whisper APIエラー: ' + whisperRes.status);
+    const whisperData = await whisperRes.json();
+    const transcript = whisperData.text || '';
+
+    data.Meeting_Transcript = transcript;
+
+    showAiOverlay('step2');
+
+    await runClaudeAutoFill(transcript);
+
+  } catch(err) {
+    hideAiOverlay();
+    alert('AI処理中にエラーが発生しました：' + err.message + '\n\n手動で入力してください。');
+    showTranscriptModal();
+  }
+}
+
+async function runClaudeAutoFill(transcript) {
+  if (!transcript) {
+    hideAiOverlay();
+    showTranscriptModal();
+    return;
+  }
+
+  showAiOverlay('step2');
+
+  const prompt = `以下は相続の面談の文字起こしテキストです。
+このテキストから情報を抽出して、必ずJSONのみで返してください。マークダウンや説明文は不要です。
+
+【文字起こし】
+${transcript}
+
+【抽出するJSONの形式】
+{
+  "Client_Name": "依頼者氏名（わかれば）",
+  "Client_Kana": "依頼者ふりがな（わかれば）",
+  "Client_Phone": "電話番号（わかれば）",
+  "Deceased_Name": "被相続人氏名（わかれば）",
+  "Deceased_Kana": "被相続人ふりがな（わかれば）",
+  "Date_of_Death": "死亡日 YYYY-MM-DD形式（わかれば）",
+  "Deceased_Address": "被相続人住所（わかれば）",
+  "heirs": [{"Heir_Name":"氏名","Relationship":"関係（配偶者/子/父母/兄弟姉妹/その他）","Legal_Heir":true}],
+  "Total_Asset_Estimate": "資産合計の数値のみ万円単位（わかれば）",
+  "Bank_Names": "金融機関名（わかれば）",
+  "Property_Sale": "不動産売却意向 有/無/検討中（わかれば）",
+  "Resident_Status": "空き家/居住中（相続人）/居住中（第三者）/賃貸中（わかれば）",
+  "Client_Intention": "依頼者の意向・要望（わかれば）",
+  "Distribution_Policy": "分配方針（わかれば）",
+  "Will_Type": "遺言種別 自筆/公正証書/その他（わかれば）",
+  "Important_Notes": "特記事項・気になる点（わかれば）",
+  "Difficulty": "難易度 易/普/難（総合判断）",
+  "Tax_Filing_Required": "相続税申告 要/不要/確認中",
+  "AI_Summary": "面談内容の要約（3〜5文）"
+}
+
+わからない項目は空文字列""にしてください。JSONのみ返してください。`;
+
+  try {
+    const res = await fetch(`${PROXY_BASE}/api/claude`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) throw new Error('Claude APIエラー: ' + res.status);
+    const resData = await res.json();
+    const rawText = resData.content?.[0]?.text || '{}';
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const extracted = JSON.parse(clean);
+
+    showAiOverlay('step3');
+    await new Promise(r => setTimeout(r, 600));
+
+    applyAiExtraction(extracted, transcript);
+
+    hideAiOverlay();
+    showAiResultModal(extracted, transcript);
+
+  } catch(err) {
+    hideAiOverlay();
+    alert('Claude APIエラー：' + err.message);
+    showTranscriptModal();
+  }
+}
+
+function applyAiExtraction(extracted, transcript) {
+  AI_FILLED_FIELDS.clear();
+
+  const simpleFields = [
+    'Client_Name','Client_Kana','Client_Phone','Deceased_Name','Deceased_Kana',
+    'Date_of_Death','Deceased_Address','Total_Asset_Estimate','Bank_Names',
+    'Client_Intention','Distribution_Policy','Important_Notes','Will_Type',
+    'Tax_Filing_Required','Difficulty','Property_Sale','Resident_Status',
+  ];
+
+  simpleFields.forEach(key => {
+    if (extracted[key] && !data[key]) {
+      data[key] = extracted[key];
+      AI_FILLED_FIELDS.add(key);
+    }
+  });
+
+  if (extracted.heirs && Array.isArray(extracted.heirs) && data.heirs.length === 0) {
+    data.heirs = extracted.heirs.map(h => ({
+      Heir_Name: h.Heir_Name || '',
+      Heir_Kana: '',
+      Relationship: h.Relationship || '',
+      Legal_Heir: h.Legal_Heir !== false,
+    }));
+    AI_FILLED_FIELDS.add('heirs');
+  }
+
+  data.Meeting_Transcript = transcript;
+  data.AI_Summary = extracted.AI_Summary || '';
+
+  updateCalc();
+}
+
+// ===== AI Overlay =====
+function showAiOverlay(activeStep) {
+  let overlay = document.getElementById('aiOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'aiOverlay';
+    overlay.className = 'ai-overlay';
+    overlay.innerHTML = `
+      <div class="ai-overlay-icon">🤖</div>
+      <div class="ai-overlay-title">AI が面談内容を解析中</div>
+      <div class="ai-overlay-sub">しばらくお待ちください</div>
+      <div class="ai-progress-steps">
+        <div class="ai-step" id="aistep-step1"><div class="ai-step-dot"></div>音声をテキストに変換中（Whisper）</div>
+        <div class="ai-step" id="aistep-step2"><div class="ai-step-dot"></div>面談内容を構造化中（Claude）</div>
+        <div class="ai-step" id="aistep-step3"><div class="ai-step-dot"></div>フォームに自動入力中</div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  ['step1','step2','step3'].forEach(s => {
+    const el = document.getElementById('aistep-' + s);
+    if (!el) return;
+    const stepNum = parseInt(s.replace('step',''));
+    const activeNum = parseInt(activeStep.replace('step',''));
+    el.className = 'ai-step' + (stepNum === activeNum ? ' active' : stepNum < activeNum ? ' done' : '');
+  });
+}
+
+function hideAiOverlay() {
+  const overlay = document.getElementById('aiOverlay');
+  if (overlay) overlay.remove();
+}
+
+// ===== AI Result Modal =====
+function showAiResultModal(extracted, transcript) {
+  const existing = document.getElementById('aiResultModal');
+  if (existing) existing.remove();
+
+  const filledCount = AI_FILLED_FIELDS.size;
+  const summary = extracted.AI_Summary || '（要約なし）';
+
+  const modal = document.createElement('div');
+  modal.id = 'aiResultModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--sh3);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:17px;font-weight:700;color:var(--text)">🤖 AI自動入力が完了しました</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${filledCount}項目を自動入力しました。内容を確認してください。</div>
+        </div>
+        <button onclick="closeAiModal()"
+          style="background:var(--bg);border:none;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;font-weight:700;color:var(--text);flex-shrink:0;">
+          ✕
+        </button>
+      </div>
+
+      <div style="background:linear-gradient(135deg,#1E3A5F 0%,#0F2440 100%);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:#60A5FA;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">AI 面談サマリー</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.7;">${summary}</div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">自動入力された項目</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+        ${[...AI_FILLED_FIELDS].map(f => `<span style="background:var(--green-l);border:1px solid #A7F3D0;color:var(--green);font-size:12px;font-weight:600;padding:4px 12px;border-radius:100px;">${fieldLabel(f)}</span>`).join('')}
+      </div>
+
+      <div style="background:#1E1E1E;border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:#60A5FA;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">文字起こし全文</div>
+        <div style="font-size:12px;color:#D4D4D4;line-height:1.8;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">${transcript || '（テキストなし）'}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button onclick="copyFullTranscript()"
+          style="padding:13px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          📋 全文コピー
+        </button>
+        <button onclick="closeAiModal()"
+          style="padding:13px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          ✓ 確認・入力修正へ
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function fieldLabel(key) {
+  const map = {
+    Client_Name:'依頼者氏名', Client_Kana:'依頼者ふりがな', Client_Phone:'電話番号',
+    Deceased_Name:'被相続人氏名', Deceased_Kana:'被相続人ふりがな', Date_of_Death:'死亡日',
+    Deceased_Address:'被相続人住所', Total_Asset_Estimate:'資産概算', Bank_Names:'金融機関',
+    Client_Intention:'依頼者の意向', Distribution_Policy:'分配方針', Important_Notes:'特記事項',
+    Will_Type:'遺言種別', Tax_Filing_Required:'相続税申告', Difficulty:'難易度',
+    Property_Sale:'売却意向', Resident_Status:'住人有無', heirs:'相続人',
+  };
+  return map[key] || key;
+}
+
+function closeAiModal() {
+  document.getElementById('aiResultModal')?.remove();
+  currentStep = 1;
+  renderStep(currentStep);
+  window.scrollTo(0,0);
+}
+
+function copyFullTranscript() {
+  navigator.clipboard.writeText(data.Meeting_Transcript || '').then(() => {
+    alert('文字起こし全文をコピーしました');
+  });
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60).toString().padStart(2,'0');
+  const sec = (s%60).toString().padStart(2,'0');
+  return m + ':' + sec;
+}
+
+function showTranscriptModal() {
+  const existing = document.getElementById('transcriptModal');
+  if (existing) existing.remove();
+
+  const totalTime = formatTime(recSeconds);
+  const logHTML = transcriptLog.length
+    ? transcriptLog.map(l =>
+        `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.3);margin-right:6px">[${l.time}]</span>${l.text}
+        </div>`
+      ).join('')
+    : '<div style="color:rgba(255,255,255,0.2);font-style:italic;font-size:12px">文字起こしデータがありません。</div>';
+
+  const modal = document.createElement('div');
+  modal.id = 'transcriptModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:var(--sh3);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div>
+          <div style="font-size:17px;font-weight:700;color:var(--text)">📄 面談の文字起こし</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            録音時間：${totalTime} ／ ${transcriptLog.length}件の発言を記録
+          </div>
+        </div>
+        <button onclick="document.getElementById('transcriptModal').remove()"
+          style="background:var(--bg);border:none;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;font-weight:700;color:var(--text)">
+          ✕ 閉じる
+        </button>
+      </div>
+      <div style="height:1px;background:var(--border);margin:14px 0"></div>
+      <div style="background:#1E1E1E;border-radius:12px;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:11px;font-weight:700;color:#60A5FA;letter-spacing:1px;text-transform:uppercase">文字起こし全文</span>
+          <span style="font-size:11px;color:rgba(255,255,255,0.3)">タイムスタンプ付き</span>
+        </div>
+        <div style="font-size:13px;color:#D4D4D4;line-height:1.8;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">${logHTML}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+        <button onclick="copyTranscript('timestamped')"
+          style="padding:13px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          📋 タイムスタンプ付きコピー
+        </button>
+        <button onclick="copyTranscript('plain')"
+          style="padding:13px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">
+          📝 全文のみコピー
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function copyTranscript(mode) {
+  const text = mode === 'plain'
+    ? transcriptLog.map(l => l.text).join('\n')
+    : transcriptLog.map(l => `[${l.time}] ${l.text}`).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    alert(mode === 'plain' ? '全文をコピーしました' : 'タイムスタンプ付きでコピーしました');
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜案件詳細</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F8FA;--white:#FFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFDBFE;
+  --green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --orange:#EA580C;--orange-l:#FFF7ED;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600}.ur{font-size:10px;color:var(--muted)}
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+/* TOPBAR */
+.topbar{padding:0 24px;border-bottom:1px solid var(--border);background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.topbar-top{padding:12px 0;display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;padding:5px 8px;border-radius:5px;border:none;background:none;font-family:'Noto Sans JP',sans-serif;transition:all .1s}
+.back-btn:hover{background:var(--bg);color:var(--text2)}
+.breadcrumb{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-g:hover{background:var(--bg)}
+/* CASE HEADER */
+.case-header{padding:16px 24px;background:var(--white);border-bottom:1px solid var(--border)}
+.ch-top{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.ch-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:4px;border:1px solid var(--border);display:inline-block;margin-bottom:5px}
+.ch-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:22px;letter-spacing:-.5px}
+.ch-dec{font-size:13px;color:var(--muted);margin-top:3px}
+/* STATUS DROPDOWN */
+.status-select-wrap{position:relative;display:inline-block}
+.status-select-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.status-select-btn::after{content:'▾';font-size:10px;opacity:.7}
+.status-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:var(--sh3);min-width:160px;z-index:50;overflow:hidden;display:none}
+.status-dropdown.open{display:block}
+.status-opt{padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.status-opt:hover{background:var(--bg)}
+.status-opt.current{background:var(--blue-l);color:var(--blue)}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* STATUS FLOW */
+.sf-wrap{display:flex;align-items:flex-start}
+.sf-item{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;flex:1;cursor:pointer}
+.sf-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);position:relative;z-index:1;transition:all .2s}
+.sf-dot.passed{background:var(--blue);opacity:.4}
+.sf-dot.active{background:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.2);width:12px;height:12px}
+.sf-label{font-size:10px;color:var(--muted2);white-space:nowrap;text-align:center;transition:color .2s}
+.sf-label.active{color:var(--blue);font-weight:600}
+.sf-line{position:absolute;top:5px;left:50%;right:-50%;height:1px;background:var(--border2);z-index:0;transition:background .3s}
+.sf-line.passed{background:var(--blue);opacity:.35}
+.sf-item:last-child .sf-line{display:none}
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--white);padding:0 24px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .1s}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.tab-cnt{display:inline-block;margin-left:4px;font-size:10px;font-family:'DM Mono',monospace;background:var(--bg);padding:1px 5px;border-radius:4px;color:var(--muted)}
+.tab.active .tab-cnt{background:var(--blue-l);color:var(--blue)}
+/* CONTENT */
+.content{padding:20px 24px;flex:1}
+.layout2{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+.tab-content{display:none}
+.tab-content.active{display:block}
+/* CARDS */
+.sec{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);margin-bottom:14px;overflow:hidden}
+.sec-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sec-icon{font-size:14px}
+.sec-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px}
+.sec-edit{margin-left:auto;font-size:11px;color:var(--blue);cursor:pointer;padding:3px 8px;border-radius:4px;border:1px solid var(--blue-m);background:var(--blue-l)}
+.sec-body{padding:14px 18px}
+/* FIELDS */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.fr{padding:7px 0;border-bottom:1px solid rgba(0,0,0,.03);display:flex;flex-direction:column;gap:2px}
+.fr:last-child{border-bottom:none}
+.fr.full{grid-column:1/-1}
+.fl{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.3px}
+.fv{font-size:13px;font-weight:500;color:var(--text2)}
+.fv.mono{font-family:'DM Mono',monospace;font-size:12px}
+.fv.empty{color:var(--muted2);font-weight:400;font-style:italic;font-size:12px}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;border:1px solid transparent}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.b-lead{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}
+.b-meeting{background:#EFF6FF;color:#3B82F6;border-color:#BFDBFE}
+.b-consid{background:#FFFBEB;color:#D97706;border-color:#FDE68A}
+.b-won{background:#F0FDF4;color:#16A34A;border-color:#BBF7D0}
+.b-active{background:#F5F3FF;color:#7C3AED;border-color:#DDD6FE}
+.b-done{background:#F0FDF4;color:#059669;border-color:#A7F3D0}
+.b-hold{background:#FFF7ED;color:#EA580C;border-color:#FED7AA}
+.b-lost{background:#FEF2F2;color:#DC2626;border-color:#FECACA}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tb{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.tg{background:var(--green-l);color:var(--green);border:1px solid #A7F3D0}
+.ta{background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A}
+.tr{background:var(--red-l);color:var(--red);border:1px solid #FECACA}
+.tp{background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE}
+.tgr{background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB}
+/* TASKS */
+.task-list{display:flex;flex-direction:column;gap:5px}
+.task-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--border);font-size:12px;cursor:pointer;transition:all .12s;user-select:none}
+.task-item:hover{border-color:var(--border2);background:var(--white);box-shadow:var(--sh0)}
+.task-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s;cursor:pointer}
+.task-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.task-check.wcheck{background:var(--purple);border-color:var(--purple);color:#fff}
+.task-check.diff{background:var(--red);border-color:var(--red);color:#fff}
+.task-name{flex:1;font-weight:500;color:var(--text2)}
+.task-name.done{text-decoration:line-through;color:var(--muted2)}
+.task-cat{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace}
+.task-st{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
+.task-due{font-size:10px;font-family:'DM Mono',monospace;min-width:64px;text-align:right}
+.task-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
+.task-av-wrap{display:flex;align-items:center;flex-shrink:0}
+.task-av-sub{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0;margin-left:-6px;border:2px solid var(--white)}
+/* PROGRESS */
+.pgb{width:100%;height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.pgf{height:100%;border-radius:3px;transition:width .5s ease}
+/* REVENUE CARD */
+.rev-card{background:linear-gradient(135deg,#1E40AF,#2563EB);border-radius:12px;padding:16px 18px;color:#fff;margin-bottom:14px}
+.rev-label{font-size:10px;font-weight:600;opacity:.7;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.rev-amount{font-family:'Plus Jakarta Sans',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px}
+.rev-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+.rev-key{opacity:.7}
+.rev-val{font-family:'DM Mono',monospace}
+/* QI */
+.qi-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.04);font-size:12px}
+.qi-row:last-child{border-bottom:none}
+.qi-key{color:var(--muted)}
+.qi-val{font-weight:500;color:var(--text2)}
+/* NOTE */
+.note-box{background:var(--amber-l);border:1px solid #FDE68A;border-radius:7px;padding:10px 12px;font-size:12px;line-height:1.7;color:#92400E}
+/* AI BOX */
+.ai-box{background:linear-gradient(135deg,#F5F3FF,#EFF4FF);border:1px solid #DDD6FE;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.ai-label{font-size:10px;font-weight:700;color:var(--purple);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.ai-text{font-size:12px;color:var(--text2);line-height:1.6}
+.ai-actions{display:flex;gap:6px;margin-top:8px}
+.ai-action{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'Noto Sans JP',sans-serif;transition:all .1s}
+.ai-accept{background:var(--purple);color:#fff}.ai-accept:hover{opacity:.85}
+.ai-skip{background:transparent;color:var(--muted);border:1px solid var(--border)}.ai-skip:hover{background:var(--bg)}
+/* HEIR TABLE */
+.ht{width:100%;border-collapse:collapse}
+.ht th{text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;background:var(--bg);border-bottom:1px solid var(--border)}
+.ht td{padding:9px 10px;font-size:12px;border-bottom:1px solid var(--border)}
+.ht tr:last-child td{border-bottom:none}
+.ht tr:hover td{background:#FAFBFF}
+/* FINANCE GRID */
+.fig{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fic{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.fib{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:2px}
+.fibr{font-size:11px;color:var(--muted)}
+.fit{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.fi-tag{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;background:var(--white);border:1px solid var(--border);color:var(--muted)}
+.fi-tag.req{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+/* DOCS */
+.doc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.doc-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .12s}
+.doc-card:hover{border-color:var(--border2);background:var(--white);box-shadow:var(--sh0)}
+.doc-name{font-size:12px;font-weight:600;color:var(--text2)}
+.doc-meta{font-size:10px;color:var(--muted)}
+.doc-add{border:2px dashed var(--border);justify-content:center;color:var(--muted);font-size:12px}
+.doc-add:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+/* TIMELINE */
+.tl-item{display:flex;gap:10px;padding-bottom:14px;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:7px;top:18px;bottom:0;width:1px;background:var(--border)}
+.tl-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:8px;z-index:1}
+.tl-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:2px}
+.tl-date{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+.tl-note{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5}
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(17,24,39,.4);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(2px)}
+.modal-ov.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:14px;box-shadow:var(--sh3);width:520px;max-width:90vw;overflow:hidden;transform:translateY(10px);transition:transform .2s}
+.modal-ov.open .modal{transform:translateY(0)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;flex:1}
+.modal-close{width:28px;height:28px;border-radius:6px;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:all .1s}
+.modal-close:hover{background:var(--red-l);color:var(--red);border-color:#FECACA}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:500;z-index:300;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ===== 相続関係説明図 (法務局形式) ===== */
+.szk-doc{background:#fff;min-height:500px;position:relative;font-family:'Noto Sans JP',serif}
+.szk-canvas{position:relative;width:1100px;min-height:680px;margin:0 auto;padding:30px 20px 40px}
+.szk-canvas svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+
+/* Title block - top left */
+.szk-doc-title{position:absolute;top:24px;left:30px;z-index:2}
+.szk-doc-title .t1{font-size:9px;color:#333;letter-spacing:1px;margin-bottom:2px}
+.szk-doc-title .t2{font-size:9px;color:#333;margin-bottom:6px}
+.szk-doc-title .t-main{font-size:16px;font-weight:700;letter-spacing:6px;color:#000;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:6px}
+.szk-doc-title .t-sub{font-size:9px;color:#333;line-height:1.7}
+
+/* Person box - formal vertical style */
+.szk-box{position:absolute;z-index:2;background:#fff;text-align:center;width:120px}
+.szk-box-inner{border:1.5px solid #000;min-height:120px;display:flex;flex-direction:column}
+.szk-box.szk-deceased .szk-box-inner{border-width:3px}
+.szk-box-label{font-size:8px;letter-spacing:2px;padding:3px 0;border-bottom:1px solid #000;background:#f5f5f5;color:#333;font-weight:500}
+.szk-box.szk-deceased .szk-box-label{background:#333;color:#fff;font-weight:600}
+.szk-box-body{flex:1;padding:6px 4px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.szk-box-name{font-size:13px;font-weight:700;color:#000;letter-spacing:1px}
+.szk-box-info{font-size:8px;color:#444;line-height:1.5;text-align:left;padding:0 4px}
+.szk-box-info span{color:#888;margin-right:2px}
+.szk-box-stamp{width:30px;height:30px;border:1.5px solid #c00;border-radius:50%;margin:4px auto 2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#c00;font-weight:700;line-height:1}
+.szk-box-death{font-size:8px;color:#c00;text-align:center;margin-top:2px;font-weight:500}
+
+/* Print styles for chart */
+@media print{
+  .sidebar,.top-bar,.sec-header,.tab-row,
+  .sec:not(:has(.szk-doc)),.sec-body:not(:has(.szk-doc)){display:none!important}
+  .main{margin-left:0!important}
+  .content{padding:0!important}
+  .szk-doc{border:none!important}
+  .szk-canvas{width:100%!important}
+  @page{size:A3 landscape;margin:8mm}
+}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item active"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-top">
+      <button class="back-btn">← 案件一覧</button>
+      <span style="color:var(--border2)">|</span>
+      <div class="breadcrumb" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px">
+        <span>案件管理</span><span style="color:var(--muted2)">›</span>
+        <span style="color:var(--text2);font-weight:500">R7-A00127 · 中村 さくら</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-g" onclick="openDocModal()">📄 書類作成</button>
+        <button class="btn btn-p">✏️ 編集</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CASE HEADER -->
+  <div class="case-header">
+    <div class="ch-top">
+      <div style="flex:1">
+        <div class="ch-id">R7-A00127 · クレアトール · LP</div>
+        <div class="ch-name">中村 さくら</div>
+        <div class="ch-dec">被相続人：中村 義雄（2025/10/01 死亡）</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;padding-top:4px">
+        <!-- ステータスドロップダウン -->
+        <div class="status-select-wrap" id="statusWrap">
+          <div class="status-select-btn badge b-active" id="statusBtn" onclick="toggleStatusDrop()">対応中</div>
+          <div class="status-dropdown" id="statusDrop"></div>
+        </div>
+        <span class="tag tr">難</span>
+        <span class="tag ta">相続税 要</span>
+        <span class="tag tp">遺言：自筆</span>
+      </div>
+    </div>
+    <div class="sf-wrap" id="statusFlow"></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="st('overview',this)">概要</div>
+    <div class="tab" onclick="st('tasks',this)">タスク<span class="tab-cnt" id="taskCnt">9</span></div>
+    <div class="tab" onclick="st('client',this)">依頼者・被相続人</div>
+    <div class="tab" onclick="st('assets',this)">財産情報</div>
+    <div class="tab" onclick="st('division',this)">遺産分割・遺言</div>
+    <div class="tab" onclick="st('finance2',this)">請求・収益</div>
+    <div class="tab" onclick="st('docs',this)">書類<span class="tab-cnt">7</span></div>
+    <div class="tab" onclick="st('history',this)">履歴</div>
+  </div>
+
+  <!-- ===== 概要 ===== -->
+  <div id="tab-overview" class="tab-content active">
+    <div class="content">
+      <div class="layout2">
+        <div>
+          <div class="ai-box" id="aiBox">
+            <div class="ai-label">🤖 AI アシスタント</div>
+            <div class="ai-text" id="aiText">分析中...</div>
+            <div class="ai-actions" id="aiActions"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">📋</span><div class="sec-title">基本情報</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">管理番号</div><div class="fv mono">R7-A00127</div></div>
+                <div class="fr"><div class="fl">依頼日</div><div class="fv mono">2025/10/15</div></div>
+                <div class="fr"><div class="fl">完了予定日</div><div class="fv mono">2026/03/31</div></div>
+                <div class="fr"><div class="fl">拠点</div><div class="fv">クレアトール</div></div>
+                <div class="fr"><div class="fl">手続区分</div><div class="fv"><div style="display:flex;gap:4px"><span class="tag tb">手続一式</span><span class="tag tb">登記</span></div></div></div>
+                <div class="fr"><div class="fl">付帯サービス</div><div class="fv"><div style="display:flex;gap:4px"><span class="tag ta">相続税申告</span><span class="tag tg">不動産売却</span></div></div></div>
+                <div class="fr"><div class="fl">契約形態</div><div class="fv">行・司連名</div></div>
+                <div class="fr"><div class="fl">受注ルート</div><div class="fv">LP</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">👥</span><div class="sec-title">担当者</div><span class="sec-edit">変更</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">受注担当</div><div class="fv" style="display:flex;align-items:center;gap:6px"><div style="width:22px;height:22px;border-radius:50%;background:#2563EB;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">田</div>田中</div></div>
+                <div class="fr"><div class="fl">管理担当</div><div class="fv" style="display:flex;align-items:center;gap:6px"><div style="width:22px;height:22px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">佐</div>佐藤</div></div>
+                <div class="fr"><div class="fl">管理担当アシスタント</div><div class="fv">鈴木・伊藤</div></div>
+                <div class="fr"><div class="fl">LP担当</div><div class="fv">山本</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">⚠️</span><div class="sec-title">重要事項</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body"><div class="note-box">自筆遺言の検認申立が必要。相続人5名で意見調整中。長男が不動産取得を希望しているが他の相続人との調整が難航する可能性あり。相続税申告期限は2026/08/01。</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="rev-card">
+            <div class="rev-label">案件収益見込み</div>
+            <div class="rev-amount">¥2,860,000</div>
+            <div class="rev-row"><span class="rev-key">行政書士報酬</span><span class="rev-val">¥1,100,000</span></div>
+            <div class="rev-row"><span class="rev-key">司法書士報酬</span><span class="rev-val">¥880,000</span></div>
+            <div class="rev-row"><span class="rev-key">不動産手数料見込</span><span class="rev-val">¥660,000</span></div>
+            <div class="rev-row"><span class="rev-key">税理士紹介手数料</span><span class="rev-val">¥220,000</span></div>
+            <div style="border-top:1px solid rgba(255,255,255,.2);margin:8px 0;padding-top:8px">
+              <div class="rev-row"><span class="rev-key">入金ステータス</span><span class="rev-val">前受金入金済</span></div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">ℹ️</span><div class="sec-title">クイック情報</div></div>
+            <div class="sec-body">
+              <div class="qi-row"><span class="qi-key">資産概算</span><span class="qi-val mono" style="font-family:'DM Mono',monospace">¥85,000,000</span></div>
+              <div class="qi-row"><span class="qi-key">相続税申告</span><span class="qi-val"><span class="tag tr">要</span></span></div>
+              <div class="qi-row"><span class="qi-key">申告期限</span><span class="qi-val" style="color:var(--amber);font-family:'DM Mono',monospace">2026/08/01</span></div>
+              <div class="qi-row"><span class="qi-key">遺言</span><span class="qi-val">自筆遺言</span></div>
+              <div class="qi-row"><span class="qi-key">相続人数</span><span class="qi-val">5名</span></div>
+              <div class="qi-row"><span class="qi-key">不動産ランク</span><span class="qi-val"><span style="background:#FEF3C7;color:#B45309;padding:2px 10px;border-radius:5px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px">S</span></span></div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">✅</span><div class="sec-title">タスク進捗</div></div>
+            <div class="sec-body">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                <span style="color:var(--muted)" id="pgLabel">完了 3 / 9タスク</span>
+                <span style="font-weight:600" id="pgPct">33%</span>
+              </div>
+              <div class="pgb"><div class="pgf" id="pgBar" style="width:33%;background:var(--blue)"></div></div>
+              <div class="task-list" id="quickTaskList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== タスク ===== -->
+  <div id="tab-tasks" class="tab-content">
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;flex:1">タスク管理</div>
+        <button class="btn btn-g" onclick="openAssignModal()" style="gap:5px">👥 担当者変更</button>
+        <button class="btn btn-g" onclick="openBulkTaskModal()" style="gap:5px">📋 一括生成</button>
+        <button class="btn btn-p" onclick="openAddTaskModal()">＋ タスク追加</button>
+      </div>
+      <div id="tasksByPhase"></div>
+    </div>
+  </div>
+
+  <!-- ===== 依頼者・被相続人 ===== -->
+  <div id="tab-client" class="tab-content">
+    <div class="content">
+      <div class="layout2">
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">👤</span><div class="sec-title">依頼者情報</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">氏名</div><div class="fv">中村 さくら</div></div>
+                <div class="fr"><div class="fl">ふりがな</div><div class="fv">なかむら さくら</div></div>
+                <div class="fr"><div class="fl">郵便番号</div><div class="fv mono">〒150-0012</div></div>
+                <div class="fr"><div class="fl">顧客NO</div><div class="fv mono">C-20251015-001</div></div>
+                <div class="fr full"><div class="fl">住所</div><div class="fv">東京都渋谷区広尾2-2-2</div></div>
+                <div class="fr"><div class="fl">TEL</div><div class="fv mono">03-5678-9012</div></div>
+                <div class="fr"><div class="fl">携帯TEL</div><div class="fv mono">090-1234-5678</div></div>
+                <div class="fr"><div class="fl">メール</div><div class="fv mono"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="cfbcaea4babdae8faab7aea2bfa3aae1aca0a2">[email&#160;protected]</a></div></div>
+                <div class="fr"><div class="fl">連絡先希望</div><div class="fv"><div style="display:flex;gap:4px"><span class="tag tb">携帯TEL</span><span class="tag tb">メール</span></div></div></div>
+                <div class="fr"><div class="fl">外字有無</div><div class="fv">なし</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">⚰️</span><div class="sec-title">被相続人情報</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">氏名</div><div class="fv">中村 義雄</div></div>
+                <div class="fr"><div class="fl">ふりがな</div><div class="fv">なかむら よしお</div></div>
+                <div class="fr"><div class="fl">生年月日</div><div class="fv mono">1930/07/30</div></div>
+                <div class="fr"><div class="fl">相続開始日</div><div class="fv mono">2025/10/01</div></div>
+                <div class="fr full"><div class="fl">住所</div><div class="fv">東京都渋谷区広尾2-2-2</div></div>
+                <div class="fr full"><div class="fl">本籍</div><div class="fv">東京都渋谷区広尾2丁目2番2号</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sec" style="margin-top:14px">
+        <div class="sec-header"><span class="sec-icon">👨‍👩‍👧‍👦</span><div class="sec-title">相続人一覧（5名）</div><span class="sec-edit">追加</span></div>
+        <div class="sec-body" style="padding:0;overflow-x:auto">
+          <table class="ht" style="min-width:900px">
+            <thead><tr><th>氏名</th><th>続柄</th><th>住所</th><th>本籍</th><th>TEL</th><th>メール</th><th>法定相続人</th></tr></thead>
+            <tbody>
+              <tr><td><div style="font-weight:600;font-size:12px">中村 さくら</div><div style="font-size:10px;color:var(--muted)">依頼者</div></td><td><span class="tag tb" style="font-size:10px">子</span></td><td style="font-size:11px">東京都渋谷区広尾2-2-2</td><td style="font-size:11px">東京都渋谷区広尾2丁目2番2号</td><td style="font-size:11px;font-family:'DM Mono',monospace">090-1234-5678</td><td style="font-size:11px;font-family:'DM Mono',monospace">sakura@example.com</td><td><span class="tag tg" style="font-size:10px">✓</span></td></tr>
+              <tr><td><div style="font-weight:600;font-size:12px">中村 太一</div></td><td><span class="tag tb" style="font-size:10px">子</span></td><td style="font-size:11px">東京都目黒区中目黒3-5-1</td><td style="font-size:11px">東京都渋谷区広尾2丁目2番2号</td><td style="font-size:11px;font-family:'DM Mono',monospace">090-2345-6789</td><td style="font-size:11px;font-family:'DM Mono',monospace">taichi@example.com</td><td><span class="tag tg" style="font-size:10px">✓</span></td></tr>
+              <tr><td><div style="font-weight:600;font-size:12px">中村 花</div></td><td><span class="tag tb" style="font-size:10px">子</span></td><td style="font-size:11px">神奈川県横浜市青葉区美しが丘1-2</td><td style="font-size:11px">東京都渋谷区広尾2丁目2番2号</td><td style="font-size:11px;font-family:'DM Mono',monospace">080-3456-7890</td><td style="font-size:11px;font-family:'DM Mono',monospace">hana@example.com</td><td><span class="tag tg" style="font-size:10px">✓</span></td></tr>
+              <tr><td><div style="font-weight:600;font-size:12px">山本 誠</div></td><td><span class="tag tgr" style="font-size:10px">代襲</span></td><td style="font-size:11px">東京都世田谷区三軒茶屋2-8-3</td><td style="font-size:11px">東京都世田谷区三軒茶屋2丁目8番3号</td><td style="font-size:11px;font-family:'DM Mono',monospace">090-4567-8901</td><td style="font-size:11px;font-family:'DM Mono',monospace">yamamoto@example.com</td><td><span class="tag tg" style="font-size:10px">✓</span></td></tr>
+              <tr><td><div style="font-weight:600;font-size:12px">田村 恵</div></td><td><span class="tag tgr" style="font-size:10px">代襲</span></td><td style="font-size:11px">千葉県市川市八幡3-1-5</td><td style="font-size:11px">千葉県市川市八幡3丁目1番5号</td><td style="font-size:11px;font-family:'DM Mono',monospace">080-5678-9012</td><td style="font-size:11px;font-family:'DM Mono',monospace">tamura@example.com</td><td><span class="tag tg" style="font-size:10px">✓</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== 相続関係説明図 ===== -->
+      <div class="sec" style="margin-top:14px">
+        <div class="sec-header"><span class="sec-icon">🔗</span><div class="sec-title">相続関係説明図</div><span class="sec-edit" onclick="printChart()" style="cursor:pointer">🖨️ 印刷</span></div>
+        <div class="sec-body" style="padding:0;overflow:auto;background:#fff">
+          <div id="szkDoc" class="szk-doc">
+            <div class="szk-canvas" id="szkCanvas"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== 財産情報 ===== -->
+  <div id="tab-assets" class="tab-content">
+    <div class="content">
+      <div class="layout2">
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">🏠</span><div class="sec-title">不動産</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">物件種別</div><div class="fv">戸建</div></div>
+                <div class="fr"><div class="fl">評価ランク</div><div class="fv"><span style="background:#FEF3C7;color:#B45309;padding:3px 10px;border-radius:6px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif">S</span></div></div>
+                <div class="fr"><div class="fl">住人状況</div><div class="fv">空き家</div></div>
+                <div class="fr"><div class="fl">エリア評価</div><div class="fv"><span class="tag tb">人気エリア</span></div></div>
+                <div class="fr"><div class="fl">築年数</div><div class="fv mono">45年</div></div>
+                <div class="fr"><div class="fl">売却意向</div><div class="fv"><span class="tag tg">あり</span></div></div>
+                <div class="fr"><div class="fl">権利書</div><div class="fv"><span class="tag tg">✓ あり</span></div></div>
+                <div class="fr"><div class="fl">納税通知書</div><div class="fv"><span class="tag tg">✓ あり</span></div></div>
+                <div class="fr full"><div class="fl">不動産所在地</div><div class="fv">東京都渋谷区広尾2-2-2</div></div>
+                <div class="fr full"><div class="fl">地番</div><div class="fv">広尾2丁目2番2号</div></div>
+                <div class="fr"><div class="fl">名寄せ請求先</div><div class="fv">渋谷区</div></div>
+                <div class="fr"><div class="fl">評価証明請求先</div><div class="fv">渋谷都税事務所</div></div>
+                <div class="fr"><div class="fl">登記情報取得</div><div class="fv"><span class="tag tg">✓</span></div></div>
+                <div class="fr"><div class="fl">公図取得</div><div class="fv"><span class="tag tg">✓</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">🏦</span><div class="sec-title">金融資産（預貯金）</div><span class="sec-edit">追加</span></div>
+            <div class="sec-body" style="padding:12px 18px">
+              <div class="fig" style="grid-template-columns:1fr">
+                <div class="fic">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="fib">三菱UFJ銀行</div><div class="fibr">渋谷支店</div></div>
+                  <div class="fit" style="margin-top:0;margin-bottom:8px"><span class="fi-tag req">残高証明</span><span class="fi-tag req">取引履歴</span><span class="fi-tag req">経過利息</span></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
+                    <div style="font-size:10px;color:var(--muted)">現存確認要否：<span class="tag tb" style="font-size:9px">要</span></div>
+                    <div style="font-size:10px;color:var(--muted)">残高証明基準日：<span style="font-weight:600;color:var(--text2)">相続開始日</span></div>
+                    <div style="font-size:10px;color:var(--muted)">取引履歴期間：<span class="tag tp" style="font-size:9px">5年</span></div>
+                    <div style="font-size:10px;color:var(--muted)">貸金庫有無：<span class="tag tgr" style="font-size:9px">無</span></div>
+                  </div>
+                </div>
+                <div class="fic">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="fib">みずほ銀行</div><div class="fibr">代官山支店</div></div>
+                  <div class="fit" style="margin-top:0;margin-bottom:8px"><span class="fi-tag req">残高証明</span></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
+                    <div style="font-size:10px;color:var(--muted)">現存確認要否：<span class="tag tb" style="font-size:9px">要</span></div>
+                    <div style="font-size:10px;color:var(--muted)">残高証明基準日：<span style="font-weight:600;color:var(--text2)">相続開始日</span></div>
+                    <div style="font-size:10px;color:var(--muted)">取引履歴期間：<span class="tag tp" style="font-size:9px">3年</span></div>
+                    <div style="font-size:10px;color:var(--muted)">貸金庫有無：<span class="tag tgr" style="font-size:9px">無</span></div>
+                  </div>
+                </div>
+                <div class="fic">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="fib">ゆうちょ銀行</div><div class="fibr">—</div></div>
+                  <div class="fit" style="margin-top:0;margin-bottom:8px"><span class="fi-tag req">残高証明</span><span class="fi-tag req">全店調査</span></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
+                    <div style="font-size:10px;color:var(--muted)">現存確認要否：<span class="tag tgr" style="font-size:9px">不要</span></div>
+                    <div style="font-size:10px;color:var(--muted)">残高証明基準日：<span style="font-weight:600;color:var(--text2)">相続開始日</span></div>
+                    <div style="font-size:10px;color:var(--muted)">取引履歴期間：<span class="tag tp" style="font-size:9px">3年</span></div>
+                    <div style="font-size:10px;color:var(--muted)">貸金庫有無：<span class="tag tgr" style="font-size:9px">無</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">📈</span><div class="sec-title">金融資産（証券）</div><span class="sec-edit">追加</span></div>
+            <div class="sec-body" style="padding:12px 18px">
+              <div class="fig">
+                <div class="fic"><div class="fib">大和証券</div><div class="fibr">渋谷支店</div><div class="fit"><span class="fi-tag req">残高照会</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">🏛️</span><div class="sec-title">金融資産（信託銀行）</div><span class="sec-edit">追加</span></div>
+            <div class="sec-body" style="padding:12px 18px">
+              <div class="fig" style="grid-template-columns:1fr">
+                <div class="fic">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="fib">みずほ信託銀行</div><div class="fibr">渋谷支店</div></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+                    <div style="font-size:11px"><span style="color:var(--muted)">銘柄名：</span><span style="font-weight:600;color:var(--text2)">トヨタ自動車</span></div>
+                    <div style="font-size:11px"><span style="color:var(--muted)">所有株式数証明：</span><span class="tag tb" style="font-size:9px">要</span></div>
+                    <div style="font-size:11px"><span style="color:var(--muted)">未受領配当金：</span><span class="tag tb" style="font-size:9px">要</span></div>
+                    <div style="font-size:11px"><span style="color:var(--muted)">端株手続き：</span><span class="tag ta" style="font-size:9px">移管</span></div>
+                    <div style="font-size:11px"><span style="color:var(--muted)">特別口座証明：</span><span class="tag tgr" style="font-size:9px">不要</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">💰</span><div class="sec-title">資産サマリー</div></div>
+            <div class="sec-body">
+              <div class="qi-row"><span class="qi-key">資産合計概算</span><span class="qi-val" style="font-family:'DM Mono',monospace">¥85,000,000</span></div>
+              <div class="qi-row"><span class="qi-key">相続税申告</span><span class="qi-val"><span class="tag tr">要</span></span></div>
+              <div class="qi-row"><span class="qi-key">申告期限</span><span class="qi-val" style="color:var(--amber)">2026/08/01</span></div>
+              <div class="qi-row"><span class="qi-key">税理士</span><span class="qi-val">山田税理士事務所</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 遺産分割・遺言 ===== -->
+  <div id="tab-division" class="tab-content">
+    <div class="content">
+      <div class="layout2">
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">⚖️</span><div class="sec-title">遺産分割</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">分配方針</div><div class="fv">2次相続を踏まえて</div></div>
+                <div class="fr"><div class="fl">分配方針提案</div><div class="fv"><span class="tag tg">有</span></div></div>
+                <div class="fr"><div class="fl">協議書調印方法</div><div class="fv">OCから各相続人へ</div></div>
+                <div class="fr"><div class="fl">遺留分リスク</div><div class="fv"><span class="tag ta">あり</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">📜</span><div class="sec-title">遺言</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">遺言種別</div><div class="fv"><span class="tag ta">自筆遺言</span></div></div>
+                <div class="fr"><div class="fl">遺言保管</div><div class="fv">お客様保管</div></div>
+                <div class="fr"><div class="fl">遺言執行</div><div class="fv">ご案内済(検討中)</div></div>
+              </div>
+              <div style="margin-top:10px;padding:10px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:7px;font-size:12px;color:#9A3412">
+                ⚠️ 自筆遺言のため<strong>家庭裁判所への検認申立</strong>が必要です。
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">📊</span><div class="sec-title">分割内容</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body" style="padding:0;overflow-x:auto">
+              <table class="ht">
+                <thead><tr><th>財産区分</th><th>分割方法</th><th>取得者・割合</th><th>確定内容</th></tr></thead>
+                <tbody>
+                  <tr><td style="font-size:12px;font-weight:600">不動産</td><td><span class="tag ta" style="font-size:10px">代償分割</span></td><td style="font-size:12px">中村さくら 100%</td><td style="font-size:11px;color:var(--muted)">渋谷区広尾の戸建を単独取得</td></tr>
+                  <tr><td style="font-size:12px;font-weight:600">預貯金</td><td style="font-size:11px;color:var(--muted)">—</td><td style="font-size:12px">法定相続分で分割</td><td style="font-size:11px;color:var(--muted)">三菱UFJ・みずほ・ゆうちょ</td></tr>
+                  <tr><td style="font-size:12px;font-weight:600">証券</td><td style="font-size:11px;color:var(--muted)">—</td><td style="font-size:12px">中村さくら 100%</td><td style="font-size:11px;color:var(--muted)">大和証券口座</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 請求・収益 ===== -->
+  <div id="tab-finance2" class="tab-content">
+    <div class="content">
+      <div class="layout2">
+        <div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">💴</span><div class="sec-title">契約・報酬</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">契約形態</div><div class="fv">行・司連名</div></div>
+                <div class="fr"><div class="fl">契約日</div><div class="fv mono">2025/10/15</div></div>
+                <div class="fr"><div class="fl">報酬（行政・税込）</div><div class="fv mono">¥1,100,000</div></div>
+                <div class="fr"><div class="fl">報酬（司法・税込）</div><div class="fv mono">¥880,000</div></div>
+                <div class="fr"><div class="fl">合計確定金額</div><div class="fv mono" style="color:var(--blue);font-weight:700">¥1,980,000</div></div>
+                <div class="fr"><div class="fl">入金ステータス</div><div class="fv"><span class="tag tb">前受金入金済</span></div></div>
+                <div class="fr"><div class="fl">入金日</div><div class="fv mono">2025/10/20</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">📈</span><div class="sec-title">付帯収益</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">不動産売却手数料見込</div><div class="fv mono">¥660,000</div></div>
+                <div class="fr"><div class="fl">税理士紹介手数料</div><div class="fv mono">¥220,000</div></div>
+                <div class="fr"><div class="fl">トータル収益見込</div><div class="fv mono" style="color:var(--blue);font-weight:700">¥2,860,000</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="rev-card">
+            <div class="rev-label">案件収益見込み</div>
+            <div class="rev-amount">¥2,860,000</div>
+            <div class="rev-row"><span class="rev-key">行政書士報酬</span><span class="rev-val">¥1,100,000</span></div>
+            <div class="rev-row"><span class="rev-key">司法書士報酬</span><span class="rev-val">¥880,000</span></div>
+            <div class="rev-row"><span class="rev-key">不動産手数料見込</span><span class="rev-val">¥660,000</span></div>
+            <div class="rev-row"><span class="rev-key">税理士紹介手数料</span><span class="rev-val">¥220,000</span></div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">🤝</span><div class="sec-title">パートナー報酬</div><span class="sec-edit">編集</span></div>
+            <div class="sec-body">
+              <div class="fg">
+                <div class="fr"><div class="fl">パートナー企業</div><div class="fv">お仏壇のはせがわ</div></div>
+                <div class="fr"><div class="fl">報酬割合</div><div class="fv mono">30%</div></div>
+                <div class="fr full"><div class="fl">パートナー報酬額</div><div class="fv mono" style="color:var(--amber);font-weight:700">¥594,000</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-header"><span class="sec-icon">🧾</span><div class="sec-title">立替実費明細</div><span class="sec-edit">追加</span></div>
+            <div class="sec-body" style="padding:0;overflow-x:auto">
+              <table class="ht">
+                <thead><tr><th>費目</th><th>金額</th><th>発生日</th><th>関連タスク</th><th>備考</th></tr></thead>
+                <tbody>
+                  <tr><td style="font-size:12px;font-weight:500">戸籍取得費</td><td style="font-family:'DM Mono',monospace;font-size:12px">¥4,500</td><td style="font-family:'DM Mono',monospace;font-size:11px">2025/11/05</td><td style="font-size:11px">戸籍請求書作成</td><td style="font-size:11px;color:var(--muted)">渋谷区役所</td></tr>
+                  <tr><td style="font-size:12px;font-weight:500">登記情報取得費</td><td style="font-family:'DM Mono',monospace;font-size:12px">¥1,200</td><td style="font-family:'DM Mono',monospace;font-size:11px">2025/11/08</td><td style="font-size:11px">登記簿取得</td><td style="font-size:11px;color:var(--muted)">法務局オンライン</td></tr>
+                  <tr><td style="font-size:12px;font-weight:500">郵送費（レターパック）</td><td style="font-family:'DM Mono',monospace;font-size:12px">¥520</td><td style="font-family:'DM Mono',monospace;font-size:11px">2025/11/10</td><td style="font-size:11px">名寄帳請求</td><td style="font-size:11px;color:var(--muted)">レターパックライト</td></tr>
+                  <tr><td style="font-size:12px;font-weight:500">残高証明取得費</td><td style="font-family:'DM Mono',monospace;font-size:12px">¥2,200</td><td style="font-family:'DM Mono',monospace;font-size:11px">2025/11/15</td><td style="font-size:11px">残高証明取得</td><td style="font-size:11px;color:var(--muted)">三菱UFJ銀行</td></tr>
+                </tbody>
+              </table>
+              <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;align-items:center;gap:8px">
+                <span style="font-size:11px;font-weight:600;color:var(--muted)">合計</span>
+                <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--text)">¥8,420</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 書類 ===== -->
+  <div id="tab-docs" class="tab-content">
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;flex:1">書類一覧</div>
+        <a class="btn btn-g" onclick="location.href='document_list.html'" style="cursor:pointer;text-decoration:none">📁 全件表示</a>
+        <button class="btn btn-g">📤 アップロード</button>
+        <button class="btn btn-p" onclick="openDocModal()">🤖 AI書類作成</button>
+      </div>
+      <!-- ステータス サマリー -->
+      <div style="display:flex;gap:8px;margin-bottom:14px" id="docStatusSummary"></div>
+      <!-- テーブル -->
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden">
+        <table style="width:100%;border-collapse:collapse" id="docTable">
+          <thead>
+            <tr>
+              <th style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px">文書名</th>
+              <th style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px">関連タスク</th>
+              <th style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px">ステータス</th>
+              <th style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px">作成日</th>
+              <th style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;letter-spacing:.5px;width:90px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="docTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 履歴 ===== -->
+  <div id="tab-history" class="tab-content">
+    <div class="content" style="max-width:700px">
+      <div class="sec">
+        <div class="sec-header"><span class="sec-icon">📅</span><div class="sec-title">活動履歴</div></div>
+        <div class="sec-body"><div id="timelineEl"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- 書類作成モーダル -->
+<div class="modal-ov" id="docModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🤖 AI書類作成</div>
+      <button class="modal-close" onclick="closeDocModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">案件情報から自動で書類を生成します。生成後に内容を確認・編集できます。</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="docTypeGrid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeDocModal()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- タスク追加モーダル -->
+<div class="modal-ov" id="addTaskModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">＋ タスク追加</div>
+      <button class="modal-close" onclick="closeAddTaskModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">タスク名 *</div>
+          <input id="newTaskName" type="text" placeholder="例：三菱UFJ銀行 残高証明取得" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--border);font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">フェーズ</div>
+            <select id="newTaskPhase" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--white)">
+              <option>Phase1:相続人調査</option>
+              <option>Phase2:財産調査</option>
+              <option>Phase3:不動産・相続税</option>
+              <option>Phase4:遺産分割</option>
+              <option>Phase5:登記・解約</option>
+              <option>Phase6:完了・精算</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">主担当</div>
+            <select id="newTaskAssignee" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--white)">
+              <option value="">未割当</option><option>田中</option><option>山本</option><option>佐藤</option><option>伊藤</option><option>鈴木</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">副担当（複数可）</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="newTaskSubAssignees">
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">期限</div>
+          <input id="newTaskDue" type="date" value="2025-12-01" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--white);outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">優先度</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-g" id="pri-normal" onclick="setPri('通常')" style="flex:1;font-size:11px">通常</button>
+            <button class="btn" id="pri-urgent" onclick="setPri('急ぎ')" style="flex:1;font-size:11px;background:var(--red-l);color:var(--red);border:1px solid #FECACA">🚨 急ぎ</button>
+            <button class="btn btn-g" id="pri-outside" onclick="setPri('外出タスク')" style="flex:1;font-size:11px">🚗 外出</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeAddTaskModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="addTask()">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- タスク一括生成モーダル -->
+<div class="modal-ov" id="bulkTaskModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">📋 タスク一括生成</div>
+      <button class="modal-close" onclick="closeBulkTaskModal()">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:12px;color:var(--muted)">生成するタスクを選択してください</div>
+        <span style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600" onclick="toggleAllTemplates()">全選択 / 全解除</span>
+      </div>
+      <div id="bulkTaskList"></div>
+      <div id="bulkDupWarn" style="display:none;margin-top:12px;padding:10px 14px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:8px;font-size:11px;color:var(--amber)"></div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:12px;color:var(--muted);flex:1" id="bulkSelCount">0 件選択中</div>
+      <button class="btn btn-g" onclick="closeBulkTaskModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="generateBulkTasks()">生成する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 担当者一括変更モーダル -->
+<div class="modal-ov" id="assignModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div class="modal-title">👥 担当者一括変更</div>
+      <button class="modal-close" onclick="closeAssignModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">一括設定（チェックしたタスクに適用）</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:11px;font-weight:600;color:var(--text2)">主担当</span>
+            <select id="bulkMainAssignee" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif">
+              <option value="">-- 選択 --</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;position:relative">
+            <span style="font-size:11px;font-weight:600;color:var(--text2)">副担当</span>
+            <div id="bulkSubWrap" style="position:relative">
+              <div id="bulkSubBtn" onclick="toggleBulkSubDrop()" style="padding:5px 10px;border-radius:5px;border:1px solid var(--border);font-size:11px;cursor:pointer;min-width:100px;background:var(--white)">-- 選択 --</div>
+              <div id="bulkSubDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh3);z-index:60;min-width:140px;padding:6px 0"></div>
+            </div>
+          </div>
+          <button class="btn btn-p" onclick="applyBulkAssign()" style="font-size:11px;padding:5px 12px">適用</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600" onclick="toggleAllAssignCb()">全選択 / 全解除</span>
+        <span style="font-size:11px;color:var(--muted)" id="assignSelCount">0 件選択中</span>
+      </div>
+      <div id="assignTaskList" style="max-height:50vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g" onclick="closeAssignModal()">閉じる</button>
+      <button class="btn btn-p" onclick="saveAssignments()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 書類生成中モーダル -->
+<div class="modal-ov" id="genModal">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-body" style="padding:32px 24px">
+      <div style="font-size:36px;margin-bottom:14px">🤖</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px" id="genTitle">書類を生成中...</div>
+      <div style="font-size:12px;color:var(--muted)" id="genDesc">案件情報を取得しています</div>
+      <div style="margin-top:16px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div id="genBar" style="height:100%;background:var(--blue);border-radius:2px;width:0%;transition:width .3s"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div class="toast" id="toast"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+const STATUS_LIST=['架電案件化','面談設定済','検討中','受注','対応中','保留・長期','完了'];
+const STATUS_META={
+  '架電案件化':{cls:'b-lead',color:'#6B7280'},
+  '面談設定済':{cls:'b-meeting',color:'#3B82F6'},
+  '検討中':{cls:'b-consid',color:'#D97706'},
+  '受注':{cls:'b-won',color:'#16A34A'},
+  '対応中':{cls:'b-active',color:'#7C3AED'},
+  '保留・長期':{cls:'b-hold',color:'#EA580C'},
+  '完了':{cls:'b-done',color:'#059669'},
+  '失注':{cls:'b-lost',color:'#DC2626'},
+};
+const AC={'田中':'#2563EB','山本':'#7C3AED','佐藤':'#059669','伊藤':'#D97706','鈴木':'#EA580C'};
+
+const TASK_TEMPLATES = [
+  // === Phase1: 相続人調査（全案件共通） ===
+  { key:'koseki_create',  label:'戸籍請求書作成',       phase:'Phase1:相続人調査', cat:'戸籍',
+    procedure:'【作業手順】\n□ 上の「請求先市区町村（Koseki_Municipality）」を確認する\n□ 共有フォルダのテンプレートを開き、被相続人情報・筆頭者・使用目的を転記する\n□ 特記事項がある場合は請求書に反映する\n□ 作成後、管理担当に確認を依頼してから完了にする\n\n【ポイント】\n・外字がある場合は手書きまたはPDF添付で対応\n・筆頭者が被相続人と異なるケースあり（婚姻前の本籍地等）' },
+  { key:'koseki_mail',    label:'戸籍請求書 郵送',      phase:'Phase1:相続人調査', cat:'戸籍',
+    procedure:'【作業手順】\n□ 請求書・定額小為替・返信用封筒をセットで封入する\n□ 宛先（市区町村の戸籍担当窓口）を確認して郵送する\n□ 郵送後、コメントに「○月○日 郵送済み」と記録する\n□ ステータスを「対応中」に変更する\n\n【ポイント】\n・定額小為替は市区町村ごとに金額が異なる（通常450円/通）\n・返信用封筒にはオーシャンの住所を記載すること' },
+  { key:'koseki_check',   label:'戸籍到着・確認',       phase:'Phase1:相続人調査', cat:'戸籍',
+    procedure:'【作業手順】\n□ 届いた戸籍に不足がないか確認する（出生〜死亡の連続性）\n□ 相続人が全員確認できるかチェックする\n□ 不足がある場合は管理担当に報告してから追加請求の指示を仰ぐ\n□ 揃っていればステータスを「完了」にする\n\n【ポイント】\n・転籍を繰り返している場合、複数の市区町村から取得が必要\n・不足があっても勝手に追加請求しない。必ず管理担当に確認' },
+  { key:'chart',           label:'相続関係図作成',       phase:'Phase1:相続人調査', cat:'戸籍',
+    procedure:'【作業手順】\n□ 取得済みの戸籍一式を確認する\n□ 所定のテンプレート（Word）に相続人・被相続人の関係を記入する\n□ 代襲相続・養子縁組・前婚の子がいる場合は管理担当に確認する\n□ 作成後、管理担当のチェックを受けてから完了にする\n\n【ポイント】\n・複雑な家族関係は一人で判断しない。必ず管理担当へ\n・法定相続情報一覧図（次タスク）のベースになる書類' },
+  { key:'legal_info',     label:'法定相続情報一覧図作成', phase:'Phase1:相続人調査', cat:'戸籍',
+    procedure:'【作業手順】\n□ 相続関係図をもとに、法務局指定の書式で一覧図を作成する\n□ 申出人（依頼者）の住所・氏名を正確に記載する\n□ 管理担当の確認を受けてから法務局へ提出する\n□ 交付された一覧図の枚数を確認し、案件レコードに添付する\n\n【ポイント】\n・金融機関の数＋αの枚数を取得しておくとスムーズ\n・枚数が足りない場合は後で追加取得できる' },
+
+  // === Phase2: 財産調査（条件に応じて生成） ===
+  { key:'nayose',          label:'名寄帳請求',           phase:'Phase2:財産調査', cat:'名寄せ',
+    procedure:'【作業手順】\n□ 上の「請求先市区町村（Nayose_Municipality）」を確認する\n□ 請求書を作成し、手数料（定額小為替）を準備する\n□ 委任状・印鑑証明書・法定相続情報一覧図と一緒に郵送する\n□ 郵送後、コメントに「○月○日 ○○市へ郵送済み」と記録する\n\n【ポイント】\n・被相続人名義の不動産が全て載った一覧が返ってくる\n・名寄帳で新たな不動産が判明した場合は管理担当に報告する' },
+  { key:'hyouka',          label:'評価証明請求',         phase:'Phase2:財産調査', cat:'不動産',
+    procedure:'【作業手順】\n□ 上の「請求先市区町村（Nayose_Municipality）」を確認する\n□ 名寄帳で確認した不動産の地番・家屋番号を確認する\n□ 請求書を作成し、委任状・手数料と一緒に郵送する\n□ 郵送後、コメントに郵送日を記録する\n\n【ポイント】\n・名寄帳が届いてから請求することが多い（地番確認のため）\n・年度をまたぐ場合は最新年度のものを取得する' },
+  { key:'touki_info',      label:'登記情報取得',         phase:'Phase2:財産調査', cat:'不動産',
+    procedure:'【作業手順】\n□ 上の「不動産所在地（RE_Location）」を確認する\n□ 登記簿図書館にログインし、地番を入力して取得する\n□ 登記情報・公図・地積測量図をダウンロードする\n□ 案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・地番は住居表示（住所）と異なる場合があるので注意\n・物件ごとにタスクが生成されている' },
+  { key:'zandaka',         label:'残高証明取得',         phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」「支店（FI_Branch）」「調査種別（Survey_Type）」を確認する\n□ 相続センターに電話し「相続手続きの書類を送付してほしい」と依頼する\n□ 書類が届いたら、残高証明請求書・委任状・印鑑証明書・法定相続情報を準備する\n□ 通帳がある場合は一緒に封入する\n□ 原本一式と一緒に郵送し、コメントに「○月○日 郵送済み」と記録する\n\n【ポイント】\n・凍結済（Frozen）がOFFの場合は凍結依頼も同時に行う\n・相続税申告ありの場合は「残高証明（相続開始日）」タスクが別途生成される' },
+  { key:'zenten',          label:'全店調査',             phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」を確認する\n□ 相続センターに電話し「全店照会をお願いしたい」と依頼する\n□ 書類が届いたら準備して郵送する\n□ 結果をコメントに「口座あり／なし」を記録する\n\n【ポイント】\n・新たな口座が判明した場合は管理担当に報告すること\n・「取引なし」の場合もコメントに記録して完了にする' },
+  { key:'zandaka_date',    label:'残高証明（相続開始日）', phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」「調査種別（Survey_Type）」を確認する\n□ 残高証明請求書に「相続開始日時点」を明記して請求する\n□ 通常の残高証明と混同しないよう、書類に日付を明記する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・相続税申告あり案件のみ生成されるタスク（通常残高証明の代替）\n・税理士から別途指示がある場合はその指示を優先する' },
+  { key:'keika_risoku',    label:'経過利息計算書',       phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」を確認する\n□ 対象口座が定期預金など利息性のものか確認する\n□ 相続センターに経過利息計算書の発行を依頼する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・定期預金・定期積立など利息性のある口座のみ対象\n・オーダーシートに「不要」記載でも定期がある場合は管理担当に確認' },
+  { key:'torihiki',        label:'取引履歴',             phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」を確認する\n□ 取得期間（年数）を管理担当または税理士の指示で確認してから着手する\n□ 取引履歴請求書に期間を明記して請求する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・取得期間は「死亡日からさかのぼって○年分」と指定される（通常5年）\n・期間が未定の場合は着手前に必ず管理担当に確認すること' },
+  { key:'genzon',          label:'現存確認',             phase:'Phase2:財産調査', cat:'財産調査(預貯金)',
+    procedure:'【作業手順】\n□ 上の「金融機関名（FI_Name）」「支店（FI_Branch）」を確認する\n□ 現存確認の照会書を準備する（ゆうちょは「相続確認票」）\n□ 必要書類と一緒に郵送または窓口に提出する\n□ 結果をコメントに「現存あり／なし」を記録する\n\n【ポイント】\n・ゆうちょ銀行は「相続確認票」が必要で手順が異なる\n・現存なしの場合もコメントに記録して完了にする' },
+  { key:'sec_zandaka',     label:'証券 残高照会',        phase:'Phase2:財産調査', cat:'財産調査(証券)',
+    procedure:'【作業手順】\n□ 上の「証券会社名（Sec_FI_Name）」「支店（Sec_FI_Branch）」を確認する\n□ 相続手続き窓口に連絡し、残高照会書類の送付を依頼する\n□ 書類が届いたら準備して郵送する\n□ 残高照会結果が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・証券会社によって手続き窓口（支店 or 相続センター）が異なる\n・手数料が発生する場合は管理担当に確認してから振り込む' },
+  { key:'hofuri',          label:'ほふり照会',           phase:'Phase2:財産調査', cat:'財産調査(証券)',
+    procedure:'【作業手順】\n□ ほふり照会申請書を準備する（管理担当からテンプレート入手）\n□ 必要書類（法定相続情報・印鑑証明等）と一緒に送付する\n□ 結果は約2ヶ月後に届く。届いたら案件レコードに添付する\n\n【ポイント】\n・結果が届くまで約2ヶ月かかるため期限管理に注意\n・新たな証券口座が判明した場合は管理担当に報告する' },
+  { key:'haitoukin',       label:'配当金支払通知書',     phase:'Phase2:財産調査', cat:'財産調査(証券)',
+    procedure:'【作業手順】\n□ 上の「証券会社名（Sec_FI_Name）」を確認する\n□ 証券会社に配当金支払通知書の発行を依頼する\n□ 取得期間（通常は相続開始日の直近年度）を税理士に確認する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・相続税申告あり、かつ証券あり案件のみ生成されるタスク' },
+  { key:'kabu_shoumei',    label:'所有株式数証明',       phase:'Phase2:財産調査', cat:'財産調査(信託)',
+    procedure:'【作業手順】\n□ 上の「信託銀行名（Sec_FI_Name）」「銘柄名（Sec_Stock_Name）」を確認する\n□ 信託銀行の相続担当窓口に連絡し、所有株式数証明書の発行を依頼する\n□ 必要書類（法定相続情報・印鑑証明等）を準備して郵送する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・信託銀行ごとに必要書類が異なる場合があるため、電話で事前確認すること\n・特別口座がある場合は別タスクが生成されている' },
+  { key:'kabu_tokubetsu',  label:'所有株式数証明（特別口座）', phase:'Phase2:財産調査', cat:'財産調査(信託)',
+    procedure:'【作業手順】\n□ 上の「信託銀行名（Sec_FI_Name）」を確認する\n□ 特別口座（旧証券会社から移管された株式）の証明書発行を依頼する\n□ 通常の所有株式数証明と混同しないよう、書類に「特別口座」と明記する\n□ 書類が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・特別口座は依頼者が存在を把握していないケースが多い\n・ほふり照会の結果と照合して漏れがないか確認すること' },
+  { key:'mijuryou',        label:'未受領配当金照会',     phase:'Phase2:財産調査', cat:'財産調査(信託)',
+    procedure:'【作業手順】\n□ 上の「信託銀行名（Sec_FI_Name）」を確認する\n□ 所有株式数証明タスクが完了していることを確認してから着手する\n□ 信託銀行に未受領配当金照会を依頼する\n□ 結果を案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・必ず所有株式数証明完了後に着手すること\n・未受領配当金がある場合は管理担当に報告する' },
+  { key:'life_insurance',  label:'生命保険協会 照会',    phase:'Phase2:財産調査', cat:'保険',
+    procedure:'【作業手順】\n□ 生命保険協会の照会申請書を準備する\n□ 必要書類（法定相続情報・申請者の身分証明等）と一緒に送付する\n□ 結果が届いたら（通常2〜3週間）案件レコードに添付する\n□ 保険契約が判明した場合は管理担当に報告する' },
+
+  // === Phase3: 不動産・相続税（条件に応じて生成） ===
+  { key:'appraisal',       label:'不動産査定手配',       phase:'Phase3:不動産・相続税', cat:'不動産',
+    procedure:'【作業手順】\n□ 上の「不動産所在地（RE_Location）」を確認する\n□ 管理担当から担当業者の指定があるか確認する\n□ 業者に査定依頼の連絡を入れる（電話またはメール）\n□ 査定日時を調整し、依頼者への日程連絡を受注担当に依頼する\n□ 査定結果が出たら管理担当に報告してステータスを「完了」にする\n\n【ポイント】\n・査定は受注直後に早めに動くこと\n・物件が複数の場合は物件ごとにこのタスクが生成されている' },
+  { key:'tax_advisor',     label:'税理士紹介・連携',     phase:'Phase3:不動産・相続税', cat:'相続税',
+    procedure:'【作業手順】\n□ 上の「申告期限（Tax_Deadline）」を確認する\n□ 管理担当に税理士紹介の指示を仰ぐ\n□ 税理士事務所に案件情報を共有する（管理担当が対応する場合が多い）\n□ 連携完了後、税理士名を案件詳細に記録してステータスを「完了」にする\n\n【ポイント】\n・申告期限は相続開始日から10ヶ月。余裕をもって動くこと' },
+
+  // === Phase4: 遺産分割（全案件共通） ===
+  { key:'inventory',       label:'財産目録作成',         phase:'Phase4:遺産分割', cat:'財産目録',
+    procedure:'【作業手順】\n□ Phase2の全タスクが「完了」になっていることを確認する\n□ 不動産・金融資産・証券・負債の情報をまとめる\n□ 所定のテンプレートに転記して財産目録を作成する\n□ 管理担当の確認を受けてからステータスを「完了」にする\n\n【ポイント】\n・Phase2が全て完了してから着手すること\n・金額は証明書の数字をそのまま使い、自己判断で計算しない' },
+  { key:'bunkatsu',        label:'分割方針確認・提案',   phase:'Phase4:遺産分割', cat:'協議書',
+    procedure:'【作業手順】\n□ 財産目録作成タスクが「完了」になっていることを確認する\n□ 管理担当が依頼者との協議内容を確認する\n□ 分割方針が固まったら案件詳細の「遺産分割」セクションを更新する\n\n【ポイント】\n・このタスクは主に管理担当・受注担当が対応する\n・アシスタントは書類の準備サポートに徹すること' },
+  { key:'agreement',       label:'遺産分割協議書作成',   phase:'Phase4:遺産分割', cat:'協議書',
+    procedure:'【作業手順】\n□ 分割方針確認タスクが「完了」になっていることを確認する\n□ 「相続の力」に不動産情報を入力してWordファイルを出力する\n□ 金融資産の情報を手入力で追記する（自動入力されないので注意）\n□ 管理担当の確認を受けてからステータスを「完了」にする\n\n【ポイント】\n・金融資産の記載は手入力必須。忘れずに追記すること\n・内容の判断は管理担当が行う。文書作成のみ担当する' },
+  { key:'sign_collect',    label:'協議書署名捺印依頼・回収', phase:'Phase4:遺産分割', cat:'協議書',
+    procedure:'【作業手順】\n□ 協議書を相続人の人数分コピーして郵送準備する\n□ 返信用封筒を同封して各相続人に郵送する\n□ 返送されてきたら署名・捺印・印鑑を照合する\n□ 全員分揃ったら管理担当に報告してステータスを「完了」にする\n\n【ポイント】\n・捺印は実印（印鑑証明書と同じもの）であることを確認\n・押印ミスがあれば勝手に対応せず、管理担当に報告する' },
+
+  // === Phase5: 登記・解約（条件に応じて生成） ===
+  { key:'registration',    label:'不動産登記申請（名義変更）', phase:'Phase5:登記・解約', cat:'登記申請書作成',
+    procedure:'【作業手順】\n□ 協議書署名回収タスクが「完了」になっていることを確認する\n□ 管理担当が登記申請書類を作成・確認する（アシスタントは補助）\n□ 管轄法務局に申請書類一式を持参または郵送する\n□ 完了証が届いたら案件レコードに添付してステータスを「完了」にする\n\n【ポイント】\n・登記申請は管理担当が主体となって対応する業務\n・同一法務局管轄の不動産は一括申請できる' },
+  { key:'cancel_deposit',  label:'預貯金口座 解約',     phase:'Phase5:登記・解約', cat:'解約手続き',
+    procedure:'【作業手順】\n□ 上の「金融機関名（Cancel_FI_Name）」「支店（Cancel_Branch）」を確認する\n□ 協議書署名回収タスクが「完了」になっていることを確認する\n□ 解約に必要な書類（相続届・委任状・印鑑証明・協議書・通帳等）を準備する\n□ 「確認シートチェック（Cancel_Checklist）」をONにしてから着手する\n□ 郵送または窓口来店で手続きを行う\n□ 解約完了・入金確認後、コメントに記録してステータスを「完了」にする\n\n【ポイント】\n・通帳・キャッシュカードがある場合は一緒に提出すること\n・「要予約」がONの場合は事前に予約を入れる' },
+  { key:'cancel_sec',      label:'証券口座 解約',       phase:'Phase5:登記・解約', cat:'解約手続き',
+    procedure:'【作業手順】\n□ 上の「証券会社名（Cancel_FI_Name）」を確認する\n□ 協議書署名回収タスクが「完了」になっていることを確認する\n□ 対象証券会社の相続手続きの方法（郵送/窓口）を確認する\n□ 必要書類（相続届・協議書・印鑑証明等）を準備して提出する\n□ 手続き完了後、コメントに記録してステータスを「完了」にする\n\n【ポイント】\n・解約（売却）か移管かを協議書で確認すること\n・手数料が発生するケースが多い。管理担当の承認を得てから振り込む' },
+  { key:'cancel_trust',    label:'信託銀行 解約',       phase:'Phase5:登記・解約', cat:'解約手続き',
+    procedure:'【作業手順】\n□ 上の「信託銀行名（Cancel_FI_Name）」を確認する\n□ 協議書署名回収タスクが「完了」になっていることを確認する\n□ 信託銀行の相続手続き窓口に連絡して必要書類を確認する\n□ 必要書類を準備して提出する\n□ 完了後、コメントに記録してステータスを「完了」にする\n\n【ポイント】\n・端株手続き（移管/売却）は協議書の内容を確認してから進める\n・手数料が発生する場合は管理担当に確認してから振り込む' },
+
+  // === Phase6: 完了・精算（全案件共通） ===
+  { key:'expense_calc',    label:'立替実費計算',         phase:'Phase6:完了・精算', cat:'精算',
+    procedure:'【作業手順】\n□ Phase5の全タスクが「完了」になっていることを確認する\n□ 実費の明細を請求書モジュールに入力する\n□ 管理担当に実費明細の確認を依頼する\n□ 確認完了後、ステータスを「完了」にする\n\n【ポイント】\n・このタスクは進捗管理用。金額入力は請求書モジュールで行う\n・領収書・記録が残っているか確認してから集計すること' },
+  { key:'invoice',         label:'請求書作成',           phase:'Phase6:完了・精算', cat:'精算',
+    procedure:'【作業手順】\n□ 立替実費計算タスクが「完了」になっていることを確認する\n□ 案件の報酬金額・立替実費・確定金額を確認する\n□ 請求書テンプレートに情報を入力して作成する\n□ 受注担当に確認を依頼してからステータスを「完了」にする\n\n【ポイント】\n・受注担当の確認なしに発行しないこと' },
+  { key:'delivery',        label:'原本発送・納品',       phase:'Phase6:完了・精算', cat:'精算',
+    procedure:'【作業手順】\n□ 請求書作成タスクが「完了」になっていることを確認する\n□ 返却する原本書類（戸籍・印鑑証明等）を一式揃える\n□ 送付書（内容物リスト）を作成して同封する\n□ レターパックまたは書留で依頼者に発送する\n□ コメントに「○月○日 発送済み」と記録してステータスを「完了」にする\n\n【ポイント】\n・送付書は必ず作成し、コピーを案件ファイルに保管すること\n・受領書の返送が必要な案件は管理担当に確認する' },
+
+  // === 手動起票タスク ===
+  { key:'letter',      label:'手紙作成',     phase:'手動', cat:'郵便処理',      manual:true,
+    procedure:'【作業手順】\n□ 送付先・送付内容を確認する\n□ テンプレートを使用して手紙を作成する\n□ レターパックまたは書留で発送する\n□ 追跡番号を記録する' },
+  { key:'will',        label:'遺言書起案',   phase:'手動', cat:'その他作成物',   manual:true,
+    procedure:'【作業手順】\n□ 遺言の種類（自筆/公正証書）を確認する\n□ 依頼者の意向を基に遺言案を起案する\n□ 内容を依頼者と確認・修正する\n□ 最終版を作成する' },
+  { key:'petition',    label:'申立書起案',   phase:'手動', cat:'その他作成物',   manual:true,
+    procedure:'【作業手順】\n□ 申立の種類・管轄裁判所を確認する\n□ 申立書テンプレートに必要事項を記入する\n□ 添付書類を準備する\n□ 裁判所に提出する' },
+  { key:'contract',    label:'契約書起案',   phase:'手動', cat:'その他作成物',   manual:true,
+    procedure:'【作業手順】\n□ 委任契約の範囲・報酬を確認する\n□ 契約書テンプレートに依頼者情報を差し込む\n□ 内容を依頼者と確認する\n□ 署名捺印後、案件に格納する' },
+];
+
+let currentStatus='対応中';
+let newTaskPriority='通常';
+
+let tasks=[
+  {id:'T001',title:'戸籍請求書作成',phase:'Phase1:相続人調査',cat:'戸籍',st:'完了',assignee:'田中',due:'2025/10/20'},
+  {id:'T002',title:'相続関係図作成',phase:'Phase1:相続人調査',cat:'戸籍',st:'完了',assignee:'田中',due:'2025/10/25'},
+  {id:'T003',title:'法定相続情報一覧図作成',phase:'Phase1:相続人調査',cat:'戸籍',st:'完了',assignee:'田中',due:'2025/11/01'},
+  {id:'T004',title:'名寄帳請求（渋谷区・目黒区）',phase:'Phase1:相続人調査',cat:'名寄せ',st:'差戻し',assignee:'田中',due:'2025/11/16'},
+  {id:'T005',title:'三菱UFJ銀行 残高証明',phase:'Phase2:財産調査',cat:'財産調査(預貯金)',st:'対応中',assignee:'田中',due:'2025/11/20'},
+  {id:'T006',title:'大和証券 残高照会',phase:'Phase2:財産調査',cat:'財産調査(証券)',st:'対応中',assignee:'田中',due:'2025/11/22'},
+  {id:'T007',title:'不動産評価・査定手配',phase:'Phase3:不動産・相続税',cat:'不動産',st:'未着手',assignee:'佐藤',due:'2025/11/28'},
+  {id:'T008',title:'税理士連携（山田税理士事務所）',phase:'Phase3:不動産・相続税',cat:'相続税',st:'完了',assignee:'佐藤',due:'2025/11/10'},
+  {id:'T009',title:'遺産分割協議書作成',phase:'Phase4:遺産分割',cat:'協議書',st:'未着手',assignee:'田中',due:'2025/12/15'},
+];
+
+const docs=[
+  {name:'委任契約書',type:'Word',date:'2025/10/15',icon:'📋',task:'委任契約締結',task_id:'T0101',status:'完了',assignee:'田中'},
+  {name:'委任状',type:'PDF',date:'2025/10/15',icon:'📝',task:'委任状取得',task_id:'T0102',status:'完了',assignee:'田中'},
+  {name:'戸籍請求書（渋谷区）',type:'PDF',date:'2025/10/22',icon:'📄',task:'戸籍収集（被相続人）',task_id:'T0301',status:'送付済',assignee:'山本'},
+  {name:'戸籍請求書（目黒区）',type:'PDF',date:'2025/10/22',icon:'📄',task:'戸籍収集（相続人）',task_id:'T0302',status:'返送待ち',assignee:'山本'},
+  {name:'封筒（角2）',type:'PDF',date:'2025/10/22',icon:'✉️',task:'戸籍収集（被相続人）',task_id:'T0301',status:'作成済',assignee:'山本'},
+  {name:'相続関係図',type:'PDF',date:'2025/10/25',icon:'🗂️',task:'相続関係図作成',task_id:'T0303',status:'完了',assignee:'佐藤'},
+  {name:'法定相続情報一覧図',type:'PDF',date:'2025/11/01',icon:'⚖️',task:'法定相続情報取得',task_id:'T0304',status:'送付済',assignee:'佐藤'},
+  {name:'名寄帳・評価証明請求',type:'PDF',date:'2025/11/05',icon:'🗺️',task:'名寄帳取得',task_id:'T0401',status:'返送待ち',assignee:'佐藤'},
+  {name:'請求書（前受金）',type:'PDF',date:'2025/10/16',icon:'💰',task:'前受金請求',task_id:'T0103',status:'完了',assignee:'田中'},
+  {name:'原本預かり証',type:'PDF',date:'2025/10/17',icon:'📋',task:'原本預かり',task_id:'T0104',status:'完了',assignee:'田中'},
+];
+
+const docTypes=[
+  {name:'委任契約書',icon:'📋',desc:'依頼者情報・委任業務の範囲を自動差込'},
+  {name:'戸籍請求書',icon:'📄',desc:'被相続人・相続人情報を自動差込'},
+  {name:'名寄帳請求書',icon:'🗺️',desc:'不動産所在地・請求先を自動差込'},
+  {name:'財産目録',icon:'📊',desc:'預貯金・証券・不動産情報を自動集計'},
+  {name:'遺産分割協議書',icon:'⚖️',desc:'分割内容・相続人情報を自動差込'},
+  {name:'相続関係図',icon:'🗂️',desc:'相続人情報から関係図を自動生成'},
+  {name:'法定相続情報一覧図',icon:'📑',desc:'相続人情報から一覧図を自動生成'},
+  {name:'登記申請書',icon:'🏛️',desc:'不動産情報・相続人情報を自動差込'},
+];
+
+const timeline=[
+  {date:'2025/11/14',title:'名寄帳請求 差戻し',note:'目黒区の地番追記が必要。田中担当に差戻し。',color:'#DC2626',icon:'↩'},
+  {date:'2025/11/10',title:'税理士連携完了',note:'山田税理士事務所への紹介完了。取引履歴5年分の取得指示あり。',color:'#059669',icon:'✓'},
+  {date:'2025/11/01',title:'法定相続情報一覧図 完成',note:'法務局に提出完了。認証済みの一覧図を受領。',color:'#059669',icon:'✓'},
+  {date:'2025/10/25',title:'相続関係図 作成完了',note:'代襲相続あり。相続人5名確定。',color:'#059669',icon:'✓'},
+  {date:'2025/10/20',title:'面談実施',note:'中村さくら様と面談。自筆遺言の存在を確認。相続人5名と財産内容をヒアリング。',color:'#2563EB',icon:'📝'},
+  {date:'2025/10/15',title:'受注・委任契約締結',note:'契約書締結。前受金¥990,000入金確認。',color:'#16A34A',icon:'✓'},
+];
+
+// ===== STATUS =====
+function renderStatusFlow(){
+  const si=STATUS_LIST.indexOf(currentStatus);
+  document.getElementById('statusFlow').innerHTML=STATUS_LIST.map((s,i)=>{
+    const p=i<si,a=s===currentStatus;
+    return`<div class="sf-item"><div class="sf-dot ${a?'active':p?'passed':''}"></div><div class="sf-label ${a?'active':''}">${s}</div><div class="sf-line ${p?'passed':''}"></div></div>`;
+  }).join('');
+}
+
+function renderStatusBtn(){
+  const m=STATUS_META[currentStatus]||STATUS_META['対応中'];
+  document.getElementById('statusBtn').className=`status-select-btn badge ${m.cls}`;
+  document.getElementById('statusBtn').textContent=currentStatus+'▾';
+}
+
+function toggleStatusDrop(){
+  const d=document.getElementById('statusDrop');
+  if(d.classList.contains('open')){d.classList.remove('open');return;}
+  d.innerHTML=STATUS_LIST.concat(['失注']).map(s=>`
+    <div class="status-opt ${s===currentStatus?'current':''}" onclick="changeStatus('${s}')">
+      <div class="status-dot" style="background:${(STATUS_META[s]||{color:'#6B7280'}).color}"></div>${s}
+    </div>`).join('');
+  d.classList.add('open');
+}
+
+function changeStatus(s){
+  currentStatus=s;
+  document.getElementById('statusDrop').classList.remove('open');
+  renderStatusBtn();
+  renderStatusFlow();
+  showToast(`ステータスを「${s}」に変更しました`);
+  updateAI();
+}
+
+document.addEventListener('click',e=>{
+  if(!document.getElementById('statusWrap').contains(e.target))
+    document.getElementById('statusDrop').classList.remove('open');
+});
+
+// ===== TASKS =====
+const MEMBERS=['田中','山本','佐藤','伊藤','鈴木'];
+
+function renderAssigneeAvatars(t){
+  if(!t.assignee) return '<div class="task-av-wrap"><div class="task-av" style="background:#CBD2DC">?</div></div>';
+  const subs=t.subAssignees||[];
+  let h=`<div class="task-av-wrap"><div class="task-av" style="background:${AC[t.assignee]||'#6B7280'}">${t.assignee[0]}</div>`;
+  if(subs.length===1) h+=`<div class="task-av-sub" style="background:${AC[subs[0]]||'#6B7280'}">${subs[0][0]}</div>`;
+  else if(subs.length>1) h+=`<div class="task-av-sub" style="background:var(--muted2);font-size:8px">+${subs.length}</div>`;
+  return h+'</div>';
+}
+
+function getProgress(){
+  const done=tasks.filter(t=>t.st==='完了').length;
+  return{done,total:tasks.length,pct:tasks.length?Math.round(done/tasks.length*100):0};
+}
+
+function renderQuickTasks(){
+  const today=new Date('2025/11/14');
+  const p=getProgress();
+  document.getElementById('pgLabel').textContent=`完了 ${p.done} / ${p.total}タスク`;
+  document.getElementById('pgPct').textContent=p.pct+'%';
+  document.getElementById('pgBar').style.width=p.pct+'%';
+  document.getElementById('pgBar').style.background=p.pct===100?'var(--green)':p.pct>60?'var(--blue)':'var(--amber)';
+  document.getElementById('taskCnt').textContent=p.total;
+
+  const active=tasks.filter(t=>t.st!=='完了'&&t.st!=='キャンセル').slice(0,5);
+  document.getElementById('quickTaskList').innerHTML=active.map(t=>{
+    const done=t.st==='完了',wcheck=t.st==='Wチェック待ち',diff2=t.st==='差戻し';
+    const due=new Date(t.due.replace(/\//g,'-'));
+    const diff=Math.ceil((due-today)/(1000*60*60*24));
+    const dc=diff<0?'color:var(--red);font-weight:600':diff<=3?'color:var(--amber)':'color:var(--muted)';
+    const dl=diff<0?`⚠️${Math.abs(diff)}日超過`:diff===0?'今日':diff<=3?`あと${diff}日`:t.due.slice(5);
+    return`<div class="task-item" onclick="location.href='task_detail.html?id=${t.id}'" title="タスク詳細を開く">
+      <div class="task-check ${done?'done':wcheck?'wcheck':diff2?'diff':''}">${done?'✓':wcheck?'W':diff2?'↩':''}</div>
+      <div class="task-name ${done?'done':''}">${t.title}</div>
+      <span style="font-size:10px;${dc};font-family:'DM Mono',monospace;min-width:60px;text-align:right">${dl}</span>
+      ${renderAssigneeAvatars(t)}
+    </div>`;
+  }).join('');
+}
+
+function renderTasksByPhase(){
+  const phases=['Phase1:相続人調査','Phase2:財産調査','Phase3:不動産・相続税','Phase4:遺産分割','Phase5:登記・解約','Phase6:完了・精算','手動'];
+  const colors={'Phase1:相続人調査':'#2563EB','Phase2:財産調査':'#7C3AED','Phase3:不動産・相続税':'#D97706','Phase4:遺産分割':'#059669','Phase5:登記・解約':'#EA580C','Phase6:完了・精算':'#DC2626','手動':'#9CA3AF'};
+  const today=new Date('2025/11/14');
+  const byPhase={};
+  tasks.forEach(t=>{if(!byPhase[t.phase])byPhase[t.phase]=[];byPhase[t.phase].push(t);});
+
+  document.getElementById('tasksByPhase').innerHTML=phases.filter(p=>byPhase[p]).map(p=>{
+    const items=byPhase[p];
+    const done=items.filter(t=>t.st==='完了').length;
+    const color=colors[p]||'#6B7280';
+    const stC={'完了':'var(--green)','対応中':'var(--blue)','未着手':'var(--muted2)','差戻し':'var(--red)','Wチェック待ち':'var(--purple)','保留':'var(--amber)'};
+    const taskH=items.map(t=>{
+      const isDone=t.st==='完了',isW=t.st==='Wチェック待ち',isDiff=t.st==='差戻し';
+      const due2=new Date(t.due.replace(/\//g,'-'));
+      const diff2=Math.ceil((due2-today)/(1000*60*60*24));
+      const dc2=isDone?'color:var(--muted)':diff2<0?'color:var(--red);font-weight:600':diff2<=3?'color:var(--amber)':'color:var(--muted)';
+      const dl2=isDone?t.due:diff2<0?`⚠️${Math.abs(diff2)}日超過`:t.due;
+      return`<div class="task-item" onclick="location.href='task_detail.html?id=${t.id}'" title="タスク詳細を開く">
+        <div class="task-check ${isDone?'done':isW?'wcheck':isDiff?'diff':''}">${isDone?'✓':isW?'W':isDiff?'↩':''}</div>
+        <div><div class="task-name ${isDone?'done':''}">${t.title}</div><div class="task-cat">${t.cat}</div></div>
+        <span style="font-size:10px;font-weight:600;color:${stC[t.st]||'var(--muted)'};background:${stC[t.st]||'var(--muted)'}18;padding:2px 7px;border-radius:4px;margin-left:auto">${t.st}</span>
+        <span class="task-due" style="${dc2}">${dl2}</span>
+        ${renderAssigneeAvatars(t)}
+      </div>`;
+    }).join('');
+    return`<div class="sec">
+      <div class="sec-header">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+        <div class="sec-title">${p}</div>
+        <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;background:var(--bg);padding:1px 7px;border-radius:4px;border:1px solid var(--border)">${done}/${items.length}</span>
+        <div class="pgb" style="flex:1;margin:0 12px 0 8px;margin-bottom:0;height:3px"><div class="pgf" style="width:${items.length?Math.round(done/items.length*100):0}%;background:${color}"></div></div>
+        <span class="sec-edit" onclick="event.stopPropagation();openAddTaskModal()">＋ 追加</span>
+      </div>
+      <div class="sec-body"><div class="task-list">${taskH}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTask(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t)return;
+  if(t.st==='完了'){t.st='未着手';showToast(`「${t.title}」を未着手に戻しました`);}
+  else{t.st='完了';showToast(`「${t.title}」を完了しました ✓`);}
+  renderQuickTasks();
+  renderTasksByPhase();
+  updateAI();
+}
+
+// ===== BULK TASK =====
+function openBulkTaskModal(){
+  renderBulkTaskList();
+  document.getElementById('bulkTaskModal').classList.add('open');
+}
+function closeBulkTaskModal(){document.getElementById('bulkTaskModal').classList.remove('open')}
+
+function renderBulkTaskList(){
+  const phases=[
+    {key:'Phase1:相続人調査',label:'Phase1: 相続人調査',color:'#2563EB'},
+    {key:'Phase2:財産調査',label:'Phase2: 財産調査',color:'#7C3AED'},
+    {key:'Phase3:不動産・相続税',label:'Phase3: 不動産・相続税',color:'#D97706'},
+    {key:'Phase4:遺産分割',label:'Phase4: 遺産分割',color:'#059669'},
+    {key:'Phase5:登記・解約',label:'Phase5: 登記・解約',color:'#EA580C'},
+    {key:'Phase6:完了・精算',label:'Phase6: 完了・精算',color:'#DC2626'},
+    {key:'手動',label:'手動起票タスク',color:'#9CA3AF'},
+  ];
+  const existingCats=tasks.map(t=>t.cat);
+  let html='';
+  phases.forEach(p=>{
+    const items=TASK_TEMPLATES.filter(t=>t.phase===p.key);
+    if(!items.length)return;
+    html+=`<div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color}"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2)">${p.label}</div>
+      </div>`;
+    items.forEach(t=>{
+      const dup=existingCats.includes(t.cat);
+      html+=`<label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer;transition:background .1s;margin-bottom:2px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+        <input type="checkbox" class="bulk-cb" data-key="${t.key}" onchange="updateBulkCount()" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${t.label}</div>
+          <div style="font-size:10px;color:var(--muted)">${t.cat}</div>
+        </div>
+        ${dup?'<span style="font-size:10px;color:var(--amber);background:var(--amber-l);padding:1px 6px;border-radius:4px;border:1px solid #FDE68A">既存あり</span>':''}
+      </label>`;
+    });
+    html+=`</div>`;
+  });
+  document.getElementById('bulkTaskList').innerHTML=html;
+  updateBulkCount();
+}
+
+function toggleAllTemplates(){
+  const cbs=document.querySelectorAll('.bulk-cb');
+  const allChecked=[...cbs].every(c=>c.checked);
+  cbs.forEach(c=>c.checked=!allChecked);
+  updateBulkCount();
+}
+
+function updateBulkCount(){
+  const cnt=document.querySelectorAll('.bulk-cb:checked').length;
+  document.getElementById('bulkSelCount').textContent=cnt+' 件選択中';
+  const dups=[];
+  document.querySelectorAll('.bulk-cb:checked').forEach(cb=>{
+    const tpl=TASK_TEMPLATES.find(t=>t.key===cb.dataset.key);
+    if(tpl && tasks.some(t=>t.cat===tpl.cat)) dups.push(tpl.label);
+  });
+  const warn=document.getElementById('bulkDupWarn');
+  if(dups.length){
+    warn.style.display='block';
+    warn.innerHTML='⚠️ 同カテゴリのタスクが既に存在します: '+dups.join(', ');
+  } else {
+    warn.style.display='none';
+  }
+}
+
+function generateBulkTasks(){
+  const checked=[...document.querySelectorAll('.bulk-cb:checked')].map(cb=>cb.dataset.key);
+  if(!checked.length){showToast('タスクを1件以上選択してください');return;}
+  const base=Date.now();
+  checked.forEach((key,i)=>{
+    const tpl=TASK_TEMPLATES.find(t=>t.key===key);
+    if(!tpl)return;
+    tasks.push({
+      id:'T'+String(base+i).slice(-6),
+      title:tpl.label,
+      phase:tpl.phase,
+      cat:tpl.cat,
+      st:'未着手',
+      assignee:'',
+      subAssignees:[],
+      due:'',
+      priority:'通常',
+      procedure:tpl.procedure
+    });
+  });
+  closeBulkTaskModal();
+  renderQuickTasks();
+  renderTasksByPhase();
+  updateAI();
+  showToast(`${checked.length}件のタスクを生成しました`);
+}
+
+// ===== ASSIGN MODAL =====
+let assignEdits={}; // {taskId: {assignee:'', subAssignees:[]}}
+
+function openAssignModal(){
+  assignEdits={};
+  // populate main assignee select
+  const sel=document.getElementById('bulkMainAssignee');
+  sel.innerHTML='<option value="">-- 選択 --</option>'+MEMBERS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  // populate sub dropdown
+  renderBulkSubDrop();
+  renderAssignTaskList();
+  document.getElementById('assignModal').classList.add('open');
+}
+function closeAssignModal(){document.getElementById('assignModal').classList.remove('open')}
+
+function renderBulkSubDrop(){
+  document.getElementById('bulkSubDrop').innerHTML=MEMBERS.map(m=>
+    `<label style="display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:12px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <input type="checkbox" class="bulk-sub-cb" value="${m}" style="accent-color:var(--blue)"> ${m}
+    </label>`
+  ).join('');
+}
+
+function toggleBulkSubDrop(){
+  const d=document.getElementById('bulkSubDrop');
+  d.style.display=d.style.display==='none'?'block':'none';
+}
+
+function renderAssignTaskList(){
+  const list=document.getElementById('assignTaskList');
+  list.innerHTML=tasks.map(t=>{
+    const e=assignEdits[t.id]||{assignee:t.assignee,subAssignees:t.subAssignees||[]};
+    const mainOpts='<option value="">未割当</option>'+MEMBERS.map(m=>`<option value="${m}" ${e.assignee===m?'selected':''}>${m}</option>`).join('');
+    const subText=e.subAssignees.length?e.subAssignees.join(', '):'─';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;margin-bottom:2px;border:1px solid var(--border);background:var(--white)">
+      <input type="checkbox" class="assign-cb" data-id="${t.id}" onchange="updateAssignSelCount()" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
+        <div style="font-size:10px;color:var(--muted)">${t.phase} / ${t.cat}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-size:10px;color:var(--muted)">主:</span>
+        <select onchange="setTaskAssignee('${t.id}',this.value)" style="padding:3px 6px;border-radius:4px;border:1px solid var(--border);font-size:11px;font-family:'Noto Sans JP',sans-serif;min-width:60px">${mainOpts}</select>
+        <span style="font-size:10px;color:var(--muted)">副:</span>
+        <div style="position:relative">
+          <div onclick="toggleRowSubDrop(event,'${t.id}')" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;min-width:60px;background:var(--white)">${subText}</div>
+          <div id="rowSub_${t.id}" style="display:none;position:absolute;top:calc(100% + 2px);right:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh3);z-index:70;min-width:130px;padding:4px 0">
+            ${MEMBERS.map(m=>`<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;cursor:pointer;font-size:11px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+              <input type="checkbox" class="row-sub-cb-${t.id}" value="${m}" ${e.subAssignees.includes(m)?'checked':''} onchange="updateRowSub('${t.id}')" style="accent-color:var(--blue)"> ${m}
+            </label>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  updateAssignSelCount();
+}
+
+function setTaskAssignee(id,val){
+  if(!assignEdits[id]){const t=tasks.find(x=>x.id===id);assignEdits[id]={assignee:t.assignee||'',subAssignees:[...(t.subAssignees||[])]};}
+  assignEdits[id].assignee=val;
+}
+
+function toggleRowSubDrop(e,id){
+  e.stopPropagation();
+  const d=document.getElementById('rowSub_'+id);
+  // close all other dropdowns first
+  document.querySelectorAll('[id^="rowSub_"]').forEach(el=>{if(el.id!=='rowSub_'+id)el.style.display='none';});
+  d.style.display=d.style.display==='none'?'block':'none';
+}
+
+function updateRowSub(id){
+  if(!assignEdits[id]){const t=tasks.find(x=>x.id===id);assignEdits[id]={assignee:t.assignee||'',subAssignees:[...(t.subAssignees||[])]};}
+  const cbs=document.querySelectorAll('.row-sub-cb-'+id+':checked');
+  assignEdits[id].subAssignees=[...cbs].map(c=>c.value);
+  // update display text
+  const btn=document.getElementById('rowSub_'+id).previousElementSibling;
+  btn.textContent=assignEdits[id].subAssignees.length?assignEdits[id].subAssignees.join(', '):'─';
+}
+
+function updateAssignSelCount(){
+  const cnt=document.querySelectorAll('.assign-cb:checked').length;
+  document.getElementById('assignSelCount').textContent=cnt+' 件選択中';
+}
+
+function toggleAllAssignCb(){
+  const cbs=document.querySelectorAll('.assign-cb');
+  const allChecked=[...cbs].every(c=>c.checked);
+  cbs.forEach(c=>c.checked=!allChecked);
+  updateAssignSelCount();
+}
+
+function applyBulkAssign(){
+  const main=document.getElementById('bulkMainAssignee').value;
+  const subCbs=document.querySelectorAll('.bulk-sub-cb:checked');
+  const subs=[...subCbs].map(c=>c.value);
+  const checked=document.querySelectorAll('.assign-cb:checked');
+  if(!checked.length){showToast('タスクを選択してください');return;}
+  checked.forEach(cb=>{
+    const id=cb.dataset.id;
+    if(!assignEdits[id]){const t=tasks.find(x=>x.id===id);assignEdits[id]={assignee:t.assignee||'',subAssignees:[...(t.subAssignees||[])]};}
+    if(main) assignEdits[id].assignee=main;
+    if(subs.length) assignEdits[id].subAssignees=[...subs];
+  });
+  renderAssignTaskList();
+  document.getElementById('bulkSubDrop').style.display='none';
+  showToast(`${checked.length}件に適用しました`);
+}
+
+function saveAssignments(){
+  let cnt=0;
+  Object.entries(assignEdits).forEach(([id,edit])=>{
+    const t=tasks.find(x=>x.id===id);
+    if(!t)return;
+    t.assignee=edit.assignee;
+    t.subAssignees=edit.subAssignees;
+    cnt++;
+  });
+  closeAssignModal();
+  renderQuickTasks();
+  renderTasksByPhase();
+  updateAI();
+  if(cnt) showToast(`${cnt}件の担当者を更新しました`);
+}
+
+// close dropdowns on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#bulkSubWrap')) document.getElementById('bulkSubDrop').style.display='none';
+  if(!e.target.closest('[id^="rowSub_"]')&&!e.target.closest('[onclick*="toggleRowSubDrop"]')){
+    document.querySelectorAll('[id^="rowSub_"]').forEach(el=>el.style.display='none');
+  }
+});
+
+// ===== ADD TASK =====
+function setPri(p){
+  newTaskPriority=p;
+  ['通常','急ぎ','外出タスク'].forEach(x=>{
+    const id=x==='通常'?'pri-normal':x==='急ぎ'?'pri-urgent':'pri-outside';
+    const el=document.getElementById(id);
+    if(el)el.style.fontWeight=x===p?'700':'500';
+  });
+}
+
+function openAddTaskModal(){
+  document.getElementById('newTaskSubAssignees').innerHTML=MEMBERS.map(m=>
+    `<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:11px;background:var(--white)">
+      <input type="checkbox" class="new-task-sub-cb" value="${m}" style="accent-color:var(--blue)"> ${m}
+    </label>`
+  ).join('');
+  document.getElementById('addTaskModal').classList.add('open');
+}
+function closeAddTaskModal(){document.getElementById('addTaskModal').classList.remove('open')}
+
+function addTask(){
+  const name=document.getElementById('newTaskName').value.trim();
+  if(!name){showToast('タスク名を入力してください');return;}
+  const phase=document.getElementById('newTaskPhase').value;
+  const assignee=document.getElementById('newTaskAssignee').value;
+  const subAssignees=[...document.querySelectorAll('.new-task-sub-cb:checked')].map(c=>c.value);
+  const due=document.getElementById('newTaskDue').value.replace(/-/g,'/');
+  const id='T'+String(Date.now()).slice(-4);
+  tasks.push({id,title:name,phase,cat:'その他',st:'未着手',assignee,subAssignees,due,priority:newTaskPriority});
+  closeAddTaskModal();
+  document.getElementById('newTaskName').value='';
+  renderQuickTasks();
+  renderTasksByPhase();
+  showToast(`タスク「${name}」を追加しました`);
+  updateAI();
+}
+
+// ===== DOCS =====
+function renderDocs(){
+  const stMap={'作成済':['background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)'],'送付済':['background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE'],'返送待ち':['background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A'],'完了':['background:var(--green-l);color:var(--green);border:1px solid #A7F3D0']};
+  // status summary
+  const counts={};docs.forEach(d=>{counts[d.status]=(counts[d.status]||0)+1});
+  document.getElementById('docStatusSummary').innerHTML=
+    `<div style="padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);color:var(--text2)">全 ${docs.length}件</div>`+
+    Object.entries(counts).map(([s,c])=>`<div style="padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;${stMap[s]||''}">${s} ${c}</div>`).join('');
+  // table
+  document.getElementById('docTableBody').innerHTML=
+    docs.map(d=>{
+      const st=stMap[d.status]||[''];
+      return `<tr style="cursor:pointer" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">${d.icon}</span>
+            <div><div style="font-weight:600">${d.name}</div><div style="font-size:10px;color:var(--muted)">${d.type}</div></div>
+          </div>
+        </td>
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <a style="color:var(--blue);cursor:pointer;text-decoration:none;font-weight:500" onclick="location.href='task_detail.html?id=${d.task_id}'">${d.task}</a>
+        </td>
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;${st[0]}">${d.status}</span>
+        </td>
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${d.date}</span>
+        </td>
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <div style="display:flex;gap:4px">
+            <button onclick="event.stopPropagation();showToast('プレビュー')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:12px" title="プレビュー">👁</button>
+            <button onclick="event.stopPropagation();showToast('ダウンロード')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-size:12px" title="ダウンロード">⬇</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+}
+
+function openDocModal(){document.getElementById('docModal').classList.add('open')}
+function closeDocModal(){document.getElementById('docModal').classList.remove('open')}
+
+function initDocTypes(){
+  document.getElementById('docTypeGrid').innerHTML=docTypes.map(d=>`
+    <div onclick="generateDoc('${d.name}')" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all .12s" onmouseover="this.style.borderColor='var(--blue)';this.style.background='var(--blue-l)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+      <div style="font-size:20px;margin-bottom:5px">${d.icon}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px">${d.name}</div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.4">${d.desc}</div>
+    </div>`).join('');
+}
+
+function generateDoc(name){
+  closeDocModal();
+  const gm=document.getElementById('genModal');
+  const steps=['案件情報を取得しています','テンプレートを読み込んでいます','データを差し込んでいます','書類を生成しています','完了処理中...'];
+  gm.classList.add('open');
+  document.getElementById('genTitle').textContent=`「${name}」を生成中...`;
+  let pct=0,si=0;
+  const bar=document.getElementById('genBar');
+  const desc=document.getElementById('genDesc');
+  const iv=setInterval(()=>{
+    pct+=20;bar.style.width=pct+'%';
+    desc.textContent=steps[si++]||'完了';
+    if(pct>=100){
+      clearInterval(iv);
+      setTimeout(()=>{
+        gm.classList.remove('open');
+        bar.style.width='0%';si=0;
+        docs.push({name,type:'PDF',date:'2025/11/14',icon:'📄'});
+        renderDocs();
+        showToast(`「${name}」を生成しました ✓`);
+      },400);
+    }
+  },350);
+}
+
+// ===== TIMELINE =====
+function renderTimeline(){
+  document.getElementById('timelineEl').innerHTML=timeline.map(t=>`
+    <div class="tl-item">
+      <div class="tl-dot" style="background:${t.color}18;border:1.5px solid ${t.color};color:${t.color}">${t.icon}</div>
+      <div><div class="tl-title">${t.title}</div><div class="tl-date">${t.date}</div><div class="tl-note">${t.note}</div></div>
+    </div>`).join('');
+}
+
+// ===== AI =====
+function updateAI(){
+  const done=tasks.filter(t=>t.st==='完了').length;
+  const diff=tasks.filter(t=>t.st==='差戻し');
+  const next=tasks.filter(t=>t.st==='未着手'||t.st==='対応中').slice(0,2);
+  let text='',actions=[];
+  if(diff.length>0){
+    text=`⚠️ 差戻しタスクが${diff.length}件あります：「${diff[0].title}」。優先的に対応してください。`;
+    actions=[{label:'差戻しタスクを確認',action:"st('tasks',document.querySelector('.tab'))"}];
+  } else if(done===tasks.length){
+    text='🎉 すべてのタスクが完了しました！次のステップとして案件完了処理を行いましょう。';
+    actions=[{label:'完了に変更',action:"changeStatus('完了')"}];
+  } else {
+    const n=next.map(t=>t.title).join('、');
+    text=`進捗 ${done}/${tasks.length} タスク完了。次のアクション：「${n}」。自筆遺言の検認申立も忘れずに。`;
+    actions=[{label:'タスクを確認',action:"st('tasks',document.querySelectorAll('.tab')[1])"}];
+  }
+  document.getElementById('aiText').textContent=text;
+  document.getElementById('aiActions').innerHTML=actions.map(a=>`<button class="ai-action ai-accept" onclick="${a.action}">${a.label}</button>`).join('')+`<button class="ai-action ai-skip" onclick="document.getElementById('aiBox').style.display='none'">閉じる</button>`;
+}
+
+// ===== TABS =====
+function st(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ===== TOAST =====
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== 相続関係説明図 =====
+const szkDeceased = {
+  name:'中村 義雄', kana:'なかむら よしお',
+  birth:'昭和5年7月30日', death:'令和7年10月1日',
+  address:'東京都渋谷区広尾2丁目2番2号',
+  domicile:'東京都渋谷区広尾2丁目2番2号'
+};
+const szkHeirs = [
+  {name:'中村 洋子',rel:'妻',birth:'昭和10年3月12日',address:'東京都渋谷区広尾2丁目2番2号',action:'相続',alive:true,type:'spouse'},
+  {name:'中村 さくら',rel:'長女',birth:'昭和35年5月20日',address:'東京都渋谷区広尾2丁目2番2号',action:'相続',alive:true,type:'child'},
+  {name:'中村 太一',rel:'長男',birth:'昭和38年8月15日',address:'東京都世田谷区成城3丁目1番1号',action:'相続',alive:true,type:'child'},
+  {name:'中村 花',rel:'二女',birth:'昭和41年2月28日',death:'令和2年6月15日',address:'神奈川県横浜市青葉区1丁目5番3号',action:'',alive:false,type:'child',hasChildren:true},
+  {name:'山本 誠',rel:'孫（代襲）',birth:'平成2年11月3日',address:'神奈川県横浜市青葉区1丁目5番3号',action:'相続',alive:true,type:'grandchild',parentName:'中村 花'},
+  {name:'田村 恵',rel:'孫（代襲）',birth:'平成5年4月22日',address:'東京都目黒区自由が丘2丁目8番1号',action:'相続',alive:true,type:'grandchild',parentName:'中村 花'}
+];
+
+function renderSzkChart(){
+  const cv = document.getElementById('szkCanvas');
+  if(!cv) return;
+  const W=120, H_BOX=160, GAP=40;
+
+  // Layout positions
+  const spouse = szkHeirs.filter(h=>h.type==='spouse');
+  const children = szkHeirs.filter(h=>h.type==='child');
+  const grandchildren = szkHeirs.filter(h=>h.type==='grandchild');
+
+  const totalTop = 1 + spouse.length;
+  const row1Y = 40;
+  const row2Y = row1Y + H_BOX + 80;
+  const row3Y = row2Y + H_BOX + 70;
+  const canvasW = Math.max(1100, (children.length+1)*(W+GAP)+200);
+  const canvasH = grandchildren.length > 0 ? row3Y + H_BOX + 50 : row2Y + H_BOX + 50;
+
+  // Deceased position - center top
+  const decX = canvasW/2 - W/2;
+  // Spouse to the left
+  const spouseX = decX - W - 80;
+
+  // Children centered below
+  const childW = children.length * W + (children.length-1) * GAP;
+  const childStartX = (canvasW - childW)/2;
+
+  let html = '';
+  // SVG for lines
+  let svgLines = '';
+  const cx = x => x + W/2;
+  const bot = y => y + H_BOX;
+
+  // === Marriage line (double) ===
+  if(spouse.length>0){
+    const my = row1Y + H_BOX/2;
+    svgLines += `<line x1="${spouseX+W}" y1="${my}" x2="${decX}" y2="${my}" stroke="#000" stroke-width="1.5"/>`;
+    svgLines += `<line x1="${spouseX+W}" y1="${my+3}" x2="${decX}" y2="${my+3}" stroke="#000" stroke-width="1.5"/>`;
+  }
+
+  // === Line from deceased down to children junction ===
+  const jY = row1Y + H_BOX + 35;
+  if(children.length>0){
+    svgLines += `<line x1="${cx(decX)}" y1="${bot(row1Y)}" x2="${cx(decX)}" y2="${jY}" stroke="#000" stroke-width="1"/>`;
+    const leftC = cx(childStartX);
+    const rightC = cx(childStartX + (children.length-1)*(W+GAP));
+    if(children.length>1) svgLines += `<line x1="${leftC}" y1="${jY}" x2="${rightC}" y2="${jY}" stroke="#000" stroke-width="1"/>`;
+    children.forEach((_,i)=>{
+      const cxx = cx(childStartX + i*(W+GAP));
+      svgLines += `<line x1="${cxx}" y1="${jY}" x2="${cxx}" y2="${row2Y}" stroke="#000" stroke-width="1"/>`;
+    });
+  }
+
+  // === Grandchild lines (dashed) ===
+  grandchildren.forEach(gc=>{
+    const pi = children.findIndex(c=>c.name===gc.parentName);
+    if(pi<0) return;
+    const px = childStartX + pi*(W+GAP);
+    const gcSiblings = grandchildren.filter(g=>g.parentName===gc.parentName);
+    const gi = gcSiblings.indexOf(gc);
+    const gcTotalW = gcSiblings.length * W + (gcSiblings.length-1)*20;
+    const gcBaseX = px + W/2 - gcTotalW/2 + gi*(W+20);
+    gc._x = gcBaseX; gc._y = row3Y;
+
+    const midY = bot(row2Y)+30;
+    svgLines += `<line x1="${cx(px)}" y1="${bot(row2Y)}" x2="${cx(px)}" y2="${midY}" stroke="#000" stroke-width="1" stroke-dasharray="4,3"/>`;
+    svgLines += `<line x1="${cx(px)}" y1="${midY}" x2="${cx(gcBaseX)}" y2="${midY}" stroke="#000" stroke-width="1" stroke-dasharray="4,3"/>`;
+    svgLines += `<line x1="${cx(gcBaseX)}" y1="${midY}" x2="${cx(gcBaseX)}" y2="${row3Y}" stroke="#000" stroke-width="1" stroke-dasharray="4,3"/>`;
+  });
+
+  html += `<svg style="position:absolute;top:0;left:0;width:${canvasW}px;height:${canvasH}px;pointer-events:none;z-index:1">${svgLines}</svg>`;
+
+  // === Title block ===
+  html += `<div class="szk-doc-title">
+    <div class="t1">不動産登記申請の</div>
+    <div class="t2">管轄法務局への提出</div>
+    <div style="height:10px"></div>
+    <div class="t-main">相続関係説明図</div>
+    <div class="t-sub">
+      被相続人　${esc(szkDeceased.name)}<br>
+      最後の本籍　${esc(szkDeceased.domicile)}<br>
+      最後の住所　${esc(szkDeceased.address)}<br>
+      登記の目的　所有権移転
+    </div>
+  </div>`;
+
+  // === Render boxes ===
+  function makeBox(x,y,label,person,isDec){
+    const cls = isDec ? 'szk-deceased' : '';
+    let body = '';
+    if(isDec){
+      body = `<div class="szk-box-name">${esc(person.name)}</div>
+        <div class="szk-box-info">
+          <div><span>出生</span>${esc(person.birth)}</div>
+          <div><span>死亡</span>${esc(person.death)}</div>
+          <div><span>本籍</span>${esc(person.domicile)}</div>
+        </div>
+        <div class="szk-box-death">（${esc(person.death)} 死亡）</div>`;
+    } else {
+      body = `<div class="szk-box-name">${esc(person.name)}</div>
+        <div class="szk-box-info">
+          <div><span>出生</span>${esc(person.birth)}</div>
+          ${!person.alive ? `<div><span>死亡</span>${esc(person.death||'')}</div>` : ''}
+          <div><span>住所</span>${esc(person.address)}</div>
+        </div>
+        ${person.alive && person.action ? `<div class="szk-box-stamp">${esc(person.action)}</div>` : ''}
+        ${!person.alive ? '<div class="szk-box-death">（死亡）</div>' : ''}`;
+    }
+    return `<div class="szk-box ${cls}" style="left:${x}px;top:${y}px;width:${W}px">
+      <div class="szk-box-inner">
+        <div class="szk-box-label">${esc(label)}</div>
+        <div class="szk-box-body">${body}</div>
+      </div>
+    </div>`;
+  }
+
+  // Deceased
+  html += makeBox(decX, row1Y, '被相続人', szkDeceased, true);
+
+  // Spouse
+  spouse.forEach(s => { html += makeBox(spouseX, row1Y, s.rel, s, false); });
+
+  // Children
+  children.forEach((c,i) => {
+    html += makeBox(childStartX + i*(W+GAP), row2Y, c.rel, c, false);
+  });
+
+  // Grandchildren
+  grandchildren.forEach(gc => {
+    if(gc._x !== undefined) html += makeBox(gc._x, gc._y, gc.rel, gc, false);
+  });
+
+  cv.style.width = canvasW + 'px';
+  cv.style.minHeight = canvasH + 'px';
+  cv.innerHTML = html;
+}
+
+function printChart(){
+  const doc = document.getElementById('szkDoc');
+  const w = window.open('','','width=1200,height=800');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>相続関係説明図</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Noto Sans JP',serif;background:#fff}
+      .szk-doc{background:#fff}
+      .szk-canvas{position:relative;width:1100px;min-height:680px;margin:0 auto;padding:30px 20px 40px}
+      .szk-doc-title{position:absolute;top:24px;left:30px;z-index:2}
+      .szk-doc-title .t1{font-size:9px;color:#333;letter-spacing:1px;margin-bottom:2px}
+      .szk-doc-title .t2{font-size:9px;color:#333;margin-bottom:6px}
+      .szk-doc-title .t-main{font-size:16px;font-weight:700;letter-spacing:6px;color:#000;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:6px}
+      .szk-doc-title .t-sub{font-size:9px;color:#333;line-height:1.7}
+      .szk-box{position:absolute;z-index:2;background:#fff;text-align:center;width:120px}
+      .szk-box-inner{border:1.5px solid #000;min-height:120px;display:flex;flex-direction:column}
+      .szk-box.szk-deceased .szk-box-inner{border-width:3px}
+      .szk-box-label{font-size:8px;letter-spacing:2px;padding:3px 0;border-bottom:1px solid #000;background:#f5f5f5;color:#333;font-weight:500}
+      .szk-box.szk-deceased .szk-box-label{background:#333;color:#fff;font-weight:600}
+      .szk-box-body{flex:1;padding:6px 4px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+      .szk-box-name{font-size:13px;font-weight:700;color:#000;letter-spacing:1px}
+      .szk-box-info{font-size:8px;color:#444;line-height:1.5;text-align:left;padding:0 4px}
+      .szk-box-info span{color:#888;margin-right:2px}
+      .szk-box-stamp{width:30px;height:30px;border:1.5px solid #c00;border-radius:50%;margin:4px auto 2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#c00;font-weight:700;line-height:1}
+      .szk-box-death{font-size:8px;color:#c00;text-align:center;margin-top:2px;font-weight:500}
+      @page{size:A3 landscape;margin:10mm}
+    </style></head><body>`);
+  w.document.write(doc.innerHTML);
+  w.document.write('</body></html>');
+  w.document.close();
+  setTimeout(()=>{w.print();},500);
+}
+
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+
+// ===== INIT =====
+renderStatusFlow();
+renderStatusBtn();
+renderQuickTasks();
+renderTasksByPhase();
+renderDocs();
+initDocTypes();
+renderTimeline();
+updateAI();
+renderSzkChart();
+</script>
+</body>
+</html>

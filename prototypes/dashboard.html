@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜案件管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F8FA;--white:#FFFFFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;--red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh1:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600;color:var(--text)}
+.ur{font-size:10px;color:var(--muted)}
+
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sb{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;width:220px;transition:border-color .15s,box-shadow .15s}
+.sb:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.sb input{background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;width:100%}
+.sb input::placeholder{color:var(--muted2)}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-g:hover{background:var(--bg)}
+
+.content{padding:20px 24px;flex:1}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:var(--sh0);cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.kc:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.kh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.kl{font-size:11px;font-weight:600;color:var(--muted)}
+.ki{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.kv{font-family:'Plus Jakarta Sans',sans-serif;font-size:26px;font-weight:800;line-height:1;color:var(--text);margin-bottom:5px;letter-spacing:-.5px}
+.kd{font-size:11px;font-weight:500}
+.kd.up{color:var(--green)}.kd.dn{color:var(--red)}.kd.nt{color:var(--muted)}
+
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.ftabs{display:flex;gap:2px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:3px;box-shadow:var(--sh0)}
+.ft{padding:5px 11px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:none;transition:all .1s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap}
+.ft:hover{color:var(--text2);background:var(--bg)}
+.ft.active{background:var(--blue);color:#fff;font-weight:600}
+.ft .c{display:inline-block;margin-left:3px;font-size:10px;font-family:'DM Mono',monospace;opacity:.8}
+.tbr2{margin-left:auto;display:flex;gap:8px}
+
+.tw{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden}
+.tm{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--white)}
+.tmt{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px}
+.rc{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;background:var(--bg);padding:2px 8px;border-radius:4px}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;padding:9px 14px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .08s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#FAFBFF}
+tbody td{padding:11px 14px;vertical-align:middle}
+.cid{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px}
+.cname{font-weight:600;font-size:13px}
+.cdec{font-size:11px;color:var(--muted);margin-top:1px}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.bl{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}
+.bm{background:#EFF6FF;color:#3B82F6;border-color:#BFDBFE}
+.bc{background:#FFFBEB;color:#D97706;border-color:#FDE68A}
+.bw{background:#F0FDF4;color:#16A34A;border-color:#BBF7D0}
+.ba{background:#F5F3FF;color:#7C3AED;border-color:#DDD6FE}
+.bd{background:#F0FDF4;color:#059669;border-color:#A7F3D0}
+.bx{background:#FEF2F2;color:#DC2626;border-color:#FECACA}
+
+.diff{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace}
+.dh{background:var(--red-l);color:var(--red)}
+.dm{background:var(--amber-l);color:var(--amber)}
+.de{background:var(--green-l);color:var(--green)}
+
+.tps{display:flex;gap:3px;flex-wrap:wrap}
+.tp{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.tp.done{background:var(--green-l);color:var(--green);border-color:#A7F3D0}
+.tp.more{color:var(--muted2);background:none;border:none}
+
+.ass{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text2)}
+.avsm{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.amt{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text2)}
+.dc{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+
+.dp{position:fixed;top:0;right:0;bottom:0;width:460px;background:var(--white);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .28s cubic-bezier(.16,1,.3,1);z-index:100;box-shadow:var(--sh3)}
+.dp.open{transform:translateX(0)}
+.ph{padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1}
+.pt{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.pcl{width:26px;height:26px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .12s}
+.pcl:hover{background:var(--red-l);color:var(--red);border-color:#FECACA}
+.pidtag{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:4px;border:1px solid var(--border);display:inline-block;margin-bottom:5px}
+.pname{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:18px;letter-spacing:-.3px}
+.pdec{font-size:12px;color:var(--muted);margin-top:2px}
+
+.sf{display:flex;align-items:flex-start;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.sf::-webkit-scrollbar{display:none}
+.sfi{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;flex:1;min-width:58px}
+.sfd{width:8px;height:8px;border-radius:50%;background:var(--border2);position:relative;z-index:1}
+.sfd.passed{background:var(--blue);opacity:.4}
+.sfd.active{background:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.2)}
+.sfl{font-size:9px;color:var(--muted2);white-space:nowrap;text-align:center}
+.sfl.active{color:var(--blue);font-weight:600}
+.sfline{position:absolute;top:4px;left:50%;right:-50%;height:1px;background:var(--border2);z-index:0}
+.sfline.passed{background:var(--blue);opacity:.35}
+.sfi:last-child .sfline{display:none}
+
+.pb{padding:16px 20px}
+.ps{margin-bottom:20px}
+.pst{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.pr{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;border-bottom:1px solid rgba(0,0,0,.03)}
+.pr:last-child{border-bottom:none}
+.pk{color:var(--muted)}
+.pv{font-weight:500;color:var(--text2);text-align:right;max-width:60%}
+
+.tl{display:flex;flex-direction:column;gap:5px}
+.ti{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-size:12px}
+.tck{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;cursor:pointer}
+.tck.done{background:var(--green);border-color:var(--green);color:#fff}
+.tn{flex:1;color:var(--text2)}
+.tn.done{text-decoration:line-through;color:var(--muted2)}
+.tw2{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace}
+
+.pgb{width:100%;height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+.pgf{height:100%;background:var(--green);border-radius:2px;transition:width .5s ease}
+
+.nb{background:var(--amber-l);border:1px solid #FDE68A;border-radius:6px;padding:10px 12px;font-size:12px;line-height:1.7;color:#92400E}
+
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--text2)}
+
+.rnk{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:14px}
+.rS{background:#FEF3C7;color:#B45309}.rA{background:#DBEAFE;color:#1D4ED8}.rB{background:#F0FDF4;color:#15803D}.rC{background:#FFF7ED;color:#C2410C}.rD{background:#FEF2F2;color:#B91C1C}
+
+.ov{position:fixed;inset:0;background:rgba(17,24,39,.2);z-index:99;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(1px)}
+.ov.active{opacity:1;pointer-events:all}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.empty{padding:48px;text-align:center;color:var(--muted)}
+.empty-i{font-size:36px;margin-bottom:12px;opacity:.35}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px}
+.vt-btn{width:30px;height:26px;border-radius:4px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);transition:all .1s}
+.vt-btn:hover{color:var(--text2);background:var(--white)}
+.vt-btn.active{background:var(--white);color:var(--blue);box-shadow:var(--sh0)}
+
+/* SCOPE TABS */
+.scope-tabs{display:flex;gap:2px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:3px;box-shadow:var(--sh0)}
+.scope-tab{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:none;transition:all .1s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.scope-tab:hover{color:var(--text2);background:var(--bg)}
+.scope-tab.active{background:var(--blue);color:#fff;font-weight:600}
+.scope-tab .sc-cnt{font-size:10px;font-family:'DM Mono',monospace;opacity:.85}
+
+/* KANBAN */
+.kanban-outer{overflow-x:auto;padding-bottom:12px;margin-top:0}
+.kanban-board{display:flex;gap:12px;min-width:max-content;align-items:flex-start;padding:2px}
+.kb-col{width:248px;flex-shrink:0}
+.kb-head{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh0);margin-bottom:8px}
+.kb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.kb-label{font-size:12px;font-weight:600;flex:1;color:var(--text2)}
+.kb-cnt{font-size:10px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--muted);padding:1px 7px;border-radius:10px;border:1px solid var(--border)}
+.kb-cards{display:flex;flex-direction:column;gap:6px;min-height:60px}
+.kb-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:12px 12px;cursor:pointer;transition:box-shadow .12s,border-color .12s;box-shadow:var(--sh0)}
+.kb-card:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.kb-card-id{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2);background:var(--bg);padding:1px 5px;border-radius:3px;display:inline-block;margin-bottom:4px}
+.kb-card-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;line-height:1.3}
+.kb-card-dec{font-size:10px;color:var(--muted);margin-bottom:7px}
+.kb-card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
+.kb-tag{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600}
+.kb-card-foot{display:flex;align-items:center;justify-content:space-between}
+.kb-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff}
+.kb-amt{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.kb-empty{padding:20px 10px;text-align:center;color:var(--muted2);font-size:11px;border:1.5px dashed var(--border);border-radius:8px}
+.kb-prog{width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:7px;overflow:hidden}
+.kb-prog-fill{height:100%;border-radius:2px;transition:width .4s}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item active"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item" onclick="location.href='schedule.html'"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item" onclick="location.href='task.html'"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title">案件管理</div><div class="page-bc">相続プラットフォーム / 案件管理</div></div>
+    <div class="tbr">
+      <div class="sb"><span style="color:var(--muted2);font-size:12px">🔍</span><input type="text" placeholder="案件名・依頼者・番号で検索" id="si"></div>
+      <button class="btn btn-g">📥 CSV出力</button>
+      <button class="btn btn-p" onclick="location.href='meeting_input.html'">＋ 新規案件登録</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="kpi-grid">
+      <div class="kc"><div class="kh"><div class="kl">総案件数</div><div class="ki" style="background:#EFF4FF">📋</div></div><div class="kv">47</div><div class="kd up">▲ 3件 今月</div></div>
+      <div class="kc"><div class="kh"><div class="kl">対応中</div><div class="ki" style="background:#F5F3FF">⚡</div></div><div class="kv" style="color:var(--purple)">12</div><div class="kd nt">進行中案件</div></div>
+      <div class="kc"><div class="kh"><div class="kl">今月完了</div><div class="ki" style="background:#F0FDF4">✅</div></div><div class="kv" style="color:var(--green)">8</div><div class="kd up">▲ 2件 先月比</div></div>
+      <div class="kc"><div class="kh"><div class="kl">検討中</div><div class="ki" style="background:#FFFBEB">🕐</div></div><div class="kv" style="color:var(--amber)">6</div><div class="kd dn">▼ 1件 先週比</div></div>
+      <div class="kc"><div class="kh"><div class="kl">今月売上</div><div class="ki" style="background:#FFF7ED">💰</div></div><div class="kv" style="font-size:20px">¥4.2M</div><div class="kd up">▲ 12% 先月比</div></div>
+    </div>
+
+    <div class="toolbar">
+      <!-- スコープ切り替え -->
+      <div class="scope-tabs" id="scopeTabs">
+        <button class="scope-tab active" onclick="setScope('all',this)">👥 すべて<span class="sc-cnt" id="sc-all">12</span></button>
+        <button class="scope-tab" onclick="setScope('mine',this)">🙋 自分の担当<span class="sc-cnt" id="sc-mine">0</span></button>
+        <button class="scope-tab" onclick="setScope('mytask',this)">✅ 自分タスクあり<span class="sc-cnt" id="sc-mytask">0</span></button>
+        <button class="scope-tab" onclick="setScope('team',this)">🏢 チーム別</button>
+      </div>
+
+      <!-- チーム選択（チーム別のときだけ表示） -->
+      <select id="teamSelect" style="display:none;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--white);color:var(--text);cursor:pointer" onchange="af()">
+        <option value="all">全チーム</option>
+        <option value="クレアトール">クレアトール</option>
+        <option value="共同ビル">共同ビル</option>
+        <option value="藤沢">藤沢</option>
+      </select>
+
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <!-- ステータスフィルタ -->
+        <div class="ftabs" id="ftabs">
+          <button class="ft active" onclick="sf('all',this)">すべて</button>
+          <button class="ft" onclick="sf('架電案件化',this)">架電</button>
+          <button class="ft" onclick="sf('面談設定済',this)">面談</button>
+          <button class="ft" onclick="sf('検討中',this)">検討中</button>
+          <button class="ft" onclick="sf('受注',this)">受注</button>
+          <button class="ft" onclick="sf('対応中',this)">対応中</button>
+          <button class="ft" onclick="sf('完了',this)">完了</button>
+          <button class="ft" onclick="sf('保留・長期',this)" style="color:var(--amber)">保留・長期</button>
+          <button class="ft" onclick="sf('失注',this)">失注</button>
+        </div>
+        <!-- ビュー切り替え -->
+        <div class="view-toggle">
+          <button class="vt-btn active" id="vt-list" onclick="setDm('list',this)" title="リスト">☰</button>
+          <button class="vt-btn" id="vt-kanban" onclick="setDm('kanban',this)" title="カンバン">⊞</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="caseList">
+      <div class="tw">
+        <div class="tm"><div class="tmt">案件一覧</div><div class="rc" id="rc">12件</div></div>
+        <table><thead><tr><th>案件</th><th>ステータス</th><th>難度</th><th>受任業務</th><th>受注担当</th><th>資産概算</th><th>依頼日</th></tr></thead>
+        <tbody id="cb"></tbody></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="ov" id="ov" onclick="cp()"></div>
+<div class="dp" id="dp">
+  <div class="ph">
+    <div class="pt">
+      <div><div class="pidtag" id="pid"></div><div class="pname" id="pn"></div><div class="pdec" id="pdec"></div></div>
+      <button class="pcl" onclick="cp()">✕</button>
+    </div>
+    <div class="sf" id="pf"></div>
+  </div>
+  <div class="pb" id="pbody"></div>
+</div>
+
+<script>
+const SF=['架電案件化','面談設定済','検討中','受注','対応中','完了'];
+const SC={'架電案件化':'bl','面談設定済':'bm','検討中':'bc','受注':'bw','対応中':'ba','完了':'bd','失注':'bx','保留・長期':'bc'};
+const AC={'田中':'#2563EB','山本':'#7C3AED','佐藤':'#059669','伊藤':'#D97706'};
+const KANBAN_COLS=[
+  {key:'架電案件化',color:'#6B7280'},{key:'面談設定済',color:'#3B82F6'},
+  {key:'検討中',color:'#D97706'},{key:'受注',color:'#16A34A'},
+  {key:'対応中',color:'#7C3AED'},{key:'保留・長期',color:'#EA580C'},{key:'完了',color:'#059669'},{key:'失注',color:'#DC2626'}
+];
+// ログインユーザー想定
+const ME = '田中';
+const MY_TASKS_CASES = ['R7-A00123','R7-A00125','R7-A00127','R7-A00129','R7-A00131','R7-A00122'];
+
+const cases=[
+  {id:'R7-A00123',name:'山田 花子',dec:'山田 太郎',st:'対応中',df:'難',as:'田中',mg:'佐藤',bs:'クレアトール',rt:'LP',
+   tk:['戸籍','相関図','不動産','金融資産','目録','協議書','登記'],dt:['戸籍','相関図'],
+   as2:'¥4,200万',da:'2025/11/01',tx:'要',wl:'公正証書',
+   cl:{addr:'東京都港区赤坂1-1-1',tel:'03-1234-5678',email:'hanako@example.com'},
+   di:{birth:'1935/04/12',death:'2025/10/15',dom:'東京都港区'},
+   pr:{tp:'戸建',rs:'空き家',ar:'人気エリア',ag:32,rk:'A'},
+   fi:['三菱UFJ銀行','ゆうちょ銀行','野村証券'],hr:3,
+   nt:'長男が不動産取得希望。相続税申告要。税理士紹介済み。'},
+  {id:'R7-A00124',name:'鈴木 一郎',dec:'鈴木 次郎',st:'受注',df:'普',as:'山本',mg:'佐藤',bs:'共同ビル',rt:'公益社',
+   tk:['戸籍','相関図','金融資産','目録','協議書'],dt:[],
+   as2:'¥1,800万',da:'2025/11/05',tx:'不要',wl:'なし',
+   cl:{addr:'神奈川県横浜市中区山下町1-1',tel:'045-234-5678',email:'ichiro@example.com'},
+   di:{birth:'1942/08/22',death:'2025/10/28',dom:'神奈川県横浜市'},
+   pr:null,fi:['横浜銀行','みずほ銀行'],hr:2,nt:'配偶者と子1名。シンプルな案件。'},
+  {id:'R7-A00125',name:'佐藤 美智子',dec:'佐藤 健一',st:'検討中',df:'普',as:'田中',mg:'',bs:'クレアトール',rt:'はせがわ',
+   tk:[],dt:[],as2:'¥2,500万',da:'2025/11/08',tx:'確認中',wl:'なし',
+   cl:{addr:'東京都世田谷区成城1-1-1',tel:'03-3456-7890',email:'michiko@example.com'},
+   di:{birth:'1938/12/01',death:'2025/11/01',dom:'東京都世田谷区'},
+   pr:{tp:'マンション',rs:'居住中（相続人）',ar:'標準',ag:15,rk:'B'},fi:['三井住友銀行'],hr:3,
+   nt:'検討中。相続人間で意見が割れている可能性あり。'},
+  {id:'R7-A00126',name:'高橋 誠',dec:'高橋 幸子',st:'対応中',df:'易',as:'山本',mg:'伊藤',bs:'藤沢',rt:'LP',
+   tk:['戸籍','相関図','金融資産','目録','協議書','解約'],dt:['戸籍','相関図','金融資産','目録'],
+   as2:'¥800万',da:'2025/10/20',tx:'不要',wl:'なし',
+   cl:{addr:'神奈川県藤沢市辻堂1-1-1',tel:'0466-12-3456',email:'makoto@example.com'},
+   di:{birth:'1950/03/15',death:'2025/10/10',dom:'神奈川県藤沢市'},
+   pr:null,fi:['横浜銀行','ゆうちょ銀行'],hr:1,nt:'単独相続。シンプル。協議書・解約が残タスク。'},
+  {id:'R7-A00127',name:'中村 さくら',dec:'中村 義雄',st:'対応中',df:'難',as:'田中',mg:'佐藤',bs:'クレアトール',rt:'LP',
+   tk:['戸籍','相関図','法定相続情報','不動産','金融資産','目録','協議書','登記','解約'],dt:['戸籍','相関図','法定相続情報'],
+   as2:'¥8,500万',da:'2025/10/15',tx:'要',wl:'自筆',
+   cl:{addr:'東京都渋谷区広尾2-2-2',tel:'03-5678-9012',email:'sakura@example.com'},
+   di:{birth:'1930/07/30',death:'2025/10/01',dom:'東京都渋谷区'},
+   pr:{tp:'戸建',rs:'空き家',ar:'人気エリア',ag:45,rk:'S'},
+   fi:['三菱UFJ銀行','みずほ銀行','大和証券','ゆうちょ銀行'],hr:5,
+   nt:'自筆遺言の検認申立が必要。相続人5名で意見調整中。'},
+  {id:'R7-A00128',name:'伊藤 浩二',dec:'伊藤 はる',st:'面談設定済',df:'普',as:'山本',mg:'',bs:'共同ビル',rt:'公益社',
+   tk:[],dt:[],as2:'未確認',da:'2025/11/10',tx:'確認中',wl:'なし',
+   cl:{addr:'東京都新宿区西新宿3-3-3',tel:'03-7890-1234',email:'koji@example.com'},
+   di:{birth:'1945/01/20',death:'2025/11/05',dom:'東京都新宿区'},
+   pr:null,fi:[],hr:2,nt:'面談予定日：2025/11/15。資産詳細未確認。'},
+  {id:'R7-A00120',name:'渡辺 明美',dec:'渡辺 健三',st:'完了',df:'易',as:'田中',mg:'佐藤',bs:'クレアトール',rt:'LP',
+   tk:['戸籍','相関図','金融資産','目録','協議書','解約'],dt:['戸籍','相関図','金融資産','目録','協議書','解約'],
+   as2:'¥1,200万',da:'2025/09/01',tx:'不要',wl:'なし',
+   cl:{addr:'東京都品川区大崎4-4-4',tel:'03-3456-7890',email:'akemi@example.com'},
+   di:{birth:'1952/06/05',death:'2025/08/20',dom:'東京都品川区'},
+   pr:null,fi:['みずほ銀行'],hr:2,nt:'完了済。2025/10/30納品完了。'},
+  {id:'R7-A00121',name:'小林 大輔',dec:'小林 静江',st:'失注',df:'普',as:'山本',mg:'',bs:'藤沢',rt:'LP',
+   tk:[],dt:[],as2:'¥3,000万',da:'2025/10/05',tx:'確認中',wl:'なし',
+   cl:{addr:'神奈川県鎌倉市由比ガ浜1-1-1',tel:'0467-23-4567',email:'daisuke@example.com'},
+   di:{birth:'1940/09/14',death:'2025/09/25',dom:'神奈川県鎌倉市'},
+   pr:{tp:'土地',rs:'空き家',ar:'不人気エリア',ag:0,rk:'D'},fi:['横浜銀行'],hr:3,nt:'費用面で折り合わず失注。'},
+  {id:'R7-A00129',name:'加藤 由美',dec:'加藤 正夫',st:'架電案件化',df:'普',as:'田中',mg:'',bs:'クレアトール',rt:'はせがわ',
+   tk:[],dt:[],as2:'未確認',da:'2025/11/11',tx:'確認中',wl:'なし',
+   cl:{addr:'東京都杉並区荻窪5-5-5',tel:'03-1234-9876',email:'yumi@example.com'},
+   di:{birth:'1943/11/30',death:'2025/11/08',dom:'東京都杉並区'},
+   pr:null,fi:[],hr:0,nt:'架電待ち。はせがわ案件。'},
+  {id:'R7-A00122',name:'松本 隆',dec:'松本 文子',st:'対応中',df:'難',as:'田中',mg:'佐藤',bs:'クレアトール',rt:'LP',
+   tk:['戸籍','相関図','不動産','金融資産','目録','協議書','登記','解約'],dt:['戸籍','相関図','不動産'],
+   as2:'¥6,000万',da:'2025/10/25',tx:'要',wl:'公正証書',
+   cl:{addr:'東京都目黒区自由が丘6-6-6',tel:'03-5432-1098',email:'takashi@example.com'},
+   di:{birth:'1935/02/18',death:'2025/10/15',dom:'東京都目黒区'},
+   pr:{tp:'収益物件',rs:'賃貸中',ar:'人気エリア',ag:28,rk:'A'},
+   fi:['三菱UFJ銀行','野村証券','SBI証券'],hr:4,nt:'収益物件の評価が複雑。賃借人への対応も必要。'},
+  {id:'R7-A00130',name:'井上 恵子',dec:'井上 博',st:'受注',df:'易',as:'山本',mg:'伊藤',bs:'共同ビル',rt:'公益社',
+   tk:['戸籍','相関図','金融資産','目録','協議書'],dt:[],
+   as2:'¥950万',da:'2025/11/09',tx:'不要',wl:'なし',
+   cl:{addr:'神奈川県川崎市中原区7-7-7',tel:'044-345-6789',email:'keiko@example.com'},
+   di:{birth:'1948/07/07',death:'2025/11/01',dom:'神奈川県川崎市'},
+   pr:null,fi:['川崎信用金庫'],hr:2,nt:'シンプル案件。受注確定。'},
+  {id:'R7-A00131',name:'木村 浩',dec:'木村 千代',st:'検討中',df:'普',as:'田中',mg:'',bs:'クレアトール',rt:'LP',
+   tk:[],dt:[],as2:'¥2,100万',da:'2025/11/06',tx:'不要',wl:'なし',
+   cl:{addr:'東京都板橋区成増8-8-8',tel:'03-9876-5432',email:'hiroshi@example.com'},
+   di:{birth:'1940/04/04',death:'2025/10/30',dom:'東京都板橋区'},
+   pr:{tp:'マンション',rs:'空き家',ar:'標準',ag:22,rk:'B'},fi:['東京スター銀行'],hr:3,
+   nt:'マンション処分について相続人間で協議中。'},
+];
+
+let curSt='all', curScope='all', curDm='list';
+
+function updateScopeCounts() {
+  document.getElementById('sc-all').textContent = cases.length;
+  document.getElementById('sc-mine').textContent = cases.filter(c=>c.as===ME||c.mg===ME).length;
+  document.getElementById('sc-mytask').textContent = cases.filter(c=>MY_TASKS_CASES.includes(c.id)).length;
+}
+
+function setScope(scope, el) {
+  curScope = scope;
+  document.querySelectorAll('.scope-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const ts = document.getElementById('teamSelect');
+  ts.style.display = scope === 'team' ? 'block' : 'none';
+  af();
+}
+
+function setDm(mode, el) {
+  curDm = mode;
+  document.querySelectorAll('.vt-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  af();
+}
+
+function sf(s, el) {
+  curSt = s;
+  document.querySelectorAll('.ft').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  af();
+}
+
+function getFiltered() {
+  let data = [...cases];
+  // スコープフィルタ
+  if (curScope === 'mine') data = data.filter(c => c.as === ME || c.mg === ME);
+  else if (curScope === 'mytask') data = data.filter(c => MY_TASKS_CASES.includes(c.id));
+  else if (curScope === 'team') {
+    const team = document.getElementById('teamSelect').value;
+    if (team !== 'all') data = data.filter(c => c.bs === team);
+  }
+  // ステータスフィルタ
+  if (curSt !== 'all') data = data.filter(c => c.st === curSt);
+  // 検索
+  const q = document.getElementById('si').value.toLowerCase();
+  if (q) data = data.filter(c => c.name.includes(q) || c.dec.includes(q) || c.id.toLowerCase().includes(q));
+  return data;
+}
+
+function af() {
+  const data = getFiltered();
+  const wrap = document.getElementById('caseList');
+  if (curDm === 'kanban') {
+    renderKanban(data, wrap);
+  } else {
+    renderList(data, wrap);
+  }
+}
+
+function renderList(data, wrap) {
+  document.getElementById('rc') && (document.getElementById('rc').textContent = data.length + '件');
+  const label = curScope === 'mine' ? '自分の担当案件' : curScope === 'mytask' ? '自分タスクあり' : curScope === 'team' ? 'チーム別' : '案件一覧';
+  wrap.innerHTML = `
+    <div class="tw">
+      <div class="tm"><div class="tmt">${label}</div><div class="rc">${data.length}件</div></div>
+      <table><thead><tr><th>案件</th><th>ステータス</th><th>難度</th><th>受任業務</th><th>受注担当</th><th>資産概算</th><th>依頼日</th></tr></thead>
+      <tbody>${data.length ? data.map(c => rowHTML(c)).join('') : `<tr><td colspan="7"><div class="empty"><div class="empty-i">📭</div><div style="font-size:13px">該当する案件がありません</div></div></td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+
+function rowHTML(c) {
+  const sc=SC[c.st]||'bl';
+  const dc=c.df==='難'?'dh':c.df==='普'?'dm':'de';
+  const av=AC[c.as]||'#6B7280';
+  const th=c.tk.slice(0,5).map(t=>`<span class="tp ${c.dt.includes(t)?'done':''}">${t}</span>`).join('')+(c.tk.length>5?`<span class="tp more">+${c.tk.length-5}</span>`:'');
+  const myMark = (c.as===ME||c.mg===ME) ? '<span style="font-size:9px;background:#EFF4FF;color:#2563EB;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:600">自分</span>' : '';
+  const taskMark = MY_TASKS_CASES.includes(c.id) ? '<span style="font-size:9px;background:#ECFDF5;color:#059669;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:600">タスク</span>' : '';
+  return `<tr onclick="op('${c.id}')">
+    <td><div class="cid">${c.id}</div><div class="cname">${c.name}${myMark}${taskMark}</div><div class="cdec">被：${c.dec} · ${c.bs}</div></td>
+    <td><span class="badge ${sc}">${c.st}</span></td>
+    <td><span class="diff ${dc}">${c.df}</span></td>
+    <td><div class="tps">${th||'<span style="font-size:11px;color:var(--muted2)">未設定</span>'}</div></td>
+    <td><div class="ass"><div class="avsm" style="background:${av}">${c.as[0]}</div>${c.as}</div></td>
+    <td><span class="amt">${c.as2}</span></td>
+    <td><span class="dc">${c.da}</span></td>
+  </tr>`;
+}
+
+function renderKanban(data, wrap) {
+  const colsHTML = KANBAN_COLS.map(col => {
+    const items = data.filter(c => c.st === col.key);
+    const cardsHTML = items.length ? items.map(c => {
+      const av = AC[c.as] || '#6B7280';
+      const prog = c.tk.length > 0 ? Math.round(c.dt.length / c.tk.length * 100) : 0;
+      const progColor = prog === 100 ? '#059669' : prog > 50 ? '#2563EB' : '#D97706';
+      const myMark = (c.as===ME||c.mg===ME) ? `<span class="kb-tag" style="background:#EFF4FF;color:#2563EB;border:1px solid #BFDBFE">自分</span>` : '';
+      const taskMark = MY_TASKS_CASES.includes(c.id) ? `<span class="kb-tag" style="background:#ECFDF5;color:#059669;border:1px solid #A7F3D0">タスク</span>` : '';
+      const dc = c.df==='難'?`background:var(--red-l);color:var(--red)`:c.df==='普'?`background:var(--amber-l);color:var(--amber)`:`background:var(--green-l);color:var(--green)`;
+      return `<div class="kb-card" onclick="op('${c.id}')">
+        <div class="kb-card-id">${c.id} · ${c.bs}</div>
+        <div class="kb-card-name">${c.name}</div>
+        <div class="kb-card-dec">被：${c.dec}</div>
+        <div class="kb-card-tags">
+          <span class="kb-tag" style="${dc};border:1px solid transparent">${c.df}</span>
+          ${myMark}${taskMark}
+          ${c.tx==='要'?`<span class="kb-tag" style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA">相続税</span>`:''}
+        </div>
+        <div class="kb-card-foot">
+          <div class="kb-av" style="background:${av}">${c.as[0]}</div>
+          <span class="kb-amt">${c.as2}</span>
+        </div>
+        ${c.tk.length>0?`<div class="kb-prog"><div class="kb-prog-fill" style="width:${prog}%;background:${progColor}"></div></div>`:''}
+      </div>`;
+    }).join('') : `<div class="kb-empty">案件なし</div>`;
+
+    return `<div class="kb-col">
+      <div class="kb-head">
+        <div class="kb-dot" style="background:${col.color}"></div>
+        <div class="kb-label">${col.key}</div>
+        <div class="kb-cnt">${items.length}</div>
+      </div>
+      <div class="kb-cards">${cardsHTML}</div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="kanban-outer"><div class="kanban-board">${colsHTML}</div></div>`;
+}
+
+function op(id) {
+  const c=cases.find(x=>x.id===id);if(!c)return;
+  const av=AC[c.as]||'#6B7280';
+  document.getElementById('pid').textContent=c.id+' · '+c.bs+' · '+c.rt;
+  document.getElementById('pn').textContent=c.name;
+  document.getElementById('pdec').textContent='被相続人：'+c.dec;
+  const si=SF.indexOf(c.st);
+  document.getElementById('pf').innerHTML=SF.map((s,i)=>{
+    const p=i<si;const a=s===c.st;
+    return`<div class="sfi"><div class="sfd ${a?'active':p?'passed':''}"></div><div class="sfl ${a?'active':''}">${s}</div><div class="sfline ${p?'passed':''}"></div></div>`;
+  }).join('')+(c.st==='失注'?`<div class="sfi"><div class="sfd" style="background:var(--red)"></div><div class="sfl" style="color:var(--red)">失注</div></div>`:'');
+  const dr=c.tk.length>0?Math.round(c.dt.length/c.tk.length*100):0;
+  const th=c.tk.length>0?c.tk.map(t=>`<div class="ti"><div class="tck ${c.dt.includes(t)?'done':''}">${c.dt.includes(t)?'✓':''}</div><div class="tn ${c.dt.includes(t)?'done':''}">${t}</div><div class="tw2">${c.mg||c.as}</div></div>`).join(''):'<div style="color:var(--muted2);font-size:12px;padding:4px 0">タスク未設定</div>';
+  const ph=c.pr?`<div class="pr"><span class="pk">物件種別</span><span class="pv">${c.pr.tp}</span></div><div class="pr"><span class="pk">住人状況</span><span class="pv">${c.pr.rs}</span></div><div class="pr"><span class="pk">エリア評価</span><span class="pv">${c.pr.ar}</span></div><div class="pr"><span class="pk">築年数</span><span class="pv">${c.pr.ag}年</span></div><div class="pr"><span class="pk">評価ランク</span><span class="pv"><span class="rnk r${c.pr.rk}">${c.pr.rk}</span></span></div>`:'<div style="color:var(--muted2);font-size:12px;padding:4px 0">不動産なし</div>';
+  const fh=c.fi.length>0?`<div style="display:flex;gap:5px;flex-wrap:wrap">${c.fi.map(f=>`<span class="chip">🏦 ${f}</span>`).join('')}</div>`:'<div style="color:var(--muted2);font-size:12px">なし</div>';
+  document.getElementById('pbody').innerHTML=`
+    <div class="ps"><div class="pst">📁 案件情報</div>
+      <div class="pr"><span class="pk">ステータス</span><span class="pv"><span class="badge ${SC[c.st]}">${c.st}</span></span></div>
+      <div class="pr"><span class="pk">難易度</span><span class="pv">${c.df}</span></div>
+      <div class="pr"><span class="pk">依頼日</span><span class="pv">${c.da}</span></div>
+      <div class="pr"><span class="pk">資産概算</span><span class="pv" style="font-family:'DM Mono',monospace">${c.as2}</span></div>
+      <div class="pr"><span class="pk">相続税申告</span><span class="pv">${c.tx}</span></div>
+      <div class="pr"><span class="pk">遺言</span><span class="pv">${c.wl}</span></div>
+      <div class="pr"><span class="pk">相続人数</span><span class="pv">${c.hr}名</span></div>
+    </div>
+    <div class="ps"><div class="pst">👤 依頼者</div>
+      <div class="pr"><span class="pk">氏名</span><span class="pv">${c.name}</span></div>
+      <div class="pr"><span class="pk">住所</span><span class="pv" style="font-size:11px">${c.cl.addr}</span></div>
+      <div class="pr"><span class="pk">TEL</span><span class="pv">${c.cl.tel}</span></div>
+    </div>
+    <div class="ps"><div class="pst">⚰️ 被相続人</div>
+      <div class="pr"><span class="pk">氏名</span><span class="pv">${c.dec}</span></div>
+      <div class="pr"><span class="pk">生年月日</span><span class="pv">${c.di.birth}</span></div>
+      <div class="pr"><span class="pk">死亡日</span><span class="pv">${c.di.death}</span></div>
+      <div class="pr"><span class="pk">本籍</span><span class="pv">${c.di.dom}</span></div>
+    </div>
+    <div class="ps"><div class="pst">👥 担当者</div>
+      <div class="pr"><span class="pk">受注担当</span><span class="pv"><div class="ass" style="justify-content:flex-end"><div class="avsm" style="background:${av}">${c.as[0]}</div>${c.as}</div></span></div>
+      <div class="pr"><span class="pk">管理担当</span><span class="pv">${c.mg||'未アサイン'}</span></div>
+    </div>
+    <div class="ps"><div class="pst">✅ タスク進捗 <span style="margin-left:auto;font-weight:500;color:var(--text2)">${c.dt.length}/${c.tk.length}</span></div>
+      ${c.tk.length>0?`<div class="pgb"><div class="pgf" style="width:${dr}%"></div></div><div style="margin-top:10px"></div>`:''}
+      <div class="tl">${th}</div>
+    </div>
+    <div class="ps"><div class="pst">🏠 不動産</div>${ph}</div>
+    <div class="ps"><div class="pst">🏦 金融資産</div>${fh}</div>
+    <div class="ps"><div class="pst">📝 特記事項</div><div class="nb">${c.nt}</div></div>`;
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('ov').classList.add('active');
+}
+function cp(){document.getElementById('dp').classList.remove('open');document.getElementById('ov').classList.remove('active')}
+document.getElementById('si').addEventListener('input',af);
+
+updateScopeCounts();
+af();
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相続プラットフォーム｜タスク管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F8FA;--white:#FFF;--border:#E4E7EC;--border2:#CBD2DC;
+  --text:#111827;--text2:#374151;--muted:#6B7280;--muted2:#9CA3AF;
+  --blue:#2563EB;--blue-l:#EFF4FF;--blue-m:#BFCFFF;
+  --green:#059669;--green-l:#ECFDF5;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --orange:#EA580C;--orange-l:#FFF7ED;
+  --sh0:0 1px 2px rgba(0,0,0,.05);
+  --sh1:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 6px rgba(0,0,0,.06),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 10px 25px rgba(0,0,0,.08),0 4px 10px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+
+/* SIDEBAR */
+.sidebar{width:228px;min-height:100vh;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:20}
+.logo{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.logo-text{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.logo-sub{font-size:10px;color:var(--muted)}
+.nav{padding:12px;flex:1;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .1s;margin-bottom:1px}
+.nav-item:hover{background:var(--bg);color:var(--text2)}
+.nav-item.active{background:var(--blue-l);color:var(--blue);font-weight:600}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.nav-badge.w{background:var(--amber)}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:6px;cursor:pointer;transition:background .1s}
+.user-card:hover{background:var(--bg)}
+.av{width:30px;height:30px;background:linear-gradient(135deg,#2563EB,#7C3AED);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.un{font-size:12px;font-weight:600}.ur{font-size:10px;color:var(--muted)}
+
+/* MAIN */
+.main{margin-left:228px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--white);position:sticky;top:0;z-index:10;box-shadow:var(--sh0)}
+.page-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.3px}
+.page-bc{font-size:11px;color:var(--muted)}
+.tbr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sb{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;width:200px;transition:border-color .15s,box-shadow .15s}
+.sb:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.sb input{background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:'Noto Sans JP',sans-serif;width:100%}
+.sb input::placeholder{color:var(--muted2)}
+.btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .12s;font-family:'Noto Sans JP',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8;box-shadow:var(--sh2)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-g:hover{background:var(--bg)}
+
+/* CONTENT */
+.content{padding:20px 24px;flex:1}
+
+/* SUMMARY CARDS */
+.sum-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}
+.sc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--sh0);cursor:pointer;transition:box-shadow .15s,border-color .15s;border-top:3px solid transparent}
+.sc:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.sc.active{border-top-color:var(--blue);background:var(--blue-l)}
+.sc-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.sc-val{font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:800;line-height:1;letter-spacing:-.5px}
+.sc-sub{font-size:10px;color:var(--muted);margin-top:4px}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:260px 1fr;gap:16px}
+
+/* PHASE PANEL */
+.phase-panel{background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh0);overflow:hidden;height:fit-content;position:sticky;top:68px}
+.phase-header{padding:12px 16px;border-bottom:1px solid var(--border);font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.phase-list{padding:8px}
+.phase-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;transition:background .1s;margin-bottom:2px}
+.phase-item:hover{background:var(--bg)}
+.phase-item.active{background:var(--blue-l)}
+.phase-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.phase-name{font-size:12px;font-weight:500;color:var(--text2);flex:1}
+.phase-item.active .phase-name{color:var(--blue);font-weight:600}
+.phase-cnt{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);background:var(--bg);padding:1px 6px;border-radius:4px}
+.phase-item.active .phase-cnt{background:var(--white);color:var(--blue)}
+
+/* TASK LIST */
+.task-area{display:flex;flex-direction:column;gap:12px}
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.section-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.section-cnt{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+
+/* KANBAN-STYLE GROUPS */
+.status-group{margin-bottom:20px}
+.sg-title{display:flex;align-items:center;gap:8px;padding:6px 0;margin-bottom:8px;cursor:pointer}
+.sg-dot{width:8px;height:8px;border-radius:50%}
+.sg-label{font-size:12px;font-weight:600;color:var(--text2)}
+.sg-cnt{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);background:var(--bg);padding:1px 6px;border-radius:4px;border:1px solid var(--border)}
+.sg-toggle{margin-left:auto;font-size:10px;color:var(--muted)}
+
+/* TASK CARD */
+.task-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:var(--sh0);cursor:pointer;transition:box-shadow .12s,border-color .12s;margin-bottom:6px;display:flex;align-items:flex-start;gap:12px}
+.task-card:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.task-card.urgent{border-left:3px solid var(--red)}
+.task-card.outside{border-left:3px solid var(--orange)}
+.task-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;transition:all .12s}
+.task-check:hover{border-color:var(--blue)}
+.task-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.task-check.wcheck{background:var(--purple);border-color:var(--purple);color:#fff}
+.task-body{flex:1;min-width:0}
+.task-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.4}
+.task-title.done{text-decoration:line-through;color:var(--muted)}
+.task-case{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.task-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.tag-phase{background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE}
+.tag-cat{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.tag-urgent{background:var(--red-l);color:var(--red);border:1px solid #FECACA}
+.tag-outside{background:var(--orange-l);color:var(--orange);border:1px solid #FED7AA}
+.task-due{font-size:10px;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:3px}
+.due-ok{color:var(--muted)}
+.due-soon{color:var(--amber)}
+.due-over{color:var(--red);font-weight:600}
+.task-assignee{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}
+.avsm{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff}
+.ass-name{font-size:11px;color:var(--muted)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.ftabs{display:flex;gap:2px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:3px;box-shadow:var(--sh0)}
+.ft{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:none;transition:all .1s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap}
+.ft:hover{color:var(--text2);background:var(--bg)}
+.ft.active{background:var(--blue);color:#fff;font-weight:600}
+.tbr2{margin-left:auto;display:flex;gap:8px}
+
+/* DETAIL PANEL */
+.dp{position:fixed;top:0;right:0;bottom:0;width:480px;background:var(--white);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .28s cubic-bezier(.16,1,.3,1);z-index:100;box-shadow:var(--sh3)}
+.dp.open{transform:translateX(0)}
+.ph{padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1}
+.pt{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pcl{width:26px;height:26px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .12s}
+.pcl:hover{background:var(--red-l);color:var(--red);border-color:#FECACA}
+.p-status-bar{display:flex;gap:4px;margin-top:12px}
+.psb-item{flex:1;height:4px;border-radius:2px;background:var(--border)}
+.psb-item.done{background:var(--green)}
+.psb-item.active{background:var(--blue)}
+
+.pb{padding:16px 20px}
+.ps{margin-bottom:20px}
+.pst{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.pr{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;font-size:12px;border-bottom:1px solid rgba(0,0,0,.03)}
+.pr:last-child{border-bottom:none}
+.pk{color:var(--muted);flex-shrink:0;padding-right:12px}
+.pv{font-weight:500;color:var(--text2);text-align:right}
+.pv-full{font-weight:400;color:var(--text2);font-size:12px;line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-top:6px}
+
+.status-select{width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--white);font-size:12px;font-family:'Noto Sans JP',sans-serif;color:var(--text);cursor:pointer;transition:border-color .15s}
+.status-select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+
+.ov{position:fixed;inset:0;background:rgba(17,24,39,.2);z-index:99;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(1px)}
+.ov.active{opacity:1;pointer-events:all}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.empty-state{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty-icon{font-size:32px;margin-bottom:10px;opacity:.35}
+
+.wcheck-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:var(--purple-l);color:var(--purple);border:1px solid #DDD6FE}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px}
+.vt-btn{width:30px;height:26px;border-radius:4px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);transition:all .1s}
+.vt-btn:hover{color:var(--text2);background:var(--white)}
+.vt-btn.active{background:var(--white);color:var(--blue);box-shadow:var(--sh0)}
+
+/* KANBAN */
+.kanban-wrap{overflow-x:auto;padding-bottom:12px}
+.kanban-board{display:flex;gap:12px;min-width:max-content;align-items:flex-start}
+.kb-col{width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.kb-header{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh0);position:sticky;top:0}
+.kb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.kb-label{font-size:12px;font-weight:600;flex:1}
+.kb-cnt{font-size:10px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--muted);padding:1px 7px;border-radius:10px;border:1px solid var(--border)}
+.kb-cards{display:flex;flex-direction:column;gap:6px;min-height:80px}
+.kb-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:box-shadow .12s,border-color .12s;box-shadow:var(--sh0)}
+.kb-card:hover{box-shadow:var(--sh2);border-color:var(--border2)}
+.kb-card.urgent{border-left:3px solid var(--red)}
+.kb-card.outside{border-left:3px solid var(--orange)}
+.kb-card-title{font-size:12px;font-weight:600;line-height:1.4;margin-bottom:5px;color:var(--text)}
+.kb-card-title.done{text-decoration:line-through;color:var(--muted)}
+.kb-card-case{font-size:10px;color:var(--muted);margin-bottom:6px}
+.kb-card-footer{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.kb-tag{padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600}
+.kb-due{font-size:10px;font-family:'DM Mono',monospace;margin-left:auto}
+.kb-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0}
+.kb-empty{padding:20px 10px;text-align:center;color:var(--muted2);font-size:11px;border:1.5px dashed var(--border);border-radius:8px}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    <div><div class="logo-text">相続プラットフォーム</div><div class="logo-sub">Ocean Platform</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">メイン</div>
+    <div class="nav-item" onclick="location.href='dashboard.html'"><span class="nav-icon">📋</span>案件管理<span class="nav-badge">12</span></div>
+    <div class="nav-item" onclick="location.href='schedule.html'"><span class="nav-icon">📅</span>スケジュール</div>
+    <div class="nav-item active"><span class="nav-icon">✅</span>タスク<span class="nav-badge w">7</span></div>
+    <div class="nav-sec">書類・経理</div>
+    <div class="nav-item" onclick="location.href='document_list.html'"><span class="nav-icon">📁</span>ドキュメント</div>
+    <div class="nav-item" onclick="location.href='meeting_input.html'"><span class="nav-icon">📝</span>案件編集</div>
+    <div class="nav-item" onclick="location.href='billing.html'"><span class="nav-icon">💴</span>請求・入金</div>
+    <div class="nav-item" onclick="location.href='report.html'"><span class="nav-icon">📊</span>レポート</div>
+    <div class="nav-sec">マスタ</div>
+    <div class="nav-item"><span class="nav-icon">🏦</span>金融機関</div>
+    <div class="nav-item"><span class="nav-icon">🤝</span>パートナー</div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span>設定</div>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-card"><div class="av">田</div><div><div class="un">田中 受注</div><div class="ur">受注担当</div></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title">タスク管理</div><div class="page-bc">相続プラットフォーム / タスク管理</div></div>
+    <div class="tbr">
+      <div class="sb"><span style="color:var(--muted2);font-size:12px">🔍</span><input type="text" placeholder="タスク名・案件名で検索" id="si"></div>
+      <button class="btn btn-g">担当者 ▾</button>
+      <button class="btn btn-p">＋ タスク追加</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- サマリー -->
+    <div class="sum-grid">
+      <div class="sc active" onclick="filterByStatus('all',this)">
+        <div class="sc-label">全タスク</div>
+        <div class="sc-val" id="cnt-all">0</div>
+        <div class="sc-sub">担当タスク</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('未着手',this)">
+        <div class="sc-label">未着手</div>
+        <div class="sc-val" style="color:var(--muted)" id="cnt-todo">0</div>
+        <div class="sc-sub">着手待ち</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('対応中',this)">
+        <div class="sc-label">対応中</div>
+        <div class="sc-val" style="color:var(--blue)" id="cnt-doing">0</div>
+        <div class="sc-sub">進行中</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('Wチェック待ち',this)">
+        <div class="sc-label">Wチェック待ち</div>
+        <div class="sc-val" style="color:var(--purple)" id="cnt-wcheck">0</div>
+        <div class="sc-sub">確認依頼中</div>
+      </div>
+      <div class="sc" onclick="filterByStatus('完了',this)">
+        <div class="sc-label">完了</div>
+        <div class="sc-val" style="color:var(--green)" id="cnt-done">0</div>
+        <div class="sc-sub">完了済み</div>
+      </div>
+      <div class="sc" onclick="filterByPriority('急ぎ')">
+        <div class="sc-label">🚨 急ぎ</div>
+        <div class="sc-val" style="color:var(--red)" id="cnt-urgent">0</div>
+        <div class="sc-sub">優先対応</div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <!-- フェーズパネル -->
+      <div class="phase-panel">
+        <div class="phase-header">📂 フェーズ別</div>
+        <div class="phase-list" id="phaseList"></div>
+      </div>
+
+      <!-- タスクリスト -->
+      <div class="task-area">
+        <div class="toolbar">
+          <div class="ftabs">
+            <button class="ft active" onclick="setView('status',this)">ステータス別</button>
+            <button class="ft" onclick="setView('phase',this)">フェーズ別</button>
+            <button class="ft" onclick="setView('case',this)">案件別</button>
+          </div>
+          <div class="tbr2">
+            <div class="view-toggle">
+              <button class="vt-btn active" id="vt-list" onclick="setDisplayMode('list',this)" title="リストビュー">☰</button>
+              <button class="vt-btn" id="vt-kanban" onclick="setDisplayMode('kanban',this)" title="カンバンビュー">⊞</button>
+            </div>
+            <button class="btn btn-g" style="font-size:11px">📅 期限順</button>
+            <button class="btn btn-g" style="font-size:11px">🔽 フィルタ</button>
+          </div>
+        </div>
+        <div id="taskList"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="ov" id="ov" onclick="cp()"></div>
+
+<!-- DETAIL PANEL -->
+<div class="dp" id="dp">
+  <div class="ph">
+    <div class="pt">
+      <div style="flex:1">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px" id="dp-meta"></div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:17px;line-height:1.3" id="dp-title"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="dp-case"></div>
+      </div>
+      <button class="pcl" onclick="cp()">✕</button>
+    </div>
+    <div class="p-status-bar" id="dp-sbar"></div>
+  </div>
+  <div class="pb" id="dp-body"></div>
+</div>
+
+<script>
+const PHASES = [
+  {key:'all', label:'すべてのフェーズ', color:'#6B7280'},
+  {key:'Phase1:相続人調査', label:'Phase1 相続人調査', color:'#2563EB'},
+  {key:'Phase2:財産調査', label:'Phase2 財産調査', color:'#7C3AED'},
+  {key:'Phase3:不動産・相続税', label:'Phase3 不動産・相続税', color:'#D97706'},
+  {key:'Phase4:遺産分割', label:'Phase4 遺産分割', color:'#059669'},
+  {key:'Phase5:登記・解約', label:'Phase5 登記・解約', color:'#EA580C'},
+  {key:'Phase6:完了・精算', label:'Phase6 完了・精算', color:'#DC2626'},
+  {key:'手動起票', label:'手動起票', color:'#9CA3AF'},
+];
+const STATUSES = ['未着手','対応中','Wチェック待ち','差戻し','完了','保留','キャンセル'];
+const STATUS_COLOR = {'未着手':'#6B7280','対応中':'#2563EB','Wチェック待ち':'#7C3AED','差戻し':'#DC2626','完了':'#059669','保留':'#D97706','キャンセル':'#9CA3AF'};
+const AC = {'田中':'#2563EB','山本':'#7C3AED','佐藤':'#059669','伊藤':'#D97706','鈴木':'#EA580C'};
+
+const tasks = [
+  {id:'T001',title:'戸籍請求書作成（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'対応中',phase:'Phase1:相続人調査',cat:'戸籍',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/20',note:'横浜市中区役所・藤沢市役所への請求。附票も合わせて取得。',issued:'2025/11/12',
+    expenseStatus:'未精算',expenseTotal:4500,
+    procedure:'【作業手順】\n① 案件の「戸籍請求先市区町村」を確認する\n② 所定フォルダのテンプレートを開き、被相続人名・委託者・使用目的を転記する\n③ 記載内容に不足がある場合は正確性に判断する\n④ 作成後、管理担当に確認依頼してから完了にする',
+    ext:{city:'横浜市中区役所',type:'全部事項証明/除籍謄本',reqDate:'',arrDate:'',shortage:'なし'}},
+  {id:'T002',title:'金融機関調査 三菱UFJ銀行（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase2:財産調査',cat:'財産調査(預貯金)',priority:'急ぎ',assignee:'田中',wcheck:'',due:'2025/11/18',note:'残高証明（相続開始日基準）。通帳あり。凍結済み。',issued:'2025/11/12',
+    expenseStatus:'未精算',expenseTotal:1520,
+    procedure:'【作業手順】\n① 金融機関の必要書類一覧を確認する\n② 委任状・法定相続情報一覧図・本人確認書類のコピーを準備する\n③ レターパック青で郵送し、追跡番号を記録する\n④ 到着後、残高証明書の内容を財産目録に転記する',
+    ext:{bank:'三菱UFJ銀行',branch:'渋谷支店',type:'残高証明(相続開始日)',frozen:true,reservation:false,mailType:'レターパック青',reqDate:'',arrDate:''}},
+  {id:'T003',title:'不動産評価・査定手配（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase3:不動産・相続税',cat:'その他作成物',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/11/25',note:'港区赤坂の戸建て。築32年。エリアA評価。',issued:'2025/11/13',
+    ext:{addr:'東京都港区赤坂1-1-1',propType:'戸建',agent:'東急リバブル港区店',reqDate:'',amount:''}},
+  {id:'T004',title:'相続関係図作成（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'Wチェック待ち',phase:'Phase1:相続人調査',cat:'戸籍',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/22',note:'相続人5名。代襲相続あり。関係図の確認依頼中。',issued:'2025/11/10',
+    expenseStatus:'精算済',expenseTotal:6800,
+    procedure:'【作業手順】\n① 取得済み戸籍から相続人を特定し一覧化する\n② 代襲相続・数次相続の有無を確認する\n③ 相続関係図テンプレートに情報を入力する\n④ Wチェック担当に確認を依頼し、修正があれば反映する',
+    ext:{}},
+  {id:'T005',title:'野村証券 残高照会（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'対応中',phase:'Phase2:財産調査',cat:'財産調査(証券)',priority:'急ぎ',assignee:'田中',wcheck:'',due:'2025/11/17',note:'被相続人口座。銘柄複数あり。相続開始日基準。',issued:'2025/11/11',
+    ext:{company:'野村証券',branch:'渋谷支店',stock:'複数銘柄',type:'残高照会',reqDate:'',arrDate:''}},
+  {id:'T006',title:'遺産分割協議書作成（高橋誠案件）',case:'高橋 誠',caseId:'R7-A00126',status:'対応中',phase:'Phase4:遺産分割',cat:'協議書',priority:'通常',assignee:'田中',wcheck:'',due:'2025/11/28',note:'単独相続。シンプルな内容。金融資産のみ。',issued:'2025/11/08',
+    ext:{sendMethod:'郵送',sendDate:'',replyDue:'2025/12/05',collectStatus:'未送付',allCollected:false}},
+  {id:'T007',title:'横浜銀行 口座解約手続き（高橋誠案件）',case:'高橋 誠',caseId:'R7-A00126',status:'未着手',phase:'Phase5:登記・解約',cat:'解約手続き',priority:'通常',assignee:'山本',wcheck:'',due:'2025/12/05',note:'藤沢支店。凍結済み。確認シート要確認。',issued:'2025/11/09',
+    ext:{bank:'横浜銀行',branch:'藤沢支店',accountType:'預貯金',frozen:true,reservation:true,checkSheet:false,idDocs:false}},
+  {id:'T008',title:'税理士紹介・連携（松本隆案件）',case:'松本 隆',caseId:'R7-A00122',status:'完了',phase:'Phase3:不動産・相続税',cat:'その他作成物',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/11/10',note:'山田税理士事務所に紹介済み。取引履歴5年指示あり。',issued:'2025/11/01',
+    ext:{taxAdvisor:'山田税理士事務所',contactDate:'2025/11/08',instruction:'取引履歴5年分、経過利息取得の指示あり',deadline:'2026/08/15'}},
+  {id:'T009',title:'名寄帳請求（中村さくら案件）',case:'中村 さくら',caseId:'R7-A00127',status:'差戻し',phase:'Phase1:相続人調査',cat:'名寄せ',priority:'急ぎ',assignee:'田中',wcheck:'佐藤',due:'2025/11/16',note:'渋谷区・目黒区の2箇所。差戻し：目黒区の地番追記が必要。',issued:'2025/11/09',
+    expenseStatus:'未精算',expenseTotal:2400,
+    ext:{city:'渋谷区・目黒区',reqType:'名寄帳',reqDate:'',arrDate:'',newProp:'なし'}},
+  {id:'T010',title:'委任状・書類一式郵送（鈴木一郎案件）',case:'鈴木 一郎',caseId:'R7-A00124',status:'未着手',phase:'Phase2:財産調査',cat:'郵便処理',priority:'外出タスク',assignee:'山本',wcheck:'',due:'2025/11/19',note:'横浜銀行・みずほ銀行向け。レターパック青で発送予定。',issued:'2025/11/13',
+    ext:{sendDate:'',arrDate:'',tracking:'',docs:'委任状、法定相続情報一覧図、返信用封筒'}},
+  {id:'T011',title:'財産目録作成（松本隆案件）',case:'松本 隆',caseId:'R7-A00122',status:'対応中',phase:'Phase4:遺産分割',cat:'財産目録',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/11/30',note:'不動産・証券・預貯金含む。相続税申告あり。',issued:'2025/11/10',
+    ext:{}},
+  {id:'T012',title:'登記申請書作成（山田花子案件）',case:'山田 花子',caseId:'R7-A00123',status:'未着手',phase:'Phase5:登記・解約',cat:'登記申請書作成',priority:'通常',assignee:'佐藤',wcheck:'',due:'2025/12/10',note:'港区赤坂1-1-1。協議書の署名完了後に着手予定。',issued:'2025/11/14',
+    ext:{addr:'東京都港区赤坂1-1-1',propType:'戸建',applyDate:'',completeDate:''}},
+  {id:'T013',title:'精算・請求書作成（渡辺明美案件）',case:'渡辺 明美',caseId:'R7-A00120',status:'完了',phase:'Phase6:完了・精算',cat:'その他作成物',priority:'通常',assignee:'田中',wcheck:'佐藤',due:'2025/10/25',note:'完了済み。原本納品・受領書回収済み。',issued:'2025/10/01',
+    ext:{settleStatus:'完了',deliveryDate:'2025/10/30',receiptCollected:true}},
+];
+
+let curFilter = 'all';
+let curPhase = 'all';
+let curView = 'status';
+let curPriorityFilter = null;
+let curDisplayMode = 'list'; // 'list' or 'kanban'
+
+function setDisplayMode(mode, el) {
+  curDisplayMode = mode;
+  document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function init() {
+  renderPhasePanel();
+  updateCounts();
+  renderTasks();
+}
+
+function renderPhasePanel() {
+  const list = document.getElementById('phaseList');
+  list.innerHTML = PHASES.map(p => {
+    const cnt = p.key === 'all' ? tasks.length : tasks.filter(t => t.phase === p.key).length;
+    return `<div class="phase-item ${curPhase===p.key?'active':''}" onclick="setPhase('${p.key}',this)">
+      <div class="phase-dot" style="background:${p.color}"></div>
+      <div class="phase-name">${p.label}</div>
+      <div class="phase-cnt">${cnt}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateCounts() {
+  const filtered = getFiltered();
+  document.getElementById('cnt-all').textContent = tasks.length;
+  document.getElementById('cnt-todo').textContent = tasks.filter(t=>t.status==='未着手').length;
+  document.getElementById('cnt-doing').textContent = tasks.filter(t=>t.status==='対応中').length;
+  document.getElementById('cnt-wcheck').textContent = tasks.filter(t=>t.status==='Wチェック待ち').length;
+  document.getElementById('cnt-done').textContent = tasks.filter(t=>t.status==='完了').length;
+  document.getElementById('cnt-urgent').textContent = tasks.filter(t=>t.priority==='急ぎ').length;
+}
+
+function getFiltered() {
+  let data = [...tasks];
+  const q = document.getElementById('si').value.toLowerCase();
+  if (q) data = data.filter(t => t.title.toLowerCase().includes(q) || t.case.includes(q));
+  if (curPhase !== 'all') data = data.filter(t => t.phase === curPhase);
+  if (curFilter !== 'all') data = data.filter(t => t.status === curFilter);
+  if (curPriorityFilter) data = data.filter(t => t.priority === curPriorityFilter);
+  return data;
+}
+
+function renderTasks() {
+  const data = getFiltered();
+  const list = document.getElementById('taskList');
+  if (!data.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div style="font-size:13px">該当するタスクがありません</div></div>`;
+    return;
+  }
+  if (curDisplayMode === 'kanban') {
+    renderKanban(data, list);
+    return;
+  }
+  if (curView === 'status') renderByStatus(data, list);
+  else if (curView === 'phase') renderByPhase(data, list);
+  else renderByCase(data, list);
+}
+
+function renderKanban(data, list) {
+  const KANBAN_COLS = [
+    {key:'未着手', label:'未着手', color:'#6B7280'},
+    {key:'対応中', label:'対応中', color:'#2563EB'},
+    {key:'Wチェック待ち', label:'Wチェック待ち', color:'#7C3AED'},
+    {key:'差戻し', label:'差戻し', color:'#DC2626'},
+    {key:'完了', label:'完了', color:'#059669'},
+    {key:'保留', label:'保留', color:'#D97706'},
+  ];
+
+  const today = new Date('2025/11/14');
+
+  const colsHTML = KANBAN_COLS.map(col => {
+    const colTasks = data.filter(t => t.status === col.key);
+    const cardsHTML = colTasks.length ? colTasks.map(t => {
+      const avColor = AC[t.assignee] || '#6B7280';
+      const isUrgent = t.priority === '急ぎ' && t.status !== '完了';
+      const isOutside = t.priority === '外出タスク';
+      const due = new Date(t.due);
+      const diff = Math.ceil((due - today) / (1000*60*60*24));
+      const dueColor = t.status==='完了' ? '#9CA3AF' : diff<0 ? '#DC2626' : diff<=3 ? '#D97706' : '#9CA3AF';
+      const dueLabel = t.status==='完了' ? t.due : diff<0 ? `⚠️ ${Math.abs(diff)}日超過` : diff===0 ? '今日' : diff<=3 ? `あと${diff}日` : t.due;
+      const ph = PHASES.find(p => p.key === t.phase);
+      const phColor = ph ? ph.color : '#6B7280';
+
+      return `<div class="kb-card ${isUrgent?'urgent':''} ${isOutside?'outside':''}" onclick="openTask('${t.id}')">
+        <div class="kb-card-title ${t.status==='完了'?'done':''}">${t.title}</div>
+        <div class="kb-card-case">📋 ${t.case}</div>
+        <div class="kb-card-footer">
+          <span class="kb-tag" style="background:${phColor}18;color:${phColor};border:1px solid ${phColor}30">${t.phase.split(':')[0]}</span>
+          <span class="kb-tag" style="background:var(--bg);color:var(--muted);border:1px solid var(--border)">${t.cat}</span>
+          <span class="kb-due" style="color:${dueColor}">📅 ${dueLabel}</span>
+          <div class="kb-av" style="background:${avColor}">${t.assignee[0]}</div>
+        </div>
+      </div>`;
+    }).join('') : `<div class="kb-empty">タスクなし</div>`;
+
+    return `<div class="kb-col">
+      <div class="kb-header">
+        <div class="kb-dot" style="background:${col.color}"></div>
+        <div class="kb-label">${col.label}</div>
+        <div class="kb-cnt">${colTasks.length}</div>
+      </div>
+      <div class="kb-cards">${cardsHTML}</div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = `<div class="kanban-wrap"><div class="kanban-board">${colsHTML}</div></div>`;
+}
+
+function renderByStatus(data, list) {
+  const order = ['急ぎ','差戻し','未着手','対応中','Wチェック待ち','保留','完了','キャンセル'];
+  // grouping
+  const groups = {};
+  data.forEach(t => {
+    const k = t.priority === '急ぎ' && t.status !== '完了' ? '急ぎ' : t.status;
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(t);
+  });
+  list.innerHTML = order.filter(k => groups[k]).map(k => {
+    const color = k === '急ぎ' ? '#DC2626' : STATUS_COLOR[k] || '#6B7280';
+    return `<div class="status-group">
+      <div class="sg-title">
+        <div class="sg-dot" style="background:${color}"></div>
+        <div class="sg-label">${k === '急ぎ' ? '🚨 急ぎ' : k}</div>
+        <div class="sg-cnt">${groups[k].length}</div>
+        <div class="sg-toggle">▾</div>
+      </div>
+      ${groups[k].map(t => taskCardHTML(t)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderByPhase(data, list) {
+  const groups = {};
+  data.forEach(t => {
+    if (!groups[t.phase]) groups[t.phase] = [];
+    groups[t.phase].push(t);
+  });
+  list.innerHTML = Object.entries(groups).map(([phase, items]) => {
+    const ph = PHASES.find(p => p.key === phase);
+    const color = ph ? ph.color : '#6B7280';
+    return `<div class="status-group">
+      <div class="sg-title">
+        <div class="sg-dot" style="background:${color}"></div>
+        <div class="sg-label">${phase}</div>
+        <div class="sg-cnt">${items.length}</div>
+      </div>
+      ${items.map(t => taskCardHTML(t)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderByCase(data, list) {
+  const groups = {};
+  data.forEach(t => {
+    if (!groups[t.case]) groups[t.case] = [];
+    groups[t.case].push(t);
+  });
+  list.innerHTML = Object.entries(groups).map(([caseName, items]) => {
+    return `<div class="status-group">
+      <div class="sg-title">
+        <div class="sg-dot" style="background:#6B7280"></div>
+        <div class="sg-label">📋 ${caseName}</div>
+        <div class="sg-cnt">${items.length}</div>
+      </div>
+      ${items.map(t => taskCardHTML(t)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function taskCardHTML(t) {
+  const avColor = AC[t.assignee] || '#6B7280';
+  const isUrgent = t.priority === '急ぎ';
+  const isOutside = t.priority === '外出タスク';
+  const isDone = t.status === '完了';
+  const isWcheck = t.status === 'Wチェック待ち';
+
+  // due date color
+  const today = new Date('2025/11/14');
+  const due = new Date(t.due);
+  const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+  const dueClass = isDone ? 'due-ok' : diff < 0 ? 'due-over' : diff <= 3 ? 'due-soon' : 'due-ok';
+  const dueLabel = isDone ? t.due : diff < 0 ? `⚠️ ${Math.abs(diff)}日超過` : diff === 0 ? '⏰ 今日締切' : diff <= 3 ? `⚡ あと${diff}日` : t.due;
+
+  return `<div class="task-card ${isUrgent&&!isDone?'urgent':''} ${isOutside?'outside':''}" onclick="openTask('${t.id}')">
+    <div class="task-check ${isDone?'done':isWcheck?'wcheck':''}">${isDone?'✓':isWcheck?'W':''}</div>
+    <div class="task-body">
+      <div class="task-title ${isDone?'done':''}">${t.title}</div>
+      <div class="task-case">📋 ${t.case} <span style="color:var(--border2)">·</span> ${t.caseId}</div>
+      <div class="task-meta">
+        <span class="tag tag-phase">${t.phase.replace('Phase','P').replace(':','：')}</span>
+        <span class="tag tag-cat">${t.cat}</span>
+        ${isUrgent ? '<span class="tag tag-urgent">🚨 急ぎ</span>' : ''}
+        ${isOutside ? '<span class="tag tag-outside">🚗 外出</span>' : ''}
+        ${t.wcheck ? `<span class="wcheck-badge">W: ${t.wcheck}</span>` : ''}
+        <span class="task-due ${dueClass}">📅 ${dueLabel}</span>
+        <div class="task-assignee">
+          <div class="avsm" style="background:${avColor}">${t.assignee[0]}</div>
+          <span class="ass-name">${t.assignee}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function setPhase(key, el) {
+  curPhase = key;
+  document.querySelectorAll('.phase-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function filterByStatus(st, el) {
+  curFilter = st;
+  curPriorityFilter = null;
+  document.querySelectorAll('.sc').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function filterByPriority(p) {
+  curPriorityFilter = curPriorityFilter === p ? null : p;
+  curFilter = 'all';
+  document.querySelectorAll('.sc').forEach(s => s.classList.remove('active'));
+  renderTasks();
+}
+
+function setView(v, el) {
+  curView = v;
+  document.querySelectorAll('.ft').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+document.getElementById('si').addEventListener('input', renderTasks);
+
+function openTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  const ph = PHASES.find(p => p.key === t.phase);
+  document.getElementById('dp-meta').textContent = t.id + ' · ' + t.phase + ' · ' + t.cat;
+  document.getElementById('dp-title').textContent = t.title;
+  document.getElementById('dp-case').textContent = '📋 ' + t.case + ' (' + t.caseId + ')';
+
+  // status bar
+  const si = STATUSES.indexOf(t.status);
+  document.getElementById('dp-sbar').innerHTML = STATUSES.slice(0,5).map((s,i) =>
+    `<div class="psb-item ${i<si?'done':i===si?'active':''}"></div>`).join('');
+
+  // extra fields by category
+  let extraHTML = '';
+  if (t.cat === '戸籍' || t.cat === '名寄せ') {
+    extraHTML = `
+      <div class="ps"><div class="pst">📋 詳細情報</div>
+        ${t.ext.city ? `<div class="pr"><span class="pk">請求先</span><span class="pv">${t.ext.city}</span></div>` : ''}
+        ${t.ext.type ? `<div class="pr"><span class="pk">書類種別</span><span class="pv">${t.ext.type}</span></div>` : ''}
+        ${t.ext.reqDate!==undefined ? `<div class="pr"><span class="pk">請求日</span><span class="pv">${t.ext.reqDate||'未設定'}</span></div>` : ''}
+        ${t.ext.arrDate!==undefined ? `<div class="pr"><span class="pk">到着日</span><span class="pv">${t.ext.arrDate||'未着'}</span></div>` : ''}
+        ${t.ext.shortage ? `<div class="pr"><span class="pk">不足有無</span><span class="pv">${t.ext.shortage}</span></div>` : ''}
+        ${t.ext.reqType ? `<div class="pr"><span class="pk">請求種別</span><span class="pv">${t.ext.reqType}</span></div>` : ''}
+      </div>`;
+  } else if (t.cat === '財産調査(預貯金)') {
+    extraHTML = `
+      <div class="ps"><div class="pst">🏦 財産調査（預貯金）</div>
+        <div class="pr"><span class="pk">金融機関</span><span class="pv">${t.ext.bank}</span></div>
+        <div class="pr"><span class="pk">支店</span><span class="pv">${t.ext.branch}</span></div>
+        <div class="pr"><span class="pk">調査種別</span><span class="pv">${t.ext.type}</span></div>
+        <div class="pr"><span class="pk">凍結済み</span><span class="pv">${t.ext.frozen?'✅ 済':'未凍結'}</span></div>
+        <div class="pr"><span class="pk">要予約</span><span class="pv">${t.ext.reservation?'要':'不要'}</span></div>
+        <div class="pr"><span class="pk">郵便種別</span><span class="pv">${t.ext.mailType}</span></div>
+        <div class="pr"><span class="pk">請求日</span><span class="pv">${t.ext.reqDate||'未設定'}</span></div>
+        <div class="pr"><span class="pk">到着日</span><span class="pv">${t.ext.arrDate||'未着'}</span></div>
+      </div>`;
+  } else if (t.cat === '財産調査(証券)') {
+    extraHTML = `
+      <div class="ps"><div class="pst">📈 財産調査（証券）</div>
+        <div class="pr"><span class="pk">証券会社</span><span class="pv">${t.ext.company}</span></div>
+        <div class="pr"><span class="pk">支店</span><span class="pv">${t.ext.branch}</span></div>
+        <div class="pr"><span class="pk">銘柄</span><span class="pv">${t.ext.stock}</span></div>
+        <div class="pr"><span class="pk">調査種別</span><span class="pv">${t.ext.type}</span></div>
+        <div class="pr"><span class="pk">請求日</span><span class="pv">${t.ext.reqDate||'未設定'}</span></div>
+        <div class="pr"><span class="pk">到着日</span><span class="pv">${t.ext.arrDate||'未着'}</span></div>
+      </div>`;
+  } else if (t.cat === '解約手続き') {
+    extraHTML = `
+      <div class="ps"><div class="pst">🔒 解約手続き</div>
+        <div class="pr"><span class="pk">金融機関</span><span class="pv">${t.ext.bank}</span></div>
+        <div class="pr"><span class="pk">支店</span><span class="pv">${t.ext.branch}</span></div>
+        <div class="pr"><span class="pk">口座種別</span><span class="pv">${t.ext.accountType}</span></div>
+        <div class="pr"><span class="pk">凍結済み</span><span class="pv">${t.ext.frozen?'✅ 済':'未凍結'}</span></div>
+        <div class="pr"><span class="pk">要予約</span><span class="pv">${t.ext.reservation?'要':'不要'}</span></div>
+        <div class="pr"><span class="pk">確認シート</span><span class="pv">${t.ext.checkSheet?'✅ 確認済':'⚠️ 未確認'}</span></div>
+        <div class="pr"><span class="pk">本人確認書類</span><span class="pv">${t.ext.idDocs?'✅ 揃い':'⚠️ 未確認'}</span></div>
+      </div>`;
+  } else if (t.cat === '協議書' || t.cat === '財産目録') {
+    extraHTML = t.ext.sendMethod ? `
+      <div class="ps"><div class="pst">📄 協議書情報</div>
+        <div class="pr"><span class="pk">送付方法</span><span class="pv">${t.ext.sendMethod}</span></div>
+        <div class="pr"><span class="pk">送付日</span><span class="pv">${t.ext.sendDate||'未送付'}</span></div>
+        <div class="pr"><span class="pk">回答期限</span><span class="pv">${t.ext.replyDue}</span></div>
+        <div class="pr"><span class="pk">署名回収</span><span class="pv">${t.ext.collectStatus}</span></div>
+        <div class="pr"><span class="pk">全員回収</span><span class="pv">${t.ext.allCollected?'✅ 完了':'⚠️ 未完了'}</span></div>
+      </div>` : '';
+  } else if (t.cat === '郵便処理') {
+    extraHTML = `
+      <div class="ps"><div class="pst">✉️ 郵送情報</div>
+        <div class="pr"><span class="pk">発送日</span><span class="pv">${t.ext.sendDate||'未発送'}</span></div>
+        <div class="pr"><span class="pk">到着日</span><span class="pv">${t.ext.arrDate||'未着'}</span></div>
+        <div class="pr"><span class="pk">追跡番号</span><span class="pv">${t.ext.tracking||'未設定'}</span></div>
+        <div class="pr"><span class="pk">同封書類</span><span class="pv" style="font-size:11px;text-align:right">${t.ext.docs}</span></div>
+      </div>`;
+  } else if (t.ext.taxAdvisor) {
+    extraHTML = `
+      <div class="ps"><div class="pst">🧾 税理士連携</div>
+        <div class="pr"><span class="pk">税理士</span><span class="pv">${t.ext.taxAdvisor}</span></div>
+        <div class="pr"><span class="pk">連絡日</span><span class="pv">${t.ext.contactDate}</span></div>
+        <div class="pr"><span class="pk">申告期限</span><span class="pv">${t.ext.deadline}</span></div>
+        <div class="pr"><span class="pk">指示内容</span><span class="pv" style="font-size:11px">${t.ext.instruction}</span></div>
+      </div>`;
+  } else if (t.ext.addr) {
+    extraHTML = `
+      <div class="ps"><div class="pst">🏠 不動産情報</div>
+        <div class="pr"><span class="pk">所在地</span><span class="pv" style="font-size:11px">${t.ext.addr}</span></div>
+        <div class="pr"><span class="pk">種別</span><span class="pv">${t.ext.propType||t.ext.type||''}</span></div>
+        ${t.ext.agent ? `<div class="pr"><span class="pk">査定業者</span><span class="pv">${t.ext.agent}</span></div>` : ''}
+        ${t.ext.reqDate!==undefined ? `<div class="pr"><span class="pk">査定依頼日</span><span class="pv">${t.ext.reqDate||'未設定'}</span></div>` : ''}
+        ${t.ext.applyDate!==undefined ? `<div class="pr"><span class="pk">登記申請日</span><span class="pv">${t.ext.applyDate||'未設定'}</span></div>` : ''}
+      </div>`;
+  }
+
+  const avColor = AC[t.assignee] || '#6B7280';
+
+  const expBadgeClass = t.expenseStatus === '精算済' ? 'background:var(--green-l);color:var(--green);border:1px solid #A7F3D0' : 'background:var(--amber-l);color:var(--amber);border:1px solid #FDE68A';
+
+  document.getElementById('dp-body').innerHTML = `
+    <div class="ps"><div class="pst">ステータス変更</div>
+      <select class="status-select" onchange="updateStatus('${t.id}',this.value)">
+        ${STATUSES.map(s => `<option value="${s}" ${t.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="ps"><div class="pst">📋 基本情報</div>
+      <div class="pr"><span class="pk">優先度</span><span class="pv">${t.priority}</span></div>
+      <div class="pr"><span class="pk">期限</span><span class="pv">${t.due}</span></div>
+      <div class="pr"><span class="pk">起票日</span><span class="pv">${t.issued}</span></div>
+      ${t.expenseStatus ? `<div class="pr"><span class="pk">精算ステータス</span><span class="pv"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;${expBadgeClass}">${t.expenseStatus}</span></span></div>` : ''}
+      ${t.expenseTotal !== undefined ? `<div class="pr"><span class="pk">実費合計</span><span class="pv" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--blue)">¥${t.expenseTotal.toLocaleString()}</span></div>` : ''}
+    </div>
+    <div class="ps"><div class="pst">👥 担当者</div>
+      <div class="pr"><span class="pk">担当者</span><span class="pv">
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+          <div class="avsm" style="background:${avColor}">${t.assignee[0]}</div>${t.assignee}
+        </div></span></div>
+      <div class="pr"><span class="pk">Wチェック担当</span><span class="pv">${t.wcheck||'未設定'}</span></div>
+    </div>
+    ${extraHTML}
+    <div class="ps"><div class="pst">📝 備考・メモ</div>
+      <div class="pv-full">${t.note}</div>
+    </div>
+    ${t.procedure ? `<div class="ps"><div class="pst">📖 作業手順</div>
+      <div class="pv-full" style="white-space:pre-line;font-size:12px;line-height:1.8">${t.procedure}</div>
+    </div>` : ''}
+    <div class="ps" style="padding-top:12px;border-top:1px solid var(--border)">
+      <a href="task_detail.html?id=${t.id}" style="display:block;text-align:center;padding:10px;border-radius:8px;background:var(--blue);color:#fff;font-size:13px;font-weight:600;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='var(--blue)'">📄 タスク詳細を開く →</a>
+    </div>`;
+
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('ov').classList.add('active');
+}
+
+function updateStatus(id, newStatus) {
+  const t = tasks.find(x => x.id === id);
+  if (t) { t.status = newStatus; updateCounts(); renderTasks(); }
+}
+
+function cp() {
+  document.getElementById('dp').classList.remove('open');
+  document.getElementById('ov').classList.remove('active');
+}
+
+init();
+</script>
+</body>
+</html>
