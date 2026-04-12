@@ -179,7 +179,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       // 3. Asset estimate (万円 → 円)
       const assetEstimate = formData.totalAssetEstimate ? parseFloat(formData.totalAssetEstimate) * 10000 : null
 
-      // 4. Upsert case
+      // 4. Upsert case (including new detail columns)
       const casePayload = {
         client_id: clientId,
         deal_name: `${formData.deceasedName || formData.clientName} 様 相続案件`,
@@ -195,10 +195,23 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
         property_rank: (propRank || '確認中') as 'S' | 'A' | 'B' | 'C' | '確認中',
         total_asset_estimate: assetEstimate,
         notes: formData.importantNotes || null,
+        // 被相続人追加情報
+        deceased_furigana: formData.deceasedKana || null,
+        deceased_birth_date: formData.deceasedBirthday || null,
+        deceased_address: formData.deceasedAddress || null,
+        deceased_registered_address: formData.deceasedDomicile || null,
+        // 遺産分割
+        division_policy: formData.distributionPolicy || null,
+        division_proposal: formData.distributionProposal || null,
+        agreement_signing_method: formData.agreementSigning || null,
+        inheritance_risk: formData.iryubunRisk || null,
+        // 遺言
+        will_type: formData.willType || null,
+        will_storage: formData.willStorage || null,
+        will_execution: formData.willExecution || null,
       }
 
       if (isNew) {
-        // Generate case number
         const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true })
         const caseNumber = `R7-A${String((count ?? 0) + 1).padStart(5, '0')}`
         const { data: newCase, error: caseErr } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
@@ -207,6 +220,86 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       } else {
         const { error: caseErr } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (caseErr) throw new Error(`案件の更新に失敗: ${caseErr.message}`)
+      }
+
+      // 5. Save heirs (delete existing + re-insert)
+      await supabase.from('heirs').delete().eq('case_id', caseId)
+      if (formData.heirs.length > 0) {
+        const heirInserts = formData.heirs.map((h, i) => ({
+          case_id: caseId,
+          name: h.name,
+          furigana: h.kana || null,
+          relationship: h.relationship || null,
+          address: h.address || null,
+          registered_address: h.domicile || null,
+          phone: h.phone || null,
+          email: h.email || null,
+          is_legal_heir: h.isLegalHeir,
+          birth_date: h.birthday || null,
+          sort_order: i,
+        }))
+        const { error: heirErr } = await supabase.from('heirs').insert(heirInserts)
+        if (heirErr) throw new Error(`相続人の保存に失敗: ${heirErr.message}`)
+      }
+
+      // 6. Save real estate properties (delete existing + re-insert)
+      await supabase.from('real_estate_properties').delete().eq('case_id', caseId)
+      if (formData.propertyType || formData.properties.length > 0) {
+        // Main property from the form
+        const mainProperty = {
+          case_id: caseId,
+          property_type: formData.propertyType || null,
+          resident_status: formData.residentStatus || null,
+          area_evaluation: formData.areaRating || null,
+          building_age: formData.buildingAge || null,
+          sale_intention: formData.propertySale || null,
+          has_title_deed: formData.titleDeed,
+          has_tax_notice: formData.taxNotice,
+          notes: formData.propertyGeneralNotes || null,
+        }
+        await supabase.from('real_estate_properties').insert(mainProperty)
+
+        // Additional property details
+        if (formData.properties.length > 0) {
+          const propInserts = formData.properties.map(p => ({
+            case_id: caseId,
+            address: p.address || null,
+            name_consolidation_dest: p.nayoseDestination || null,
+            evaluation_cert_dest: p.evalCertDest || null,
+            has_registry_info: p.registryInfo,
+            has_cadastral_map: p.mapInfo,
+          }))
+          await supabase.from('real_estate_properties').insert(propInserts)
+        }
+      }
+
+      // 7. Save financial assets (delete existing + re-insert)
+      await supabase.from('financial_assets').delete().eq('case_id', caseId)
+      if (formData.bankAccounts.length > 0) {
+        const finInserts = formData.bankAccounts.map(b => ({
+          case_id: caseId,
+          asset_type: '預貯金',
+          institution_name: b.bankName,
+          branch_name: b.branchName || null,
+          safe_deposit_box: b.safeBox ? '有' : '無',
+          notes: b.notes || null,
+        }))
+        const { error: finErr } = await supabase.from('financial_assets').insert(finInserts)
+        if (finErr) throw new Error(`金融資産の保存に失敗: ${finErr.message}`)
+      }
+
+      // 8. Save division details (delete existing + re-insert)
+      await supabase.from('division_details').delete().eq('case_id', caseId)
+      if (formData.divisions.length > 0) {
+        const divInserts = formData.divisions.map(d => ({
+          case_id: caseId,
+          asset_category: d.assetCategory,
+          division_method: d.splitMethod || null,
+          recipient: d.acquirerRatio || null,
+          description: d.confirmedDetail || null,
+        }))
+        const { error: divErr } = await supabase.from('division_details').insert(divInserts)
+        if (divErr) throw new Error(`分割内容の保存に失敗: ${divErr.message}`)
       }
 
       setSaving(false)
@@ -303,14 +396,6 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           <Card label="受注担当" required><Input value={data.salesOwner} onChange={v => update('salesOwner', v)} placeholder="担当者名を入力" /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
           <Card label="受注ルート"><Pills value={data.leadSource} options={['LP', '公益社', 'はせがわ', 'その他']} onChange={v => update('leadSource', v as string)} /></Card>
-          {data.leadSource === 'LP' && (
-            <Card label="LP名・担当者">
-              <div className="grid gap-2.5">
-                <Input value={data.lpPartnerName} onChange={v => update('lpPartnerName', v)} placeholder="LP会社名" />
-                <Input value={data.partnerRep} onChange={v => update('partnerRep', v)} placeholder="担当者名" />
-              </div>
-            </Card>
-          )}
         </div>
       )
       case 'client': return (

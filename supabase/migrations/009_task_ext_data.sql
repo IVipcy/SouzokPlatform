@@ -1,0 +1,5 @@
+-- タスク詳細画面用: カテゴリ別フィールド(JSONB) + 起票日 + 表題 + 備考
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ext_data JSONB DEFAULT '{}';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS issued_date DATE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS remarks TEXT;

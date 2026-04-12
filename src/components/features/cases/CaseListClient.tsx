@@ -18,22 +18,33 @@ type CaseWithMembers = CaseRow & {
 type Props = {
   cases: CaseWithMembers[]
   taskCounts: Record<string, { total: number; completed: number }>
+  currentMemberId: string | null
+  taskAssigneesMap: Record<string, string[]>
+  taskDueDatesMap: Record<string, Array<{ due_date: string | null; status: string }>>
 }
+
+type ViewMode = 'all' | 'mine' | 'urgent'
 
 const DIFFICULTY_COLORS: Record<string, string> = { '難': '#DC2626', '普': '#D97706', '易': '#059669' }
 
-export default function CaseListClient({ cases, taskCounts }: Props) {
+const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
+  { key: 'all', label: 'すべての案件', icon: '📋' },
+  { key: 'mine', label: '担当の案件', icon: '👤' },
+  { key: 'urgent', label: '至急対応案件', icon: '🚨' },
+]
+
+export default function CaseListClient({ cases, taskCounts, currentMemberId, taskAssigneesMap, taskDueDatesMap }: Props) {
   const router = useRouter()
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('list')
   const createModal = useModal()
   const [deleteCase, setDeleteCase] = useState<CaseWithMembers | null>(null)
 
   const handleDeleteCase = async () => {
     if (!deleteCase) return
     const supabase = createClient()
-    // Delete related data (tasks, assignees, members, docs, invoices, events)
     const { data: tasks } = await supabase.from('tasks').select('id').eq('case_id', deleteCase.id)
     if (tasks) {
       for (const t of tasks) {
@@ -44,7 +55,6 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
     await supabase.from('case_members').delete().eq('case_id', deleteCase.id)
     await supabase.from('documents').delete().eq('case_id', deleteCase.id)
     await supabase.from('events').delete().eq('case_id', deleteCase.id)
-    // Delete invoices and their payments
     const { data: invoices } = await supabase.from('invoices').select('id').eq('case_id', deleteCase.id)
     if (invoices) {
       for (const inv of invoices) {
@@ -58,8 +68,43 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
     router.refresh()
   }
 
+  const today = new Date().toISOString().split('T')[0]
+
+  // Apply view filter first
+  const viewFiltered = useMemo(() => {
+    if (viewMode === 'all') return cases
+
+    if (viewMode === 'mine' && currentMemberId) {
+      return cases.filter(c => {
+        // Check if user is a case member
+        const isCaseMember = c.case_members?.some(cm => cm.members?.id === currentMemberId)
+        // Check if user is assigned to any task in this case
+        const isTaskAssignee = taskAssigneesMap[c.id]?.includes(currentMemberId)
+        return isCaseMember || isTaskAssignee
+      })
+    }
+
+    if (viewMode === 'urgent') {
+      return cases.filter(c => {
+        // Skip completed/lost cases
+        if (c.status === '完了' || c.status === '失注') return false
+        // Check overdue tasks
+        const taskDates = taskDueDatesMap[c.id]
+        const hasOverdueTask = taskDates?.some(t =>
+          t.due_date && t.due_date < today && t.status !== '完了'
+        )
+        // Check overdue completion date
+        const hasOverdueCompletion = c.completion_date && c.completion_date < today
+        return hasOverdueTask || hasOverdueCompletion
+      })
+    }
+
+    return cases
+  }, [cases, viewMode, currentMemberId, taskAssigneesMap, taskDueDatesMap, today])
+
+  // Then apply status + search filters
   const filtered = useMemo(() => {
-    let result = cases
+    let result = viewFiltered
     if (statusFilter !== 'all') {
       result = result.filter(c => c.status === statusFilter)
     }
@@ -73,15 +118,15 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
       )
     }
     return result
-  }, [cases, statusFilter, search])
+  }, [viewFiltered, statusFilter, search])
 
   const kpis = useMemo(() => ({
-    total: cases.length,
-    active: cases.filter(c => c.status === '対応中').length,
-    reviewing: cases.filter(c => c.status === '検討中').length,
-    ordered: cases.filter(c => c.status === '受注').length,
-    completed: cases.filter(c => c.status === '完了').length,
-  }), [cases])
+    total: viewFiltered.length,
+    active: viewFiltered.filter(c => c.status === '対応中').length,
+    reviewing: viewFiltered.filter(c => c.status === '検討中').length,
+    ordered: viewFiltered.filter(c => c.status === '受注').length,
+    completed: viewFiltered.filter(c => c.status === '完了').length,
+  }), [viewFiltered])
 
   return (
     <div>
@@ -111,6 +156,47 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
         </div>
       </div>
 
+      {/* View tabs */}
+      <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 shadow-sm w-fit">
+        {VIEW_TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setViewMode(tab.key); setStatusFilter('all') }}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium transition-all ${
+              viewMode === tab.key
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-[13px]">{tab.icon}</span>
+            {tab.label}
+            {tab.key !== 'all' && (
+              <span className={`text-[10px] font-mono ml-0.5 ${
+                viewMode === tab.key ? 'opacity-80' : 'opacity-60'
+              }`}>
+                {tab.key === 'mine'
+                  ? cases.filter(c => {
+                      if (!currentMemberId) return false
+                      const isCaseMember = c.case_members?.some(cm => cm.members?.id === currentMemberId)
+                      const isTaskAssignee = taskAssigneesMap[c.id]?.includes(currentMemberId)
+                      return isCaseMember || isTaskAssignee
+                    }).length
+                  : cases.filter(c => {
+                      if (c.status === '完了' || c.status === '失注') return false
+                      const taskDates = taskDueDatesMap[c.id]
+                      const hasOverdueTask = taskDates?.some(t =>
+                        t.due_date && t.due_date < today && t.status !== '完了'
+                      )
+                      const hasOverdueCompletion = c.completion_date && c.completion_date < today
+                      return hasOverdueTask || hasOverdueCompletion
+                    }).length
+                }
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-5 gap-3 mb-4">
         <KpiCard label="総案件数" value={kpis.total} icon="📋" iconBg="#EFF4FF" />
@@ -130,23 +216,23 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
               label={s.key}
               active={statusFilter === s.key}
               onClick={() => setStatusFilter(s.key)}
-              count={cases.filter(c => c.status === s.key).length}
+              count={viewFiltered.filter(c => c.status === s.key).length}
             />
           ))}
         </div>
 
         <div className="ml-auto flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
           <button
-            onClick={() => setViewMode('list')}
+            onClick={() => setDisplayMode('list')}
             className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-              viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              displayMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
             }`}
             title="リスト"
           >☰</button>
           <button
-            onClick={() => setViewMode('kanban')}
+            onClick={() => setDisplayMode('kanban')}
             className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-              viewMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              displayMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
             }`}
             title="カンバン"
           >⊞</button>
@@ -154,8 +240,8 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
       </div>
 
       {/* Content */}
-      {viewMode === 'list' ? (
-        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} />
+      {displayMode === 'list' ? (
+        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} taskDueDatesMap={taskDueDatesMap} viewMode={viewMode} />
       ) : (
         <KanbanView cases={filtered} taskCounts={taskCounts} router={router} />
       )}
@@ -178,12 +264,16 @@ export default function CaseListClient({ cases, taskCounts }: Props) {
 }
 
 // ─── List View ───
-function ListView({ filtered, taskCounts, router, onDelete }: {
+function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, viewMode }: {
   filtered: (CaseRow & { case_members: Array<{ role: string; members: MemberRow }> })[]
   taskCounts: Record<string, { total: number; completed: number }>
   router: ReturnType<typeof useRouter>
   onDelete: (c: CaseRow & { case_members: Array<{ role: string; members: MemberRow }> }) => void
+  taskDueDatesMap: Record<string, Array<{ due_date: string | null; status: string }>>
+  viewMode: ViewMode
 }) {
+  const today = new Date().toISOString().split('T')[0]
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
@@ -209,12 +299,26 @@ function ListView({ filtered, taskCounts, router, onDelete }: {
               const salesMember = c.case_members?.find(cm => cm.role === 'sales')?.members
               const tc = taskCounts[c.id]
               const pct = tc ? Math.round((tc.completed / tc.total) * 100) : 0
+
+              // Check urgency for highlighting
+              const isUrgent = viewMode === 'urgent' || (() => {
+                const taskDates = taskDueDatesMap[c.id]
+                const hasOverdue = taskDates?.some(t => t.due_date && t.due_date < today && t.status !== '完了')
+                const hasOverdueCompletion = c.completion_date && c.completion_date < today && c.status !== '完了' && c.status !== '失注'
+                return hasOverdue || hasOverdueCompletion
+              })()
+
               return (
-                <tr key={c.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] cursor-pointer transition-colors" onClick={() => router.push(`/cases/${c.id}`)}>
+                <tr key={c.id} className={`border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] cursor-pointer transition-colors ${
+                  viewMode === 'urgent' && isUrgent ? 'bg-red-50/30' : ''
+                }`} onClick={() => router.push(`/cases/${c.id}`)}>
                   <td className="px-3.5 py-3">
                     <div className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded inline-block mb-1">{c.case_number}</div>
                     <div className="text-[13px] font-semibold text-gray-900">{c.deal_name}</div>
                     {c.deceased_name && <div className="text-[11px] text-gray-400 mt-0.5">被相続人：{c.deceased_name}</div>}
+                    {viewMode === 'urgent' && isUrgent && (
+                      <div className="text-[10px] text-red-500 font-semibold mt-0.5">⚠ 期限超過あり</div>
+                    )}
                   </td>
                   <td className="px-3.5 py-3">{statusDef && <Badge label={statusDef.key} color={statusDef.color} />}</td>
                   <td className="px-3.5 py-3">
@@ -277,14 +381,11 @@ function KanbanView({ cases, taskCounts, router }: {
           const columnCases = cases.filter(c => c.status === status.key)
           return (
             <div key={status.key} className="w-[248px] flex-shrink-0">
-              {/* Column header */}
               <div className="bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 flex items-center gap-2 shadow-sm mb-2">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
                 <span className="text-xs font-semibold text-gray-700 flex-1">{status.key}</span>
                 <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{columnCases.length}</span>
               </div>
-
-              {/* Cards */}
               <div className="flex flex-col gap-1.5" style={{ minHeight: 60 }}>
                 {columnCases.length === 0 ? (
                   <div className="text-center text-[11px] text-gray-300 py-5 border border-dashed border-gray-200 rounded-lg">なし</div>
@@ -302,8 +403,6 @@ function KanbanView({ cases, taskCounts, router }: {
                         <div className="text-[9px] font-mono text-gray-400 bg-gray-50 px-1 py-0.5 rounded inline-block mb-1">{c.case_number}</div>
                         <div className="text-xs font-semibold text-gray-900 mb-0.5 leading-tight">{c.deal_name}</div>
                         {c.deceased_name && <div className="text-[10px] text-gray-400 mb-2">被相続人：{c.deceased_name}</div>}
-
-                        {/* Tags */}
                         <div className="flex gap-1 flex-wrap mb-2">
                           {c.difficulty && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold"
@@ -315,8 +414,6 @@ function KanbanView({ cases, taskCounts, router }: {
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-50 text-red-600">税要</span>
                           )}
                         </div>
-
-                        {/* Footer */}
                         <div className="flex items-center justify-between">
                           {salesMember ? (
                             <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: salesMember.avatar_color }}>
@@ -327,8 +424,6 @@ function KanbanView({ cases, taskCounts, router }: {
                             {c.total_asset_estimate ? `¥${(c.total_asset_estimate / 10000).toLocaleString()}万` : ''}
                           </span>
                         </div>
-
-                        {/* Progress bar */}
                         {tc && (
                           <div className="w-full h-[3px] bg-gray-100 rounded-full mt-2 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#059669' : '#2563EB' }} />

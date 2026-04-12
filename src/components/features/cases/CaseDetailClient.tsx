@@ -5,21 +5,20 @@ import { useRouter } from 'next/navigation'
 import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
-import OverviewTab from './OverviewTab'
+import BasicInfoTab from './BasicInfoTab'
 import TasksTab from './TasksTab'
-import ClientTab from './ClientTab'
+import DeceasedTab from './DeceasedTab'
+import ContractTab from './ContractTab'
+import MailingTab from './MailingTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
-import FinanceTab from './FinanceTab'
+import InvoiceTab from './InvoiceTab'
 import DocsTab from './DocsTab'
 import HistoryTab from './HistoryTab'
-import CaseEditModal from './CaseEditModal'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 import AssigneeManageModal from './AssigneeManageModal'
 import AddTaskModal from './AddTaskModal'
-import EditClientModal from './EditClientModal'
-import EditAssetsModal from './EditAssetsModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -27,18 +26,20 @@ type Props = {
   tasks: TaskRow[]
   allMembers: MemberRow[]
   taskTemplates: TaskTemplateRow[]
+  heirs: HeirRow[]
+  properties: RealEstatePropertyRow[]
+  financialAssets: FinancialAssetRow[]
+  divisionDetails: DivisionDetailRow[]
+  expenses: ExpenseRow[]
 }
 
-export default function CaseDetailClient({ caseData, caseMembers, tasks, allMembers, taskTemplates }: Props) {
+export default function CaseDetailClient({ caseData, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [activeTab, setActiveTab] = useState<TabKey>('basicInfo')
 
-  const editModal = useModal()
   const bulkTaskModal = useModal()
   const assigneeModal = useModal()
   const addTaskModal = useModal()
-  const clientEditModal = useModal()
-  const assetsEditModal = useModal()
 
   const handleSaved = () => {
     router.refresh()
@@ -46,7 +47,7 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
 
   return (
     <div>
-      <CaseHeader caseData={caseData} onEditClick={editModal.open} />
+      <CaseHeader caseData={caseData} />
 
       <CaseTabs
         activeTab={activeTab}
@@ -55,23 +56,29 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         docCount={0}
       />
 
-      {activeTab === 'overview' && (
-        <OverviewTab caseData={caseData} caseMembers={caseMembers} tasks={tasks} />
+      {activeTab === 'basicInfo' && (
+        <BasicInfoTab caseData={caseData} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} />
       )}
       {activeTab === 'tasks' && (
         <TasksTab tasks={tasks} allMembers={allMembers} onBulkGenerate={bulkTaskModal.open} onAssigneeManage={assigneeModal.open} onAddTask={addTaskModal.open} />
       )}
-      {activeTab === 'client' && (
-        <ClientTab caseData={caseData} onEdit={clientEditModal.open} />
+      {activeTab === 'deceased' && (
+        <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={handleSaved} />
+      )}
+      {activeTab === 'contract' && (
+        <ContractTab caseData={caseData} onRefresh={handleSaved} />
+      )}
+      {activeTab === 'mailing' && (
+        <MailingTab caseData={caseData} onRefresh={handleSaved} />
       )}
       {activeTab === 'assets' && (
-        <AssetsTab caseData={caseData} onEdit={assetsEditModal.open} />
+        <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} />
       )}
       {activeTab === 'division' && (
-        <DivisionTab caseData={caseData} />
+        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={handleSaved} />
       )}
-      {activeTab === 'finance' && (
-        <FinanceTab caseData={caseData} />
+      {activeTab === 'invoice' && (
+        <InvoiceTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={handleSaved} />
       )}
       {activeTab === 'docs' && (
         <DocsTab caseData={caseData} />
@@ -79,13 +86,6 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
       {activeTab === 'history' && (
         <HistoryTab caseData={caseData} />
       )}
-
-      <CaseEditModal
-        isOpen={editModal.isOpen}
-        onClose={editModal.close}
-        caseData={caseData}
-        onSaved={handleSaved}
-      />
 
       <BulkTaskGenerateModal
         isOpen={bulkTaskModal.isOpen}
@@ -111,20 +111,6 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         onClose={addTaskModal.close}
         caseId={caseData.id}
         allMembers={allMembers}
-        onSaved={handleSaved}
-      />
-
-      <EditClientModal
-        isOpen={clientEditModal.isOpen}
-        onClose={clientEditModal.close}
-        caseData={caseData}
-        onSaved={handleSaved}
-      />
-
-      <EditAssetsModal
-        isOpen={assetsEditModal.isOpen}
-        onClose={assetsEditModal.close}
-        caseData={caseData}
         onSaved={handleSaved}
       />
     </div>

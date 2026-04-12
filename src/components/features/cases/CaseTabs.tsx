@@ -1,6 +1,6 @@
 'use client'
 
-export type TabKey = 'overview' | 'tasks' | 'client' | 'assets' | 'division' | 'finance' | 'docs' | 'history'
+export type TabKey = 'basicInfo' | 'tasks' | 'deceased' | 'contract' | 'mailing' | 'assets' | 'division' | 'invoice' | 'docs' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -10,12 +10,14 @@ type Props = {
 }
 
 const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[] = [
-  { key: 'overview', label: '概要' },
+  { key: 'basicInfo', label: '基本情報' },
   { key: 'tasks', label: 'タスク', countKey: 'taskCount' },
-  { key: 'client', label: '依頼者・被相続人' },
+  { key: 'deceased', label: '被相続人・相続人' },
+  { key: 'contract', label: '契約・報酬' },
+  { key: 'mailing', label: '郵送管理' },
   { key: 'assets', label: '財産情報' },
   { key: 'division', label: '遺産分割・遺言' },
-  { key: 'finance', label: '請求・収益' },
+  { key: 'invoice', label: '請求' },
   { key: 'docs', label: '書類', countKey: 'docCount' },
   { key: 'history', label: '履歴' },
 ]

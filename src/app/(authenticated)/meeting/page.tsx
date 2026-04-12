@@ -7,7 +7,7 @@ export default async function MeetingPage() {
   const { data: cases } = await supabase
     .from('cases')
     .select('*, clients(*)')
-    .in('status', ['面談設定済', '検討中', '受注'])
+    .eq('status', '面談設定済')
     .order('created_at', { ascending: false })
 
   return <MeetingPageClient cases={(cases ?? []) as any} />

@@ -10,12 +10,11 @@ import type { CaseRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
-  onEditClick: () => void
 }
 
 const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '保留・長期', '完了', '失注']
 
-export default function CaseHeader({ caseData, onEditClick }: Props) {
+export default function CaseHeader({ caseData }: Props) {
   const router = useRouter()
   const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
@@ -60,14 +59,7 @@ export default function CaseHeader({ caseData, onEditClick }: Props) {
           <span className="text-gray-300">›</span>
           <span className="text-gray-600 font-medium">{caseData.case_number} · {caseData.deal_name}</span>
         </div>
-        <div className="ml-auto flex gap-2">
-          <button
-            onClick={onEditClick}
-            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors"
-          >
-            ✏️ 編集
-          </button>
-        </div>
+        <div className="ml-auto" />
       </div>
 
       {/* Case header card */}

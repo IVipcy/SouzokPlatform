@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
-import { TASK_STATUSES } from '@/lib/constants'
+import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -11,17 +12,13 @@ type Props = {
   isOpen: boolean
   onClose: () => void
   task: TaskRow
+  caseMap: Record<string, { case_number: string; deal_name: string }>
   allMembers: MemberRow[]
   onSaved: () => void
 }
 
-const PRIORITIES = [
-  { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-  { key: '急ぎ', label: '🚨 急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
-  { key: '外出タスク', label: '🚗 外出', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-] as const
-
-export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSaved }: Props) {
+export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembers, onSaved }: Props) {
+  const router = useRouter()
   const [form, setForm] = useState({
     title: '',
     status: '未着手' as string,
@@ -35,6 +32,8 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const caseInfo = caseMap[task.case_id]
+
   useEffect(() => {
     if (isOpen && task) {
       const primary = task.task_assignees?.find(a => a.role === 'primary')
@@ -43,7 +42,7 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
         title: task.title,
         status: task.status,
         phase: task.phase,
-        priority: task.priority,
+        priority: task.priority === '外出タスク' ? '通常' : task.priority,
         dueDate: task.due_date ?? '',
         category: task.category ?? '',
         primaryAssignee: primary?.member_id ?? '',
@@ -101,13 +100,14 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
     onClose()
   }
 
-  const toggleSub = (memberId: string) => {
-    setForm(prev => ({
-      ...prev,
-      subAssignees: prev.subAssignees.includes(memberId)
-        ? prev.subAssignees.filter(id => id !== memberId)
-        : [...prev.subAssignees, memberId],
-    }))
+  const addSub = (memberId: string) => {
+    if (!form.subAssignees.includes(memberId)) {
+      setForm(prev => ({ ...prev, subAssignees: [...prev.subAssignees, memberId] }))
+    }
+  }
+
+  const removeSub = (memberId: string) => {
+    setForm(prev => ({ ...prev, subAssignees: prev.subAssignees.filter(id => id !== memberId) }))
   }
 
   return (
@@ -117,17 +117,10 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
       title="タスク編集"
       footer={
         <>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
             {saving ? '保存中...' : '保存する'}
           </button>
         </>
@@ -136,6 +129,27 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
       <div className="space-y-3">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
+        )}
+
+        {/* Case link + detail page button */}
+        {caseInfo && (
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <span className="text-[11px] text-gray-400">案件：</span>
+            <span className="text-[12px] font-mono text-gray-500">{caseInfo.case_number}</span>
+            <span className="text-[12px] font-medium text-gray-700 flex-1">{caseInfo.deal_name}</span>
+            <button
+              onClick={() => { onClose(); router.push(`/tasks/${task.id}`) }}
+              className="text-[11px] font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition border border-blue-200 bg-white"
+            >
+              タスク詳細 →
+            </button>
+            <button
+              onClick={() => { onClose(); router.push(`/cases/${task.case_id}?tab=tasks`) }}
+              className="text-[11px] font-medium text-gray-600 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50 transition border border-gray-200 bg-white"
+            >
+              案件詳細 →
+            </button>
+          </div>
         )}
 
         {/* Task name */}
@@ -158,9 +172,7 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
               onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
-              {TASK_STATUSES.map(s => (
-                <option key={s.key} value={s.key}>{s.key}</option>
-              ))}
+              {TASK_STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
             </select>
           </div>
 
@@ -172,27 +184,21 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
               onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             >
-              {DB_PHASES.map(p => (
-                <option key={p} value={p}>{getPhaseLabel(p)}</option>
-              ))}
+              {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Primary assignee */}
+          {/* Primary assignee - searchable */}
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 mb-1">主担当</label>
-            <select
+            <SearchableSelect
+              members={allMembers}
               value={form.primaryAssignee}
-              onChange={e => setForm(p => ({ ...p, primaryAssignee: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            >
-              <option value="">未割当</option>
-              {allMembers.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+              onChange={v => setForm(p => ({ ...p, primaryAssignee: v }))}
+              placeholder="主担当を選択..."
+            />
           </div>
 
           {/* Due date */}
@@ -207,26 +213,16 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
           </div>
         </div>
 
-        {/* Sub assignees */}
+        {/* Sub assignees - searchable multi */}
         <div>
           <label className="block text-[11px] font-semibold text-gray-500 mb-1">副担当（複数可）</label>
-          <div className="flex flex-wrap gap-1.5">
-            {allMembers.map(m => (
-              <button
-                key={m.id}
-                onClick={() => toggleSub(m.id)}
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white transition-all ${
-                  form.subAssignees.includes(m.id)
-                    ? 'ring-2 ring-blue-400 ring-offset-1'
-                    : 'opacity-40 hover:opacity-70'
-                }`}
-                style={{ backgroundColor: m.avatar_color }}
-                title={m.name}
-              >
-                {m.name.charAt(0)}
-              </button>
-            ))}
-          </div>
+          <MultiSearchableSelect
+            members={allMembers}
+            selectedIds={form.subAssignees}
+            onAdd={addSub}
+            onRemove={removeSub}
+            placeholder="副担当を追加..."
+          />
         </div>
 
         {/* Category */}
@@ -245,14 +241,12 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
         <div>
           <label className="block text-[11px] font-semibold text-gray-500 mb-1">優先度</label>
           <div className="flex gap-1.5">
-            {PRIORITIES.map(p => (
+            {TASK_PRIORITIES.map(p => (
               <button
                 key={p.key}
                 onClick={() => setForm(prev => ({ ...prev, priority: p.key }))}
                 className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
-                  form.priority === p.key
-                    ? 'ring-2 ring-blue-400 ring-offset-1'
-                    : ''
+                  form.priority === p.key ? 'ring-2 ring-blue-400 ring-offset-1' : ''
                 } ${p.style}`}
               >
                 {p.label}
@@ -262,5 +256,131 @@ export default function EditTaskModal({ isOpen, onClose, task, allMembers, onSav
         </div>
       </div>
     </Modal>
+  )
+}
+
+// ─── Searchable Select (single) ───
+function SearchableSelect({ members, value, onChange, placeholder }: {
+  members: MemberRow[]
+  value: string
+  onChange: (id: string) => void
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selected = members.find(m => m.id === value)
+  const filtered = query ? members.filter(m => m.name.toLowerCase().includes(query.toLowerCase())) : members
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); setQuery('') }}
+        className="w-full text-left px-3 py-2 border border-gray-300 rounded-lg text-xs flex items-center gap-2 hover:border-gray-400 transition"
+      >
+        {selected ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: selected.avatar_color }}>
+              {selected.name.charAt(0)}
+            </span>
+            <span className="truncate text-gray-700">{selected.name}</span>
+          </div>
+        ) : (
+          <span className="text-gray-400 flex-1">{placeholder ?? '選択...'}</span>
+        )}
+        <span className="text-gray-300 text-[10px]">▼</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-1.5 border-b border-gray-100">
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="名前で検索..."
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400" autoFocus />
+          </div>
+          <div className="max-h-[200px] overflow-y-auto">
+            <button onClick={() => { onChange(''); setOpen(false) }} className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50">未割当</button>
+            {filtered.map(m => (
+              <button key={m.id} onClick={() => { onChange(m.id); setOpen(false) }}
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition ${m.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
+                {m.name}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-2 text-xs text-gray-400 text-center">該当なし</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Multi Searchable Select ───
+function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placeholder }: {
+  members: MemberRow[]
+  selectedIds: string[]
+  onAdd: (id: string) => void
+  onRemove: (id: string) => void
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selectedMembers = members.filter(m => selectedIds.includes(m.id))
+  const available = query
+    ? members.filter(m => !selectedIds.includes(m.id) && m.name.toLowerCase().includes(query.toLowerCase()))
+    : members.filter(m => !selectedIds.includes(m.id))
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className="border border-gray-300 rounded-lg px-2 py-1.5 min-h-[36px] flex flex-wrap items-center gap-1 cursor-text hover:border-gray-400 transition"
+        onClick={() => { setOpen(true); setQuery('') }}
+      >
+        {selectedMembers.map(m => (
+          <span key={m.id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 text-[10px] font-medium">
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
+            {m.name}
+            <button onClick={e => { e.stopPropagation(); onRemove(m.id) }} className="text-blue-400 hover:text-red-500 ml-0.5">✕</button>
+          </span>
+        ))}
+        {selectedIds.length === 0 && <span className="text-gray-400 text-xs">{placeholder}</span>}
+      </div>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-1.5 border-b border-gray-100">
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="名前で検索..."
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400" autoFocus />
+          </div>
+          <div className="max-h-[200px] overflow-y-auto">
+            {available.map(m => (
+              <button key={m.id} onClick={() => { onAdd(m.id); setQuery('') }}
+                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition text-gray-700">
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
+                {m.name}
+              </button>
+            ))}
+            {available.length === 0 && <div className="px-3 py-2 text-xs text-gray-400 text-center">{query ? '該当なし' : '全員選択済み'}</div>}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

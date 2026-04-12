@@ -17,7 +17,6 @@ type Props = {
 const PRIORITIES = [
   { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
   { key: '急ぎ', label: '🚨 急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
-  { key: '外出タスク', label: '🚗 外出', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
 ] as const
 
 export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved }: Props) {
