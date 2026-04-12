@@ -23,8 +23,6 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
   const [form, setForm] = useState({
     title: '',
     phase: 'phase1' as string,
-    primaryAssignee: '',
-    subAssignees: [] as string[],
     dueDate: '',
     priority: '通常' as string,
   })
@@ -42,8 +40,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
 
     const supabase = createClient()
 
-    // Insert task
-    const { data: task, error: taskErr } = await supabase
+    const { error: taskErr } = await supabase
       .from('tasks')
       .insert({
         case_id: caseId,
@@ -55,40 +52,17 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
         due_date: form.dueDate || null,
         sort_order: 99,
       })
-      .select('id')
-      .single()
 
-    if (taskErr || !task) {
-      setError(`追加に失敗しました: ${taskErr?.message}`)
+    if (taskErr) {
+      setError(`追加に失敗しました: ${taskErr.message}`)
       setSaving(false)
       return
     }
 
-    // Insert assignees
-    const assignees = []
-    if (form.primaryAssignee) {
-      assignees.push({ task_id: task.id, member_id: form.primaryAssignee, role: 'primary' })
-    }
-    for (const subId of form.subAssignees) {
-      assignees.push({ task_id: task.id, member_id: subId, role: 'sub' })
-    }
-    if (assignees.length > 0) {
-      await supabase.from('task_assignees').insert(assignees)
-    }
-
     setSaving(false)
-    setForm({ title: '', phase: 'phase1', primaryAssignee: '', subAssignees: [], dueDate: '', priority: '通常' })
+    setForm({ title: '', phase: 'phase1', dueDate: '', priority: '通常' })
     onSaved()
     onClose()
-  }
-
-  const toggleSub = (memberId: string) => {
-    setForm(prev => ({
-      ...prev,
-      subAssignees: prev.subAssignees.includes(memberId)
-        ? prev.subAssignees.filter(id => id !== memberId)
-        : [...prev.subAssignees, memberId],
-    }))
   }
 
   return (
@@ -146,53 +120,16 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
             </select>
           </div>
 
-          {/* Primary assignee */}
+          {/* Due date */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">主担当</label>
-            <select
-              value={form.primaryAssignee}
-              onChange={e => setForm(p => ({ ...p, primaryAssignee: e.target.value }))}
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">期限</label>
+            <input
+              type="date"
+              value={form.dueDate}
+              onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            >
-              <option value="">未割当</option>
-              {allMembers.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+            />
           </div>
-        </div>
-
-        {/* Sub assignees */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">副担当（複数可）</label>
-          <div className="flex flex-wrap gap-1.5">
-            {allMembers.map(m => (
-              <button
-                key={m.id}
-                onClick={() => toggleSub(m.id)}
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white transition-all ${
-                  form.subAssignees.includes(m.id)
-                    ? 'ring-2 ring-blue-400 ring-offset-1'
-                    : 'opacity-40 hover:opacity-70'
-                }`}
-                style={{ backgroundColor: m.avatar_color }}
-                title={m.name}
-              >
-                {m.name.charAt(0)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Due date */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">期限</label>
-          <input
-            type="date"
-            value={form.dueDate}
-            onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
         </div>
 
         {/* Priority */}
@@ -213,6 +150,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="text-[11px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+          💡 タスクの担当は事前に割り振りません。パートタイマーが出勤時にタスク一覧から「着手する」で開始します。
         </div>
       </div>
     </Modal>

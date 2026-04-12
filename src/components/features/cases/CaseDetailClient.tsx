@@ -16,9 +16,9 @@ import InvoiceTab from './InvoiceTab'
 import DocsTab from './DocsTab'
 import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
-import AssigneeManageModal from './AssigneeManageModal'
+
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseActivityRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -31,14 +31,16 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
+  activities: CaseActivityRow[]
+  currentMemberId: string | null
 }
 
-export default function CaseDetailClient({ caseData, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses }: Props) {
+export default function CaseDetailClient({ caseData, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, activities, currentMemberId }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('basicInfo')
 
   const bulkTaskModal = useModal()
-  const assigneeModal = useModal()
+
   const addTaskModal = useModal()
 
   const handleSaved = () => {
@@ -60,7 +62,7 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         <BasicInfoTab caseData={caseData} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} />
       )}
       {activeTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} onBulkGenerate={bulkTaskModal.open} onAssigneeManage={assigneeModal.open} onAddTask={addTaskModal.open} />
+        <TasksTab tasks={tasks} allMembers={allMembers} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
       )}
       {activeTab === 'deceased' && (
         <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={handleSaved} />
@@ -84,7 +86,7 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         <DocsTab caseData={caseData} />
       )}
       {activeTab === 'history' && (
-        <HistoryTab caseData={caseData} />
+        <HistoryTab caseData={caseData} activities={activities} allMembers={allMembers} currentMemberId={currentMemberId} />
       )}
 
       <BulkTaskGenerateModal
@@ -93,16 +95,6 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         caseId={caseData.id}
         taskTemplates={taskTemplates}
         existingTasks={tasks}
-        onSaved={handleSaved}
-      />
-
-      <AssigneeManageModal
-        isOpen={assigneeModal.isOpen}
-        onClose={assigneeModal.close}
-        caseId={caseData.id}
-        caseMembers={caseMembers}
-        tasks={tasks}
-        allMembers={allMembers}
         onSaved={handleSaved}
       />
 

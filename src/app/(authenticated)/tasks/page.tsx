@@ -10,7 +10,7 @@ export default async function TasksPage() {
   const [tasksResult, casesResult, membersResult] = await Promise.all([
     supabase
       .from('tasks')
-      .select('*, task_assignees(*, members(*))')
+      .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
       .order('sort_order'),
     supabase
       .from('cases')

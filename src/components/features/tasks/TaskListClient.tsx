@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
-import BulkAssignBar from './BulkAssignBar'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
@@ -30,14 +29,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const router = useRouter()
   const [statusFilter, setStatusFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
-  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine' | 'unassigned'>('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'available' | 'mine'>('all')
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'status' | 'phase' | 'case'>('status')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
   const [dueDateSort, setDueDateSort] = useState<'none' | 'asc' | 'desc'>('none')
 
   const today = new Date().toISOString().split('T')[0]
@@ -46,11 +44,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     let result = tasks
     if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter)
     if (phaseFilter !== 'all') result = result.filter(t => t.phase === phaseFilter)
-    if (assigneeFilter === 'mine' && currentMemberId) {
-      result = result.filter(t => t.task_assignees?.some(a => a.member_id === currentMemberId))
+    if (assigneeFilter === 'available') {
+      result = result.filter(t => t.status === '未着手' && !t.started_by)
     }
-    if (assigneeFilter === 'unassigned') {
-      result = result.filter(t => !t.task_assignees || t.task_assignees.length === 0 || !t.task_assignees.some(a => a.role === 'primary'))
+    if (assigneeFilter === 'mine' && currentMemberId) {
+      result = result.filter(t => t.started_by === currentMemberId)
     }
     if (overdueOnly) {
       result = result.filter(t => t.due_date && t.due_date < today && t.status !== '完了')
@@ -69,9 +67,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     total: tasks.length,
     todo: tasks.filter(t => t.status === '未着手').length,
     doing: tasks.filter(t => t.status === '対応中').length,
-    wcheck: tasks.filter(t => t.status === 'Wチェック待ち').length,
     done: tasks.filter(t => t.status === '完了').length,
     urgent: tasks.filter(t => t.priority === '急ぎ').length,
+    available: tasks.filter(t => t.status === '未着手' && !t.started_by).length,
   }), [tasks])
 
   const sortTasks = (arr: TaskRow[]) => {
@@ -103,6 +101,46 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId)
     router.refresh()
   }
+
+  // 着手する
+  const handleStart = async (task: TaskRow) => {
+    if (!currentMemberId) return
+    const supabase = createClient()
+    await supabase.from('tasks').update({
+      status: '対応中',
+      started_by: currentMemberId,
+      started_at: new Date().toISOString(),
+    }).eq('id', task.id)
+    // 活動履歴に記録
+    await supabase.from('case_activities').insert({
+      case_id: task.case_id,
+      task_id: task.id,
+      member_id: currentMemberId,
+      activity_type: 'task_started',
+      description: `${task.title} に着手`,
+      activity_date: new Date().toISOString().split('T')[0],
+    })
+    router.refresh()
+  }
+
+  // 完了にする
+  const handleComplete = async (task: TaskRow) => {
+    const supabase = createClient()
+    await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+    // 活動履歴に記録
+    if (currentMemberId) {
+      await supabase.from('case_activities').insert({
+        case_id: task.case_id,
+        task_id: task.id,
+        member_id: currentMemberId,
+        activity_type: 'task_completed',
+        description: `${task.title} を完了`,
+        activity_date: new Date().toISOString().split('T')[0],
+      })
+    }
+    router.refresh()
+  }
+
   const handleDelete = async () => {
     if (!deleteTask) return
     const supabase = createClient()
@@ -111,21 +149,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     setDeleteTask(null)
     router.refresh()
   }
-  const toggleTask = (taskId: string) => {
-    setSelectedTaskIds(prev => { const next = new Set(prev); next.has(taskId) ? next.delete(taskId) : next.add(taskId); return next })
-  }
-  const toggleAllInGroup = (groupTasks: TaskRow[]) => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev)
-      const allSelected = groupTasks.every(t => next.has(t.id))
-      groupTasks.forEach(t => allSelected ? next.delete(t.id) : next.add(t.id))
-      return next
-    })
-  }
 
   const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && t.status !== '完了').length
-  const myTaskCount = currentMemberId ? tasks.filter(t => t.task_assignees?.some(a => a.member_id === currentMemberId)).length : 0
-  const unassignedCount = tasks.filter(t => !t.task_assignees || t.task_assignees.length === 0 || !t.task_assignees.some(a => a.role === 'primary')).length
+  const myTaskCount = currentMemberId ? tasks.filter(t => t.started_by === currentMemberId && t.status !== '完了').length : 0
 
   return (
     <div>
@@ -146,11 +172,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
       {/* KPI */}
       <div className="grid grid-cols-6 gap-3 mb-4">
-        <SummaryCard label="全タスク" value={kpis.total} sub="担当タスク" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="未着手" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '未着手'} onClick={() => { setStatusFilter('未着手'); setOverdueOnly(false) }} />
-        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setOverdueOnly(false) }} />
-        <SummaryCard label="Wチェック待ち" value={kpis.wcheck} sub="確認依頼中" color="#7C3AED" active={statusFilter === 'Wチェック待ち'} onClick={() => { setStatusFilter('Wチェック待ち'); setOverdueOnly(false) }} />
-        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setOverdueOnly(false) }} />
+        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setOverdueOnly(false); setAssigneeFilter('all') }} />
+        <SummaryCard label="着手可能" value={kpis.available} sub="今すぐ着手できる" color="#16A34A" active={assigneeFilter === 'available'} onClick={() => { setAssigneeFilter(v => v === 'available' ? 'all' : 'available'); setStatusFilter('all'); setOverdueOnly(false) }} />
+        <SummaryCard label="未着手" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '未着手'} onClick={() => { setStatusFilter('未着手'); setOverdueOnly(false); setAssigneeFilter('all') }} />
+        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setOverdueOnly(false); setAssigneeFilter('all') }} />
+        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setOverdueOnly(false); setAssigneeFilter('all') }} />
         <SummaryCard label="🚨 急ぎ" value={kpis.urgent} sub="優先対応" color="#DC2626" active={false} onClick={() => {}} />
       </div>
 
@@ -166,11 +192,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
         <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-          👤 自分の担当 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
-        </button>
-        <button onClick={() => setAssigneeFilter(v => v === 'unassigned' ? 'all' : 'unassigned')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'unassigned' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-          📋 未割当 {unassignedCount > 0 && <span className="text-[10px] font-mono opacity-80">{unassignedCount}</span>}
+          👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
         </button>
         <button onClick={() => setOverdueOnly(v => !v)}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${overdueOnly ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -189,66 +211,59 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
       </div>
 
-      {/* Bulk assign bar */}
-      <BulkAssignBar selectedTaskIds={Array.from(selectedTaskIds)} allMembers={allMembers} onDone={() => router.refresh()} onClearSelection={() => setSelectedTaskIds(new Set())} />
-
       {/* Content */}
       {viewMode === 'list' ? (
         <div className="space-y-3">
           {groups.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">該当するタスクがありません</div>
           ) : (
-            groups.map(group => {
-              const allChecked = group.tasks.length > 0 && group.tasks.every(t => selectedTaskIds.has(t.id))
-              return (
-                <div key={group.key} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-                    <input type="checkbox" checked={allChecked} onChange={() => toggleAllInGroup(group.tasks)} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
-                    <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{group.label}</h3>
-                    <span className="text-[10px] font-mono text-gray-400">{group.tasks.length}件</span>
-                  </div>
-                  {/* Table header */}
-                  <div className="grid grid-cols-[32px_minmax(120px,2fr)_minmax(100px,1.5fr)_80px_140px_140px_85px_28px] gap-0 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    <div />
-                    <div>タスク名</div>
-                    <div>案件</div>
-                    <div>ステータス</div>
-                    <div>案件担当者</div>
-                    <div>タスク担当者</div>
-                    <button
-                      onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
-                      className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
-                    >
-                      期限
-                      <span className="text-[9px]">
-                        {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
-                      </span>
-                    </button>
-                    <div />
-                  </div>
-                  <div>
-                    {group.tasks.map(task => (
-                      <TaskTableRow
-                        key={task.id}
-                        task={task}
-                        caseMap={caseMap}
-                        checked={selectedTaskIds.has(task.id)}
-                        onToggle={() => toggleTask(task.id)}
-                        onEdit={() => setEditTask(task)}
-                        onDelete={() => setDeleteTask(task)}
-                        onStatusChange={handleStatusChange}
-                        today={today}
-                      />
-                    ))}
-                  </div>
+            groups.map(group => (
+              <div key={group.key} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                  <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{group.label}</h3>
+                  <span className="text-[10px] font-mono text-gray-400">{group.tasks.length}件</span>
                 </div>
-              )
-            })
+                {/* Table header */}
+                <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_80px_120px_120px_85px_70px] gap-0 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  <div>タスク名</div>
+                  <div>案件</div>
+                  <div>ステータス</div>
+                  <div>案件担当者</div>
+                  <div>着手者</div>
+                  <button
+                    onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
+                    className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    期限
+                    <span className="text-[9px]">
+                      {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
+                    </span>
+                  </button>
+                  <div>アクション</div>
+                </div>
+                <div>
+                  {group.tasks.map(task => (
+                    <TaskTableRow
+                      key={task.id}
+                      task={task}
+                      caseMap={caseMap}
+                      onEdit={() => setEditTask(task)}
+                      onDelete={() => setDeleteTask(task)}
+                      onStatusChange={handleStatusChange}
+                      onStart={() => handleStart(task)}
+                      onComplete={() => handleComplete(task)}
+                      today={today}
+                      allMembers={allMembers}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
           )}
         </div>
       ) : (
-        <TaskKanban tasks={filtered} caseMap={caseMap} onStatusChange={handleStatusChange} onEdit={setEditTask} onDelete={setDeleteTask} today={today} />
+        <TaskKanban tasks={filtered} caseMap={caseMap} allMembers={allMembers} onStatusChange={handleStatusChange} onStart={handleStart} onComplete={handleComplete} onDelete={setDeleteTask} today={today} />
       )}
 
       {editTask && (
@@ -262,23 +277,18 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 }
 
 // ─── Table Row ───
-function TaskTableRow({ task, caseMap, checked, onToggle, onEdit, onDelete, onStatusChange, today }: {
-  task: TaskRow; caseMap: Record<string, CaseInfo>; checked: boolean; onToggle: () => void
-  onEdit: () => void; onDelete: () => void; onStatusChange: (taskId: string, status: string) => void; today: string
+function TaskTableRow({ task, caseMap, onEdit, onDelete, onStatusChange, onStart, onComplete, today, allMembers }: {
+  task: TaskRow; caseMap: Record<string, CaseInfo>
+  onEdit: () => void; onDelete: () => void; onStatusChange: (taskId: string, status: string) => void
+  onStart: () => void; onComplete: () => void; today: string; allMembers: MemberRow[]
 }) {
   const statusDef = TASK_STATUSES.find(s => s.key === task.status)
   const caseInfo = caseMap[task.case_id]
-  const primary = task.task_assignees?.find(a => a.role === 'primary')
-  const subs = task.task_assignees?.filter(a => a.role === 'sub') ?? []
   const isOverdue = task.due_date && task.due_date < today && task.status !== '完了'
+  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
 
   return (
-    <div className={`grid grid-cols-[32px_minmax(120px,2fr)_minmax(100px,1.5fr)_80px_140px_140px_85px_28px] gap-0 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''} ${checked ? 'bg-blue-50/50' : ''}`}>
-      {/* Checkbox */}
-      <div>
-        <input type="checkbox" checked={checked} onChange={onToggle} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-      </div>
-
+    <div className={`grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_80px_120px_120px_85px_70px] gap-0 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`}>
       {/* Task name */}
       <div className="min-w-0 pr-2">
         <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate block ${task.status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
@@ -313,18 +323,22 @@ function TaskTableRow({ task, caseMap, checked, onToggle, onEdit, onDelete, onSt
         )}
       </div>
 
-      {/* Task assignees: 主担当 + 副担当 */}
+      {/* 着手者 */}
       <div className="flex items-center gap-1">
-        {primary?.members ? (
-          <MemberChip name={primary.members.name} color={primary.members.avatar_color} label="主" />
+        {startedMember ? (
+          <MemberChip name={startedMember.name} color={startedMember.avatar_color} label="着手" />
         ) : (
-          <span className="text-[9px] text-amber-500 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-semibold">未割当</span>
+          task.status === '未着手' ? (
+            <button
+              onClick={e => { e.stopPropagation(); onStart() }}
+              className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded hover:bg-green-100 transition-colors"
+            >
+              ▶ 着手する
+            </button>
+          ) : (
+            <span className="text-[9px] text-gray-300">—</span>
+          )
         )}
-        {subs.map(a => a.members && (
-          <span key={a.id} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white border border-white" style={{ backgroundColor: a.members.avatar_color }} title={`副: ${a.members.name}`}>
-            {a.members.name.charAt(0)}
-          </span>
-        ))}
       </div>
 
       {/* Due date */}
@@ -340,6 +354,9 @@ function TaskTableRow({ task, caseMap, checked, onToggle, onEdit, onDelete, onSt
 
       {/* Actions */}
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        {task.status === '対応中' && (
+          <button onClick={onComplete} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-400 hover:bg-green-50 hover:text-green-600 transition" title="完了にする">✅</button>
+        )}
         <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
       </div>
     </div>
@@ -358,9 +375,11 @@ function MemberChip({ name, color, label }: { name: string; color: string; label
 }
 
 // ─── Task Kanban ───
-function TaskKanban({ tasks, caseMap, onStatusChange, onEdit, onDelete, today }: {
-  tasks: TaskRow[]; caseMap: Record<string, CaseInfo>; onStatusChange: (taskId: string, status: string) => void
-  onEdit: (task: TaskRow) => void; onDelete: (task: TaskRow) => void; today: string
+function TaskKanban({ tasks, caseMap, allMembers, onStatusChange, onStart, onComplete, onDelete, today }: {
+  tasks: TaskRow[]; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
+  onStatusChange: (taskId: string, status: string) => void
+  onStart: (task: TaskRow) => void; onComplete: (task: TaskRow) => void
+  onDelete: (task: TaskRow) => void; today: string
 }) {
   return (
     <div className="overflow-x-auto pb-3">
@@ -379,22 +398,34 @@ function TaskKanban({ tasks, caseMap, onStatusChange, onEdit, onDelete, today }:
                   <div className="text-center text-[11px] text-gray-300 py-5 border border-dashed border-gray-200 rounded-lg">なし</div>
                 ) : columnTasks.map(task => {
                   const caseInfo = caseMap[task.case_id]
-                  const primary = task.task_assignees?.find(a => a.role === 'primary')
+                  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
                   const isOverdue = task.due_date && task.due_date < today && task.status !== '完了'
                   return (
-                    <a key={task.id} href={`/tasks/${task.id}`} className={`block bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}>
-                      <div className={`text-xs font-semibold mb-1 leading-tight ${task.status === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</div>
+                    <div key={task.id} className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}>
+                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-blue-600 ${task.status === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
                       {caseInfo && <div className="text-[10px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
                       <div className="flex items-center justify-between">
-                        {primary?.members ? (
-                          <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: primary.members.avatar_color }}>{primary.members.name.charAt(0)}</span>
-                        ) : <span className="text-[9px] text-gray-300">未割当</span>}
+                        {startedMember ? (
+                          <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: startedMember.avatar_color }} title={startedMember.name}>{startedMember.name.charAt(0)}</span>
+                        ) : task.status === '未着手' ? (
+                          <button
+                            onClick={() => onStart(task)}
+                            className="text-[9px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded hover:bg-green-100 transition-colors"
+                          >
+                            ▶ 着手
+                          </button>
+                        ) : (
+                          <span className="text-[9px] text-gray-300">—</span>
+                        )}
                         <div className="flex items-center gap-1">
                           {task.due_date && <span className={`text-[10px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}
-                          <button onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(task) }} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">🗑</button>
+                          {task.status === '対応中' && (
+                            <button onClick={() => onComplete(task)} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:text-green-600 hover:bg-green-50 transition" title="完了">✅</button>
+                          )}
+                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">🗑</button>
                         </div>
                       </div>
-                    </a>
+                    </div>
                   )
                 })}
               </div>

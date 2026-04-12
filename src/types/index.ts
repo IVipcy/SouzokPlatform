@@ -200,6 +200,8 @@ export type TaskRow = {
   due_date: string | null
   procedure_text: string | null
   wcheck_by: string | null
+  started_by: string | null
+  started_at: string | null
   sort_order: number
   ext_data: Record<string, unknown> | null
   issued_date: string | null
@@ -208,6 +210,7 @@ export type TaskRow = {
   created_at: string
   updated_at: string
   task_assignees?: TaskAssigneeRow[]
+  started_by_member?: MemberRow | null
   cases?: CaseRow & { clients?: ClientRow | null }
 }
 
@@ -229,6 +232,20 @@ export type TaskTemplateRow = {
   default_role: string | null
   sort_order: number
   is_active: boolean
+}
+
+// === 案件活動履歴 ===
+export type CaseActivityRow = {
+  id: string
+  case_id: string
+  task_id: string | null
+  member_id: string | null
+  activity_type: 'task_started' | 'task_completed' | 'status_change' | 'note'
+  description: string
+  activity_date: string
+  created_at: string
+  members?: MemberRow
+  tasks?: { id: string; title: string }
 }
 
 // === ドキュメント ===
