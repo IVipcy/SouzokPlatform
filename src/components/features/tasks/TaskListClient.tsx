@@ -75,16 +75,22 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     urgent: tasks.filter(t => t.priority === '急ぎ').length,
   }), [tasks])
 
-  // 🚨 要対応タスク（期限超過 or 急ぎ、完了以外）
+  // 🚨 要対応タスク（期限超過 or 急ぎ、完了以外）— フィルター連動
   const alertTasks = useMemo(() => {
     return tasks.filter(t => {
       const s = normalizeStatus(t.status)
       if (s === '完了') return false
+      // ステータスフィルター連動
+      if (statusFilter !== 'all' && s !== statusFilter) return false
+      // フェーズフィルター連動
+      if (phaseFilter !== 'all' && t.phase !== phaseFilter) return false
+      // 自分が着手中フィルター連動
+      if (assigneeFilter === 'mine' && currentMemberId && t.started_by !== currentMemberId) return false
       const isOverdue = t.due_date && t.due_date < today
       const isUrgent = t.priority === '急ぎ'
       return isOverdue || isUrgent
     })
-  }, [tasks, today])
+  }, [tasks, today, statusFilter, phaseFilter, assigneeFilter, currentMemberId])
 
   const sortTasks = (arr: TaskRow[]) => {
     if (dueDateSort === 'none') return arr
@@ -199,7 +205,34 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <SummaryCard label="🚨 要対応" value={alertTasks.length} sub="期限超過・急ぎ" color="#DC2626" active={false} onClick={() => {}} />
       </div>
 
-      {/* 🚨 要対応セクション（期限超過 or 急ぎ） — 常に表示 */}
+      {/* Filter bar — 要対応セクションの上 */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-semibold text-gray-400">フェーズ:</span>
+          <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
+            className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+            <option value="all">すべて</option>
+            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
+          </select>
+        </div>
+        <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
+        </button>
+        <div className="flex-1" />
+        <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
+          <GroupTab label="ステータス別" active={groupBy === 'status'} onClick={() => setGroupBy('status')} />
+          <GroupTab label="フェーズ別" active={groupBy === 'phase'} onClick={() => setGroupBy('phase')} />
+          <GroupTab label="案件別" active={groupBy === 'case'} onClick={() => setGroupBy('case')} />
+        </div>
+        <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
+        <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
+          <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
+          <button onClick={() => setViewMode('kanban')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="カンバン">⊞</button>
+        </div>
+      </div>
+
+      {/* 🚨 要対応セクション — フィルター連動 */}
       {alertTasks.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl shadow-sm overflow-hidden mb-4">
           <div className="px-4 py-2.5 border-b border-red-200 flex items-center gap-2 bg-red-100/60">
@@ -229,33 +262,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           ))}
         </div>
       )}
-
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] font-semibold text-gray-400">フェーズ:</span>
-          <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
-            className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
-            <option value="all">すべて</option>
-            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
-          </select>
-        </div>
-        <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-          👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
-        </button>
-        <div className="flex-1" />
-        <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
-          <GroupTab label="ステータス別" active={groupBy === 'status'} onClick={() => setGroupBy('status')} />
-          <GroupTab label="フェーズ別" active={groupBy === 'phase'} onClick={() => setGroupBy('phase')} />
-          <GroupTab label="案件別" active={groupBy === 'case'} onClick={() => setGroupBy('case')} />
-        </div>
-        <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
-        <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-          <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
-          <button onClick={() => setViewMode('kanban')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="カンバン">⊞</button>
-        </div>
-      </div>
 
       {/* Content */}
       {viewMode === 'list' ? (
