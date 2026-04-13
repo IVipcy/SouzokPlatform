@@ -74,7 +74,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
         title: t.label,
         phase: t.phase,
         category: t.category,
-        status: '未着手',
+        status: '着手前',
         priority: '通常',
         procedure_text: t.procedure_text,
         sort_order: t.sort_order,

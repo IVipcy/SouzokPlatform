@@ -8,17 +8,28 @@ import EditTaskModal from '@/components/features/tasks/EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel, getPhaseColor } from '@/lib/phases'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow } from '@/types'
 
 type Props = {
   tasks: TaskRow[]
   allMembers: MemberRow[]
+  currentMemberId: string | null
   onBulkGenerate: () => void
   onAddTask: () => void
 }
 
-export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask }: Props) {
+// ステータス正規化
+const normalizeStatus = (status: string) => {
+  if (status === '未着手') return '着手前'
+  if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
+  if (status === 'キャンセル') return '完了'
+  return status
+}
+
+export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
   const router = useRouter()
+  const currentMemberId = useCurrentMember(serverMemberId)
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -39,9 +50,42 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
     })
   }
 
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
+  // ─── ステータス進行 ───
+  const handleAdvance = async (task: TaskRow) => {
+    const current = normalizeStatus(task.status)
+    if (current === '完了') return
+
     const supabase = createClient()
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId)
+    const memberId = currentMemberId
+
+    if (current === '着手前') {
+      const updates: Record<string, unknown> = { status: '対応中' }
+      if (memberId) {
+        updates.started_by = memberId
+        updates.started_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+      if (error) { alert(`エラー: ${error.message}`); return }
+      if (memberId) {
+        await supabase.from('case_activities').insert({
+          case_id: task.case_id, task_id: task.id, member_id: memberId,
+          activity_type: 'task_started',
+          description: `${task.title} に着手`,
+          activity_date: new Date().toISOString().split('T')[0],
+        })
+      }
+    } else {
+      const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+      if (error) { alert(`エラー: ${error.message}`); return }
+      if (memberId) {
+        await supabase.from('case_activities').insert({
+          case_id: task.case_id, task_id: task.id, member_id: memberId,
+          activity_type: 'task_completed',
+          description: `${task.title} を完了`,
+          activity_date: new Date().toISOString().split('T')[0],
+        })
+      }
+    }
     router.refresh()
   }
 
@@ -57,7 +101,9 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
 
   // 進捗率
   const totalTasks = tasks.length
-  const completedTasks = tasks.filter(t => t.status === '完了').length
+  const completedTasks = tasks.filter(t => normalizeStatus(t.status) === '完了').length
+  const doingTasks = tasks.filter(t => normalizeStatus(t.status) === '対応中').length
+  const todoTasks = tasks.filter(t => normalizeStatus(t.status) === '着手前').length
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
@@ -89,8 +135,8 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
             />
           </div>
           <div className="flex gap-4 mt-2 text-[10px] text-gray-500">
-            <span>未着手: {tasks.filter(t => t.status === '未着手').length}</span>
-            <span>対応中: {tasks.filter(t => t.status === '対応中').length}</span>
+            <span>着手前: {todoTasks}</span>
+            <span>対応中: {doingTasks}</span>
             <span>完了: {completedTasks}</span>
           </div>
         </div>
@@ -106,7 +152,7 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
       ) : (
         <div className="space-y-3">
           {tasksByPhase.map(group => {
-            const completed = group.tasks.filter(t => t.status === '完了').length
+            const completed = group.tasks.filter(t => normalizeStatus(t.status) === '完了').length
             const isCollapsed = collapsedPhases.has(group.phase)
 
             return (
@@ -129,7 +175,7 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
                         allMembers={allMembers}
                         onEdit={() => setEditTask(task)}
                         onDelete={() => setDeleteTask(task)}
-                        onStatusChange={handleStatusChange}
+                        onAdvance={() => handleAdvance(task)}
                       />
                     ))}
                   </div>
@@ -162,31 +208,45 @@ export default function TasksTab({ tasks, allMembers, onBulkGenerate, onAddTask 
   )
 }
 
-function TaskItem({ task, allMembers, onEdit, onDelete, onStatusChange }: {
+function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
   task: TaskRow
   allMembers: MemberRow[]
   onEdit: () => void
   onDelete: () => void
-  onStatusChange: (taskId: string, status: string) => void
+  onAdvance: () => void
 }) {
-  const statusDef = TASK_STATUSES.find(s => s.key === task.status)
+  const current = normalizeStatus(task.status)
+  const statusDef = TASK_STATUSES.find(s => s.key === current)
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0 group`}>
-      <select
-        value={task.status}
-        onChange={(e) => onStatusChange(task.id, e.target.value)}
-        className="w-4 h-4 rounded flex-shrink-0 appearance-none cursor-pointer border-none outline-none p-0"
-        style={{ backgroundColor: statusDef?.color ?? '#6B7280', color: 'transparent', WebkitAppearance: 'none' }}
-        title={`ステータス: ${task.status}`}
-      >
-        {TASK_STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
-      </select>
+    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0 group">
+      {/* 進行ボタン */}
+      <div className="flex-shrink-0">
+        {current === '着手前' && (
+          <button onClick={onAdvance}
+            className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 transition-colors flex items-center justify-center"
+            title="着手する">
+            <span className="text-[8px] text-gray-400 group-hover:text-green-600">▶</span>
+          </button>
+        )}
+        {current === '対応中' && (
+          <button onClick={onAdvance}
+            className="w-6 h-6 rounded-full border-2 border-blue-400 bg-blue-50 hover:border-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center"
+            title="完了にする">
+            <span className="text-[10px] text-blue-500">✓</span>
+          </button>
+        )}
+        {current === '完了' && (
+          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+            <span className="text-[10px] text-white font-bold">✓</span>
+          </div>
+        )}
+      </div>
 
       <a
         href={`/tasks/${task.id}`}
-        className={`flex-1 text-sm font-medium cursor-pointer hover:text-blue-600 ${task.status === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+        className={`flex-1 text-sm font-medium cursor-pointer hover:text-blue-600 ${current === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}
       >
         {task.title}
       </a>

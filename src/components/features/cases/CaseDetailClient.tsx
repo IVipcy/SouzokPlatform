@@ -62,7 +62,7 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
         <BasicInfoTab caseData={caseData} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} />
       )}
       {activeTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
       )}
       {activeTab === 'deceased' && (
         <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={handleSaved} />

@@ -217,16 +217,12 @@ export const TASK_CATEGORIES = [
   '税理士連携', '経理', '精算',
 ]
 
-/** タスクステータス（v1.2 項目#4 — 7値に拡張） */
+/** タスクステータス（3段階シンプル版） */
 export const TASK_STATUSES_V12 = [
-  { key: '未着手', color: '#6B7280' },
+  { key: '着手前', color: '#6B7280' },
   { key: '対応中', color: '#2563EB' },
-  { key: 'Wチェック待ち', color: '#7C3AED' },
-  { key: '差戻し', color: '#DC2626' },
   { key: '完了', color: '#059669' },
-  { key: '保留', color: '#D97706' },
-  { key: 'キャンセル', color: '#9CA3AF' },
 ]
 
-/** ステータスフロー表示用（メインの4ステップ） */
-export const STATUS_FLOW_STEPS = ['未着手', '対応中', 'Wチェック待ち', '完了']
+/** ステータスフロー表示用（3ステップ） */
+export const STATUS_FLOW_STEPS = ['着手前', '対応中', '完了']

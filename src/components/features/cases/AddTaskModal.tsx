@@ -47,7 +47,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
         title: form.title.trim(),
         phase: form.phase,
         category: '',
-        status: '未着手',
+        status: '着手前',
         priority: form.priority,
         due_date: form.dueDate || null,
         sort_order: 99,

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
-import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/constants'
+import { TASK_PRIORITIES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -21,7 +21,6 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
   const router = useRouter()
   const [form, setForm] = useState({
     title: '',
-    status: '未着手' as string,
     phase: 'phase1' as string,
     priority: '通常' as string,
     dueDate: '',
@@ -36,7 +35,6 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
     if (isOpen && task) {
       setForm({
         title: task.title,
-        status: task.status,
         phase: task.phase,
         priority: task.priority === '外出タスク' ? '通常' : task.priority,
         dueDate: task.due_date ?? '',
@@ -61,7 +59,6 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
       .from('tasks')
       .update({
         title: form.title.trim(),
-        status: form.status,
         phase: form.phase,
         priority: form.priority,
         due_date: form.dueDate || null,
@@ -133,30 +130,21 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {/* Status */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">ステータス</label>
-            <select
-              value={form.status}
-              onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            >
-              {TASK_STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
-            </select>
-          </div>
+        {/* Phase */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 mb-1">フェーズ</label>
+          <select
+            value={form.phase}
+            onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          >
+            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
+          </select>
+        </div>
 
-          {/* Phase */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">フェーズ</label>
-            <select
-              value={form.phase}
-              onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            >
-              {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
-            </select>
-          </div>
+        {/* ステータスはボタンで進行するため編集不可 */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <span className="text-[11px] text-gray-500">💡 ステータスはタスク一覧・詳細画面のボタンで進行します（着手前 → 対応中 → 完了）</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

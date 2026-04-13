@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -27,24 +27,22 @@ const PRIORITIES = [
   { key: '急ぎ', label: '🚨 急ぎ' },
 ]
 
+// ステータス正規化: 旧ステータスを新3段階に変換
+const normalizeStatus = (status: string) => {
+  if (status === '未着手') return '着手前'
+  if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
+  if (status === 'キャンセル') return '完了'
+  return status
+}
+
 export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
   const clientData = caseData?.clients
 
-  // ─── ステータスドロップダウン ───
-  const [statusOpen, setStatusOpen] = useState(false)
-  const statusRef = useRef<HTMLDivElement>(null)
-  const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === task.status)
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false)
-    }
-    if (statusOpen) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [statusOpen])
+  const currentStatus = normalizeStatus(task.status)
+  const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
 
   // ─── 保存ヘルパー ───
   const saveField = async (field: string, value: unknown) => {
@@ -53,58 +51,40 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
     router.refresh()
   }
 
-  const handleStatusChange = async (newStatus: string) => {
-    setStatusOpen(false)
-    if (newStatus === task.status) return
+  // ─── ステータス進行 ───
+  const handleAdvance = async () => {
     const supabase = createClient()
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id)
-    // 活動履歴
-    if (currentMemberId) {
-      await supabase.from('case_activities').insert({
-        case_id: task.case_id,
-        task_id: task.id,
-        member_id: currentMemberId,
-        activity_type: 'status_change',
-        description: `${task.title} を「${newStatus}」に変更`,
-        activity_date: new Date().toISOString().split('T')[0],
-      })
-    }
-    router.refresh()
-  }
+    const memberId = currentMemberId
 
-  // ─── 着手する ───
-  const handleStart = async () => {
-    if (!currentMemberId) return
-    const supabase = createClient()
-    await supabase.from('tasks').update({
-      status: '対応中',
-      started_by: currentMemberId,
-      started_at: new Date().toISOString(),
-    }).eq('id', task.id)
-    await supabase.from('case_activities').insert({
-      case_id: task.case_id,
-      task_id: task.id,
-      member_id: currentMemberId,
-      activity_type: 'task_started',
-      description: `${task.title} に着手`,
-      activity_date: new Date().toISOString().split('T')[0],
-    })
-    router.refresh()
-  }
-
-  // ─── 完了にする ───
-  const handleComplete = async () => {
-    const supabase = createClient()
-    await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
-    if (currentMemberId) {
-      await supabase.from('case_activities').insert({
-        case_id: task.case_id,
-        task_id: task.id,
-        member_id: currentMemberId,
-        activity_type: 'task_completed',
-        description: `${task.title} を完了`,
-        activity_date: new Date().toISOString().split('T')[0],
-      })
+    if (currentStatus === '着手前') {
+      // 着手前 → 対応中
+      const updates: Record<string, unknown> = { status: '対応中' }
+      if (memberId) {
+        updates.started_by = memberId
+        updates.started_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+      if (error) { alert(`エラー: ${error.message}`); return }
+      if (memberId) {
+        await supabase.from('case_activities').insert({
+          case_id: task.case_id, task_id: task.id, member_id: memberId,
+          activity_type: 'task_started',
+          description: `${task.title} に着手`,
+          activity_date: new Date().toISOString().split('T')[0],
+        })
+      }
+    } else if (currentStatus === '対応中') {
+      // 対応中 → 完了
+      const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+      if (error) { alert(`エラー: ${error.message}`); return }
+      if (memberId) {
+        await supabase.from('case_activities').insert({
+          case_id: task.case_id, task_id: task.id, member_id: memberId,
+          activity_type: 'task_completed',
+          description: `${task.title} を完了`,
+          activity_date: new Date().toISOString().split('T')[0],
+        })
+      }
     }
     router.refresh()
   }
@@ -113,7 +93,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
 
   // ─── ステータスフロー ───
-  const currentFlowIdx = STATUS_FLOW_STEPS.indexOf(task.status)
+  const currentFlowIdx = STATUS_FLOW_STEPS.indexOf(currentStatus)
 
   return (
     <div>
@@ -169,58 +149,43 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               )}
             </div>
 
-            {/* ステータス + 優先度 + 着手ボタン */}
+            {/* ステータス表示 + 進行ボタン + 優先度 */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
-              {/* 着手/完了ボタン */}
-              {task.status === '未着手' && !task.started_by && (
+              {/* 進行ボタン */}
+              {currentStatus === '着手前' && (
                 <button
-                  onClick={handleStart}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
+                  onClick={handleAdvance}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
                 >
                   ▶ 着手する
                 </button>
               )}
-              {task.status === '対応中' && (
+              {currentStatus === '対応中' && (
                 <button
-                  onClick={handleComplete}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  onClick={handleAdvance}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
                 >
                   ✅ 完了にする
                 </button>
               )}
+              {currentStatus === '完了' && (
+                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold text-green-700 bg-green-50 border border-green-200">
+                  ✅ 完了
+                </span>
+              )}
 
-              <div className="relative" ref={statusRef}>
-                <button
-                  onClick={() => setStatusOpen(!statusOpen)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors"
-                  style={{
-                    color: currentStatusDef?.color,
-                    borderColor: `${currentStatusDef?.color}40`,
-                    backgroundColor: `${currentStatusDef?.color}10`,
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentStatusDef?.color }} />
-                  {task.status}
-                  <span className="text-[10px] opacity-70">▾</span>
-                </button>
-
-                {statusOpen && (
-                  <div className="absolute top-full right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] z-50 overflow-hidden">
-                    {TASK_STATUSES_V12.map(s => (
-                      <button
-                        key={s.key}
-                        onClick={() => handleStatusChange(s.key)}
-                        className={`w-full px-3.5 py-2 text-xs font-medium flex items-center gap-2 hover:bg-gray-50 transition-colors ${
-                          s.key === task.status ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
-                        }`}
-                      >
-                        <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                        {s.key}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* 現在ステータス */}
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
+                style={{
+                  color: currentStatusDef?.color,
+                  borderColor: `${currentStatusDef?.color}40`,
+                  backgroundColor: `${currentStatusDef?.color}10`,
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentStatusDef?.color }} />
+                {currentStatus}
+              </span>
 
               <Badge
                 label={task.priority === '急ぎ' ? '🚨 急ぎ' : '通常'}
@@ -231,12 +196,12 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
           </div>
         </div>
 
-        {/* ステータスフロー */}
+        {/* ステータスフロー（3段階） */}
         <div className="px-5 pb-4">
           <div className="flex items-start">
             {STATUS_FLOW_STEPS.map((step, i) => {
               const isPassed = currentFlowIdx >= 0 && i < currentFlowIdx
-              const isActive = step === task.status
+              const isActive = step === currentStatus
               const isLast = i === STATUS_FLOW_STEPS.length - 1
               const def = TASK_STATUSES_V12.find(s => s.key === step)
               return (
@@ -244,17 +209,17 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                   <div
                     className={`rounded-full relative z-10 transition-all ${isActive ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : 'w-2.5 h-2.5'}`}
                     style={{
-                      backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#2563EB' : '#CBD5E1',
-                      opacity: isPassed && !isActive ? 0.4 : 1,
+                      backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#059669' : '#CBD5E1',
+                      opacity: isPassed && !isActive ? 0.6 : 1,
                     }}
                   />
-                  <span className={`text-[10px] whitespace-nowrap text-center ${isActive ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] whitespace-nowrap text-center ${isActive ? 'text-blue-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
                     {step}
                   </span>
                   {!isLast && (
                     <div
                       className="absolute top-[5px] left-[50%] right-[-50%] h-px z-0"
-                      style={{ backgroundColor: isPassed ? '#2563EB' : '#CBD5E1', opacity: isPassed ? 0.35 : 1 }}
+                      style={{ backgroundColor: isPassed ? '#059669' : '#CBD5E1', opacity: isPassed ? 0.5 : 1 }}
                     />
                   )}
                 </div>
@@ -275,12 +240,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               <InlineEdit label="タスク件名" value={task.title} onSave={v => saveField('title', v)} required />
               <Field label="起票日" value={task.issued_date ?? task.created_at?.slice(0, 10)} mono />
               <InlineDate label="期限" value={task.due_date} onSave={v => saveField('due_date', v)} />
-              <InlineSelect
-                label="ステータス"
-                value={task.status}
-                options={TASK_STATUSES_V12.map(s => s.key)}
-                onSave={v => saveField('status', v)}
-              />
+              <Field label="ステータス" value={currentStatus} mono />
               <InlineSelect
                 label="優先度"
                 value={task.priority}
@@ -312,9 +272,9 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               ) : (
                 <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                   <span className="text-sm text-gray-500">まだ誰も着手していません</span>
-                  {task.status === '未着手' && (
+                  {currentStatus === '着手前' && (
                     <button
-                      onClick={handleStart}
+                      onClick={handleAdvance}
                       className="ml-auto text-xs font-bold text-green-700 bg-green-100 hover:bg-green-200 border border-green-300 px-3 py-1 rounded-lg transition-colors"
                     >
                       ▶ 着手する

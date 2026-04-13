@@ -20,12 +20,10 @@ export const CASE_STATUSES = [
   { key: '失注', color: '#DC2626' },
 ] as const
 
-// === タスクステータス ===
+// === タスクステータス（3段階のみ） ===
 export const TASK_STATUSES = [
-  { key: '未着手', color: '#6B7280' },
+  { key: '着手前', color: '#6B7280' },
   { key: '対応中', color: '#2563EB' },
-  { key: 'Wチェック待ち', color: '#7C3AED' },
-  { key: '差戻し', color: '#DC2626' },
   { key: '完了', color: '#059669' },
 ] as const
 
