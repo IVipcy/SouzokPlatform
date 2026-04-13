@@ -3,11 +3,14 @@
 import Link from 'next/link'
 import { QIRow } from '@/components/ui/InlineFields'
 import { getPhaseLabel } from '@/lib/phases'
-import type { TaskRow, DocumentRow } from '@/types'
+import { evaluateCondition } from '@/lib/taskDependencyUtils'
+import type { TaskRow, DocumentRow, TaskDependencyRow } from '@/types'
 
 type Props = {
   task: TaskRow
   documents: DocumentRow[]
+  dependencies?: TaskDependencyRow[]
+  onEditDeps?: () => void
 }
 
 const DOC_STATUS_COLORS: Record<string, string> = {
@@ -18,17 +21,26 @@ const DOC_STATUS_COLORS: Record<string, string> = {
   '下書き': '#6B7280',
 }
 
-export default function TaskDetailSidebar({ task, documents }: Props) {
+const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
+  '着手前': { bg: 'bg-gray-100', text: 'text-gray-600' },
+  '対応中': { bg: 'bg-blue-50', text: 'text-blue-700' },
+  '完了': { bg: 'bg-green-50', text: 'text-green-700' },
+}
+
+export default function TaskDetailSidebar({ task, documents, dependencies = [], onEditDeps }: Props) {
   const caseData = task.cases
-  const clientData = caseData?.clients
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
+
+  // 次のタスク（このタスクが前提のもの）
+  const nextTaskDeps = dependencies.filter(d => d.from_task_id === task.id && d.to_task)
+  // 前提条件（このタスクの前提）
+  const prereqDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
 
   // タイムラインイベント構築
   const timelineEvents: { date: string; label: string; color: string }[] = []
   if (task.created_at) {
     timelineEvents.push({ date: task.created_at.slice(0, 10), label: 'タスク起票', color: '#2563EB' })
   }
-  // ext_dataから日付フィールドを抽出
   const dateFields: { key: string; label: string; color: string }[] = [
     { key: 'reqDate', label: '書類請求', color: '#7C3AED' },
     { key: 'sendDate', label: '郵送発送', color: '#EA580C' },
@@ -91,14 +103,14 @@ export default function TaskDetailSidebar({ task, documents }: Props) {
             href={`/cases/${caseData.id}`}
             className="mt-3 block text-center text-[11px] font-semibold bg-white/20 hover:bg-white/30 rounded-lg py-1.5 transition-colors"
           >
-            📋 案件詳細を開く →
+            案件詳細を開く
           </Link>
         </div>
       )}
 
       {/* クイック情報 */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-        <h4 className="text-[11px] font-semibold text-gray-500 mb-1">⚡ クイック情報</h4>
+        <h4 className="text-[11px] font-semibold text-gray-500 mb-1">クイック情報</h4>
         <QIRow label="フェーズ">
           <span className="text-xs font-semibold text-gray-700">{getPhaseLabel(task.phase)}</span>
         </QIRow>
@@ -119,18 +131,112 @@ export default function TaskDetailSidebar({ task, documents }: Props) {
         </QIRow>
       </div>
 
+      {/* 次のタスク */}
+      {nextTaskDeps.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">
+            次のタスク <span className="text-gray-400">({nextTaskDeps.length})</span>
+          </h4>
+          <div className="space-y-2.5">
+            {nextTaskDeps.map(dep => {
+              const toTask = dep.to_task!
+              const isMet = evaluateCondition(task, dep)
+              const statusStyle = STATUS_BADGE[toTask.status] ?? STATUS_BADGE['着手前']
+              return (
+                <div key={dep.id} className="group">
+                  <div className="flex items-start gap-2">
+                    <span className={`mt-0.5 flex-shrink-0 text-sm ${isMet ? 'text-green-500' : 'text-gray-300'}`}>
+                      {isMet ? '\u2705' : '\u2B1C'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/tasks/${toTask.id}`}
+                        className="text-xs font-semibold text-gray-800 hover:text-blue-600 transition-colors block truncate"
+                      >
+                        {toTask.title}
+                      </Link>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-gray-400">
+                          条件: {dep.label ?? (dep.condition_type === 'task_completed' ? 'このタスク完了' : 'チェックポイント達成')}
+                        </span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}>
+                          {toTask.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 前提条件 */}
+      {prereqDeps.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">
+            前提条件 <span className="text-gray-400">({prereqDeps.length})</span>
+          </h4>
+          {(() => {
+            const allMet = prereqDeps.every(dep => evaluateCondition(dep.from_task!, dep))
+            return (
+              <div className={`text-[10px] font-medium px-2 py-1 rounded-md mb-2 ${
+                allMet ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+              }`}>
+                {allMet ? '全ての前提条件をクリア - 着手可能です' : '未クリアの前提条件があります'}
+              </div>
+            )
+          })()}
+          <div className="space-y-2.5">
+            {prereqDeps.map(dep => {
+              const fromTask = dep.from_task!
+              const isMet = evaluateCondition(fromTask, dep)
+              return (
+                <div key={dep.id}>
+                  <div className="flex items-start gap-2">
+                    <span className={`mt-0.5 flex-shrink-0 text-sm ${isMet ? 'text-green-500' : 'text-gray-300'}`}>
+                      {isMet ? '\u2705' : '\u2B1C'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/tasks/${fromTask.id}`}
+                        className="text-xs font-semibold text-gray-800 hover:text-blue-600 transition-colors block truncate"
+                      >
+                        {fromTask.title}
+                      </Link>
+                      <span className="text-[10px] text-gray-400">
+                        条件: {dep.label ?? (dep.condition_type === 'task_completed' ? 'タスク完了' : 'チェックポイント達成')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 依存関係の編集ボタン */}
+      {onEditDeps && (
+        <button
+          onClick={onEditDeps}
+          className="w-full text-xs font-medium text-gray-500 hover:text-blue-600 border border-dashed border-gray-200 hover:border-blue-300 rounded-xl py-2 transition-colors"
+        >
+          + 依存関係を編集
+        </button>
+      )}
+
       {/* タイムライン */}
       {timelineEvents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">🕐 タイムライン</h4>
+          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">タイムライン</h4>
           <div className="relative">
             {timelineEvents.map((ev, i) => (
               <div key={i} className="flex gap-3 mb-3 last:mb-0 relative">
-                {/* 縦線 */}
                 {i < timelineEvents.length - 1 && (
                   <div className="absolute left-[5px] top-[14px] bottom-[-8px] w-px bg-gray-200" />
                 )}
-                {/* ドット */}
                 <div
                   className="w-[11px] h-[11px] rounded-full flex-shrink-0 mt-0.5 relative z-10 border-2 border-white"
                   style={{ backgroundColor: ev.color }}
@@ -148,7 +254,7 @@ export default function TaskDetailSidebar({ task, documents }: Props) {
       {/* 関連ドキュメント */}
       {documents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">📁 関連ドキュメント <span className="text-gray-400">({documents.length}件)</span></h4>
+          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">関連ドキュメント <span className="text-gray-400">({documents.length}件)</span></h4>
           <div className="space-y-2">
             {documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-xs">
@@ -172,7 +278,7 @@ export default function TaskDetailSidebar({ task, documents }: Props) {
                 href={`/cases/${caseData.id}?tab=documents`}
                 className="flex-1 text-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg py-1.5 transition-colors"
               >
-                📋 案件書類
+                案件書類
               </Link>
             </div>
           )}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import { TEMPLATE_FLOW_RULES } from '@/lib/taskFlowRules'
 import type { TaskRow, TaskTemplateRow } from '@/types'
 
 type Props = {
@@ -83,13 +84,51 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
     const supabase = createClient()
     const { error: dbError } = await supabase.from('tasks').insert(tasksToInsert)
 
-    setSaving(false)
-
     if (dbError) {
+      setSaving(false)
       setError(`生成に失敗しました: ${dbError.message}`)
       return
     }
 
+    // 依存関係を自動生成
+    try {
+      // この案件の全タスク（既存+新規）を取得して template_key → task_id マップを作成
+      const { data: allTasks } = await supabase
+        .from('tasks')
+        .select('id, template_key')
+        .eq('case_id', caseId)
+        .not('template_key', 'is', null)
+
+      if (allTasks && allTasks.length > 0) {
+        const keyToId = new Map<string, string>()
+        allTasks.forEach(t => {
+          if (t.template_key) keyToId.set(t.template_key, t.id)
+        })
+
+        const depsToInsert = TEMPLATE_FLOW_RULES
+          .filter(rule => keyToId.has(rule.from) && keyToId.has(rule.to))
+          .map(rule => ({
+            case_id: caseId,
+            from_task_id: keyToId.get(rule.from)!,
+            to_task_id: keyToId.get(rule.to)!,
+            condition_type: rule.condition.type,
+            checkpoint_field: rule.condition.checkpointField ?? null,
+            label: rule.condition.label,
+          }))
+
+        if (depsToInsert.length > 0) {
+          await supabase.from('task_dependencies').upsert(depsToInsert, {
+            onConflict: 'from_task_id,to_task_id,condition_type',
+            ignoreDuplicates: true,
+          })
+        }
+      }
+    } catch {
+      // 依存関係生成の失敗はタスク生成自体には影響させない
+      console.warn('依存関係の自動生成でエラーが発生しました')
+    }
+
+    setSaving(false)
     setSelected(new Set())
     onSaved()
     onClose()
@@ -110,14 +149,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
           >
-            キャン��ル
+            キャンセル
           </button>
           <button
             onClick={handleGenerate}
             disabled={saving || selected.size === 0}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? '生成中...' : `${selected.size} 件生���`}
+            {saving ? '生成中...' : `${selected.size} 件生成`}
           </button>
         </>
       }

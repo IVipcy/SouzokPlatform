@@ -11,8 +11,9 @@ import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS, TASK_CATEGORIES } from '@/lib/taskSectionDefs'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
+import TaskDependencyEditor from './TaskDependencyEditor'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow } from '@/types'
+import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
 
 type Props = {
   task: TaskRow
@@ -20,6 +21,8 @@ type Props = {
   documents: DocumentRow[]
   activities: CaseActivityRow[]
   currentMemberId: string | null
+  dependencies?: TaskDependencyRow[]
+  caseTasks?: TaskRow[]
 }
 
 const DB_PHASES = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
@@ -36,7 +39,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId: serverMemberId }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [] }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
@@ -51,6 +54,9 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
     await supabase.from('tasks').update({ [field]: value ?? null }).eq('id', task.id)
     router.refresh()
   }
+
+  // ─── 依存関係エディタ ───
+  const [showDepEditor, setShowDepEditor] = useState(false)
 
   // ─── ステータス進行 ───
   const [advancing, setAdvancing] = useState(false)
@@ -369,9 +375,24 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
 
         {/* 右カラム */}
         <div className="w-[320px] flex-shrink-0">
-          <TaskDetailSidebar task={task} documents={documents} />
+          <TaskDetailSidebar
+            task={task}
+            documents={documents}
+            dependencies={dependencies}
+            onEditDeps={() => setShowDepEditor(true)}
+          />
         </div>
       </div>
+
+      {/* 依存関係エディタ */}
+      <TaskDependencyEditor
+        isOpen={showDepEditor}
+        onClose={() => setShowDepEditor(false)}
+        task={task}
+        caseTasks={caseTasks}
+        dependencies={dependencies}
+        onSaved={() => { setShowDepEditor(false); router.refresh() }}
+      />
     </div>
   )
 }

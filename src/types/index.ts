@@ -234,6 +234,22 @@ export type TaskTemplateRow = {
   is_active: boolean
 }
 
+// === タスク依存関係 ===
+export type TaskDependencyConditionType = 'task_completed' | 'checkpoint'
+
+export type TaskDependencyRow = {
+  id: string
+  case_id: string
+  from_task_id: string
+  to_task_id: string
+  condition_type: TaskDependencyConditionType
+  checkpoint_field: string | null
+  label: string | null
+  created_at: string
+  from_task?: TaskRow
+  to_task?: TaskRow
+}
+
 // === 案件活動履歴 ===
 export type CaseActivityRow = {
   id: string
