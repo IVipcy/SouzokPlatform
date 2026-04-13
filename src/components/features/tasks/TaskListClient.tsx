@@ -32,7 +32,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const currentMemberId = useCurrentMember(serverMemberId)
   const [statusFilter, setStatusFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
-  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'available' | 'mine'>('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>('all')
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'status' | 'phase' | 'case'>('status')
@@ -55,9 +55,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     let result = tasks
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (phaseFilter !== 'all') result = result.filter(t => t.phase === phaseFilter)
-    if (assigneeFilter === 'available') {
-      result = result.filter(t => normalizeStatus(t.status) === '着手前' && !t.started_by)
-    }
     if (assigneeFilter === 'mine' && currentMemberId) {
       result = result.filter(t => t.started_by === currentMemberId)
     }
@@ -80,7 +77,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     doing: tasks.filter(t => normalizeStatus(t.status) === '対応中').length,
     done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
     urgent: tasks.filter(t => t.priority === '急ぎ').length,
-    available: tasks.filter(t => normalizeStatus(t.status) === '着手前' && !t.started_by).length,
   }), [tasks])
 
   const sortTasks = (arr: TaskRow[]) => {
@@ -189,9 +185,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-6 gap-3 mb-4">
+      <div className="grid grid-cols-5 gap-3 mb-4">
         <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="着手可能" value={kpis.available} sub="今すぐ着手できる" color="#16A34A" active={assigneeFilter === 'available'} onClick={() => { setAssigneeFilter(v => v === 'available' ? 'all' : 'available'); setStatusFilter('all'); setOverdueOnly(false) }} />
         <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setOverdueOnly(false); setAssigneeFilter('all') }} />
         <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setOverdueOnly(false); setAssigneeFilter('all') }} />
         <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setOverdueOnly(false); setAssigneeFilter('all') }} />
