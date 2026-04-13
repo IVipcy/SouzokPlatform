@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
@@ -52,42 +53,53 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
   }
 
   // ─── ステータス進行 ───
-  const handleAdvance = async () => {
-    const supabase = createClient()
-    const memberId = currentMemberId
+  const [advancing, setAdvancing] = useState(false)
 
-    if (currentStatus === '着手前') {
-      // 着手前 → 対応中
-      const updates: Record<string, unknown> = { status: '対応中' }
-      if (memberId) {
-        updates.started_by = memberId
-        updates.started_at = new Date().toISOString()
+  const handleAdvance = useCallback(async () => {
+    if (advancing) return
+    setAdvancing(true)
+
+    try {
+      const supabase = createClient()
+      const memberId = currentMemberId
+
+      if (currentStatus === '着手前') {
+        const updates: Record<string, unknown> = { status: '対応中' }
+        if (memberId) {
+          updates.started_by = memberId
+          updates.started_at = new Date().toISOString()
+        }
+        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_started',
+            description: `${task.title} に着手`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」に着手しました`)
+      } else if (currentStatus === '対応中') {
+        const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_completed',
+            description: `${task.title} を完了`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」を完了しました`)
       }
-      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_started',
-          description: `${task.title} に着手`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
-    } else if (currentStatus === '対応中') {
-      // 対応中 → 完了
-      const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_completed',
-          description: `${task.title} を完了`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
+      router.refresh()
+    } catch {
+      showToast('通信エラーが発生しました', 'error')
+    } finally {
+      setAdvancing(false)
     }
-    router.refresh()
-  }
+  }, [advancing, currentMemberId, currentStatus, task, router])
 
   // ─── 着手者情報 ───
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
@@ -155,17 +167,23 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               {currentStatus === '着手前' && (
                 <button
                   onClick={handleAdvance}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
+                  disabled={advancing}
+                  className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                    ${advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
                 >
-                  ▶ 着手する
+                  {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '▶'}
+                  {advancing ? '処理中...' : '着手する'}
                 </button>
               )}
               {currentStatus === '対応中' && (
                 <button
                   onClick={handleAdvance}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  disabled={advancing}
+                  className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                    ${advancing ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}
                 >
-                  ✅ 完了にする
+                  {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
+                  {advancing ? '処理中...' : '完了にする'}
                 </button>
               )}
               {currentStatus === '完了' && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
 
 type Props = {
@@ -51,43 +52,54 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
   }
 
   // ─── ステータス進行 ───
-  const handleAdvance = async (task: TaskRow) => {
+  const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
+
+  const handleAdvance = useCallback(async (task: TaskRow) => {
     const current = normalizeStatus(task.status)
-    if (current === '完了') return
+    if (current === '完了' || loadingTaskId) return
 
-    const supabase = createClient()
-    const memberId = currentMemberId
+    setLoadingTaskId(task.id)
+    try {
+      const supabase = createClient()
+      const memberId = currentMemberId
 
-    if (current === '着手前') {
-      const updates: Record<string, unknown> = { status: '対応中' }
-      if (memberId) {
-        updates.started_by = memberId
-        updates.started_at = new Date().toISOString()
+      if (current === '着手前') {
+        const updates: Record<string, unknown> = { status: '対応中' }
+        if (memberId) {
+          updates.started_by = memberId
+          updates.started_at = new Date().toISOString()
+        }
+        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_started',
+            description: `${task.title} に着手`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」に着手しました`)
+      } else {
+        const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_completed',
+            description: `${task.title} を完了`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」を完了しました`)
       }
-      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_started',
-          description: `${task.title} に着手`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
-    } else {
-      const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_completed',
-          description: `${task.title} を完了`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
+      router.refresh()
+    } catch {
+      showToast('通信エラーが発生しました', 'error')
+    } finally {
+      setLoadingTaskId(null)
     }
-    router.refresh()
-  }
+  }, [currentMemberId, loadingTaskId, router])
 
   const handleDelete = async () => {
     if (!deleteTask) return

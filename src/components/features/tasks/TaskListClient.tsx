@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string }
@@ -107,45 +108,56 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   }, [filtered, groupBy, caseMap, dueDateSort])
 
   // ─── ステータス進行ボタン ───
-  const handleAdvance = async (task: TaskRow) => {
+  const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
+
+  const handleAdvance = useCallback(async (task: TaskRow) => {
     const current = normalizeStatus(task.status)
-    if (current === '完了') return // 既に完了
+    if (current === '完了') return
+    if (loadingTaskId) return // 連打防止
 
-    const supabase = createClient()
-    const memberId = currentMemberId
+    setLoadingTaskId(task.id)
 
-    if (current === '着手前') {
-      // 着手前 → 対応中
-      const updates: Record<string, unknown> = { status: '対応中' }
-      if (memberId) {
-        updates.started_by = memberId
-        updates.started_at = new Date().toISOString()
+    try {
+      const supabase = createClient()
+      const memberId = currentMemberId
+
+      if (current === '着手前') {
+        const updates: Record<string, unknown> = { status: '対応中' }
+        if (memberId) {
+          updates.started_by = memberId
+          updates.started_at = new Date().toISOString()
+        }
+        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_started',
+            description: `${task.title} に着手`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」に着手しました`)
+      } else {
+        const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'task_completed',
+            description: `${task.title} を完了`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」を完了しました`)
       }
-      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_started',
-          description: `${task.title} に着手`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
-    } else {
-      // 対応中 → 完了
-      const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
-      if (error) { alert(`エラー: ${error.message}`); return }
-      if (memberId) {
-        await supabase.from('case_activities').insert({
-          case_id: task.case_id, task_id: task.id, member_id: memberId,
-          activity_type: 'task_completed',
-          description: `${task.title} を完了`,
-          activity_date: new Date().toISOString().split('T')[0],
-        })
-      }
+      router.refresh()
+    } catch {
+      showToast('通信エラーが発生しました', 'error')
+    } finally {
+      setLoadingTaskId(null)
     }
-    router.refresh()
-  }
+  }, [currentMemberId, loadingTaskId, router])
 
   const handleDelete = async () => {
     if (!deleteTask) return
@@ -257,6 +269,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                       onEdit={() => setEditTask(task)}
                       onDelete={() => setDeleteTask(task)}
                       onAdvance={() => handleAdvance(task)}
+                      loading={loadingTaskId === task.id}
                       today={today}
                       allMembers={allMembers}
                     />
@@ -267,7 +280,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           )}
         </div>
       ) : (
-        <TaskKanban tasks={filtered} caseMap={caseMap} allMembers={allMembers} onAdvance={handleAdvance} onDelete={setDeleteTask} today={today} />
+        <TaskKanban tasks={filtered} caseMap={caseMap} allMembers={allMembers} onAdvance={handleAdvance} loadingTaskId={loadingTaskId} onDelete={setDeleteTask} today={today} />
       )}
 
       {editTask && (
@@ -281,8 +294,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 }
 
 // ─── 進行ボタン ───
-function AdvanceButton({ status, onAdvance }: { status: string; onAdvance: () => void }) {
-  // ステータス正規化
+function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvance: () => void; loading?: boolean }) {
   const norm = (s: string) => {
     if (s === '未着手') return '着手前'
     if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
@@ -291,30 +303,35 @@ function AdvanceButton({ status, onAdvance }: { status: string; onAdvance: () =>
   }
   const current = norm(status)
 
+  const spinner = (
+    <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  )
+
   if (current === '着手前') {
     return (
-      <button onClick={e => { e.stopPropagation(); onAdvance() }}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm">
-        ▶ 着手する
+      <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shadow-sm transition-all
+          ${loading ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}>
+        {loading ? spinner : '▶'} {loading ? '処理中...' : '着手する'}
       </button>
     )
   }
   if (current === '対応中') {
     return (
-      <button onClick={e => { e.stopPropagation(); onAdvance() }}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
-        ✅ 完了にする
+      <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shadow-sm transition-all
+          ${loading ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}>
+        {loading ? spinner : '✅'} {loading ? '処理中...' : '完了にする'}
       </button>
     )
   }
-  // 完了
   return <span className="text-[11px] text-green-600 font-semibold">✅ 完了</span>
 }
 
 // ─── Table Row ───
-function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, today, allMembers }: {
+function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, today, allMembers }: {
   task: TaskRow; caseMap: Record<string, CaseInfo>
-  onEdit: () => void; onDelete: () => void; onAdvance: () => void
+  onEdit: () => void; onDelete: () => void; onAdvance: () => void; loading?: boolean
   today: string; allMembers: MemberRow[]
 }) {
   const norm = (s: string) => {
@@ -349,7 +366,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, today, allMe
 
       {/* 進行ボタン */}
       <div>
-        <AdvanceButton status={task.status} onAdvance={onAdvance} />
+        <AdvanceButton status={task.status} onAdvance={onAdvance} loading={loading} />
       </div>
 
       {/* Case members: 受注担当 + 管理担当 */}
@@ -404,9 +421,9 @@ function MemberChip({ name, color, label }: { name: string; color: string; label
 }
 
 // ─── Task Kanban ───
-function TaskKanban({ tasks, caseMap, allMembers, onAdvance, onDelete, today }: {
+function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDelete, today }: {
   tasks: TaskRow[]; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
-  onAdvance: (task: TaskRow) => void
+  onAdvance: (task: TaskRow) => void; loadingTaskId: string | null
   onDelete: (task: TaskRow) => void; today: string
 }) {
   const norm = (s: string) => {
@@ -443,7 +460,7 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, onDelete, today }: 
                           {startedMember && (
                             <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: startedMember.avatar_color }} title={startedMember.name}>{startedMember.name.charAt(0)}</span>
                           )}
-                          <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} />
+                          <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loadingTaskId === task.id} />
                         </div>
                         <div className="flex items-center gap-1">
                           {task.due_date && <span className={`text-[10px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}

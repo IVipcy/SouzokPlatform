@@ -1,5 +1,6 @@
 import Sidebar from '@/components/layout/Sidebar'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import { ToastContainer } from '@/components/ui/Toast'
 import { getCurrentUser } from '@/lib/auth'
 
 export default async function AuthenticatedLayout({
@@ -16,6 +17,7 @@ export default async function AuthenticatedLayout({
         <main className="flex-1 ml-60 p-6">
           {children}
         </main>
+        <ToastContainer />
       </div>
     </AuthProvider>
   )
