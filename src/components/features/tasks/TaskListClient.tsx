@@ -34,7 +34,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [phaseFilter, setPhaseFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>('all')
   const [search, setSearch] = useState('')
-  const [groupBy, setGroupBy] = useState<'status' | 'phase' | 'case'>('status')
+  const [groupBy, setGroupBy] = useState<'phase' | 'case'>('phase')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -102,9 +102,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   }
 
   const groups = useMemo(() => {
-    if (groupBy === 'status') {
-      return TASK_STATUSES.map(s => ({ key: s.key, label: s.key, color: s.color, tasks: sortTasks(filtered.filter(t => normalizeStatus(t.status) === s.key)) })).filter(g => g.tasks.length > 0)
-    }
     if (groupBy === 'phase') {
       return DB_PHASES.map(p => ({ key: p, label: getPhaseLabel(p), color: getPhaseColor(p), tasks: sortTasks(filtered.filter(t => t.phase === p)) })).filter(g => g.tasks.length > 0)
     }
@@ -198,13 +195,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
       {/* KPI */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all'); setGroupBy('status') }} />
+        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all'); setGroupBy('phase') }} />
         <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setAssigneeFilter('all'); setGroupBy('phase') }} />
         <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setAssigneeFilter('all'); setGroupBy('phase') }} />
         <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all'); setGroupBy('phase') }} />
       </div>
 
-      {/* フィルターバー — 1行にまとめ */}
+      {/* フィルターバー */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
           className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
@@ -215,12 +212,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
           👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
         </button>
-        <select value={groupBy} onChange={e => setGroupBy(e.target.value as 'status' | 'phase' | 'case')}
-          className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
-          {statusFilter === 'all' && <option value="status">ステータス別</option>}
-          <option value="phase">フェーズ別</option>
-          <option value="case">案件別</option>
-        </select>
+        <button onClick={() => setGroupBy(v => v === 'case' ? 'phase' : 'case')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${groupBy === 'case' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          📋 案件別
+        </button>
         <div className="flex-1" />
         <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
         <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
