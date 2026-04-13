@@ -106,15 +106,24 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   // 着手する
   const handleStart = async (task: TaskRow) => {
-    if (!currentMemberId) return
+    if (!currentMemberId) {
+      console.error('[handleStart] currentMemberId is null - ボタン無効')
+      alert('ログインユーザーのメンバー情報が取得できませんでした。ブラウザのコンソール(F12)を確認してください。')
+      return
+    }
     const supabase = createClient()
-    await supabase.from('tasks').update({
+    const { error: updateError } = await supabase.from('tasks').update({
       status: '対応中',
       started_by: currentMemberId,
       started_at: new Date().toISOString(),
     }).eq('id', task.id)
+    if (updateError) {
+      console.error('[handleStart] タスク更新エラー:', updateError)
+      alert(`タスク更新エラー: ${updateError.message}`)
+      return
+    }
     // 活動履歴に記録
-    await supabase.from('case_activities').insert({
+    const { error: activityError } = await supabase.from('case_activities').insert({
       case_id: task.case_id,
       task_id: task.id,
       member_id: currentMemberId,
@@ -122,6 +131,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       description: `${task.title} に着手`,
       activity_date: new Date().toISOString().split('T')[0],
     })
+    if (activityError) {
+      console.error('[handleStart] 活動履歴エラー:', activityError)
+    }
     router.refresh()
   }
 
