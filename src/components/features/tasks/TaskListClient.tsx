@@ -197,12 +197,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-5 gap-3 mb-4">
-        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all') }} />
-        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setAssigneeFilter('all') }} />
-        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setAssigneeFilter('all') }} />
-        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all') }} />
-        <SummaryCard label="🚨 要対応" value={alertTasks.length} sub="期限超過・急ぎ" color="#DC2626" active={false} onClick={() => {}} />
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all'); setGroupBy('status') }} />
+        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setAssigneeFilter('all'); setGroupBy('phase') }} />
+        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setAssigneeFilter('all'); setGroupBy('phase') }} />
+        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all'); setGroupBy('phase') }} />
       </div>
 
       {/* Filter bar — 要対応セクションの上 */}
@@ -221,7 +220,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </button>
         <div className="flex-1" />
         <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
-          <GroupTab label="ステータス別" active={groupBy === 'status'} onClick={() => setGroupBy('status')} />
+          {statusFilter === 'all' && <GroupTab label="ステータス別" active={groupBy === 'status'} onClick={() => setGroupBy('status')} />}
           <GroupTab label="フェーズ別" active={groupBy === 'phase'} onClick={() => setGroupBy('phase')} />
           <GroupTab label="案件別" active={groupBy === 'case'} onClick={() => setGroupBy('case')} />
         </div>
