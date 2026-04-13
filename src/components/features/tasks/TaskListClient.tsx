@@ -204,26 +204,24 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all'); setGroupBy('phase') }} />
       </div>
 
-      {/* Filter bar — 要対応セクションの上 */}
+      {/* フィルターバー — 1行にまとめ */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] font-semibold text-gray-400">フェーズ:</span>
-          <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
-            className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
-            <option value="all">すべて</option>
-            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
-          </select>
-        </div>
+        <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
+          className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+          <option value="all">全フェーズ</option>
+          {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
+        </select>
         <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
           👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
         </button>
+        <select value={groupBy} onChange={e => setGroupBy(e.target.value as 'status' | 'phase' | 'case')}
+          className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+          {statusFilter === 'all' && <option value="status">ステータス別</option>}
+          <option value="phase">フェーズ別</option>
+          <option value="case">案件別</option>
+        </select>
         <div className="flex-1" />
-        <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
-          {statusFilter === 'all' && <GroupTab label="ステータス別" active={groupBy === 'status'} onClick={() => setGroupBy('status')} />}
-          <GroupTab label="フェーズ別" active={groupBy === 'phase'} onClick={() => setGroupBy('phase')} />
-          <GroupTab label="案件別" active={groupBy === 'case'} onClick={() => setGroupBy('case')} />
-        </div>
         <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
         <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
           <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
@@ -575,6 +573,3 @@ function SummaryCard({ label, value, sub, color, active, onClick }: { label: str
   )
 }
 
-function GroupTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return <button onClick={onClick} className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${active ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>{label}</button>
-}
