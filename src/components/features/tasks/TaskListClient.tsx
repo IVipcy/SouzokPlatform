@@ -33,7 +33,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>('all')
-  const [overdueOnly, setOverdueOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'status' | 'phase' | 'case'>('status')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
@@ -58,9 +57,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (assigneeFilter === 'mine' && currentMemberId) {
       result = result.filter(t => t.started_by === currentMemberId)
     }
-    if (overdueOnly) {
-      result = result.filter(t => t.due_date && t.due_date < today && normalizeStatus(t.status) !== '完了')
-    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -69,7 +65,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       })
     }
     return result
-  }, [tasks, statusFilter, phaseFilter, assigneeFilter, overdueOnly, search, caseMap, currentMemberId, today])
+  }, [tasks, statusFilter, phaseFilter, assigneeFilter, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
     total: tasks.length,
@@ -78,6 +74,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
     urgent: tasks.filter(t => t.priority === '急ぎ').length,
   }), [tasks])
+
+  // 🚨 要対応タスク（期限超過 or 急ぎ、完了以外）
+  const alertTasks = useMemo(() => {
+    return tasks.filter(t => {
+      const s = normalizeStatus(t.status)
+      if (s === '完了') return false
+      const isOverdue = t.due_date && t.due_date < today
+      const isUrgent = t.priority === '急ぎ'
+      return isOverdue || isUrgent
+    })
+  }, [tasks, today])
 
   const sortTasks = (arr: TaskRow[]) => {
     if (dueDateSort === 'none') return arr
@@ -164,7 +171,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     router.refresh()
   }
 
-  const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && normalizeStatus(t.status) !== '完了').length
   const myTaskCount = currentMemberId ? tasks.filter(t => t.started_by === currentMemberId && normalizeStatus(t.status) !== '完了').length : 0
 
   return (
@@ -186,12 +192,43 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
       {/* KPI */}
       <div className="grid grid-cols-5 gap-3 mb-4">
-        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setOverdueOnly(false); setAssigneeFilter('all') }} />
-        <SummaryCard label="🚨 急ぎ" value={kpis.urgent} sub="優先対応" color="#DC2626" active={false} onClick={() => {}} />
+        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all') }} />
+        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setAssigneeFilter('all') }} />
+        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setAssigneeFilter('all') }} />
+        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all') }} />
+        <SummaryCard label="🚨 要対応" value={alertTasks.length} sub="期限超過・急ぎ" color="#DC2626" active={false} onClick={() => {}} />
       </div>
+
+      {/* 🚨 要対応セクション（期限超過 or 急ぎ） — 常に表示 */}
+      {alertTasks.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl shadow-sm overflow-hidden mb-4">
+          <div className="px-4 py-2.5 border-b border-red-200 flex items-center gap-2 bg-red-100/60">
+            <span className="text-sm">🚨</span>
+            <h3 className="text-[13px] font-bold text-red-800 flex-1">要対応（期限超過・急ぎ）</h3>
+            <span className="text-[10px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
+          </div>
+          <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+            <div>タスク名</div>
+            <div>案件</div>
+            <div>進行</div>
+            <div>案件担当者</div>
+            <div>着手者</div>
+            <div>期限</div>
+            <div>理由</div>
+          </div>
+          {alertTasks.map(task => (
+            <AlertTaskRow
+              key={task.id}
+              task={task}
+              caseMap={caseMap}
+              allMembers={allMembers}
+              onAdvance={() => handleAdvance(task)}
+              loading={loadingTaskId === task.id}
+              today={today}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -206,10 +243,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
           👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
-        </button>
-        <button onClick={() => setOverdueOnly(v => !v)}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${overdueOnly ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-          ⚠️ 期限超過 {overdueCount > 0 && <span className="text-[10px] font-mono opacity-80">{overdueCount}</span>}
         </button>
         <div className="flex-1" />
         <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
@@ -399,6 +432,58 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
       {/* Actions */}
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 要対応タスク行 ───
+function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: {
+  task: TaskRow; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
+  onAdvance: () => void; loading?: boolean; today: string
+}) {
+  const norm = (s: string) => {
+    if (s === '未着手') return '着手前'
+    if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
+    if (s === 'キャンセル') return '完了'
+    return s
+  }
+  const caseInfo = caseMap[task.case_id]
+  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
+  const isOverdue = task.due_date && task.due_date < today
+  const isUrgent = task.priority === '急ぎ'
+
+  return (
+    <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors">
+      <div className="min-w-0 pr-2">
+        <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate block">{task.title}</a>
+      </div>
+      <div className="min-w-0">
+        {caseInfo ? (
+          <a href={`/cases/${task.case_id}`} className="group/link block">
+            <div className="text-[11px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
+            <div className="text-[11px] text-gray-500 truncate group-hover/link:text-blue-600">{caseInfo.deal_name}</div>
+          </a>
+        ) : <span className="text-[10px] text-gray-300">—</span>}
+      </div>
+      <div><AdvanceButton status={task.status} onAdvance={onAdvance} loading={loading} /></div>
+      <div className="flex items-center gap-1.5">
+        {caseInfo?.sales ? <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" /> : <span className="text-[9px] text-gray-300">—</span>}
+        {caseInfo?.manager && <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />}
+      </div>
+      <div className="flex items-center gap-1">
+        {startedMember ? <MemberChip name={startedMember.name} color={startedMember.avatar_color} label="着手" /> : <span className="text-[9px] text-gray-300">—</span>}
+      </div>
+      <div>
+        {task.due_date ? (
+          <span className={`text-[11px] font-mono ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+            {isOverdue && '⚠ '}{task.due_date}
+          </span>
+        ) : <span className="text-[10px] text-gray-300">—</span>}
+      </div>
+      <div className="flex gap-1">
+        {isOverdue && <span className="text-[9px] bg-red-200 text-red-700 px-1.5 py-0.5 rounded font-semibold">期限超過</span>}
+        {isUrgent && <span className="text-[9px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-semibold">急ぎ</span>}
       </div>
     </div>
   )
