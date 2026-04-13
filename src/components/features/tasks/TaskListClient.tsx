@@ -8,6 +8,7 @@ import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow } from '@/types'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string }
@@ -25,8 +26,9 @@ type Props = {
   currentMemberId: string | null
 }
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
+  const currentMemberId = useCurrentMember(serverMemberId)
   const [statusFilter, setStatusFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'available' | 'mine'>('all')

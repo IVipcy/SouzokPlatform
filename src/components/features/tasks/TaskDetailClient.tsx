@@ -10,6 +10,7 @@ import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS, TASK_CATEGORIES } from '@/lib/taskSectionDefs'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow } from '@/types'
 
 type Props = {
@@ -26,8 +27,9 @@ const PRIORITIES = [
   { key: '急ぎ', label: '🚨 急ぎ' },
 ]
 
-export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
+  const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
   const clientData = caseData?.clients
 

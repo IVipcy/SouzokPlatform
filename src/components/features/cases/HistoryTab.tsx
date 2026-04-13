@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow } from '@/types'
 
 type Props = {
@@ -26,8 +27,9 @@ const ACTIVITY_COLORS: Record<string, string> = {
   'note': '#6B7280',
 }
 
-export default function HistoryTab({ caseData, activities, allMembers, currentMemberId }: Props) {
+export default function HistoryTab({ caseData, activities, allMembers, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
+  const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
 
