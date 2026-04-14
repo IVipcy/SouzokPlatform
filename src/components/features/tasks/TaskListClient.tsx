@@ -31,7 +31,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<string>('着手前')
   const [phaseFilter, setPhaseFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>(
     searchParams.get('assignee') === 'mine' ? 'mine' : 'all'
@@ -422,7 +422,12 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
       {/* 着手者 */}
       <div className="flex items-center gap-1">
         {startedMember ? (
-          <MemberChip name={startedMember.name} color={startedMember.avatar_color} label="着手" />
+          <MemberChip
+            name={startedMember.name}
+            color={startedMember.avatar_color}
+            label="着手"
+            prominent={norm(task.status) === '対応中'}
+          />
         ) : (
           <span className="text-[9px] text-gray-300">—</span>
         )}
@@ -482,7 +487,14 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: 
         {caseInfo?.manager && <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />}
       </div>
       <div className="flex items-center gap-1">
-        {startedMember ? <MemberChip name={startedMember.name} color={startedMember.avatar_color} label="着手" /> : <span className="text-[9px] text-gray-300">—</span>}
+        {startedMember ? (
+          <MemberChip
+            name={startedMember.name}
+            color={startedMember.avatar_color}
+            label="着手"
+            prominent={norm(task.status) === '対応中'}
+          />
+        ) : <span className="text-[9px] text-gray-300">—</span>}
       </div>
       <div>
         {task.due_date ? (
@@ -499,7 +511,23 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: 
   )
 }
 
-function MemberChip({ name, color, label }: { name: string; color: string; label: string }) {
+function MemberChip({ name, color, label, prominent }: { name: string; color: string; label: string; prominent?: boolean }) {
+  if (prominent) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full pl-0.5 pr-2 py-0.5 shadow-sm"
+        title={`${label}: ${name}（対応中）`}
+      >
+        <span
+          className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 ring-2 ring-white"
+          style={{ backgroundColor: color }}
+        >
+          {name.charAt(0)}
+        </span>
+        <span className="text-[11px] text-blue-800 font-bold truncate max-w-[60px]">{name}</span>
+      </span>
+    )
+  }
   return (
     <span className="inline-flex items-center gap-0.5" title={`${label}: ${name}`}>
       <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: color }}>
