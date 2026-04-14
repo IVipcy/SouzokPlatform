@@ -9,9 +9,10 @@ import { Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate, Inline
 import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS, TASK_CATEGORIES } from '@/lib/taskSectionDefs'
+import { getCompletionCondition } from '@/lib/taskCompletionConditions'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
-import TaskDependencyEditor from './TaskDependencyEditor'
+
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
 
@@ -55,8 +56,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
     router.refresh()
   }
 
-  // ─── 依存関係エディタ ───
-  const [showDepEditor, setShowDepEditor] = useState(false)
+
 
   // ─── ステータス進行 ───
   const [advancing, setAdvancing] = useState(false)
@@ -171,26 +171,32 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             <div className="flex items-center gap-2 flex-wrap pt-1">
               {/* 進行ボタン */}
               {currentStatus === '着手前' && (
-                <button
-                  onClick={handleAdvance}
-                  disabled={advancing}
-                  className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                    ${advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
-                >
-                  {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '▶'}
-                  {advancing ? '処理中...' : '着手する'}
-                </button>
+                <div className="flex flex-col items-end">
+                  <button
+                    onClick={handleAdvance}
+                    disabled={advancing}
+                    className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                      ${advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
+                  >
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '▶'}
+                    {advancing ? '処理中...' : '着手する'}
+                  </button>
+                  <span className="text-[10px] text-gray-400 mt-0.5">作業を始める前に押す</span>
+                </div>
               )}
               {currentStatus === '対応中' && (
-                <button
-                  onClick={handleAdvance}
-                  disabled={advancing}
-                  className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                    ${advancing ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}
-                >
-                  {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
-                  {advancing ? '処理中...' : '完了にする'}
-                </button>
+                <div className="flex flex-col items-end">
+                  <button
+                    onClick={handleAdvance}
+                    disabled={advancing}
+                    className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                      ${advancing ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}
+                  >
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
+                    {advancing ? '処理中...' : '完了にする'}
+                  </button>
+                  <span className="text-[10px] text-gray-400 mt-0.5">完了条件を満たしたら押す</span>
+                </div>
               )}
               {currentStatus === '完了' && (
                 <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold text-green-700 bg-green-50 border border-green-200">
@@ -252,6 +258,55 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
           </div>
         </div>
       </div>
+
+      {/* 👉 今やること カード（最優先で見せる） */}
+      {(() => {
+        const completionCondition = getCompletionCondition(task.template_key)
+        if (!task.procedure_text && !completionCondition) return null
+        return (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl overflow-hidden mb-5 shadow-sm">
+            <div className="bg-blue-600 px-4 py-2">
+              <h2 className="text-white text-sm font-bold flex items-center gap-2">
+                <span className="text-base">👉</span> 今やること
+              </h2>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* 完了条件（一番重要） */}
+              {completionCondition && (
+                <div className="bg-white border border-green-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-600 text-lg leading-none mt-0.5">✅</span>
+                    <div className="flex-1">
+                      <div className="text-[11px] font-bold text-green-700 mb-1">
+                        このタスクを「完了」にするタイミング
+                      </div>
+                      <p className="text-sm text-gray-800 font-medium leading-relaxed">
+                        {completionCondition}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* 作業手順 */}
+              {task.procedure_text && (
+                <div className="bg-white border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 text-lg leading-none mt-0.5">📋</span>
+                    <div className="flex-1">
+                      <div className="text-[11px] font-bold text-blue-700 mb-1">
+                        作業手順
+                      </div>
+                      <div className="text-[13px] text-gray-700 whitespace-pre-line leading-relaxed">
+                        {task.procedure_text}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 2カラムレイアウト */}
       <div className="flex gap-5">
@@ -362,15 +417,6 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
 
           {/* 4. カテゴリ別セクション */}
           <TaskCategorySections task={task} onRefresh={() => router.refresh()} />
-
-          {/* 5. 作業手順 */}
-          {task.procedure_text && (
-            <Section title="作業手順" icon="📋">
-              <div className="bg-gray-50 rounded-lg p-4 text-[13px] text-gray-700 whitespace-pre-line leading-relaxed border border-gray-100">
-                {task.procedure_text}
-              </div>
-            </Section>
-          )}
         </div>
 
         {/* 右カラム */}
@@ -379,20 +425,9 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             task={task}
             documents={documents}
             dependencies={dependencies}
-            onEditDeps={() => setShowDepEditor(true)}
           />
         </div>
       </div>
-
-      {/* 依存関係エディタ */}
-      <TaskDependencyEditor
-        isOpen={showDepEditor}
-        onClose={() => setShowDepEditor(false)}
-        task={task}
-        caseTasks={caseTasks}
-        dependencies={dependencies}
-        onSaved={() => { setShowDepEditor(false); router.refresh() }}
-      />
     </div>
   )
 }

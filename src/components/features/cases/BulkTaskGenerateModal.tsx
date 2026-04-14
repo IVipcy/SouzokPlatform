@@ -67,6 +67,33 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
     setSaving(true)
     setError('')
 
+    const supabase = createClient()
+
+    // 残高証明請求タスクがある場合、事前に金融資産（預貯金）を取得してext_dataに埋め込む
+    const hasBankTask = selected.has('bank_balance_request')
+    let bankExtData: Record<string, unknown> | null = null
+    if (hasBankTask) {
+      const { data: assets } = await supabase
+        .from('financial_assets')
+        .select('id, institution_name, branch_name')
+        .eq('case_id', caseId)
+        .eq('asset_type', '預貯金')
+        .order('created_at')
+      if (assets && assets.length > 0) {
+        bankExtData = {
+          banks: assets.map(a => ({
+            financial_asset_id: a.id,
+            institution_name: a.institution_name,
+            branch_name: a.branch_name ?? null,
+            frozen: false,
+            reqDate: null,
+            arrDate: null,
+            memo: '',
+          })),
+        }
+      }
+    }
+
     const tasksToInsert = taskTemplates
       .filter(t => selected.has(t.key))
       .map(t => ({
@@ -79,9 +106,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
         priority: '通常',
         procedure_text: t.procedure_text,
         sort_order: t.sort_order,
+        ext_data: t.key === 'bank_balance_request' && bankExtData ? bankExtData : null,
       }))
 
-    const supabase = createClient()
     const { error: dbError } = await supabase.from('tasks').insert(tasksToInsert)
 
     if (dbError) {

@@ -31,10 +31,10 @@ export const TEMPLATE_FLOW_RULES: TemplateFlowRule[] = [
   { from: 'family_tree_receive', to: 'insurance_inquiry',    condition: { type: 'task_completed', label: 'タスク完了' } },
 
   // ── Phase 2: 財産調査 ──
-  { from: 'bank_balance_request', to: 'bank_balance_arrive', condition: { type: 'task_completed', label: 'タスク完了' } },
+  // bank_balance_request は全銀行の到着管理まで含むため、到着確認タスクは不要
+  { from: 'bank_balance_request', to: 'asset_list_create',   condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'insurance_inquiry',    to: 'insurance_arrive',    condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'realestate_research',  to: 'realestate_eval',     condition: { type: 'task_completed', label: 'タスク完了' } },
-  { from: 'bank_balance_arrive',  to: 'asset_list_create',   condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'securities_inquiry',   to: 'asset_list_create',   condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'insurance_arrive',     to: 'asset_list_create',   condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'realestate_eval',      to: 'asset_list_create',   condition: { type: 'task_completed', label: 'タスク完了' } },

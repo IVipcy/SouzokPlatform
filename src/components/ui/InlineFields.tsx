@@ -107,9 +107,13 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
           className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
-        <div onClick={handleStartEdit} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
-            {value ?? '未設定'}
+        <div
+          onClick={handleStartEdit}
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          title="クリックして編集"
+        >
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-blue-400' : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-blue-400'}`}>
+            {value ?? 'クリックして入力'}
           </span>
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
         </div>
@@ -157,13 +161,17 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           ))}
         </select>
       ) : (
-        <div onClick={() => setEditing(true)} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
+        <div
+          onClick={() => setEditing(true)}
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          title="クリックして選択"
+        >
           {value ? (
-            renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium">{value}</span>
+            renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-blue-400">{value}</span>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 text-xs border-b border-dashed border-gray-200 group-hover:border-blue-400">クリックして選択</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">▼</span>
+          <span className="text-gray-400 group-hover:text-blue-500 text-[10px]">▼</span>
         </div>
       )}
     </div>
@@ -283,11 +291,15 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
           className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
-        <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
-            {value ?? '未設定'}
+        <div
+          onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          title="クリックして日付を選択"
+        >
+          <span className={`text-[13px] font-mono border-b border-dashed border-gray-200 group-hover:border-blue-400 ${value ? 'text-gray-700 font-medium' : 'text-gray-400 text-xs'}`}>
+            {value ?? 'クリックして日付入力'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">📅</span>
+          <span className="text-gray-400 group-hover:opacity-100 opacity-60 transition-opacity text-[10px]">📅</span>
         </div>
       )}
     </div>

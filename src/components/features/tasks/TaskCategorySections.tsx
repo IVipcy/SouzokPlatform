@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, InlineEdit, InlineSelect, InlineDate, InlineCheckbox, InlineCurrency, InlineTextarea, Field } from '@/components/ui/InlineFields'
 import { TASK_SECTION_DEFS } from '@/lib/taskSectionDefs'
+import MultiBankSection from './MultiBankSection'
 import type { SectionField } from '@/lib/taskSectionDefs'
 import type { TaskRow } from '@/types'
 
@@ -13,6 +14,11 @@ type Props = {
 
 export default function TaskCategorySections({ task, onRefresh }: Props) {
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
+
+  // 残高証明請求（複数銀行）は専用コンポーネントを使用
+  if (task.template_key === 'bank_balance_request') {
+    return <MultiBankSection task={task} onRefresh={onRefresh} />
+  }
 
   const visibleSections = TASK_SECTION_DEFS.filter(sec => sec.showWhen(task.category))
 

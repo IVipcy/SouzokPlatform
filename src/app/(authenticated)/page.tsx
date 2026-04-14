@@ -2,10 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { CASE_STATUSES, TASK_STATUSES } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
+import { getCurrentUser } from '@/lib/auth'
 import Badge from '@/components/ui/Badge'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
+  const myMemberId = currentUser?.memberId ?? null
 
   const [
     { count: caseCount },
@@ -25,13 +28,39 @@ export default async function DashboardPage() {
     supabase.from('cases').select('*', { count: 'exact', head: true }).eq('status', '検討中'),
   ])
 
-  // Case map for tasks
-  const caseIds = [...new Set((upcomingTasks ?? []).map((t: { case_id: string }) => t.case_id))]
+  // マイタスク: ログインユーザーが着手中 or 主担当のタスク
+  type MyTaskRow = {
+    id: string; title: string; status: string; phase: string;
+    due_date: string | null; priority: string; case_id: string;
+    started_by: string | null;
+    task_assignees: Array<{ role: string; member_id: string }>
+  }
+  let myTasks: MyTaskRow[] = []
+  if (myMemberId) {
+    const { data } = await supabase
+      .from('tasks')
+      .select('id, title, status, phase, due_date, priority, case_id, started_by, task_assignees(role, member_id)')
+      .in('status', ['未着手', '対応中', '着手前', 'Wチェック待ち', '差戻し'])
+      .order('due_date', { ascending: true, nullsFirst: false })
+    myTasks = ((data ?? []) as MyTaskRow[]).filter(t =>
+      t.started_by === myMemberId ||
+      (t.task_assignees ?? []).some(a => a.member_id === myMemberId && a.role === 'primary')
+    ).slice(0, 10)
+  }
+
+  // Case map for tasks（upcomingTasks + myTasks の両方をカバー）
+  const allTaskCaseIds = [
+    ...(upcomingTasks ?? []).map((t: { case_id: string }) => t.case_id),
+    ...myTasks.map(t => t.case_id),
+  ]
+  const caseIds = [...new Set(allTaskCaseIds)]
   const { data: taskCases } = caseIds.length > 0
     ? await supabase.from('cases').select('id, case_number, deal_name').in('id', caseIds)
     : { data: [] }
   const caseMap: Record<string, { case_number: string; deal_name: string }> = {}
   taskCases?.forEach((c: { id: string; case_number: string; deal_name: string }) => { caseMap[c.id] = c })
+
+  const today = new Date().toISOString().slice(0, 10)
 
   const kpis = [
     { label: '総案件数', value: caseCount ?? 0, icon: '📋', iconBg: '#EFF4FF' },
@@ -44,9 +73,91 @@ export default async function DashboardPage() {
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-lg font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-xs text-gray-400">案件とタスクの概況</p>
+        <h1 className="text-lg font-bold text-gray-900">
+          {currentUser?.memberName ? `こんにちは、${currentUser.memberName}さん` : 'ダッシュボード'}
+        </h1>
+        <p className="text-xs text-gray-400">今日のあなたのタスクと、案件・チームの概況</p>
       </div>
+
+      {/* 🎯 今日のあなたのタスク（マイタスク） */}
+      {myMemberId && (
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-md mb-5 overflow-hidden">
+          <div className="px-5 py-3 flex items-center justify-between">
+            <h2 className="text-white text-sm font-bold flex items-center gap-2">
+              <span className="text-base">🎯</span>
+              今日のあなたのタスク
+              <span className="text-[11px] font-semibold bg-white/20 px-2 py-0.5 rounded-full">
+                {myTasks.length}件
+              </span>
+            </h2>
+            <Link href="/tasks?assignee=mine" className="text-[11px] text-white/90 font-medium hover:text-white hover:underline">
+              すべて表示 →
+            </Link>
+          </div>
+          <div className="bg-white">
+            {myTasks.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-gray-400">
+                <span className="text-2xl block mb-2">🎉</span>
+                あなた担当の未完了タスクはありません
+              </div>
+            ) : (
+              myTasks.map(t => {
+                const caseInfo = caseMap[t.case_id]
+                const isOverdue = t.due_date && t.due_date < today
+                const isUrgent = t.priority === '急ぎ'
+                const needsAction = t.status === '未着手' || t.status === '着手前'
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/tasks/${t.id}`}
+                    className={`flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                      isOverdue ? 'bg-red-50/50' : ''
+                    }`}
+                  >
+                    {/* ステータスアイコン */}
+                    <div className="flex-shrink-0">
+                      {needsAction ? (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                          ▶
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                          {t.status === '対応中' ? '⚡' : '…'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-900 truncate">{t.title}</div>
+                      {caseInfo && (
+                        <div className="text-[10px] text-gray-400 truncate">
+                          {caseInfo.case_number} {caseInfo.deal_name}
+                        </div>
+                      )}
+                    </div>
+                    {isUrgent && (
+                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                        🚨 急ぎ
+                      </span>
+                    )}
+                    {needsAction && !isUrgent && (
+                      <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                        未着手
+                      </span>
+                    )}
+                    {t.due_date && (
+                      <span className={`text-[10px] font-mono flex-shrink-0 ${
+                        isOverdue ? 'text-red-600 font-bold' : 'text-gray-400'
+                      }`}>
+                        {isOverdue ? '⚠ ' : ''}{t.due_date}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-5 gap-3 mb-5">

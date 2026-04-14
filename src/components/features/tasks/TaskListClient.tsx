@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
@@ -29,10 +29,18 @@ type Props = {
 
 export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
   const [statusFilter, setStatusFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
-  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>(
+    searchParams.get('assignee') === 'mine' ? 'mine' : 'all'
+  )
+
+  // URLパラメータ変更を反映
+  useEffect(() => {
+    if (searchParams.get('assignee') === 'mine') setAssigneeFilter('mine')
+  }, [searchParams])
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'phase' | 'case'>('phase')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
@@ -55,7 +63,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (phaseFilter !== 'all') result = result.filter(t => t.phase === phaseFilter)
     if (assigneeFilter === 'mine' && currentMemberId) {
-      result = result.filter(t => t.started_by === currentMemberId)
+      // 自分が着手者、または主担当に設定されているタスク
+      result = result.filter(t =>
+        t.started_by === currentMemberId ||
+        (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
+      )
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
