@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -49,30 +50,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [dueDateSort, setDueDateSort] = useState<'none' | 'asc' | 'desc'>('none')
 
   // ─── 列幅（ドラッグでリサイズ可能、localStorage保存） ───
-  const DEFAULT_COL_WIDTHS = {
-    title: 280, case: 200, action: 110, caseMembers: 150, startedBy: 150, due: 110, ops: 50,
-  }
-  const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('taskListColumnWidths')
-      if (saved) setColWidths({ ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) })
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const updateColWidth = useCallback((key: keyof typeof DEFAULT_COL_WIDTHS, w: number) => {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: Math.max(40, Math.round(w)) }
-      try { localStorage.setItem('taskListColumnWidths', JSON.stringify(next)) } catch {}
-      return next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const resetColWidths = useCallback(() => {
-    setColWidths(DEFAULT_COL_WIDTHS)
-    try { localStorage.removeItem('taskListColumnWidths') } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns(
+    'taskListColumnWidths',
+    { title: 280, case: 200, action: 110, caseMembers: 150, startedBy: 150, due: 110, ops: 50 },
+  )
   const gridTemplate = `${colWidths.title}px ${colWidths.case}px ${colWidths.action}px ${colWidths.caseMembers}px ${colWidths.startedBy}px ${colWidths.due}px ${colWidths.ops}px`
 
   const today = new Date().toISOString().split('T')[0]
@@ -276,12 +257,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <span className="text-[10px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
           </div>
           <div className="grid gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
-            <ResizableHeader colKey="title" width={colWidths.title} onResize={updateColWidth}>タスク名</ResizableHeader>
-            <ResizableHeader colKey="case" width={colWidths.case} onResize={updateColWidth}>案件</ResizableHeader>
-            <ResizableHeader colKey="action" width={colWidths.action} onResize={updateColWidth}>進行</ResizableHeader>
-            <ResizableHeader colKey="caseMembers" width={colWidths.caseMembers} onResize={updateColWidth}>案件担当者</ResizableHeader>
-            <ResizableHeader colKey="startedBy" width={colWidths.startedBy} onResize={updateColWidth}>着手者</ResizableHeader>
-            <ResizableHeader colKey="due" width={colWidths.due} onResize={updateColWidth}>期限</ResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('caseMembers')}>案件担当者</GridResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('startedBy')}>着手者</GridResizableHeader>
+            <GridResizableHeader onMouseDown={startColResize('due')}>期限</GridResizableHeader>
             <div>理由</div>
           </div>
           {alertTasks.map(task => (
@@ -314,12 +295,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 </div>
                 {/* Table header */}
                 <div className="grid gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
-                  <ResizableHeader colKey="title" width={colWidths.title} onResize={updateColWidth}>タスク名</ResizableHeader>
-                  <ResizableHeader colKey="case" width={colWidths.case} onResize={updateColWidth}>案件</ResizableHeader>
-                  <ResizableHeader colKey="action" width={colWidths.action} onResize={updateColWidth}>進行</ResizableHeader>
-                  <ResizableHeader colKey="caseMembers" width={colWidths.caseMembers} onResize={updateColWidth}>案件担当者</ResizableHeader>
-                  <ResizableHeader colKey="startedBy" width={colWidths.startedBy} onResize={updateColWidth}>着手者</ResizableHeader>
-                  <ResizableHeader colKey="due" width={colWidths.due} onResize={updateColWidth}>
+                  <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
+                  <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
+                  <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
+                  <GridResizableHeader onMouseDown={startColResize('caseMembers')}>案件担当者</GridResizableHeader>
+                  <GridResizableHeader onMouseDown={startColResize('startedBy')}>着手者</GridResizableHeader>
+                  <GridResizableHeader onMouseDown={startColResize('due')}>
                     <button
                       onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
                       className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
@@ -329,7 +310,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                         {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
                       </span>
                     </button>
-                  </ResizableHeader>
+                  </GridResizableHeader>
                   <div>操作</div>
                 </div>
                 <div>
@@ -401,37 +382,14 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
   return <span className="text-[11px] text-green-600 font-semibold">✅ 完了</span>
 }
 
-// ─── ResizableHeader ───
-function ResizableHeader<K extends string>({ colKey, width, onResize, children }: {
-  colKey: K; width: number; onResize: (key: K, w: number) => void; children: React.ReactNode
+// ─── grid 用ヘッダー（共通フック対応） ───
+function GridResizableHeader({ onMouseDown, children }: {
+  onMouseDown: (e: React.MouseEvent) => void; children: React.ReactNode
 }) {
-  const startResize = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const startX = e.clientX
-    const startWidth = width
-    const onMove = (ev: MouseEvent) => onResize(colKey, startWidth + (ev.clientX - startX))
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }
   return (
-    <div className="relative flex items-center min-w-0 group/col">
+    <div className="relative flex items-center min-w-0">
       <div className="truncate">{children}</div>
-      <div
-        onMouseDown={startResize}
-        title="ドラッグして列幅を変更"
-        className="absolute top-[-4px] bottom-[-4px] right-[-8px] w-[14px] cursor-col-resize z-10 flex items-center justify-center"
-      >
-        <div className="w-[2px] h-[18px] bg-gray-300 group-hover/col:bg-blue-400 transition-colors rounded-full" />
-      </div>
+      <ResizeHandle onMouseDown={onMouseDown} />
     </div>
   )
 }

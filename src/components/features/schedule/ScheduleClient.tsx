@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import EventFormModal from './EventFormModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { EventRow, EventType, MemberRow } from '@/types'
 
 type EventWithRelations = EventRow & {
@@ -50,6 +51,18 @@ export function ScheduleClient({ events, members, cases }: Props) {
   const [editEvent, setEditEvent] = useState<EventRow | null>(null)
   const [defaultDate, setDefaultDate] = useState<string>('')
   const [deleteEvent, setDeleteEvent] = useState<EventWithRelations | null>(null)
+
+  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('scheduleListColWidths', {
+    datetime: 200, type: 110, title: 260, case: 220, assignee: 140, ops: 80,
+  })
+  const LIST_HEADERS: Array<{ key: keyof typeof colWidths; label: string; resizable?: boolean }> = [
+    { key: 'datetime', label: '日時' },
+    { key: 'type', label: '種類' },
+    { key: 'title', label: 'タイトル' },
+    { key: 'case', label: '案件' },
+    { key: 'assignee', label: '担当' },
+    { key: 'ops', label: '操作', resizable: false },
+  ]
 
   const filteredEvents = useMemo(() => {
     if (memberFilter === 'all') return events
@@ -275,15 +288,32 @@ export function ScheduleClient({ events, members, cases }: Props) {
       ) : (
         /* List View */
         <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden flex-1">
-          <table className="w-full border-collapse">
+          <div className="flex items-center justify-end px-3.5 py-1.5 border-b border-gray-100">
+            <button
+              onClick={resetColWidths}
+              className="text-[10px] text-gray-400 hover:text-gray-600 transition"
+              title="列幅をリセット"
+            >
+              列幅リセット
+            </button>
+          </div>
+          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              {LIST_HEADERS.map(h => (
+                <col key={h.key as string} style={{ width: colWidths[h.key] }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">日時</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">種類</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">タイトル</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">案件</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">担当</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase w-16">操作</th>
+                {LIST_HEADERS.map(h => (
+                  <th
+                    key={h.key as string}
+                    className="relative bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase"
+                  >
+                    {h.label}
+                    {h.resizable !== false && <ResizeHandle onMouseDown={startColResize(h.key)} />}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -295,7 +325,7 @@ export function ScheduleClient({ events, members, cases }: Props) {
                     className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 cursor-pointer transition"
                     onClick={() => setSelectedEvent(ev)}
                   >
-                    <td className="px-4 py-2.5 text-xs font-mono text-gray-600">
+                    <td className="px-4 py-2.5 text-xs font-mono text-gray-600 truncate">
                       {ev.event_date} {ev.start_time && `${ev.start_time}〜${ev.end_time}`}
                     </td>
                     <td className="px-4 py-2.5">
@@ -303,8 +333,8 @@ export function ScheduleClient({ events, members, cases }: Props) {
                         {tc.icon} {tc.label}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-900">{ev.title}</td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{getCaseName(ev) || '—'}</td>
+                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-900 truncate">{ev.title}</td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500 truncate">{getCaseName(ev) || '—'}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
                         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: getMemberColor(ev) }}>

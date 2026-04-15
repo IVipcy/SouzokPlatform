@@ -7,6 +7,7 @@ import CreateInvoiceModal from './CreateInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
 import CsvImportModal from './CsvImportModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow } from '@/types'
 
 type InvoiceWithRelations = InvoiceRow & {
@@ -55,6 +56,19 @@ export default function BillingClient({ invoices, cases }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
+    case: 260, status: 110, amount: 110, paid: 110, diff: 100, assignee: 140, invoiceDate: 110,
+  })
+  const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
+    { key: 'case', label: '案件' },
+    { key: 'status', label: 'ステータス' },
+    { key: 'amount', label: '請求金額', align: 'right' },
+    { key: 'paid', label: '入金済額', align: 'right' },
+    { key: 'diff', label: '差額', align: 'right' },
+    { key: 'assignee', label: '担当' },
+    { key: 'invoiceDate', label: '請求日' },
+  ]
 
   // Modal states
   const [createOpen, setCreateOpen] = useState(false)
@@ -176,17 +190,31 @@ export default function BillingClient({ invoices, cases }: Props) {
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
             <h2 className="text-[13px] font-semibold text-gray-900">請求・入金一覧</h2>
             <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
+            <button
+              onClick={resetColWidths}
+              className="ml-auto text-[10px] text-gray-400 hover:text-gray-600 transition"
+              title="列幅をリセット"
+            >
+              列幅リセット
+            </button>
           </div>
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              {HEADERS.map(h => (
+                <col key={h.key as string} style={{ width: colWidths[h.key] }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">案件</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">ステータス</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-right text-[10px] font-bold text-gray-400 tracking-wider uppercase">請求金額</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-right text-[10px] font-bold text-gray-400 tracking-wider uppercase">入金済額</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-right text-[10px] font-bold text-gray-400 tracking-wider uppercase">差額</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">担当</th>
-                <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">請求日</th>
+                {HEADERS.map(h => (
+                  <th
+                    key={h.key as string}
+                    className={`relative bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-[10px] font-bold text-gray-400 tracking-wider uppercase ${h.align === 'right' ? 'text-right' : 'text-left'}`}
+                  >
+                    {h.label}
+                    <ResizeHandle onMouseDown={startColResize(h.key)} />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -211,9 +239,9 @@ export default function BillingClient({ invoices, cases }: Props) {
                       className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${selectedId === inv.id ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                     >
-                      <td className="px-3.5 py-2.5">
-                        <div className="text-xs font-semibold text-gray-900">{caseName}</div>
-                        <div className="text-[10px] text-gray-400">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                      <td className="px-3.5 py-2.5 overflow-hidden">
+                        <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
+                        <div className="text-[10px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
                       </td>
                       <td className="px-3.5 py-2.5">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>

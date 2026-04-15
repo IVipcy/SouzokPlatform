@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import UploadDocumentModal from './UploadDocumentModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { DocumentRow, MemberRow } from '@/types'
 
 type DocStatus = '下書き' | '作成済' | '送付済' | '返送待ち' | '完了'
@@ -54,6 +55,19 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
   // Modal states
   const [uploadOpen, setUploadOpen] = useState(false)
   const [deleteDoc, setDeleteDoc] = useState<DocumentRow | null>(null)
+
+  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('documentsListColWidths', {
+    name: 280, case: 200, task: 180, status: 110, assignee: 130, createdAt: 110, ops: 80,
+  })
+  const HEADERS: Array<{ key: keyof typeof colWidths; label: string; resizable?: boolean }> = [
+    { key: 'name', label: '文書名' },
+    { key: 'case', label: '案件' },
+    { key: 'task', label: '関連タスク' },
+    { key: 'status', label: 'ステータス' },
+    { key: 'assignee', label: '担当者' },
+    { key: 'createdAt', label: '作成日' },
+    { key: 'ops', label: '操作', resizable: false },
+  ]
 
   const caseOptions = useMemo(() => {
     const map = new Map<string, string>()
@@ -201,16 +215,32 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <table className="w-full border-collapse">
+        <div className="flex items-center justify-end px-3.5 py-1.5 border-b border-gray-100">
+          <button
+            onClick={resetColWidths}
+            className="text-[10px] text-gray-400 hover:text-gray-600 transition"
+            title="列幅をリセット"
+          >
+            列幅リセット
+          </button>
+        </div>
+        <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            {HEADERS.map(h => (
+              <col key={h.key as string} style={{ width: colWidths[h.key] }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">文書名</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">案件</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">関連タスク</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">ステータス</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">担当者</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase">作成日</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase w-20">操作</th>
+              {HEADERS.map(h => (
+                <th
+                  key={h.key as string}
+                  className="relative bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase"
+                >
+                  {h.label}
+                  {h.resizable !== false && <ResizeHandle onMouseDown={startColResize(h.key)} />}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -236,28 +266,28 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
 
                 return (
                   <tr key={doc.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
-                    <td className="px-3.5 py-2.5">
-                      <div className="flex items-center gap-2.5">
+                    <td className="px-3.5 py-2.5 overflow-hidden">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <div className={`w-8 h-8 rounded-md flex items-center justify-center text-base flex-shrink-0 ${fmt.bg}`}>
                           {fmt.icon}
                         </div>
-                        <div>
-                          <div className="text-xs font-semibold text-gray-900">{doc.name}</div>
-                          <div className="text-[10px] text-gray-400">{fileType} · {doc.generated_by ?? '-'}</div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-gray-900 truncate">{doc.name}</div>
+                          <div className="text-[10px] text-gray-400 truncate">{fileType} · {doc.generated_by ?? '-'}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3.5 py-2.5">
+                    <td className="px-3.5 py-2.5 overflow-hidden">
                       {doc.cases ? (
                         <>
-                          <div className="text-xs font-medium text-blue-600 cursor-pointer hover:underline">{doc.cases.deal_name}</div>
-                          <div className="text-[10px] text-gray-400">{doc.cases.case_number}</div>
+                          <div className="text-xs font-medium text-blue-600 cursor-pointer hover:underline truncate">{doc.cases.deal_name}</div>
+                          <div className="text-[10px] text-gray-400 truncate">{doc.cases.case_number}</div>
                         </>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-3.5 py-2.5 text-xs text-gray-600">{taskTitle}</td>
+                    <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{taskTitle}</td>
                     <td className="px-3.5 py-2.5">
                       <select
                         value={doc.status}
