@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { showToast } from '@/components/ui/Toast'
 
 type Props = {
   isOpen: boolean
@@ -82,6 +83,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
     }
 
     setForm({ case_number: '', deal_name: '', deceased_name: '', date_of_death: '', difficulty: '普', client_name: '', client_phone: '', client_email: '' })
+    showToast('案件を作成しました', 'success')
     onSaved()
   }
 
@@ -101,7 +103,13 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3 relative">
+        {saving && (
+          <div className="absolute inset-0 bg-white/70 z-20 flex flex-col items-center justify-center rounded-lg">
+            <div className="w-10 h-10 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin mb-2" />
+            <div className="text-xs font-semibold text-blue-600">案件を作成中...</div>
+          </div>
+        )}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
         )}

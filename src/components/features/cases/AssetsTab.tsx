@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import {
   Section as SharedSection,
   FieldGrid as SharedFieldGrid,
@@ -28,6 +29,41 @@ type Props = {
   onRefresh: () => void
 }
 
+/* ── IME-safe input (日本語入力中の変な値に進まないようにする) ── */
+function IMESafeInput({ value, onChange, placeholder, autoFocus }: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+}) {
+  const composingRef = useRef(false)
+  const [localValue, setLocalValue] = useState(value)
+  useEffect(() => {
+    // 合成中でない時だけ外側のvalueに同期
+    if (!composingRef.current) setLocalValue(value)
+  }, [value])
+  return (
+    <input
+      type="text"
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      value={localValue}
+      onChange={e => {
+        setLocalValue(e.target.value)
+        // 合成中は親に伝えない（中間変換値が反映されないように）
+        if (!composingRef.current) onChange(e.target.value)
+      }}
+      onCompositionStart={() => { composingRef.current = true }}
+      onCompositionEnd={e => {
+        composingRef.current = false
+        // 合成終了後に確定値を親へ
+        onChange((e.target as HTMLInputElement).value)
+      }}
+      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+    />
+  )
+}
+
 /* ── InlineEdit component ── */
 function InlineEdit({
   value,
@@ -47,6 +83,7 @@ function InlineEdit({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(value ?? ''))
   const [saving, setSaving] = useState(false)
+  const composingRef = useRef(false)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null)
 
   useEffect(() => {
@@ -66,6 +103,10 @@ function InlineEdit({
     setSaving(true)
     try {
       await onSave(draft)
+      showToast('保存しました', 'success')
+    } catch (e) {
+      console.error(e)
+      showToast('保存に失敗しました', 'error')
     } finally {
       setSaving(false)
       setEditing(false)
@@ -73,6 +114,8 @@ function InlineEdit({
   }, [draft, value, onSave])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // IME合成中はEnterで確定しない
+    if (composingRef.current) return
     if (e.key === 'Enter') {
       e.preventDefault()
       commit()
@@ -107,7 +150,9 @@ function InlineEdit({
         type={type}
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
+        onCompositionStart={() => { composingRef.current = true }}
+        onCompositionEnd={() => { composingRef.current = false }}
+        onBlur={() => { if (!composingRef.current) commit() }}
         onKeyDown={handleKeyDown}
         disabled={saving}
         placeholder={placeholder}
@@ -286,20 +331,16 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
       <div className="border-t border-blue-100 bg-blue-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
         <div className="text-[11px] font-semibold text-blue-700 mb-2">{title}</div>
         <div className="grid grid-cols-1 gap-2">
-          <input
-            type="text"
+          <IMESafeInput
             placeholder="金融機関名（例: 三菱UFJ銀行）"
             value={form.institution_name}
-            onChange={e => setForm(f => ({ ...f, institution_name: e.target.value }))}
-            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            onChange={v => setForm(f => ({ ...f, institution_name: v }))}
             autoFocus
           />
-          <input
-            type="text"
+          <IMESafeInput
             placeholder="支店名（例: 渋谷支店）"
             value={form.branch_name}
-            onChange={e => setForm(f => ({ ...f, branch_name: e.target.value }))}
-            className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            onChange={v => setForm(f => ({ ...f, branch_name: v }))}
           />
         </div>
         <div className="flex gap-2 mt-2">

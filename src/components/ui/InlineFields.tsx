@@ -2,7 +2,21 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import type { CaseMemberRow, MemberRow } from '@/types'
+
+/** 保存後にトーストを表示する共通ラッパ */
+async function withToast<T>(op: () => Promise<T>): Promise<T | undefined> {
+  try {
+    const result = await op()
+    showToast('保存しました', 'success')
+    return result
+  } catch (e) {
+    console.error(e)
+    showToast('保存に失敗しました', 'error')
+    return undefined
+  }
+}
 
 // ─── Section ───
 export function Section({ title, icon, children, actionLabel, onAction }: {
@@ -67,6 +81,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
+  const composingRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -82,10 +97,13 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
     const trimmed = draft.trim()
     if (trimmed === (value ?? '')) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(trimmed) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(trimmed))
+    setSaving(false); setEditing(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // IME合成中はEnterで確定しない
+    if (composingRef.current) return
     if (e.key === 'Enter') { e.preventDefault(); handleSave() }
     else if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
   }
@@ -101,7 +119,9 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
           type="text"
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          onBlur={handleSave}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={() => { composingRef.current = false }}
+          onBlur={() => { if (!composingRef.current) handleSave() }}
           onKeyDown={handleKeyDown}
           disabled={saving}
           className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
@@ -138,7 +158,8 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   const handleChange = async (newVal: string) => {
     if (newVal === (value ?? '')) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(newVal) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(newVal))
+    setSaving(false); setEditing(false)
   }
 
   return (
@@ -190,26 +211,45 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string[]>(value ?? [])
   const [saving, setSaving] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const toggle = (opt: string) => {
     setDraft(prev => prev.includes(opt) ? prev.filter(v => v !== opt) : [...prev, opt])
   }
 
-  const handleSave = async () => {
+  const commit = async (finalDraft: string[]) => {
+    // 変更なしならそのまま閉じる
+    const current = value ?? []
+    const same = current.length === finalDraft.length && current.every(v => finalDraft.includes(v))
+    if (same) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(draft) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(finalDraft))
+    setSaving(false); setEditing(false)
   }
 
   const handleOpen = () => { setDraft(value ?? []); setEditing(true) }
 
+  // 外クリックで保存して閉じる
+  useEffect(() => {
+    if (!editing) return
+    const onDocClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        commit(draft)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, draft])
+
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[10px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
         <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
-          <div className="flex flex-wrap gap-1.5 mb-2">
+          <div className="flex flex-wrap gap-1.5">
             {options.map(opt => (
               <button
                 key={opt}
@@ -226,10 +266,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
               </button>
             ))}
           </div>
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[10px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
-          </div>
+          <div className="text-[10px] text-gray-400 mt-1.5">他の場所をクリックで保存</div>
         </div>
       ) : (
         <div onClick={handleOpen} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -271,7 +308,8 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
   const handleSave = async () => {
     if (draft === (value ?? '')) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(draft) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(draft))
+    setSaving(false); setEditing(false)
   }
 
   return (
@@ -327,7 +365,8 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
     const parsed = draft.trim() === '' ? null : Number(draft)
     if (parsed === value) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(parsed) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(parsed))
+    setSaving(false); setEditing(false)
   }
 
   return (
@@ -376,7 +415,8 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
     const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, ''))
     if (parsed === value) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(parsed) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(parsed))
+    setSaving(false); setEditing(false)
   }
 
   return (
@@ -410,16 +450,29 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
 }
 
 // ─── InlineCheckbox ───
+// 楽観的更新: クリック直後にUIを更新、保存失敗時のみロールバック
 export function InlineCheckbox({ label, value, onSave }: {
   label: string
   value?: boolean
   onSave: (value: boolean) => Promise<void>
 }) {
-  const [saving, setSaving] = useState(false)
+  const [optimistic, setOptimistic] = useState<boolean | null>(null)
+  const shown = optimistic ?? !!value
+
+  // propの値が更新されたら楽観値をクリア
+  useEffect(() => { setOptimistic(null) }, [value])
 
   const handleToggle = async () => {
-    setSaving(true)
-    try { await onSave(!value) } finally { setSaving(false) }
+    const next = !shown
+    setOptimistic(next)
+    try {
+      await onSave(next)
+      showToast('保存しました', 'success')
+    } catch (e) {
+      console.error(e)
+      setOptimistic(!next) // rollback
+      showToast('保存に失敗しました', 'error')
+    }
   }
 
   return (
@@ -429,15 +482,14 @@ export function InlineCheckbox({ label, value, onSave }: {
         <button
           type="button"
           onClick={handleToggle}
-          disabled={saving}
           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-            value ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 hover:border-blue-400'
-          } ${saving ? 'opacity-50' : ''}`}
+            shown ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 hover:border-blue-400'
+          }`}
         >
-          {value && <span className="text-[11px]">✓</span>}
+          {shown && <span className="text-[11px]">✓</span>}
         </button>
-        <span className={`text-[13px] ${value ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-          {value ? 'あり' : 'なし'}
+        <span className={`text-[13px] ${shown ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+          {shown ? 'あり' : 'なし'}
         </span>
       </div>
     </div>
@@ -455,6 +507,8 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const composingRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (editing && textareaRef.current) textareaRef.current.focus()
@@ -464,11 +518,26 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
     const trimmed = draft.trim()
     if (trimmed === (value ?? '')) { setEditing(false); return }
     setSaving(true)
-    try { await onSave(trimmed) } finally { setSaving(false); setEditing(false) }
+    await withToast(() => onSave(trimmed))
+    setSaving(false); setEditing(false)
   }
 
+  // 外クリックで保存
+  useEffect(() => {
+    if (!editing) return
+    const onDocClick = (e: MouseEvent) => {
+      if (composingRef.current) return
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        handleSave()
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, draft])
+
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div>
@@ -476,14 +545,13 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
             ref={textareaRef}
             value={draft}
             onChange={e => setDraft(e.target.value)}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
             rows={3}
             className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
           />
-          <div className="flex gap-2 justify-end mt-1">
-            <button onClick={() => { setDraft(value ?? ''); setEditing(false) }} className="text-[10px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[10px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
-          </div>
+          <div className="text-[10px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
         </div>
       ) : (
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-start gap-1.5 min-h-[24px]">
@@ -511,19 +579,30 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // 外クリックで閉じる
+  useEffect(() => {
+    if (!editing) return
+    const onDocClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setEditing(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [editing])
 
   const handleSelect = async (memberId: string) => {
     setSaving(true)
     const supabase = createClient()
     try {
       if (!multi) {
-        // Single: remove existing, add new
         await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
         if (memberId) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
         }
       } else {
-        // Multi: toggle
         const existing = assigned.find(cm => cm.member_id === memberId)
         if (existing) {
           await supabase.from('case_members').delete().eq('id', existing.id)
@@ -532,6 +611,10 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
         }
       }
       onRefresh?.()
+      showToast('保存しました', 'success')
+    } catch (e) {
+      console.error(e)
+      showToast('保存に失敗しました', 'error')
     } finally {
       setSaving(false)
       if (!multi) setEditing(false)
@@ -539,7 +622,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   }
 
   return (
-    <div className="py-1.5 border-b border-gray-50">
+    <div ref={containerRef} className="py-1.5 border-b border-gray-50">
       <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
@@ -576,9 +659,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               )
             })}
           </div>
-          <div className="flex justify-end mt-2">
-            <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">閉じる</button>
-          </div>
+          <div className="text-[10px] text-gray-400 mt-2">他の場所をクリックで閉じる</div>
         </div>
       ) : (
         <div onClick={() => setEditing(true)} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
