@@ -7,7 +7,7 @@ export default async function CasesPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [casesResult, membersResult] = await Promise.all([
+  const [casesResult, membersResult, tasksResult, taskAssigneesResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*), case_members(*, members(*))')
@@ -16,12 +16,29 @@ export default async function CasesPage() {
       .from('members')
       .select('*')
       .eq('is_active', true),
+    // タスク一覧：case_id・status・due_dateだけ（task_assigneesのJOINを避ける）
+    supabase
+      .from('tasks')
+      .select('id, case_id, status, due_date'),
+    // 担当者は別クエリで並列取得（JOINせずIDで紐付ける）
+    supabase
+      .from('task_assignees')
+      .select('task_id, member_id'),
   ])
 
-  // Count tasks per case + collect due_date and assignees for urgent/my-case filtering
-  const { data: tasksData } = await supabase
-    .from('tasks')
-    .select('case_id, status, due_date, task_assignees(member_id)')
+  // task_id → member_ids の辞書を先に作る（O(1)ルックアップ）
+  const assigneesByTaskId: Record<string, string[]> = {}
+  taskAssigneesResult.data?.forEach(ta => {
+    if (!assigneesByTaskId[ta.task_id]) assigneesByTaskId[ta.task_id] = []
+    assigneesByTaskId[ta.task_id].push(ta.member_id)
+  })
+
+  const tasksData = tasksResult.data?.map(t => ({
+    case_id: t.case_id,
+    status: t.status,
+    due_date: t.due_date,
+    task_assignees: (assigneesByTaskId[t.id] ?? []).map(member_id => ({ member_id })),
+  })) ?? []
 
   const taskCountMap: Record<string, { total: number; completed: number }> = {}
   // Map: case_id -> Set of assigned member_ids

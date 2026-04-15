@@ -338,7 +338,9 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, vie
               return (
                 <tr key={c.id} className={`border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] cursor-pointer transition-colors ${
                   viewMode === 'urgent' && isUrgent ? 'bg-red-50/30' : ''
-                }`} onClick={() => router.push(`/cases/${c.id}`)}>
+                }`}
+                onMouseEnter={() => router.prefetch(`/cases/${c.id}`)}
+                onClick={() => router.push(`/cases/${c.id}`)}>
                   <td className="px-3.5 py-3">
                     <div className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded inline-block mb-1">{c.case_number}</div>
                     <div className="text-[13px] font-semibold text-gray-900">{c.deal_name}</div>
@@ -425,6 +427,7 @@ function KanbanView({ cases, taskCounts, router }: {
                       <div
                         key={c.id}
                         className="bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all shadow-sm"
+                        onMouseEnter={() => router.prefetch(`/cases/${c.id}`)}
                         onClick={() => router.push(`/cases/${c.id}`)}
                       >
                         <div className="text-[9px] font-mono text-gray-400 bg-gray-50 px-1 py-0.5 rounded inline-block mb-1">{c.case_number}</div>
