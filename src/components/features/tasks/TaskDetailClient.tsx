@@ -10,6 +10,8 @@ import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS, TASK_CATEGORIES } from '@/lib/taskSectionDefs'
 import { getCompletionCondition } from '@/lib/taskCompletionConditions'
+import { getTaskAiTemplate } from '@/lib/taskAiDocuments'
+import AiDocumentModal from '@/components/features/cases/AiDocumentModal'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
 
@@ -48,6 +50,10 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
 
   const currentStatus = normalizeStatus(task.status)
   const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
+
+  // ─── AI書類作成 ───
+  const aiTemplate = getTaskAiTemplate(task.template_key)
+  const [aiOpen, setAiOpen] = useState(false)
 
   // ─── 保存ヘルパー ───
   const saveField = async (field: string, value: unknown) => {
@@ -258,6 +264,43 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
           </div>
         </div>
       </div>
+
+      {/* 🤖 AI書類作成カード（対象タスクのみ表示） */}
+      {aiTemplate && caseData && (
+        <div className="bg-white border-2 border-purple-300 rounded-xl mb-5 overflow-hidden shadow-sm">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2 flex items-center gap-2">
+            <span className="text-white text-base">🤖</span>
+            <h2 className="text-white text-sm font-bold flex-1">AI書類作成</h2>
+          </div>
+          <div className="p-4 flex items-center gap-3">
+            <div className="text-2xl">{aiTemplate.icon}</div>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-gray-900">{aiTemplate.label}</div>
+              <div className="text-[11px] text-gray-500 mt-0.5">
+                このタスク用の書類をAIが下書き生成します
+              </div>
+            </div>
+            <button
+              onClick={() => setAiOpen(true)}
+              className="px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition shadow-sm"
+            >
+              生成する
+            </button>
+          </div>
+        </div>
+      )}
+
+      {aiTemplate && caseData && (
+        <AiDocumentModal
+          isOpen={aiOpen}
+          onClose={() => setAiOpen(false)}
+          caseId={caseData.id}
+          caseName={caseData.deal_name}
+          presetTemplateKey={aiTemplate.templateKey}
+          taskId={task.id}
+          onSaved={() => { setAiOpen(false); router.refresh() }}
+        />
+      )}
 
       {/* 👉 今やること カード（最優先で見せる） */}
       {(() => {

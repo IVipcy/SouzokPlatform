@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { caseId, templateKey, additionalInstructions } = body
+    const { caseId, templateKey, additionalInstructions, taskId } = body
 
     if (!caseId || !templateKey) {
       return NextResponse.json({ error: 'caseId と templateKey は必須です' }, { status: 400 })
@@ -107,6 +107,7 @@ ${additionalInstructions ? `\n【追加指示】\n${additionalInstructions}` : '
     // Save to documents table
     const { data: doc, error: docErr } = await supabase.from('documents').insert({
       case_id: caseId,
+      task_id: taskId ?? null,
       name: `${template.title}_${caseData.case_number}`,
       file_type: 'Word',
       generated_by: 'AI',

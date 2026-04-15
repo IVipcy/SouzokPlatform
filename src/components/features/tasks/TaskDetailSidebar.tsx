@@ -12,14 +12,6 @@ type Props = {
   dependencies?: TaskDependencyRow[]
 }
 
-const DOC_STATUS_COLORS: Record<string, string> = {
-  '完了': '#059669',
-  '送付済': '#7C3AED',
-  '返送待ち': '#D97706',
-  '作成済': '#2563EB',
-  '下書き': '#6B7280',
-}
-
 const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   '着手前': { bg: 'bg-gray-100', text: 'text-gray-600' },
   '対応中': { bg: 'bg-blue-50', text: 'text-blue-700' },
@@ -307,17 +299,8 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
           <div className="space-y-2">
             {documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-xs">
-                <span className="text-gray-400">📄</span>
+                <span className="text-gray-400">{doc.generated_by === 'AI' ? '🤖' : '📄'}</span>
                 <span className="text-gray-700 font-medium truncate flex-1">{doc.name}</span>
-                <span
-                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    color: DOC_STATUS_COLORS[doc.status] ?? '#6B7280',
-                    backgroundColor: `${DOC_STATUS_COLORS[doc.status] ?? '#6B7280'}15`,
-                  }}
-                >
-                  {doc.status}
-                </span>
               </div>
             ))}
           </div>

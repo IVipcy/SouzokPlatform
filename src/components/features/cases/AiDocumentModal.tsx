@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Modal from '@/components/ui/Modal'
 
 type Props = {
@@ -9,6 +9,10 @@ type Props = {
   caseId: string
   caseName: string
   onSaved: () => void
+  /** 事前選択するテンプレートキー（タスク詳細から呼ぶ場合に指定） */
+  presetTemplateKey?: string
+  /** タスクに紐付けて保存する場合のタスクID */
+  taskId?: string
 }
 
 const TEMPLATES = [
@@ -18,12 +22,19 @@ const TEMPLATES = [
   { key: 'cover-letter', label: '送付状', icon: '📮', desc: '書類送付用のカバーレター' },
 ]
 
-export default function AiDocumentModal({ isOpen, onClose, caseId, caseName, onSaved }: Props) {
+export default function AiDocumentModal({ isOpen, onClose, caseId, caseName, onSaved, presetTemplateKey, taskId }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [additionalInstructions, setAdditionalInstructions] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ title: string; content: string } | null>(null)
+
+  // モーダルが開かれるたびに preset を反映
+  useEffect(() => {
+    if (isOpen && presetTemplateKey) {
+      setSelectedTemplate(presetTemplateKey)
+    }
+  }, [isOpen, presetTemplateKey])
 
   const handleGenerate = async () => {
     if (!selectedTemplate) { setError('テンプレートを選択してください'); return }
@@ -40,6 +51,7 @@ export default function AiDocumentModal({ isOpen, onClose, caseId, caseName, onS
           caseId,
           templateKey: selectedTemplate,
           additionalInstructions: additionalInstructions || undefined,
+          taskId: taskId || undefined,
         }),
       })
 
