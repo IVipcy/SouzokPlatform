@@ -17,6 +17,7 @@ export default function DocsTab({ caseData }: Props) {
   const [loading, setLoading] = useState(true)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [deleteDoc, setDeleteDoc] = useState<DocumentRow | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   const fetchDocs = async () => {
     const supabase = createClient()
@@ -30,6 +31,27 @@ export default function DocsTab({ caseData }: Props) {
   }
 
   useEffect(() => { fetchDocs() }, [caseData.id])
+
+  const handleGenerateTest = async () => {
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/generate-document-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        alert(`生成に失敗しました: ${json.error ?? '不明なエラー'}`)
+        return
+      }
+      fetchDocs()
+    } catch (e) {
+      alert(`生成に失敗しました: ${e instanceof Error ? e.message : '不明なエラー'}`)
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!deleteDoc) return
@@ -75,6 +97,14 @@ export default function DocsTab({ caseData }: Props) {
     <div>
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-base font-bold text-gray-900 flex-1">書類一覧</h2>
+        <button
+          onClick={handleGenerateTest}
+          disabled={generating}
+          className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          title="テスト用：案件名・依頼者名をテンプレートに埋め込んで.docxを生成"
+        >
+          {generating ? '生成中...' : '📝 テスト書類生成'}
+        </button>
         <button
           onClick={() => setUploadOpen(true)}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
