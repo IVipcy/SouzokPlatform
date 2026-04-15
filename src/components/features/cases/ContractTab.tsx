@@ -5,6 +5,7 @@ import type { CaseRow, PartnerRow } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, Field, InlineSelect, InlineCurrency, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
+import PartnerManagerField from './PartnerManagerField'
 
 type Props = {
   caseData: CaseRow
@@ -140,19 +141,23 @@ export default function ContractTab({ caseData, onRefresh }: Props) {
         {/* パートナー報酬 */}
         <Section title="パートナー報酬" icon="🤝">
           <div className="space-y-0">
-            <Field
-              label="パートナー企業"
-              value={partner ? partner.name : caseData.partner_id ? '読み込み中...' : '未設定'}
+            <PartnerManagerField
+              caseId={caseData.id}
+              partnerId={caseData.partner_id}
+              onChange={onRefresh}
             />
             <Field
               label="パートナー報酬割合"
               value={partner ? `${kickbackRate}%` : undefined}
             />
             <Field
-              label="パートナー報酬額"
+              label="パートナー報酬額（確定金額ベース）"
               value={partner ? yen(partnerCompensation) : undefined}
               mono
             />
+            <div className="text-[10px] text-gray-400 mt-1 px-1">
+              ※ 実際の請求時は「請求タブ」の確定請求額×還元率で再計算されます
+            </div>
           </div>
         </Section>
       </div>

@@ -13,6 +13,7 @@ import {
 } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
+import PartnerManagerField from './PartnerManagerField'
 
 type Props = {
   caseData: CaseRow
@@ -151,6 +152,12 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <InlineSelect label="受注ルート" value={caseData.order_route} options={[...ORDER_ROUTES]} onSave={v => saveCaseField('order_route', v)} />
             <InlineEdit label="受注ルート（LP担当者名）" value={caseData.order_route_lp_name} onSave={v => saveCaseField('order_route_lp_name', v)} />
             <InlineEdit label="受注ルート（パートナー担当者名）" value={caseData.order_route_person} onSave={v => saveCaseField('order_route_person', v)} />
+            <PartnerManagerField
+              caseId={caseData.id}
+              partnerId={caseData.partner_id}
+              onChange={() => onRefresh?.()}
+              label="紹介パートナー"
+            />
             <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />
           </FieldGrid>
         </Section>
