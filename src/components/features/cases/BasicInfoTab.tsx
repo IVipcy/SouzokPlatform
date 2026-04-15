@@ -1,6 +1,5 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 import {
   Section, FieldGrid, Field, QIRow, InlineEdit, InlineSelect, InlineMultiSelect,
@@ -21,24 +20,21 @@ type Props = {
   tasks: TaskRow[]
   allMembers: MemberRow[]
   onRefresh?: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  patchClient: (patch: Record<string, unknown>) => Promise<void>
 }
 
-export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers, onRefresh }: Props) {
+export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers, onRefresh, patchCase, patchClient }: Props) {
   const completedTasks = tasks.filter(t => t.status === '完了').length
   const totalTasks = tasks.length
   const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   const saveCaseField = async (field: string, value: unknown) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value ?? null }).eq('id', caseData.id)
-    onRefresh?.()
+    await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   const saveClientField = async (field: string, value: unknown) => {
-    if (!caseData.client_id) return
-    const supabase = createClient()
-    await supabase.from('clients').update({ [field]: value ?? null }).eq('id', caseData.client_id)
-    onRefresh?.()
+    await patchClient({ [field]: value ?? null })
   }
 
   const client = caseData.clients

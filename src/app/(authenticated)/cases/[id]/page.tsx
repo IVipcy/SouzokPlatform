@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseActivityRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -13,7 +13,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, activitiesResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -60,12 +60,6 @@ export default async function CaseDetailPage({ params }: Props) {
       .select('*')
       .eq('case_id', id)
       .order('expense_date'),
-    supabase
-      .from('case_activities')
-      .select('*, members(*), tasks(id, title)')
-      .eq('case_id', id)
-      .order('created_at', { ascending: false })
-      .limit(100),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -84,7 +78,6 @@ export default async function CaseDetailPage({ params }: Props) {
       financialAssets={(financialAssetsResult.data ?? []) as FinancialAssetRow[]}
       divisionDetails={(divisionDetailsResult.data ?? []) as DivisionDetailRow[]}
       expenses={(expensesResult.data ?? []) as ExpenseRow[]}
-      activities={(activitiesResult.data ?? []) as CaseActivityRow[]}
       currentMemberId={currentUser?.memberId ?? null}
     />
   )

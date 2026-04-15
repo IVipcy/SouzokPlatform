@@ -17,6 +17,7 @@ type Props = {
   caseData: CaseRow
   divisionDetails: DivisionDetailRow[]
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 const riskColorMap: Record<string, string> = {
@@ -25,7 +26,7 @@ const riskColorMap: Record<string, string> = {
   '低': 'bg-green-50 text-green-700 border-green-200',
 }
 
-export default function DivisionTab({ caseData, divisionDetails, onRefresh }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, onRefresh, patchCase }: Props) {
   const [showAddDetail, setShowAddDetail] = useState(false)
   const [detailForm, setDetailForm] = useState({
     asset_category: '',
@@ -36,15 +37,11 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh }: Pr
   })
 
   const saveCaseField = async (field: string, value: string) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value || null }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
 
   const saveCaseBoolField = async (field: string, value: boolean) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value } as Partial<CaseRow>)
   }
 
   const handleAddDetail = async () => {

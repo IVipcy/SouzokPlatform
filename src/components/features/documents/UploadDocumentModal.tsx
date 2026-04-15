@@ -60,8 +60,10 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
       fileType = FILE_TYPES[file.type] ?? file.name.split('.').pop()?.toUpperCase() ?? 'PDF'
 
       // Upload to Supabase Storage
-      const ext = file.name.split('.').pop()
-      const path = `${caseId}/${Date.now()}_${form.name.trim()}.${ext}`
+      // Supabase Storageは日本語文字をkeyに含められないので、ランダムIDベースのパスにする
+      const ext = (file.name.split('.').pop() ?? 'bin').replace(/[^a-zA-Z0-9]/g, '')
+      const randomId = crypto.randomUUID()
+      const path = `${caseId}/${Date.now()}_${randomId}.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('documents')
         .upload(path, file)

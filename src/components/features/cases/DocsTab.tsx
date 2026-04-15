@@ -51,6 +51,7 @@ export default function DocsTab({ caseData }: Props) {
     const supabase = createClient()
     const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
     if (error || !data) {
+      console.error('Download error:', error)
       alert(`ダウンロードに失敗しました: ${error?.message ?? '不明なエラー'}`)
       return
     }
@@ -59,8 +60,15 @@ export default function DocsTab({ caseData }: Props) {
     a.href = url
     const ext = doc.file_type ? `.${doc.file_type.toLowerCase()}` : ''
     a.download = doc.name.endsWith(ext) ? doc.name : doc.name + ext
+    a.rel = 'noopener'
+    a.style.display = 'none'
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    // revokeをasync化してダウンロード開始を待つ
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 100)
   }
 
   return (

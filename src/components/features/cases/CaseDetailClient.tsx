@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
@@ -18,7 +20,7 @@ import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseActivityRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -31,25 +33,62 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
-  activities: CaseActivityRow[]
   currentMemberId: string | null
 }
 
-export default function CaseDetailClient({ caseData, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, activities, currentMemberId }: Props) {
+// DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
+const TRIGGER_FIELDS = new Set(['status'])
+
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, currentMemberId }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('basicInfo')
+  const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
 
   const bulkTaskModal = useModal()
 
   const addTaskModal = useModal()
 
+  // prop側でdata更新があった場合はstateに反映
+  useEffect(() => { setCaseState(caseDataProp) }, [caseDataProp])
+
   const handleSaved = () => {
     router.refresh()
   }
 
+  /** 案件フィールドの楽観的更新 */
+  const patchCase = async (patch: Partial<CaseRow>) => {
+    const prev = caseState
+    setCaseState(c => ({ ...c, ...patch }))
+    const supabase = createClient()
+    const { error } = await supabase.from('cases').update(patch).eq('id', caseState.id)
+    if (error) {
+      setCaseState(prev)
+      showToast(`保存に失敗しました: ${error.message}`, 'error')
+      return
+    }
+    // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得
+    const needsRefresh = Object.keys(patch).some(k => TRIGGER_FIELDS.has(k))
+    if (needsRefresh) {
+      router.refresh()
+    }
+  }
+
+  /** 依頼者フィールドの楽観的更新 */
+  const patchClient = async (patch: Record<string, unknown>) => {
+    if (!caseState.client_id || !caseState.clients) return
+    const prev = caseState.clients
+    setCaseState(c => ({ ...c, clients: c.clients ? { ...c.clients, ...patch } as typeof c.clients : c.clients }))
+    const supabase = createClient()
+    const { error } = await supabase.from('clients').update(patch).eq('id', caseState.client_id)
+    if (error) {
+      setCaseState(c => ({ ...c, clients: prev }))
+      showToast(`保存に失敗しました: ${error.message}`, 'error')
+    }
+  }
+
   return (
     <div>
-      <CaseHeader caseData={caseData} />
+      <CaseHeader caseData={caseState} />
 
       <CaseTabs
         activeTab={activeTab}
@@ -59,40 +98,40 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
       />
 
       {activeTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseData} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} />
+        <BasicInfoTab caseData={caseState} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} patchClient={patchClient} />
       )}
       {activeTab === 'tasks' && (
         <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
       )}
       {activeTab === 'deceased' && (
-        <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={handleSaved} />
+        <DeceasedTab caseData={caseState} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'contract' && (
-        <ContractTab caseData={caseData} onRefresh={handleSaved} />
+        <ContractTab caseData={caseState} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'mailing' && (
-        <MailingTab caseData={caseData} onRefresh={handleSaved} />
+        <MailingTab caseData={caseState} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'assets' && (
-        <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} />
+        <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'division' && (
-        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={handleSaved} />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'invoice' && (
-        <InvoiceTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={handleSaved} />
+        <InvoiceTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'docs' && (
-        <DocsTab caseData={caseData} />
+        <DocsTab caseData={caseState} />
       )}
       {activeTab === 'history' && (
-        <HistoryTab caseData={caseData} activities={activities} allMembers={allMembers} currentMemberId={currentMemberId} />
+        <HistoryTab caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} />
       )}
 
       <BulkTaskGenerateModal
         isOpen={bulkTaskModal.isOpen}
         onClose={bulkTaskModal.close}
-        caseId={caseData.id}
+        caseId={caseState.id}
         taskTemplates={taskTemplates}
         existingTasks={tasks}
         onSaved={handleSaved}
@@ -101,7 +140,7 @@ export default function CaseDetailClient({ caseData, caseMembers, tasks, allMemb
       <AddTaskModal
         isOpen={addTaskModal.isOpen}
         onClose={addTaskModal.close}
-        caseId={caseData.id}
+        caseId={caseState.id}
         allMembers={allMembers}
         onSaved={handleSaved}
       />

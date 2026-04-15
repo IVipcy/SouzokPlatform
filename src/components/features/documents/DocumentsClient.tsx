@@ -115,17 +115,30 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
   }
 
   const handleDownload = async (doc: DocumentRow) => {
-    if (!doc.file_path) return
-    const supabase = createClient()
-    const { data } = await supabase.storage.from('documents').download(doc.file_path)
-    if (data) {
-      const url = URL.createObjectURL(data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = doc.name + (doc.file_type ? `.${doc.file_type.toLowerCase()}` : '')
-      a.click()
-      URL.revokeObjectURL(url)
+    if (!doc.file_path) {
+      alert('この書類にはファイルが紐付いていません')
+      return
     }
+    const supabase = createClient()
+    const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
+    if (error || !data) {
+      console.error('Download error:', error)
+      alert(`ダウンロードに失敗しました: ${error?.message ?? '不明なエラー'}`)
+      return
+    }
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    const ext = doc.file_type ? `.${doc.file_type.toLowerCase()}` : ''
+    a.download = doc.name.endsWith(ext) ? doc.name : doc.name + ext
+    a.rel = 'noopener'
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 100)
   }
 
   return (

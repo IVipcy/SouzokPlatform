@@ -1,29 +1,25 @@
 'use client'
 
 import type { CaseRow } from '@/types'
-import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, Field, InlineSelect, InlineCurrency, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
 
 type Props = {
   caseData: CaseRow
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, onRefresh }: Props) {
+export default function ContractTab({ caseData, onRefresh: _onRefresh, patchCase }: Props) {
   const saveCaseField = async (field: string, value: string) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value || null }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
 
   const saveCaseNumberField = async (field: string, value: number | null) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value } as Partial<CaseRow>)
   }
 
   // Computed values

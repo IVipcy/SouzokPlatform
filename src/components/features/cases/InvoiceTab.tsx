@@ -11,11 +11,12 @@ type Props = {
   expenses: ExpenseRow[]
   tasks: TaskRow[]
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 const yen = (v: number | null | undefined) => v != null ? '¥' + v.toLocaleString() : '未設定'
 
-export default function InvoiceTab({ caseData, expenses, tasks, onRefresh }: Props) {
+export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patchCase }: Props) {
   const [partner, setPartner] = useState<PartnerRow | null>(null)
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -47,9 +48,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh }: Pro
 
   // Save helpers
   const saveCaseField = async (field: string, value: unknown) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value ?? null }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   // Computed values

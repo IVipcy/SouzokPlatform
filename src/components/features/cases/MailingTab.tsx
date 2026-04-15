@@ -1,6 +1,5 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS } from '@/lib/constants'
 import type { CaseRow } from '@/types'
@@ -8,13 +7,12 @@ import type { CaseRow } from '@/types'
 type Props = {
   caseData: CaseRow
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
-export default function MailingTab({ caseData, onRefresh }: Props) {
+export default function MailingTab({ caseData, onRefresh: _onRefresh, patchCase }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value ?? null }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   return (

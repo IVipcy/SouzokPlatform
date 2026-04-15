@@ -1,14 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
-  activities: CaseActivityRow[]
   allMembers: MemberRow[]
   currentMemberId: string | null
 }
@@ -27,11 +25,26 @@ const ACTIVITY_COLORS: Record<string, string> = {
   'note': '#6B7280',
 }
 
-export default function HistoryTab({ caseData, activities, allMembers, currentMemberId: serverMemberId }: Props) {
-  const router = useRouter()
+export default function HistoryTab({ caseData, allMembers: _allMembers, currentMemberId: serverMemberId }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [activities, setActivities] = useState<CaseActivityRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchActivities = async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('case_activities')
+      .select('*, members(*), tasks(id, title)')
+      .eq('case_id', caseData.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    setActivities((data ?? []) as CaseActivityRow[])
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchActivities() }, [caseData.id])
 
   const handleAddNote = async () => {
     if (!newNote.trim() || !currentMemberId) return
@@ -46,7 +59,7 @@ export default function HistoryTab({ caseData, activities, allMembers, currentMe
     })
     setNewNote('')
     setSaving(false)
-    router.refresh()
+    fetchActivities()
   }
 
   // 全タイムラインイベント: 活動履歴 + 案件の基本イベント
@@ -123,7 +136,11 @@ export default function HistoryTab({ caseData, activities, allMembers, currentMe
           <span className="text-[10px] font-mono text-gray-400 ml-auto">{allEvents.length}件</span>
         </div>
         <div className="px-4 py-3">
-          {allEvents.length === 0 ? (
+          {loading ? (
+            <div className="text-center text-sm text-gray-400 py-6">
+              読み込み中...
+            </div>
+          ) : allEvents.length === 0 ? (
             <div className="text-center text-sm text-gray-400 py-6">
               まだ活動履歴がありません
             </div>

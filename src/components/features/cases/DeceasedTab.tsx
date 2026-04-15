@@ -25,11 +25,12 @@ type Props = {
   caseData: CaseRow
   heirs: HeirRow[]
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 const RELATIONSHIP_OPTIONS = ['配偶者', '子', '父母', '兄弟姉妹', '代襲相続人', 'その他']
 
-export default function DeceasedTab({ caseData, heirs, onRefresh }: Props) {
+export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: Props) {
   const [showAddHeir, setShowAddHeir] = useState(false)
   const [heirForm, setHeirForm] = useState({
     name: '',
@@ -43,9 +44,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh }: Props) {
   })
 
   const saveCaseField = async (field: string, value: string | boolean | string[]) => {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value === '' ? null : value }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
 
   const handleAddHeir = async () => {

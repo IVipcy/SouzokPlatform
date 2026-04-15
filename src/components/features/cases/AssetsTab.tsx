@@ -32,6 +32,7 @@ type Props = {
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
   onRefresh: () => void
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 /* ── IME-safe input (日本語入力中の変な値に進まないようにする) ── */
@@ -233,7 +234,7 @@ function BoolTag({
   )
 }
 
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase }: Props) {
   const [showPropertyForm, setShowPropertyForm] = useState(false)
   const [showDepositForm, setShowDepositForm] = useState(false)
   const [showSecuritiesForm, setShowSecuritiesForm] = useState(false)
@@ -255,9 +256,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   /* ── Supabase update helpers ── */
 
   async function updateCase(field: string, value: unknown) {
-    const supabase = createClient()
-    await supabase.from('cases').update({ [field]: value }).eq('id', caseData.id)
-    onRefresh()
+    await patchCase({ [field]: value } as Partial<CaseRow>)
   }
 
   async function updateProperty(id: string, field: string, value: unknown) {
