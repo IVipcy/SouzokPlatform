@@ -244,7 +244,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <h3 className="text-[13px] font-bold text-red-800 flex-1">要対応（期限超過・急ぎ）</h3>
             <span className="text-[10px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
           </div>
-          <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+          <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider">
             <div>タスク名</div>
             <div>案件</div>
             <div>進行</div>
@@ -281,7 +281,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                   <span className="text-[10px] font-mono text-gray-400">{group.tasks.length}件</span>
                 </div>
                 {/* Table header */}
-                <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   <div>タスク名</div>
                   <div>案件</div>
                   <div>進行</div>
@@ -384,7 +384,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
 
   return (
-    <div className={`grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`}>
+    <div className={`grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`}>
       {/* Task name */}
       <div className="min-w-0 pr-2">
         <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate block ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
@@ -469,7 +469,7 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: 
   const isUrgent = task.priority === '急ぎ'
 
   return (
-    <div className="grid grid-cols-[minmax(120px,2fr)_minmax(100px,1.5fr)_100px_120px_120px_85px_70px] gap-0 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors">
+    <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors">
       <div className="min-w-0 pr-2">
         <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate block">{task.title}</a>
       </div>
