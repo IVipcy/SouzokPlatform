@@ -68,7 +68,7 @@ rules = [
     ("依存関係の自動作成",   "生成と同時に、定義済みフロールールに基づきタスク間の依存関係（task_dependencies）が自動作成される。"),
     ("追加生成",             "後からでも追加生成可能。生成済みタスクは「生成済」バッジで表示され選択不可となる。"),
     ("手動追加",             "テンプレートにない臨時タスクは「タスクを追加」ボタンから個別作成できる（タイトル・フェーズ・期限・優先度を設定）。"),
-    ("依存関係の手動編集",   "【管理担当のみ】タスク詳細のサイドバー下部「依存関係を編集」から手動で前後関係を変更できる。通常案件では使用しない。特殊なフロー変更が必要な場合に管理担当が使用する。"),
+    ("依存関係の編集",       "依存関係はテンプレートのフロールールに基づき自動生成のみ。手動編集UIは提供しない（運用簡素化のため）。"),
     ("残高証明請求の特殊仕様", "「残高証明請求」タスクは1タスクで全金融機関をまとめて管理する。タスク生成時に案件の預貯金情報を自動取得。銀行ごとに請求日・到着日を入力し、全銀行の到着日が入力されたらタスクを「完了」にする。"),
 ]
 for i, (k, v) in enumerate(rules):
@@ -249,7 +249,7 @@ hdr(ws3, 1, 1, "タスク別 カテゴリ入力項目（ext_data）", size=14, m
 ws3.row_dimensions[1].height = 28
 
 note = ws3.cell(row=3, column=1,
-    value="※ 各タスクのカテゴリに応じて、タスク詳細画面に専用の入力フォームが表示されます。データはext_data（JSONB）に保存されます。")
+    value="※ 各タスクのカテゴリに応じて、タスク詳細画面の最下部「📝 作業内容」セクションに専用の入力フォームが表示されます（カテゴリ別にセクション名は変えず「作業内容」で統一）。データはext_data（JSONB）に保存されます。")
 note.font = Font(name="Arial", italic=True, color="6B7280", size=9)
 note.alignment = Alignment(wrap_text=True)
 ws3.merge_cells("A3:E3")
@@ -615,6 +615,140 @@ for i, (name, role, proc) in enumerate(procedures):
 ws4.column_dimensions["A"].width = 28
 ws4.column_dimensions["B"].width = 22
 ws4.column_dimensions["C"].width = 72
+
+# ────────────────────────────────────────────
+# Sheet 5: 画面構成（タスク詳細・タスク一覧・ダッシュボード）
+# ────────────────────────────────────────────
+ws5 = wb.create_sheet("画面構成")
+hdr(ws5, 1, 1, "画面構成・運用ルール（現場向けUI最適化）", size=14, merge_to_col=3)
+ws5.row_dimensions[1].height = 28
+
+note5 = ws5.cell(row=3, column=1,
+    value="※ 「複数のパートタイマーが日替わりで着手前タスクをピックアップ → 完了 or 途中で帰る」という運用を前提に最適化された画面構成。")
+note5.font = Font(name="Arial", italic=True, color="6B7280", size=9)
+note5.alignment = Alignment(wrap_text=True)
+ws5.merge_cells("A3:C3")
+ws5.row_dimensions[3].height = 28
+
+# 5-1 タスク詳細画面の構成
+hdr(ws5, 5, 1, "■ タスク詳細画面の構成（上から順）", bg=MID_BLUE, merge_to_col=3)
+hdr(ws5, 6, 1, "セクション", bg=LIGHT_BLUE, fg=DARK_BLUE)
+hdr(ws5, 6, 2, "目的・内容", bg=LIGHT_BLUE, fg=DARK_BLUE)
+hdr(ws5, 6, 3, "備考", bg=LIGHT_BLUE, fg=DARK_BLUE)
+
+detail_sections = [
+    ("ヘッダー",
+     "ID / フェーズ / カテゴリ バッジ、タスク名、案件リンク、着手/完了ボタン、ステータスフロー（着手前→対応中→完了）",
+     "着手ボタン下に「作業を始める前に押す」、完了ボタン下に「完了条件を満たしたら押す」のヒント表示"),
+    ("👉 今やること",
+     "✅ 完了条件（このタスクを完了にするタイミング）／📋 作業手順（チェックリスト形式）を最上段に強調表示",
+     "完了条件は src/lib/taskCompletionConditions.ts、作業手順は task_templates.procedure_text から取得"),
+    ("📝 基本情報",
+     "件名・起票日・期限・ステータス・優先度・フェーズ・カテゴリ・備考",
+     "旧「内容・分類」セクションを統合。表題（作業内容）フィールドは作業手順と重複するため削除"),
+    ("👤 着手者・作業履歴",
+     "現在の着手者を緑色カードで表示。下部にこのタスクの活動履歴",
+     "未着手の場合は「まだ誰も着手していません」＋ ▶着手するボタン"),
+    ("📝 作業内容",
+     "カテゴリ別の入力フォーム（請求先市町村・到着日など）",
+     "全カテゴリでセクション名を「作業内容」に統一。カテゴリ識別はヘッダーのバッジで行う"),
+]
+
+for i, (sec, purpose, note) in enumerate(detail_sections):
+    bg = PALE_BLUE if i % 2 == 0 else WHITE
+    cell(ws5, 7 + i, 1, sec, bg=bg, bold=True)
+    cell(ws5, 7 + i, 2, purpose, bg=bg, wrap=True)
+    cell(ws5, 7 + i, 3, note, bg=bg, wrap=True)
+    ws5.row_dimensions[7 + i].height = 60
+
+# 5-2 タスク一覧画面の運用
+start_row = 7 + len(detail_sections) + 2
+hdr(ws5, start_row, 1, "■ タスク一覧画面の運用ルール", bg=MID_BLUE, merge_to_col=3)
+hdr(ws5, start_row + 1, 1, "項目", bg=LIGHT_BLUE, fg=DARK_BLUE)
+hdr(ws5, start_row + 1, 2, "仕様", bg=LIGHT_BLUE, fg=DARK_BLUE, merge_to_col=3)
+
+list_rules = [
+    ("デフォルトフィルター",
+     "「着手前」ステータスのみ表示。出勤したパートが即「今日やれるタスク」を選べる。"),
+    ("要対応セクション",
+     "画面上部に赤枠で固定表示。着手前かつ「期限超過」または「急ぎ」優先度のタスクが自動で最上段に集約。"),
+    ("対応中タスクの表示",
+     "着手者アバターを通常より大きく（22px）青枠＋太字で強調。誰かがやっている作業を一目で判別、重複着手を防止。"),
+    ("ステータスKPIカード",
+     "全タスク／着手前／対応中／完了 の4枚。クリックで該当ステータスにフィルター切替。"),
+    ("「自分が着手中」フィルター",
+     "ボタンで自分が着手or主担当のタスクのみ表示可能。途中で帰った後に再開する用。"),
+    ("グループ化",
+     "デフォルト：フェーズ別。「📋 案件別」ボタンで案件別グループに切替可能。"),
+    ("操作ボタン",
+     "▶ 着手する（緑）／ ✅ 完了にする（青）／ ✅ 完了（バッジ）の3状態のみ。着手中→着手前への戻し機能は提供しない。"),
+]
+
+for i, (k, v) in enumerate(list_rules):
+    bg = PALE_PURPLE if i % 2 == 0 else WHITE
+    r = start_row + 2 + i
+    cell(ws5, r, 1, k, bg=bg, bold=True)
+    c = ws5.cell(row=r, column=2, value=v)
+    c.font = Font(name="Arial", size=10)
+    c.fill = PatternFill("solid", fgColor=bg)
+    c.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+    c.border = thin_border
+    ws5.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
+    ws5.row_dimensions[r].height = 38
+
+# 5-3 ダッシュボード
+start_row2 = start_row + 2 + len(list_rules) + 2
+hdr(ws5, start_row2, 1, "■ ダッシュボード（経営者・管理者向け）", bg=MID_BLUE, merge_to_col=3)
+hdr(ws5, start_row2 + 1, 1, "セクション", bg=LIGHT_BLUE, fg=DARK_BLUE)
+hdr(ws5, start_row2 + 1, 2, "内容", bg=LIGHT_BLUE, fg=DARK_BLUE, merge_to_col=3)
+
+dashboard_items = [
+    ("KPIカード（5枚）", "総案件数 / 対応中タスク / 完了案件 / 検討中案件 / メンバー数。経営者が全体俯瞰するための数値。"),
+    ("最近の案件", "最新5件の案件カード。受注担当者アバター付き。"),
+    ("期限が近いタスク", "期限指定された未完了タスクを期限昇順で最大8件。担当者アバター付き。"),
+    ("マイタスク表示", "提供しない（複数パートが日替わりで動く運用に合わないため削除済み）。現場は /tasks で完結。"),
+]
+
+for i, (k, v) in enumerate(dashboard_items):
+    bg = PALE_GREEN if i % 2 == 0 else WHITE
+    r = start_row2 + 2 + i
+    cell(ws5, r, 1, k, bg=bg, bold=True)
+    c = ws5.cell(row=r, column=2, value=v)
+    c.font = Font(name="Arial", size=10)
+    c.fill = PatternFill("solid", fgColor=bg)
+    c.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+    c.border = thin_border
+    ws5.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
+    ws5.row_dimensions[r].height = 32
+
+# 5-4 InlineEdit UX
+start_row3 = start_row2 + 2 + len(dashboard_items) + 2
+hdr(ws5, start_row3, 1, "■ インライン編集（InlineEdit）の見た目", bg=MID_BLUE, merge_to_col=3)
+hdr(ws5, start_row3 + 1, 1, "状態", bg=LIGHT_BLUE, fg=DARK_BLUE)
+hdr(ws5, start_row3 + 1, 2, "見た目", bg=LIGHT_BLUE, fg=DARK_BLUE, merge_to_col=3)
+
+inline_items = [
+    ("通常表示", "値の下に点線アンダーライン。クリック可能なことを視覚的に示す。"),
+    ("ホバー時", "薄い青背景（hover:bg-blue-50）に変化。tooltip「クリックして入力」を表示。"),
+    ("空欄時", "薄いグレーで「クリックして入力」「クリックして選択」「クリックして日付入力」プレースホルダ。"),
+    ("編集中", "input/select/textarea に切替。Enter or Blur で保存、Escでキャンセル。"),
+]
+
+for i, (k, v) in enumerate(inline_items):
+    bg = PALE_YELLOW if i % 2 == 0 else WHITE
+    r = start_row3 + 2 + i
+    cell(ws5, r, 1, k, bg=bg, bold=True)
+    c = ws5.cell(row=r, column=2, value=v)
+    c.font = Font(name="Arial", size=10)
+    c.fill = PatternFill("solid", fgColor=bg)
+    c.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+    c.border = thin_border
+    ws5.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
+    ws5.row_dimensions[r].height = 28
+
+ws5.column_dimensions["A"].width = 28
+ws5.column_dimensions["B"].width = 50
+ws5.column_dimensions["C"].width = 45
 
 # ────────────────────────────────────────────
 # 保存
