@@ -48,6 +48,33 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
   const [dueDateSort, setDueDateSort] = useState<'none' | 'asc' | 'desc'>('none')
 
+  // ─── 列幅（ドラッグでリサイズ可能、localStorage保存） ───
+  const DEFAULT_COL_WIDTHS = {
+    title: 280, case: 200, action: 110, caseMembers: 150, startedBy: 150, due: 110, ops: 50,
+  }
+  const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('taskListColumnWidths')
+      if (saved) setColWidths({ ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) })
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const updateColWidth = useCallback((key: keyof typeof DEFAULT_COL_WIDTHS, w: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: Math.max(40, Math.round(w)) }
+      try { localStorage.setItem('taskListColumnWidths', JSON.stringify(next)) } catch {}
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const resetColWidths = useCallback(() => {
+    setColWidths(DEFAULT_COL_WIDTHS)
+    try { localStorage.removeItem('taskListColumnWidths') } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const gridTemplate = `${colWidths.title}px ${colWidths.case}px ${colWidths.action}px ${colWidths.caseMembers}px ${colWidths.startedBy}px ${colWidths.due}px ${colWidths.ops}px`
+
   const today = new Date().toISOString().split('T')[0]
 
   // ステータス正規化: 旧ステータスを新3段階に変換
@@ -229,6 +256,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           📋 案件別
         </button>
         <div className="flex-1" />
+        <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
+          className="text-[11px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
+          ↔ 列幅リセット
+        </button>
         <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
         <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
           <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
@@ -244,13 +275,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <h3 className="text-[13px] font-bold text-red-800 flex-1">要対応（期限超過・急ぎ）</h3>
             <span className="text-[10px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
           </div>
-          <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider">
-            <div>タスク名</div>
-            <div>案件</div>
-            <div>進行</div>
-            <div>案件担当者</div>
-            <div>着手者</div>
-            <div>期限</div>
+          <div className="grid gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
+            <ResizableHeader colKey="title" width={colWidths.title} onResize={updateColWidth}>タスク名</ResizableHeader>
+            <ResizableHeader colKey="case" width={colWidths.case} onResize={updateColWidth}>案件</ResizableHeader>
+            <ResizableHeader colKey="action" width={colWidths.action} onResize={updateColWidth}>進行</ResizableHeader>
+            <ResizableHeader colKey="caseMembers" width={colWidths.caseMembers} onResize={updateColWidth}>案件担当者</ResizableHeader>
+            <ResizableHeader colKey="startedBy" width={colWidths.startedBy} onResize={updateColWidth}>着手者</ResizableHeader>
+            <ResizableHeader colKey="due" width={colWidths.due} onResize={updateColWidth}>期限</ResizableHeader>
             <div>理由</div>
           </div>
           {alertTasks.map(task => (
@@ -262,6 +293,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
               onAdvance={() => handleAdvance(task)}
               loading={loadingTaskId === task.id}
               today={today}
+              gridTemplate={gridTemplate}
             />
           ))}
         </div>
@@ -281,21 +313,23 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                   <span className="text-[10px] font-mono text-gray-400">{group.tasks.length}件</span>
                 </div>
                 {/* Table header */}
-                <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  <div>タスク名</div>
-                  <div>案件</div>
-                  <div>進行</div>
-                  <div>案件担当者</div>
-                  <div>着手者</div>
-                  <button
-                    onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
-                    className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
-                  >
-                    期限
-                    <span className="text-[9px]">
-                      {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
-                    </span>
-                  </button>
+                <div className="grid gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
+                  <ResizableHeader colKey="title" width={colWidths.title} onResize={updateColWidth}>タスク名</ResizableHeader>
+                  <ResizableHeader colKey="case" width={colWidths.case} onResize={updateColWidth}>案件</ResizableHeader>
+                  <ResizableHeader colKey="action" width={colWidths.action} onResize={updateColWidth}>進行</ResizableHeader>
+                  <ResizableHeader colKey="caseMembers" width={colWidths.caseMembers} onResize={updateColWidth}>案件担当者</ResizableHeader>
+                  <ResizableHeader colKey="startedBy" width={colWidths.startedBy} onResize={updateColWidth}>着手者</ResizableHeader>
+                  <ResizableHeader colKey="due" width={colWidths.due} onResize={updateColWidth}>
+                    <button
+                      onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
+                      className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
+                    >
+                      期限
+                      <span className="text-[9px]">
+                        {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
+                      </span>
+                    </button>
+                  </ResizableHeader>
                   <div>操作</div>
                 </div>
                 <div>
@@ -310,6 +344,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                       loading={loadingTaskId === task.id}
                       today={today}
                       allMembers={allMembers}
+                      gridTemplate={gridTemplate}
                     />
                   ))}
                 </div>
@@ -366,11 +401,46 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
   return <span className="text-[11px] text-green-600 font-semibold">✅ 完了</span>
 }
 
+// ─── ResizableHeader ───
+function ResizableHeader<K extends string>({ colKey, width, onResize, children }: {
+  colKey: K; width: number; onResize: (key: K, w: number) => void; children: React.ReactNode
+}) {
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startWidth = width
+    const onMove = (ev: MouseEvent) => onResize(colKey, startWidth + (ev.clientX - startX))
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+  return (
+    <div className="relative flex items-center min-w-0 group/col">
+      <div className="truncate">{children}</div>
+      <div
+        onMouseDown={startResize}
+        title="ドラッグして列幅を変更"
+        className="absolute top-[-4px] bottom-[-4px] right-[-8px] w-[14px] cursor-col-resize z-10 flex items-center justify-center"
+      >
+        <div className="w-[2px] h-[18px] bg-gray-300 group-hover/col:bg-blue-400 transition-colors rounded-full" />
+      </div>
+    </div>
+  )
+}
+
 // ─── Table Row ───
-function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, today, allMembers }: {
+function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, today, allMembers, gridTemplate }: {
   task: TaskRow; caseMap: Record<string, CaseInfo>
   onEdit: () => void; onDelete: () => void; onAdvance: () => void; loading?: boolean
-  today: string; allMembers: MemberRow[]
+  today: string; allMembers: MemberRow[]; gridTemplate: string
 }) {
   const norm = (s: string) => {
     if (s === '未着手') return '着手前'
@@ -384,7 +454,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
 
   return (
-    <div className={`grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`}>
+    <div className={`grid gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`} style={{ gridTemplateColumns: gridTemplate }}>
       {/* Task name */}
       <div className="min-w-0 pr-2">
         <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate block ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
@@ -453,9 +523,9 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
 }
 
 // ─── 要対応タスク行 ───
-function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: {
+function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gridTemplate }: {
   task: TaskRow; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
-  onAdvance: () => void; loading?: boolean; today: string
+  onAdvance: () => void; loading?: boolean; today: string; gridTemplate: string
 }) {
   const norm = (s: string) => {
     if (s === '未着手') return '着手前'
@@ -469,7 +539,7 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today }: 
   const isUrgent = task.priority === '急ぎ'
 
   return (
-    <div className="grid grid-cols-[minmax(200px,3fr)_minmax(140px,1.8fr)_110px_140px_140px_100px_50px] gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors">
+    <div className="grid gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors" style={{ gridTemplateColumns: gridTemplate }}>
       <div className="min-w-0 pr-2">
         <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate block">{task.title}</a>
       </div>
