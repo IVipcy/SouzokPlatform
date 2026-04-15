@@ -152,11 +152,6 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh }: Pro
                 value={caseData.payment_amount}
                 onSave={v => saveCaseField('payment_amount', v)}
               />
-              <Field
-                label="パートナー報酬額"
-                value={partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '未設定'}
-                mono
-              />
               <InlineTextarea
                 label="メモ"
                 value={caseData.invoice_memo}
@@ -164,6 +159,32 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh }: Pro
               />
             </FieldGrid>
           </Section>
+
+          {/* パートナー報酬 */}
+          <div className="mt-4">
+            <Section title="パートナー報酬" icon="🤝">
+              <FieldGrid cols={1}>
+                <Field
+                  label="紹介元パートナー"
+                  value={partner ? partner.name : '未設定'}
+                />
+                <Field
+                  label="パートナー報酬割合"
+                  value={partner ? `${partner.kickback_rate}%` : '—'}
+                  mono
+                />
+                <Field
+                  label="パートナー報酬金額"
+                  value={partner && partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
+                  mono
+                />
+              </FieldGrid>
+              <div className="text-[10px] text-gray-400 mt-2">
+                ※ 紹介元パートナーは「基本情報 → 受注ルート・紹介 → 紹介パートナー」で選択します。
+                報酬金額は「請求金額（確定）× 還元率」で自動計算されます。
+              </div>
+            </Section>
+          </div>
         </div>
 
         {/* Right column - H. 立替実費明細 */}
