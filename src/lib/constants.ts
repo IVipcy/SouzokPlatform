@@ -131,6 +131,39 @@ export const INVOICE_STATUSES = [
   '下書き', '実費集計中', '確認待ち', '発行済', '入金待ち', '入金確認済', '完了',
 ] as const
 
+// === 不動産: 売却意向 ===
+export const SELLING_INTENTIONS = [
+  '売却希望', '保有希望', '検討中', '未定',
+] as const
+
+// === 不動産: 住人状況 ===
+export const OCCUPANCY_STATUSES = [
+  '空き家', '相続人が居住', '第三者が居住（賃貸）', '第三者が居住（無償）', 'その他',
+] as const
+
+// === 不動産: 名寄せ請求先 ===
+export const NAMEYOSE_TARGETS = [
+  '市区町村', '都税事務所', '不要', '確認中',
+] as const
+
+// === 不動産: 評価ランク ===
+export const PROPERTY_RANKS = ['S', 'A', 'B', 'C', '確認中'] as const
+
+// === 遺産分割方針 ===
+export const DIVISION_POLICIES = [
+  '法定相続分', '配偶者集中', '代表者集中', '法定相続人間で協議', 'その他',
+] as const
+
+// === 遺産分割協議書 署名捺印方法 ===
+export const AGREEMENT_SIGNING_METHODS = [
+  '持ち回り', '一斉郵送', '対面', 'その他',
+] as const
+
+// === 生命保険: 保険種類 ===
+export const LIFE_INSURANCE_TYPES = [
+  '終身保険', '定期保険', '養老保険', '個人年金', '学資保険', 'その他',
+] as const
+
 // === 立替実費・費目 ===
 export const EXPENSE_CATEGORIES = [
   '戸籍取得費', '登記印紙代', '郵送費（普通）', '郵送費（速達）', '郵送費（書留）',

@@ -20,6 +20,11 @@ import {
   TAX_ADVISOR_REFERRAL_OPTIONS,
   TRUST_CONTRACT_TYPES,
   LIFE_INSURANCE_PROPOSAL_OPTIONS,
+  LIFE_INSURANCE_TYPES,
+  SELLING_INTENTIONS,
+  OCCUPANCY_STATUSES,
+  NAMEYOSE_TARGETS,
+  PROPERTY_RANKS,
 } from '@/lib/constants'
 
 type Props = {
@@ -439,10 +444,16 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               value={caseData.life_insurance_company}
               onSave={v => saveCaseFieldStr('life_insurance_company', v)}
             />
-            <SharedInlineEdit
-              label="保険種類・金額"
-              value={caseData.life_insurance_type_amount}
-              onSave={v => saveCaseFieldStr('life_insurance_type_amount', v)}
+            <InlineSelect
+              label="保険種類"
+              value={caseData.life_insurance_type}
+              options={[...LIFE_INSURANCE_TYPES]}
+              onSave={v => saveCaseFieldStr('life_insurance_type', v)}
+            />
+            <InlineCurrency
+              label="生命保険金額"
+              value={caseData.life_insurance_amount}
+              onSave={v => saveCaseFieldNum('life_insurance_amount', v)}
             />
             <InlineCheckbox
               label="生命保険協会照会"
@@ -482,13 +493,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   )
                 }
                 type="select"
-                options={[
-                  { value: 'S', label: 'S' },
-                  { value: 'A', label: 'A' },
-                  { value: 'B', label: 'B' },
-                  { value: 'C', label: 'C' },
-                  { value: '確認中', label: '確認中' },
-                ]}
+                options={PROPERTY_RANKS.map(r => ({ value: r, label: r }))}
                 onSave={async (val) => { await updateCase('property_rank', val || null) }}
               />
             </Field>
@@ -527,6 +532,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 <Field label="住人状況">
                   <InlineEdit
                     value={p.resident_status}
+                    type="select"
+                    options={OCCUPANCY_STATUSES.map(o => ({ value: o, label: o }))}
                     onSave={async (val) => { await updateProperty(p.id, 'resident_status', val || null) }}
                   />
                 </Field>
@@ -560,6 +567,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 <Field label="売却意向">
                   <InlineEdit
                     value={p.sale_intention}
+                    type="select"
+                    options={SELLING_INTENTIONS.map(o => ({ value: o, label: o }))}
                     displayValue={
                       p.sale_intention ? (
                         <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-[10px] font-semibold">
@@ -609,6 +618,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 <Field label="名寄せ請求先">
                   <InlineEdit
                     value={p.name_consolidation_dest}
+                    type="select"
+                    options={NAMEYOSE_TARGETS.map(o => ({ value: o, label: o }))}
                     onSave={async (val) => { await updateProperty(p.id, 'name_consolidation_dest', val || null) }}
                   />
                 </Field>

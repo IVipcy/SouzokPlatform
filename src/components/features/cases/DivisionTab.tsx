@@ -3,7 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CaseRow, DivisionDetailRow } from '@/types'
-import { WILL_CREATION_PLACES } from '@/lib/constants'
+import {
+  WILL_CREATION_PLACES,
+  WILL_TYPES,
+  WILL_STORAGE_OPTIONS,
+  WILL_EXECUTION_OPTIONS,
+  DIVISION_POLICIES,
+  AGREEMENT_SIGNING_METHODS,
+} from '@/lib/constants'
 import { InlineCheckbox, InlineSelect } from '@/components/ui/InlineFields'
 
 type Props = {
@@ -69,9 +76,9 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh }: Pr
         {/* Division policy */}
         <Section title="遺産分割" icon="⚖️">
           <FieldGrid>
-            <InlineEdit label="分割方針" value={caseData.division_policy} onSave={v => saveCaseField('division_policy', v)} />
+            <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
             <InlineEdit label="分割提案" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} />
-            <InlineEdit label="署名方法" value={caseData.agreement_signing_method} onSave={v => saveCaseField('agreement_signing_method', v)} />
+            <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={[...AGREEMENT_SIGNING_METHODS]} onSave={v => saveCaseField('agreement_signing_method', v)} />
             <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
           </FieldGrid>
         </Section>
@@ -79,16 +86,16 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh }: Pr
         {/* Will */}
         <Section title="遺言" icon="📜">
           <FieldGrid>
-            <InlineEdit label="遺言種類" value={caseData.will_type} onSave={v => saveCaseField('will_type', v)} />
-            <InlineEdit label="保管場所" value={caseData.will_storage} onSave={v => saveCaseField('will_storage', v)} />
-            <InlineEdit label="遺言執行" value={caseData.will_execution} onSave={v => saveCaseField('will_execution', v)} fullWidth />
+            <InlineSelect label="遺言種類" value={caseData.will_type} options={[...WILL_TYPES]} onSave={v => saveCaseField('will_type', v)} />
+            <InlineSelect label="保管場所" value={caseData.will_storage} options={[...WILL_STORAGE_OPTIONS]} onSave={v => saveCaseField('will_storage', v)} />
+            <InlineSelect label="遺言執行" value={caseData.will_execution} options={[...WILL_EXECUTION_OPTIONS]} onSave={v => saveCaseField('will_execution', v)} />
             <InlineCheckbox label="遺留分リスク" value={caseData.will_remainders_risk} onSave={v => saveCaseBoolField('will_remainders_risk', v)} />
             <InlineCheckbox label="遺贈有無" value={caseData.will_bequest} onSave={v => saveCaseBoolField('will_bequest', v)} />
             <InlineSelect label="作成場所" value={caseData.will_creation_place} options={[...WILL_CREATION_PLACES]} onSave={v => saveCaseField('will_creation_place', v)} />
             <InlineEdit label="公証役場名" value={caseData.notary_office_name} onSave={v => saveCaseField('notary_office_name', v)} />
           </FieldGrid>
 
-          {caseData.will_type === '自筆遺言' && (
+          {caseData.will_type === '自筆' && (
             <div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
               <span className="text-sm flex-shrink-0">⚠️</span>
               <p className="text-[11px] text-amber-700 font-medium leading-relaxed">

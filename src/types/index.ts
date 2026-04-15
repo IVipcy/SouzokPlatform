@@ -139,6 +139,8 @@ export type CaseRow = {
   life_insurance_proposal: string | null
   life_insurance_company: string | null
   life_insurance_type_amount: string | null
+  life_insurance_type: string | null
+  life_insurance_amount: number | null
   life_insurance_inquiry: boolean
   life_insurance_inquiry_notes: string | null
   // 被相続人追加
