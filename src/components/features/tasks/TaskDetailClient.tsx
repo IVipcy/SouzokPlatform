@@ -326,7 +326,23 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                 options={PRIORITIES.map(p => p.key)}
                 onSave={v => saveField('priority', v)}
               />
+              <InlineSelect
+                label="フェーズ"
+                value={task.phase}
+                options={DB_PHASES}
+                onSave={v => saveField('phase', v)}
+                renderValue={v => getPhaseLabel(v)}
+              />
+              <InlineSelect
+                label="タスクカテゴリ"
+                value={task.category ?? ''}
+                options={TASK_CATEGORIES}
+                onSave={v => saveField('category', v)}
+              />
             </FieldGrid>
+            <div className="mt-2">
+              <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
+            </div>
           </Section>
 
           {/* 2. 着手者・作業履歴 */}
@@ -390,32 +406,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             )}
           </Section>
 
-          {/* 3. 内容・分類 */}
-          <Section title="内容・分類" icon="📂">
-            <FieldGrid>
-              <InlineSelect
-                label="フェーズ"
-                value={task.phase}
-                options={DB_PHASES}
-                onSave={v => saveField('phase', v)}
-                renderValue={v => getPhaseLabel(v)}
-              />
-              <InlineSelect
-                label="タスクカテゴリ"
-                value={task.category ?? ''}
-                options={TASK_CATEGORIES}
-                onSave={v => saveField('category', v)}
-              />
-            </FieldGrid>
-            <div className="mt-2">
-              <InlineTextarea label="表題（作業内容）" value={task.notes ?? ''} onSave={v => saveField('notes', v)} />
-            </div>
-            <div className="mt-1">
-              <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
-            </div>
-          </Section>
-
-          {/* 4. カテゴリ別セクション */}
+          {/* 3. カテゴリ別セクション（作業内容） */}
           <TaskCategorySections task={task} onRefresh={() => router.refresh()} />
         </div>
 

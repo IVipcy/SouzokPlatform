@@ -109,7 +109,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
 
   if (totalCount === 0) {
     return (
-      <Section title="残高証明請求（預貯金）" icon="🏦">
+      <Section title="作業内容" icon="📝">
         <div className="text-center py-4">
           <p className="text-sm text-gray-400 mb-3">
             金融機関の情報がありません。
@@ -130,7 +130,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
   }
 
   return (
-    <Section title="残高証明請求（預貯金）" icon="🏦">
+    <Section title="作業内容" icon="📝">
       {/* 完了状況サマリー */}
       <div className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-3 ${
         allDone ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'

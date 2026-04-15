@@ -24,8 +24,8 @@ export type SectionDef = {
 // v1.2 セクション4: 財産調査（預貯金）
 const depositSection: SectionDef = {
   id: 'deposit',
-  icon: '🏦',
-  title: '財産調査（預貯金）',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '財産調査(預貯金)',
   fields: [
     { key: 'bank', label: '金融機関名', type: 'text' },
@@ -47,8 +47,8 @@ const depositSection: SectionDef = {
 // v1.2 セクション5: 財産調査（証券・信託）
 const securitiesSection: SectionDef = {
   id: 'securities',
-  icon: '📈',
-  title: '財産調査（証券・信託）',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '財産調査(証券)',
   fields: [
     { key: 'company', label: '証券会社名/信託銀行名', type: 'text' },
@@ -66,8 +66,8 @@ const securitiesSection: SectionDef = {
 // v1.2 セクション6: 解約手続き
 const cancellationSection: SectionDef = {
   id: 'cancellation',
-  icon: '🔒',
-  title: '解約手続き',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '解約手続き',
   fields: [
     { key: 'bank', label: '金融機関名/証券会社名', type: 'text' },
@@ -87,8 +87,8 @@ const cancellationSection: SectionDef = {
 // v1.2 セクション7: 郵送管理
 const postalSection: SectionDef = {
   id: 'postal',
-  icon: '✉️',
-  title: '郵送管理',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '郵便処理',
   fields: [
     { key: 'mailType', label: '郵便種別', type: 'picklist', options: ['普通', '速達', '書留', 'レターパック青', 'レターパック赤', '特定記録'] },
@@ -103,8 +103,8 @@ const postalSection: SectionDef = {
 // v1.2 セクション8: 不動産
 const realEstateSection: SectionDef = {
   id: 'realestate',
-  icon: '🏠',
-  title: '不動産',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '不動産' || cat === '登記申請書作成',
   fields: [
     { key: 'addr', label: '不動産所在地', type: 'text', full: true },
@@ -121,8 +121,8 @@ const realEstateSection: SectionDef = {
 // v1.2 セクション9: 相続税・税理士連携
 const taxSection: SectionDef = {
   id: 'tax',
-  icon: '🧾',
-  title: '相続税・税理士連携',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '税理士連携',
   fields: [
     { key: 'taxAdvisor', label: '税理士名', type: 'text' },
@@ -136,8 +136,8 @@ const taxSection: SectionDef = {
 // v1.2 セクション10: 戸籍・相続人調査
 const kosekiSection: SectionDef = {
   id: 'koseki',
-  icon: '📜',
-  title: '戸籍・相続人調査',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '戸籍',
   fields: [
     { key: 'city', label: '請求先市区町村', type: 'text' },
@@ -152,8 +152,8 @@ const kosekiSection: SectionDef = {
 // v1.2 セクション11: 名寄せ・評価証明
 const nayoseSection: SectionDef = {
   id: 'nayose',
-  icon: '🗂️',
-  title: '名寄せ・評価証明',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '名寄せ' || cat === '評価証明',
   fields: [
     { key: 'city', label: '請求先市区町村', type: 'text' },
@@ -168,8 +168,8 @@ const nayoseSection: SectionDef = {
 // v1.2 セクション12: 財産目録・協議書
 const agreementSection: SectionDef = {
   id: 'agreement',
-  icon: '📋',
-  title: '財産目録・協議書',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '協議書' || cat === '財産目録',
   fields: [
     { key: 'sendMethod', label: '送付方法', type: 'picklist', options: ['郵送', 'メール', '対面', '依頼者から各相続人へ', 'OCから各相続人へ'] },
@@ -184,8 +184,8 @@ const agreementSection: SectionDef = {
 // v1.2 セクション13: 経理・精算
 const accountingSection: SectionDef = {
   id: 'accounting',
-  icon: '💰',
-  title: '経理・精算',
+  icon: '📝',
+  title: '作業内容',
   showWhen: (cat) => cat === '経理' || cat === '精算',
   fields: [
     { key: 'settleStatus', label: '精算ステータス', type: 'picklist', options: ['実費集計中', '請求書作成中', '請求済', '入金待ち', '入金確認済', '完了'] },
