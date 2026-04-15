@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CaseRow, HeirRow } from '@/types'
+import InheritanceDiagramV2 from './InheritanceDiagramV2'
 
 type Props = {
   caseData: CaseRow
@@ -171,7 +172,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
               相続人を追加すると相続関係説明図が表示されます
             </div>
           ) : (
-            <InheritanceDiagram deceased={caseData} heirs={heirs} />
+            <InheritanceDiagramV2 deceased={caseData} heirs={heirs} />
           )}
         </Section>
       </div>
@@ -263,89 +264,6 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── Inheritance Diagram ───
-function InheritanceDiagram({ deceased, heirs }: { deceased: CaseRow; heirs: HeirRow[] }) {
-  const boxWidth = 120
-  const boxHeight = 130
-  const hGap = 40
-  const vGap = 80
-
-  // Center deceased at top, heirs in a row below
-  const totalHeirsWidth = heirs.length * boxWidth + (heirs.length - 1) * hGap
-  const canvasWidth = Math.max(totalHeirsWidth + 100, 600)
-  const deceasedX = canvasWidth / 2 - boxWidth / 2
-  const deceasedY = 40
-  const heirsY = deceasedY + boxHeight + vGap
-  const heirsStartX = canvasWidth / 2 - totalHeirsWidth / 2
-
-  return (
-    <div className="overflow-auto bg-white" style={{ minHeight: 350 }}>
-      <div className="relative mx-auto" style={{ width: canvasWidth, minHeight: heirsY + boxHeight + 40 }}>
-        {/* SVG lines */}
-        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-          {heirs.map((_, i) => {
-            const heirCenterX = heirsStartX + i * (boxWidth + hGap) + boxWidth / 2
-            const deceasedCenterX = deceasedX + boxWidth / 2
-            return (
-              <line
-                key={i}
-                x1={deceasedCenterX}
-                y1={deceasedY + boxHeight}
-                x2={heirCenterX}
-                y2={heirsY}
-                stroke="#000"
-                strokeWidth="1.5"
-              />
-            )
-          })}
-        </svg>
-
-        {/* Deceased box */}
-        <div className="absolute" style={{ left: deceasedX, top: deceasedY, width: boxWidth, zIndex: 2 }}>
-          <div className="border-[3px] border-black bg-white text-center">
-            <div className="text-[8px] tracking-widest py-1 border-b border-black bg-gray-800 text-white font-semibold">被相続人</div>
-            <div className="p-2 flex flex-col items-center gap-1">
-              <div className="text-[13px] font-bold tracking-wider">{deceased.deceased_name ?? '—'}</div>
-              <div className="text-[8px] text-gray-600 text-left w-full px-1 leading-relaxed">
-                {deceased.deceased_birth_date && <div><span className="text-gray-400">生</span> {deceased.deceased_birth_date}</div>}
-                {deceased.date_of_death && <div><span className="text-gray-400">没</span> {deceased.date_of_death}</div>}
-                {deceased.deceased_registered_address && <div><span className="text-gray-400">籍</span> {deceased.deceased_registered_address}</div>}
-              </div>
-              <div className="w-[30px] h-[30px] border-[1.5px] border-red-600 rounded-full flex items-center justify-center text-[7px] text-red-600 font-bold mt-1">
-                死亡
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Heir boxes */}
-        {heirs.map((heir, i) => {
-          const x = heirsStartX + i * (boxWidth + hGap)
-          return (
-            <div key={heir.id} className="absolute" style={{ left: x, top: heirsY, width: boxWidth, zIndex: 2 }}>
-              <div className="border-[1.5px] border-black bg-white text-center">
-                <div className="text-[8px] tracking-widest py-1 border-b border-black bg-gray-100 text-gray-700 font-medium">
-                  {heir.relationship === '配偶者' ? '配偶者' : heir.relationship ?? '相続人'}
-                </div>
-                <div className="p-2 flex flex-col items-center gap-1">
-                  <div className="text-[13px] font-bold tracking-wider">{heir.name}</div>
-                  <div className="text-[8px] text-gray-600 text-left w-full px-1 leading-relaxed">
-                    {heir.birth_date && <div><span className="text-gray-400">生</span> {heir.birth_date}</div>}
-                    {heir.registered_address && <div><span className="text-gray-400">籍</span> {heir.registered_address}</div>}
-                  </div>
-                  {heir.is_legal_heir && (
-                    <div className="text-[8px] text-green-600 font-semibold mt-1">（法定相続人）</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }
