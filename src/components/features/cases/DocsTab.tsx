@@ -43,6 +43,26 @@ export default function DocsTab({ caseData }: Props) {
     fetchDocs()
   }
 
+  const handleDownload = async (doc: DocumentRow) => {
+    if (!doc.file_path) {
+      alert('この書類にはファイルが紐付いていません')
+      return
+    }
+    const supabase = createClient()
+    const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
+    if (error || !data) {
+      alert(`ダウンロードに失敗しました: ${error?.message ?? '不明なエラー'}`)
+      return
+    }
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    const ext = doc.file_type ? `.${doc.file_type.toLowerCase()}` : ''
+    a.download = doc.name.endsWith(ext) ? doc.name : doc.name + ext
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
@@ -66,7 +86,7 @@ export default function DocsTab({ caseData }: Props) {
               <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">関連タスク</th>
               <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">種別</th>
               <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">作成日</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide w-16">操作</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide w-24">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -119,13 +139,23 @@ export default function DocsTab({ caseData }: Props) {
                       {new Date(doc.created_at).toLocaleDateString('ja-JP')}
                     </td>
                     <td className="px-4 py-2.5">
-                      <button
-                        onClick={() => setDeleteDoc(doc)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-[11px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition"
-                        title="削除"
-                      >
-                        🗑
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleDownload(doc)}
+                          disabled={!doc.file_path}
+                          className="w-7 h-7 rounded-md border border-gray-200 bg-white flex items-center justify-center text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={doc.file_path ? 'ダウンロード' : 'ファイル未添付'}
+                        >
+                          ↓
+                        </button>
+                        <button
+                          onClick={() => setDeleteDoc(doc)}
+                          className="w-7 h-7 rounded-md border border-gray-200 bg-white flex items-center justify-center text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition"
+                          title="削除"
+                        >
+                          🗑
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

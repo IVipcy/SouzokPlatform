@@ -26,11 +26,13 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
   const [form, setForm] = useState({
     name: '',
     case_id: defaultCaseId ?? '',
-    status: '下書き',
   })
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const caseLocked = !!defaultCaseId
+  const currentCase = cases.find(c => c.id === (defaultCaseId ?? form.case_id))
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -43,8 +45,9 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
   }
 
   const handleSubmit = async () => {
+    const caseId = defaultCaseId ?? form.case_id
     if (!form.name.trim()) { setError('文書名は必須です'); return }
-    if (!form.case_id) { setError('案件を選択してください'); return }
+    if (!caseId) { setError('案件を選択してください'); return }
 
     setSaving(true)
     setError('')
@@ -58,27 +61,25 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
 
       // Upload to Supabase Storage
       const ext = file.name.split('.').pop()
-      const path = `${form.case_id}/${Date.now()}_${form.name.trim()}.${ext}`
+      const path = `${caseId}/${Date.now()}_${form.name.trim()}.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('documents')
         .upload(path, file)
 
       if (uploadErr) {
-        // If storage bucket doesn't exist, just save the DB record without file
-        console.warn('File upload failed (storage may not be configured):', uploadErr.message)
-        filePath = null
-      } else {
-        filePath = path
+        setError(`ファイルのアップロードに失敗しました: ${uploadErr.message}`)
+        setSaving(false)
+        return
       }
+      filePath = path
     }
 
-    // Insert document record
     const { error: insertErr } = await supabase.from('documents').insert({
-      case_id: form.case_id,
+      case_id: caseId,
       name: form.name.trim(),
       file_path: filePath,
       file_type: fileType,
-      status: form.status,
+      status: '作成済',
       generated_by: 'manual',
     })
 
@@ -89,7 +90,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
     }
 
     setSaving(false)
-    setForm({ name: '', case_id: defaultCaseId ?? '', status: '下書き' })
+    setForm({ name: '', case_id: defaultCaseId ?? '' })
     setFile(null)
     onSaved()
     onClose()
@@ -105,7 +106,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving || !file} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
             {saving ? 'アップロード中...' : 'アップロード'}
           </button>
         </>
@@ -114,9 +115,15 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
       <div className="space-y-3">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>}
 
+        {caseLocked && currentCase && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            <span className="font-semibold">保存先案件:</span> {currentCase.case_number} {currentCase.deal_name}
+          </div>
+        )}
+
         {/* File picker */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">ファイル</label>
+          <label className="block text-[11px] font-semibold text-gray-500 mb-1">ファイル *</label>
           <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition cursor-pointer">
             <input
               type="file"
@@ -154,32 +161,20 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
           />
         </div>
 
-        {/* Case */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">案件 *</label>
-          <select
-            value={form.case_id}
-            onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
-            <option value="">選択してください</option>
-            {cases.map(c => <option key={c.id} value={c.id}>{c.case_number} {c.deal_name}</option>)}
-          </select>
-        </div>
-
-        {/* Status */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">ステータス</label>
-          <select
-            value={form.status}
-            onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
-            {['下書き', '作成済', '送付済', '返送待ち', '完了'].map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+        {/* Case (only when not pre-locked) */}
+        {!caseLocked && (
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">案件 *</label>
+            <select
+              value={form.case_id}
+              onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="">選択してください</option>
+              {cases.map(c => <option key={c.id} value={c.id}>{c.case_number} {c.deal_name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
     </Modal>
   )

@@ -8,21 +8,12 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { DocumentRow, MemberRow } from '@/types'
 
-type DocStatus = '下書き' | '作成済' | '送付済' | '返送待ち' | '完了'
 type CaseOption = { id: string; case_number: string; deal_name: string }
 
 type Props = {
   documents: DocumentRow[]
   members: MemberRow[]
   cases: CaseOption[]
-}
-
-const STATUS_STYLES: Record<DocStatus, { bg: string; text: string; border: string }> = {
-  '下書き': { bg: 'bg-gray-50', text: 'text-gray-500', border: 'border-gray-200' },
-  '作成済': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
-  '送付済': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
-  '返送待ち': { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
-  '完了': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
 }
 
 const FORMAT_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
@@ -48,7 +39,7 @@ function formatDate(dateStr: string): string {
 
 export default function DocumentsClient({ documents, members, cases }: Props) {
   const router = useRouter()
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'ai' | 'manual'>('all')
   const [search, setSearch] = useState('')
   const [caseFilter, setCaseFilter] = useState('')
 
@@ -57,13 +48,13 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
   const [deleteDoc, setDeleteDoc] = useState<DocumentRow | null>(null)
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('documentsListColWidths', {
-    name: 280, case: 200, task: 180, status: 110, assignee: 130, createdAt: 110, ops: 80,
+    name: 280, case: 200, task: 180, kind: 110, assignee: 130, createdAt: 110, ops: 80,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; resizable?: boolean }> = [
     { key: 'name', label: '文書名' },
     { key: 'case', label: '案件' },
     { key: 'task', label: '関連タスク' },
-    { key: 'status', label: 'ステータス' },
+    { key: 'kind', label: '種別' },
     { key: 'assignee', label: '担当者' },
     { key: 'createdAt', label: '作成日' },
     { key: 'ops', label: '操作', resizable: false },
@@ -81,7 +72,8 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
 
   const filtered = useMemo(() => {
     return documents.filter(d => {
-      if (statusFilter !== 'all' && d.status !== statusFilter) return false
+      if (typeFilter === 'ai' && d.generated_by !== 'AI') return false
+      if (typeFilter === 'manual' && d.generated_by === 'AI') return false
       if (caseFilter && d.cases?.id !== caseFilter) return false
       if (search) {
         const s = search.toLowerCase()
@@ -95,31 +87,19 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
       }
       return true
     })
-  }, [documents, statusFilter, caseFilter, search])
+  }, [documents, typeFilter, caseFilter, search])
 
   const counts = useMemo(() => ({
     all: documents.length,
-    '下書き': documents.filter(d => d.status === '下書き').length,
-    '作成済': documents.filter(d => d.status === '作成済').length,
-    '送付済': documents.filter(d => d.status === '送付済').length,
-    '返送待ち': documents.filter(d => d.status === '返送待ち').length,
-    '完了': documents.filter(d => d.status === '完了').length,
+    ai: documents.filter(d => d.generated_by === 'AI').length,
+    manual: documents.filter(d => d.generated_by !== 'AI').length,
   }), [documents])
 
-  const summaryCards = [
-    { key: 'all', label: '全ドキュメント', count: counts.all, sub: '登録文書', color: '' },
-    { key: '下書き', label: '下書き', count: counts['下書き'], sub: '作成中', color: 'text-gray-500' },
-    { key: '作成済', label: '作成済', count: counts['作成済'], sub: '確認待ち', color: 'text-blue-600' },
-    { key: '送付済', label: '送付済', count: counts['送付済'], sub: '発送完了', color: 'text-purple-600' },
-    { key: '返送待ち', label: '返送待ち', count: counts['返送待ち'], sub: '到着待ち', color: 'text-amber-600' },
-    { key: '完了', label: '完了', count: counts['完了'], sub: '処理済み', color: 'text-green-600' },
+  const summaryCards: Array<{ key: 'all' | 'ai' | 'manual'; label: string; count: number; sub: string; color: string }> = [
+    { key: 'all',    label: '全ドキュメント', count: counts.all,    sub: '登録文書',        color: '' },
+    { key: 'ai',     label: 'AI生成',        count: counts.ai,     sub: 'タスクから生成',  color: 'text-purple-600' },
+    { key: 'manual', label: 'アップロード',   count: counts.manual, sub: '手動追加',        color: 'text-blue-600' },
   ]
-
-  const handleStatusChange = async (docId: string, newStatus: string) => {
-    const supabase = createClient()
-    await supabase.from('documents').update({ status: newStatus }).eq('id', docId)
-    router.refresh()
-  }
 
   const handleDelete = async () => {
     if (!deleteDoc) return
@@ -177,13 +157,13 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-6 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
         {summaryCards.map(card => (
           <button
             key={card.key}
-            onClick={() => setStatusFilter(card.key)}
+            onClick={() => setTypeFilter(card.key)}
             className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${
-              statusFilter === card.key ? 'border-blue-300 bg-blue-50 border-t-[3px] border-t-blue-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
+              typeFilter === card.key ? 'border-blue-300 bg-blue-50 border-t-[3px] border-t-blue-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
             <div className="text-[11px] font-semibold text-gray-500 mb-2">{card.label}</div>
@@ -203,9 +183,9 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
           <option value="">全案件</option>
           {caseOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
-        {(caseFilter || statusFilter !== 'all') && (
+        {(caseFilter || typeFilter !== 'all') && (
           <button
-            onClick={() => { setCaseFilter(''); setStatusFilter('all') }}
+            onClick={() => { setCaseFilter(''); setTypeFilter('all') }}
             className="ml-auto text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded-lg"
           >
             ✕ フィルタ解除
@@ -260,7 +240,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
               filtered.map(doc => {
                 const fileType = doc.file_type ?? 'PDF'
                 const fmt = FORMAT_STYLES[fileType] ?? DEFAULT_FORMAT
-                const st = STATUS_STYLES[doc.status as DocStatus] ?? STATUS_STYLES['作成済']
+                const isAi = doc.generated_by === 'AI'
                 const assignee = getAssignee(doc)
                 const taskTitle = (doc.tasks as DocumentRow['tasks'] & { title?: string })?.title ?? '-'
 
@@ -289,15 +269,15 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                     </td>
                     <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{taskTitle}</td>
                     <td className="px-3.5 py-2.5">
-                      <select
-                        value={doc.status}
-                        onChange={(e) => handleStatusChange(doc.id, e.target.value)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold border outline-none cursor-pointer ${st.bg} ${st.text} ${st.border}`}
-                      >
-                        {['下書き', '作成済', '送付済', '返送待ち', '完了'].map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                      {isAi ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-purple-50 text-purple-600 border-purple-200">
+                          🤖 AI生成
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-gray-50 text-gray-600 border-gray-200">
+                          アップロード
+                        </span>
+                      )}
                     </td>
                     <td className="px-3.5 py-2.5">
                       {assignee ? (
