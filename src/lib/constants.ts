@@ -28,10 +28,11 @@ export const TASK_STATUSES = [
 ] as const
 
 // === ロール ===
+// 注: 'assistant' はタスクテンプレートの default_role で使用されるためDB/型からは削除しない。
+//     案件担当者割当UIにのみ表示しない（BasicInfoTab/OverviewTab の ROLES 依存箇所）
 export const ROLES = [
   { key: 'sales', label: '受注担当' },
   { key: 'manager', label: '管理担当' },
-  { key: 'assistant', label: '管理担当アシスタント' },
   { key: 'lp', label: 'LP担当' },
   { key: 'accounting', label: '経理担当' },
 ] as const

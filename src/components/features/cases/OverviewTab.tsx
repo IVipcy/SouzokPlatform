@@ -85,7 +85,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
                   allMembers={allMembers}
                   caseId={caseData.id}
                   onRefresh={onRefresh}
-                  multi={role.key === 'assistant'}
+                  multi={false}
                 />
               )
             })}

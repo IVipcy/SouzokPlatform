@@ -62,6 +62,7 @@ export type CaseRow = {
   date_of_death: string | null
   order_date: string | null
   completion_date: string | null
+  expected_completion_date: string | null
   difficulty: '易' | '普' | '難' | null
   procedure_type: string[] | null
   additional_services: string[] | null

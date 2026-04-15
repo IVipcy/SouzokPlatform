@@ -62,11 +62,17 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               }}
             />
             <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
-            <InlineDate label="完了日" value={caseData.completion_date} onSave={v => saveCaseField('completion_date', v || null)} />
-            <InlineDate label="完了予定日" value={caseData.completion_date} onSave={v => saveCaseField('completion_date', v || null)} />
+            <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+            <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
             <InlineSelect label="拠点" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
             <InlineSelect label="チーム" value={caseData.team} options={[...TEAMS]} onSave={v => saveCaseField('team', v)} />
-            <InlineNumber label="確度" value={caseData.probability} onSave={v => saveCaseField('probability', v)} suffix="%" />
+            <InlineSelect
+              label="確度"
+              value={caseData.probability != null ? String(caseData.probability) : null}
+              options={['0', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100']}
+              onSave={v => saveCaseField('probability', v != null ? Number(v) : null)}
+              renderValue={v => v != null ? `${v}%` : ''}
+            />
             <InlineDate label="面談予定日" value={caseData.meeting_date} onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
             <InlineSelect label="失注の理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
@@ -87,7 +93,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
                   allMembers={allMembers}
                   caseId={caseData.id}
                   onRefresh={onRefresh}
-                  multi={role.key === 'assistant'}
+                  multi={false}
                 />
               )
             })}
@@ -100,7 +106,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <FieldGrid>
               <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
               <InlineEdit label="依頼者ふりがな" value={client.furigana} onSave={v => saveClientField('furigana', v)} />
-              <InlineEdit label="依頼者郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v)} />
               <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
               <InlineEdit label="依頼者TEL" value={client.phone} onSave={v => saveClientField('phone', v)} />
               <InlineEdit label="依頼者携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v)} />
@@ -111,7 +116,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
                 options={['自宅TEL', '携帯TEL', 'メール']}
                 onSave={v => saveClientField('preferred_contact', v)}
               />
-              <InlineEdit label="顧客NO" value={client.customer_no} onSave={v => saveClientField('customer_no', v)} />
               <InlineCheckbox label="依頼者外字有無" value={client.has_special_chars} onSave={v => saveClientField('has_special_chars', v)} />
             </FieldGrid>
           ) : (
@@ -136,13 +140,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               value={caseData.additional_services}
               options={[...ADDITIONAL_SERVICES]}
               onSave={v => saveCaseField('additional_services', v)}
-              fullWidth
-            />
-            <InlineMultiSelect
-              label="受注区分"
-              value={caseData.order_category}
-              options={['手続一式', '登記のみ', '遺言のみ', 'コンサルのみ']}
-              onSave={v => saveCaseField('order_category', v)}
               fullWidth
             />
           </FieldGrid>
