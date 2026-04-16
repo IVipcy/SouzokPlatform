@@ -39,7 +39,7 @@ export type Task = {
 }
 
 // === メンバー ===
-export type RoleKey = 'sales' | 'manager' | 'assistant' | 'lp' | 'accounting'
+export type RoleKey = 'sales' | 'manager' | 'sub_manager' | 'assistant' | 'lp' | 'accounting'
 
 export type Member = {
   id: string
@@ -118,9 +118,16 @@ export type CaseRow = {
   koseki_notes: string | null
   // 受注ルート・紹介
   order_route: string | null
+  order_route_detail: string | null
   order_route_lp_name: string | null
   order_route_person: string | null
   referral_name: string | null
+  meeting_place: string | null
+  lawyer_name: string | null
+  lawyer_office: string | null
+  lawyer_referral_fee: number | null
+  estate_clearance_company: string | null
+  estate_clearance_fee: number | null
   // 郵送・書類管理
   mailing_destination: string | null
   mailing_address_other: string | null

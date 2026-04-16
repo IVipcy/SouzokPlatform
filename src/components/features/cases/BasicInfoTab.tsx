@@ -8,7 +8,7 @@ import {
 import {
   ROLES, TASK_STATUSES, CASE_STATUSES,
   LOCATIONS, TEAMS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
-  ORDER_ROUTES, LOST_REASONS,
+  ORDER_ROUTES, ORDER_ROUTE_DETAILS, LOST_REASONS, MEETING_PLACES,
 } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
@@ -61,7 +61,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
             <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
             <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
-            <InlineSelect label="拠点" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
+            <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
             <InlineSelect label="チーム" value={caseData.team} options={[...TEAMS]} onSave={v => saveCaseField('team', v)} />
             <InlineSelect
               label="確度"
@@ -71,6 +71,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               renderValue={v => v != null ? `${v}%` : ''}
             />
             <InlineDate label="面談予定日" value={caseData.meeting_date} onSave={v => saveCaseField('meeting_date', v || null)} />
+            <InlineSelect label="面談場所" value={caseData.meeting_place} options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
             <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
             <InlineSelect label="失注の理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           </FieldGrid>
@@ -103,9 +104,10 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <FieldGrid>
               <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
               <InlineEdit label="依頼者ふりがな" value={client.furigana} onSave={v => saveClientField('furigana', v)} />
+              <InlineEdit label="郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))} />
               <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
-              <InlineEdit label="依頼者TEL" value={client.phone} onSave={v => saveClientField('phone', v)} />
-              <InlineEdit label="依頼者携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v)} />
+              <InlineEdit label="依頼者TEL" value={client.phone} onSave={v => saveClientField('phone', v.replace(/[^0-9]/g, ''))} />
+              <InlineEdit label="依頼者携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v.replace(/[^0-9]/g, ''))} />
               <InlineEdit label="依頼者メール" value={client.email} onSave={v => saveClientField('email', v)} />
               <InlineMultiSelect
                 label="連絡先希望"
@@ -145,20 +147,31 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
         {/* 7. 受注ルート・紹介 */}
         <Section title="受注ルート・紹介" icon="🔗">
           <FieldGrid>
-            <InlineSelect label="受注ルート" value={caseData.order_route} options={[...ORDER_ROUTES]} onSave={v => saveCaseField('order_route', v)} />
-            {caseData.order_route === 'LP' && (
-              <InlineEdit label="受注ルート（LP担当者名）" value={caseData.order_route_lp_name} onSave={v => saveCaseField('order_route_lp_name', v)} />
+            <InlineSelect
+              label="受注ルート"
+              value={caseData.order_route}
+              options={[...ORDER_ROUTES]}
+              onSave={async v => {
+                await patchCase({ order_route: v, order_route_detail: null })
+              }}
+            />
+            {/* 自社・LP直・オーシャン直 → 詳細受注ルート選択 */}
+            {caseData.order_route && ORDER_ROUTE_DETAILS[caseData.order_route] && (
+              <InlineSelect
+                label="詳細受注ルート"
+                value={caseData.order_route_detail}
+                options={ORDER_ROUTE_DETAILS[caseData.order_route] as string[]}
+                onSave={v => saveCaseField('order_route_detail', v)}
+              />
             )}
+            {/* その他 → パートナー選択（検索付き） */}
             {caseData.order_route === 'その他' && (
-              <>
-                <PartnerManagerField
-                  caseId={caseData.id}
-                  partnerId={caseData.partner_id}
-                  onChange={() => onRefresh?.()}
-                  label="パートナー名"
-                />
-                <InlineEdit label="受注ルート（パートナー担当者名）" value={caseData.order_route_person} onSave={v => saveCaseField('order_route_person', v)} />
-              </>
+              <PartnerManagerField
+                caseId={caseData.id}
+                partnerId={caseData.partner_id}
+                onChange={() => onRefresh?.()}
+                label="パートナー名"
+              />
             )}
             <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />
           </FieldGrid>

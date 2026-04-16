@@ -27,7 +27,7 @@ type TaskAssignment = {
 
 export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembers, tasks, allMembers, onSaved }: Props) {
   const initCaseRoles = (): CaseRoleAssignment => {
-    const roles: CaseRoleAssignment = { sales: [], manager: [], assistant: [], lp: [], accounting: [] }
+    const roles: CaseRoleAssignment = { sales: [], manager: [], sub_manager: [], assistant: [], lp: [], accounting: [] }
     caseMembers.forEach(cm => {
       if (roles[cm.role]) roles[cm.role].push(cm.member_id)
     })

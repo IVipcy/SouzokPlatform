@@ -16,6 +16,7 @@ import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
 import InvoiceTab from './InvoiceTab'
 import DocsTab from './DocsTab'
+import ReferralTab from './ReferralTab'
 import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
@@ -120,6 +121,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {activeTab === 'invoice' && (
         <InvoiceTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
+      )}
+      {activeTab === 'referral' && (
+        <ReferralTab caseData={caseState} patchCase={patchCase} />
       )}
       {activeTab === 'docs' && (
         <DocsTab caseData={caseState} />

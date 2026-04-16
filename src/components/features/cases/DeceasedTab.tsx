@@ -100,7 +100,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                 fullWidth
               />
               <InlineSelect
-                label="戸籍請求書パターン"
+                label="実費負担者"
                 value={caseData.koseki_request_pattern}
                 options={[...KOSEKI_REQUEST_PATTERNS]}
                 onSave={v => saveCaseField('koseki_request_pattern', v)}

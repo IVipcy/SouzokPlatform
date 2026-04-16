@@ -33,8 +33,7 @@ export const TASK_STATUSES = [
 export const ROLES = [
   { key: 'sales', label: '受注担当' },
   { key: 'manager', label: '管理担当' },
-  { key: 'lp', label: 'LP担当' },
-  { key: 'accounting', label: '経理担当' },
+  { key: 'sub_manager', label: 'サブ管理担当' },
 ] as const
 
 // === タスク優先度 ===
@@ -49,9 +48,12 @@ export const LOCATIONS = ['クレアトール', '共同ビル', '藤沢'] as con
 // === チーム ===
 export const TEAMS = ['LP等'] as const
 
+// === 面談場所 ===
+export const MEETING_PLACES = ['Web', '店舗', '依頼者自宅'] as const
+
 // === 手続区分 ===
 export const PROCEDURE_TYPES = [
-  '手続一式', '登記', '遺言', '放棄', '調停', '検認', '後見', '手紙', '契約書', '執行', 'コンサル',
+  '手続一式', '登記', '遺言', '放棄', '調停', '検認', '後見', '遺産承継', '手紙', '契約書', '執行', 'コンサル',
 ] as const
 
 // === 付帯サービス ===
@@ -67,10 +69,8 @@ export const KOSEKI_REQUEST_REASONS = [
   'その他',
 ] as const
 
-// === 戸籍請求書パターン ===
-export const KOSEKI_REQUEST_PATTERNS = [
-  '行政書士', '司法書士', 'いきいき', 'いきいき検認', 'EAJ復代理', 'LM復代理',
-] as const
+// === 戸籍請求書パターン（実費負担者） ===
+export const KOSEKI_REQUEST_PATTERNS = ['司法書士', '行政書士', 'いきいき'] as const
 
 // === 請求の種別 ===
 export const KOSEKI_REQUEST_TYPES = [
@@ -78,7 +78,14 @@ export const KOSEKI_REQUEST_TYPES = [
 ] as const
 
 // === 受注ルート ===
-export const ORDER_ROUTES = ['LP', '公益社', 'その他'] as const
+export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', 'その他'] as const
+
+// === 詳細受注ルート（受注ルートごとの選択肢） ===
+export const ORDER_ROUTE_DETAILS: Record<string, readonly string[]> = {
+  '自社': ['自社Web', '過去客', '無料相談会'],
+  'LP直': ['公益社', '横浜セレモ', '伊藤典範'],
+  'オーシャン直': ['不動産会社', '生命保'],
+} as const
 
 // === 顧客郵送先 ===
 export const MAILING_DESTINATIONS = ['依頼者住所', 'その他'] as const

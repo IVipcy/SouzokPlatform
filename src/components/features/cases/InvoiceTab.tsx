@@ -54,7 +54,8 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
   // Computed values
   const subtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = subtotal - (caseData.advance_payment ?? 0)
-  const partnerCompensation = partner ? confirmedAmount * (partner.kickback_rate ?? 0) / 100 : null
+  // パートナー報酬 = 行政報酬のみを対象（司法書士報酬は紹介料計算から除外）
+  const partnerCompensation = partner ? (caseData.fee_administrative ?? 0) * (partner.kickback_rate ?? 0) / 100 : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
 
   // Expense CRUD

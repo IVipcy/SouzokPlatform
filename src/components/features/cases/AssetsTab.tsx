@@ -381,41 +381,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
       <div className="space-y-3.5">
-        {/* 相続税申告 */}
-        <SharedSection title="相続税申告" icon="💰">
-          <SharedFieldGrid>
-            <InlineSelect
-              label="相続税申告要否"
-              value={caseData.tax_filing_required}
-              options={[...TAX_FILING_OPTIONS]}
-              onSave={v => saveCaseFieldStr('tax_filing_required', v)}
-            />
-            <InlineDate
-              label="申告期限"
-              value={caseData.tax_filing_deadline}
-              onSave={v => saveCaseFieldStr('tax_filing_deadline', v)}
-            />
-            <InlineCurrency
-              label="資産合計額（概算）"
-              value={caseData.total_asset_estimate}
-              onSave={v => saveCaseFieldNum('total_asset_estimate', v)}
-            />
-            <InlineSelect
-              label="税理士紹介有無"
-              value={caseData.tax_advisor_referral}
-              options={[...TAX_ADVISOR_REFERRAL_OPTIONS]}
-              onSave={v => saveCaseFieldStr('tax_advisor_referral', v)}
-            />
-          </SharedFieldGrid>
-          <SharedFieldGrid cols={1}>
-            <SharedInlineEdit
-              label="税理士名・事務所名"
-              value={caseData.tax_advisor_name}
-              onSave={v => saveCaseFieldStr('tax_advisor_name', v)}
-              fullWidth
-            />
-          </SharedFieldGrid>
-        </SharedSection>
+        {/* 相続税申告は「紹介」タブに移動 */}
 
         {/* 信託関連 */}
         <SharedSection title="信託関連" icon="🏦">
