@@ -198,19 +198,10 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
         ))}
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-5 gap-3 mb-4">
-        <KpiCard label="総案件数" value={kpis.total} icon="📋" iconBg="#EFF4FF" />
-        <KpiCard label="対応中" value={kpis.active} icon="⚡" iconBg="#F5F3FF" color="#7C3AED" />
-        <KpiCard label="受注" value={kpis.ordered} icon="✅" iconBg="#F0FDF4" color="#059669" />
-        <KpiCard label="検討中" value={kpis.reviewing} icon="🕐" iconBg="#FFFBEB" color="#D97706" />
-        <KpiCard label="完了" value={kpis.completed} icon="🎉" iconBg="#F0FDF4" color="#059669" />
-      </div>
-
       {/* Toolbar: filter + view toggle */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="flex gap-0.5 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm">
-          <FilterTab label="すべて" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+          <FilterTab label={`すべて`} count={kpis.total} active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
           {CASE_STATUSES.map(s => (
             <FilterTab
               key={s.key}
@@ -487,9 +478,11 @@ function KpiCard({ label, value, icon, iconBg, color }: { label: string; value: 
 
 function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
-    <button onClick={onClick} className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
       {label}
-      {count !== undefined && count > 0 && <span className={`ml-1 text-[10px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>}
+      {count !== undefined && count > 0 && (
+        <span className={`ml-1.5 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+      )}
     </button>
   )
 }
