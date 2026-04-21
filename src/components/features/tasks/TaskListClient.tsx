@@ -34,13 +34,14 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const currentMemberId = useCurrentMember(serverMemberId)
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   const [phaseFilter, setPhaseFilter] = useState('all')
-  const [assigneeFilter, setAssigneeFilter] = useState<'all' | 'mine'>(
-    searchParams.get('assignee') === 'mine' ? 'mine' : 'all'
+  const [filterMine, setFilterMine] = useState(
+    searchParams.get('assignee') === 'mine'
   )
+  const [filterUrgent, setFilterUrgent] = useState(false)
 
   // URLパラメータ変更を反映
   useEffect(() => {
-    if (searchParams.get('assignee') === 'mine') setAssigneeFilter('mine')
+    if (searchParams.get('assignee') === 'mine') setFilterMine(true)
   }, [searchParams])
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<'phase' | 'case'>('phase')
@@ -70,12 +71,20 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     let result = tasks
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (phaseFilter !== 'all') result = result.filter(t => t.phase === phaseFilter)
-    if (assigneeFilter === 'mine' && currentMemberId) {
+    if (filterMine && currentMemberId) {
       // 自分が着手者、または主担当に設定されているタスク
       result = result.filter(t =>
         t.started_by === currentMemberId ||
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
       )
+    }
+    if (filterUrgent) {
+      result = result.filter(t => {
+        if (normalizeStatus(t.status) === '完了') return false
+        const isOverdue = t.due_date && t.due_date < today
+        const isUrgentPriority = t.priority === '急ぎ'
+        return isOverdue || isUrgentPriority
+      })
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -85,7 +94,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       })
     }
     return result
-  }, [tasks, statusFilter, phaseFilter, assigneeFilter, search, caseMap, currentMemberId, today])
+  }, [tasks, statusFilter, phaseFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
     total: tasks.length,
@@ -94,6 +103,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
     urgent: tasks.filter(t => t.priority === '急ぎ').length,
   }), [tasks])
+
+  // バッジ用カウント（全タスクベース）
+  const myTaskCount = currentMemberId
+    ? tasks.filter(t =>
+        normalizeStatus(t.status) !== '完了' && (
+          t.started_by === currentMemberId ||
+          (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
+        )
+      ).length
+    : 0
+
+  const urgentTaskCount = tasks.filter(t => {
+    if (normalizeStatus(t.status) === '完了') return false
+    return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
+  }).length
 
   // 🚨 要対応タスク（期限超過 or 急ぎ、完了以外）— フィルター連動
   const alertTasks = useMemo(() => {
@@ -104,13 +128,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       if (statusFilter !== 'all' && s !== statusFilter) return false
       // フェーズフィルター連動
       if (phaseFilter !== 'all' && t.phase !== phaseFilter) return false
-      // 自分が着手中フィルター連動
-      if (assigneeFilter === 'mine' && currentMemberId && t.started_by !== currentMemberId) return false
+      // 自分フィルター連動
+      if (filterMine && currentMemberId && t.started_by !== currentMemberId) return false
       const isOverdue = t.due_date && t.due_date < today
       const isUrgent = t.priority === '急ぎ'
       return isOverdue || isUrgent
     })
-  }, [tasks, today, statusFilter, phaseFilter, assigneeFilter, currentMemberId])
+  }, [tasks, today, statusFilter, phaseFilter, filterMine, currentMemberId])
 
   const sortTasks = (arr: TaskRow[]) => {
     if (dueDateSort === 'none') return arr
@@ -194,8 +218,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     router.refresh()
   }
 
-  const myTaskCount = currentMemberId ? tasks.filter(t => t.started_by === currentMemberId && normalizeStatus(t.status) !== '完了').length : 0
-
   return (
     <div>
       {/* Header */}
@@ -215,27 +237,61 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
       {/* KPI */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all' && assigneeFilter === 'all'} onClick={() => { setStatusFilter('all'); setAssigneeFilter('all'); setGroupBy('phase') }} />
-        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setAssigneeFilter('all'); setGroupBy('phase') }} />
-        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setAssigneeFilter('all'); setGroupBy('phase') }} />
-        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setAssigneeFilter('all'); setGroupBy('phase') }} />
+        <SummaryCard label="全タスク" value={kpis.total} sub="すべて" active={statusFilter === 'all'} onClick={() => { setStatusFilter('all'); setGroupBy('phase') }} />
+        <SummaryCard label="着手前" value={kpis.todo} sub="着手待ち" color="#6B7280" active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setGroupBy('phase') }} />
+        <SummaryCard label="対応中" value={kpis.doing} sub="進行中" color="#2563EB" active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setGroupBy('phase') }} />
+        <SummaryCard label="完了" value={kpis.done} sub="完了済み" color="#059669" active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setGroupBy('phase') }} />
       </div>
 
       {/* フィルターバー */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {/* フェーズ */}
         <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
           className="text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
           <option value="all">全フェーズ</option>
           {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
         </select>
-        <button onClick={() => setAssigneeFilter(v => v === 'mine' ? 'all' : 'mine')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${assigneeFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-          👤 自分が着手中 {myTaskCount > 0 && <span className="text-[10px] font-mono opacity-80">{myTaskCount}</span>}
+
+        {/* 自分が着手中トグル */}
+        <button
+          onClick={() => setFilterMine(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border shadow-sm transition-all ${
+            filterMine ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <span>👤</span>
+          自分が着手中
+          <span className={`text-[10px] font-mono ${filterMine ? 'opacity-80' : 'opacity-50'}`}>{myTaskCount}</span>
         </button>
+
+        {/* 要対応トグル */}
+        <button
+          onClick={() => setFilterUrgent(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border shadow-sm transition-all ${
+            filterUrgent ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <span>🚨</span>
+          要対応
+          <span className={`text-[10px] font-mono ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>{urgentTaskCount}</span>
+        </button>
+
+        {/* クリアボタン */}
+        {(filterMine || filterUrgent) && (
+          <button
+            onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
+            className="px-2 py-1 text-[11px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            ✕ クリア
+          </button>
+        )}
+
+        {/* 案件別グループ */}
         <button onClick={() => setGroupBy(v => v === 'case' ? 'phase' : 'case')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${groupBy === 'case' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border shadow-sm transition-colors ${groupBy === 'case' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
           📋 案件別
         </button>
+
         <div className="flex-1" />
         <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
           className="text-[11px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
