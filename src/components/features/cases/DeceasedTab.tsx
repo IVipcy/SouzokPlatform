@@ -36,6 +36,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
     name: '',
     furigana: '',
     relationship: '',
+    birth_date: '',
     address: '',
     registered_address: '',
     phone: '',
@@ -55,7 +56,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
       ...heirForm,
       sort_order: heirs.length,
     })
-    setHeirForm({ name: '', furigana: '', relationship: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true })
+    setHeirForm({ name: '', furigana: '', relationship: '', birth_date: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true })
     setShowAddHeir(false)
     onRefresh()
   }
@@ -144,7 +145,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
               <table className="w-full border-collapse" style={{ minWidth: 900 }}>
                 <thead>
                   <tr>
-                    {['氏名', 'ふりがな', '続柄', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
+                    {['氏名', 'ふりがな', '続柄', '生年月日', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
                       <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
@@ -163,6 +164,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                           }`}>{heir.relationship}</span>
                         )}
                       </td>
+                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.birth_date ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.address ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.registered_address ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
@@ -217,6 +219,14 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
+                </FormField>
+                <FormField label="生年月日">
+                  <input
+                    type="date"
+                    value={heirForm.birth_date}
+                    onChange={e => setHeirForm(f => ({ ...f, birth_date: e.target.value }))}
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                  />
                 </FormField>
                 <FormField label="TEL">
                   <input

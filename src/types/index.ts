@@ -140,8 +140,13 @@ export type CaseRow = {
   will_bequest: boolean
   will_creation_place: string | null
   notary_office_name: string | null
+  will_witness: string | null
+  will_content: string[] | null
+  will_bequest_handler: string | null
   // 信託関連
   trust_contract_type: string | null
+  trust_final_beneficiary: string | null
+  trust_creation_place: string | null
   // 生命保険提案
   life_insurance_proposal: string | null
   life_insurance_company: string | null
@@ -152,6 +157,8 @@ export type CaseRow = {
   life_insurance_inquiry_notes: string | null
   // 被相続人追加
   deceased_has_special_chars: boolean
+  // 不動産査定
+  real_estate_appraisal_status: string | null
   // 請求関連
   invoice_status: string | null
   advance_payment: number | null
@@ -355,6 +362,9 @@ export type RealEstatePropertyRow = {
   evaluation_cert_dest: string | null
   has_registry_info: boolean
   has_cadastral_map: boolean
+  evaluation_method: string | null
+  is_condo_land: boolean
+  sale_agent_name: string | null
   notes: string | null
   created_at: string
 }
@@ -371,6 +381,8 @@ export type FinancialAssetRow = {
   balance_cert_date: string | null
   transaction_history_period: string | null
   safe_deposit_box: string | null
+  dissolution_status: string | null
+  passbook_status: string | null
   stock_name: string | null
   additional_info: Record<string, unknown> | null
   notes: string | null

@@ -25,6 +25,10 @@ import {
   OCCUPANCY_STATUSES,
   NAMEYOSE_TARGETS,
   PROPERTY_RANKS,
+  DISSOLUTION_STATUSES,
+  PASSBOOK_STATUSES,
+  PROPERTY_EVALUATION_METHODS,
+  REAL_ESTATE_APPRAISAL_STATUSES,
 } from '@/lib/constants'
 
 type Props = {
@@ -392,6 +396,16 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               options={[...TRUST_CONTRACT_TYPES]}
               onSave={v => saveCaseFieldStr('trust_contract_type', v)}
             />
+            <SharedInlineEdit
+              label="最終帰属者"
+              value={caseData.trust_final_beneficiary}
+              onSave={v => saveCaseFieldStr('trust_final_beneficiary', v)}
+            />
+            <SharedInlineEdit
+              label="信託作成場所"
+              value={caseData.trust_creation_place}
+              onSave={v => saveCaseFieldStr('trust_creation_place', v)}
+            />
           </SharedFieldGrid>
         </SharedSection>
 
@@ -460,6 +474,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 type="select"
                 options={PROPERTY_RANKS.map(r => ({ value: r, label: r }))}
                 onSave={async (val) => { await updateCase('property_rank', val || null) }}
+              />
+            </Field>
+            <Field label="査定対応状況">
+              <InlineEdit
+                value={caseData.real_estate_appraisal_status}
+                type="select"
+                options={REAL_ESTATE_APPRAISAL_STATUSES.map(o => ({ value: o, label: o }))}
+                onSave={async (val) => { await updateCase('real_estate_appraisal_status', val || null) }}
               />
             </Field>
           </FieldGrid>
@@ -598,6 +620,26 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   <BoolTag
                     value={p.has_cadastral_map}
                     onToggle={async () => { await updateProperty(p.id, 'has_cadastral_map', !p.has_cadastral_map) }}
+                  />
+                </Field>
+                <Field label="評価方法">
+                  <InlineEdit
+                    value={p.evaluation_method}
+                    type="select"
+                    options={PROPERTY_EVALUATION_METHODS.map(o => ({ value: o, label: o }))}
+                    onSave={async (val) => { await updateProperty(p.id, 'evaluation_method', val || null) }}
+                  />
+                </Field>
+                <Field label="マンション敷地注意">
+                  <BoolTag
+                    value={p.is_condo_land}
+                    onToggle={async () => { await updateProperty(p.id, 'is_condo_land', !p.is_condo_land) }}
+                  />
+                </Field>
+                <Field label="売却業者名">
+                  <InlineEdit
+                    value={p.sale_agent_name}
+                    onSave={async (val) => { await updateProperty(p.id, 'sale_agent_name', val || null) }}
                   />
                 </Field>
               </FieldGrid>
@@ -766,6 +808,48 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                         { value: '無', label: '無' },
                       ]}
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'safe_deposit_box', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    解約受注状況：
+                    <InlineEdit
+                      value={d.dissolution_status}
+                      displayValue={
+                        d.dissolution_status ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                            d.dissolution_status === '受注' ? 'bg-green-50 text-green-700' :
+                            d.dissolution_status === '未提案' ? 'bg-gray-100 text-gray-500' :
+                            'bg-amber-50 text-amber-700'
+                          }`}>
+                            {d.dissolution_status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )
+                      }
+                      type="select"
+                      options={DISSOLUTION_STATUSES.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(d.id, 'dissolution_status', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    通帳取り扱い：
+                    <InlineEdit
+                      value={d.passbook_status}
+                      displayValue={
+                        d.passbook_status ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                            d.passbook_status === '紛失' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                          }`}>
+                            {d.passbook_status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )
+                      }
+                      type="select"
+                      options={PASSBOOK_STATUSES.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(d.id, 'passbook_status', val || null) }}
                     />
                   </div>
                 </div>

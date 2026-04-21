@@ -78,7 +78,7 @@ export const KOSEKI_REQUEST_TYPES = [
 ] as const
 
 // === 受注ルート ===
-export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', 'その他'] as const
+export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', '公益社', 'その他'] as const
 
 // === 詳細受注ルート（受注ルートごとの選択肢） ===
 export const ORDER_ROUTE_DETAILS: Record<string, readonly string[]> = {
@@ -170,6 +170,24 @@ export const AGREEMENT_SIGNING_METHODS = [
 export const LIFE_INSURANCE_TYPES = [
   '終身保険', '定期保険', '養老保険', '個人年金', '学資保険', 'その他',
 ] as const
+
+// === 金融資産: 解約受注状況 ===
+export const DISSOLUTION_STATUSES = ['受注', '未受注', '検討中', '未提案'] as const
+
+// === 金融資産: 通帳取り扱い ===
+export const PASSBOOK_STATUSES = ['即日預かり', '送付', '紛失'] as const
+
+// === 不動産: 評価方法 ===
+export const PROPERTY_EVALUATION_METHODS = ['固定資産評価額', '路線価'] as const
+
+// === 不動産: 査定対応状況 ===
+export const REAL_ESTATE_APPRAISAL_STATUSES = ['未対応', '対応中', '完了', '不要'] as const
+
+// === 遺言: 記載内容 ===
+export const WILL_CONTENT_OPTIONS = ['祭祀', '予備的遺言', '付言', '相続させる旨', '遺贈', 'その他'] as const
+
+// === 遺言: 遺贈受贈者資料手配 ===
+export const WILL_BEQUEST_HANDLER_OPTIONS = ['手配済', '未手配', '不要'] as const
 
 // === 立替実費・費目 ===
 export const EXPENSE_CATEGORIES = [

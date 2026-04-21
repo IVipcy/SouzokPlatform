@@ -10,8 +10,10 @@ import {
   WILL_EXECUTION_OPTIONS,
   DIVISION_POLICIES,
   AGREEMENT_SIGNING_METHODS,
+  WILL_CONTENT_OPTIONS,
+  WILL_BEQUEST_HANDLER_OPTIONS,
 } from '@/lib/constants'
-import { InlineCheckbox, InlineSelect } from '@/components/ui/InlineFields'
+import { InlineCheckbox, InlineSelect, InlineMultiSelect, InlineEdit as SharedInlineEdit } from '@/components/ui/InlineFields'
 
 type Props = {
   caseData: CaseRow
@@ -38,6 +40,10 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
 
   const saveCaseField = async (field: string, value: string) => {
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
+  }
+
+  const saveCaseArrayField = async (field: string, value: string[]) => {
+    await patchCase({ [field]: value.length > 0 ? value : null } as Partial<CaseRow>)
   }
 
   const saveCaseBoolField = async (field: string, value: boolean) => {
@@ -90,7 +96,18 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             <InlineCheckbox label="遺贈有無" value={caseData.will_bequest} onSave={v => saveCaseBoolField('will_bequest', v)} />
             <InlineSelect label="作成場所" value={caseData.will_creation_place} options={[...WILL_CREATION_PLACES]} onSave={v => saveCaseField('will_creation_place', v)} />
             <InlineEdit label="公証役場名" value={caseData.notary_office_name} onSave={v => saveCaseField('notary_office_name', v)} />
+            <SharedInlineEdit label="証人氏名" value={caseData.will_witness} onSave={v => saveCaseField('will_witness', v)} />
+            <InlineSelect label="遺贈受贈者資料手配" value={caseData.will_bequest_handler} options={[...WILL_BEQUEST_HANDLER_OPTIONS]} onSave={v => saveCaseField('will_bequest_handler', v)} />
           </FieldGrid>
+          <div className="mt-2">
+            <InlineMultiSelect
+              label="遺言記載内容"
+              value={caseData.will_content}
+              options={[...WILL_CONTENT_OPTIONS]}
+              onSave={v => saveCaseArrayField('will_content', v)}
+              fullWidth
+            />
+          </div>
 
           {caseData.will_type === '自筆' && (
             <div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
