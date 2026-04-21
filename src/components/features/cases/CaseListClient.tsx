@@ -24,19 +24,12 @@ type Props = {
   taskDueDatesMap: Record<string, Array<{ due_date: string | null; status: string }>>
 }
 
-type ViewMode = 'all' | 'mine' | 'urgent'
-
 const DIFFICULTY_COLORS: Record<string, string> = { '難': '#DC2626', '普': '#D97706', '易': '#059669' }
-
-const VIEW_TABS: { key: ViewMode; label: string; icon: string }[] = [
-  { key: 'all', label: 'すべての案件', icon: '📋' },
-  { key: 'mine', label: '担当の案件', icon: '👤' },
-  { key: 'urgent', label: '至急対応案件', icon: '🚨' },
-]
 
 export default function CaseListClient({ cases, taskCounts, currentMemberId, taskAssigneesMap, taskDueDatesMap }: Props) {
   const router = useRouter()
-  const [viewMode, setViewMode] = useState<ViewMode>('all')
+  const [filterMine, setFilterMine] = useState(false)
+  const [filterUrgent, setFilterUrgent] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('list')
@@ -71,37 +64,54 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Apply view filter first
-  const viewFiltered = useMemo(() => {
-    if (viewMode === 'all') return cases
+  // Compute badge counts based on full case list (not affected by other toggles)
+  const mineCount = useMemo(() => {
+    if (!currentMemberId) return 0
+    return cases.filter(c => {
+      const isCaseMember = c.case_members?.some(cm => cm.members?.id === currentMemberId)
+      const isTaskAssignee = taskAssigneesMap[c.id]?.includes(currentMemberId)
+      return isCaseMember || isTaskAssignee
+    }).length
+  }, [cases, currentMemberId, taskAssigneesMap])
 
-    if (viewMode === 'mine' && currentMemberId) {
-      return cases.filter(c => {
-        // Check if user is a case member
+  const urgentCount = useMemo(() => {
+    return cases.filter(c => {
+      if (c.status === '完了' || c.status === '失注') return false
+      const taskDates = taskDueDatesMap[c.id]
+      const hasOverdueTask = taskDates?.some(t =>
+        t.due_date && t.due_date < today && t.status !== '完了'
+      )
+      const hasOverdueCompletion = c.completion_date && c.completion_date < today
+      return hasOverdueTask || hasOverdueCompletion
+    }).length
+  }, [cases, taskDueDatesMap, today])
+
+  // Apply view filters (AND logic when both are active)
+  const viewFiltered = useMemo(() => {
+    let result = cases
+
+    if (filterMine && currentMemberId) {
+      result = result.filter(c => {
         const isCaseMember = c.case_members?.some(cm => cm.members?.id === currentMemberId)
-        // Check if user is assigned to any task in this case
         const isTaskAssignee = taskAssigneesMap[c.id]?.includes(currentMemberId)
         return isCaseMember || isTaskAssignee
       })
     }
 
-    if (viewMode === 'urgent') {
-      return cases.filter(c => {
-        // Skip completed/lost cases
+    if (filterUrgent) {
+      result = result.filter(c => {
         if (c.status === '完了' || c.status === '失注') return false
-        // Check overdue tasks
         const taskDates = taskDueDatesMap[c.id]
         const hasOverdueTask = taskDates?.some(t =>
           t.due_date && t.due_date < today && t.status !== '完了'
         )
-        // Check overdue completion date
         const hasOverdueCompletion = c.completion_date && c.completion_date < today
         return hasOverdueTask || hasOverdueCompletion
       })
     }
 
-    return cases
-  }, [cases, viewMode, currentMemberId, taskAssigneesMap, taskDueDatesMap, today])
+    return result
+  }, [cases, filterMine, filterUrgent, currentMemberId, taskAssigneesMap, taskDueDatesMap, today])
 
   // Then apply status + search filters
   const filtered = useMemo(() => {
@@ -157,45 +167,44 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
         </div>
       </div>
 
-      {/* View tabs */}
-      <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 shadow-sm w-fit">
-        {VIEW_TABS.map(tab => (
+      {/* View toggle filters (combinable) */}
+      <div className="flex gap-2 mb-4 items-center">
+        <button
+          onClick={() => setFilterMine(v => !v)}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
+            filterMine
+              ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
+              : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <span className="text-[13px]">👤</span>
+          担当の案件
+          <span className={`text-[10px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
+            {mineCount}
+          </span>
+        </button>
+        <button
+          onClick={() => setFilterUrgent(v => !v)}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
+            filterUrgent
+              ? 'bg-red-600 text-white border-red-600 shadow-red-200'
+              : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <span className="text-[13px]">🚨</span>
+          至急対応案件
+          <span className={`text-[10px] font-mono ml-0.5 ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>
+            {urgentCount}
+          </span>
+        </button>
+        {(filterMine || filterUrgent) && (
           <button
-            key={tab.key}
-            onClick={() => { setViewMode(tab.key); setStatusFilter('all') }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium transition-all ${
-              viewMode === tab.key
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
+            onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
+            className="px-2.5 py-1.5 text-[11px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
           >
-            <span className="text-[13px]">{tab.icon}</span>
-            {tab.label}
-            {tab.key !== 'all' && (
-              <span className={`text-[10px] font-mono ml-0.5 ${
-                viewMode === tab.key ? 'opacity-80' : 'opacity-60'
-              }`}>
-                {tab.key === 'mine'
-                  ? cases.filter(c => {
-                      if (!currentMemberId) return false
-                      const isCaseMember = c.case_members?.some(cm => cm.members?.id === currentMemberId)
-                      const isTaskAssignee = taskAssigneesMap[c.id]?.includes(currentMemberId)
-                      return isCaseMember || isTaskAssignee
-                    }).length
-                  : cases.filter(c => {
-                      if (c.status === '完了' || c.status === '失注') return false
-                      const taskDates = taskDueDatesMap[c.id]
-                      const hasOverdueTask = taskDates?.some(t =>
-                        t.due_date && t.due_date < today && t.status !== '完了'
-                      )
-                      const hasOverdueCompletion = c.completion_date && c.completion_date < today
-                      return hasOverdueTask || hasOverdueCompletion
-                    }).length
-                }
-              </span>
-            )}
+            ✕ クリア
           </button>
-        ))}
+        )}
       </div>
 
       {/* Toolbar: filter + view toggle */}
@@ -233,7 +242,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 
       {/* Content */}
       {displayMode === 'list' ? (
-        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} taskDueDatesMap={taskDueDatesMap} viewMode={viewMode} />
+        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} taskDueDatesMap={taskDueDatesMap} showUrgent={filterUrgent} />
       ) : (
         <KanbanView cases={filtered} taskCounts={taskCounts} router={router} />
       )}
@@ -256,13 +265,13 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 }
 
 // ─── List View ───
-function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, viewMode }: {
+function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, showUrgent }: {
   filtered: (CaseRow & { case_members: Array<{ role: string; members: MemberRow }> })[]
   taskCounts: Record<string, { total: number; completed: number }>
   router: ReturnType<typeof useRouter>
   onDelete: (c: CaseRow & { case_members: Array<{ role: string; members: MemberRow }> }) => void
   taskDueDatesMap: Record<string, Array<{ due_date: string | null; status: string }>>
-  viewMode: ViewMode
+  showUrgent: boolean
 }) {
   const today = new Date().toISOString().split('T')[0]
 
@@ -319,7 +328,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, vie
               const pct = tc ? Math.round((tc.completed / tc.total) * 100) : 0
 
               // Check urgency for highlighting
-              const isUrgent = viewMode === 'urgent' || (() => {
+              const isUrgent = (() => {
                 const taskDates = taskDueDatesMap[c.id]
                 const hasOverdue = taskDates?.some(t => t.due_date && t.due_date < today && t.status !== '完了')
                 const hasOverdueCompletion = c.completion_date && c.completion_date < today && c.status !== '完了' && c.status !== '失注'
@@ -328,7 +337,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, vie
 
               return (
                 <tr key={c.id} className={`border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] cursor-pointer transition-colors ${
-                  viewMode === 'urgent' && isUrgent ? 'bg-red-50/30' : ''
+                  showUrgent && isUrgent ? 'bg-red-50/30' : ''
                 }`}
                 onMouseEnter={() => router.prefetch(`/cases/${c.id}`)}
                 onClick={() => router.push(`/cases/${c.id}`)}>
@@ -336,7 +345,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, vie
                     <div className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded inline-block mb-1">{c.case_number}</div>
                     <div className="text-[13px] font-semibold text-gray-900">{c.deal_name}</div>
                     {c.deceased_name && <div className="text-[11px] text-gray-400 mt-0.5">被相続人：{c.deceased_name}</div>}
-                    {viewMode === 'urgent' && isUrgent && (
+                    {isUrgent && (
                       <div className="text-[10px] text-red-500 font-semibold mt-0.5">⚠ 期限超過あり</div>
                     )}
                   </td>
