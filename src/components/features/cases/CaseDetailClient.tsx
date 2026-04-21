@@ -14,7 +14,6 @@ import ContractTab from './ContractTab'
 import MailingTab from './MailingTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
-import InvoiceTab from './InvoiceTab'
 import DocsTab from './DocsTab'
 import ReferralTab from './ReferralTab'
 import HistoryTab from './HistoryTab'
@@ -108,7 +107,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DeceasedTab caseData={caseState} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'contract' && (
-        <ContractTab caseData={caseState} onRefresh={handleSaved} patchCase={patchCase} />
+        <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'mailing' && (
         <MailingTab caseData={caseState} onRefresh={handleSaved} patchCase={patchCase} />
@@ -118,9 +117,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {activeTab === 'division' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} />
-      )}
-      {activeTab === 'invoice' && (
-        <InvoiceTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'referral' && (
         <ReferralTab caseData={caseState} patchCase={patchCase} />
