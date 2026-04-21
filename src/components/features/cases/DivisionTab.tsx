@@ -13,7 +13,7 @@ import {
   WILL_CONTENT_OPTIONS,
   WILL_BEQUEST_HANDLER_OPTIONS,
 } from '@/lib/constants'
-import { InlineCheckbox, InlineSelect, InlineMultiSelect, InlineEdit as SharedInlineEdit } from '@/components/ui/InlineFields'
+import { InlineCheckbox, InlineSelect, InlineMultiSelect, InlineEdit as SharedInlineEdit, InlineDate } from '@/components/ui/InlineFields'
 
 type Props = {
   caseData: CaseRow
@@ -44,6 +44,10 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
 
   const saveCaseArrayField = async (field: string, value: string[]) => {
     await patchCase({ [field]: value.length > 0 ? value : null } as Partial<CaseRow>)
+  }
+
+  const saveCaseDateField = async (field: string, value: string) => {
+    await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
 
   const saveCaseBoolField = async (field: string, value: boolean) => {
@@ -107,6 +111,9 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
               onSave={v => saveCaseArrayField('will_content', v)}
               fullWidth
             />
+          </div>
+          <div className="mt-2">
+            <InlineDate label="文案確認日" value={caseData.will_draft_confirmed_date} onSave={v => saveCaseDateField('will_draft_confirmed_date', v)} />
           </div>
 
           {caseData.will_type === '自筆' && (

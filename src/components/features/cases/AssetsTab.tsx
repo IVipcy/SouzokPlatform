@@ -29,7 +29,13 @@ import {
   PASSBOOK_STATUSES,
   PROPERTY_EVALUATION_METHODS,
   REAL_ESTATE_APPRAISAL_STATUSES,
+  TRUST_CONTENT_OPTIONS,
+  FINANCIAL_SURVEY_START_CONDITIONS,
+  INVENTORY_CATEGORIES,
+  ODD_LOT_HANDLING_OPTIONS,
+  UNCLAIMED_DIVIDEND_OPTIONS,
 } from '@/lib/constants'
+import { InlineMultiSelect } from '@/components/ui/InlineFields'
 
 type Props = {
   caseData: CaseRow
@@ -407,6 +413,37 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               onSave={v => saveCaseFieldStr('trust_creation_place', v)}
             />
           </SharedFieldGrid>
+          <div className="mt-2">
+            <InlineMultiSelect
+              label="記載内容"
+              value={caseData.trust_content}
+              options={[...TRUST_CONTENT_OPTIONS]}
+              onSave={v => updateCase('trust_content', v.length > 0 ? v : null)}
+              fullWidth
+            />
+          </div>
+        </SharedSection>
+
+        {/* 財産調査全般 */}
+        <SharedSection title="財産調査" icon="🔍">
+          <SharedFieldGrid>
+            <InlineSelect
+              label="財産調査開始条件"
+              value={caseData.financial_survey_start_condition}
+              options={[...FINANCIAL_SURVEY_START_CONDITIONS]}
+              onSave={v => saveCaseFieldStr('financial_survey_start_condition', v)}
+              fullWidth
+            />
+          </SharedFieldGrid>
+          <div className="mt-2">
+            <InlineMultiSelect
+              label="財産目録 記載範囲"
+              value={caseData.inventory_categories}
+              options={[...INVENTORY_CATEGORIES]}
+              onSave={v => updateCase('inventory_categories', v.length > 0 ? v : null)}
+              fullWidth
+            />
+          </div>
         </SharedSection>
 
         {/* 生命保険提案 */}
@@ -642,6 +679,25 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     onSave={async (val) => { await updateProperty(p.id, 'sale_agent_name', val || null) }}
                   />
                 </Field>
+                <Field label="売却時期（予定）">
+                  <InlineEdit
+                    value={p.sale_expected_date}
+                    type="date"
+                    onSave={async (val) => { await updateProperty(p.id, 'sale_expected_date', val || null) }}
+                  />
+                </Field>
+                <Field label="地積測量図">
+                  <BoolTag
+                    value={p.has_survey_map}
+                    onToggle={async () => { await updateProperty(p.id, 'has_survey_map', !p.has_survey_map) }}
+                  />
+                </Field>
+                <Field label="路線価取得済">
+                  <BoolTag
+                    value={p.has_route_price}
+                    onToggle={async () => { await updateProperty(p.id, 'has_route_price', !p.has_route_price) }}
+                  />
+                </Field>
               </FieldGrid>
             </div>
           ))}
@@ -852,6 +908,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'passbook_status', val || null) }}
                     />
                   </div>
+                  <div className="text-[10px] text-gray-400">
+                    新口座判明日：
+                    <InlineEdit
+                      value={d.new_account_found_date}
+                      displayValue={<span className="font-semibold text-gray-600">{d.new_account_found_date ?? '—'}</span>}
+                      type="date"
+                      onSave={async (val) => { await updateFinancialAsset(d.id, 'new_account_found_date', val || null) }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -906,7 +971,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   </button>
                 </div>
                 {s.required_docs && s.required_docs.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 mb-2">
                     {s.required_docs.map((doc, i) => (
                       <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[9px] font-semibold">
                         {doc}
@@ -914,6 +979,33 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     ))}
                   </div>
                 )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div className="text-[10px] text-gray-400">
+                    ほふり照会：
+                    <BoolTag
+                      value={s.houri_inquiry}
+                      onToggle={async () => { await updateFinancialAsset(s.id, 'houri_inquiry', !s.houri_inquiry) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    端株処理：
+                    <InlineEdit
+                      value={s.odd_lot_handling}
+                      type="select"
+                      options={ODD_LOT_HANDLING_OPTIONS.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(s.id, 'odd_lot_handling', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    未受領配当金：
+                    <InlineEdit
+                      value={s.unclaimed_dividend}
+                      type="select"
+                      options={UNCLAIMED_DIVIDEND_OPTIONS.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(s.id, 'unclaimed_dividend', val || null) }}
+                    />
+                  </div>
+                </div>
               </div>
             ))}
           </div>

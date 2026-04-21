@@ -158,7 +158,7 @@ export const PROPERTY_RANKS = ['S', 'A', 'B', 'C', '確認中'] as const
 
 // === 遺産分割方針 ===
 export const DIVISION_POLICIES = [
-  '法定相続分', '配偶者集中', '代表者集中', '法定相続人間で協議', 'その他',
+  '法定相続分', '配偶者集中', '代表者集中', '2次相続考慮', '法定相続人間で協議', 'その他',
 ] as const
 
 // === 遺産分割協議書 署名捺印方法 ===
@@ -170,6 +170,28 @@ export const AGREEMENT_SIGNING_METHODS = [
 export const LIFE_INSURANCE_TYPES = [
   '終身保険', '定期保険', '養老保険', '個人年金', '学資保険', 'その他',
 ] as const
+
+// === 財産目録: 記載範囲 ===
+export const INVENTORY_CATEGORIES = [
+  '不動産', '金融資産（預貯金）', '金融資産（証券）', '金融資産（信託銀行）',
+  '債務・負債', '諸費用・経費', '生命保険', 'その他',
+] as const
+
+// === 信託: 記載内容 ===
+export const TRUST_CONTENT_OPTIONS = [
+  '不動産', '預貯金', '株・投資信託', '保険', 'その他財産',
+] as const
+
+// === 財産調査: 開始条件 ===
+export const FINANCIAL_SURVEY_START_CONDITIONS = [
+  '必要戸籍が揃ったら即開始', '要確認後開始',
+] as const
+
+// === 証券: 端株処理 ===
+export const ODD_LOT_HANDLING_OPTIONS = ['移管', '売却', '不要'] as const
+
+// === 証券: 未受領配当金 ===
+export const UNCLAIMED_DIVIDEND_OPTIONS = ['要', '不要', '確認中'] as const
 
 // === 金融資産: 解約受注状況 ===
 export const DISSOLUTION_STATUSES = ['受注', '未受注', '検討中', '未提案'] as const

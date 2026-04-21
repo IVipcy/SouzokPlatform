@@ -382,9 +382,16 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                 options={TASK_CATEGORIES}
                 onSave={v => saveField('category', v)}
               />
+              <InlineSelect
+                label="Wチェック担当"
+                value={task.wcheck_by ?? ''}
+                options={allMembers.map(m => m.name)}
+                onSave={v => saveField('wcheck_by', v || null)}
+              />
             </FieldGrid>
-            <div className="mt-2">
+            <div className="mt-2 space-y-2">
               <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
+              <InlineTextarea label="内部メモ" value={task.notes ?? ''} onSave={v => saveField('notes', v)} />
             </div>
           </Section>
 

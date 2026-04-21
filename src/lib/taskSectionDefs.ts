@@ -195,6 +195,55 @@ const accountingSection: SectionDef = {
   ],
 }
 
+// 保険照会
+const insuranceSection: SectionDef = {
+  id: 'insurance',
+  icon: '📝',
+  title: '作業内容',
+  showWhen: (cat) => cat === '保険照会',
+  fields: [
+    { key: 'company', label: '保険会社名', type: 'text' },
+    { key: 'policyNo', label: '証券番号', type: 'text' },
+    { key: 'inquiryType', label: '照会種別', type: 'picklist', options: ['生命保険協会照会', '個別照会', '保険金請求', '未払保険金照会'] },
+    { key: 'reqDate', label: '請求日', type: 'date' },
+    { key: 'arrDate', label: '回答到着日', type: 'date' },
+    { key: 'amount', label: '保険金額', type: 'currency' },
+    { key: 'memo', label: 'メモ', type: 'textarea', full: true },
+  ],
+}
+
+// 年金照会
+const pensionSection: SectionDef = {
+  id: 'pension',
+  icon: '📝',
+  title: '作業内容',
+  showWhen: (cat) => cat === '年金照会',
+  fields: [
+    { key: 'pensionType', label: '年金種別', type: 'picklist', options: ['厚生年金', '国民年金', '共済年金', '企業年金', 'その他'] },
+    { key: 'agency', label: '照会機関', type: 'text' },
+    { key: 'reqDate', label: '照会日', type: 'date' },
+    { key: 'arrDate', label: '回答日', type: 'date' },
+    { key: 'monthlyAmount', label: '月額年金（概算）', type: 'currency' },
+    { key: 'memo', label: 'メモ', type: 'textarea', full: true },
+  ],
+}
+
+// 負債調査
+const debtSection: SectionDef = {
+  id: 'debt',
+  icon: '📝',
+  title: '作業内容',
+  showWhen: (cat) => cat === '負債調査',
+  fields: [
+    { key: 'debtType', label: '負債種別', type: 'picklist', options: ['住宅ローン', 'カードローン', '保証債務', '未払税金', '医療費未払', 'その他'] },
+    { key: 'creditor', label: '債権者名', type: 'text' },
+    { key: 'balance', label: '残高', type: 'currency' },
+    { key: 'investigatedDate', label: '調査日', type: 'date' },
+    { key: 'confirmed', label: '確認済', type: 'checkbox' },
+    { key: 'memo', label: 'メモ', type: 'textarea', full: true },
+  ],
+}
+
 /** 全カテゴリ別セクション定義（表示順） */
 export const TASK_SECTION_DEFS: SectionDef[] = [
   depositSection,      // 4. 財産調査（預貯金）
@@ -207,12 +256,16 @@ export const TASK_SECTION_DEFS: SectionDef[] = [
   nayoseSection,       // 11. 名寄せ・評価証明
   agreementSection,    // 12. 財産目録・協議書
   accountingSection,   // 13. 経理・精算
+  insuranceSection,    // 14. 保険照会
+  pensionSection,      // 15. 年金照会
+  debtSection,         // 16. 負債調査
 ]
 
 /** タスクカテゴリのピックリスト選択肢（v1.2 項目#8） */
 export const TASK_CATEGORIES = [
   '戸籍', '名寄せ', '評価証明', '登記情報', '登記申請書作成',
   '財産調査(預貯金)', '財産調査(証券)', '解約手続き',
+  '保険照会', '年金照会', '負債調査',
   '財産目録', '協議書', 'その他作成物', '郵便処理',
   '税理士連携', '経理', '精算',
 ]

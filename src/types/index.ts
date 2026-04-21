@@ -143,10 +143,12 @@ export type CaseRow = {
   will_witness: string | null
   will_content: string[] | null
   will_bequest_handler: string | null
+  will_draft_confirmed_date: string | null
   // 信託関連
   trust_contract_type: string | null
   trust_final_beneficiary: string | null
   trust_creation_place: string | null
+  trust_content: string[] | null
   // 生命保険提案
   life_insurance_proposal: string | null
   life_insurance_company: string | null
@@ -159,6 +161,9 @@ export type CaseRow = {
   deceased_has_special_chars: boolean
   // 不動産査定
   real_estate_appraisal_status: string | null
+  // 財産目録・財産調査
+  inventory_categories: string[] | null
+  financial_survey_start_condition: string | null
   // 請求関連
   invoice_status: string | null
   advance_payment: number | null
@@ -365,6 +370,9 @@ export type RealEstatePropertyRow = {
   evaluation_method: string | null
   is_condo_land: boolean
   sale_agent_name: string | null
+  has_survey_map: boolean
+  has_route_price: boolean
+  sale_expected_date: string | null
   notes: string | null
   created_at: string
 }
@@ -383,6 +391,10 @@ export type FinancialAssetRow = {
   safe_deposit_box: string | null
   dissolution_status: string | null
   passbook_status: string | null
+  houri_inquiry: boolean
+  odd_lot_handling: string | null
+  unclaimed_dividend: string | null
+  new_account_found_date: string | null
   stock_name: string | null
   additional_info: Record<string, unknown> | null
   notes: string | null
