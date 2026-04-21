@@ -78,7 +78,7 @@ export const KOSEKI_REQUEST_TYPES = [
 ] as const
 
 // === 受注ルート ===
-export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', '公益社', 'その他'] as const
+export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', 'その他'] as const
 
 // === 詳細受注ルート（受注ルートごとの選択肢） ===
 export const ORDER_ROUTE_DETAILS: Record<string, readonly string[]> = {
