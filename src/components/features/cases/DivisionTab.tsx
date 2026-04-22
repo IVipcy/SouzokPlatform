@@ -12,6 +12,9 @@ import {
   AGREEMENT_SIGNING_METHODS,
   WILL_CONTENT_OPTIONS,
   WILL_BEQUEST_HANDLER_OPTIONS,
+  TRUST_CONTRACT_TYPES,
+  TRUST_CONTENT_OPTIONS,
+  DIVISION_METHODS,
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineMultiSelect, InlineEdit as SharedInlineEdit, InlineDate } from '@/components/ui/InlineFields'
 
@@ -77,8 +80,8 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-      {/* Left side: 遺産分割 + 遺言 */}
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+      {/* Left side: 遺産分割 + 遺言 + 信託 */}
       <div className="space-y-3.5">
         {/* Division policy */}
         <Section title="遺産分割" icon="⚖️">
@@ -124,6 +127,24 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
               </p>
             </div>
           )}
+        </Section>
+
+        {/* 信託 */}
+        <Section title="信託" icon="🏛️">
+          <FieldGrid>
+            <InlineSelect label="信託契約書種別" value={caseData.trust_contract_type} options={[...TRUST_CONTRACT_TYPES]} onSave={v => saveCaseField('trust_contract_type', v)} />
+            <InlineSelect label="作成場所" value={caseData.trust_creation_place} options={[...WILL_CREATION_PLACES]} onSave={v => saveCaseField('trust_creation_place', v)} />
+            <SharedInlineEdit label="最終帰属者" value={caseData.trust_final_beneficiary} onSave={v => saveCaseField('trust_final_beneficiary', v)} fullWidth />
+          </FieldGrid>
+          <div className="mt-2">
+            <InlineMultiSelect
+              label="記載内容"
+              value={caseData.trust_content}
+              options={[...TRUST_CONTENT_OPTIONS]}
+              onSave={v => saveCaseArrayField('trust_content', v)}
+              fullWidth
+            />
+          </div>
         </Section>
       </div>
 
@@ -173,7 +194,7 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="grid grid-cols-1 gap-3 mb-3">
                 <FormField label="財産区分 *" value={detailForm.asset_category} onChange={v => setDetailForm(f => ({ ...f, asset_category: v }))} placeholder="不動産, 預貯金, 有価証券 等" />
-                <FormField label="分割方法" value={detailForm.division_method} onChange={v => setDetailForm(f => ({ ...f, division_method: v }))} placeholder="現物分割, 換価分割 等" />
+                <SelectField label="分割方法" value={detailForm.division_method} onChange={v => setDetailForm(f => ({ ...f, division_method: v }))} options={[...DIVISION_METHODS]} />
                 <FormField label="取得者" value={detailForm.recipient} onChange={v => setDetailForm(f => ({ ...f, recipient: v }))} />
                 <FormField label="取得割合" value={detailForm.share_ratio} onChange={v => setDetailForm(f => ({ ...f, share_ratio: v }))} placeholder="1/2, 100% 等" />
                 <FormField label="確定内容" value={detailForm.description} onChange={v => setDetailForm(f => ({ ...f, description: v }))} />
@@ -309,6 +330,24 @@ function FormField({ label, value, onChange, placeholder }: { label: string; val
         placeholder={placeholder}
         className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
       />
+    </div>
+  )
+}
+
+function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[] }) {
+  return (
+    <div>
+      <label className="text-[10px] font-semibold text-gray-500 block mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition bg-white"
+      >
+        <option value="">選択してください</option>
+        {options.map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
     </div>
   )
 }

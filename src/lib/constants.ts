@@ -206,7 +206,16 @@ export const PROPERTY_EVALUATION_METHODS = ['固定資産評価額', '路線価'
 export const REAL_ESTATE_APPRAISAL_STATUSES = ['未対応', '対応中', '完了', '不要'] as const
 
 // === 遺言: 記載内容 ===
-export const WILL_CONTENT_OPTIONS = ['祭祀', '予備的遺言', '付言', '相続させる旨', '遺贈', 'その他'] as const
+export const WILL_CONTENT_OPTIONS = [
+  '祭祀', '予備的遺言', '付言',
+  '不動産', '預貯金', '株・投資信託', '保険', 'その他財産', '債務・諸費用',
+  '遺贈', 'その他',
+] as const
+
+// === 遺産分割: 分割方法 ===
+export const DIVISION_METHODS = [
+  '現物分割', '代償分割', '換価分割（売却後分配）', '共有', 'その他',
+] as const
 
 // === 遺言: 遺贈受贈者資料手配 ===
 export const WILL_BEQUEST_HANDLER_OPTIONS = ['手配済', '未手配', '不要'] as const

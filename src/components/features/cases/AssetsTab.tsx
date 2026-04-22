@@ -18,7 +18,6 @@ import {
 import {
   TAX_FILING_OPTIONS,
   TAX_ADVISOR_REFERRAL_OPTIONS,
-  TRUST_CONTRACT_TYPES,
   LIFE_INSURANCE_PROPOSAL_OPTIONS,
   LIFE_INSURANCE_TYPES,
   SELLING_INTENTIONS,
@@ -29,7 +28,6 @@ import {
   PASSBOOK_STATUSES,
   PROPERTY_EVALUATION_METHODS,
   REAL_ESTATE_APPRAISAL_STATUSES,
-  TRUST_CONTENT_OPTIONS,
   FINANCIAL_SURVEY_START_CONDITIONS,
   INVENTORY_CATEGORIES,
   ODD_LOT_HANDLING_OPTIONS,
@@ -392,37 +390,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
       <div className="space-y-3.5">
         {/* 相続税申告は「紹介」タブに移動 */}
-
-        {/* 信託関連 */}
-        <SharedSection title="信託関連" icon="🏦">
-          <SharedFieldGrid>
-            <InlineSelect
-              label="信託契約書種別"
-              value={caseData.trust_contract_type}
-              options={[...TRUST_CONTRACT_TYPES]}
-              onSave={v => saveCaseFieldStr('trust_contract_type', v)}
-            />
-            <SharedInlineEdit
-              label="最終帰属者"
-              value={caseData.trust_final_beneficiary}
-              onSave={v => saveCaseFieldStr('trust_final_beneficiary', v)}
-            />
-            <SharedInlineEdit
-              label="信託作成場所"
-              value={caseData.trust_creation_place}
-              onSave={v => saveCaseFieldStr('trust_creation_place', v)}
-            />
-          </SharedFieldGrid>
-          <div className="mt-2">
-            <InlineMultiSelect
-              label="記載内容"
-              value={caseData.trust_content}
-              options={[...TRUST_CONTENT_OPTIONS]}
-              onSave={v => updateCase('trust_content', v.length > 0 ? v : null)}
-              fullWidth
-            />
-          </div>
-        </SharedSection>
 
         {/* 財産調査全般 */}
         <SharedSection title="財産調査" icon="🔍">
@@ -1037,7 +1004,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           <div className="space-y-0">
             {trustBanks.map(t => (
               <div key={t.id} className="border-b border-gray-50 last:border-b-0 py-3">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <InlineEdit
                       value={t.institution_name}
@@ -1058,29 +1025,130 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     削除
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                  {t.stock_name && (
-                    <div className="text-[11px]">
-                      <span className="text-gray-400">銘柄名：</span>
-                      <InlineEdit
-                        value={t.stock_name}
-                        displayValue={<span className="font-semibold text-gray-700">{t.stock_name}</span>}
-                        onSave={async (val) => { await updateFinancialAsset(t.id, 'stock_name', val || null) }}
-                      />
-                    </div>
-                  )}
-                  {t.additional_info && Object.entries(t.additional_info).map(([key, val]) => (
-                    <div key={key} className="text-[11px]">
-                      <span className="text-gray-400">{key}：</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                        val === '要' || val === '移管' ? 'bg-blue-50 text-blue-700' :
-                        val === '不要' ? 'bg-gray-100 text-gray-500' :
-                        'bg-amber-50 text-amber-700'
-                      }`}>
-                        {String(val)}
+                {t.required_docs && t.required_docs.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {t.required_docs.map((doc, i) => (
+                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[9px] font-semibold">
+                        {doc}
                       </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div className="text-[10px] text-gray-400">
+                    銘柄名：
+                    <InlineEdit
+                      value={t.stock_name}
+                      displayValue={<span className="font-semibold text-gray-700">{t.stock_name ?? '—'}</span>}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'stock_name', val || null) }}
+                      placeholder="銘柄名"
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    現存確認要否：
+                    <InlineEdit
+                      value={t.existence_check}
+                      displayValue={
+                        t.existence_check ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${t.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {t.existence_check}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>
+                      }
+                      type="select"
+                      options={[{ value: '要', label: '要' }, { value: '不要', label: '不要' }]}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'existence_check', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    残高証明基準日：
+                    <InlineEdit
+                      value={t.balance_cert_date}
+                      displayValue={<span className="font-semibold text-gray-600">{t.balance_cert_date ?? '—'}</span>}
+                      type="date"
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'balance_cert_date', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    取引履歴期間：
+                    <InlineEdit
+                      value={t.transaction_history_period}
+                      displayValue={
+                        t.transaction_history_period ? (
+                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-[9px] font-semibold">{t.transaction_history_period}</span>
+                        ) : <span className="text-gray-300">—</span>
+                      }
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'transaction_history_period', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    解約受注状況：
+                    <InlineEdit
+                      value={t.dissolution_status}
+                      displayValue={
+                        t.dissolution_status ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                            t.dissolution_status === '受注' ? 'bg-green-50 text-green-700' :
+                            t.dissolution_status === '未提案' ? 'bg-gray-100 text-gray-500' :
+                            'bg-amber-50 text-amber-700'
+                          }`}>{t.dissolution_status}</span>
+                        ) : <span className="text-gray-300">—</span>
+                      }
+                      type="select"
+                      options={DISSOLUTION_STATUSES.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'dissolution_status', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    貸金庫有無：
+                    <InlineEdit
+                      value={t.safe_deposit_box}
+                      displayValue={
+                        t.safe_deposit_box ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${t.safe_deposit_box === '有' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {t.safe_deposit_box}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>
+                      }
+                      type="select"
+                      options={[{ value: '有', label: '有' }, { value: '無', label: '無' }]}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'safe_deposit_box', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    ほふり照会：
+                    <BoolTag
+                      value={t.houri_inquiry}
+                      onToggle={async () => { await updateFinancialAsset(t.id, 'houri_inquiry', !t.houri_inquiry) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    端株処理：
+                    <InlineEdit
+                      value={t.odd_lot_handling}
+                      type="select"
+                      options={ODD_LOT_HANDLING_OPTIONS.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'odd_lot_handling', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    未受領配当金：
+                    <InlineEdit
+                      value={t.unclaimed_dividend}
+                      type="select"
+                      options={UNCLAIMED_DIVIDEND_OPTIONS.map(o => ({ value: o, label: o }))}
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'unclaimed_dividend', val || null) }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    新口座判明日：
+                    <InlineEdit
+                      value={t.new_account_found_date}
+                      displayValue={<span className="font-semibold text-gray-600">{t.new_account_found_date ?? '—'}</span>}
+                      type="date"
+                      onSave={async (val) => { await updateFinancialAsset(t.id, 'new_account_found_date', val || null) }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
