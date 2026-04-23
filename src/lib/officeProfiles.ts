@@ -194,3 +194,56 @@ export function defaultKosekiVariant(contractType: string | null | undefined): K
       return 'gyosei'
   }
 }
+
+/**
+ * 固定資産証明等申請書（名寄帳・評価証明）のバリエーション
+ * 行政 = 相続財産調査 / 司法 = 相続登記 / いきいき = 遺言執行業務
+ */
+export type FixedAssetVariant = 'gyosei' | 'shiho' | 'ikiiki'
+
+export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
+  label: string
+  office: OfficeKind
+  requesterLabel: string        // 「請　求　者」「遺言者」
+  agentLabel: string            // 「上記代理人」「遺言執行者」
+  purpose: string               // 使用目的
+}> = {
+  gyosei: {
+    label: '行政書士（相続財産調査）',
+    office: 'gyosei',
+    requesterLabel: '請　求　者',
+    agentLabel: '上記代理人',
+    purpose: '相続財産調査',
+  },
+  shiho: {
+    label: '司法書士（相続登記）',
+    office: 'shiho',
+    requesterLabel: '請　求　者',
+    agentLabel: '上記代理人',
+    purpose: '相続登記',
+  },
+  ikiiki: {
+    label: 'いきいきライフ協会（遺言執行）',
+    office: 'ikiiki',
+    requesterLabel: '遺言者',
+    agentLabel: '遺言執行者',
+    purpose: '遺言執行業務の為',
+  },
+}
+
+/**
+ * 契約形態から固定資産申請書バリエーションのデフォルトを決定
+ * 行・司連名 → 用途により行/司選択（デフォルトは行=相続財産調査）
+ */
+export function defaultFixedAssetVariant(contractType: string | null | undefined): FixedAssetVariant {
+  switch (contractType) {
+    case '司法書士法人単独':
+      return 'shiho'
+    case 'いきいきライフ協会':
+      return 'ikiiki'
+    case '行政書士法人単独':
+    case '行・司連名':
+    default:
+      return 'gyosei'
+  }
+}

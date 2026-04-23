@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { useModal } from '@/hooks/useModal'
-import type { CaseRow, TaskRow, HeirRow } from '@/types'
+import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
+import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 
 type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   heirs: HeirRow[]
+  properties: RealEstatePropertyRow[]
 }
 
 type DocumentItem = {
@@ -22,7 +24,7 @@ type DocumentItem = {
 
 const DOCUMENTS: DocumentItem[] = [
   { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-blue-50 text-blue-700 border-blue-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
-  { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'planned' },
+  { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
   { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（標準／簡易）', description: '甲乙丙の契約。契約形態と業務種別で自動切替', status: 'planned' },
   { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '権限リストを用途で切替', status: 'planned' },
   { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）', status: 'planned' },
@@ -32,14 +34,17 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '宛先・差出人情報をセット', status: 'planned' },
 ]
 
-export default function DocumentCreateTab({ caseData, tasks, heirs }: Props) {
+export default function DocumentCreateTab({ caseData, tasks, heirs, properties }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
+  const fixedAssetModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
     if (key === 'koseki_request') {
       kosekiModal.open()
+    } else if (key === 'fixed_asset_request') {
+      fixedAssetModal.open()
     }
   }
 
@@ -102,6 +107,12 @@ export default function DocumentCreateTab({ caseData, tasks, heirs }: Props) {
         caseData={caseData}
         tasks={tasks}
         heirs={heirs}
+      />
+      <FixedAssetRequestDocumentModal
+        isOpen={fixedAssetModal.isOpen}
+        onClose={() => { fixedAssetModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        properties={properties}
       />
     </div>
   )

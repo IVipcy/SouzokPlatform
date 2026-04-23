@@ -133,7 +133,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DocsTab caseData={caseState} />
       )}
       {activeTab === 'documentCreate' && (
-        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} />
+        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
       )}
       {activeTab === 'history' && (
         <HistoryTab caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} />
