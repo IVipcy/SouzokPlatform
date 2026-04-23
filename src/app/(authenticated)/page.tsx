@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { CASE_STATUSES } from '@/lib/constants'
-import { DB_PHASES, getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import Badge from '@/components/ui/Badge'
 
 // ─── 型定義（Supabaseレスポンス最小限） ───
@@ -139,14 +138,27 @@ export default async function DashboardPage() {
     amount: b.cases.reduce((s, c) => s + (c.total_revenue_estimate ?? c.fee_total ?? 0), 0),
   }))
 
-  // フェーズ別タスク分布（対応中の案件のみ）
+  // 全体タスク進捗（アクティブ案件のみ）
   const activeCaseIds = new Set(activeCases.map(c => c.id))
-  const phaseStats = DB_PHASES.map(p => {
-    const pt = tasks.filter(t => t.phase === p && activeCaseIds.has(t.case_id))
-    const open = pt.filter(t => normTaskStatus(t.status) !== '完了').length
-    const done = pt.filter(t => normTaskStatus(t.status) === '完了').length
-    return { phase: p, label: getPhaseLabel(p), color: getPhaseColor(p), open, done, total: pt.length }
-  })
+  const activeTasks = tasks.filter(t => activeCaseIds.has(t.case_id))
+  const totalT = activeTasks.length
+  const todoT = activeTasks.filter(t => normTaskStatus(t.status) === '着手前').length
+  const doingT = activeTasks.filter(t => normTaskStatus(t.status) === '対応中').length
+  const doneT = activeTasks.filter(t => normTaskStatus(t.status) === '完了').length
+  const overdueT = activeTasks.filter(t => t.due_date && t.due_date < today && normTaskStatus(t.status) !== '完了').length
+  const urgentT = activeTasks.filter(t => t.priority === '急ぎ' && normTaskStatus(t.status) !== '完了').length
+  const noAssigneeT = activeTasks.filter(t =>
+    normTaskStatus(t.status) === '着手前' &&
+    !t.started_by &&
+    !(t.task_assignees ?? []).some(a => a.role === 'primary'),
+  ).length
+  const dueSoonT = activeTasks.filter(t => {
+    if (!t.due_date || normTaskStatus(t.status) === '完了') return false
+    const d = daysDiff(t.due_date, today)
+    return d >= 0 && d <= 7
+  }).length
+  const donePct = totalT ? Math.round((doneT / totalT) * 100) : 0
+  const stalledPct = totalT ? Math.round((overdueT / totalT) * 100) : 0
 
   // 受注ファネル (当月)
   const monthStart = `${thisMonth}-01`
@@ -302,27 +314,50 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        {/* フェーズ別案件分布 */}
-        <Card title="📊 フェーズ別タスク状況" sub="アクティブ案件のみ">
-          <div className="px-4 py-3 space-y-2">
-            {phaseStats.map(p => {
-              const max = Math.max(...phaseStats.map(x => x.total), 1)
-              return (
-                <div key={p.phase}>
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="flex items-center gap-1.5 font-medium text-gray-700">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                      {p.label}
-                    </span>
-                    <span className="font-mono text-gray-500">進行{p.open} / 完了{p.done}</span>
-                  </div>
-                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden flex">
-                    <div className="h-full" style={{ width: `${(p.done / max) * 100}%`, backgroundColor: '#059669' }} />
-                    <div className="h-full" style={{ width: `${(p.open / max) * 100}%`, backgroundColor: p.color, opacity: 0.7 }} />
+        {/* 全体タスク進捗 */}
+        <Card title="📊 全体タスク進捗" sub="アクティブ案件のタスク">
+          <div className="px-4 py-4">
+            {/* 大きな完了率 */}
+            <div className="flex items-end justify-between mb-2">
+              <div>
+                <div className="text-[11px] text-gray-500 font-semibold mb-0.5">完了率</div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[32px] font-extrabold leading-none" style={{ color: donePct >= 70 ? '#059669' : donePct >= 40 ? '#2563EB' : '#D97706' }}>
+                    {donePct}%
+                  </span>
+                  <span className="text-[11px] font-mono text-gray-500">{doneT} / {totalT} 完了</span>
+                </div>
+              </div>
+              {stalledPct > 0 && (
+                <div className="text-right">
+                  <div className="text-[11px] text-gray-500 font-semibold mb-0.5">滞留率</div>
+                  <div className="flex items-baseline gap-1 justify-end">
+                    <span className="text-[22px] font-extrabold leading-none text-red-600">{stalledPct}%</span>
+                    <span className="text-[10px] font-mono text-red-500">{overdueT} 期限超過</span>
                   </div>
                 </div>
-              )
-            })}
+              )}
+            </div>
+
+            {/* 3色スタックバー: 完了/対応中/着手前 */}
+            <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex mb-2">
+              <div className="h-full bg-green-500" style={{ width: `${totalT ? (doneT / totalT) * 100 : 0}%` }} title={`完了 ${doneT}`} />
+              <div className="h-full bg-blue-500" style={{ width: `${totalT ? (doingT / totalT) * 100 : 0}%` }} title={`対応中 ${doingT}`} />
+              <div className="h-full bg-gray-300" style={{ width: `${totalT ? (todoT / totalT) * 100 : 0}%` }} title={`着手前 ${todoT}`} />
+            </div>
+            <div className="flex items-center justify-between text-[11px] mb-4">
+              <LegendDot color="#22C55E" label="完了" count={doneT} />
+              <LegendDot color="#3B82F6" label="対応中" count={doingT} />
+              <LegendDot color="#D1D5DB" label="着手前" count={todoT} />
+            </div>
+
+            {/* 注意指標 4項目 */}
+            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
+              <StatChip label="期限超過" value={overdueT} tone={overdueT > 0 ? 'red' : 'gray'} />
+              <StatChip label="7日以内期限" value={dueSoonT} tone={dueSoonT > 0 ? 'amber' : 'gray'} />
+              <StatChip label="🚨 急ぎ" value={urgentT} tone={urgentT > 0 ? 'red' : 'gray'} />
+              <StatChip label="担当者未割当" value={noAssigneeT} tone={noAssigneeT > 0 ? 'amber' : 'gray'} />
+            </div>
           </div>
         </Card>
 
@@ -503,4 +538,28 @@ function Card({ title, children, sub, extra, accent, count }: {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="px-4 py-8 text-center text-xs text-gray-400">{children}</div>
+}
+
+function LegendDot({ color, label, count }: { color: string; label: string; count: number }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+      <span className="text-gray-600">{label}</span>
+      <span className="font-mono text-gray-500">{count}</span>
+    </span>
+  )
+}
+
+function StatChip({ label, value, tone }: { label: string; value: number; tone: 'red' | 'amber' | 'gray' }) {
+  const cls = tone === 'red'
+    ? 'bg-red-50 border-red-200 text-red-700'
+    : tone === 'amber'
+      ? 'bg-amber-50 border-amber-200 text-amber-700'
+      : 'bg-gray-50 border-gray-200 text-gray-500'
+  return (
+    <div className={`flex items-center justify-between px-2.5 py-1.5 border rounded-md ${cls}`}>
+      <span className="text-[11px] font-medium">{label}</span>
+      <span className="text-[14px] font-bold font-mono">{value}</span>
+    </div>
+  )
 }
