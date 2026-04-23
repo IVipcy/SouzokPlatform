@@ -80,20 +80,77 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-      {/* Left side: 遺産分割 + 遺言 + 信託 */}
-      <div className="space-y-3.5">
-        {/* Division policy */}
-        <Section title="遺産分割" icon="⚖️">
-          <FieldGrid>
-            <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
-            <InlineEdit label="分割提案" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} />
-            <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={[...AGREEMENT_SIGNING_METHODS]} onSave={v => saveCaseField('agreement_signing_method', v)} />
-            <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
-          </FieldGrid>
-        </Section>
+    <div className="space-y-3.5">
+      {/* 遺産分割 */}
+      <Section title="遺産分割" icon="⚖️">
+        <FieldGrid>
+          <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
+          <InlineEdit label="分割提案" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} />
+          <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={[...AGREEMENT_SIGNING_METHODS]} onSave={v => saveCaseField('agreement_signing_method', v)} />
+          <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
+        </FieldGrid>
+      </Section>
 
-        {/* Will */}
+      {/* 分割内容 — 遺産分割の結果詳細（full-width） */}
+      <Section title="分割内容" icon="📊" actionLabel="＋ 追加" onAction={() => setShowAddDetail(true)}>
+        {divisionDetails.length === 0 && !showAddDetail ? (
+          <div className="text-sm text-gray-400 text-center py-6">
+            分割内容を追加してください
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-4 -mb-3">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  {['財産区分', '分割方法', '取得者・割合', '確定内容', ''].map(h => (
+                    <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 tracking-wider bg-gray-50 border-b border-gray-200">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {divisionDetails.map(detail => (
+                  <tr key={detail.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF]">
+                    <td className="px-3 py-2.5 text-[11px] font-semibold text-gray-900">{detail.asset_category}</td>
+                    <td className="px-3 py-2.5 text-[11px] text-gray-600">{detail.division_method ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-[11px] text-gray-600">
+                      {detail.recipient ?? '—'}
+                      {detail.share_ratio && <span className="ml-1 text-[10px] text-gray-400">({detail.share_ratio})</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-[11px] text-gray-600">{detail.description ?? '—'}</td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        onClick={() => handleDeleteDetail(detail.id)}
+                        className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                        title="削除"
+                      >🗑</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {showAddDetail && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <FormField label="財産区分 *" value={detailForm.asset_category} onChange={v => setDetailForm(f => ({ ...f, asset_category: v }))} placeholder="不動産, 預貯金, 有価証券 等" />
+              <SelectField label="分割方法" value={detailForm.division_method} onChange={v => setDetailForm(f => ({ ...f, division_method: v }))} options={[...DIVISION_METHODS]} />
+              <FormField label="取得者" value={detailForm.recipient} onChange={v => setDetailForm(f => ({ ...f, recipient: v }))} />
+              <FormField label="取得割合" value={detailForm.share_ratio} onChange={v => setDetailForm(f => ({ ...f, share_ratio: v }))} placeholder="1/2, 100% 等" />
+              <div className="md:col-span-2">
+                <FormField label="確定内容" value={detailForm.description} onChange={v => setDetailForm(f => ({ ...f, description: v }))} />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowAddDetail(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
+              <button onClick={handleAddDetail} className="px-3 py-1.5 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700">追加</button>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* 遺言 */}
         <Section title="遺言" icon="📜">
           <FieldGrid>
             <InlineSelect label="遺言種類" value={caseData.will_type} options={[...WILL_TYPES]} onSave={v => saveCaseField('will_type', v)} />
@@ -146,67 +203,6 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             />
           </div>
         </Section>
-      </div>
-
-      {/* Right side: 分割内容 */}
-      <div className="space-y-3.5">
-        <Section title="分割内容" icon="📊" actionLabel="＋ 追加" onAction={() => setShowAddDetail(true)}>
-          {divisionDetails.length === 0 && !showAddDetail ? (
-            <div className="text-sm text-gray-400 text-center py-6">
-              分割内容を追加してください
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-4 -mb-3">
-              <table className="w-full border-collapse" style={{ minWidth: 280 }}>
-                <thead>
-                  <tr>
-                    {['財産区分', '分割方法', '取得者・割合', '確定内容', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 tracking-wider bg-gray-50 border-b border-gray-200">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {divisionDetails.map(detail => (
-                    <tr key={detail.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF]">
-                      <td className="px-3 py-2.5 text-[11px] font-semibold text-gray-900">{detail.asset_category}</td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{detail.division_method ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">
-                        {detail.recipient ?? '—'}
-                        {detail.share_ratio && <span className="ml-1 text-[10px] text-gray-400">({detail.share_ratio})</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{detail.description ?? '—'}</td>
-                      <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => handleDeleteDetail(detail.id)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
-                          title="削除"
-                        >🗑</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Add detail form */}
-          {showAddDetail && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="grid grid-cols-1 gap-3 mb-3">
-                <FormField label="財産区分 *" value={detailForm.asset_category} onChange={v => setDetailForm(f => ({ ...f, asset_category: v }))} placeholder="不動産, 預貯金, 有価証券 等" />
-                <SelectField label="分割方法" value={detailForm.division_method} onChange={v => setDetailForm(f => ({ ...f, division_method: v }))} options={[...DIVISION_METHODS]} />
-                <FormField label="取得者" value={detailForm.recipient} onChange={v => setDetailForm(f => ({ ...f, recipient: v }))} />
-                <FormField label="取得割合" value={detailForm.share_ratio} onChange={v => setDetailForm(f => ({ ...f, share_ratio: v }))} placeholder="1/2, 100% 等" />
-                <FormField label="確定内容" value={detailForm.description} onChange={v => setDetailForm(f => ({ ...f, description: v }))} />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowAddDetail(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-                <button onClick={handleAddDetail} className="px-3 py-1.5 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700">追加</button>
-              </div>
-            </div>
-          )}
-        </Section>
-      </div>
     </div>
   )
 }
