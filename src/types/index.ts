@@ -21,6 +21,7 @@ export type Case = {
 // === タスク ===
 export type TaskStatus = '未着手' | '対応中' | 'Wチェック待ち' | '差戻し' | '完了'
 export type TaskPriority = '通常' | '急ぎ'
+export type WorkRole = 'manager' | 'assistant' | 'accounting' | 'sales'
 
 export type Task = {
   id: string
@@ -221,6 +222,7 @@ export type TaskRow = {
   category: string | null
   status: string
   priority: string
+  work_role: WorkRole | null
   due_date: string | null
   procedure_text: string | null
   wcheck_by: string | null

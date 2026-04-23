@@ -106,6 +106,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
         priority: '通常',
         procedure_text: t.procedure_text,
         sort_order: t.sort_order,
+        work_role: (['manager', 'assistant', 'accounting', 'sales'] as const).includes(t.default_role as 'manager' | 'assistant' | 'accounting' | 'sales')
+          ? (t.default_role as 'manager' | 'assistant' | 'accounting' | 'sales')
+          : null,
         ext_data: t.key === 'bank_balance_request' && bankExtData ? bankExtData : null,
       }))
 

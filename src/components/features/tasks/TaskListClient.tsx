@@ -6,7 +6,7 @@ import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
-import { TASK_STATUSES } from '@/lib/constants'
+import { TASK_STATUSES, WORK_ROLES, getWorkRoleDef, type WorkRoleKey } from '@/lib/constants'
 import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
@@ -38,6 +38,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     searchParams.get('assignee') === 'mine'
   )
   const [filterUrgent, setFilterUrgent] = useState(false)
+  const [workRoleFilter, setWorkRoleFilter] = useState<Set<WorkRoleKey | 'unset'>>(new Set())
 
   // URLパラメータ変更を反映
   useEffect(() => {
@@ -86,6 +87,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         return isOverdue || isUrgentPriority
       })
     }
+    if (workRoleFilter.size > 0) {
+      result = result.filter(t => {
+        const key = t.work_role ?? 'unset'
+        return workRoleFilter.has(key as WorkRoleKey | 'unset')
+      })
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -94,7 +101,27 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       })
     }
     return result
-  }, [tasks, statusFilter, phaseFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
+  }, [tasks, statusFilter, phaseFilter, filterMine, filterUrgent, workRoleFilter, search, caseMap, currentMemberId, today])
+
+  // 担当区分のカウント
+  const workRoleCounts = useMemo(() => {
+    const counts: Record<string, number> = { manager: 0, assistant: 0, accounting: 0, sales: 0, unset: 0 }
+    tasks.forEach(t => {
+      if (normalizeStatus(t.status) === '完了') return
+      const key = t.work_role ?? 'unset'
+      counts[key] = (counts[key] ?? 0) + 1
+    })
+    return counts
+  }, [tasks])
+
+  const toggleWorkRole = (key: WorkRoleKey | 'unset') => {
+    setWorkRoleFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   const kpis = useMemo(() => ({
     total: tasks.length,
@@ -303,6 +330,49 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
           </select>
 
+          {/* 担当区分フィルタ */}
+          <div className="flex gap-1 items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+            <span className="text-[10px] text-gray-400 px-1 font-semibold">担当</span>
+            {WORK_ROLES.map(r => {
+              const active = workRoleFilter.has(r.key)
+              const count = workRoleCounts[r.key] ?? 0
+              return (
+                <button
+                  key={r.key}
+                  onClick={() => toggleWorkRole(r.key)}
+                  title={r.label}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+                    active ? `${r.solid} border-transparent shadow-sm` : `${r.pill} hover:brightness-95`
+                  }`}
+                >
+                  <span className="text-[11px]">{r.icon}</span>
+                  {r.shortLabel}
+                  {count > 0 && <span className={`text-[10px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>}
+                </button>
+              )
+            })}
+            <button
+              onClick={() => toggleWorkRole('unset')}
+              title="担当区分が未設定のタスク"
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+                workRoleFilter.has('unset')
+                  ? 'bg-gray-700 text-white border-transparent shadow-sm'
+                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              未設定
+              {workRoleCounts.unset > 0 && <span className={`text-[10px] font-mono ${workRoleFilter.has('unset') ? 'opacity-80' : 'opacity-60'}`}>{workRoleCounts.unset}</span>}
+            </button>
+            {workRoleFilter.size > 0 && (
+              <button
+                onClick={() => setWorkRoleFilter(new Set())}
+                className="px-1.5 text-[10px] text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <div className="ml-auto flex items-center gap-2">
             <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
               className="text-[11px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
@@ -479,12 +549,30 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
   const caseInfo = caseMap[task.case_id]
   const isOverdue = task.due_date && task.due_date < today && norm(task.status) !== '完了'
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
+  const workRole = getWorkRoleDef(task.work_role)
 
   return (
-    <div className={`grid gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group ${isOverdue ? 'bg-red-50/30' : ''}`} style={{ gridTemplateColumns: gridTemplate }}>
+    <div className={`grid gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group relative ${isOverdue ? 'bg-red-50/30' : ''}`} style={{ gridTemplateColumns: gridTemplate }}>
+      {/* 担当区分 左端カラーバー */}
+      {workRole && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1"
+          style={{ backgroundColor: workRole.bar }}
+          title={workRole.label}
+        />
+      )}
       {/* Task name */}
-      <div className="min-w-0 pr-2">
-        <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate block ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
+      <div className="min-w-0 pr-2 flex items-center gap-1.5">
+        {workRole && (
+          <span
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${workRole.pill}`}
+            title={workRole.label}
+          >
+            <span className="text-[10px]">{workRole.icon}</span>
+            {workRole.shortLabel}
+          </span>
+        )}
+        <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
       </div>
 
       {/* Case link */}
@@ -564,11 +652,21 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gr
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
   const isOverdue = task.due_date && task.due_date < today
   const isUrgent = task.priority === '急ぎ'
+  const workRole = getWorkRoleDef(task.work_role)
 
   return (
-    <div className="grid gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors" style={{ gridTemplateColumns: gridTemplate }}>
-      <div className="min-w-0 pr-2">
-        <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate block">{task.title}</a>
+    <div className="grid gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors relative" style={{ gridTemplateColumns: gridTemplate }}>
+      {workRole && (
+        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: workRole.bar }} title={workRole.label} />
+      )}
+      <div className="min-w-0 pr-2 flex items-center gap-1.5">
+        {workRole && (
+          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${workRole.pill}`} title={workRole.label}>
+            <span className="text-[10px]">{workRole.icon}</span>
+            {workRole.shortLabel}
+          </span>
+        )}
+        <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate">{task.title}</a>
       </div>
       <div className="min-w-0">
         {caseInfo ? (
@@ -667,7 +765,17 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
                   const isOverdue = task.due_date && task.due_date < today && norm(task.status) !== '完了'
                   return (
-                    <div key={task.id} className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}>
+                    <div
+                      key={task.id}
+                      className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}
+                      style={task.priority !== '急ぎ' && task.work_role ? { borderLeft: `3px solid ${getWorkRoleDef(task.work_role)?.bar ?? '#E5E7EB'}` } : undefined}
+                    >
+                      {task.work_role && getWorkRoleDef(task.work_role) && (
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border mb-1 ${getWorkRoleDef(task.work_role)!.pill}`}>
+                          <span>{getWorkRoleDef(task.work_role)!.icon}</span>
+                          {getWorkRoleDef(task.work_role)!.shortLabel}
+                        </span>
+                      )}
                       <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-blue-600 ${norm(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
                       {caseInfo && <div className="text-[10px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
                       <div className="flex items-center justify-between">

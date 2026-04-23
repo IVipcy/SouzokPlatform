@@ -36,6 +36,52 @@ export const ROLES = [
   { key: 'sub_manager', label: 'サブ管理担当' },
 ] as const
 
+// === タスク担当区分（work_role） ===
+// タスクを「誰がやる作業か」で分類。タスク一覧でフィルタ・視覚化するために使う。
+export const WORK_ROLES = [
+  {
+    key: 'manager',
+    label: '管理担当',
+    shortLabel: '管理',
+    icon: '🧭',
+    pill: 'bg-purple-100 text-purple-700 border-purple-300',
+    solid: 'bg-purple-600 text-white',
+    bar: '#9333EA',
+  },
+  {
+    key: 'assistant',
+    label: 'アシスタント',
+    shortLabel: 'アシ',
+    icon: '🧩',
+    pill: 'bg-green-100 text-green-700 border-green-300',
+    solid: 'bg-green-600 text-white',
+    bar: '#16A34A',
+  },
+  {
+    key: 'accounting',
+    label: '経理担当',
+    shortLabel: '経理',
+    icon: '💴',
+    pill: 'bg-orange-100 text-orange-700 border-orange-300',
+    solid: 'bg-orange-600 text-white',
+    bar: '#EA580C',
+  },
+  {
+    key: 'sales',
+    label: '受注担当',
+    shortLabel: '受注',
+    icon: '📣',
+    pill: 'bg-blue-100 text-blue-700 border-blue-300',
+    solid: 'bg-blue-600 text-white',
+    bar: '#2563EB',
+  },
+] as const
+
+export type WorkRoleKey = typeof WORK_ROLES[number]['key']
+
+export const getWorkRoleDef = (key: string | null | undefined) =>
+  WORK_ROLES.find(r => r.key === key)
+
 // === タスク優先度 ===
 export const TASK_PRIORITIES = [
   { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },

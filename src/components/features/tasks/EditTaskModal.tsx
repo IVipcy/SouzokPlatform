@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import { TASK_PRIORITIES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
+import { WORK_ROLES } from '@/lib/constants'
+import type { WorkRole } from '@/types'
 import type { TaskRow, MemberRow } from '@/types'
 
 type Props = {
@@ -25,6 +27,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
     priority: '通常' as string,
     dueDate: '',
     category: '',
+    workRole: '' as WorkRole | '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -39,6 +42,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
         priority: task.priority === '外出タスク' ? '通常' : task.priority,
         dueDate: task.due_date ?? '',
         category: task.category ?? '',
+        workRole: (task.work_role ?? '') as WorkRole | '',
       })
       setError('')
     }
@@ -63,6 +67,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
         priority: form.priority,
         due_date: form.dueDate || null,
         category: form.category || null,
+        work_role: form.workRole || null,
       })
       .eq('id', task.id)
 
@@ -169,6 +174,37 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
               placeholder="例：金融機関、不動産、税務"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
+          </div>
+        </div>
+
+        {/* 担当区分 */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+            担当区分 <span className="text-gray-400 font-normal">（誰がやる作業か）</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setForm(p => ({ ...p, workRole: '' }))}
+              className={`px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                form.workRole === '' ? 'ring-2 ring-blue-400 ring-offset-1 bg-gray-100 text-gray-700 border-gray-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              未設定
+            </button>
+            {WORK_ROLES.map(r => (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => setForm(p => ({ ...p, workRole: r.key }))}
+                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold rounded-lg border transition-colors ${
+                  form.workRole === r.key ? `ring-2 ring-blue-400 ring-offset-1 ${r.solid} border-transparent` : r.pill
+                }`}
+              >
+                <span>{r.icon}</span>
+                {r.label}
+              </button>
+            ))}
           </div>
         </div>
 

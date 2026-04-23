@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { QIRow } from '@/components/ui/InlineFields'
 import { getPhaseLabel } from '@/lib/phases'
+import { getWorkRoleDef } from '@/lib/constants'
 import { evaluateCondition } from '@/lib/taskDependencyUtils'
 import type { TaskRow, DocumentRow, TaskDependencyRow } from '@/types'
 
@@ -122,6 +123,18 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
         <h4 className="text-[11px] font-semibold text-gray-500 mb-1">クイック情報</h4>
         <QIRow label="フェーズ">
           <span className="text-xs font-semibold text-gray-700">{getPhaseLabel(task.phase)}</span>
+        </QIRow>
+        <QIRow label="担当区分">
+          {(() => {
+            const wr = getWorkRoleDef(task.work_role)
+            if (!wr) return <span className="text-[11px] text-gray-400">未設定</span>
+            return (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold border ${wr.pill}`}>
+                <span>{wr.icon}</span>
+                {wr.label}
+              </span>
+            )
+          })()}
         </QIRow>
         {task.category && (
           <QIRow label="カテゴリ">
