@@ -223,13 +223,39 @@ export async function POST(request: NextRequest) {
 
     // 出力
     const outBuffer = await wb.xlsx.writeBuffer()
-    const filename = `戸籍請求書_${caseData.case_number ?? caseId}_${row.municipality || 'untitled'}_${requestDate}.xlsx`
+    const cityLabel = row.municipality || 'untitled'
+    const downloadFilename = `戸籍請求書_${caseData.case_number ?? caseId}_${cityLabel}_${requestDate}.xlsx`
 
-    return new NextResponse(outBuffer, {
+    // Supabase Storage にアップロード（英数字パスで、日本語ファイル名はdocuments.nameに保持）
+    const storageFilename = `${Date.now()}_${crypto.randomUUID()}.xlsx`
+    const storagePath = `${caseId}/${storageFilename}`
+    const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
+    const { error: uploadErr } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, uploadBuffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+
+    // documentsテーブルにレコード作成（アップロード失敗時はスキップしてダウンロードは続行）
+    if (!uploadErr) {
+      const docName = `戸籍請求書_${cityLabel}_${requestDate}（${preset.label}）`
+      await supabase.from('documents').insert({
+        case_id: caseId,
+        name: docName,
+        file_path: storagePath,
+        file_type: 'Excel',
+        status: '作成済',
+        generated_by: 'manual',
+      })
+    } else {
+      console.error('[koseki-request] storage upload failed:', uploadErr.message)
+    }
+
+    return new NextResponse(uploadBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
       },
     })
   } catch (e: unknown) {

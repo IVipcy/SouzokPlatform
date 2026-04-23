@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useModal } from '@/hooks/useModal'
@@ -40,9 +40,16 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
+const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'mailing', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
+
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, currentMemberId }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabKey>('basicInfo')
+  const searchParams = useSearchParams()
+  const initialTab = (() => {
+    const p = searchParams.get('tab')
+    return p && (VALID_TABS as string[]).includes(p) ? (p as TabKey) : 'basicInfo'
+  })()
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
 
   const bulkTaskModal = useModal()
