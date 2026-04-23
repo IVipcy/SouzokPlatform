@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CaseRow, HeirRow } from '@/types'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
+import HeirValidationBanner from './HeirValidationBanner'
 
 type Props = {
   caseData: CaseRow
@@ -14,17 +15,22 @@ type Props = {
 export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
   const client = caseData.clients
   const [showAddHeir, setShowAddHeir] = useState(false)
-  const [heirForm, setHeirForm] = useState({ name: '', furigana: '', relationship: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true })
+  const [heirForm, setHeirForm] = useState({ name: '', furigana: '', relationship_type: '子' as '配偶者'|'子'|'父'|'母'|'兄弟姉妹'|'その他', relationship: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true, is_applicant: false, birth_date: '' })
 
   const handleAddHeir = async () => {
     if (!heirForm.name.trim()) return
     const supabase = createClient()
+    // 申出人は1案件1名のみ
+    if (heirForm.is_applicant) {
+      await supabase.from('heirs').update({ is_applicant: false }).eq('case_id', caseData.id)
+    }
     await supabase.from('heirs').insert({
       case_id: caseData.id,
       ...heirForm,
+      birth_date: heirForm.birth_date || null,
       sort_order: heirs.length,
     })
-    setHeirForm({ name: '', furigana: '', relationship: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true })
+    setHeirForm({ name: '', furigana: '', relationship_type: '子', relationship: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true, is_applicant: false, birth_date: '' })
     setShowAddHeir(false)
     onRefresh()
   }
@@ -82,6 +88,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
 
       {/* Heir table */}
       <div className="mt-3.5">
+        <HeirValidationBanner heirs={heirs} />
         <Section title={`相続人一覧（${heirs.length}名）`} icon="👨‍👩‍👧‍👦" actionLabel="＋ 追加" onAction={() => setShowAddHeir(true)}>
           {heirs.length === 0 && !showAddHeir ? (
             <div className="text-sm text-gray-400 text-center py-6">
@@ -105,11 +112,17 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                         {heir.furigana && <div className="text-[10px] text-gray-400">{heir.furigana}</div>}
                       </td>
                       <td className="px-3 py-2.5">
-                        {heir.relationship && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                            heir.relationship === '代襲' ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-blue-50 text-blue-600 border-blue-200'
-                          }`}>{heir.relationship}</span>
-                        )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {heir.relationship_type && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">{heir.relationship_type}</span>
+                          )}
+                          {heir.relationship && heir.relationship !== heir.relationship_type && (
+                            <span className="text-[10px] text-gray-500">{heir.relationship}</span>
+                          )}
+                          {heir.is_applicant && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.address ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.registered_address ?? '—'}</td>
@@ -140,15 +153,37 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <FormField label="氏名 *" value={heirForm.name} onChange={v => setHeirForm(f => ({ ...f, name: v }))} />
                 <FormField label="ふりがな" value={heirForm.furigana} onChange={v => setHeirForm(f => ({ ...f, furigana: v }))} />
-                <FormField label="続柄" value={heirForm.relationship} onChange={v => setHeirForm(f => ({ ...f, relationship: v }))} placeholder="子, 配偶者, 代襲 等" />
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">続柄区分 *</label>
+                  <select
+                    value={heirForm.relationship_type}
+                    onChange={e => setHeirForm(f => ({ ...f, relationship_type: e.target.value as typeof f.relationship_type }))}
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white"
+                  >
+                    <option value="配偶者">配偶者</option>
+                    <option value="子">子</option>
+                    <option value="父">父</option>
+                    <option value="母">母</option>
+                    <option value="兄弟姉妹">兄弟姉妹</option>
+                    <option value="その他">その他（代襲等）</option>
+                  </select>
+                </div>
+                <FormField label="続柄（表示用）" value={heirForm.relationship} onChange={v => setHeirForm(f => ({ ...f, relationship: v }))} placeholder="長男, 長女, 養子 等" />
+                <FormField label="生年月日" value={heirForm.birth_date} onChange={v => setHeirForm(f => ({ ...f, birth_date: v }))} placeholder="YYYY-MM-DD" />
                 <FormField label="TEL" value={heirForm.phone} onChange={v => setHeirForm(f => ({ ...f, phone: v }))} />
                 <FormField label="メール" value={heirForm.email} onChange={v => setHeirForm(f => ({ ...f, email: v }))} />
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">法定相続人</label>
-                  <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
-                    法定相続人
-                  </label>
+                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">フラグ</label>
+                  <div className="flex flex-col gap-1">
+                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
+                      法定相続人
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
+                      申出人（法定相続情報一覧図）
+                    </label>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 mb-3">
@@ -165,7 +200,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
       </div>
 
       {/* Inheritance relationship diagram */}
-      <div className="mt-3.5">
+      <div className="mt-3.5 print-diagram">
         <Section title="相続関係説明図" icon="🔗" actionLabel="🖨️ 印刷" onAction={() => window.print()}>
           {heirs.length === 0 ? (
             <div className="text-sm text-gray-400 text-center py-6">

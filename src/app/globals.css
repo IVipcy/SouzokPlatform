@@ -8,3 +8,28 @@
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ─── 相続関係説明図 印刷用 ─── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 15mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-diagram, .print-diagram * {
+    visibility: visible;
+  }
+  .print-diagram {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+  }
+  .print-hide {
+    display: none !important;
+  }
+}
+
