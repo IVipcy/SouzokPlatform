@@ -16,7 +16,7 @@ import {
   TRUST_CONTENT_OPTIONS,
   DIVISION_METHODS,
 } from '@/lib/constants'
-import { InlineCheckbox, InlineSelect, InlineMultiSelect, InlineEdit as SharedInlineEdit, InlineDate } from '@/components/ui/InlineFields'
+import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 
 type Props = {
   caseData: CaseRow
@@ -45,16 +45,29 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
 
-  const saveCaseArrayField = async (field: string, value: string[]) => {
-    await patchCase({ [field]: value.length > 0 ? value : null } as Partial<CaseRow>)
-  }
-
   const saveCaseDateField = async (field: string, value: string) => {
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
 
   const saveCaseBoolField = async (field: string, value: boolean) => {
     await patchCase({ [field]: value } as Partial<CaseRow>)
+  }
+
+  // カテゴリ別自由記述（JSONB）更新: 空文字列はキー削除、全空ならnull
+  const saveCaseContentDetail = async (
+    field: 'will_content_details' | 'trust_content_details',
+    category: string,
+    value: string,
+  ) => {
+    const current = (caseData[field] ?? {}) as Record<string, string>
+    const next: Record<string, string> = { ...current }
+    if (value.trim()) {
+      next[category] = value
+    } else {
+      delete next[category]
+    }
+    const hasAny = Object.keys(next).length > 0
+    await patchCase({ [field]: hasAny ? next : null } as Partial<CaseRow>)
   }
 
   const handleAddDetail = async () => {
@@ -163,14 +176,19 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             <SharedInlineEdit label="証人氏名" value={caseData.will_witness} onSave={v => saveCaseField('will_witness', v)} />
             <InlineSelect label="遺贈受贈者資料手配" value={caseData.will_bequest_handler} options={[...WILL_BEQUEST_HANDLER_OPTIONS]} onSave={v => saveCaseField('will_bequest_handler', v)} />
           </FieldGrid>
-          <div className="mt-2">
-            <InlineMultiSelect
-              label="遺言記載内容"
-              value={caseData.will_content}
-              options={[...WILL_CONTENT_OPTIONS]}
-              onSave={v => saveCaseArrayField('will_content', v)}
-              fullWidth
-            />
+          <div className="mt-3">
+            <div className="text-[10px] font-semibold text-gray-500 mb-2 pb-1 border-b border-gray-200">◼ 遺言記載内容（カテゴリ別）</div>
+            <div className="space-y-2">
+              {WILL_CONTENT_OPTIONS.map(cat => (
+                <InlineTextarea
+                  key={cat}
+                  label={cat}
+                  value={caseData.will_content_details?.[cat] ?? ''}
+                  onSave={v => saveCaseContentDetail('will_content_details', cat, v)}
+                  fullWidth
+                />
+              ))}
+            </div>
           </div>
           <div className="mt-2">
             <InlineDate label="文案確認日" value={caseData.will_draft_confirmed_date} onSave={v => saveCaseDateField('will_draft_confirmed_date', v)} />
@@ -193,14 +211,19 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             <InlineSelect label="作成場所" value={caseData.trust_creation_place} options={[...WILL_CREATION_PLACES]} onSave={v => saveCaseField('trust_creation_place', v)} />
             <SharedInlineEdit label="最終帰属者" value={caseData.trust_final_beneficiary} onSave={v => saveCaseField('trust_final_beneficiary', v)} fullWidth />
           </FieldGrid>
-          <div className="mt-2">
-            <InlineMultiSelect
-              label="記載内容"
-              value={caseData.trust_content}
-              options={[...TRUST_CONTENT_OPTIONS]}
-              onSave={v => saveCaseArrayField('trust_content', v)}
-              fullWidth
-            />
+          <div className="mt-3">
+            <div className="text-[10px] font-semibold text-gray-500 mb-2 pb-1 border-b border-gray-200">◼ 記載内容（カテゴリ別）</div>
+            <div className="space-y-2">
+              {TRUST_CONTENT_OPTIONS.map(cat => (
+                <InlineTextarea
+                  key={cat}
+                  label={cat}
+                  value={caseData.trust_content_details?.[cat] ?? ''}
+                  onSave={v => saveCaseContentDetail('trust_content_details', cat, v)}
+                  fullWidth
+                />
+              ))}
+            </div>
           </div>
         </Section>
     </div>

@@ -142,6 +142,7 @@ export type CaseRow = {
   notary_office_name: string | null
   will_witness: string | null
   will_content: string[] | null
+  will_content_details: Record<string, string> | null
   will_bequest_handler: string | null
   will_draft_confirmed_date: string | null
   // 信託関連
@@ -149,6 +150,7 @@ export type CaseRow = {
   trust_final_beneficiary: string | null
   trust_creation_place: string | null
   trust_content: string[] | null
+  trust_content_details: Record<string, string> | null
   // 生命保険提案
   life_insurance_proposal: string | null
   life_insurance_company: string | null
