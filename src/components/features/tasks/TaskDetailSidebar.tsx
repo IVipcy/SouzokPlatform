@@ -34,8 +34,22 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
     timelineEvents.push({ date: task.created_at.slice(0, 10), label: 'タスク起票', color: '#2563EB' })
   }
 
-  // 残高証明請求（複数銀行）はbanks配列から最小reqDate/最大arrDateを取得
-  if (task.template_key === 'bank_balance_request' && Array.isArray(ext.banks)) {
+  // 戸籍請求書作成・提出（市区町村ごと）はsubmissions配列から最小/最大提出日を取得
+  if (task.template_key === 'koseki_request_create' && Array.isArray(ext.submissions)) {
+    type SubEntry = { sent_date?: string | null; method?: string }
+    const subs = ext.submissions as SubEntry[]
+    const sentDates = subs.map(s => s.sent_date).filter(Boolean) as string[]
+    if (sentDates.length > 0) {
+      const earliest = [...sentDates].sort()[0]
+      timelineEvents.push({ date: earliest, label: '戸籍請求書 初回提出', color: '#EA580C' })
+      if (sentDates.length === subs.length && subs.length > 1) {
+        const latest = [...sentDates].sort().reverse()[0]
+        if (latest !== earliest) {
+          timelineEvents.push({ date: latest, label: `全${subs.length}件 提出完了`, color: '#059669' })
+        }
+      }
+    }
+  } else if (task.template_key === 'bank_balance_request' && Array.isArray(ext.banks)) {
     type BankEntry = { reqDate?: string | null; arrDate?: string | null }
     const banks = ext.banks as BankEntry[]
     const reqDates = banks.map(b => b.reqDate).filter(Boolean) as string[]

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, InlineEdit, InlineSelect, InlineDate, InlineCheckbox, InlineCurrency, InlineTextarea, Field } from '@/components/ui/InlineFields'
 import { TASK_SECTION_DEFS } from '@/lib/taskSectionDefs'
 import MultiBankSection from './MultiBankSection'
+import KosekiSubmissionSection from './KosekiSubmissionSection'
 import type { SectionField } from '@/lib/taskSectionDefs'
 import type { TaskRow } from '@/types'
 
@@ -18,6 +19,11 @@ export default function TaskCategorySections({ task, onRefresh }: Props) {
   // 残高証明請求（複数銀行）は専用コンポーネントを使用
   if (task.template_key === 'bank_balance_request') {
     return <MultiBankSection task={task} onRefresh={onRefresh} />
+  }
+
+  // 戸籍請求書作成・提出（市区町村ごと）は専用コンポーネント
+  if (task.template_key === 'koseki_request_create') {
+    return <KosekiSubmissionSection task={task} onRefresh={onRefresh} />
   }
 
   const visibleSections = TASK_SECTION_DEFS.filter(sec => sec.showWhen(task.category))

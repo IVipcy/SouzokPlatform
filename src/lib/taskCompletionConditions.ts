@@ -6,9 +6,7 @@
 export const TASK_COMPLETION_CONDITIONS: Record<string, string> = {
   // ── Phase 1: 相続人調査 ──
   koseki_request_create:
-    '請求書を作成し、管理担当の確認が取れたら完了',
-  koseki_mail:
-    '全市区町村へ請求書を郵送し、コメントに郵送日を記録したら完了',
+    '請求書を作成し、全市区町村に提出（郵送または持込）して「提出先」テーブルに提出日を記録したら完了',
   koseki_arrive_check:
     '戸籍が全て届いて、「到着日」を入力し、不足有無を確認したら完了',
   koseki_additional:

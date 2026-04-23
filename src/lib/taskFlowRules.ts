@@ -17,8 +17,8 @@ export type TemplateFlowRule = {
 
 export const TEMPLATE_FLOW_RULES: TemplateFlowRule[] = [
   // ── Phase 1: 相続人調査 ──
-  { from: 'koseki_request_create', to: 'koseki_mail',         condition: { type: 'task_completed', label: 'タスク完了' } },
-  { from: 'koseki_mail',           to: 'koseki_arrive_check', condition: { type: 'task_completed', label: 'タスク完了' } },
+  // 戸籍請求書作成・提出 は請求書作成〜提出までを1タスクに統合。完了で到着確認へ。
+  { from: 'koseki_request_create', to: 'koseki_arrive_check', condition: { type: 'task_completed', label: 'タスク完了' } },
   { from: 'koseki_arrive_check',   to: 'koseki_additional',   condition: { type: 'checkpoint', checkpointField: 'shortage', label: '不足有無が「あり」' } },
   { from: 'koseki_arrive_check',   to: 'heir_survey_create',  condition: { type: 'checkpoint', checkpointField: 'arrDate', label: '到着日が入力済' } },
   { from: 'heir_survey_create',    to: 'family_tree_create',  condition: { type: 'task_completed', label: 'タスク完了' } },
