@@ -141,8 +141,10 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 
   return (
     <div>
+      {/* ===== Sticky top zone ===== */}
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-4">
         <div>
           <h1 className="text-lg font-bold text-gray-900">案件管理</h1>
           <p className="text-xs text-gray-400">相続プラットフォーム / 案件管理</p>
@@ -168,7 +170,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
       </div>
 
       {/* View toggle filters (combinable) */}
-      <div className="flex gap-2 mb-4 items-center">
+      <div className="flex gap-2 mb-3 items-center">
         <button
           onClick={() => setFilterMine(v => !v)}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
@@ -208,7 +210,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
       </div>
 
       {/* Toolbar: filter + view toggle */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
           <FilterTab label={`すべて`} count={kpis.total} active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
           {CASE_STATUSES.map(s => (
@@ -239,6 +241,8 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
           >⊞</button>
         </div>
       </div>
+      </div>
+      {/* ===== End sticky top zone ===== */}
 
       {/* Content */}
       {displayMode === 'list' ? (
@@ -473,18 +477,6 @@ function KanbanView({ cases, taskCounts, router }: {
 }
 
 // ─── Sub components ───
-function KpiCard({ label, value, icon, iconBg, color }: { label: string; value: number; icon: string; iconBg: string; color?: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-default">
-      <div className="flex items-center justify-between mb-2.5">
-        <span className="text-[11px] font-semibold text-gray-500">{label}</span>
-        <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px]" style={{ backgroundColor: iconBg }}>{icon}</span>
-      </div>
-      <div className="text-[26px] font-extrabold tracking-tight leading-none" style={{ color: color ?? '#111827' }}>{value}</div>
-    </div>
-  )
-}
-
 function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
     <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
