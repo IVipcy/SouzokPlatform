@@ -15,6 +15,7 @@ import MailingTab from './MailingTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
 import DocsTab from './DocsTab'
+import DocumentCreateTab from './DocumentCreateTab'
 import ReferralTab from './ReferralTab'
 import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
@@ -123,6 +124,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {activeTab === 'docs' && (
         <DocsTab caseData={caseState} />
+      )}
+      {activeTab === 'documentCreate' && (
+        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} />
       )}
       {activeTab === 'history' && (
         <HistoryTab caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} />

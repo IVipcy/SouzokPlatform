@@ -140,7 +140,7 @@ export const MAILING_DESTINATIONS = ['依頼者住所', 'その他'] as const
 export const INVESTIGATION_DOCUMENTS = ['委任状', '契約書'] as const
 
 // === 契約形態 ===
-export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名'] as const
+export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名', 'いきいきライフ協会'] as const
 
 // === 入金ステータス ===
 export const PAYMENT_STATUSES = [
