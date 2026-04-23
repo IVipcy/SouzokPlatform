@@ -11,6 +11,7 @@ export type SectionField = {
   type: FieldType
   options?: string[]   // picklist用選択肢
   full?: boolean       // true=2カラム全幅
+  group?: string       // グループ見出し（同じgroupのfieldが連続表示される）
 }
 
 export type SectionDef = {
@@ -244,6 +245,64 @@ const debtSection: SectionDef = {
   ],
 }
 
+// 信託文案作成 — 必要書類チェック15項目（Excel「信託文案」シートを忠実に反映）
+const trustDraftSection: SectionDef = {
+  id: 'trust_draft',
+  icon: '📝',
+  title: '作業内容',
+  showWhen: (cat) => cat === '信託文案作成',
+  fields: [
+    // 必要書類（委託者・受託者）
+    { key: 'settlor_seal_cert', label: '委託者: 印鑑証明書', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'settlor_id_doc', label: '委託者: 本人確認書類', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'settlor_residence_cert', label: '委託者: 住民票', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'settlor_limited_mail', label: '委託者: 本人限定受取郵便', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'trustee_seal_cert', label: '受託者: 印鑑証明書', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'trustee_id_doc', label: '受託者: 本人確認書類', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'trustee_residence_cert', label: '受託者: 住民票', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    { key: 'trustee_limited_mail', label: '受託者: 本人限定受取郵便', type: 'checkbox', group: '必要書類（委託者・受託者）' },
+    // 司法書士対応・登記書類
+    { key: 'judicial_id_verification', label: '司法書士: 本人確認', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'property_title_cert', label: '権利証（登記識別情報）', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'poa_settlor', label: '委任状（委託者）', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'poa_trustee', label: '委任状（受託者）', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'trust_contract', label: '信託契約書', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'registration_cause_info', label: '登記原因証明情報', type: 'checkbox', group: '司法書士対応・登記書類' },
+    { key: 'registration_application', label: '登記申請書', type: 'checkbox', group: '司法書士対応・登記書類' },
+    // メモ
+    { key: 'memo', label: 'メモ', type: 'textarea', full: true },
+  ],
+}
+
+// 遺言文案作成 — 必要書類チェック（Excel「遺言文案」シートを忠実に反映）
+const willDraftSection: SectionDef = {
+  id: 'will_draft',
+  icon: '📝',
+  title: '作業内容',
+  showWhen: (cat) => cat === '遺言文案作成',
+  fields: [
+    // 遺言者・受遺者関連書類
+    { key: 'testator_seal_cert', label: '遺言者: 印鑑証明書', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    { key: 'testator_id_doc', label: '遺言者: 本人確認書類', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    { key: 'testator_residence_cert', label: '遺言者: 住民票', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    { key: 'testator_family_register', label: '遺言者: 戸籍謄本', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    { key: 'beneficiary_residence_cert', label: '受遺者: 住民票', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    { key: 'beneficiary_family_register', label: '受遺者: 戸籍謄本', type: 'checkbox', group: '必要書類（遺言者・受遺者）' },
+    // 財産関連書類
+    { key: 'property_registration', label: '不動産: 登記事項証明書', type: 'checkbox', group: '財産関連書類' },
+    { key: 'property_evaluation', label: '不動産: 評価証明書', type: 'checkbox', group: '財産関連書類' },
+    { key: 'bank_balance_cert', label: '預貯金: 残高証明書', type: 'checkbox', group: '財産関連書類' },
+    { key: 'securities_balance', label: '証券: 残高証明書', type: 'checkbox', group: '財産関連書類' },
+    // 公証役場関連
+    { key: 'witness_arranged', label: '証人手配', type: 'checkbox', group: '公正証書遺言対応' },
+    { key: 'notary_reservation', label: '公証役場予約', type: 'checkbox', group: '公正証書遺言対応' },
+    { key: 'draft_sent_to_notary', label: '文案送付（公証人）', type: 'checkbox', group: '公正証書遺言対応' },
+    { key: 'fee_confirmed', label: '公証人手数料確認', type: 'checkbox', group: '公正証書遺言対応' },
+    // メモ
+    { key: 'memo', label: 'メモ', type: 'textarea', full: true },
+  ],
+}
+
 /** 全カテゴリ別セクション定義（表示順） */
 export const TASK_SECTION_DEFS: SectionDef[] = [
   depositSection,      // 4. 財産調査（預貯金）
@@ -259,6 +318,8 @@ export const TASK_SECTION_DEFS: SectionDef[] = [
   insuranceSection,    // 14. 保険照会
   pensionSection,      // 15. 年金照会
   debtSection,         // 16. 負債調査
+  trustDraftSection,   // 17. 信託文案作成
+  willDraftSection,    // 18. 遺言文案作成
 ]
 
 /** タスクカテゴリのピックリスト選択肢（v1.2 項目#8） */
@@ -266,7 +327,7 @@ export const TASK_CATEGORIES = [
   '戸籍', '名寄せ', '評価証明', '登記情報', '登記申請書作成',
   '財産調査(預貯金)', '財産調査(証券)', '解約手続き',
   '保険照会', '年金照会', '負債調査',
-  '財産目録', '協議書', 'その他作成物', '郵便処理',
+  '財産目録', '協議書', '遺言文案作成', '信託文案作成', 'その他作成物', '郵便処理',
   '税理士連携', '経理', '精算',
 ]
 

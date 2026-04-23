@@ -94,25 +94,61 @@ export default function TaskCategorySections({ task, onRefresh }: Props) {
     }
   }
 
+  const renderFieldWithFullWrap = (f: SectionField) => {
+    if (f.full && f.type !== 'textarea') {
+      return (
+        <div key={f.key} className="col-span-2">
+          {renderField(f)}
+        </div>
+      )
+    }
+    return renderField(f)
+  }
+
   return (
     <>
-      {visibleSections.map(sec => (
-        <Section key={sec.id} title={sec.title} icon={sec.icon}>
-          <FieldGrid>
-            {sec.fields.map(f => {
-              if (f.full && f.type !== 'textarea') {
-                // full幅のテキストフィールド
-                return (
-                  <div key={f.key} className="col-span-2">
-                    {renderField(f)}
+      {visibleSections.map(sec => {
+        // groupの有無で分岐
+        const hasGroups = sec.fields.some(f => f.group)
+        if (!hasGroups) {
+          return (
+            <Section key={sec.id} title={sec.title} icon={sec.icon}>
+              <FieldGrid>
+                {sec.fields.map(renderFieldWithFullWrap)}
+              </FieldGrid>
+            </Section>
+          )
+        }
+
+        // グループ化（順序を保ったまま）
+        const groups: { name: string | null; fields: SectionField[] }[] = []
+        for (const f of sec.fields) {
+          const gname = f.group ?? null
+          const last = groups[groups.length - 1]
+          if (last && last.name === gname) {
+            last.fields.push(f)
+          } else {
+            groups.push({ name: gname, fields: [f] })
+          }
+        }
+
+        return (
+          <Section key={sec.id} title={sec.title} icon={sec.icon}>
+            {groups.map((g, idx) => (
+              <div key={idx} className={idx > 0 ? 'mt-4' : ''}>
+                {g.name && (
+                  <div className="text-[12px] font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-200">
+                    ◼ {g.name}
                   </div>
-                )
-              }
-              return renderField(f)
-            })}
-          </FieldGrid>
-        </Section>
-      ))}
+                )}
+                <FieldGrid>
+                  {g.fields.map(renderFieldWithFullWrap)}
+                </FieldGrid>
+              </div>
+            ))}
+          </Section>
+        )
+      })}
     </>
   )
 }
