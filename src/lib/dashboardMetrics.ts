@@ -34,6 +34,16 @@ export type MetricsBundle = {
   completedAmount: number
 }
 
+export type DailyMetricsBundle = {
+  newOrders: number          // 本日「面談設定済→受注」遷移
+  startedManaging: number    // 本日「受注→対応中」遷移（新規受注かどうかは問わない）
+  completed: number          // 本日 完了
+  completedAmount: number    // 本日完了の fee_total 合計
+  cycleMonths: number | null // 本日完了の (完了−受注) 平均
+  monthExpected: number      // 当月の完了予定件数（完了割合の分母）
+  monthCompleted: number     // 月初〜本日の完了累計（完了割合の分子）
+}
+
 export type SalesMetricsBundle = {
   meetingsCount: number          // 当月面談数
   newOrdersCount: number         // 当月新規受注件数
@@ -167,6 +177,92 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
 
 // 「面談設定済 → どこか」 の遷移先として 当月面談数 / 受注 を判定するための集合
 const POST_MEETING_STATUSES = new Set(['検討中', '受注', '失注', '保留・長期'])
+
+// 当日の YYYY-MM-DD 文字列を返す（Asia/Tokyo タイムゾーン）
+export function todayJstYmd(today: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(today)
+}
+
+// 日次ダッシュボード用の集計
+export function computeDailyMetrics(
+  cases: DashCase[],
+  statusChanges: DashStatusChange[],
+  today: Date = new Date(),
+): DailyMetricsBundle {
+  const ymd = todayJstYmd(today)
+  const ym = ymd.slice(0, 7)
+  const monthStart = `${ym}-01`
+  const monthEnd = monthRange(ym).end
+
+  // 当日の status_change のみ
+  const todayStartTs = `${ymd}T00:00:00`
+  const todayEndTs = `${ymd}T23:59:59.999`
+  const todayChanges = statusChanges.filter(
+    sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
+  )
+
+  // 本日 面談設定済→受注 遷移
+  const newOrderIds = new Set(
+    todayChanges
+      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .map(sc => sc.entity_id),
+  )
+
+  // 本日 受注→対応中 遷移（受注日は問わない）
+  const startedManagingIds = new Set(
+    todayChanges
+      .filter(sc => sc.old_value === '受注' && sc.new_value === '対応中')
+      .map(sc => sc.entity_id),
+  )
+
+  // 本日完了 = completion_date == 当日 かつ status='完了'
+  const completedToday = cases.filter(
+    c => c.status === '完了' && c.completion_date === ymd,
+  )
+
+  const completedAmount = completedToday.reduce(
+    (s, c) => s + (c.fee_total ?? c.total_revenue_estimate ?? 0),
+    0,
+  )
+
+  const cycles = completedToday
+    .filter(c => c.order_received_date && c.completion_date)
+    .map(c => monthsDiff(c.order_received_date!, c.completion_date!))
+  const cycleMonths = cycles.length
+    ? cycles.reduce((s, x) => s + x, 0) / cycles.length
+    : null
+
+  // 当月完了予定 = expected_completion_date が当月、失注以外
+  const monthExpected = cases.filter(c =>
+    c.expected_completion_date &&
+    c.expected_completion_date >= monthStart &&
+    c.expected_completion_date <= monthEnd &&
+    c.status !== '失注',
+  ).length
+
+  // 月初〜本日の完了件数
+  const monthCompleted = cases.filter(c =>
+    c.status === '完了' &&
+    c.completion_date &&
+    c.completion_date >= monthStart &&
+    c.completion_date <= ymd,
+  ).length
+
+  return {
+    newOrders: newOrderIds.size,
+    startedManaging: startedManagingIds.size,
+    completed: completedToday.length,
+    completedAmount,
+    cycleMonths,
+    monthExpected,
+    monthCompleted,
+  }
+}
 
 // 受注担当ダッシュボード用の8KPIを計算する。
 // cases / statusChanges は呼び出し側でスコープ（個人/チーム/全体）に絞って渡す。
