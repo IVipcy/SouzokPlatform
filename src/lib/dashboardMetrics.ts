@@ -7,6 +7,7 @@ export type DashCase = {
   status: string
   order_received_date: string | null
   completion_date: string | null
+  expected_completion_date?: string | null
   fee_total: number | null
   total_revenue_estimate: number | null
 }
@@ -17,12 +18,31 @@ export type DashCaseMember = {
   role: string
 }
 
+// activity_log の status_change 行
+export type DashStatusChange = {
+  entity_id: string
+  old_value: string | null
+  new_value: string | null
+  created_at: string
+}
+
 export type MetricsBundle = {
   newOrders: number
   managing: number
   completed: number
   cycleMonths: number | null
   completedAmount: number
+}
+
+export type SalesMetricsBundle = {
+  meetingsCount: number          // 当月面談数
+  newOrdersCount: number         // 当月新規受注件数
+  conversionRate: number | null  // 受注率（小数 0..1）
+  avgOrderUnit: number | null    // 平均受注単価（円）
+  expectedCompletions: number    // 業務完了予定件数
+  completedCount: number         // 業務完了件数
+  completedAmount: number        // 業務完了金額（円）
+  avgCycleMonths: number | null  // 平均サイクル
 }
 
 const STATUS_AFTER_ORDER = new Set(['受注', '対応中', '保留・長期', '完了'])
@@ -143,6 +163,91 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
   }
   if (years < 0) return '-'
   return `${years}年${months}か月`
+}
+
+// 「面談設定済 → どこか」 の遷移先として 当月面談数 / 受注 を判定するための集合
+const POST_MEETING_STATUSES = new Set(['検討中', '受注', '失注', '保留・長期'])
+
+// 受注担当ダッシュボード用の8KPIを計算する。
+// cases / statusChanges は呼び出し側でスコープ（個人/チーム/全体）に絞って渡す。
+export function computeSalesMetrics(
+  cases: DashCase[],
+  statusChanges: DashStatusChange[],
+  ym: string,
+): SalesMetricsBundle {
+  const { start, end } = monthRange(ym)
+  const startTs = `${start}T00:00:00`
+  const endTs = `${end}T23:59:59.999`
+
+  // 当月のステータス遷移
+  const inMonthChanges = statusChanges.filter(
+    sc => sc.created_at >= startTs && sc.created_at <= endTs,
+  )
+
+  // 面談数: 面談設定済 → 検討中/受注/失注/保留・長期 への遷移（同案件複数遷移は1カウント）
+  const meetingCaseIds = new Set(
+    inMonthChanges
+      .filter(sc => sc.old_value === '面談設定済' && sc.new_value && POST_MEETING_STATUSES.has(sc.new_value))
+      .map(sc => sc.entity_id),
+  )
+  const meetingsCount = meetingCaseIds.size
+
+  // 新規受注: 面談設定済 → 受注
+  const newOrderCaseIds = new Set(
+    inMonthChanges
+      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .map(sc => sc.entity_id),
+  )
+  const newOrdersCount = newOrderCaseIds.size
+
+  const conversionRate = meetingsCount > 0 ? newOrdersCount / meetingsCount : null
+
+  // 平均受注単価 = 当月新規受注した案件の fee_total 平均
+  const newOrderCases = cases.filter(c => newOrderCaseIds.has(c.id))
+  const orderTotal = newOrderCases.reduce(
+    (s, c) => s + (c.fee_total ?? c.total_revenue_estimate ?? 0),
+    0,
+  )
+  const avgOrderUnit = newOrderCases.length > 0 ? orderTotal / newOrderCases.length : null
+
+  // 業務完了予定件数 = expected_completion_date が当月、未完了
+  const expectedCompletions = cases.filter(c =>
+    c.expected_completion_date &&
+    c.expected_completion_date >= start &&
+    c.expected_completion_date <= end &&
+    c.status !== '失注',
+  ).length
+
+  // 業務完了
+  const completedCases = cases.filter(c =>
+    c.status === '完了' &&
+    c.completion_date &&
+    c.completion_date >= start &&
+    c.completion_date <= end,
+  )
+  const completedCount = completedCases.length
+  const completedAmount = completedCases.reduce(
+    (s, c) => s + (c.fee_total ?? c.total_revenue_estimate ?? 0),
+    0,
+  )
+
+  const cycles = completedCases
+    .filter(c => c.order_received_date && c.completion_date)
+    .map(c => monthsDiff(c.order_received_date!, c.completion_date!))
+  const avgCycleMonths = cycles.length
+    ? cycles.reduce((s, x) => s + x, 0) / cycles.length
+    : null
+
+  return {
+    meetingsCount,
+    newOrdersCount,
+    conversionRate,
+    avgOrderUnit,
+    expectedCompletions,
+    completedCount,
+    completedAmount,
+    avgCycleMonths,
+  }
 }
 
 // 円 → 万円表示

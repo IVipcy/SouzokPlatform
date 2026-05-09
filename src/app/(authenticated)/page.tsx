@@ -1,83 +1,101 @@
-import { createClient } from '@/lib/supabase/server'
-import SummaryKpis from '@/components/features/dashboard/SummaryKpis'
-import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
-import {
-  computeMetrics,
-  fiscalYearMonthsToDate,
-  type DashCase,
-  type DashCaseMember,
-} from '@/lib/dashboardMetrics'
+import Link from 'next/link'
 
-type MemberRow = {
-  id: string
-  name: string
-  avatar_color: string
-  primary_role: string | null
-  job_type: string | null
-  joined_at: string | null
-  team_id: string | null
-  is_active: boolean
+type Card = {
+  href: string | null
+  title: string
+  description: string
+  icon: string
+  accent: string
 }
 
-type TeamRow = { id: string; name: string }
+const CARDS: Card[] = [
+  {
+    href: '/dashboard/dept',
+    title: '部全体',
+    description: '相続事業部全体の月次サマリー。新規受注・管理案件・完了・サイクル・業務完了金額。',
+    icon: '🏢',
+    accent: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50/40',
+  },
+  {
+    href: '/dashboard/sales',
+    title: '受注担当',
+    description: '営業の月次成績。面談数・新規受注・受注率・平均単価・完了予定など。',
+    icon: '📣',
+    accent: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50/40',
+  },
+  {
+    href: null,
+    title: '管理担当',
+    description: '管理担当の業務状況。タスク消化・案件進捗・滞留状況など（準備中）。',
+    icon: '🧭',
+    accent: 'border-gray-200',
+  },
+  {
+    href: null,
+    title: 'アシスタント',
+    description: 'アシスタントのタスク捌き状況・パフォーマンス（準備中）。',
+    icon: '🧩',
+    accent: 'border-gray-200',
+  },
+  {
+    href: null,
+    title: '請求・入金',
+    description: '請求書発行・入金状況・未回収のサマリー（準備中）。',
+    icon: '💴',
+    accent: 'border-gray-200',
+  },
+  {
+    href: null,
+    title: '個人マイページ',
+    description: '自分の月次成績と担当案件のサマリー（準備中）。',
+    icon: '👤',
+    accent: 'border-gray-200',
+  },
+]
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const today = new Date()
-  const thisYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-
-  const [
-    { data: casesRaw },
-    { data: caseMembersRaw },
-    { data: membersRaw },
-    { data: teamsRaw },
-  ] = await Promise.all([
-    supabase.from('cases').select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate'),
-    supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,primary_role,job_type,joined_at,team_id,is_active').eq('is_active', true),
-    supabase.from('teams').select('id,name').eq('is_active', true),
-  ])
-
-  const cases = (casesRaw ?? []) as DashCase[]
-  const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
-  const members = (membersRaw ?? []) as MemberRow[]
-  const teams = (teamsRaw ?? []) as TeamRow[]
-  const teamMap: Record<string, string> = Object.fromEntries(teams.map(t => [t.id, t.name]))
-
-  // 部全体・当月のKPI
-  const summary = computeMetrics(cases, thisYm)
-
-  // 個人テーブルに並べる対象 = primary_role が 'sales' or 'manager'
-  const tableMembers: MemberWithProfile[] = members
-    .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
-    .map(m => ({
-      id: m.id,
-      name: m.name,
-      avatar_color: m.avatar_color ?? '#6B7280',
-      primary_role: m.primary_role as 'sales' | 'manager',
-      team_name: m.team_id ? teamMap[m.team_id] ?? null : null,
-      job_type: m.job_type,
-      joined_at: m.joined_at,
-    }))
-    // 受注担当→管理担当 の順、同じ役割内は名前順
-    .sort((a, b) => {
-      if (a.primary_role !== b.primary_role) return a.primary_role === 'sales' ? -1 : 1
-      return a.name.localeCompare(b.name, 'ja')
-    })
-
-  const months = fiscalYearMonthsToDate(today)
-  const monthLabel = `${today.getMonth() + 1}月`
-
+export default function DashboardTopPage() {
   return (
-    <div className="space-y-2">
-      <SummaryKpis monthLabel={monthLabel} metrics={summary} />
-      <MemberPerformanceTable
-        members={tableMembers}
-        cases={cases}
-        caseMembers={caseMembers}
-        months={months}
-        today={today}
-      />
+    <div>
+      <div className="mb-6">
+        <h1 className="text-lg font-bold text-gray-900">ダッシュボード</h1>
+        <p className="text-xs text-gray-500 mt-1">見たい指標のカードを選んでください</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {CARDS.map(card => {
+          const enabled = card.href !== null
+          const className = `bg-white rounded-xl border p-5 transition ${card.accent} ${
+            enabled ? 'cursor-pointer shadow-sm' : 'opacity-60 cursor-not-allowed'
+          }`
+          const inner = (
+            <>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">{card.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-gray-900">{card.title}</h2>
+                    {!enabled && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                        準備中
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">{card.description}</p>
+                </div>
+              </div>
+            </>
+          )
+          return enabled ? (
+            <Link key={card.title} href={card.href!} className={className}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={card.title} className={className}>
+              {inner}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
