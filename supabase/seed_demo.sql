@@ -4,15 +4,30 @@
 -- ============================================================
 
 -- =========================
+-- 0. チームマスタ
+-- =========================
+INSERT INTO teams (id, name, sort_order) VALUES
+  ('f1000000-0000-0000-0000-000000000001', '伊藤チーム', 1),
+  ('f1000000-0000-0000-0000-000000000002', '斎藤チーム', 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- =========================
 -- 1. メンバー（社員）
 -- =========================
-INSERT INTO members (id, name, email, avatar_color) VALUES
-  ('a1000000-0000-0000-0000-000000000001', '田中 太郎', 'tanaka@example.com', '#2563EB'),
-  ('a1000000-0000-0000-0000-000000000002', '佐藤 花子', 'sato@example.com', '#059669'),
-  ('a1000000-0000-0000-0000-000000000003', '鈴木 一郎', 'suzuki@example.com', '#D97706'),
-  ('a1000000-0000-0000-0000-000000000004', '伊藤 美咲', 'ito@example.com', '#DC2626'),
-  ('a1000000-0000-0000-0000-000000000005', '山本 健太', 'yamamoto@example.com', '#7C3AED')
+INSERT INTO members (id, name, email, avatar_color, team_id, job_type, joined_at, primary_role) VALUES
+  ('a1000000-0000-0000-0000-000000000001', '田中 太郎', 'tanaka@example.com', '#2563EB', 'f1000000-0000-0000-0000-000000000001', '総合職', '2024-04-01', 'sales'),
+  ('a1000000-0000-0000-0000-000000000002', '佐藤 花子', 'sato@example.com', '#059669', 'f1000000-0000-0000-0000-000000000001', '総合職', '2023-04-01', 'manager'),
+  ('a1000000-0000-0000-0000-000000000003', '鈴木 一郎', 'suzuki@example.com', '#D97706', 'f1000000-0000-0000-0000-000000000002', '総合職', '2024-10-01', 'assistant'),
+  ('a1000000-0000-0000-0000-000000000004', '伊藤 美咲', 'ito@example.com', '#DC2626', 'f1000000-0000-0000-0000-000000000002', '総合職', '2021-04-01', 'assistant'),
+  ('a1000000-0000-0000-0000-000000000005', '山本 健太', 'yamamoto@example.com', '#7C3AED', NULL, '総合職', '2025-04-01', 'lp')
 ON CONFLICT (id) DO NOTHING;
+
+-- 既存メンバーへの属性反映（再投入時の補正）
+UPDATE members SET team_id = 'f1000000-0000-0000-0000-000000000001', job_type = '総合職', joined_at = '2024-04-01', primary_role = 'sales'    WHERE id = 'a1000000-0000-0000-0000-000000000001';
+UPDATE members SET team_id = 'f1000000-0000-0000-0000-000000000001', job_type = '総合職', joined_at = '2023-04-01', primary_role = 'manager'  WHERE id = 'a1000000-0000-0000-0000-000000000002';
+UPDATE members SET team_id = 'f1000000-0000-0000-0000-000000000002', job_type = '総合職', joined_at = '2024-10-01', primary_role = 'assistant' WHERE id = 'a1000000-0000-0000-0000-000000000003';
+UPDATE members SET team_id = 'f1000000-0000-0000-0000-000000000002', job_type = '総合職', joined_at = '2021-04-01', primary_role = 'assistant' WHERE id = 'a1000000-0000-0000-0000-000000000004';
+UPDATE members SET team_id = NULL, job_type = '総合職', joined_at = '2025-04-01', primary_role = 'lp' WHERE id = 'a1000000-0000-0000-0000-000000000005';
 
 -- メンバー×ロール紐付け
 INSERT INTO member_roles (member_id, role_id)
