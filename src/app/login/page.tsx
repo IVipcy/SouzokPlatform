@@ -34,19 +34,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 relative overflow-hidden">
+      {/* 背景: 柔らかいオーシャンの光 */}
+      <div className="absolute -top-40 -left-40 w-[480px] h-[480px] rounded-full bg-gradient-to-br from-brand-100/50 to-transparent blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-gradient-to-tr from-accent-50/60 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative">
         {/* ロゴ・タイトル */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-600 rounded-2xl mb-4 shadow-md">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-gradient-to-br from-brand-600 to-brand-800 ring-1 ring-inset ring-white/10">
             <Building2 className="w-8 h-8 text-white" strokeWidth={2.25} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">相続プラットフォーム</h1>
-          <p className="text-gray-500 mt-1">業務管理システム</p>
+          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">相続プラットフォーム</h1>
+          <p className="text-sm text-gray-500 mt-1.5 tracking-wide">業務管理システム</p>
         </div>
 
         {/* ログインフォーム */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(15,72,126,0.08)] border border-gray-200/70 p-8 backdrop-blur">
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">

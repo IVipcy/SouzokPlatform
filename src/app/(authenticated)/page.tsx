@@ -129,43 +129,54 @@ export default async function DashboardTopPage() {
     },
   ]
 
+  const today = new Date()
+  const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-sm text-gray-500 mt-1">見たい指標のカードを選んでください</p>
+    <div className="pb-8">
+      {/* ─── ヘッダー（控えめだが品のあるグラデーション） ─── */}
+      <div className="mb-8 relative overflow-hidden rounded-2xl border border-gray-200/70 bg-gradient-to-br from-brand-50/60 via-white to-white px-6 py-7 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full bg-gradient-to-br from-brand-100/50 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-20 w-72 h-72 rounded-full bg-gradient-to-tr from-accent-50/60 to-transparent blur-3xl pointer-events-none" />
+        <div className="relative">
+          <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">Dashboard</p>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1.5 tracking-tight">ダッシュボード</h1>
+          <p className="text-sm text-gray-500 mt-1.5">{dateLabel}・見たい指標のカードを選んでください</p>
+        </div>
       </div>
 
-      <div className="space-y-7">
+      <div className="space-y-8">
         {sections.map(section => (
           <section key={section.title}>
-            <h2 className="text-base font-bold text-gray-800 mb-3 pl-1 border-l-4 border-brand-600">
-              <span className="ml-2">{section.title}</span>
+            <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2.5">
+              <span className="inline-block w-1 h-5 bg-brand-600 rounded-full" />
+              <span>{section.title}</span>
+              <span className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent ml-2" />
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {section.cards.map(card => {
                 const enabled = card.href !== null
                 const tone = TONE_STYLES[card.tone]
-                const baseCls = 'bg-white rounded-xl border p-5 transition'
+                const baseCls = 'bg-white rounded-xl border p-5 transition-all duration-200'
                 const interactiveCls = enabled
-                  ? 'border-gray-200 hover:border-brand-400 hover:shadow-md cursor-pointer shadow-sm'
-                  : 'border-gray-200 opacity-60 cursor-not-allowed'
+                  ? 'border-gray-200 hover:border-brand-300 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
+                  : 'border-gray-200 opacity-55 cursor-not-allowed'
                 const Icon = card.Icon
                 const inner = (
-                  <div className="flex items-start gap-3">
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${tone.iconBg}`}>
+                  <div className="flex items-start gap-3.5">
+                    <div className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${tone.iconBg} ring-1 ring-inset ring-white/50`}>
                       <Icon className={`w-5 h-5 ${tone.iconColor}`} strokeWidth={2} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-gray-900">{card.title}</h3>
+                        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">{card.title}</h3>
                         {!enabled && (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-500">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
                             準備中
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">{card.description}</p>
+                      <p className="text-[13px] text-gray-500 mt-1.5 leading-relaxed">{card.description}</p>
                     </div>
                   </div>
                 )
