@@ -12,6 +12,7 @@ import {
   BarChart3,
   LogOut,
   Building2,
+  Send,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -45,9 +46,10 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: '書類・経理',
     items: [
-      { href: '/documents', label: 'ドキュメント', Icon: FileText },
-      { href: '/billing',   label: '請求・入金',   Icon: Receipt },
-      { href: '/reports',   label: 'レポート',     Icon: BarChart3 },
+      { href: '/dispatches', label: '書類発着管理簿', Icon: Send },
+      { href: '/documents',  label: 'ドキュメント',   Icon: FileText },
+      { href: '/billing',    label: '請求・入金',     Icon: Receipt },
+      { href: '/reports',    label: 'レポート',       Icon: BarChart3 },
     ],
   },
 ]

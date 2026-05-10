@@ -444,6 +444,24 @@ export type ExpenseRow = {
   created_at: string
 }
 
+// === 書類発着管理簿 ===
+export type DocumentDispatchRow = {
+  id: string
+  case_id: string
+  document_name: string
+  sent_date: string | null
+  sent_to: string | null
+  quantity: number
+  received_date: string | null
+  received_file_path: string | null
+  received_file_name: string | null
+  received_file_type: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  cases?: { id: string; case_number: string; deal_name: string } | null
+}
+
 export type PartnerRow = {
   id: string
   name: string

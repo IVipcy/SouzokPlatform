@@ -21,7 +21,7 @@ import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, DocumentDispatchRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -34,6 +34,7 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
+  dispatches: DocumentDispatchRow[]
   currentMemberId: string | null
 }
 
@@ -42,7 +43,7 @@ const TRIGGER_FIELDS = new Set(['status'])
 
 const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'mailing', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, currentMemberId }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, dispatches, currentMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialTab = (() => {
@@ -118,7 +119,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'mailing' && (
-        <MailingTab caseData={caseState} onRefresh={handleSaved} patchCase={patchCase} />
+        <MailingTab caseData={caseState} dispatches={dispatches} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'assets' && (
         <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />

@@ -148,6 +148,19 @@ export const ORDER_ROUTE_DETAILS: Record<string, readonly string[]> = {
 // === 顧客郵送先 ===
 export const MAILING_DESTINATIONS = ['依頼者住所', 'その他'] as const
 
+// === 書類発着管理簿: 書類名候補 ===
+export const DISPATCH_DOCUMENT_NAMES = [
+  '戸籍謄本',
+  '住民票',
+  '印鑑証明書',
+  '登記事項証明書',
+  '固定資産評価証明書',
+  '預金残高証明書',
+  '相続関係説明図',
+  '遺産分割協議書',
+  'その他',
+] as const
+
 // === 財産調査使用書類 ===
 export const INVESTIGATION_DOCUMENTS = ['委任状', '契約書'] as const
 
