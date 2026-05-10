@@ -372,10 +372,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
                   </td>
                   <td className="px-3.5 py-3">
                     {salesMember ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ backgroundColor: salesMember.avatar_color }}>{salesMember.name.charAt(0)}</span>
-                        <span className="text-xs font-medium text-gray-700">{salesMember.name}</span>
-                      </div>
+                      <span className="text-xs font-medium text-gray-700 truncate block">{salesMember.name}</span>
                     ) : <span className="text-[12px] text-gray-300">—</span>}
                   </td>
                   <td className="px-3.5 py-3">
@@ -448,13 +445,11 @@ function KanbanView({ cases, taskCounts, router }: {
                             <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-600">税要</span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           {salesMember ? (
-                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: salesMember.avatar_color }}>
-                              {salesMember.name.charAt(0)}
-                            </span>
+                            <span className="text-[12px] text-gray-600 truncate">{salesMember.name}</span>
                           ) : <span />}
-                          <span className="text-[12px] font-mono text-gray-400">
+                          <span className="text-[12px] font-mono text-gray-400 flex-shrink-0">
                             {c.total_asset_estimate ? `¥${(c.total_asset_estimate / 10000).toLocaleString()}万` : ''}
                           </span>
                         </div>
