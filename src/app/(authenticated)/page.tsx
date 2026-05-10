@@ -27,7 +27,7 @@ type CardSection = {
 }
 
 const TONE_STYLES: Record<Card['tone'], { iconBg: string; iconColor: string }> = {
-  blue:   { iconBg: 'bg-blue-50',    iconColor: 'text-blue-600' },
+  blue:   { iconBg: 'bg-brand-50',   iconColor: 'text-brand-600' },
   green:  { iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
   amber:  { iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
   gray:   { iconBg: 'bg-gray-100',   iconColor: 'text-gray-500' },
@@ -139,7 +139,7 @@ export default async function DashboardTopPage() {
       <div className="space-y-7">
         {sections.map(section => (
           <section key={section.title}>
-            <h2 className="text-base font-bold text-gray-800 mb-3 pl-1 border-l-4 border-blue-500">
+            <h2 className="text-base font-bold text-gray-800 mb-3 pl-1 border-l-4 border-brand-600">
               <span className="ml-2">{section.title}</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -148,7 +148,7 @@ export default async function DashboardTopPage() {
                 const tone = TONE_STYLES[card.tone]
                 const baseCls = 'bg-white rounded-xl border p-5 transition'
                 const interactiveCls = enabled
-                  ? 'border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer shadow-sm'
+                  ? 'border-gray-200 hover:border-brand-400 hover:shadow-md cursor-pointer shadow-sm'
                   : 'border-gray-200 opacity-60 cursor-not-allowed'
                 const Icon = card.Icon
                 const inner = (

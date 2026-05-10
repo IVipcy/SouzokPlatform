@@ -12,17 +12,25 @@
   --font-mono:
     var(--font-jetbrains-mono), "SF Mono", Menlo, Consolas, monospace;
 
-  /* カラー: 業務SaaSとして信頼感のある配色 */
-  --color-brand-50:  #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  /* ─── ブランドカラー（OCEAN GROUP ネイビー基調）─── */
+  /* メインの広い面は白／グレー、アクセントとしてこのブランド色を10〜15%使用 */
+  --color-brand-50:  #eff5fa;
+  --color-brand-100: #d6e4f0;
+  --color-brand-200: #aac8de;
+  --color-brand-300: #7daac8;
+  --color-brand-400: #4f8bb2;
+  --color-brand-500: #2670a0;
+  --color-brand-600: #0f487e;  /* Ocean メイン */
+  --color-brand-700: #0c3a66;
+  --color-brand-800: #0a1f37;  /* Ocean 濃紺 */
+  --color-brand-900: #050f1f;
+
+  /* ─── アクセントカラー（Ocean シアン）─── */
+  --color-accent-50:  #e6f7fc;
+  --color-accent-100: #cdeef9;
+  --color-accent-400: #2eb1d6;
+  --color-accent-500: #0092c7;  /* Ocean アクセント */
+  --color-accent-600: #007aa8;
 }
 
 /* ─── Body ベース ─── */

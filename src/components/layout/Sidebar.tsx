@@ -58,7 +58,7 @@ export default function Sidebar() {
       {/* ロゴ */}
       <div className="p-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+          <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center shadow-sm">
             <Building2 className="w-5 h-5 text-white" strokeWidth={2.25} />
           </div>
           <div>
@@ -85,7 +85,7 @@ export default function Sidebar() {
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
                       isActive
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'bg-brand-50 text-brand-700 border-l-2 border-brand-600 -ml-[2px] pl-[14px]'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
