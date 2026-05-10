@@ -42,13 +42,27 @@ export default function SalesTeamTable({ groups, today }: Props) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[11px] border-collapse">
+        <table className="text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 120 }} />
+            <col style={{ width: 140 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 70 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 70 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 70 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 80 }} />
+          </colgroup>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-              <th className="px-2.5 py-2 text-left font-semibold w-[110px]">所属チーム</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-[130px]">氏名</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-[70px]">職種</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-[90px]">在籍期間</th>
+              <th className="px-2.5 py-2 text-left font-semibold">所属チーム</th>
+              <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
+              <th className="px-2.5 py-2 text-left font-semibold">職種</th>
+              <th className="px-2.5 py-2 text-left font-semibold">在籍期間</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月面談数">面談数</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月新規受注件数">新規受注</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">受注率</th>

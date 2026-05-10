@@ -62,15 +62,23 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-      <table className="w-full text-[11px] border-collapse">
+      <table className="text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+        <colgroup>
+          {!hideFlagColumn && <col style={{ width: 70 }} />}
+          <col style={{ width: 120 }} />
+          <col style={{ width: 320 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 110 }} />
+          <col style={{ width: 160 }} />
+        </colgroup>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-            {!hideFlagColumn && <th className="px-2 py-2 text-center font-semibold w-[60px]">フラグ</th>}
-            <th className="px-2.5 py-2 text-left font-semibold w-[110px]">案件管理番号</th>
+            {!hideFlagColumn && <th className="px-2 py-2 text-center font-semibold">フラグ</th>}
+            <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
             <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-[120px]">担当者</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-[110px]">完了予定日</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-[140px]">依頼者名</th>
+            <th className="px-2.5 py-2 text-left font-semibold">担当者</th>
+            <th className="px-2.5 py-2 text-left font-semibold">完了予定日</th>
+            <th className="px-2.5 py-2 text-left font-semibold">依頼者名</th>
           </tr>
         </thead>
         <tbody>

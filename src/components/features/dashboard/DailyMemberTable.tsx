@@ -46,13 +46,27 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
   return (
     <section>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[11px] border-collapse">
+        <table className="text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 160 }} />
+            {showTeamColumn && <col style={{ width: 120 }} />}
+            <col style={{ width: 80 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 70 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 70 }} />
+          </colgroup>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-              <th className="px-2.5 py-2 text-left font-semibold w-[140px]" rowSpan={2}>氏名</th>
-              {showTeamColumn && <th className="px-2.5 py-2 text-left font-semibold w-[110px]" rowSpan={2}>所属チーム</th>}
-              <th className="px-2.5 py-2 text-left font-semibold w-[70px]" rowSpan={2}>職種</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-[90px]" rowSpan={2}>在籍期間</th>
+              <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>氏名</th>
+              {showTeamColumn && <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>所属チーム</th>}
+              <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>職種</th>
+              <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>在籍期間</th>
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-gray-100" colSpan={4}>当月累計</th>
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-blue-50 text-blue-800" colSpan={4}>本日</th>
             </tr>
