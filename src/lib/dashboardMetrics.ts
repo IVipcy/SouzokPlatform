@@ -34,6 +34,71 @@ export type MetricsBundle = {
   completedAmount: number
 }
 
+export type DashTask = {
+  case_id: string
+  status: string
+  due_date: string | null
+}
+
+export type CaseFlag = 'red' | 'yellow' | 'blue'
+
+// 進捗管理ボードのしきい値（運用しながら調整可能）
+const FLAG_THRESHOLDS = {
+  redOverdueTasks: 2,
+  yellowOverdueTasks: 1,
+  yellowImminentDays: 3,
+  yellowImminentTasks: 2,
+}
+
+const isTaskOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
+
+// 案件単位のフラグ判定
+export function computeCaseFlag(
+  caseRow: { expected_completion_date?: string | null },
+  tasks: DashTask[],
+  today: Date = new Date(),
+): CaseFlag {
+  const ymd = todayJstYmd(today)
+  const plus3 = new Date(today)
+  plus3.setDate(plus3.getDate() + FLAG_THRESHOLDS.yellowImminentDays)
+  const ymdPlus3 = todayJstYmd(plus3)
+
+  const overdueCount = tasks.filter(t =>
+    t.due_date && t.due_date < ymd && isTaskOpen(t.status),
+  ).length
+
+  // (a) 案件の完了予定日 < 今日
+  if (caseRow.expected_completion_date && caseRow.expected_completion_date < ymd) {
+    return 'red'
+  }
+  // (b) 期限超過タスクが redOverdueTasks 件以上
+  if (overdueCount >= FLAG_THRESHOLDS.redOverdueTasks) {
+    return 'red'
+  }
+  // (c) 期限超過タスクが yellowOverdueTasks 件以上
+  if (overdueCount >= FLAG_THRESHOLDS.yellowOverdueTasks) {
+    return 'yellow'
+  }
+  // (d) 期限間近 (今日〜+3日) の未完タスクが yellowImminentTasks 件以上
+  const imminentCount = tasks.filter(t =>
+    t.due_date && t.due_date >= ymd && t.due_date <= ymdPlus3 && isTaskOpen(t.status),
+  ).length
+  if (imminentCount >= FLAG_THRESHOLDS.yellowImminentTasks) {
+    return 'yellow'
+  }
+  return 'blue'
+}
+
+export type ProgressKpiBundle = {
+  totalAssigned: number          // 担当件数（全アクティブ案件）
+  blueCount: number              // 青件数
+  yellowCount: number            // 黄件数
+  redCount: number               // 赤件数
+  monthCompletionTarget: number  // 業完対象（選択月の完了予定件数）
+  monthCompleted: number         // 月初〜本日完了件数（完了割合の分子）
+  cycleMonths: number | null     // サイクル
+}
+
 export type DailyMetricsBundle = {
   newOrders: number          // 本日「面談設定済→受注」遷移
   startedManaging: number    // 本日「受注→対応中」遷移（新規受注かどうかは問わない）
@@ -173,6 +238,89 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
   }
   if (years < 0) return '-'
   return `${years}年${months}か月`
+}
+
+// アクティブ = 受注済〜未完了（失注・受注前は除く）
+const ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
+
+// 進捗管理ボード用のKPI計算
+// scopedCases: 対象スコープ（チーム or 個人）に絞り込み済みの案件
+// selectedMonth: フラグ集計と業完対象の対象月（null なら全期間）
+export function computeProgressKpis(
+  scopedCases: DashCase[],
+  scopedTasks: DashTask[],
+  selectedMonth: string | null,
+  today: Date = new Date(),
+): ProgressKpiBundle {
+  const tasksByCase = new Map<string, DashTask[]>()
+  for (const t of scopedTasks) {
+    if (!tasksByCase.has(t.case_id)) tasksByCase.set(t.case_id, [])
+    tasksByCase.get(t.case_id)!.push(t)
+  }
+
+  // 担当件数 = アクティブ案件全部（月フィルタなし）
+  const activeCases = scopedCases.filter(c => ACTIVE_STATUSES.has(c.status))
+  const totalAssigned = activeCases.length
+
+  // 月フィルタ対象 = 完了予定日が選択月に入っているアクティブ案件
+  const monthFiltered = selectedMonth === null
+    ? activeCases.filter(c => c.expected_completion_date)
+    : (() => {
+        const { start, end } = monthRange(selectedMonth)
+        return activeCases.filter(c =>
+          c.expected_completion_date &&
+          c.expected_completion_date >= start &&
+          c.expected_completion_date <= end,
+        )
+      })()
+
+  // 各案件のフラグ集計
+  let blueCount = 0, yellowCount = 0, redCount = 0
+  for (const c of monthFiltered) {
+    const flag = computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+    if (flag === 'red') redCount++
+    else if (flag === 'yellow') yellowCount++
+    else blueCount++
+  }
+
+  // 業完対象 = 選択月の完了予定件数（無効選択時は全期間の予定数）
+  const monthCompletionTarget = monthFiltered.length
+
+  // 完了割合 = 当月（実時間）の実績
+  const todayYmd = todayJstYmd(today)
+  const currentYm = todayYmd.slice(0, 7)
+  const { start: cmStart, end: cmEnd } = monthRange(currentYm)
+
+  const monthCompleted = scopedCases.filter(c =>
+    c.status === '完了' &&
+    c.completion_date &&
+    c.completion_date >= cmStart &&
+    c.completion_date <= todayYmd,
+  ).length
+
+  // サイクル = 当月完了案件の (完了−受注) 平均
+  const monthCompletedCases = scopedCases.filter(c =>
+    c.status === '完了' &&
+    c.completion_date &&
+    c.completion_date >= cmStart &&
+    c.completion_date <= cmEnd,
+  )
+  const cycles = monthCompletedCases
+    .filter(c => c.order_received_date && c.completion_date)
+    .map(c => monthsDiff(c.order_received_date!, c.completion_date!))
+  const cycleMonths = cycles.length
+    ? cycles.reduce((s, x) => s + x, 0) / cycles.length
+    : null
+
+  return {
+    totalAssigned,
+    blueCount,
+    yellowCount,
+    redCount,
+    monthCompletionTarget,
+    monthCompleted,
+    cycleMonths,
+  }
 }
 
 // 「面談設定済 → どこか」 の遷移先として 当月面談数 / 受注 を判定するための集合

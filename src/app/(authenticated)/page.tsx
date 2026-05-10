@@ -71,6 +71,15 @@ export default async function DashboardTopPage() {
       ],
     },
     {
+      title: '進捗管理（リスク監視）',
+      cards: teams.map(t => ({
+        href: `/dashboard/team/${t.id}/progress`,
+        title: `${t.name}（進捗）`,
+        description: `${t.name}の案件をフラグ別（青/黄/赤）で監視。リスクある案件を早期発見。`,
+        icon: '🚦',
+      })),
+    },
+    {
       title: 'その他',
       cards: [
         {
