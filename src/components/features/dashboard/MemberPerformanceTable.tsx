@@ -63,13 +63,13 @@ export default function MemberPerformanceTable({
     <section>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-900">メンバー別 月次成績</h3>
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[14px] text-gray-400">
           左が最新（当月）、右に行くほど古い情報。年度（4月〜3月）の経過分を表示。
         </p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="border-collapse text-[11px] w-max min-w-full">
+        <table className="border-collapse text-[13px] w-max min-w-full">
           <colgroup>
             <col style={{ width: COL_W.name }} />
             <col style={{ width: COL_W.team }} />
@@ -146,13 +146,13 @@ export default function MemberPerformanceTable({
                   >
                     <div className="flex items-center gap-1.5">
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                         style={{ backgroundColor: m.avatar_color }}
                       >
                         {m.name.charAt(0)}
                       </span>
                       <span className="font-medium text-gray-900 truncate">{m.name}</span>
-                      <span className={`text-[9px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
+                      <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}
                       </span>
                     </div>
@@ -192,7 +192,7 @@ export default function MemberPerformanceTable({
           </tbody>
         </table>
       </div>
-      <div className="text-[10px] text-gray-400 mt-2 ml-1" style={{ paddingLeft: FIXED_TOTAL }}>
+      <div className="text-[14px] text-gray-400 mt-2 ml-1" style={{ paddingLeft: FIXED_TOTAL }}>
         各メンバーの主たる役割（受注 or 管理）でアサインされた案件のみを集計。
       </div>
     </section>
@@ -201,7 +201,7 @@ export default function MemberPerformanceTable({
 
 function SubHeaderGroup({ highlight }: { highlight: boolean }) {
   const baseCls = highlight ? 'bg-blue-50/60' : 'bg-gray-50'
-  const cellCls = `px-1 py-1 text-center text-[10px] font-semibold border-l border-gray-200 ${baseCls}`
+  const cellCls = `px-1 py-1 text-center text-[14px] font-semibold border-l border-gray-200 ${baseCls}`
   return (
     <>
       <th className={cellCls + ' border-l-2 border-gray-300'}>新規</th>

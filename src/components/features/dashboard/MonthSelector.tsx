@@ -32,7 +32,7 @@ export default function MonthSelector({ basePath, selectedMonth, today }: Props)
 
   return (
     <div className="mb-4 flex items-center gap-2">
-      <span className="text-[11px] font-semibold text-gray-500">表示月：</span>
+      <span className="text-[13px] font-semibold text-gray-500">表示月：</span>
       <div className="inline-flex flex-wrap gap-1.5">
         {items.map(item => {
           const active = item.value === selectedMonth
@@ -44,7 +44,7 @@ export default function MonthSelector({ basePath, selectedMonth, today }: Props)
             <Link
               key={item.value}
               href={href}
-              className={`text-[11px] font-medium px-3 py-1.5 rounded border transition ${cls}`}
+              className={`text-[13px] font-medium px-3 py-1.5 rounded border transition ${cls}`}
             >
               {item.label}
             </Link>

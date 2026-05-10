@@ -41,18 +41,18 @@ export default function ProgressKpis({ scopeLabel, metrics }: Props) {
           return (
             <div key={k.label} className={`bg-white border rounded-xl overflow-hidden ${toneCls}`}>
               <div className="px-2 py-2 border-b border-gray-200 bg-white text-center">
-                <div className="text-[11px] font-semibold text-gray-700">{k.label}</div>
+                <div className="text-[13px] font-semibold text-gray-700">{k.label}</div>
               </div>
               <div className="px-2 py-3 text-center">
                 <div className="flex items-baseline justify-center gap-0.5">
                   <span className={`text-[22px] font-extrabold leading-none tracking-tight ${valueColor}`}>
                     {k.value}
                   </span>
-                  <span className="text-[10px] font-bold text-gray-500">{k.unit}</span>
+                  <span className="text-[14px] font-bold text-gray-500">{k.unit}</span>
                 </div>
               </div>
               <div className="px-2 py-2 bg-gray-50 border-t border-gray-100 min-h-[42px]">
-                <p className="text-[9px] leading-snug text-gray-500">{k.desc}</p>
+                <p className="text-[13px] leading-snug text-gray-500">{k.desc}</p>
               </div>
             </div>
           )

@@ -16,6 +16,7 @@
     "docx": "^9.6.1",
     "docxtemplater": "^3.68.5",
     "exceljs": "^4.4.0",
+    "lucide-react": "^1.14.0",
     "next": "16.2.1",
     "pizzip": "^3.2.0",
     "react": "19.2.4",

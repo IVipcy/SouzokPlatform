@@ -46,7 +46,7 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
   return (
     <section>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+        <table className="text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 160 }} />
             {showTeamColumn && <col style={{ width: 120 }} />}
@@ -70,7 +70,7 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-gray-100" colSpan={4}>当月累計</th>
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-blue-50 text-blue-800" colSpan={4}>本日</th>
             </tr>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-[10px]">
+            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-[14px]">
               <SubColHeader highlight={false} />
               <SubColHeader highlight={true} />
             </tr>
@@ -84,13 +84,13 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
                   <td className="px-2.5 py-2">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                         style={{ backgroundColor: r.avatarColor }}
                       >
                         {r.name.charAt(0)}
                       </span>
                       <span className="font-medium text-gray-900 truncate">{r.name}</span>
-                      <span className={`text-[9px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
+                      <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}
                       </span>
                     </div>

@@ -28,18 +28,18 @@ export default function DailyKpis({ scopeLabel, metrics }: Props) {
         {KPIS.map(k => (
           <div key={k.label} className="bg-white border border-gray-300 rounded-xl overflow-hidden">
             <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 text-center">
-              <div className="text-[12px] font-semibold text-gray-700">{k.label}</div>
+              <div className="text-[14px] font-semibold text-gray-700">{k.label}</div>
             </div>
             <div className="px-3 py-4 text-center">
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-[26px] font-extrabold leading-none text-gray-900 tracking-tight">
                   {k.value}
                 </span>
-                <span className="text-[11px] font-bold text-gray-500">{k.unit}</span>
+                <span className="text-[13px] font-bold text-gray-500">{k.unit}</span>
               </div>
             </div>
             <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 min-h-[44px]">
-              <p className="text-[10px] leading-snug text-gray-500">{k.desc}</p>
+              <p className="text-[14px] leading-snug text-gray-500">{k.desc}</p>
             </div>
           </div>
         ))}

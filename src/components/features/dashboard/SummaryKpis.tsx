@@ -28,25 +28,25 @@ export default function SummaryKpis({ monthLabel, metrics }: Props) {
     <section className="mb-6">
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-bold text-gray-900">相続事業部 {monthLabel}</h2>
-        <span className="text-[11px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">当月の部全体の数値</span>
+        <span className="text-[13px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">当月の部全体の数値</span>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {KPI_DEFS.map(def => (
           <div key={def.key} className="bg-white border border-gray-300 rounded-xl overflow-hidden">
             <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 text-center">
-              <div className="text-[12px] font-semibold text-gray-700">{def.label}</div>
+              <div className="text-[14px] font-semibold text-gray-700">{def.label}</div>
             </div>
             <div className="px-3 py-4 text-center">
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-[28px] font-extrabold leading-none text-gray-900 tracking-tight">
                   {valueOf(def.key)}
                 </span>
-                <span className="text-[11px] font-bold text-gray-500">{def.unit}</span>
+                <span className="text-[13px] font-bold text-gray-500">{def.unit}</span>
               </div>
             </div>
             <div className="px-3 py-2 bg-gray-50 border-t border-gray-100">
-              <p className="text-[10px] leading-snug text-gray-500">{def.desc}</p>
+              <p className="text-[14px] leading-snug text-gray-500">{def.desc}</p>
             </div>
           </div>
         ))}

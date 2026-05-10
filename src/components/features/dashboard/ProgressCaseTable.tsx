@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 import type { CaseFlag } from '@/lib/dashboardMetrics'
 
 export type ProgressCaseRow = {
@@ -42,9 +43,10 @@ export default function ProgressCaseTable({ rowsWithFlag, rowsUnset, showRoleBad
 
       {rowsUnset.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-amber-900 mb-3 flex items-center gap-2">
-            <span>⚠️ 完了予定日が未設定の案件</span>
-            <span className="text-[11px] font-normal text-amber-700 px-2 py-0.5 bg-amber-50 rounded">
+          <h3 className="text-base font-semibold text-amber-900 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" strokeWidth={2.25} />
+            <span>完了予定日が未設定の案件</span>
+            <span className="text-xs font-normal text-amber-700 px-2 py-0.5 bg-amber-50 rounded">
               {rowsUnset.length}件 — 設定漏れの可能性
             </span>
           </h3>
@@ -62,7 +64,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-      <table className="text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
+      <table className="text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
         <colgroup>
           {!hideFlagColumn && <col style={{ width: 70 }} />}
           <col style={{ width: 120 }} />
@@ -89,7 +91,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                 {!hideFlagColumn && (
                   <td className="px-2 py-2 text-center">
                     {r.flag !== null && (
-                      <span className={`inline-flex items-center justify-center w-10 h-6 text-[11px] font-bold rounded ${FLAG_DEF[r.flag].cls}`}>
+                      <span className={`inline-flex items-center justify-center w-10 h-6 text-[13px] font-bold rounded ${FLAG_DEF[r.flag].cls}`}>
                         {FLAG_DEF[r.flag].label}
                       </span>
                     )}
@@ -106,10 +108,10 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     {showRoleBadge && r.myRolesOnCase && r.myRolesOnCase.length > 0 && (
                       <span className="flex gap-1 flex-shrink-0">
                         {r.myRolesOnCase.includes('sales') && (
-                          <span className="text-[9px] font-mono px-1 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">受注</span>
+                          <span className="text-[13px] font-mono px-1 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">受注</span>
                         )}
                         {r.myRolesOnCase.includes('manager') && (
-                          <span className="text-[9px] font-mono px-1 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200">管理</span>
+                          <span className="text-[13px] font-mono px-1 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200">管理</span>
                         )}
                       </span>
                     )}
@@ -122,7 +124,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                       className="flex items-center gap-1.5 hover:text-blue-700 hover:underline"
                     >
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                         style={{ backgroundColor: r.managerAvatarColor ?? '#6B7280' }}
                       >
                         {r.managerName.charAt(0)}
