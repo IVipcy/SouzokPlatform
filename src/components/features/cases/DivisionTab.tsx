@@ -157,7 +157,7 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowAddDetail(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-              <button onClick={handleAddDetail} className="px-3 py-1.5 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700">追加</button>
+              <button onClick={handleAddDetail} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">追加</button>
             </div>
           </div>
         )}
@@ -296,7 +296,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth }: {
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
@@ -324,7 +324,7 @@ function Section({ title, icon, children, actionLabel, onAction }: {
         
         <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{title}</h3>
         {actionLabel && onAction && (
-          <button onClick={onAction} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition border border-blue-200 bg-blue-50">
+          <button onClick={onAction} className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-0.5 rounded hover:bg-brand-50 transition border border-brand-200 bg-brand-50">
             {actionLabel}
           </button>
         )}
@@ -347,7 +347,7 @@ function FormField({ label, value, onChange, placeholder }: { label: string; val
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
       />
     </div>
   )
@@ -360,7 +360,7 @@ function SelectField({ label, value, onChange, options }: { label: string; value
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition bg-white"
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition bg-white"
       >
         <option value="">選択してください</option>
         {options.map(opt => (

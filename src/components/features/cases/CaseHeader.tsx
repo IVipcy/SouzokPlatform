@@ -107,7 +107,7 @@ export default function CaseHeader({ caseData }: Props) {
                         key={s.key}
                         onClick={() => handleStatusChange(s.key)}
                         className={`w-full px-3.5 py-2 text-xs font-medium flex items-center gap-2 hover:bg-gray-50 transition-colors ${
-                          s.key === caseData.status ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                          s.key === caseData.status ? 'bg-brand-50 text-brand-600' : 'text-gray-700'
                         }`}
                       >
                         <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
@@ -162,7 +162,7 @@ export default function CaseHeader({ caseData }: Props) {
                     }}
                   />
                   <span className={`text-[12px] whitespace-nowrap text-center ${
-                    isActive ? 'text-blue-600 font-semibold' : 'text-gray-400'
+                    isActive ? 'text-brand-600 font-semibold' : 'text-gray-400'
                   }`}>
                     {status}
                   </span>

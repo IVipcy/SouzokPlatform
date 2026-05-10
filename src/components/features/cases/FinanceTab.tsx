@@ -17,7 +17,7 @@ const paymentStatusColor: Record<string, string> = {
   '未入金': 'bg-red-100 text-red-700',
   '一部入金': 'bg-yellow-100 text-yellow-700',
   '入金済': 'bg-green-100 text-green-700',
-  '前受金入金済': 'bg-blue-100 text-blue-700',
+  '前受金入金済': 'bg-brand-100 text-brand-700',
 }
 
 export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
@@ -90,7 +90,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
             <InlineEdit label="司法書士報酬" value={caseData.fee_judicial != null ? String(caseData.fee_judicial) : null} onSave={v => saveCaseNumberField('fee_judicial', v)} type="number" displayFormat={yen(caseData.fee_judicial)} />
             <div className="col-span-2 flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
               <span className="text-gray-500 font-medium text-sm">報酬合計</span>
-              <span className="text-blue-600 font-bold text-base">{yen(caseData.fee_total)}</span>
+              <span className="text-brand-600 font-bold text-base">{yen(caseData.fee_total)}</span>
             </div>
             <div className="col-span-2">
               <InlineEdit label="入金状況" value={caseData.payment_status} onSave={v => saveCaseField('payment_status', v)} />
@@ -108,7 +108,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
             <InlineEdit label="税理士紹介手数料" value={caseData.fee_tax_referral != null ? String(caseData.fee_tax_referral) : null} onSave={v => saveCaseNumberField('fee_tax_referral', v)} type="number" displayFormat={yen(caseData.fee_tax_referral)} />
             <div className="col-span-2 flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
               <span className="text-gray-500 font-medium text-sm">収益見込み合計</span>
-              <span className="text-blue-600 font-bold text-base">{yen(caseData.total_revenue_estimate)}</span>
+              <span className="text-brand-600 font-bold text-base">{yen(caseData.total_revenue_estimate)}</span>
             </div>
           </div>
         </Section>
@@ -199,34 +199,34 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
                     placeholder="費目 *"
                     value={form.item_name}
                     onChange={(e) => setForm({ ...form, item_name: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                   <input
                     placeholder="金額 *"
                     type="number"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                   <input
                     placeholder="発生日"
                     type="date"
                     value={form.expense_date}
                     onChange={(e) => setForm({ ...form, expense_date: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                   <input
                     placeholder="関連タスク"
                     value={form.related_task}
                     onChange={(e) => setForm({ ...form, related_task: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                 </div>
                 <input
                   placeholder="備考"
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                 />
                 <div className="flex gap-2 justify-end">
                   <button
@@ -238,7 +238,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
                   <button
                     onClick={handleAddExpense}
                     disabled={saving || !form.item_name || !form.amount}
-                    className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50"
+                    className="text-xs bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:opacity-50"
                   >
                     {saving ? '保存中...' : '追加'}
                   </button>
@@ -247,7 +247,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
             ) : (
               <button
                 onClick={() => setShowForm(true)}
-                className="mt-3 w-full text-xs text-blue-600 hover:text-blue-700 border border-dashed border-blue-300 rounded-lg py-2 hover:bg-blue-50/50 transition"
+                className="mt-3 w-full text-xs text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg py-2 hover:bg-brand-50/50 transition"
               >
                 ＋ 立替実費を追加
               </button>
@@ -328,7 +328,7 @@ function InlineEdit({ label, value, onSave, mono, type = 'text', displayFormat }
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div

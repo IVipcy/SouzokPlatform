@@ -43,7 +43,7 @@ function Pills({ value, options, onChange, multi }: { value: string | string[]; 
             }}
             className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${
               selected
-                ? (multi ? 'bg-blue-700 border-blue-700 text-white' : 'bg-blue-600 border-blue-600 text-white')
+                ? (multi ? 'bg-brand-700 border-brand-700 text-white' : 'bg-brand-600 border-brand-600 text-white')
                 : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
             }`}
           >
@@ -62,7 +62,7 @@ function Input({ value, onChange, placeholder, type = 'text' }: { value: string;
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 focus:bg-white transition"
+      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition"
     />
   )
 }
@@ -73,7 +73,7 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 focus:bg-white transition resize-y min-h-[80px] leading-relaxed"
+      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition resize-y min-h-[80px] leading-relaxed"
     />
   )
 }
@@ -81,7 +81,7 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
 function SectionHeader({ icon, title, sub }: { icon: string; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-lg flex-shrink-0">{icon}</div>
+      <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-lg flex-shrink-0">{icon}</div>
       <div>
         <div className="text-lg font-bold text-gray-900">{title}</div>
         {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
@@ -371,7 +371,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
         </div>
         <button
           onClick={onBack}
-          className="w-full py-3.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition shadow-md mb-3"
+          className="w-full py-3.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition shadow-md mb-3"
         >
           案件選択に戻る
         </button>
@@ -461,7 +461,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
                 />
                 <button
                   onClick={() => { const arr = [...data.heirs]; arr[i] = { ...arr[i], isLegalHeir: !arr[i].isLegalHeir }; update('heirs', arr) }}
-                  className={`self-start px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition ${h.isLegalHeir ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
+                  className={`self-start px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition ${h.isLegalHeir ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
                 >
                   {h.isLegalHeir ? '✓ ' : ''}法定相続人
                 </button>
@@ -472,7 +472,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           ))}
           <button
             onClick={() => update('heirs', [...data.heirs, { name: '', kana: '', relationship: '', isLegalHeir: true, birthday: '', address: '', domicile: '', phone: '', email: '' } as Heir])}
-            className="w-full py-3.5 border-2 border-dashed border-gray-200 rounded-xl text-blue-600 text-sm font-semibold hover:border-blue-400 hover:bg-blue-50 transition"
+            className="w-full py-3.5 border-2 border-dashed border-gray-200 rounded-xl text-brand-600 text-sm font-semibold hover:border-brand-400 hover:bg-brand-50 transition"
           >
             ＋ 相続人を追加
           </button>
@@ -495,9 +495,9 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           <Card label="築年数">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center border-[1.5px] border-gray-200 rounded-lg overflow-hidden bg-gray-50 w-40">
-                <button onClick={() => update('buildingAge', Math.max(0, data.buildingAge - 5))} className="w-11 h-11 text-lg text-blue-600 hover:bg-blue-50 transition">−</button>
+                <button onClick={() => update('buildingAge', Math.max(0, data.buildingAge - 5))} className="w-11 h-11 text-lg text-brand-600 hover:bg-brand-50 transition">−</button>
                 <input type="number" value={data.buildingAge} onChange={e => update('buildingAge', parseInt(e.target.value) || 0)} className="flex-1 text-center text-lg font-bold font-mono bg-transparent border-none outline-none w-14" />
-                <button onClick={() => update('buildingAge', data.buildingAge + 5)} className="w-11 h-11 text-lg text-blue-600 hover:bg-blue-50 transition">＋</button>
+                <button onClick={() => update('buildingAge', data.buildingAge + 5)} className="w-11 h-11 text-lg text-brand-600 hover:bg-brand-50 transition">＋</button>
               </div>
               <span className="text-sm text-gray-400">年</span>
             </div>
@@ -506,7 +506,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
             <div className="flex items-center gap-4 mt-1">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black font-mono flex-shrink-0 ${
                 propertyRank === 'S' ? 'bg-amber-100 text-amber-700 shadow-md' :
-                propertyRank === 'A' ? 'bg-blue-100 text-blue-700 shadow-md' :
+                propertyRank === 'A' ? 'bg-brand-100 text-brand-700 shadow-md' :
                 propertyRank === 'B' ? 'bg-green-100 text-green-700 shadow-md' :
                 propertyRank === 'C' ? 'bg-orange-100 text-orange-700 shadow-md' :
                 'bg-gray-200 text-gray-500'
@@ -536,26 +536,26 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
               value={data.totalAssetEstimate}
               onChange={e => update('totalAssetEstimate', e.target.value)}
               placeholder="例：3500"
-              className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-3 text-[22px] font-bold font-mono text-gray-900 outline-none focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 focus:bg-white transition"
+              className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-3 text-[22px] font-bold font-mono text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition"
             />
           </Card>
           {/* Tax calc box */}
           <div className="bg-gradient-to-br from-[#1E3A5F] to-[#0F2440] rounded-xl p-4 text-white mb-3">
             <div className="flex justify-between items-center py-1.5 border-b border-white/10">
               <span className="text-xs text-white/50">法定相続人数</span>
-              <span className="font-mono text-base text-blue-300">{taxCalc.legalHeirCount} 名</span>
+              <span className="font-mono text-base text-brand-300">{taxCalc.legalHeirCount} 名</span>
             </div>
             <div className="flex justify-between items-center py-1.5 border-b border-white/10">
               <span className="text-xs text-white/50">基礎控除額</span>
-              <span className="font-mono text-base text-blue-300">{taxCalc.basicDeduction.toLocaleString()} 万円</span>
+              <span className="font-mono text-base text-brand-300">{taxCalc.basicDeduction.toLocaleString()} 万円</span>
             </div>
             <div className="flex justify-between items-center py-1.5 border-b border-white/10">
               <span className="text-xs text-white/50">資産合計（概算）</span>
-              <span className="font-mono text-base text-blue-300">{taxCalc.assetMan ? taxCalc.assetMan.toLocaleString() + ' 万円' : '未入力'}</span>
+              <span className="font-mono text-base text-brand-300">{taxCalc.assetMan ? taxCalc.assetMan.toLocaleString() + ' 万円' : '未入力'}</span>
             </div>
             <div className="flex justify-between items-center py-1.5">
               <span className="text-xs text-white/50">課税見込額</span>
-              <span className={`font-mono text-base ${taxCalc.taxable > 0 ? 'text-red-300' : 'text-blue-300'}`}>
+              <span className={`font-mono text-base ${taxCalc.taxable > 0 ? 'text-red-300' : 'text-brand-300'}`}>
                 {taxCalc.assetMan ? (taxCalc.taxable > 0 ? '+' : '') + taxCalc.taxable.toLocaleString() + ' 万円' : '—'}
               </span>
             </div>
@@ -667,7 +667,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
             key={s.id}
             onClick={() => setStep(i)}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition relative ${
-              i === step ? 'bg-blue-600 text-white font-semibold' :
+              i === step ? 'bg-brand-600 text-white font-semibold' :
               completedSteps.has(i) ? 'text-green-600 hover:bg-gray-50' :
               'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
             }`}
@@ -679,7 +679,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
 
       {/* Progress bar */}
       <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-4">
-        <div className="h-full bg-blue-600 rounded-full transition-all duration-400" style={{ width: `${progressPct}%` }} />
+        <div className="h-full bg-brand-600 rounded-full transition-all duration-400" style={{ width: `${progressPct}%` }} />
       </div>
 
       {/* Form content */}
@@ -697,7 +697,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           className={`px-8 py-3 rounded-lg text-sm font-bold text-white flex items-center gap-2 transition shadow-sm ${
             step === STEPS.length - 1
               ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25'
-              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25'
+              : 'bg-brand-600 hover:bg-brand-700 shadow-brand-500/25'
           }`}
         >
           {step === STEPS.length - 1 ? (saving ? '保存中...' : '✓ 送信・確定') : '次へ →'}

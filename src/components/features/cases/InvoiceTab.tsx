@@ -243,7 +243,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                       <select
                         value={expenseForm.category}
                         onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                       >
                         <option value="">選択してください</option>
                         {EXPENSE_CATEGORIES.map(cat => (
@@ -257,7 +257,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                         placeholder="金額"
                         value={expenseForm.amount}
                         onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                       />
                     </FormField>
                     <FormField label="発生日">
@@ -265,14 +265,14 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                         type="date"
                         value={expenseForm.expense_date}
                         onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                       />
                     </FormField>
                     <FormField label="関連タスク">
                       <select
                         value={expenseForm.related_task_id}
                         onChange={e => setExpenseForm({ ...expenseForm, related_task_id: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                       >
                         <option value="">（なし）</option>
                         {tasks.map(t => (
@@ -287,7 +287,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                       placeholder="備考"
                       value={expenseForm.notes}
                       onChange={e => setExpenseForm({ ...expenseForm, notes: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                     />
                   </FormField>
                   <div className="flex gap-2 justify-end">
@@ -300,7 +300,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                     <button
                       onClick={handleAddExpense}
                       disabled={saving || !expenseForm.category || !expenseForm.amount}
-                      className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50"
+                      className="text-xs bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:opacity-50"
                     >
                       {saving ? '保存中...' : '追加'}
                     </button>

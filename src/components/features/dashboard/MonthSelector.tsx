@@ -37,8 +37,8 @@ export default function MonthSelector({ basePath, selectedMonth, today }: Props)
         {items.map(item => {
           const active = item.value === selectedMonth
           const cls = active
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50/40'
+            ? 'bg-brand-600 text-white border-brand-600'
+            : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
           const href = `${basePath}?month=${item.value}`
           return (
             <Link

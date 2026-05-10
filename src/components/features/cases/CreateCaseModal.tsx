@@ -97,7 +97,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '作成中...' : '作成'}
           </button>
         </>
@@ -106,8 +106,8 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
       <form onSubmit={handleSubmit} className="space-y-3 relative">
         {saving && (
           <div className="absolute inset-0 bg-white/70 z-20 flex flex-col items-center justify-center rounded-lg">
-            <div className="w-10 h-10 border-[3px] border-blue-200 border-t-blue-600 rounded-full animate-spin mb-2" />
-            <div className="text-xs font-semibold text-blue-600">案件を作成中...</div>
+            <div className="w-10 h-10 border-[3px] border-brand-200 border-t-brand-600 rounded-full animate-spin mb-2" />
+            <div className="text-xs font-semibold text-brand-600">案件を作成中...</div>
           </div>
         )}
         {error && (
@@ -121,14 +121,14 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
               value={form.case_number}
               onChange={e => setForm(p => ({ ...p, case_number: e.target.value }))}
               placeholder="R7-A00129"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <FormField label="難易度">
             <div className="flex gap-2 pt-1">
               {(['易', '普', '難'] as const).map(d => (
                 <label key={d} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input type="radio" name="diff" value={d} checked={form.difficulty === d} onChange={() => setForm(p => ({ ...p, difficulty: d }))} className="accent-blue-600" />
+                  <input type="radio" name="diff" value={d} checked={form.difficulty === d} onChange={() => setForm(p => ({ ...p, difficulty: d }))} className="accent-brand-600" />
                   {d}
                 </label>
               ))}
@@ -142,7 +142,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
             value={form.deal_name}
             onChange={e => setForm(p => ({ ...p, deal_name: e.target.value }))}
             placeholder="山田 花子"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </FormField>
 
@@ -153,7 +153,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
               value={form.deceased_name}
               onChange={e => setForm(p => ({ ...p, deceased_name: e.target.value }))}
               placeholder="山田 太郎"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <FormField label="相続開始日">
@@ -161,7 +161,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
               type="date"
               value={form.date_of_death}
               onChange={e => setForm(p => ({ ...p, date_of_death: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
         </div>
@@ -173,7 +173,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
               type="text"
               value={form.client_name}
               onChange={e => setForm(p => ({ ...p, client_name: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <div className="grid grid-cols-2 gap-3 mt-2">
@@ -182,7 +182,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
                 type="tel"
                 value={form.client_phone}
                 onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </FormField>
             <FormField label="メール">
@@ -190,7 +190,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
                 type="email"
                 value={form.client_email}
                 onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </FormField>
           </div>

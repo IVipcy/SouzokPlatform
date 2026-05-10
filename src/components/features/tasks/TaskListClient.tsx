@@ -270,7 +270,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             onClick={() => setFilterMine(v => !v)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
               filterMine
-                ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
+                ? 'bg-brand-600 text-white border-brand-600 shadow-brand-200'
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -325,7 +325,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
 
           <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
-            className="text-[13px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+            className="text-[13px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-brand-400">
             <option value="all">全フェーズ</option>
             {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
           </select>
@@ -375,13 +375,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <div className="ml-auto flex items-center gap-2">
             <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
-              className="text-[13px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
+              className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
               ↔ 列幅リセット
             </button>
             <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
             <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-              <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
-              <button onClick={() => setViewMode('kanban')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="カンバン">⊞</button>
+              <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
+              <button onClick={() => setViewMode('kanban')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="カンバン">⊞</button>
             </div>
           </div>
         </div>
@@ -442,7 +442,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                   <GridResizableHeader onMouseDown={startColResize('due')}>
                     <button
                       onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
-                      className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 hover:text-brand-600 transition-colors cursor-pointer"
                     >
                       期限
                       <span className="text-[11px]">
@@ -513,7 +513,7 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
     return (
       <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all
-          ${loading ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}>
+          ${loading ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}>
         {loading ? spinner : '✅'} {loading ? '処理中...' : '完了にする'}
       </button>
     )
@@ -572,7 +572,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
             {workRole.shortLabel}
           </span>
         )}
-        <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-blue-600'}`}>{task.title}</a>
+        <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}>{task.title}</a>
       </div>
 
       {/* Case link */}
@@ -580,7 +580,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
         {caseInfo ? (
           <a href={`/cases/${task.case_id}`} onClick={e => e.stopPropagation()} className="group/link block">
             <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-blue-600 group-hover/link:underline transition-colors">{caseInfo.deal_name}</div>
+            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-brand-600 group-hover/link:underline transition-colors">{caseInfo.deal_name}</div>
           </a>
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
@@ -672,7 +672,7 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gr
         {caseInfo ? (
           <a href={`/cases/${task.case_id}`} className="group/link block">
             <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-blue-600">{caseInfo.deal_name}</div>
+            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-brand-600">{caseInfo.deal_name}</div>
           </a>
         ) : <span className="text-[12px] text-gray-300">—</span>}
       </div>
@@ -710,7 +710,7 @@ function MemberChip({ name, color, label, prominent }: { name: string; color: st
   if (prominent) {
     return (
       <span
-        className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full pl-0.5 pr-2 py-0.5 shadow-sm"
+        className="inline-flex items-center gap-1 bg-brand-50 border border-brand-200 rounded-full pl-0.5 pr-2 py-0.5 shadow-sm"
         title={`${label}: ${name}（対応中）`}
       >
         <span
@@ -719,7 +719,7 @@ function MemberChip({ name, color, label, prominent }: { name: string; color: st
         >
           {name.charAt(0)}
         </span>
-        <span className="text-[13px] text-blue-800 font-bold truncate max-w-[60px]">{name}</span>
+        <span className="text-[13px] text-brand-800 font-bold truncate max-w-[60px]">{name}</span>
       </span>
     )
   }
@@ -781,7 +781,7 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                           </span>
                         )
                       })()}
-                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-blue-600 ${norm(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
+                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-brand-600 ${norm(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
                       {caseInfo && <div className="text-[12px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -810,7 +810,7 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
 // ─── Sub components ───
 function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
-    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
       {label}
       {count !== undefined && count > 0 && (
         <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>

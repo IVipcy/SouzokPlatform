@@ -125,7 +125,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
         <button onClick={onBulkGenerate} className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
           📋 一括生成
         </button>
-        <button onClick={onAddTask} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+        <button onClick={onAddTask} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors">
           ＋ タスク追加
         </button>
       </div>
@@ -135,7 +135,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-gray-700">案件進捗</span>
-            <span className="text-sm font-bold text-blue-600">{progressPercent}% <span className="text-gray-400 font-normal text-xs">({completedTasks}/{totalTasks})</span></span>
+            <span className="text-sm font-bold text-brand-600">{progressPercent}% <span className="text-gray-400 font-normal text-xs">({completedTasks}/{totalTasks})</span></span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
             <div
@@ -157,7 +157,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
       {tasksByPhase.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-gray-400 text-sm mb-3">タスクがありません</p>
-          <button onClick={onBulkGenerate} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          <button onClick={onBulkGenerate} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
             テンプレートからタスクを一括生成
           </button>
         </div>
@@ -244,9 +244,9 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
         )}
         {current === '対応中' && (
           <button onClick={onAdvance}
-            className="w-6 h-6 rounded-full border-2 border-blue-400 bg-blue-50 hover:border-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center"
+            className="w-6 h-6 rounded-full border-2 border-brand-400 bg-brand-50 hover:border-brand-600 hover:bg-brand-100 transition-colors flex items-center justify-center"
             title="完了にする">
-            <span className="text-[12px] text-blue-500">✓</span>
+            <span className="text-[12px] text-brand-500">✓</span>
           </button>
         )}
         {current === '完了' && (
@@ -258,7 +258,7 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
 
       <a
         href={`/tasks/${task.id}`}
-        className={`flex-1 text-sm font-medium cursor-pointer hover:text-blue-600 ${current === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}
+        className={`flex-1 text-sm font-medium cursor-pointer hover:text-brand-600 ${current === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}
       >
         {task.title}
       </a>
@@ -280,7 +280,7 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
       </div>
 
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition" title="編集">✏️</button>
+        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition" title="編集">✏️</button>
         <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
       </div>
     </div>

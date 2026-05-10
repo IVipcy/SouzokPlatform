@@ -47,7 +47,7 @@ export function ToastContainer() {
             animate-[slideIn_0.3s_ease-out]
             ${toast.type === 'success' ? 'bg-green-600 text-white' : ''}
             ${toast.type === 'error' ? 'bg-red-600 text-white' : ''}
-            ${toast.type === 'info' ? 'bg-blue-600 text-white' : ''}
+            ${toast.type === 'info' ? 'bg-brand-600 text-white' : ''}
           `}
           style={{
             animation: 'slideIn 0.3s ease-out',

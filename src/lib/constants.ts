@@ -83,8 +83,8 @@ export const WORK_ROLES: readonly WorkRoleDef[] = [
     label: '受注担当',
     shortLabel: '受注',
     Icon: Megaphone,
-    pill: 'bg-blue-100 text-blue-700 border-blue-300',
-    solid: 'bg-blue-600 text-white',
+    pill: 'bg-brand-100 text-brand-700 border-brand-300',
+    solid: 'bg-brand-600 text-white',
     bar: '#2563EB',
   },
 ] as const

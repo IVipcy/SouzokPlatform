@@ -24,7 +24,7 @@ type Props = {
 const FLAG_DEF: Record<CaseFlag, { label: string; cls: string }> = {
   red:    { label: '赤', cls: 'bg-red-600 text-white' },
   yellow: { label: '黄', cls: 'bg-yellow-400 text-gray-900' },
-  blue:   { label: '青', cls: 'bg-blue-600 text-white' },
+  blue:   { label: '青', cls: 'bg-brand-600 text-white' },
 }
 
 export default function ProgressCaseTable({ rowsWithFlag, rowsUnset, showRoleBadge }: Props) {
@@ -87,7 +87,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
           {rows.map((r, i) => {
             const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
             return (
-              <tr key={r.id} className={`border-b border-gray-100 hover:bg-blue-50/30 ${rowBg}`}>
+              <tr key={r.id} className={`border-b border-gray-100 hover:bg-brand-50/30 ${rowBg}`}>
                 {!hideFlagColumn && (
                   <td className="px-2 py-2 text-center">
                     {r.flag !== null && (
@@ -98,7 +98,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                   </td>
                 )}
                 <td className="px-2.5 py-2 font-mono">
-                  <Link href={`/cases/${r.id}`} className="text-blue-700 hover:underline font-semibold">
+                  <Link href={`/cases/${r.id}`} className="text-brand-700 hover:underline font-semibold">
                     {r.caseNumber}
                   </Link>
                 </td>
@@ -108,7 +108,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     {showRoleBadge && r.myRolesOnCase && r.myRolesOnCase.length > 0 && (
                       <span className="flex gap-1 flex-shrink-0">
                         {r.myRolesOnCase.includes('sales') && (
-                          <span className="text-[13px] font-mono px-1 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200">受注</span>
+                          <span className="text-[13px] font-mono px-1 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-200">受注</span>
                         )}
                         {r.myRolesOnCase.includes('manager') && (
                           <span className="text-[13px] font-mono px-1 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200">管理</span>
@@ -121,7 +121,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                   {r.managerName && r.managerId ? (
                     <Link
                       href={`/dashboard/member/${r.managerId}/progress`}
-                      className="flex items-center gap-1.5 hover:text-blue-700 hover:underline"
+                      className="flex items-center gap-1.5 hover:text-brand-700 hover:underline"
                     >
                       <span
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"

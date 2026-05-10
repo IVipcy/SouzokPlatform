@@ -67,7 +67,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '作成中...' : '発行する'}
           </button>
         </>
@@ -82,7 +82,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
           <select
             value={form.case_id}
             onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
             <option value="">選択してください</option>
             {cases.map(c => <option key={c.id} value={c.id}>{c.case_number} {c.deal_name}</option>)}
@@ -98,7 +98,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
                 key={t}
                 onClick={() => setForm(p => ({ ...p, invoice_type: t }))}
                 className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
-                  form.invoice_type === t ? 'ring-2 ring-blue-400 ring-offset-1 border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                  form.invoice_type === t ? 'ring-2 ring-brand-400 ring-offset-1 border-brand-200 bg-brand-50 text-brand-700' : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 {t}
@@ -117,7 +117,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
               value={form.amount}
               onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
               placeholder="0"
-              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -130,7 +130,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
               type="date"
               value={form.issued_date}
               onChange={e => setForm(p => ({ ...p, issued_date: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
           {/* Due date */}
@@ -140,7 +140,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
               type="date"
               value={form.due_date}
               onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
             value={form.notes}
             onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none"
           />
         </div>
       </div>

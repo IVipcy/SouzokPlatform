@@ -27,7 +27,7 @@ type Props = {
 }
 
 const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = {
-  sales:   { label: '受注', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  sales:   { label: '受注', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
   manager: { label: '管理', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
@@ -119,7 +119,7 @@ export default function MemberPerformanceTable({
                   key={m}
                   colSpan={4}
                   className={`px-2 py-1.5 text-center font-semibold border-l border-gray-300 ${
-                    i === 0 ? 'bg-blue-50 text-blue-800' : 'bg-gray-50 text-gray-700'
+                    i === 0 ? 'bg-brand-50 text-brand-800' : 'bg-gray-50 text-gray-700'
                   }`}
                 >
                   {monthHeaderLabel(m, today)}
@@ -200,7 +200,7 @@ export default function MemberPerformanceTable({
 }
 
 function SubHeaderGroup({ highlight }: { highlight: boolean }) {
-  const baseCls = highlight ? 'bg-blue-50/60' : 'bg-gray-50'
+  const baseCls = highlight ? 'bg-brand-50/60' : 'bg-gray-50'
   const cellCls = `px-1 py-1 text-center text-[14px] font-semibold border-l border-gray-200 ${baseCls}`
   return (
     <>
@@ -221,7 +221,7 @@ function MetricCells({
   highlight: boolean
   showAmount: boolean
 }) {
-  const baseCls = highlight ? 'bg-blue-50/30' : ''
+  const baseCls = highlight ? 'bg-brand-50/30' : ''
   const cellCls = `px-1.5 py-1.5 text-right font-mono tabular-nums border-l border-gray-100 ${baseCls}`
 
   const numOrDash = (n: number) => (n > 0 ? n.toLocaleString() : <span className="text-gray-300">-</span>)

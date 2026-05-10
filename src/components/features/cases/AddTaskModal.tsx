@@ -81,7 +81,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
           >
             {saving ? '追加中...' : '追加する'}
           </button>
@@ -101,7 +101,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
             value={form.title}
             onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
             placeholder="例：三菱UFJ銀行 残高証明取得"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
 
@@ -112,7 +112,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
             <select
               value={form.phase}
               onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               {DB_PHASES.map(p => (
                 <option key={p} value={p}>{getPhaseLabel(p)}</option>
@@ -127,7 +127,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
               type="date"
               value={form.dueDate}
               onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
                 onClick={() => setForm(prev => ({ ...prev, priority: p.key }))}
                 className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
                   form.priority === p.key
-                    ? 'ring-2 ring-blue-400 ring-offset-1'
+                    ? 'ring-2 ring-brand-400 ring-offset-1'
                     : ''
                 } ${p.style}`}
               >

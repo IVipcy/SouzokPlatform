@@ -163,7 +163,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
 
           <button
             onClick={() => setMode('add')}
-            className="w-full px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+            className="w-full px-4 py-2 text-sm font-medium text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors"
           >
             + 前提条件を追加
           </button>
@@ -195,7 +195,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
                 onClick={() => { setConditionType('task_completed'); setCheckpointField(''); setCheckpointLabel('') }}
                 className={`flex-1 text-xs px-3 py-2 rounded-lg border transition-colors ${
                   conditionType === 'task_completed'
-                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-semibold'
+                    ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -206,7 +206,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
                 disabled={checkpointFields.length === 0}
                 className={`flex-1 text-xs px-3 py-2 rounded-lg border transition-colors ${
                   conditionType === 'checkpoint'
-                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-semibold'
+                    ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
@@ -246,7 +246,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
             <button
               onClick={handleAdd}
               disabled={saving || !selectedTaskId || (conditionType === 'checkpoint' && !checkpointField)}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
             >
               {saving ? '追加中...' : '追加'}
             </button>

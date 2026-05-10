@@ -88,11 +88,11 @@ function TeamGroupRows({ group, today }: { group: SalesTeamGroup; today: Date })
   return (
     <>
       {/* チーム小計 */}
-      <tr className="bg-blue-50/50 border-b border-blue-100 font-semibold">
+      <tr className="bg-brand-50/50 border-b border-brand-100 font-semibold">
         <td className="px-2.5 py-2 text-gray-900" colSpan={2}>
           <div className="flex items-center gap-1.5">
             <span className="text-[14px]">{group.teamName}</span>
-            <span className="text-[13px] font-mono px-1.5 py-0.5 rounded bg-blue-200/60 text-blue-800">
+            <span className="text-[13px] font-mono px-1.5 py-0.5 rounded bg-brand-200/60 text-brand-800">
               チーム合計
             </span>
             <span className="text-[14px] font-normal text-gray-500">（{group.members.length}人）</span>

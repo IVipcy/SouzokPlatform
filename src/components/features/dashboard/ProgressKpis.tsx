@@ -31,12 +31,12 @@ export default function ProgressKpis({ scopeLabel, metrics }: Props) {
           const toneCls =
             k.tone === 'red'    ? 'border-red-300 bg-red-50/40'
             : k.tone === 'yellow' ? 'border-amber-300 bg-amber-50/40'
-            : k.tone === 'blue'   ? 'border-blue-300 bg-blue-50/40'
+            : k.tone === 'blue'   ? 'border-brand-300 bg-brand-50/40'
             : 'border-gray-300'
           const valueColor =
             k.tone === 'red' ? 'text-red-700'
             : k.tone === 'yellow' ? 'text-amber-700'
-            : k.tone === 'blue' ? 'text-blue-700'
+            : k.tone === 'blue' ? 'text-brand-700'
             : 'text-gray-900'
           return (
             <div key={k.label} className={`bg-white border rounded-xl overflow-hidden ${toneCls}`}>

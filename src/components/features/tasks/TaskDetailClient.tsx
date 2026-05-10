@@ -160,7 +160,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               {caseData && (
                 <Link
                   href={`/cases/${caseData.id}`}
-                  className="text-[13px] text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
+                  className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1"
                 >
                   📋 {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
                 </Link>
@@ -190,7 +190,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     onClick={handleAdvance}
                     disabled={advancing}
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                      ${advancing ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}
+                      ${advancing ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}
                   >
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
                     {advancing ? '処理中...' : '完了にする'}
@@ -243,7 +243,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                       opacity: isPassed && !isActive ? 0.6 : 1,
                     }}
                   />
-                  <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-blue-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+                  <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-brand-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
                     {step}
                   </span>
                   {!isLast && (
@@ -262,7 +262,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
       {/* 📄 書類作成リンク（全タスク共通） */}
       {caseData && (
         <div className="bg-white border border-indigo-200 rounded-xl mb-5 overflow-hidden shadow-sm">
-          <div className="bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-2 flex items-center gap-2">
+          <div className="bg-gradient-to-r from-indigo-500 to-brand-500 px-4 py-2 flex items-center gap-2">
             <span className="text-white text-base">📄</span>
             <h2 className="text-white text-sm font-bold flex-1">書類作成</h2>
           </div>
@@ -289,8 +289,8 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
         const completionCondition = getCompletionCondition(task.template_key)
         if (!task.procedure_text && !completionCondition) return null
         return (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl overflow-hidden mb-5 shadow-sm">
-            <div className="bg-blue-600 px-4 py-2">
+          <div className="bg-gradient-to-br from-brand-50 to-indigo-50 border-2 border-brand-300 rounded-xl overflow-hidden mb-5 shadow-sm">
+            <div className="bg-brand-600 px-4 py-2">
               <h2 className="text-white text-sm font-bold flex items-center gap-2">
                 <span className="text-base">👉</span> 今やること
               </h2>
@@ -314,11 +314,11 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               )}
               {/* 作業手順 */}
               {task.procedure_text && (
-                <div className="bg-white border border-blue-200 rounded-lg p-3">
+                <div className="bg-white border border-brand-200 rounded-lg p-3">
                   <div className="flex items-start gap-2">
-                    <span className="text-blue-600 text-lg leading-none mt-0.5">📋</span>
+                    <span className="text-brand-600 text-lg leading-none mt-0.5">📋</span>
                     <div className="flex-1">
-                      <div className="text-[13px] font-bold text-blue-700 mb-1">
+                      <div className="text-[13px] font-bold text-brand-700 mb-1">
                         作業手順
                       </div>
                       <div className="text-[13px] text-gray-700 whitespace-pre-line leading-relaxed">
@@ -419,7 +419,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     <div key={act.id} className="flex items-start gap-2 text-xs">
                       <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
                         act.activity_type === 'task_started' ? 'bg-green-500' :
-                        act.activity_type === 'task_completed' ? 'bg-blue-500' :
+                        act.activity_type === 'task_completed' ? 'bg-brand-500' :
                         act.activity_type === 'status_change' ? 'bg-amber-500' :
                         'bg-gray-400'
                       }`} />

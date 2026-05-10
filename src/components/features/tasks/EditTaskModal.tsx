@@ -92,7 +92,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '保存中...' : '保存する'}
           </button>
         </>
@@ -111,7 +111,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
             <span className="text-[14px] font-medium text-gray-700 flex-1">{caseInfo.deal_name}</span>
             <button
               onClick={() => { onClose(); router.push(`/tasks/${task.id}`) }}
-              className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition border border-blue-200 bg-white"
+              className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded hover:bg-brand-50 transition border border-brand-200 bg-white"
             >
               タスク詳細 →
             </button>
@@ -131,7 +131,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
             type="text"
             value={form.title}
             onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
 
@@ -141,7 +141,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
           <select
             value={form.phase}
             onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
             {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
           </select>
@@ -160,7 +160,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
               type="date"
               value={form.dueDate}
               onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
 
@@ -172,7 +172,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
               value={form.category}
               onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
               placeholder="例：金融機関、不動産、税務"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
               type="button"
               onClick={() => setForm(p => ({ ...p, workRole: '' }))}
               className={`px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
-                form.workRole === '' ? 'ring-2 ring-blue-400 ring-offset-1 bg-gray-100 text-gray-700 border-gray-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                form.workRole === '' ? 'ring-2 ring-brand-400 ring-offset-1 bg-gray-100 text-gray-700 border-gray-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               }`}
             >
               未設定
@@ -198,7 +198,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
                 type="button"
                 onClick={() => setForm(p => ({ ...p, workRole: r.key }))}
                 className={`flex items-center gap-1 px-3 py-1.5 text-[13px] font-semibold rounded-lg border transition-colors ${
-                  form.workRole === r.key ? `ring-2 ring-blue-400 ring-offset-1 ${r.solid} border-transparent` : r.pill
+                  form.workRole === r.key ? `ring-2 ring-brand-400 ring-offset-1 ${r.solid} border-transparent` : r.pill
                 }`}
               >
                 <r.Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
@@ -217,7 +217,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
                 key={p.key}
                 onClick={() => setForm(prev => ({ ...prev, priority: p.key }))}
                 className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
-                  form.priority === p.key ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+                  form.priority === p.key ? 'ring-2 ring-brand-400 ring-offset-1' : ''
                 } ${p.style}`}
               >
                 {p.label}

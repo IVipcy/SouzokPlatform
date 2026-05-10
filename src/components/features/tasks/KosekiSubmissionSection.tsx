@@ -29,7 +29,7 @@ function DateCell({ value, onChange }: { value: string | null; onChange: (v: str
         autoFocus
         onChange={e => setDraft(e.target.value)}
         onBlur={() => { setEditing(false); onChange(draft || null) }}
-        className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 focus:outline-none"
+        className="w-full text-xs border border-brand-400 rounded px-1 py-0.5 focus:outline-none"
       />
     )
   }
@@ -58,7 +58,7 @@ function TextCell({ value, onChange, placeholder }: {
         onChange={e => setDraft(e.target.value)}
         onBlur={() => { setEditing(false); onChange(draft) }}
         onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-        className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 focus:outline-none"
+        className="w-full text-xs border border-brand-400 rounded px-1 py-0.5 focus:outline-none"
       />
     )
   }
@@ -174,7 +174,7 @@ export default function KosekiSubmissionSection({ task, onRefresh }: Props) {
                     <select
                       value={row.method}
                       onChange={e => updateRow(row.id, { method: e.target.value as SubmissionEntry['method'] })}
-                      className="w-full text-xs border border-gray-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:border-blue-400"
+                      className="w-full text-xs border border-gray-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:border-brand-400"
                     >
                       <option value="">—</option>
                       <option value="郵送">📮 郵送</option>
@@ -215,7 +215,7 @@ export default function KosekiSubmissionSection({ task, onRefresh }: Props) {
         </p>
         <button
           onClick={addRow}
-          className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
+          className="text-[13px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
         >
           ＋ 提出先を追加
         </button>

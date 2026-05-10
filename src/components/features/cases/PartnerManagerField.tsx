@@ -183,7 +183,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   placeholder="パートナー名"
-                  className="w-full px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                  className="w-full px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-brand-400"
                 />
                 <div className="flex items-center gap-1.5">
                   <input
@@ -192,13 +192,13 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
                     onChange={e => setNewRate(e.target.value)}
                     placeholder="還元率"
                     step="0.1"
-                    className="flex-1 px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                    className="flex-1 px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-brand-400"
                   />
                   <span className="text-[13px] text-gray-500">%</span>
                   <button
                     onClick={addPartner}
                     disabled={!newName.trim()}
-                    className="px-2 py-1 text-[13px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40"
+                    className="px-2 py-1 text-[13px] bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-40"
                   >
                     追加
                   </button>
@@ -213,7 +213,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
             ) : (
               <button
                 onClick={() => setAddMode(true)}
-                className="w-full text-left text-[13px] text-blue-600 hover:bg-blue-50 px-2 py-1 rounded font-medium"
+                className="w-full text-left text-[13px] text-brand-600 hover:bg-brand-50 px-2 py-1 rounded font-medium"
               >
                 ＋ 新規パートナーを追加
               </button>
@@ -252,8 +252,8 @@ function PartnerRowItem({
 
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-blue-50/40 ${
-        isSelected ? 'bg-blue-50' : ''
+      className={`flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-brand-50/40 ${
+        isSelected ? 'bg-brand-50' : ''
       }`}
     >
       <button
@@ -276,7 +276,7 @@ function PartnerRowItem({
           }}
           step="0.1"
           autoFocus
-          className="w-14 px-1 py-0.5 text-[13px] border border-blue-400 rounded font-mono"
+          className="w-14 px-1 py-0.5 text-[13px] border border-brand-400 rounded font-mono"
         />
       ) : (
         <button

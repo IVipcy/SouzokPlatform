@@ -108,7 +108,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving || !file} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving || !file} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? 'アップロード中...' : 'アップロード'}
           </button>
         </>
@@ -118,7 +118,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>}
 
         {caseLocked && currentCase && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+          <div className="bg-brand-50 border border-brand-200 rounded-lg px-3 py-2 text-xs text-brand-700">
             <span className="font-semibold">保存先案件:</span> {currentCase.case_number} {currentCase.deal_name}
           </div>
         )}
@@ -126,7 +126,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
         {/* File picker */}
         <div>
           <label className="block text-[13px] font-semibold text-gray-500 mb-1">ファイル *</label>
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition cursor-pointer">
+          <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-brand-300 transition cursor-pointer">
             <input
               type="file"
               onChange={handleFileChange}
@@ -159,7 +159,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
             value={form.name}
             onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
             placeholder="例：遺産分割協議書"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
 
@@ -170,7 +170,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
             <select
               value={form.case_id}
               onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               <option value="">選択してください</option>
               {cases.map(c => <option key={c.id} value={c.id}>{c.case_number} {c.deal_name}</option>)}

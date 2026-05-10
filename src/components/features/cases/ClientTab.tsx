@@ -114,7 +114,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           {heir.relationship_type && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">{heir.relationship_type}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">{heir.relationship_type}</span>
                           )}
                           {heir.relationship && heir.relationship !== heir.relationship_type && (
                             <span className="text-[12px] text-gray-500">{heir.relationship}</span>
@@ -158,7 +158,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                   <select
                     value={heirForm.relationship_type}
                     onChange={e => setHeirForm(f => ({ ...f, relationship_type: e.target.value as typeof f.relationship_type }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 bg-white"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 bg-white"
                   >
                     <option value="配偶者">配偶者</option>
                     <option value="子">子</option>
@@ -192,7 +192,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
               </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowAddHeir(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-                <button onClick={handleAddHeir} className="px-3 py-1.5 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700">追加</button>
+                <button onClick={handleAddHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">追加</button>
               </div>
             </div>
           )}
@@ -286,7 +286,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
@@ -313,7 +313,7 @@ function Section({ title, icon, children, actionLabel, onAction }: {
         
         <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{title}</h3>
         {actionLabel && onAction && (
-          <button onClick={onAction} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition border border-blue-200 bg-blue-50">
+          <button onClick={onAction} className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-0.5 rounded hover:bg-brand-50 transition border border-brand-200 bg-brand-50">
             {actionLabel}
           </button>
         )}
@@ -336,7 +336,7 @@ function FormField({ label, value, onChange, placeholder }: { label: string; val
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
       />
     </div>
   )

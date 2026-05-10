@@ -23,7 +23,7 @@ type DocumentItem = {
 }
 
 const DOCUMENTS: DocumentItem[] = [
-  { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-blue-50 text-blue-700 border-blue-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
+  { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-brand-50 text-brand-700 border-brand-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
   { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
   { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（標準／簡易）', description: '甲乙丙の契約。契約形態と業務種別で自動切替', status: 'planned' },
   { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '権限リストを用途で切替', status: 'planned' },
@@ -51,7 +51,7 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
   return (
     <div className="space-y-5">
       {/* ヘッダ */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-4">
+      <div className="bg-gradient-to-r from-indigo-50 to-brand-50 border border-indigo-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
           <div className="text-2xl">📄</div>
           <div className="flex-1">
@@ -75,7 +75,7 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
               disabled={!ready}
               className={`text-left p-4 rounded-xl border transition-all ${
                 ready
-                  ? 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer'
+                  ? 'bg-white border-gray-200 hover:border-brand-400 hover:shadow-md cursor-pointer'
                   : 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
               }`}
             >

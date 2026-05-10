@@ -199,7 +199,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
           >
             {generating ? '生成中…' : 'Excelで出力'}
           </button>
@@ -214,7 +214,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             <select
               value={variant}
               onChange={e => setVariant(e.target.value as KosekiVariant)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
             >
               {(Object.keys(KOSEKI_VARIANT_PRESETS) as KosekiVariant[]).map(key => (
                 <option key={key} value={key}>{KOSEKI_VARIANT_PRESETS[key].label}</option>
@@ -228,7 +228,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               type="date"
               value={requestDate}
               onChange={e => setRequestDate(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
             />
           </div>
           {variant === 'ikiiki_kennin' && (
@@ -239,7 +239,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                 value={submitCourt}
                 onChange={e => setSubmitCourt(e.target.value)}
                 placeholder="例: 横浜家庭裁判所"
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
               />
             </div>
           )}
@@ -276,7 +276,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             <div className="flex gap-2">
               <button
                 onClick={addRow}
-                className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                className="text-[13px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1 rounded-md transition-colors"
               >
                 ＋ 請求先を追加
               </button>
@@ -361,8 +361,8 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                           onClick={() => toggleRequestType(row.id, type)}
                           className={`text-[13px] px-2 py-1 rounded-md border transition-colors ${
                             on
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                              ? 'bg-brand-600 text-white border-brand-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
                           }`}
                         >
                           {type}

@@ -238,7 +238,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
           </div>
           <div className="w-full h-[5px] bg-gray-200 rounded-full overflow-hidden mb-3">
             <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
+              className="h-full bg-brand-600 rounded-full transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>

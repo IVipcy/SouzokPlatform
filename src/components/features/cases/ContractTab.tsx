@@ -200,7 +200,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
             </FieldGrid>
             <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
               <span className="text-gray-500 font-medium text-sm">案件トータル収益見込</span>
-              <span className="text-blue-600 font-bold text-base">{yen(totalRevenue || null)}</span>
+              <span className="text-brand-600 font-bold text-base">{yen(totalRevenue || null)}</span>
             </div>
           </Section>
 
@@ -300,7 +300,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                       <select
                         value={expenseForm.category}
                         onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                       >
                         <option value="">選択してください</option>
                         {EXPENSE_CATEGORIES.map(cat => (
@@ -314,7 +314,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                         placeholder="金額"
                         value={expenseForm.amount}
                         onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                       />
                     </FormField>
                     <FormField label="発生日">
@@ -322,14 +322,14 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                         type="date"
                         value={expenseForm.expense_date}
                         onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                       />
                     </FormField>
                     <FormField label="関連タスク">
                       <select
                         value={expenseForm.related_task_id}
                         onChange={e => setExpenseForm({ ...expenseForm, related_task_id: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                       >
                         <option value="">（なし）</option>
                         {tasks.map(t => (
@@ -344,7 +344,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                       placeholder="備考"
                       value={expenseForm.notes}
                       onChange={e => setExpenseForm({ ...expenseForm, notes: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                     />
                   </FormField>
                   <div className="flex gap-2 justify-end">
@@ -357,7 +357,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                     <button
                       onClick={handleAddExpense}
                       disabled={savingExpense || !expenseForm.category || !expenseForm.amount}
-                      className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50"
+                      className="text-xs bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:opacity-50"
                     >
                       {savingExpense ? '保存中...' : '追加'}
                     </button>

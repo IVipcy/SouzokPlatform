@@ -184,7 +184,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
           <button
             onClick={handleGenerate}
             disabled={saving || selected.size === 0}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
           >
             {saving ? '生成中...' : `${selected.size} 件生成`}
           </button>
@@ -203,7 +203,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
         </p>
         <button
           onClick={toggleAll}
-          className="text-xs text-blue-600 font-medium hover:underline"
+          className="text-xs text-brand-600 font-medium hover:underline"
         >
           {selected.size === selectableTemplates.length ? '全解除' : '全選択'}
         </button>
@@ -248,7 +248,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
                         checked={selected.has(template.key)}
                         disabled={exists}
                         onChange={() => toggleTemplate(template.key)}
-                        className="accent-blue-600 w-3.5 h-3.5"
+                        className="accent-brand-600 w-3.5 h-3.5"
                       />
                       <span className="flex-1 text-gray-700">{template.label}</span>
                       <span className="text-[12px] text-gray-400 font-mono">{template.category}</span>

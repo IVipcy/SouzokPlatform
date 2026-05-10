@@ -121,7 +121,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '保存中...' : '保存'}
           </button>
         </>
@@ -135,7 +135,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
         <button
           onClick={() => setActiveSection('case')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            activeSection === 'case' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'
+            activeSection === 'case' ? 'text-brand-600 border-brand-600' : 'text-gray-500 border-transparent hover:text-gray-700'
           }`}
         >
           案件担当者
@@ -143,7 +143,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
         <button
           onClick={() => setActiveSection('tasks')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            activeSection === 'tasks' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'
+            activeSection === 'tasks' ? 'text-brand-600 border-brand-600' : 'text-gray-500 border-transparent hover:text-gray-700'
           }`}
         >
           タスク別担当（{tasks.length}件）
@@ -272,7 +272,7 @@ function SearchableSelect({ members, value, onChange, placeholder, compact }: {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="名前で検索..."
-              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-brand-400"
               autoFocus
             />
           </div>
@@ -287,8 +287,8 @@ function SearchableSelect({ members, value, onChange, placeholder, compact }: {
               <button
                 key={m.id}
                 onClick={() => { onChange(m.id); setOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition ${
-                  m.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-brand-50 transition ${
+                  m.id === value ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-700'
                 }`}
               >
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
@@ -342,12 +342,12 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
         onClick={() => { setOpen(true); setQuery('') }}
       >
         {selectedMembers.map(m => (
-          <span key={m.id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 text-[12px] font-medium">
+          <span key={m.id} className="inline-flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 rounded px-1.5 py-0.5 text-[12px] font-medium">
             <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
               {m.name.charAt(0)}
             </span>
             {m.name}
-            <button onClick={(e) => { e.stopPropagation(); onRemove(m.id) }} className="text-blue-400 hover:text-red-500 ml-0.5">✕</button>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(m.id) }} className="text-brand-400 hover:text-red-500 ml-0.5">✕</button>
           </span>
         ))}
         {selectedIds.length === 0 && (
@@ -363,7 +363,7 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="名前で検索..."
-              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-brand-400"
               autoFocus
             />
           </div>
@@ -372,7 +372,7 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
               <button
                 key={m.id}
                 onClick={() => { onAdd(m.id); setQuery('') }}
-                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition text-gray-700"
+                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-brand-50 transition text-gray-700"
               >
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
                   {m.name.charAt(0)}

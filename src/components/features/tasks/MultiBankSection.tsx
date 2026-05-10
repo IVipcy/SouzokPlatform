@@ -41,7 +41,7 @@ function DateCell({ value, onChange }: { value: string | null; onChange: (v: str
           setEditing(false)
           onChange(draft || null)
         }}
-        className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 focus:outline-none"
+        className="w-full text-xs border border-brand-400 rounded px-1 py-0.5 focus:outline-none"
       />
     )
   }
@@ -117,7 +117,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
           <button
             onClick={syncFromCase}
             disabled={syncing}
-            className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 disabled:opacity-50 transition-colors"
+            className="text-xs font-medium text-brand-600 border border-brand-200 rounded-lg px-3 py-1.5 hover:bg-brand-50 disabled:opacity-50 transition-colors"
           >
             {syncing ? '読み込み中...' : '案件の預貯金情報を取得する'}
           </button>
@@ -191,7 +191,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
                         type="checkbox"
                         checked={bank.frozen}
                         onChange={e => updateBank(idx, { frozen: e.target.checked })}
-                        className="accent-blue-600 w-3.5 h-3.5"
+                        className="accent-brand-600 w-3.5 h-3.5"
                       />
                     </label>
                   </td>
@@ -230,7 +230,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
         <button
           onClick={syncFromCase}
           disabled={syncing}
-          className="text-[12px] font-medium text-gray-400 hover:text-blue-600 disabled:opacity-50 whitespace-nowrap ml-2 transition-colors"
+          className="text-[12px] font-medium text-gray-400 hover:text-brand-600 disabled:opacity-50 whitespace-nowrap ml-2 transition-colors"
         >
           {syncing ? '...' : '↻ 銀行を更新'}
         </button>

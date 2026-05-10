@@ -156,7 +156,7 @@ export default function DocsTab({ caseData }: Props) {
                       {taskId && taskTitle ? (
                         <button
                           onClick={() => router.push(`/tasks/${taskId}`)}
-                          className="text-blue-600 hover:underline truncate"
+                          className="text-brand-600 hover:underline truncate"
                         >
                           {taskTitle}
                         </button>

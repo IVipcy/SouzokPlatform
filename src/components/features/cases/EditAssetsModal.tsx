@@ -67,7 +67,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '保存中...' : '保存する'}
           </button>
         </>
@@ -86,7 +86,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
               value={form.total_asset_estimate}
               onChange={e => setForm(p => ({ ...p, total_asset_estimate: e.target.value }))}
               placeholder="0"
-              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -102,8 +102,8 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
                 className={`flex-1 px-3 py-2 text-xs font-bold rounded-lg border transition-colors ${
                   form.property_rank === rank
                     ? rank === '確認中'
-                      ? 'ring-2 ring-blue-400 ring-offset-1 border-amber-200 bg-amber-50 text-amber-700'
-                      : 'ring-2 ring-blue-400 ring-offset-1 border-blue-200 bg-blue-50 text-blue-700'
+                      ? 'ring-2 ring-brand-400 ring-offset-1 border-amber-200 bg-amber-50 text-amber-700'
+                      : 'ring-2 ring-brand-400 ring-offset-1 border-brand-200 bg-brand-50 text-brand-700'
                     : 'border-gray-200 hover:bg-gray-50 text-gray-600'
                 }`}
               >
@@ -124,10 +124,10 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
                 className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${
                   form.tax_filing_required === v
                     ? v === '要'
-                      ? 'ring-2 ring-blue-400 ring-offset-1 border-red-200 bg-red-50 text-red-700'
+                      ? 'ring-2 ring-brand-400 ring-offset-1 border-red-200 bg-red-50 text-red-700'
                       : v === '不要'
-                        ? 'ring-2 ring-blue-400 ring-offset-1 border-green-200 bg-green-50 text-green-700'
-                        : 'ring-2 ring-blue-400 ring-offset-1 border-amber-200 bg-amber-50 text-amber-700'
+                        ? 'ring-2 ring-brand-400 ring-offset-1 border-green-200 bg-green-50 text-green-700'
+                        : 'ring-2 ring-brand-400 ring-offset-1 border-amber-200 bg-amber-50 text-amber-700'
                     : 'border-gray-200 hover:bg-gray-50 text-gray-600'
                 }`}
               >
@@ -144,7 +144,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
             type="date"
             value={form.tax_filing_deadline}
             onChange={e => setForm(p => ({ ...p, tax_filing_deadline: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
       </div>

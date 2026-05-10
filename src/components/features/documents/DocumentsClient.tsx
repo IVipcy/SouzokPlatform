@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, FileType2, FileSpreadsheet, type LucideIcon } from 'lucide-react'
+import { FileText, FileType2, FileSpreadsheet, Upload, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import UploadDocumentModal from './UploadDocumentModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import Button from '@/components/ui/Button'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { DocumentRow, MemberRow } from '@/types'
 
@@ -19,7 +20,7 @@ type Props = {
 
 const FORMAT_STYLES: Record<string, { bg: string; text: string; Icon: LucideIcon }> = {
   PDF:   { bg: 'bg-red-50',   text: 'text-red-500',   Icon: FileText },
-  Word:  { bg: 'bg-blue-50',  text: 'text-blue-500',  Icon: FileType2 },
+  Word:  { bg: 'bg-brand-50',  text: 'text-brand-500',  Icon: FileType2 },
   Excel: { bg: 'bg-green-50', text: 'text-green-500', Icon: FileSpreadsheet },
 }
 
@@ -99,7 +100,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
   const summaryCards: Array<{ key: 'all' | 'ai' | 'manual'; label: string; count: number; sub: string; color: string }> = [
     { key: 'all',    label: '全ドキュメント', count: counts.all,    sub: '登録文書',        color: '' },
     { key: 'ai',     label: 'AI生成',        count: counts.ai,     sub: 'タスクから生成',  color: 'text-purple-600' },
-    { key: 'manual', label: 'アップロード',   count: counts.manual, sub: '手動追加',        color: 'text-blue-600' },
+    { key: 'manual', label: 'アップロード',   count: counts.manual, sub: '手動追加',        color: 'text-brand-600' },
   ]
 
   const handleDelete = async () => {
@@ -161,12 +162,9 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
               className="bg-transparent border-none outline-none text-xs text-gray-700 w-48 placeholder:text-gray-300"
             />
           </div>
-          <button
-            onClick={() => setUploadOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
-          >
-            📤 アップロード
-          </button>
+          <Button variant="primary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setUploadOpen(true)}>
+            アップロード
+          </Button>
         </div>
       </div>
 
@@ -177,7 +175,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
             key={card.key}
             onClick={() => setTypeFilter(card.key)}
             className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${
-              typeFilter === card.key ? 'border-blue-300 bg-blue-50 border-t-[3px] border-t-blue-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
+              typeFilter === card.key ? 'border-brand-300 bg-brand-50 border-t-[3px] border-t-brand-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
             <div className="text-[13px] font-semibold text-gray-500 mb-2">{card.label}</div>
@@ -274,7 +272,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                     <td className="px-3.5 py-2.5 overflow-hidden">
                       {doc.cases ? (
                         <>
-                          <div className="text-xs font-medium text-blue-600 cursor-pointer hover:underline truncate">{doc.cases.deal_name}</div>
+                          <div className="text-xs font-medium text-brand-600 cursor-pointer hover:underline truncate">{doc.cases.deal_name}</div>
                           <div className="text-[12px] text-gray-400 truncate">{doc.cases.case_number}</div>
                         </>
                       ) : (

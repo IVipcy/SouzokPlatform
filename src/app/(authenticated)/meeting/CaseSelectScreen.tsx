@@ -34,7 +34,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
         </div>
         <button
           onClick={() => onSelect({ id: 'new', name: '新規案件', client: '', phone: '' })}
-          className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition flex-shrink-0"
+          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition flex-shrink-0"
         >
           ＋ 新規面談を作成
         </button>
@@ -47,7 +47,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="案件名・依頼者名・電話番号で検索"
-            className="w-full py-2.5 px-9 border-[1.5px] border-gray-200 rounded-lg text-[13px] text-gray-900 bg-white outline-none focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 transition"
+            className="w-full py-2.5 px-9 border-[1.5px] border-gray-200 rounded-lg text-[13px] text-gray-900 bg-white outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 transition"
           />
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">🔍</span>
         </div>
@@ -87,7 +87,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   <td className="px-3.5 py-2.5 text-xs text-gray-600">{c.clients?.name ?? '—'}</td>
                   <td className="px-3.5 py-2.5 text-xs font-mono text-gray-500">{c.clients?.phone ?? '—'}</td>
                   <td className="px-3.5 py-2.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold bg-brand-50 text-brand-600 border border-brand-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
                       {c.status}
                     </span>
@@ -95,7 +95,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   <td className="px-3.5 py-2.5">
                     <button
                       onClick={e => { e.stopPropagation(); onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '' }) }}
-                      className="px-2.5 py-1 rounded-md bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700 transition"
+                      className="px-2.5 py-1 rounded-md bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition"
                     >
                       選択
                     </button>

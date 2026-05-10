@@ -201,12 +201,12 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
         step === 'upload' ? (
           <>
             <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">キャンセル</button>
-            <button onClick={handleParse} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">解析する</button>
+            <button onClick={handleParse} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700">解析する</button>
           </>
         ) : (
           <>
             <button onClick={() => setStep('upload')} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">戻る</button>
-            <button onClick={handleApply} disabled={saving || selected.size === 0} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleApply} disabled={saving || selected.size === 0} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
               {saving ? '適用中...' : `${selected.size}件の入金を適用`}
             </button>
           </>
@@ -219,7 +219,7 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
         <div className="space-y-3">
           <div>
             <label className="block text-[13px] font-semibold text-gray-500 mb-1">CSVファイル</label>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition">
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-brand-300 transition">
               <input type="file" accept=".csv" onChange={handleFileLoad} className="hidden" id="csv-upload" />
               <label htmlFor="csv-upload" className="cursor-pointer">
                 <div className="text-2xl mb-1 opacity-40">📄</div>
@@ -235,7 +235,7 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
               onChange={e => setCsvText(e.target.value)}
               rows={6}
               placeholder="CSVデータを貼り付けてください..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none"
             />
           </div>
           {csvText && <div className="text-[12px] text-gray-400">{csvText.split('\n').filter(l => l.trim()).length} 行検出</div>}
@@ -272,7 +272,7 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
               </thead>
               <tbody>
                 {results.map((r, i) => (
-                  <tr key={i} className={`border-b border-gray-100 ${selected.has(i) ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
+                  <tr key={i} className={`border-b border-gray-100 ${selected.has(i) ? 'bg-brand-50/50' : 'hover:bg-gray-50'}`}>
                     <td className="px-2 py-1.5">
                       {r.matchedInvoiceId && (
                         <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} className="rounded" />

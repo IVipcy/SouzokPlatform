@@ -15,7 +15,7 @@ type Props = {
 
 const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   '着手前': { bg: 'bg-gray-100', text: 'text-gray-600' },
-  '対応中': { bg: 'bg-blue-50', text: 'text-blue-700' },
+  '対応中': { bg: 'bg-brand-50', text: 'text-brand-700' },
   '完了': { bg: 'bg-green-50', text: 'text-green-700' },
 }
 
@@ -91,7 +91,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
     <div className="sticky top-[90px] flex flex-col gap-4">
       {/* 関連案件カード */}
       {caseData && (
-        <div className="rounded-xl p-4 text-white bg-gradient-to-br from-blue-800 to-blue-600 shadow-lg">
+        <div className="rounded-xl p-4 text-white bg-gradient-to-br from-brand-800 to-brand-600 shadow-lg">
           <h3 className="text-[15px] font-bold mb-2">{caseData.deal_name}</h3>
           <div className="space-y-1.5 text-[14px] opacity-90">
             {caseData.deceased_name && (
@@ -171,7 +171,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
       {/* このタスクが終わったら */}
       {nextTaskDeps.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-3 py-2.5 bg-blue-600 flex items-center gap-2">
+          <div className="px-3 py-2.5 bg-brand-600 flex items-center gap-2">
             <span className="text-white text-[14px] font-bold">このタスクが終わったら</span>
           </div>
           <div className="divide-y divide-gray-100">
@@ -195,7 +195,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 group-hover:text-blue-600 truncate">
+                    <p className="text-xs font-semibold text-gray-800 group-hover:text-brand-600 truncate">
                       {toTask.title}
                     </p>
                     {isMet && (
@@ -283,7 +283,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                         「{fromTask.title}」{conditionLabel}
                       </p>
                       {!isMet && (
-                        <Link href={`/tasks/${fromTask.id}`} className="text-[12px] text-blue-500 hover:underline">
+                        <Link href={`/tasks/${fromTask.id}`} className="text-[12px] text-brand-500 hover:underline">
                           そのタスクを開く →
                         </Link>
                       )}
@@ -336,7 +336,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
             <div className="mt-2 flex gap-2">
               <Link
                 href={`/cases/${caseData.id}?tab=documents`}
-                className="flex-1 text-center text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg py-1.5 transition-colors"
+                className="flex-1 text-center text-[12px] font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg py-1.5 transition-colors"
               >
                 案件書類
               </Link>

@@ -185,7 +185,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
           >
             {generating ? '生成中…' : 'Excelで出力'}
           </button>
@@ -200,7 +200,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             <select
               value={variant}
               onChange={e => setVariant(e.target.value as FixedAssetVariant)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
             >
               {(Object.keys(FIXED_ASSET_VARIANT_PRESETS) as FixedAssetVariant[]).map(key => (
                 <option key={key} value={key}>{FIXED_ASSET_VARIANT_PRESETS[key].label}</option>
@@ -214,7 +214,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               type="date"
               value={requestDate}
               onChange={e => setRequestDate(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
             />
           </div>
           <div>
@@ -224,7 +224,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               value={municipality}
               onChange={e => setMunicipality(e.target.value)}
               placeholder="例: 横須賀市"
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
             />
           </div>
         </section>
@@ -255,7 +255,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 type="text"
                 value={nendo}
                 onChange={e => setNendo(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
               />
             </label>
             <label className="block">
@@ -265,7 +265,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 min={1}
                 value={copyCount}
                 onChange={e => setCopyCount(Number(e.target.value) || 1)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
               />
             </label>
           </div>
@@ -280,7 +280,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                     type="button"
                     onClick={() => toggleCertKind(kind)}
                     className={`text-[13px] px-2 py-1 rounded-md border transition-colors ${
-                      on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
                     }`}
                   >
                     {kind}
@@ -301,7 +301,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 type="text"
                 value={ownerName}
                 onChange={e => setOwnerName(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
               />
               <span className="text-[12px] text-gray-400">出力時に「故 〜」形式で付与されます</span>
             </label>
@@ -311,7 +311,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 type="text"
                 value={ownerAddress}
                 onChange={e => setOwnerAddress(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
               />
             </label>
           </div>
@@ -323,7 +323,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             <h3 className="text-sm font-semibold text-gray-700">対象資産（最大5件）</h3>
             <button
               onClick={addRow}
-              className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+              className="text-[13px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1 rounded-md transition-colors"
             >
               ＋ 物件を追加
             </button>
@@ -348,7 +348,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                       value={row.landAddress}
                       onChange={e => updateRow(row.id, { landAddress: e.target.value })}
                       placeholder="例: 横須賀市三春町〇〇〇番地"
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
                     />
                   </label>
                   <label className="block">
@@ -358,7 +358,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                       value={row.buildingAddress}
                       onChange={e => updateRow(row.id, { buildingAddress: e.target.value })}
                       placeholder="家屋がない場合は空欄"
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
                     />
                   </label>
                   <label className="block">
@@ -367,7 +367,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                       type="text"
                       value={row.kaokuBango}
                       onChange={e => updateRow(row.id, { kaokuBango: e.target.value })}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
                     />
                   </label>
                   <label className="flex items-center gap-2 text-[14px] text-gray-700 mt-4 md:mt-5">
@@ -393,7 +393,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none focus:outline-none focus:border-brand-400"
             />
           </label>
           <label className="block">
@@ -404,7 +404,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               value={kogawaseAmount}
               onChange={e => setKogawaseAmount(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="例: 600"
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
             />
           </label>
         </section>

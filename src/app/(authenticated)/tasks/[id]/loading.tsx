@@ -41,7 +41,7 @@ export default function TaskDetailLoading() {
           ))}
         </div>
         <div className="w-[320px] space-y-4">
-          <div className="h-40 bg-blue-100 rounded-xl" />
+          <div className="h-40 bg-brand-100 rounded-xl" />
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="space-y-2">
               <div className="h-3 w-full bg-gray-100 rounded" />

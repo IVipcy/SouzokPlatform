@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { User, AlertTriangle } from 'lucide-react'
+import { User, AlertTriangle, Plus } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 import { CASE_STATUSES } from '@/lib/constants'
 import { useModal } from '@/hooks/useModal'
 import CreateCaseModal from './CreateCaseModal'
@@ -161,12 +162,9 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
               className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
             />
           </div>
-          <button
-            onClick={createModal.open}
-            className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors"
-          >
-            ＋ 新規案件登録
-          </button>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={createModal.open}>
+            新規案件登録
+          </Button>
         </div>
       </div>
 
@@ -176,7 +174,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
           onClick={() => setFilterMine(v => !v)}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
             filterMine
-              ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
+              ? 'bg-brand-600 text-white border-brand-600 shadow-brand-200'
               : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -229,14 +227,14 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
           <button
             onClick={() => setDisplayMode('list')}
             className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-              displayMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              displayMode === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
             }`}
             title="リスト"
           >☰</button>
           <button
             onClick={() => setDisplayMode('kanban')}
             className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-              displayMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              displayMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
             }`}
             title="カンバン"
           >⊞</button>
@@ -304,7 +302,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
         </span>
         <div className="flex-1" />
         <button onClick={reset} title="列幅をデフォルトに戻す"
-          className="text-[13px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
+          className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
           ↔ 列幅リセット
         </button>
       </div>
@@ -480,7 +478,7 @@ function KanbanView({ cases, taskCounts, router }: {
 // ─── Sub components ───
 function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
-    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
       {label}
       {count !== undefined && count > 0 && (
         <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>

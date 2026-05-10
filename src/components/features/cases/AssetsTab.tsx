@@ -73,7 +73,7 @@ function IMESafeInput({ value, onChange, placeholder, autoFocus }: {
         // 合成終了後に確定値を親へ
         onChange((e.target as HTMLInputElement).value)
       }}
-      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
     />
   )
 }
@@ -149,7 +149,7 @@ function InlineEdit({
           onBlur={commit}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className="border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-blue-50 min-w-[80px]"
+          className="border border-brand-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 bg-brand-50 min-w-[80px]"
         >
           <option value="">未設定</option>
           {options.map(o => (
@@ -170,7 +170,7 @@ function InlineEdit({
         onKeyDown={handleKeyDown}
         disabled={saving}
         placeholder={placeholder}
-        className="border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-blue-50 w-full max-w-[200px]"
+        className="border border-brand-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 bg-brand-50 w-full max-w-[200px]"
       />
     )
   }
@@ -178,7 +178,7 @@ function InlineEdit({
   return (
     <span
       onClick={() => { setDraft(String(value ?? '')); setEditing(true) }}
-      className="group/ie cursor-pointer inline-flex items-center gap-1 rounded px-0.5 -mx-0.5 hover:bg-blue-50 transition min-h-[20px]"
+      className="group/ie cursor-pointer inline-flex items-center gap-1 rounded px-0.5 -mx-0.5 hover:bg-brand-50 transition min-h-[20px]"
       title="クリックして編集"
     >
       {displayValue ?? (
@@ -340,8 +340,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
     onCancel: () => void
   }) {
     return (
-      <div className="border-t border-blue-100 bg-blue-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-        <div className="text-[13px] font-semibold text-blue-700 mb-2">{title}</div>
+      <div className="border-t border-brand-100 bg-brand-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
+        <div className="text-[13px] font-semibold text-brand-700 mb-2">{title}</div>
         <div className="grid grid-cols-1 gap-2">
           <IMESafeInput
             placeholder="金融機関名（例: 三菱UFJ銀行）"
@@ -359,7 +359,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           <button
             onClick={onSubmit}
             disabled={saving}
-            className="px-3 py-1 bg-blue-600 text-white text-[13px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+            className="px-3 py-1 bg-brand-600 text-white text-[13px] font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition"
           >
             {saving ? '保存中...' : '追加'}
           </button>
@@ -533,7 +533,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     value={p.area_evaluation}
                     displayValue={
                       p.area_evaluation ? (
-                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[12px] font-semibold">
+                        <span className="bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded text-[12px] font-semibold">
                           {p.area_evaluation}
                         </span>
                       ) : (
@@ -671,15 +671,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
           {/* Add property form - inline within the section */}
           {showPropertyForm && (
-            <div className="border-t border-blue-100 bg-blue-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-              <div className="text-[13px] font-semibold text-blue-700 mb-2">不動産を追加</div>
+            <div className="border-t border-brand-100 bg-brand-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
+              <div className="text-[13px] font-semibold text-brand-700 mb-2">不動産を追加</div>
               <div className="grid grid-cols-1 gap-2">
                 <input
                   type="text"
                   placeholder="物件種別（例: 戸建, マンション, 土地）"
                   value={propForm.property_type}
                   onChange={e => setPropForm(f => ({ ...f, property_type: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
                   autoFocus
                 />
                 <input
@@ -687,21 +687,21 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   placeholder="所在地"
                   value={propForm.address}
                   onChange={e => setPropForm(f => ({ ...f, address: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
                 />
                 <input
                   type="text"
                   placeholder="地番"
                   value={propForm.lot_number}
                   onChange={e => setPropForm(f => ({ ...f, lot_number: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
                 />
               </div>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={handleAddProperty}
                   disabled={saving}
-                  className="px-3 py-1 bg-blue-600 text-white text-[13px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="px-3 py-1 bg-brand-600 text-white text-[13px] font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition"
                 >
                   {saving ? '保存中...' : '追加'}
                 </button>
@@ -769,7 +769,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       displayValue={
                         d.existence_check ? (
                           <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
-                            d.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'
+                            d.existence_check === '要' ? 'bg-brand-50 text-brand-700' : 'bg-gray-100 text-gray-500'
                           }`}>
                             {d.existence_check}
                           </span>
@@ -862,7 +862,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       displayValue={
                         d.passbook_status ? (
                           <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
-                            d.passbook_status === '紛失' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                            d.passbook_status === '紛失' ? 'bg-red-50 text-red-700' : 'bg-brand-50 text-brand-700'
                           }`}>
                             {d.passbook_status}
                           </span>
@@ -1050,7 +1050,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       value={t.existence_check}
                       displayValue={
                         t.existence_check ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${t.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${t.existence_check === '要' ? 'bg-brand-50 text-brand-700' : 'bg-gray-100 text-gray-500'}`}>
                             {t.existence_check}
                           </span>
                         ) : <span className="text-gray-300">—</span>
@@ -1245,7 +1245,7 @@ function Section({ title, icon, children, onEdit, actionLabel, onAction }: {
         {actionLabel && onAction && (
           <button
             onClick={onAction}
-            className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
+            className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-0.5 rounded hover:bg-brand-50 transition"
           >
             + {actionLabel}
           </button>
@@ -1253,7 +1253,7 @@ function Section({ title, icon, children, onEdit, actionLabel, onAction }: {
         {onEdit && (
           <button
             onClick={onEdit}
-            className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
+            className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-0.5 rounded hover:bg-brand-50 transition"
           >
             編集
           </button>

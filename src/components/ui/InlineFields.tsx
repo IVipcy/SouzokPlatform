@@ -32,7 +32,7 @@ export function Section({ title, icon, children, actionLabel, onAction }: {
         
         <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
         {actionLabel && onAction && (
-          <button onClick={onAction} className="ml-auto text-[13px] text-blue-600 font-semibold hover:text-blue-700">+ {actionLabel}</button>
+          <button onClick={onAction} className="ml-auto text-[13px] text-brand-600 font-semibold hover:text-brand-700">+ {actionLabel}</button>
         )}
       </div>
       <div className="px-4 py-3">
@@ -124,15 +124,15 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
           onBlur={() => { if (!composingRef.current) handleSave() }}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
           onClick={handleStartEdit}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
           title="クリックして編集"
         >
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-blue-400' : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-blue-400'}`}>
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400' : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
             {value ?? 'クリックして入力'}
           </span>
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
@@ -174,7 +174,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           onBlur={() => setEditing(false)}
           autoFocus
           disabled={saving}
-          className={`w-full px-1 py-0.5 -ml-1 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1 py-0.5 -ml-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
@@ -184,15 +184,15 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
       ) : (
         <div
           onClick={() => setEditing(true)}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
           title="クリックして選択"
         >
           {value ? (
-            renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-blue-400">{value}</span>
+            renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400">{value}</span>
           ) : (
-            <span className="text-gray-400 text-xs border-b border-dashed border-gray-200 group-hover:border-blue-400">クリックして選択</span>
+            <span className="text-gray-400 text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400">クリックして選択</span>
           )}
-          <span className="text-gray-400 group-hover:text-blue-500 text-[12px]">▼</span>
+          <span className="text-gray-400 group-hover:text-brand-500 text-[12px]">▼</span>
         </div>
       )}
     </div>
@@ -248,7 +248,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
-        <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
+        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="flex flex-wrap gap-1.5">
             {options.map(opt => (
               <button
@@ -258,7 +258,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
                 disabled={saving}
                 className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
                   draft.includes(opt)
-                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    ? 'bg-brand-100 text-brand-700 border-brand-300'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -273,7 +273,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
           {value && value.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {value.map(item => (
-                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
                   {item}
                 </span>
               ))}
@@ -326,15 +326,15 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
           onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-blue-50 transition-colors"
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
           title="クリックして日付を選択"
         >
-          <span className={`text-[13px] font-mono border-b border-dashed border-gray-200 group-hover:border-blue-400 ${value ? 'text-gray-700 font-medium' : 'text-gray-400 text-xs'}`}>
+          <span className={`text-[13px] font-mono border-b border-dashed border-gray-200 group-hover:border-brand-400 ${value ? 'text-gray-700 font-medium' : 'text-gray-400 text-xs'}`}>
             {value ?? 'クリックして日付入力'}
           </span>
           <span className="text-gray-400 group-hover:opacity-100 opacity-60 transition-opacity text-[12px]">📅</span>
@@ -381,7 +381,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -434,7 +434,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
             onBlur={handleSave}
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
             disabled={saving}
-            className={`w-full px-1.5 py-0.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-1.5 py-0.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
           />
         </div>
       ) : (
@@ -483,7 +483,7 @@ export function InlineCheckbox({ label, value, onSave }: {
           type="button"
           onClick={handleToggle}
           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-            shown ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 hover:border-blue-400'
+            shown ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-300 hover:border-brand-400'
           }`}
         >
           {shown && <span className="text-[13px]">✓</span>}
@@ -549,7 +549,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
             onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
             rows={3}
-            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
           />
           <div className="text-[12px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
         </div>
@@ -625,7 +625,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
     <div ref={containerRef} className="py-1.5 border-b border-gray-50">
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
-        <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
+        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="space-y-1 max-h-[200px] overflow-y-auto">
             {!multi && (
               <button
@@ -644,7 +644,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                   onClick={() => handleSelect(member.id)}
                   disabled={saving}
                   className={`w-full text-left px-2 py-1 text-xs rounded flex items-center gap-2 ${
-                    isAssigned ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+                    isAssigned ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   <span
@@ -654,7 +654,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                     {member.name.charAt(0)}
                   </span>
                   <span>{member.name}</span>
-                  {isAssigned && <span className="ml-auto text-blue-500">✓</span>}
+                  {isAssigned && <span className="ml-auto text-brand-500">✓</span>}
                 </button>
               )
             })}

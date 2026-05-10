@@ -16,7 +16,7 @@ type Props = {
 }
 
 const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = {
-  sales:   { label: '受注', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  sales:   { label: '受注', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
   manager: { label: '管理', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
@@ -39,8 +39,8 @@ export default function TeamMemberNav({ teamId, teamName, members, currentMember
           href={`/dashboard/team/${teamId}/progress`}
           className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border transition ${
             !currentMemberId
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50/40'
+              ? 'bg-brand-600 text-white border-brand-600'
+              : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
           }`}
         >
           <Building2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -57,8 +57,8 @@ export default function TeamMemberNav({ teamId, teamName, members, currentMember
               href={`/dashboard/member/${m.id}/progress`}
               className={`inline-flex items-center gap-1.5 text-sm font-medium px-2.5 py-1.5 rounded-md border transition ${
                 active
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50/40'
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
               }`}
             >
               <span

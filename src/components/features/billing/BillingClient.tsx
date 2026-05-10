@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
 import CsvImportModal from './CsvImportModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import Button from '@/components/ui/Button'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow } from '@/types'
 
@@ -28,7 +29,7 @@ type Props = {
 
 const STATUS_STYLES: Record<InvoiceStatus, { bg: string; text: string; border: string }> = {
   '未請求': { bg: 'bg-gray-100', text: 'text-gray-500', border: 'border-gray-300' },
-  '前受金請求済': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
+  '前受金請求済': { bg: 'bg-brand-50', text: 'text-brand-600', border: 'border-brand-200' },
   '前受金入金済': { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200' },
   '確定請求済': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
   '入金済': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
@@ -150,18 +151,12 @@ export default function BillingClient({ invoices, cases }: Props) {
               className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
             />
           </div>
-          <button
-            onClick={() => setCsvOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-          >
-            🏦 銀行CSV取込
-          </button>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
-          >
-            ＋ 請求書発行
-          </button>
+          <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
+            銀行CSV取込
+          </Button>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setCreateOpen(true)}>
+            請求書発行
+          </Button>
         </div>
       </div>
 
@@ -172,7 +167,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             key={kpi.key}
             onClick={() => setStatusFilter(kpi.key === statusFilter ? 'all' : kpi.key)}
             className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${
-              statusFilter === kpi.key ? 'border-blue-300 bg-blue-50 border-t-[3px] border-t-blue-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
+              statusFilter === kpi.key ? 'border-brand-300 bg-brand-50 border-t-[3px] border-t-brand-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
@@ -237,7 +232,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                   return (
                     <tr
                       key={inv.id}
-                      className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${selectedId === inv.id ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
+                      className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${selectedId === inv.id ? 'bg-brand-50/60' : 'hover:bg-gray-50/50'}`}
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                     >
                       <td className="px-3.5 py-2.5 overflow-hidden">
@@ -335,7 +330,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => setPaymentInvoice(selected)}
-                    className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+                    className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition"
                   >
                     💰 入金消込
                   </button>

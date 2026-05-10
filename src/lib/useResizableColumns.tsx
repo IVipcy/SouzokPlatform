@@ -77,7 +77,7 @@ export function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEven
       title="ドラッグして列幅を変更"
       className="absolute top-0 bottom-0 right-[-6px] w-[12px] cursor-col-resize z-10 flex items-center justify-center group/handle"
     >
-      <span className="w-[2px] h-[60%] bg-gray-300 group-hover/handle:bg-blue-500 transition-colors rounded-full" />
+      <span className="w-[2px] h-[60%] bg-gray-300 group-hover/handle:bg-brand-500 transition-colors rounded-full" />
     </span>
   )
 }

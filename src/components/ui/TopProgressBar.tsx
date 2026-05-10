@@ -94,7 +94,7 @@ export default function TopProgressBar() {
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 200ms ease' }}
     >
       <div
-        className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 shadow-[0_0_10px_rgba(37,99,235,0.6)]"
+        className="h-full bg-gradient-to-r from-brand-500 via-brand-600 to-indigo-600 shadow-[0_0_10px_rgba(37,99,235,0.6)]"
         style={{
           width: `${progress}%`,
           transition: 'width 200ms ease-out',

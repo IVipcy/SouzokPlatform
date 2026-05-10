@@ -170,7 +170,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           {(heir.relationship_type || heir.relationship) && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">
                               {heir.relationship_type ?? heir.relationship}
                             </span>
                           )}
@@ -212,7 +212,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.name}
                     onChange={e => setHeirForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <FormField label="ふりがな">
@@ -220,14 +220,14 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.furigana}
                     onChange={e => setHeirForm(f => ({ ...f, furigana: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <FormField label="続柄">
                   <select
                     value={heirForm.relationship}
                     onChange={e => setHeirForm(f => ({ ...f, relationship: e.target.value as RelType | '' }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   >
                     <option value="">選択してください</option>
                     {RELATIONSHIP_OPTIONS.map(opt => (
@@ -240,7 +240,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="date"
                     value={heirForm.birth_date}
                     onChange={e => setHeirForm(f => ({ ...f, birth_date: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <FormField label="TEL">
@@ -248,7 +248,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.phone}
                     onChange={e => setHeirForm(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <FormField label="メール">
@@ -256,7 +256,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.email}
                     onChange={e => setHeirForm(f => ({ ...f, email: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <div>
@@ -279,7 +279,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.address}
                     onChange={e => setHeirForm(f => ({ ...f, address: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
                 <FormField label="本籍">
@@ -287,13 +287,13 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     type="text"
                     value={heirForm.registered_address}
                     onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-blue-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
               </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowAddHeir(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-                <button onClick={handleAddHeir} className="px-3 py-1.5 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700">追加</button>
+                <button onClick={handleAddHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">追加</button>
               </div>
             </div>
           )}

@@ -80,7 +80,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
             キャンセル
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
             {saving ? '記録中...' : '入金を記録'}
           </button>
         </>
@@ -114,7 +114,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
               type="number"
               value={form.amount}
               onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
             type="date"
             value={form.payment_date}
             onChange={e => setForm(p => ({ ...p, payment_date: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
 
@@ -136,7 +136,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
           <select
             value={form.payment_method}
             onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
             <option value="銀行振込">銀行振込</option>
             <option value="現金">現金</option>
@@ -153,7 +153,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
             value={form.notes}
             onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
             placeholder="例：〇〇銀行より振込"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </div>
       </div>

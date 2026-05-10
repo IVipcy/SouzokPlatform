@@ -44,7 +44,7 @@ export default function BulkAssignBar({ selectedTaskIds, allMembers, onDone, onC
   }
 
   return (
-    <div className="sticky top-0 z-20 bg-blue-600 text-white rounded-xl px-4 py-3 mb-3 shadow-lg flex items-center gap-3 flex-wrap">
+    <div className="sticky top-0 z-20 bg-brand-600 text-white rounded-xl px-4 py-3 mb-3 shadow-lg flex items-center gap-3 flex-wrap">
       <div className="flex items-center gap-2">
         <span className="text-sm font-bold">{selectedTaskIds.length}件</span>
         <span className="text-xs opacity-80">選択中</span>
@@ -86,7 +86,7 @@ export default function BulkAssignBar({ selectedTaskIds, allMembers, onDone, onC
       <button
         onClick={handleAssign}
         disabled={saving || (!primaryId && subIds.length === 0)}
-        className="px-4 py-1.5 bg-white text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-50 disabled:opacity-50 transition"
+        className="px-4 py-1.5 bg-white text-brand-600 text-xs font-bold rounded-lg hover:bg-brand-50 disabled:opacity-50 transition"
       >
         {saving ? '割振り中...' : '割り振る'}
       </button>
@@ -140,7 +140,7 @@ function SearchableSelectCompact({ members, value, onChange, placeholder }: {
         <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[180px]">
           <div className="p-1.5 border-b border-gray-100">
             <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="名前で検索..."
-              className="w-full px-2 py-1 text-xs text-gray-700 border border-gray-200 rounded focus:outline-none focus:border-blue-400" autoFocus />
+              className="w-full px-2 py-1 text-xs text-gray-700 border border-gray-200 rounded focus:outline-none focus:border-brand-400" autoFocus />
           </div>
           <div className="max-h-[200px] overflow-y-auto">
             <button onClick={() => { onChange(''); setOpen(false) }} className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50">
@@ -148,7 +148,7 @@ function SearchableSelectCompact({ members, value, onChange, placeholder }: {
             </button>
             {filtered.map(m => (
               <button key={m.id} onClick={() => { onChange(m.id); setOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition ${m.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-brand-50 transition ${m.id === value ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-700'}`}>
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
                 {m.name}
               </button>
@@ -207,12 +207,12 @@ function MultiSelectCompact({ members, selectedIds, onAdd, onRemove, placeholder
         <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[180px]">
           <div className="p-1.5 border-b border-gray-100">
             <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="名前で検索..."
-              className="w-full px-2 py-1 text-xs text-gray-700 border border-gray-200 rounded focus:outline-none focus:border-blue-400" autoFocus />
+              className="w-full px-2 py-1 text-xs text-gray-700 border border-gray-200 rounded focus:outline-none focus:border-brand-400" autoFocus />
           </div>
           <div className="max-h-[200px] overflow-y-auto">
             {available.map(m => (
               <button key={m.id} onClick={() => { onAdd(m.id); setQuery('') }}
-                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition text-gray-700">
+                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-brand-50 transition text-gray-700">
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
                 {m.name}
               </button>

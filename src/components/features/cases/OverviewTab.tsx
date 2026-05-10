@@ -273,7 +273,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
           </div>
           <div className="w-full h-[5px] bg-gray-200 rounded-full overflow-hidden mb-3">
             <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
+              className="h-full bg-brand-600 rounded-full transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -418,7 +418,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={handleStartEdit} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -463,7 +463,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
           onBlur={() => setEditing(false)}
           autoFocus
           disabled={saving}
-          className={`w-full px-1 py-0.5 -ml-1 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1 py-0.5 -ml-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
@@ -514,7 +514,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
-        <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
+        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="flex flex-wrap gap-1.5 mb-2">
             {options.map(opt => (
               <button
@@ -524,7 +524,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
                 disabled={saving}
                 className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
                   draft.includes(opt)
-                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    ? 'bg-brand-100 text-brand-700 border-brand-300'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -534,7 +534,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setEditing(false)} className="text-[12px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[12px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
+            <button onClick={handleSave} disabled={saving} className="text-[12px] text-brand-600 font-semibold hover:text-brand-700">保存</button>
           </div>
         </div>
       ) : (
@@ -542,7 +542,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
           {value && value.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {value.map(item => (
-                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
                   {item}
                 </span>
               ))}
@@ -594,7 +594,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -644,7 +644,7 @@ function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -696,7 +696,7 @@ function InlineCurrency({ label, value, onSave, fullWidth }: {
             onBlur={handleSave}
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
             disabled={saving}
-            className={`w-full px-1.5 py-0.5 text-[13px] font-mono border border-blue-400 rounded outline-none bg-blue-50/30 ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-1.5 py-0.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
           />
         </div>
       ) : (
@@ -733,7 +733,7 @@ function InlineCheckbox({ label, value, onSave }: {
           onClick={handleToggle}
           disabled={saving}
           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-            value ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 hover:border-blue-400'
+            value ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-300 hover:border-brand-400'
           } ${saving ? 'opacity-50' : ''}`}
         >
           {value && <span className="text-[13px]">✓</span>}
@@ -780,11 +780,11 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
             onChange={e => setDraft(e.target.value)}
             disabled={saving}
             rows={3}
-            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
           />
           <div className="flex gap-2 justify-end mt-1">
             <button onClick={() => { setDraft(value ?? ''); setEditing(false) }} className="text-[12px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[12px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
+            <button onClick={handleSave} disabled={saving} className="text-[12px] text-brand-600 font-semibold hover:text-brand-700">保存</button>
           </div>
         </div>
       ) : (
@@ -844,7 +844,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
     <div className="py-1.5 border-b border-gray-50">
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
-        <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
+        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="space-y-1 max-h-[200px] overflow-y-auto">
             {!multi && (
               <button
@@ -863,7 +863,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
                   onClick={() => handleSelect(member.id)}
                   disabled={saving}
                   className={`w-full text-left px-2 py-1 text-xs rounded flex items-center gap-2 ${
-                    isAssigned ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+                    isAssigned ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   <span
@@ -873,7 +873,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
                     {member.name.charAt(0)}
                   </span>
                   <span>{member.name}</span>
-                  {isAssigned && <span className="ml-auto text-blue-500">✓</span>}
+                  {isAssigned && <span className="ml-auto text-brand-500">✓</span>}
                 </button>
               )
             })}

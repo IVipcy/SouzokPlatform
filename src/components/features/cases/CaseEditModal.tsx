@@ -107,7 +107,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
           >
             {saving ? '保存中...' : '保存'}
           </button>
@@ -127,7 +127,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             type="text"
             value={form.deal_name}
             onChange={e => setForm(p => ({ ...p, deal_name: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </FormField>
 
@@ -137,7 +137,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             <select
               value={form.status}
               onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               {CASE_STATUSES.map(s => (
                 <option key={s.key} value={s.key}>{s.key}</option>
@@ -156,7 +156,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
                     value={d}
                     checked={form.difficulty === d}
                     onChange={() => setForm(p => ({ ...p, difficulty: d }))}
-                    className="accent-blue-600"
+                    className="accent-brand-600"
                   />
                   {d}
                 </label>
@@ -172,7 +172,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               type="text"
               value={form.deceased_name}
               onChange={e => setForm(p => ({ ...p, deceased_name: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <FormField label="相続開始日">
@@ -180,7 +180,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               type="date"
               value={form.date_of_death}
               onChange={e => setForm(p => ({ ...p, date_of_death: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
         </div>
@@ -193,7 +193,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
                 key={opt}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer transition-colors ${
                   form.procedure_type.includes(opt)
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    ? 'bg-brand-50 text-brand-700 border-brand-200'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -217,7 +217,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
                 key={opt}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer transition-colors ${
                   form.additional_services.includes(opt)
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    ? 'bg-brand-50 text-brand-700 border-brand-200'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -245,7 +245,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
                     value={t}
                     checked={form.tax_filing_required === t}
                     onChange={() => setForm(p => ({ ...p, tax_filing_required: t }))}
-                    className="accent-blue-600"
+                    className="accent-brand-600"
                   />
                   {t}
                 </label>
@@ -258,7 +258,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             <select
               value={form.property_rank}
               onChange={e => setForm(p => ({ ...p, property_rank: e.target.value as typeof form.property_rank }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               {RANK_OPTIONS.map(r => (
                 <option key={r} value={r}>{r}</option>
@@ -274,7 +274,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               value={form.total_asset_estimate}
               onChange={e => setForm(p => ({ ...p, total_asset_estimate: Number(e.target.value) }))}
               min={0}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <FormField label="依頼日">
@@ -282,7 +282,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               type="date"
               value={form.order_date}
               onChange={e => setForm(p => ({ ...p, order_date: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
           <FormField label="完了予定日">
@@ -290,7 +290,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               type="date"
               value={form.completion_date}
               onChange={e => setForm(p => ({ ...p, completion_date: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             />
           </FormField>
         </div>
@@ -300,7 +300,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             type="date"
             value={form.tax_filing_deadline}
             onChange={e => setForm(p => ({ ...p, tax_filing_deadline: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
         </FormField>
 
@@ -310,7 +310,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             value={form.notes}
             onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none"
           />
         </FormField>
       </form>
