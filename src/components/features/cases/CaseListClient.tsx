@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { User, AlertTriangle, Plus, Search, X, Trash2 } from 'lucide-react'
+import { User, AlertTriangle, Plus, Search, X, Trash2, Briefcase } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import PageHeader from '@/components/ui/PageHeader'
 import { CASE_STATUSES } from '@/lib/constants'
 import { useModal } from '@/hooks/useModal'
 import CreateCaseModal from './CreateCaseModal'
@@ -145,28 +146,29 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
     <div>
       {/* ===== Sticky top zone ===== */}
       <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">案件管理</h1>
-          <p className="text-xs text-gray-400">相続プラットフォーム / 案件管理</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[220px]">
-            <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="案件名・依頼者・番号で検索"
-              className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
-            />
-          </div>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={createModal.open}>
-            新規案件登録
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Cases"
+        title="案件管理"
+        icon={Briefcase}
+        description="案件の一覧・絞り込み・新規登録"
+        right={
+          <>
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[220px]">
+              <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="案件名・依頼者・番号で検索"
+                className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
+              />
+            </div>
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={createModal.open}>
+              新規案件登録
+            </Button>
+          </>
+        }
+      />
 
       {/* View toggle filters (combinable) */}
       <div className="flex gap-2 mb-3 items-center">

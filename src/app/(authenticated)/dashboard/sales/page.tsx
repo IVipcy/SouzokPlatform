@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { Megaphone } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import SalesKpis from '@/components/features/dashboard/SalesKpis'
 import SalesTeamTable, {
   type SalesTeamGroup,
@@ -137,6 +139,12 @@ export default async function SalesDashboardPage() {
 
   return (
     <div>
+      <PageHeader
+        eyebrow="Sales · Monthly"
+        title="受注担当ダッシュボード"
+        icon={Megaphone}
+        description="営業の月次成績・面談数・受注率・平均単価・完了予定など"
+      />
       <SalesKpis monthLabel={monthLabel} metrics={overall} />
       <SalesTeamTable groups={groups} today={today} />
     </div>

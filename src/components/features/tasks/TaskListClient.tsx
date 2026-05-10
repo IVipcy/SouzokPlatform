@@ -3,7 +3,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2 } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
@@ -173,13 +174,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     <div>
       {/* ===== Sticky top zone ===== */}
       <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">タスク管理</h1>
-            <p className="text-xs text-gray-400">相続プラットフォーム / タスク管理</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
+        <PageHeader
+          eyebrow="Tasks"
+          title="タスク管理"
+          icon={ListChecks}
+          description="自分・要対応・全タスクを横断して管理"
+          right={
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
               <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
               <input
@@ -190,8 +190,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
               />
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Quick filters: 自分のタスク / 要対応 */}
         <div className="flex gap-2 mb-3 items-center">

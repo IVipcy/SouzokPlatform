@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
+import { BarChart3 } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import type { CaseRow, MemberRow, CaseMemberRow } from '@/types'
 
 type InvoiceData = {
@@ -75,15 +77,17 @@ export default function ReportsClient({ cases, members, invoices }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">レポート</h1>
-          <p className="text-xs text-gray-400">売上・案件・パフォーマンス分析</p>
-        </div>
-        <button className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-          📥 CSV出力
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Reports"
+        title="レポート"
+        icon={BarChart3}
+        description="売上・案件・パフォーマンス分析"
+        right={
+          <button className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            📥 CSV出力
+          </button>
+        }
+      />
 
       {!hasData ? (
         <div className="bg-white border border-gray-200 rounded-xl p-16 text-center shadow-[0_1px_2px_rgba(0,0,0,0.05)]">

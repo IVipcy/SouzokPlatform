@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { PenSquare } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import type { CaseRow, ClientRow } from '@/types'
 import CaseSelectScreen from './CaseSelectScreen'
 import MeetingForm from './MeetingForm'
@@ -31,20 +33,22 @@ export default function MeetingPageClient({ cases }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">案件編集</h1>
-          <p className="text-xs text-gray-400">面談情報の入力・AI音声入力対応</p>
-        </div>
-        {selectedCase && (
-          <button
-            onClick={handleBack}
-            className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-          >
-            ← 案件選択に戻る
-          </button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Meeting"
+        title="案件編集"
+        icon={PenSquare}
+        description="面談情報の入力・AI音声入力対応"
+        right={
+          selectedCase ? (
+            <button
+              onClick={handleBack}
+              className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            >
+              ← 案件選択に戻る
+            </button>
+          ) : null
+        }
+      />
 
       {!selectedCase ? (
         <CaseSelectScreen cases={cases} onSelect={handleSelectCase} />

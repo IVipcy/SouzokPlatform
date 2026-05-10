@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { AlertTriangle } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
@@ -89,6 +91,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   if (teamCaseIds.size === 0) {
     return (
       <div>
+        <PageHeader
+          eyebrow="Team · Progress"
+          title={`${team.name}・進捗管理`}
+          icon={AlertTriangle}
+          description="案件のフラグ（青/黄/赤）でリスクを早期発見"
+        />
         <ProgressKpis scopeLabel={team.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
         <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
         <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />
@@ -171,6 +179,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
 
   return (
     <div>
+      <PageHeader
+        eyebrow="Team · Progress"
+        title={`${team.name}・進捗管理`}
+        icon={AlertTriangle}
+        description="案件のフラグ（青/黄/赤）でリスクを早期発見"
+      />
       <ProgressKpis scopeLabel={team.name} metrics={kpis} />
       <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
       <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />

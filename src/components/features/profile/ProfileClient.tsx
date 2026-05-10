@@ -45,6 +45,7 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
 
   return (
     <div className="max-w-5xl mx-auto pb-10">
+      <p className="text-xs font-medium text-brand-600 tracking-wider uppercase mb-3">Profile</p>
       {/* ヘッダー */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 mb-5">
         <div className="flex items-start gap-5">

@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { Building2 } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import SummaryKpis from '@/components/features/dashboard/SummaryKpis'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
 import {
@@ -71,15 +73,23 @@ export default async function DashboardPage() {
   const monthLabel = `${today.getMonth() + 1}月`
 
   return (
-    <div className="space-y-2">
-      <SummaryKpis monthLabel={monthLabel} metrics={summary} />
-      <MemberPerformanceTable
-        members={tableMembers}
-        cases={cases}
-        caseMembers={caseMembers}
-        months={months}
-        today={today}
+    <div>
+      <PageHeader
+        eyebrow="Department · Monthly"
+        title="部全体ダッシュボード"
+        icon={Building2}
+        description={`${today.getFullYear()}年度・相続事業部の月次サマリーとメンバー別成績`}
       />
+      <div className="space-y-2">
+        <SummaryKpis monthLabel={monthLabel} metrics={summary} />
+        <MemberPerformanceTable
+          members={tableMembers}
+          cases={cases}
+          caseMembers={caseMembers}
+          months={months}
+          today={today}
+        />
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Search, Send, ExternalLink, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import DispatchTable from '@/components/features/dispatches/DispatchTable'
 import NewDispatchModal from '@/components/features/dispatches/NewDispatchModal'
+import PageHeader from '@/components/ui/PageHeader'
 import type { DocumentDispatchRow } from '@/types'
 
 type CaseLite = {
@@ -60,48 +61,42 @@ export default function DispatchesClient({ dispatches, cases }: Props) {
 
   return (
     <div className="pb-8">
-      {/* ヘッダー */}
-      <div className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">Document Ledger</p>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1 tracking-tight flex items-center gap-2">
-            <Send className="w-6 h-6 text-brand-600" />
-            書類発着管理簿
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            全 {totalCasesWithDispatches} 案件・{totalDispatches} 件の発着記録
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <label className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showEmpty}
-              onChange={e => setShowEmpty(e.target.checked)}
-              className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-            />
-            <span>記録なし案件も表示</span>
-          </label>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="案件番号・案件名で絞り込み"
-              className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
-            />
-          </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            新規発送を記録
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Document Ledger"
+        title="書類発着管理簿"
+        icon={Send}
+        description={`全 ${totalCasesWithDispatches} 案件・${totalDispatches} 件の発着記録`}
+        right={
+          <>
+            <label className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showEmpty}
+                onChange={e => setShowEmpty(e.target.checked)}
+                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span>記録なし案件も表示</span>
+            </label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="案件番号・案件名で絞り込み"
+                className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
+              />
+            </div>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              新規発送を記録
+            </button>
+          </>
+        }
+      />
 
       {visibleCases.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">

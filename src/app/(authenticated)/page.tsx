@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Banknote,
   User,
+  LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -140,7 +141,10 @@ export default async function DashboardTopPage() {
         <div className="absolute -bottom-32 -left-20 w-72 h-72 rounded-full bg-gradient-to-tr from-accent-50/60 to-transparent blur-3xl pointer-events-none" />
         <div className="relative">
           <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">Dashboard</p>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1.5 tracking-tight">ダッシュボード</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1.5 tracking-tight flex items-center gap-2">
+            <LayoutDashboard className="w-6 h-6 text-brand-600" strokeWidth={2} />
+            ダッシュボード
+          </h1>
           <p className="text-sm text-gray-500 mt-1.5">{dateLabel}・見たい指標のカードを選んでください</p>
         </div>
       </div>

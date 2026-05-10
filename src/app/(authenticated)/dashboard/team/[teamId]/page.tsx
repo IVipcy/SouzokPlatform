@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { Users } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import DailyKpis from '@/components/features/dashboard/DailyKpis'
 import DailyMemberTable, { type DailyMemberRow } from '@/components/features/dashboard/DailyMemberTable'
 import {
@@ -106,8 +108,16 @@ export default async function TeamTodayDashboard({ params }: Props) {
       return a.name.localeCompare(b.name, 'ja')
     })
 
+  const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
+
   return (
     <div>
+      <PageHeader
+        eyebrow="Team · Today"
+        title={`${team.name}・本日`}
+        icon={Users}
+        description={`${dateLabel}・チーム全体の累計と本日の動き`}
+      />
       <DailyKpis scopeLabel={team.name} metrics={teamDaily} />
       <DailyMemberTable rows={rows} today={today} showTeamColumn={false} />
     </div>

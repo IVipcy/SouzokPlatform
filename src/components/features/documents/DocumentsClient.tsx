@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, FileType2, FileSpreadsheet, Upload, type LucideIcon } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import UploadDocumentModal from './UploadDocumentModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -145,28 +146,29 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">ドキュメント管理</h1>
-          <p className="text-xs text-gray-400">文書の作成・送付・ステータスを一元管理</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">🔍</span>
-            <input
-              type="text"
-              placeholder="文書名・案件名で検索"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-xs text-gray-700 w-48 placeholder:text-gray-300"
-            />
-          </div>
-          <Button variant="primary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setUploadOpen(true)}>
-            アップロード
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Documents"
+        title="ドキュメント管理"
+        icon={FileText}
+        description="文書の作成・送付・ステータスを一元管理"
+        right={
+          <>
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+              <span className="text-gray-400 text-xs">🔍</span>
+              <input
+                type="text"
+                placeholder="文書名・案件名で検索"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs text-gray-700 w-48 placeholder:text-gray-300"
+              />
+            </div>
+            <Button variant="primary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setUploadOpen(true)}>
+              アップロード
+            </Button>
+          </>
+        }
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-2.5 mb-4">

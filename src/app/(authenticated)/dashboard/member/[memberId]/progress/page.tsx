@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { User } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
@@ -88,6 +90,12 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   if (myCaseIds.size === 0) {
     return (
       <div>
+        <PageHeader
+          eyebrow="Member · Progress"
+          title={`${member.name}・進捗管理`}
+          icon={User}
+          description="この担当者の受注／管理案件のフラグでリスクを早期発見"
+        />
         <ProgressKpis scopeLabel={member.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
         {teamForNav && (
           <TeamMemberNav teamId={teamForNav.id} teamName={teamForNav.name} members={navMembers} currentMemberId={memberId} />
@@ -170,6 +178,12 @@ export default async function MemberProgressPage({ params, searchParams }: Props
 
   return (
     <div>
+      <PageHeader
+        eyebrow="Member · Progress"
+        title={`${member.name}・進捗管理`}
+        icon={User}
+        description="この担当者の受注／管理案件のフラグでリスクを早期発見"
+      />
       <ProgressKpis scopeLabel={member.name} metrics={kpis} />
       {teamForNav && (
         <TeamMemberNav teamId={teamForNav.id} teamName={teamForNav.name} members={navMembers} currentMemberId={memberId} />

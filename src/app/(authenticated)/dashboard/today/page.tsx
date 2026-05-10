@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { CalendarDays } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import DailyKpis from '@/components/features/dashboard/DailyKpis'
 import DailyMemberTable, { type DailyMemberRow } from '@/components/features/dashboard/DailyMemberTable'
 import {
@@ -94,8 +96,16 @@ export default async function DeptTodayDashboard() {
       return a.name.localeCompare(b.name, 'ja')
     })
 
+  const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
+
   return (
     <div>
+      <PageHeader
+        eyebrow="Department · Today"
+        title="本日のダッシュボード"
+        icon={CalendarDays}
+        description={`${dateLabel}・部全体の動きとメンバー別の累計／本日`}
+      />
       <DailyKpis scopeLabel="相続事業部" metrics={overallDaily} />
       <DailyMemberTable rows={rows} today={today} showTeamColumn={true} />
     </div>

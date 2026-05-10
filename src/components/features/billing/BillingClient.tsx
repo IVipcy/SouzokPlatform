@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, type LucideIcon } from 'lucide-react'
+import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
@@ -134,31 +135,32 @@ export default function BillingClient({ invoices, cases }: Props) {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">請求・入金管理</h1>
-          <p className="text-xs text-gray-400">請求書発行・入金消込・銀行CSV突合</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">🔍</span>
-            <input
-              type="text"
-              placeholder="案件名・依頼者で検索"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
-            />
-          </div>
-          <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
-            銀行CSV取込
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setCreateOpen(true)}>
-            請求書発行
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Billing"
+        title="請求・入金管理"
+        icon={Receipt}
+        description="請求書発行・入金消込・銀行CSV突合"
+        right={
+          <>
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+              <span className="text-gray-400 text-xs">🔍</span>
+              <input
+                type="text"
+                placeholder="案件名・依頼者で検索"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
+              />
+            </div>
+            <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
+              銀行CSV取込
+            </Button>
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setCreateOpen(true)}>
+              請求書発行
+            </Button>
+          </>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-3 mb-5">
