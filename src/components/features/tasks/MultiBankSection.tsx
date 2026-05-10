@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CheckCircle2, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Section } from '@/components/ui/InlineFields'
 import type { TaskRow } from '@/types'
@@ -109,7 +110,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
 
   if (totalCount === 0) {
     return (
-      <Section title="作業内容" icon="📝">
+      <Section title="作業内容" icon="">
         <div className="text-center py-4">
           <p className="text-sm text-gray-400 mb-3">
             金融機関の情報がありません。
@@ -130,14 +131,14 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
   }
 
   return (
-    <Section title="作業内容" icon="📝">
+    <Section title="作業内容" icon="">
       {/* 完了状況サマリー */}
       <div className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-3 ${
         allDone ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'
       }`}>
-        <span className={`text-xl ${allDone ? '' : ''}`}>
-          {allDone ? '✅' : '⏳'}
-        </span>
+        {allDone
+          ? <CheckCircle2 className="w-5 h-5 text-green-600" strokeWidth={2.25} />
+          : <Clock className="w-5 h-5 text-amber-600" strokeWidth={2} />}
         <div className="flex-1">
           <p className={`text-sm font-semibold ${allDone ? 'text-green-700' : 'text-amber-700'}`}>
             {allDone ? '全金融機関の書類が揃いました' : `書類待ち ${totalCount - doneCount} 件`}

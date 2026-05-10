@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Bot, FileText } from 'lucide-react'
 import { QIRow } from '@/components/ui/InlineFields'
 import { getPhaseLabel } from '@/lib/phases'
 import { getWorkRoleDef } from '@/lib/constants'
@@ -327,7 +328,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
           <div className="space-y-2">
             {documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-xs">
-                <span className="text-gray-400">{doc.generated_by === 'AI' ? '🤖' : '📄'}</span>
+                {doc.generated_by === 'AI' ? <Bot className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.75} /> : <FileText className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.75} />}
                 <span className="text-gray-700 font-medium truncate flex-1">{doc.name}</span>
               </div>
             ))}

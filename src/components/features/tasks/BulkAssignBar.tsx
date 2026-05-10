@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { MemberRow } from '@/types'
 
@@ -195,7 +196,7 @@ function MultiSelectCompact({ members, selectedIds, onAdd, onRemove, placeholder
           selectedMembers.map(m => (
             <span key={m.id} className="inline-flex items-center gap-0.5 bg-white/30 rounded px-1 py-0.5 text-[12px]">
               {m.name}
-              <button onClick={e => { e.stopPropagation(); onRemove(m.id) }} className="hover:text-red-200 ml-0.5">✕</button>
+              <button onClick={e => { e.stopPropagation(); onRemove(m.id) }} className="hover:text-red-200 ml-0.5"><X className="w-3 h-3" strokeWidth={2.5} /></button>
             </span>
           ))
         ) : (

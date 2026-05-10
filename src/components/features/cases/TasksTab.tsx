@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { ClipboardList, Plus, Play, Pencil, Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from '@/components/features/tasks/EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
@@ -122,12 +124,12 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
     <div>
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-bold text-gray-900 flex-1">タスク管理</h2>
-        <button onClick={onBulkGenerate} className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-          📋 一括生成
-        </button>
-        <button onClick={onAddTask} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors">
-          ＋ タスク追加
-        </button>
+        <Button variant="secondary" size="sm" leftIcon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onBulkGenerate}>
+          一括生成
+        </Button>
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={onAddTask}>
+          タスク追加
+        </Button>
       </div>
 
       {/* 進捗バー */}
@@ -239,7 +241,7 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
           <button onClick={onAdvance}
             className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 transition-colors flex items-center justify-center"
             title="着手する">
-            <span className="text-[10px] text-gray-400 group-hover:text-green-600">▶</span>
+            <Play className="w-3 h-3 text-gray-400 group-hover:text-green-600" strokeWidth={2.5} />
           </button>
         )}
         {current === '対応中' && (
@@ -280,8 +282,12 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
       </div>
 
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition" title="編集">✏️</button>
-        <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
+        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition" title="編集">
+          <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+        </button>
+        <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">
+          <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+        </button>
       </div>
     </div>
   )

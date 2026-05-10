@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Search, User, AlertTriangle, ClipboardList, X } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
@@ -257,7 +258,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[220px]">
-              <span className="text-gray-400 text-xs">🔍</span>
+              <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="タスク名・案件名で検索"
                 className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400" />
             </div>
@@ -274,7 +275,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-[13px]">👤</span>
+            <User className="w-3.5 h-3.5" strokeWidth={2} />
             自分が着手中
             <span className={`text-[12px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
               {myTaskCount}
@@ -288,7 +289,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-[13px]">🚨</span>
+            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.25} />
             要対応
             <span className={`text-[12px] font-mono ml-0.5 ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>
               {urgentTaskCount}
@@ -302,15 +303,16 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-[13px]">📋</span>
+            <ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />
             案件別
           </button>
           {(filterMine || filterUrgent) && (
             <button
               onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
-              className="px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
-              ✕ クリア
+              <X className="w-3.5 h-3.5" strokeWidth={2} />
+              クリア
             </button>
           )}
         </div>
@@ -366,9 +368,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             {workRoleFilter.size > 0 && (
               <button
                 onClick={() => setWorkRoleFilter(new Set())}
-                className="px-1.5 text-[12px] text-gray-400 hover:text-gray-600"
+                className="px-1.5 text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="w-3.5 h-3.5" strokeWidth={2} />
               </button>
             )}
           </div>

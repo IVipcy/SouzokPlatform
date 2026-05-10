@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Briefcase, Play, CheckCircle2, FileText, FolderOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
@@ -29,7 +30,7 @@ type Props = {
 const DB_PHASES = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 const PRIORITIES = [
   { key: '通常', label: '通常' },
-  { key: '急ぎ', label: '🚨 急ぎ' },
+  { key: '急ぎ', label: '急ぎ' },
 ]
 
 // ステータス正規化: 旧ステータスを新3段階に変換
@@ -160,9 +161,10 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               {caseData && (
                 <Link
                   href={`/cases/${caseData.id}`}
-                  className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1"
+                  className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1.5"
                 >
-                  📋 {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
+                  <Briefcase className="w-3.5 h-3.5" strokeWidth={2} />
+                  {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
                 </Link>
               )}
             </div>
@@ -178,7 +180,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
                       ${advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
                   >
-                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '▶'}
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Play className="w-4 h-4" strokeWidth={2.5} />}
                     {advancing ? '処理中...' : '着手する'}
                   </button>
                   <span className="text-[12px] text-gray-400 mt-0.5">作業を始める前に押す</span>
@@ -192,7 +194,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
                       ${advancing ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}
                   >
-                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />}
                     {advancing ? '処理中...' : '完了にする'}
                   </button>
                   <span className="text-[12px] text-gray-400 mt-0.5">完了条件を満たしたら押す</span>
@@ -200,7 +202,8 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               )}
               {currentStatus === '完了' && (
                 <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold text-green-700 bg-green-50 border border-green-200">
-                  ✅ 完了
+                  <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+                  完了
                 </span>
               )}
 
@@ -218,7 +221,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               </span>
 
               <Badge
-                label={task.priority === '急ぎ' ? '🚨 急ぎ' : '通常'}
+                label={task.priority === '急ぎ' ? '急ぎ' : '通常'}
                 color={task.priority === '急ぎ' ? '#DC2626' : '#6B7280'}
                 variant={task.priority === '急ぎ' ? 'solid' : undefined}
               />
@@ -259,15 +262,17 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
         </div>
       </div>
 
-      {/* 📄 書類作成リンク（全タスク共通） */}
+      {/* 書類作成リンク（全タスク共通） */}
       {caseData && (
         <div className="bg-white border border-indigo-200 rounded-xl mb-5 overflow-hidden shadow-sm">
           <div className="bg-gradient-to-r from-indigo-500 to-brand-500 px-4 py-2 flex items-center gap-2">
-            <span className="text-white text-base">📄</span>
+            <FileText className="w-4 h-4 text-white" strokeWidth={2.25} />
             <h2 className="text-white text-sm font-bold flex-1">書類作成</h2>
           </div>
           <div className="p-4 flex items-center gap-3">
-            <div className="text-2xl">🗂️</div>
+            <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <FolderOpen className="w-5 h-5 text-indigo-600" strokeWidth={2} />
+            </div>
             <div className="flex-1">
               <div className="text-sm font-semibold text-gray-900">この案件の書類作成タブを開く</div>
               <div className="text-[13px] text-gray-500 mt-0.5">
