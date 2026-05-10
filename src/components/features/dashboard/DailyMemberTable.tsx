@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import {
   tenureLabel,
   type DailyMetricsBundle,
@@ -84,13 +85,17 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
               return (
                 <tr key={r.id} className={`border-b border-gray-100 ${rowBg}`}>
                   <td className="px-2.5 py-2">
-                    <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/profile/${r.id}`}
+                      className="flex items-center gap-1.5 group/name"
+                      title={`${r.name} のプロフィール`}
+                    >
                       <UserAvatar name={r.name} color={r.avatarColor} url={r.avatarUrl} size="sm" />
-                      <span className="font-medium text-gray-900 truncate">{r.name}</span>
+                      <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate">{r.name}</span>
                       <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   {showTeamColumn && (
                     <td className="px-2.5 py-2 text-gray-700">

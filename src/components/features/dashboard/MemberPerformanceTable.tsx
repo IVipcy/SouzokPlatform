@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import {
   computeMetrics,
   casesForMember,
@@ -146,13 +147,17 @@ export default function MemberPerformanceTable({
                     className={`sticky z-10 px-2 py-2 border-r border-gray-200 ${rowBg}`}
                     style={{ left: LEFT_OFFSET.name, width: COL_W.name }}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/profile/${m.id}`}
+                      className="flex items-center gap-1.5 group/name"
+                      title={`${m.name} のプロフィール`}
+                    >
                       <UserAvatar name={m.name} color={m.avatar_color} url={m.avatar_url} size="sm" />
-                      <span className="font-medium text-gray-900 truncate">{m.name}</span>
+                      <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate">{m.name}</span>
                       <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   <td
                     className={`sticky z-10 px-2 py-2 border-r border-gray-200 text-gray-700 ${rowBg}`}
