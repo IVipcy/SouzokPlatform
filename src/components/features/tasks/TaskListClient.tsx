@@ -329,7 +329,7 @@ function ListView({
   onDelete: (task: TaskRow) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    title: 280, status: 100, caseCol: 220, assignees: 120, due: 110, action: 130, ops: 50,
+    title: 280, status: 100, caseCol: 220, assignees: 180, due: 110, action: 130, ops: 50,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
     { key: 'title',     label: 'タスク名' },
@@ -467,11 +467,15 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
         )}
       </td>
 
-      {/* 担当（受注/管理アバター） */}
+      {/* 担当（受注/管理：アバター + 名前を縦積み） */}
       <td className="px-3.5 py-2.5">
-        <div className="flex items-center gap-1">
-          {caseInfo?.sales && <Avatar name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} role="受注" />}
-          {caseInfo?.manager && <Avatar name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} role="管理" />}
+        <div className="flex flex-col gap-0.5">
+          {caseInfo?.sales && (
+            <AssigneeRow name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} role="受注" />
+          )}
+          {caseInfo?.manager && (
+            <AssigneeRow name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} role="管理" />
+          )}
           {!caseInfo?.sales && !caseInfo?.manager && <span className="text-[12px] text-gray-300">—</span>}
         </div>
       </td>
@@ -507,15 +511,21 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
   )
 }
 
-function Avatar({ name, color, role }: { name: string; color: string; role: string }) {
+function AssigneeRow({ name, color, role }: { name: string; color: string; role: '受注' | '管理' }) {
+  const tone = role === '受注'
+    ? 'bg-brand-50 text-brand-700 border-brand-200'
+    : 'bg-purple-50 text-purple-700 border-purple-200'
   return (
-    <span
-      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 ring-2 ring-white"
-      style={{ backgroundColor: color }}
-      title={`${role}: ${name}`}
-    >
-      {name.charAt(0)}
-    </span>
+    <div className="flex items-center gap-1.5 min-w-0" title={`${role}: ${name}`}>
+      <span
+        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+        style={{ backgroundColor: color }}
+      >
+        {name.charAt(0)}
+      </span>
+      <span className={`text-[10px] font-mono px-1 py-0 rounded border flex-shrink-0 ${tone}`}>{role}</span>
+      <span className="text-[12px] text-gray-700 truncate">{name}</span>
+    </div>
   )
 }
 
