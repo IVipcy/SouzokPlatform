@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import Link from 'next/link'
-import { Search, Send, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Search, Send, ExternalLink, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import DispatchTable from '@/components/features/dispatches/DispatchTable'
+import NewDispatchModal from '@/components/features/dispatches/NewDispatchModal'
 import type { DocumentDispatchRow } from '@/types'
 
 type CaseLite = {
@@ -19,9 +21,14 @@ type Props = {
 }
 
 export default function DispatchesClient({ dispatches, cases }: Props) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [showEmpty, setShowEmpty] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [modalOpen, setModalOpen] = useState(false)
+
+  const refresh = () => startTransition(() => router.refresh())
 
   // 案件IDごとにグルーピング
   const byCase = useMemo(() => {
@@ -66,7 +73,7 @@ export default function DispatchesClient({ dispatches, cases }: Props) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <label className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -86,14 +93,32 @@ export default function DispatchesClient({ dispatches, cases }: Props) {
               className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
             />
           </div>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            新規発送を記録
+          </button>
         </div>
       </div>
 
       {visibleCases.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">
-          {dispatches.length === 0
-            ? 'まだ発着記録はありません。案件詳細の「郵送管理」タブから登録できます。'
-            : '該当する案件が見つかりませんでした。'}
+          {dispatches.length === 0 ? (
+            <>
+              まだ発着記録はありません。
+              <button
+                onClick={() => setModalOpen(true)}
+                className="ml-1 text-brand-600 hover:text-brand-700 font-semibold underline"
+              >
+                新規発送を記録
+              </button>
+              から登録できます。
+            </>
+          ) : (
+            '該当する案件が見つかりませんでした。'
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -138,6 +163,13 @@ export default function DispatchesClient({ dispatches, cases }: Props) {
           })}
         </div>
       )}
+
+      <NewDispatchModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        cases={cases}
+        onSaved={refresh}
+      />
     </div>
   )
 }
