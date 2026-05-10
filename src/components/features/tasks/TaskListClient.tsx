@@ -2,13 +2,12 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, ClipboardList, X } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
-import { TASK_STATUSES, WORK_ROLES, getWorkRoleDef, type WorkRoleKey } from '@/lib/constants'
-import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -29,116 +28,81 @@ type Props = {
   currentMemberId: string | null
 }
 
+const normalizeStatus = (status: string) => {
+  if (status === '未着手') return '着手前'
+  if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
+  if (status === 'キャンセル') return '完了'
+  return status
+}
+
 export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
-  const [phaseFilter, setPhaseFilter] = useState('all')
-  const [filterMine, setFilterMine] = useState(
-    searchParams.get('assignee') === 'mine'
-  )
+  const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
   const [filterUrgent, setFilterUrgent] = useState(false)
-  const [workRoleFilter, setWorkRoleFilter] = useState<Set<WorkRoleKey | 'unset'>>(new Set())
-
-  // URLパラメータ変更を反映
-  useEffect(() => {
-    if (searchParams.get('assignee') === 'mine') setFilterMine(true)
-  }, [searchParams])
   const [search, setSearch] = useState('')
-  const [groupBy, setGroupBy] = useState<'phase' | 'case'>('phase')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
-  const [dueDateSort, setDueDateSort] = useState<'none' | 'asc' | 'desc'>('none')
+  const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
 
-  // ─── 列幅（ドラッグでリサイズ可能、localStorage保存） ───
-  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns(
-    'taskListColumnWidths',
-    { title: 280, case: 200, action: 110, caseMembers: 150, startedBy: 150, due: 110, ops: 50 },
-  )
-  const gridTemplate = `${colWidths.title}px ${colWidths.case}px ${colWidths.action}px ${colWidths.caseMembers}px ${colWidths.startedBy}px ${colWidths.due}px ${colWidths.ops}px`
+  useEffect(() => {
+    if (searchParams.get('assignee') === 'mine') setFilterMine(true)
+  }, [searchParams])
 
   const today = new Date().toISOString().split('T')[0]
-
-  // ステータス正規化: 旧ステータスを新3段階に変換
-  const normalizeStatus = (status: string) => {
-    if (status === '未着手') return '着手前'
-    if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
-    if (status === 'キャンセル') return '完了'
-    return status // 着手前, 対応中, 完了 はそのまま
-  }
 
   const filtered = useMemo(() => {
     let result = tasks
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
-    if (phaseFilter !== 'all') result = result.filter(t => t.phase === phaseFilter)
     if (filterMine && currentMemberId) {
-      // 自分が着手者、または主担当に設定されているタスク
       result = result.filter(t =>
         t.started_by === currentMemberId ||
-        (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
+        (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
     }
     if (filterUrgent) {
       result = result.filter(t => {
         if (normalizeStatus(t.status) === '完了') return false
-        const isOverdue = t.due_date && t.due_date < today
-        const isUrgentPriority = t.priority === '急ぎ'
-        return isOverdue || isUrgentPriority
-      })
-    }
-    if (workRoleFilter.size > 0) {
-      result = result.filter(t => {
-        const key = t.work_role ?? 'unset'
-        return workRoleFilter.has(key as WorkRoleKey | 'unset')
+        return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
       })
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
         const caseName = caseMap[t.case_id]?.deal_name ?? ''
-        return t.title.toLowerCase().includes(q) || caseName.toLowerCase().includes(q)
+        const caseNumber = caseMap[t.case_id]?.case_number ?? ''
+        return t.title.toLowerCase().includes(q) ||
+               caseName.toLowerCase().includes(q) ||
+               caseNumber.toLowerCase().includes(q)
       })
     }
-    return result
-  }, [tasks, statusFilter, phaseFilter, filterMine, filterUrgent, workRoleFilter, search, caseMap, currentMemberId, today])
-
-  // 担当区分のカウント
-  const workRoleCounts = useMemo(() => {
-    const counts: Record<string, number> = { manager: 0, assistant: 0, accounting: 0, sales: 0, unset: 0 }
-    tasks.forEach(t => {
-      if (normalizeStatus(t.status) === '完了') return
-      const key = t.work_role ?? 'unset'
-      counts[key] = (counts[key] ?? 0) + 1
+    // 自動ソート: 期限超過 → 期限近い順 → 期限なしは末尾
+    return [...result].sort((a, b) => {
+      const aOver = !!(a.due_date && a.due_date < today && normalizeStatus(a.status) !== '完了')
+      const bOver = !!(b.due_date && b.due_date < today && normalizeStatus(b.status) !== '完了')
+      if (aOver !== bOver) return aOver ? -1 : 1
+      const ad = a.due_date ?? '9999-12-31'
+      const bd = b.due_date ?? '9999-12-31'
+      return ad.localeCompare(bd)
     })
-    return counts
-  }, [tasks])
-
-  const toggleWorkRole = (key: WorkRoleKey | 'unset') => {
-    setWorkRoleFilter(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  }, [tasks, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
     total: tasks.length,
     todo: tasks.filter(t => normalizeStatus(t.status) === '着手前').length,
     doing: tasks.filter(t => normalizeStatus(t.status) === '対応中').length,
     done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
-    urgent: tasks.filter(t => t.priority === '急ぎ').length,
   }), [tasks])
 
-  // バッジ用カウント（全タスクベース）
   const myTaskCount = currentMemberId
     ? tasks.filter(t =>
         normalizeStatus(t.status) !== '完了' && (
           t.started_by === currentMemberId ||
           (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
-        )
+        ),
       ).length
     : 0
 
@@ -147,54 +111,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
   }).length
 
-  // 🚨 要対応タスク（期限超過 or 急ぎ、完了以外）— フィルター連動
-  const alertTasks = useMemo(() => {
-    return tasks.filter(t => {
-      const s = normalizeStatus(t.status)
-      if (s === '完了') return false
-      // ステータスフィルター連動
-      if (statusFilter !== 'all' && s !== statusFilter) return false
-      // フェーズフィルター連動
-      if (phaseFilter !== 'all' && t.phase !== phaseFilter) return false
-      // 自分フィルター連動
-      if (filterMine && currentMemberId && t.started_by !== currentMemberId) return false
-      const isOverdue = t.due_date && t.due_date < today
-      const isUrgent = t.priority === '急ぎ'
-      return isOverdue || isUrgent
-    })
-  }, [tasks, today, statusFilter, phaseFilter, filterMine, currentMemberId])
-
-  const sortTasks = (arr: TaskRow[]) => {
-    if (dueDateSort === 'none') return arr
-    return [...arr].sort((a, b) => {
-      const da = a.due_date ?? '9999-12-31'
-      const db = b.due_date ?? '9999-12-31'
-      return dueDateSort === 'asc' ? da.localeCompare(db) : db.localeCompare(da)
-    })
-  }
-
-  const groups = useMemo(() => {
-    if (groupBy === 'phase') {
-      return DB_PHASES.map(p => ({ key: p, label: getPhaseLabel(p), color: getPhaseColor(p), tasks: sortTasks(filtered.filter(t => t.phase === p)) })).filter(g => g.tasks.length > 0)
-    }
-    const caseIds = [...new Set(filtered.map(t => t.case_id))]
-    return caseIds.map(cid => ({
-      key: cid, label: caseMap[cid] ? `${caseMap[cid].case_number} ${caseMap[cid].deal_name}` : cid, color: '#2563EB',
-      tasks: sortTasks(filtered.filter(t => t.case_id === cid)),
-    }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, groupBy, caseMap, dueDateSort])
-
-  // ─── ステータス進行ボタン ───
-  const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
-
   const handleAdvance = useCallback(async (task: TaskRow) => {
     const current = normalizeStatus(task.status)
     if (current === '完了') return
-    if (loadingTaskId) return // 連打防止
+    if (loadingTaskId) return
 
     setLoadingTaskId(task.id)
-
     try {
       const supabase = createClient()
       const memberId = currentMemberId
@@ -257,16 +179,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <p className="text-xs text-gray-400">相続プラットフォーム / タスク管理</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[220px]">
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
               <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="タスク名・案件名で検索"
-                className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="タスク名・案件名・番号で検索"
+                className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
+              />
             </div>
           </div>
         </div>
 
-        {/* View toggle filters (案件一覧と統一) */}
-        <div className="flex gap-2 mb-3 items-center flex-wrap">
+        {/* Quick filters: 自分のタスク / 要対応 */}
+        <div className="flex gap-2 mb-3 items-center">
           <button
             onClick={() => setFilterMine(v => !v)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
@@ -276,7 +203,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             }`}
           >
             <User className="w-3.5 h-3.5" strokeWidth={2} />
-            自分が着手中
+            自分のタスク
             <span className={`text-[12px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
               {myTaskCount}
             </span>
@@ -295,17 +222,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
               {urgentTaskCount}
             </span>
           </button>
-          <button
-            onClick={() => setGroupBy(v => v === 'case' ? 'phase' : 'case')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
-              groupBy === 'case'
-                ? 'bg-gray-800 text-white border-gray-800'
-                : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />
-            案件別
-          </button>
           {(filterMine || filterUrgent) && (
             <button
               onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
@@ -317,441 +233,343 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           )}
         </div>
 
-        {/* Toolbar: status pills + phase + view toggle (案件一覧と同じ構造) */}
+        {/* Toolbar: status pills + view mode */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="すべて" count={kpis.total} active={statusFilter === 'all'} onClick={() => { setStatusFilter('all'); setGroupBy('phase') }} />
-            <FilterTab label="着手前" count={kpis.todo} active={statusFilter === '着手前'} onClick={() => { setStatusFilter('着手前'); setGroupBy('phase') }} />
-            <FilterTab label="対応中" count={kpis.doing} active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setGroupBy('phase') }} />
-            <FilterTab label="完了" count={kpis.done} active={statusFilter === '完了'} onClick={() => { setStatusFilter('完了'); setGroupBy('phase') }} />
-          </div>
-
-          <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
-            className="text-[13px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-brand-400">
-            <option value="all">全フェーズ</option>
-            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
-          </select>
-
-          {/* 担当区分フィルタ */}
-          <div className="flex gap-1 items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <span className="text-[12px] text-gray-400 px-1 font-semibold">担当</span>
-            {WORK_ROLES.map(r => {
-              const active = workRoleFilter.has(r.key)
-              const count = workRoleCounts[r.key] ?? 0
-              return (
-                <button
-                  key={r.key}
-                  onClick={() => toggleWorkRole(r.key)}
-                  title={r.label}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-semibold transition-all border ${
-                    active ? `${r.solid} border-transparent shadow-sm` : `${r.pill} hover:brightness-95`
-                  }`}
-                >
-                  <r.Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
-                  {r.shortLabel}
-                  {count > 0 && <span className={`text-[12px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>}
-                </button>
-              )
-            })}
-            <button
-              onClick={() => toggleWorkRole('unset')}
-              title="担当区分が未設定のタスク"
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-semibold transition-all border ${
-                workRoleFilter.has('unset')
-                  ? 'bg-gray-700 text-white border-transparent shadow-sm'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              未設定
-              {workRoleCounts.unset > 0 && <span className={`text-[12px] font-mono ${workRoleFilter.has('unset') ? 'opacity-80' : 'opacity-60'}`}>{workRoleCounts.unset}</span>}
-            </button>
-            {workRoleFilter.size > 0 && (
-              <button
-                onClick={() => setWorkRoleFilter(new Set())}
-                className="px-1.5 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-3.5 h-3.5" strokeWidth={2} />
-              </button>
-            )}
+            <FilterTab label="すべて"   count={kpis.total} active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            <FilterTab label="着手前"   count={kpis.todo}  active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
+            <FilterTab label="対応中"   count={kpis.doing} active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
+            <FilterTab label="完了"     count={kpis.done}  active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
-              className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
-              ↔ 列幅リセット
-            </button>
-            <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
             <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-              <button onClick={() => setViewMode('list')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="リスト">☰</button>
-              <button onClick={() => setViewMode('kanban')} className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${viewMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`} title="カンバン">⊞</button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
+                  viewMode === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="リスト"
+              >☰</button>
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
+                  viewMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="カンバン"
+              >⊞</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 🚨 要対応セクション — フィルター連動 */}
-      {alertTasks.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl shadow-sm overflow-hidden mb-4">
-          <div className="px-4 py-2.5 border-b border-red-200 flex items-center gap-2 bg-red-100/60">
-            <span className="text-sm">🚨</span>
-            <h3 className="text-[13px] font-bold text-red-800 flex-1">要対応（期限超過・急ぎ）</h3>
-            <span className="text-[12px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
-          </div>
-          <div className="grid gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[12px] font-bold text-red-400 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
-            <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
-            <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
-            <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
-            <GridResizableHeader onMouseDown={startColResize('caseMembers')}>案件担当者</GridResizableHeader>
-            <GridResizableHeader onMouseDown={startColResize('startedBy')}>着手者</GridResizableHeader>
-            <GridResizableHeader onMouseDown={startColResize('due')}>期限</GridResizableHeader>
-            <div>理由</div>
-          </div>
-          {alertTasks.map(task => (
-            <AlertTaskRow
-              key={task.id}
-              task={task}
-              caseMap={caseMap}
-              allMembers={allMembers}
-              onAdvance={() => handleAdvance(task)}
-              loading={loadingTaskId === task.id}
-              today={today}
-              gridTemplate={gridTemplate}
-            />
-          ))}
-        </div>
-      )}
-
       {/* Content */}
       {viewMode === 'list' ? (
-        <div className="space-y-3">
-          {groups.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">該当するタスクがありません</div>
-          ) : (
-            groups.map(group => (
-              <div key={group.key} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
-                  <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{group.label}</h3>
-                  <span className="text-[12px] font-mono text-gray-400">{group.tasks.length}件</span>
-                </div>
-                {/* Table header */}
-                <div className="grid gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[12px] font-bold text-gray-500 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
-                  <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
-                  <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
-                  <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
-                  <GridResizableHeader onMouseDown={startColResize('caseMembers')}>案件担当者</GridResizableHeader>
-                  <GridResizableHeader onMouseDown={startColResize('startedBy')}>着手者</GridResizableHeader>
-                  <GridResizableHeader onMouseDown={startColResize('due')}>
-                    <button
-                      onClick={() => setDueDateSort(v => v === 'none' ? 'asc' : v === 'asc' ? 'desc' : 'none')}
-                      className="flex items-center gap-1 hover:text-brand-600 transition-colors cursor-pointer"
-                    >
-                      期限
-                      <span className="text-[11px]">
-                        {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
-                      </span>
-                    </button>
-                  </GridResizableHeader>
-                  <div>操作</div>
-                </div>
-                <div>
-                  {group.tasks.map(task => (
-                    <TaskTableRow
-                      key={task.id}
-                      task={task}
-                      caseMap={caseMap}
-                      onEdit={() => setEditTask(task)}
-                      onDelete={() => setDeleteTask(task)}
-                      onAdvance={() => handleAdvance(task)}
-                      loading={loadingTaskId === task.id}
-                      today={today}
-                      allMembers={allMembers}
-                      gridTemplate={gridTemplate}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <ListView
+          tasks={filtered}
+          caseMap={caseMap}
+          allMembers={allMembers}
+          today={today}
+          onAdvance={handleAdvance}
+          loadingTaskId={loadingTaskId}
+          onEdit={setEditTask}
+          onDelete={setDeleteTask}
+        />
       ) : (
-        <TaskKanban tasks={filtered} caseMap={caseMap} allMembers={allMembers} onAdvance={handleAdvance} loadingTaskId={loadingTaskId} onDelete={setDeleteTask} today={today} />
+        <TaskKanban
+          tasks={filtered}
+          caseMap={caseMap}
+          allMembers={allMembers}
+          onAdvance={handleAdvance}
+          loadingTaskId={loadingTaskId}
+          onDelete={setDeleteTask}
+          today={today}
+        />
       )}
 
       {editTask && (
-        <EditTaskModal isOpen={!!editTask} onClose={() => setEditTask(null)} task={editTask} caseMap={caseMap} allMembers={allMembers}
-          onSaved={() => { setEditTask(null); router.refresh() }} />
+        <EditTaskModal
+          isOpen={!!editTask}
+          onClose={() => setEditTask(null)}
+          task={editTask}
+          caseMap={caseMap}
+          allMembers={allMembers}
+          onSaved={() => { setEditTask(null); router.refresh() }}
+        />
       )}
-      <DeleteConfirmModal isOpen={!!deleteTask} onClose={() => setDeleteTask(null)} title="タスク削除"
-        message={`「${deleteTask?.title}」を削除しますか？この操作は取り消せません。`} onConfirm={handleDelete} />
+      <DeleteConfirmModal
+        isOpen={!!deleteTask}
+        onClose={() => setDeleteTask(null)}
+        title="タスク削除"
+        message={`「${deleteTask?.title}」を削除しますか？この操作は取り消せません。`}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
 
-// ─── 進行ボタン ───
-function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvance: () => void; loading?: boolean }) {
-  const norm = (s: string) => {
-    if (s === '未着手') return '着手前'
-    if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
-    if (s === 'キャンセル') return '完了'
-    return s
-  }
-  const current = norm(status)
+// ─── List View（案件一覧と同じ構造）───
+function ListView({
+  tasks,
+  caseMap,
+  allMembers,
+  today,
+  onAdvance,
+  loadingTaskId,
+  onEdit: _onEdit,
+  onDelete,
+}: {
+  tasks: TaskRow[]
+  caseMap: Record<string, CaseInfo>
+  allMembers: MemberRow[]
+  today: string
+  onAdvance: (task: TaskRow) => void
+  loadingTaskId: string | null
+  onEdit: (task: TaskRow) => void
+  onDelete: (task: TaskRow) => void
+}) {
+  const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
+    title: 280, status: 100, caseCol: 220, assignees: 120, due: 110, action: 130, ops: 50,
+  })
+  const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
+    { key: 'title',     label: 'タスク名' },
+    { key: 'status',    label: 'ステータス' },
+    { key: 'caseCol',   label: '案件' },
+    { key: 'assignees', label: '担当' },
+    { key: 'due',       label: '期限' },
+    { key: 'action',    label: '操作' },
+    { key: 'ops',       label: '' },
+  ]
 
-  const spinner = (
-    <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        <h2 className="text-[13px] font-semibold text-gray-900">タスク一覧</h2>
+        <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+          {tasks.length}件
+        </span>
+        <div className="flex-1" />
+        <button
+          onClick={reset}
+          title="列幅をデフォルトに戻す"
+          className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
+        >
+          ↔ 列幅リセット
+        </button>
+      </div>
+
+      {tasks.length === 0 ? (
+        <div className="px-6 py-16 text-center text-sm text-gray-400">該当するタスクがありません</div>
+      ) : (
+        <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
+          </colgroup>
+          <thead>
+            <tr>
+              {HEADERS.map(h => (
+                <th
+                  key={h.key}
+                  className="relative text-left px-3.5 py-2.5 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200"
+                >
+                  <span className="truncate block">{h.label}</span>
+                  {h.key !== 'ops' && <ResizeHandle onMouseDown={startResize(h.key)} />}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.map(task => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                caseMap={caseMap}
+                allMembers={allMembers}
+                today={today}
+                onAdvance={onAdvance}
+                loading={loadingTaskId === task.id}
+                onDelete={onDelete}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
+}
+
+// ─── 1行 ───
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete }: {
+  task: TaskRow
+  caseMap: Record<string, CaseInfo>
+  allMembers: MemberRow[]
+  today: string
+  onAdvance: (task: TaskRow) => void
+  loading: boolean
+  onDelete: (task: TaskRow) => void
+}) {
+  const status = normalizeStatus(task.status)
+  const statusDef = TASK_STATUSES.find(s => s.key === status)
+  const caseInfo = caseMap[task.case_id]
+  const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
+  const workRole = getWorkRoleDef(task.work_role)
+
+  return (
+    <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${isOverdue ? 'bg-red-50/30' : ''}`}>
+      {/* タスク名 */}
+      <td className="px-3.5 py-2.5 relative">
+        {/* 担当区分カラーバー（左端） */}
+        {(workRole || isOverdue) && (
+          <span
+            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
+            style={{ backgroundColor: isOverdue ? '#DC2626' : workRole?.bar }}
+            title={isOverdue ? '期限超過' : workRole?.label}
+          />
+        )}
+        <div className="flex items-center gap-1.5 min-w-0 pl-1">
+          {workRole && (
+            <span
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold border flex-shrink-0 ${workRole.pill}`}
+              title={workRole.label}
+            >
+              <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
+              {workRole.shortLabel}
+            </span>
+          )}
+          {task.priority === '急ぎ' && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 flex-shrink-0">急ぎ</span>
+          )}
+          <a
+            href={`/tasks/${task.id}`}
+            className={`text-[13px] font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}
+          >
+            {task.title}
+          </a>
+        </div>
+      </td>
+
+      {/* ステータス */}
+      <td className="px-3.5 py-2.5">
+        {statusDef && <Badge label={statusDef.key} color={statusDef.color} />}
+      </td>
+
+      {/* 案件 */}
+      <td className="px-3.5 py-2.5 min-w-0">
+        {caseInfo ? (
+          <a href={`/cases/${task.case_id}`} className="block group/link">
+            <div className="text-[12px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
+            <div className="text-[13px] text-gray-600 truncate group-hover/link:text-brand-600 group-hover/link:underline">
+              {caseInfo.deal_name}
+            </div>
+          </a>
+        ) : (
+          <span className="text-[12px] text-gray-300">—</span>
+        )}
+      </td>
+
+      {/* 担当（受注/管理アバター） */}
+      <td className="px-3.5 py-2.5">
+        <div className="flex items-center gap-1">
+          {caseInfo?.sales && <Avatar name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} role="受注" />}
+          {caseInfo?.manager && <Avatar name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} role="管理" />}
+          {!caseInfo?.sales && !caseInfo?.manager && <span className="text-[12px] text-gray-300">—</span>}
+        </div>
+      </td>
+
+      {/* 期限 */}
+      <td className="px-3.5 py-2.5">
+        {task.due_date ? (
+          <span className={`text-[13px] font-mono inline-flex items-center gap-1 ${isOverdue ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+            {isOverdue && <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />}
+            {task.due_date}
+          </span>
+        ) : (
+          <span className="text-[12px] text-gray-300">—</span>
+        )}
+      </td>
+
+      {/* 操作（着手/完了ボタン） */}
+      <td className="px-3.5 py-2.5">
+        <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loading} />
+      </td>
+
+      {/* 削除（hover時のみ） */}
+      <td className="px-3.5 py-2.5">
+        <button
+          onClick={() => onDelete(task)}
+          className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+          title="削除"
+        >
+          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+function Avatar({ name, color, role }: { name: string; color: string; role: string }) {
+  return (
+    <span
+      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 ring-2 ring-white"
+      style={{ backgroundColor: color }}
+      title={`${role}: ${name}`}
+    >
+      {name.charAt(0)}
+    </span>
+  )
+}
+
+function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvance: () => void; loading?: boolean }) {
+  const current = normalizeStatus(status)
+  const spinner = <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
 
   if (current === '着手前') {
     return (
-      <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all
-          ${loading ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}>
-        {loading ? spinner : '▶'} {loading ? '処理中...' : '着手する'}
+      <button
+        onClick={e => { e.stopPropagation(); onAdvance() }}
+        disabled={loading}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 disabled:opacity-60 transition-colors"
+      >
+        {loading ? spinner : <Play className="w-3 h-3" strokeWidth={2.5} />}
+        {loading ? '処理中' : '着手'}
       </button>
     )
   }
   if (current === '対応中') {
     return (
-      <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all
-          ${loading ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}>
-        {loading ? spinner : '✅'} {loading ? '処理中...' : '完了にする'}
+      <button
+        onClick={e => { e.stopPropagation(); onAdvance() }}
+        disabled={loading}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 hover:border-brand-300 disabled:opacity-60 transition-colors"
+      >
+        {loading ? spinner : <CheckCircle2 className="w-3 h-3" strokeWidth={2.25} />}
+        {loading ? '処理中' : '完了'}
       </button>
     )
   }
-  return <span className="text-[13px] text-green-600 font-semibold">✅ 完了</span>
-}
-
-// ─── grid 用ヘッダー（共通フック対応） ───
-function GridResizableHeader({ onMouseDown, children }: {
-  onMouseDown: (e: React.MouseEvent) => void; children: React.ReactNode
-}) {
   return (
-    <div className="relative flex items-center min-w-0">
-      <div className="truncate">{children}</div>
-      <ResizeHandle onMouseDown={onMouseDown} />
-    </div>
-  )
-}
-
-// ─── Table Row ───
-function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, today, allMembers, gridTemplate }: {
-  task: TaskRow; caseMap: Record<string, CaseInfo>
-  onEdit: () => void; onDelete: () => void; onAdvance: () => void; loading?: boolean
-  today: string; allMembers: MemberRow[]; gridTemplate: string
-}) {
-  const norm = (s: string) => {
-    if (s === '未着手') return '着手前'
-    if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
-    if (s === 'キャンセル') return '完了'
-    return s
-  }
-  const statusDef = TASK_STATUSES.find(s => s.key === norm(task.status))
-  const caseInfo = caseMap[task.case_id]
-  const isOverdue = task.due_date && task.due_date < today && norm(task.status) !== '完了'
-  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
-  const workRole = getWorkRoleDef(task.work_role)
-
-  return (
-    <div className={`grid gap-3 items-center px-4 py-2 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors group relative ${isOverdue ? 'bg-red-50/30' : ''}`} style={{ gridTemplateColumns: gridTemplate }}>
-      {/* 担当区分 左端カラーバー */}
-      {workRole && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1"
-          style={{ backgroundColor: workRole.bar }}
-          title={workRole.label}
-        />
-      )}
-      {/* Task name */}
-      <div className="min-w-0 pr-2 flex items-center gap-1.5">
-        {workRole && (
-          <span
-            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-bold border flex-shrink-0 ${workRole.pill}`}
-            title={workRole.label}
-          >
-            <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
-            {workRole.shortLabel}
-          </span>
-        )}
-        <a href={`/tasks/${task.id}`} className={`text-[13px] font-medium truncate ${norm(task.status) === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}>{task.title}</a>
-      </div>
-
-      {/* Case link */}
-      <div className="min-w-0">
-        {caseInfo ? (
-          <a href={`/cases/${task.case_id}`} onClick={e => e.stopPropagation()} className="group/link block">
-            <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-brand-600 group-hover/link:underline transition-colors">{caseInfo.deal_name}</div>
-          </a>
-        ) : (
-          <span className="text-[12px] text-gray-300">—</span>
-        )}
-      </div>
-
-      {/* 進行ボタン */}
-      <div>
-        <AdvanceButton status={task.status} onAdvance={onAdvance} loading={loading} />
-      </div>
-
-      {/* Case members: 受注担当 + 管理担当 */}
-      <div className="flex items-center gap-1.5">
-        {caseInfo?.sales ? (
-          <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" />
-        ) : (
-          <span className="text-[11px] text-gray-300">—</span>
-        )}
-        {caseInfo?.manager && (
-          <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />
-        )}
-      </div>
-
-      {/* 着手者 */}
-      <div className="flex items-center gap-1">
-        {startedMember ? (
-          <MemberChip
-            name={startedMember.name}
-            color={startedMember.avatar_color}
-            label="着手"
-            prominent={norm(task.status) === '対応中'}
-          />
-        ) : (
-          <span className="text-[11px] text-gray-300">—</span>
-        )}
-      </div>
-
-      {/* Due date */}
-      <div>
-        {task.due_date ? (
-          <span className={`text-[13px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-            {isOverdue && '⚠ '}{task.due_date}
-          </span>
-        ) : (
-          <span className="text-[12px] text-gray-300">—</span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
-      </div>
-    </div>
-  )
-}
-
-// ─── 要対応タスク行 ───
-function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gridTemplate }: {
-  task: TaskRow; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
-  onAdvance: () => void; loading?: boolean; today: string; gridTemplate: string
-}) {
-  const norm = (s: string) => {
-    if (s === '未着手') return '着手前'
-    if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
-    if (s === 'キャンセル') return '完了'
-    return s
-  }
-  const caseInfo = caseMap[task.case_id]
-  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
-  const isOverdue = task.due_date && task.due_date < today
-  const isUrgent = task.priority === '急ぎ'
-  const workRole = getWorkRoleDef(task.work_role)
-
-  return (
-    <div className="grid gap-3 items-center px-4 py-2 border-b border-red-100 last:border-b-0 hover:bg-red-100/40 transition-colors relative" style={{ gridTemplateColumns: gridTemplate }}>
-      {workRole && (
-        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: workRole.bar }} title={workRole.label} />
-      )}
-      <div className="min-w-0 pr-2 flex items-center gap-1.5">
-        {workRole && (
-          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-bold border flex-shrink-0 ${workRole.pill}`} title={workRole.label}>
-            <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
-            {workRole.shortLabel}
-          </span>
-        )}
-        <a href={`/tasks/${task.id}`} className="text-[13px] font-medium text-red-800 hover:text-red-600 truncate">{task.title}</a>
-      </div>
-      <div className="min-w-0">
-        {caseInfo ? (
-          <a href={`/cases/${task.case_id}`} className="group/link block">
-            <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-brand-600">{caseInfo.deal_name}</div>
-          </a>
-        ) : <span className="text-[12px] text-gray-300">—</span>}
-      </div>
-      <div><AdvanceButton status={task.status} onAdvance={onAdvance} loading={loading} /></div>
-      <div className="flex items-center gap-1.5">
-        {caseInfo?.sales ? <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" /> : <span className="text-[11px] text-gray-300">—</span>}
-        {caseInfo?.manager && <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />}
-      </div>
-      <div className="flex items-center gap-1">
-        {startedMember ? (
-          <MemberChip
-            name={startedMember.name}
-            color={startedMember.avatar_color}
-            label="着手"
-            prominent={norm(task.status) === '対応中'}
-          />
-        ) : <span className="text-[11px] text-gray-300">—</span>}
-      </div>
-      <div>
-        {task.due_date ? (
-          <span className={`text-[13px] font-mono ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
-            {isOverdue && '⚠ '}{task.due_date}
-          </span>
-        ) : <span className="text-[12px] text-gray-300">—</span>}
-      </div>
-      <div className="flex gap-1">
-        {isOverdue && <span className="text-[11px] bg-red-200 text-red-700 px-1.5 py-0.5 rounded font-semibold">期限超過</span>}
-        {isUrgent && <span className="text-[11px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-semibold">急ぎ</span>}
-      </div>
-    </div>
-  )
-}
-
-function MemberChip({ name, color, label, prominent }: { name: string; color: string; label: string; prominent?: boolean }) {
-  if (prominent) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 bg-brand-50 border border-brand-200 rounded-full pl-0.5 pr-2 py-0.5 shadow-sm"
-        title={`${label}: ${name}（対応中）`}
-      >
-        <span
-          className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0 ring-2 ring-white"
-          style={{ backgroundColor: color }}
-        >
-          {name.charAt(0)}
-        </span>
-        <span className="text-[13px] text-brand-800 font-bold truncate max-w-[60px]">{name}</span>
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-0.5" title={`${label}: ${name}`}>
-      <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: color }}>
-        {name.charAt(0)}
-      </span>
-      <span className="text-[12px] text-gray-600 font-medium truncate max-w-[50px]">{name}</span>
+    <span className="inline-flex items-center gap-1 text-[12px] text-gray-400">
+      <CheckCircle2 className="w-3 h-3" strokeWidth={2} />
+      完了
     </span>
   )
 }
 
 // ─── Task Kanban ───
 function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDelete, today }: {
-  tasks: TaskRow[]; caseMap: Record<string, CaseInfo>; allMembers: MemberRow[]
-  onAdvance: (task: TaskRow) => void; loadingTaskId: string | null
-  onDelete: (task: TaskRow) => void; today: string
+  tasks: TaskRow[]
+  caseMap: Record<string, CaseInfo>
+  allMembers: MemberRow[]
+  onAdvance: (task: TaskRow) => void
+  loadingTaskId: string | null
+  onDelete: (task: TaskRow) => void
+  today: string
 }) {
-  const norm = (s: string) => {
-    if (s === '未着手') return '着手前'
-    if (['Wチェック待ち', '差戻し', '保留'].includes(s)) return '対応中'
-    if (s === 'キャンセル') return '完了'
-    return s
-  }
   return (
     <div className="overflow-x-auto pb-3">
       <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
         {TASK_STATUSES.map(status => {
-          const columnTasks = tasks.filter(t => norm(t.status) === status.key)
+          const columnTasks = tasks.filter(t => normalizeStatus(t.status) === status.key)
           return (
             <div key={status.key} className="w-[260px] flex-shrink-0">
               <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 flex items-center gap-2 shadow-sm mb-2">
@@ -765,16 +583,15 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                 ) : columnTasks.map(task => {
                   const caseInfo = caseMap[task.case_id]
                   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
-                  const isOverdue = task.due_date && task.due_date < today && norm(task.status) !== '完了'
+                  const isOverdue = !!(task.due_date && task.due_date < today && normalizeStatus(task.status) !== '完了')
+                  const wr = getWorkRoleDef(task.work_role)
                   return (
                     <div
                       key={task.id}
                       className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}
-                      style={task.priority !== '急ぎ' && task.work_role ? { borderLeft: `3px solid ${getWorkRoleDef(task.work_role)?.bar ?? '#E5E7EB'}` } : undefined}
+                      style={task.priority !== '急ぎ' && task.work_role ? { borderLeft: `3px solid ${wr?.bar ?? '#E5E7EB'}` } : undefined}
                     >
-                      {(() => {
-                        const wr = getWorkRoleDef(task.work_role)
-                        if (!wr) return null
+                      {wr && (() => {
                         const WrIcon = wr.Icon
                         return (
                           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold border mb-1 ${wr.pill}`}>
@@ -783,18 +600,24 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                           </span>
                         )
                       })()}
-                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-brand-600 ${norm(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
+                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-brand-600 ${normalizeStatus(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                        {task.title}
+                      </a>
                       {caseInfo && <div className="text-[12px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           {startedMember && (
-                            <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: startedMember.avatar_color }} title={startedMember.name}>{startedMember.name.charAt(0)}</span>
+                            <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: startedMember.avatar_color }} title={startedMember.name}>
+                              {startedMember.name.charAt(0)}
+                            </span>
                           )}
                           <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loadingTaskId === task.id} />
                         </div>
                         <div className="flex items-center gap-1">
                           {task.due_date && <span className={`text-[12px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}
-                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">🗑</button>
+                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">
+                            <Trash2 className="w-3 h-3" strokeWidth={1.75} />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -812,7 +635,12 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
 // ─── Sub components ───
 function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
-    <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+    <button
+      onClick={onClick}
+      className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${
+        active ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+      }`}
+    >
       {label}
       {count !== undefined && count > 0 && (
         <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
@@ -820,4 +648,3 @@ function FilterTab({ label, active, onClick, count }: { label: string; active: b
     </button>
   )
 }
-
