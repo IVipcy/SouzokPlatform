@@ -156,7 +156,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                 <thead>
                   <tr>
                     {['氏名', 'ふりがな', '続柄', '生年月日', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
+                      <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -166,33 +166,33 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                       <td className="px-3 py-2.5">
                         <div className="text-xs font-semibold text-gray-900">{heir.name}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.furigana ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.furigana ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           {(heir.relationship_type || heir.relationship) && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">
                               {heir.relationship_type ?? heir.relationship}
                             </span>
                           )}
                           {heir.is_applicant && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.birth_date ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.registered_address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.email ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.birth_date ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.email ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         {heir.is_legal_heir && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-600 border border-green-200">✓</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-green-50 text-green-600 border border-green-200">✓</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5">
                         <button
                           onClick={() => handleDeleteHeir(heir.id)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                          className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
                           title="削除"
                         >🗑</button>
                       </td>
@@ -260,7 +260,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                   />
                 </FormField>
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">フラグ</label>
+                  <label className="text-[12px] font-semibold text-gray-500 block mb-1">フラグ</label>
                   <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />

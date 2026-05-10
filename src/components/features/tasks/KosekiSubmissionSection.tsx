@@ -210,12 +210,12 @@ export default function KosekiSubmissionSection({ task, onRefresh }: Props) {
         </table>
       </div>
       <div className="flex items-center justify-between mt-2 px-1">
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[12px] text-gray-400">
           ※ 市区町村ごとに1行。提出方法（郵送/持込）と提出日を記録してください。
         </p>
         <button
           onClick={addRow}
-          className="text-[11px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
+          className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
         >
           ＋ 提出先を追加
         </button>

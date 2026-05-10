@@ -143,7 +143,7 @@ export default function TaskCategorySections({ task, onRefresh }: Props) {
             {groups.map((g, idx) => (
               <div key={idx} className={idx > 0 ? 'mt-4' : ''}>
                 {g.name && (
-                  <div className="text-[12px] font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-200">
+                  <div className="text-[14px] font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-200">
                     ◼ {g.name}
                   </div>
                 )}

@@ -111,7 +111,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Client section */}
         <div>
-          <div className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-2">👤 依頼者情報</div>
+          <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2">👤 依頼者情報</div>
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <FormField label="氏名 *" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} />
@@ -131,7 +131,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Deceased section */}
         <div>
-          <div className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-2">⚰️ 被相続人情報</div>
+          <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2">⚰️ 被相続人情報</div>
           <div className="grid grid-cols-2 gap-2">
             <FormField label="氏名" value={form.deceased_name} onChange={v => setForm(p => ({ ...p, deceased_name: v }))} />
             <FormField label="相続開始日" value={form.date_of_death} onChange={v => setForm(p => ({ ...p, date_of_death: v }))} type="date" />
@@ -147,7 +147,7 @@ function FormField({ label, value, onChange, placeholder, type = 'text' }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="block text-[13px] font-semibold text-gray-500 mb-1">{label}</label>
       <input
         type={type}
         value={value}

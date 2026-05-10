@@ -254,12 +254,12 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
                   <span className={`flex-1 truncate ${task.status === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                     {task.title}
                   </span>
-                  <span className="text-gray-400 font-mono text-[10px]">{getPhaseLabel(task.phase)}</span>
+                  <span className="text-gray-400 font-mono text-[12px]">{getPhaseLabel(task.phase)}</span>
                 </div>
               )
             })}
             {tasks.length > 5 && (
-              <p className="text-[10px] text-gray-400">他 {tasks.length - 5} タスク</p>
+              <p className="text-[12px] text-gray-400">他 {tasks.length - 5} タスク</p>
             )}
           </div>
         </Section>
@@ -277,11 +277,11 @@ function RevenueCard({ caseData }: { caseData: CaseRow }) {
 
   return (
     <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-      <div className="text-[10px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
+      <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
       <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
         ¥{estimate.toLocaleString()}
       </div>
-      <div className="space-y-1 text-[11px]">
+      <div className="space-y-1 text-[13px]">
         <div className="flex justify-between">
           <span className="opacity-70">資産概算</span>
           <span className="font-mono">¥{estimate.toLocaleString()}</span>

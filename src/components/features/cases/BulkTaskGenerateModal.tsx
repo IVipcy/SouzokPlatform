@@ -251,9 +251,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
                         className="accent-blue-600 w-3.5 h-3.5"
                       />
                       <span className="flex-1 text-gray-700">{template.label}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{template.category}</span>
+                      <span className="text-[12px] text-gray-400 font-mono">{template.category}</span>
                       {exists && (
-                        <span className="text-[10px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
+                        <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
                           生成済
                         </span>
                       )}

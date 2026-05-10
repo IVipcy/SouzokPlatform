@@ -80,13 +80,13 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full border ${doc.categoryColor}`}>
+                <span className={`inline-block text-[12px] font-medium px-2 py-0.5 rounded-full border ${doc.categoryColor}`}>
                   {doc.category}
                 </span>
                 {ready ? (
-                  <span className="text-[10px] text-green-600 font-semibold">✓ 利用可能</span>
+                  <span className="text-[12px] text-green-600 font-semibold">✓ 利用可能</span>
                 ) : (
-                  <span className="text-[10px] text-gray-400 font-medium">準備中</span>
+                  <span className="text-[12px] text-gray-400 font-medium">準備中</span>
                 )}
               </div>
               <h4 className="text-sm font-semibold text-gray-800 mb-1">{doc.title}</h4>
@@ -96,7 +96,7 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
         })}
       </div>
 
-      <p className="text-[10px] text-gray-400 text-center pt-2">
+      <p className="text-[12px] text-gray-400 text-center pt-2">
         ※ 準備中の書類は今後のリリースで順次追加されます
       </p>
 

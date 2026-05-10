@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Play, CheckCircle2, RefreshCw, StickyNote, ClipboardList, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow } from '@/types'
@@ -11,11 +12,11 @@ type Props = {
   currentMemberId: string | null
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  'task_started': '▶',
-  'task_completed': '✅',
-  'status_change': '🔄',
-  'note': '📝',
+const ACTIVITY_ICONS: Record<string, LucideIcon> = {
+  'task_started':   Play,
+  'task_completed': CheckCircle2,
+  'status_change':  RefreshCw,
+  'note':           StickyNote,
 }
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -63,13 +64,13 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
   }
 
   // 全タイムラインイベント: 活動履歴 + 案件の基本イベント
-  const allEvents: { date: string; icon: string; color: string; title: string; note?: string; memberName?: string }[] = []
+  const allEvents: { date: string; Icon: LucideIcon; color: string; title: string; note?: string; memberName?: string }[] = []
 
   // 案件作成
   if (caseData.created_at) {
     allEvents.push({
       date: new Date(caseData.created_at).toISOString().split('T')[0],
-      icon: '📋',
+      Icon: ClipboardList,
       color: '#2563EB',
       title: '案件作成',
       note: `${caseData.case_number} ${caseData.deal_name}`,
@@ -80,7 +81,7 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
   if (caseData.order_date) {
     allEvents.push({
       date: caseData.order_date,
-      icon: '✅',
+      Icon: CheckCircle2,
       color: '#16A34A',
       title: '受注',
     })
@@ -90,7 +91,7 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
   activities.forEach(act => {
     allEvents.push({
       date: act.activity_date,
-      icon: ACTIVITY_ICONS[act.activity_type] ?? '📝',
+      Icon: ACTIVITY_ICONS[act.activity_type] ?? StickyNote,
       color: ACTIVITY_COLORS[act.activity_type] ?? '#6B7280',
       title: act.description,
       memberName: act.members?.name,
@@ -133,7 +134,7 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
           <span className="text-sm">📅</span>
           <h3 className="text-[13px] font-semibold text-gray-900">活動履歴</h3>
-          <span className="text-[10px] font-mono text-gray-400 ml-auto">{allEvents.length}件</span>
+          <span className="text-[12px] font-mono text-gray-400 ml-auto">{allEvents.length}件</span>
         </div>
         <div className="px-4 py-3">
           {loading ? (
@@ -151,10 +152,10 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
                   {/* Line */}
                   <div className="flex flex-col items-center">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] z-10 flex-shrink-0"
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] z-10 flex-shrink-0"
                       style={{ backgroundColor: `${ev.color}20`, color: ev.color }}
                     >
-                      <span>{ev.icon}</span>
+                      <ev.Icon className="w-4 h-4" strokeWidth={2} />
                     </div>
                     {i < allEvents.length - 1 && <div className="w-px flex-1 bg-gray-200 mt-1" />}
                   </div>
@@ -163,13 +164,13 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
                     <div className="flex items-center gap-2">
                       <div className="text-xs font-semibold text-gray-700">{ev.title}</div>
                       {ev.memberName && (
-                        <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                        <span className="text-[12px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
                           {ev.memberName}
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-400 font-mono mt-0.5">{ev.date}</div>
-                    {ev.note && <div className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{ev.note}</div>}
+                    <div className="text-[12px] text-gray-400 font-mono mt-0.5">{ev.date}</div>
+                    {ev.note && <div className="text-[13px] text-gray-500 mt-0.5 leading-relaxed">{ev.note}</div>}
                   </div>
                 </div>
               ))}

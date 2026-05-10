@@ -42,7 +42,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount }
           >
             {tab.label}
             {count !== undefined && (
-              <span className={`ml-1 text-[10px] font-mono px-1.5 py-0.5 rounded ${
+              <span className={`ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
                 activeTab === tab.key
                   ? 'bg-blue-50 text-blue-600'
                   : 'bg-gray-100 text-gray-500'

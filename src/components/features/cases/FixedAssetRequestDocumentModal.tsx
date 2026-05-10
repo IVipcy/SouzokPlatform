@@ -206,7 +206,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 <option key={key} value={key}>{FIXED_ASSET_VARIANT_PRESETS[key].label}</option>
               ))}
             </select>
-            <p className="text-[10px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
+            <p className="text-[12px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">請求日</label>
@@ -250,7 +250,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
           <h3 className="text-sm font-semibold text-gray-700">申請内容</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="block">
-              <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">年度</span>
+              <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">年度</span>
               <input
                 type="text"
                 value={nendo}
@@ -259,7 +259,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               />
             </label>
             <label className="block">
-              <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">部数</span>
+              <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">部数</span>
               <input
                 type="number"
                 min={1}
@@ -270,7 +270,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             </label>
           </div>
           <div>
-            <span className="block text-[11px] font-semibold text-gray-600 mb-1">証明書の種類（複数選択可・出力後に所定欄に丸をつける想定）</span>
+            <span className="block text-[13px] font-semibold text-gray-600 mb-1">証明書の種類（複数選択可・出力後に所定欄に丸をつける想定）</span>
             <div className="flex flex-wrap gap-1.5">
               {CERT_KINDS.map(kind => {
                 const on = certKinds.includes(kind)
@@ -279,7 +279,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                     key={kind}
                     type="button"
                     onClick={() => toggleCertKind(kind)}
-                    className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                    className={`text-[13px] px-2 py-1 rounded-md border transition-colors ${
                       on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
                     }`}
                   >
@@ -296,17 +296,17 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
           <h3 className="text-sm font-semibold text-gray-700">所有者情報</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="block">
-              <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">所有者氏名</span>
+              <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">所有者氏名</span>
               <input
                 type="text"
                 value={ownerName}
                 onChange={e => setOwnerName(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
               />
-              <span className="text-[10px] text-gray-400">出力時に「故 〜」形式で付与されます</span>
+              <span className="text-[12px] text-gray-400">出力時に「故 〜」形式で付与されます</span>
             </label>
             <label className="block">
-              <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">所有者住所（過去住所複数可）</span>
+              <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">所有者住所（過去住所複数可）</span>
               <input
                 type="text"
                 value={ownerAddress}
@@ -323,7 +323,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             <h3 className="text-sm font-semibold text-gray-700">対象資産（最大5件）</h3>
             <button
               onClick={addRow}
-              className="text-[11px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+              className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
             >
               ＋ 物件を追加
             </button>
@@ -342,7 +342,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">土地 所在（登記簿上の地番）</span>
+                    <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">土地 所在（登記簿上の地番）</span>
                     <input
                       type="text"
                       value={row.landAddress}
@@ -352,7 +352,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                     />
                   </label>
                   <label className="block">
-                    <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">家屋 所在</span>
+                    <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">家屋 所在</span>
                     <input
                       type="text"
                       value={row.buildingAddress}
@@ -362,7 +362,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                     />
                   </label>
                   <label className="block">
-                    <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">家屋番号</span>
+                    <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">家屋番号</span>
                     <input
                       type="text"
                       value={row.kaokuBango}
@@ -370,7 +370,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                       className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
                     />
                   </label>
-                  <label className="flex items-center gap-2 text-[12px] text-gray-700 mt-4 md:mt-5">
+                  <label className="flex items-center gap-2 text-[14px] text-gray-700 mt-4 md:mt-5">
                     <input
                       type="checkbox"
                       checked={row.needNeighborPrice}
@@ -388,7 +388,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
         {/* 備考・小為替 */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block">
-            <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">備考（入力フリー欄）</span>
+            <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">備考（入力フリー欄）</span>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -397,7 +397,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             />
           </label>
           <label className="block">
-            <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">同封小為替（円）</span>
+            <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">同封小為替（円）</span>
             <input
               type="number"
               min={0}
@@ -410,7 +410,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
         </section>
 
         {properties.length > 5 && (
-          <p className="text-[11px] text-amber-600 text-center">
+          <p className="text-[13px] text-amber-600 text-center">
             ※ 案件に{properties.length}件の物件が登録されていますが、本様式は最大5件までです。6件目以降は別途申請書を作成してください。
           </p>
         )}

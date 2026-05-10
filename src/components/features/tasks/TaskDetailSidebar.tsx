@@ -93,7 +93,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
       {caseData && (
         <div className="rounded-xl p-4 text-white bg-gradient-to-br from-blue-800 to-blue-600 shadow-lg">
           <h3 className="text-[15px] font-bold mb-2">{caseData.deal_name}</h3>
-          <div className="space-y-1.5 text-[12px] opacity-90">
+          <div className="space-y-1.5 text-[14px] opacity-90">
             {caseData.deceased_name && (
               <div className="flex justify-between">
                 <span>被相続人</span>
@@ -125,7 +125,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
           </div>
           <Link
             href={`/cases/${caseData.id}`}
-            className="mt-3 block text-center text-[11px] font-semibold bg-white/20 hover:bg-white/30 rounded-lg py-1.5 transition-colors"
+            className="mt-3 block text-center text-[13px] font-semibold bg-white/20 hover:bg-white/30 rounded-lg py-1.5 transition-colors"
           >
             案件詳細を開く
           </Link>
@@ -134,17 +134,18 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
 
       {/* クイック情報 */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-        <h4 className="text-[11px] font-semibold text-gray-500 mb-1">クイック情報</h4>
+        <h4 className="text-[13px] font-semibold text-gray-500 mb-1">クイック情報</h4>
         <QIRow label="フェーズ">
           <span className="text-xs font-semibold text-gray-700">{getPhaseLabel(task.phase)}</span>
         </QIRow>
         <QIRow label="担当区分">
           {(() => {
             const wr = getWorkRoleDef(task.work_role)
-            if (!wr) return <span className="text-[11px] text-gray-400">未設定</span>
+            if (!wr) return <span className="text-[13px] text-gray-400">未設定</span>
+            const WrIcon = wr.Icon
             return (
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold border ${wr.pill}`}>
-                <span>{wr.icon}</span>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[13px] font-bold border ${wr.pill}`}>
+                <WrIcon className="w-3.5 h-3.5" strokeWidth={2.25} />
                 {wr.label}
               </span>
             )
@@ -171,7 +172,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
       {nextTaskDeps.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-3 py-2.5 bg-blue-600 flex items-center gap-2">
-            <span className="text-white text-[12px] font-bold">このタスクが終わったら</span>
+            <span className="text-white text-[14px] font-bold">このタスクが終わったら</span>
           </div>
           <div className="divide-y divide-gray-100">
             {nextTaskDeps.map(dep => {
@@ -198,11 +199,11 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                       {toTask.title}
                     </p>
                     {isMet && (
-                      <p className="text-[10px] text-green-600 font-medium">今すぐ着手できます</p>
+                      <p className="text-[12px] text-green-600 font-medium">今すぐ着手できます</p>
                     )}
                   </div>
                   {isMet && (
-                    <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <span className="text-[12px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex-shrink-0">
                       着手OK
                     </span>
                   )}
@@ -230,17 +231,17 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                   <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-white text-[12px] font-bold">着手してOKです！</span>
+                  <span className="text-white text-[14px] font-bold">着手してOKです！</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-white text-[12px] font-bold">
+                  <span className="text-white text-[14px] font-bold">
                     先に終わらせるものがあります
                   </span>
-                  <span className="ml-auto text-white text-[10px] font-bold bg-white/30 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-auto text-white text-[12px] font-bold bg-white/30 px-1.5 py-0.5 rounded-full">
                     {metCount}/{prereqDeps.length}
                   </span>
                 </>
@@ -276,13 +277,13 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                     </div>
                     {/* テキスト */}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[11px] font-semibold leading-snug ${
+                      <p className={`text-[13px] font-semibold leading-snug ${
                         isMet ? 'text-green-700 line-through decoration-green-400' : 'text-gray-800'
                       }`}>
                         「{fromTask.title}」{conditionLabel}
                       </p>
                       {!isMet && (
-                        <Link href={`/tasks/${fromTask.id}`} className="text-[10px] text-blue-500 hover:underline">
+                        <Link href={`/tasks/${fromTask.id}`} className="text-[12px] text-blue-500 hover:underline">
                           そのタスクを開く →
                         </Link>
                       )}
@@ -298,7 +299,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
       {/* タイムライン */}
       {timelineEvents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">タイムライン</h4>
+          <h4 className="text-[13px] font-semibold text-gray-500 mb-2">タイムライン</h4>
           <div className="relative">
             {timelineEvents.map((ev, i) => (
               <div key={i} className="flex gap-3 mb-3 last:mb-0 relative">
@@ -310,8 +311,8 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
                   style={{ backgroundColor: ev.color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-semibold text-gray-700">{ev.label}</div>
-                  <div className="text-[10px] font-mono text-gray-400">{ev.date}</div>
+                  <div className="text-[13px] font-semibold text-gray-700">{ev.label}</div>
+                  <div className="text-[12px] font-mono text-gray-400">{ev.date}</div>
                 </div>
               </div>
             ))}
@@ -322,7 +323,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
       {/* 関連ドキュメント */}
       {documents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-          <h4 className="text-[11px] font-semibold text-gray-500 mb-2">関連ドキュメント <span className="text-gray-400">({documents.length}件)</span></h4>
+          <h4 className="text-[13px] font-semibold text-gray-500 mb-2">関連ドキュメント <span className="text-gray-400">({documents.length}件)</span></h4>
           <div className="space-y-2">
             {documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-xs">
@@ -335,7 +336,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
             <div className="mt-2 flex gap-2">
               <Link
                 href={`/cases/${caseData.id}?tab=documents`}
-                className="flex-1 text-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg py-1.5 transition-colors"
+                className="flex-1 text-center text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg py-1.5 transition-colors"
               >
                 案件書類
               </Link>

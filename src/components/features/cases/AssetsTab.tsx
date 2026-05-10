@@ -217,7 +217,7 @@ function BoolTag({
 
   if (toggling) {
     return (
-      <span className="bg-gray-100 text-gray-400 border border-gray-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+      <span className="bg-gray-100 text-gray-400 border border-gray-200 px-2 py-0.5 rounded text-[12px] font-semibold">
         保存中...
       </span>
     )
@@ -226,7 +226,7 @@ function BoolTag({
   return value ? (
     <span
       onClick={handleClick}
-      className={`bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-[10px] font-semibold ${base}`}
+      className={`bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-[12px] font-semibold ${base}`}
       title={onToggle ? 'クリックで切替' : undefined}
     >
       ✓ あり
@@ -234,7 +234,7 @@ function BoolTag({
   ) : (
     <span
       onClick={handleClick}
-      className={`bg-gray-50 text-gray-400 border border-gray-200 px-2 py-0.5 rounded text-[10px] font-semibold ${base}`}
+      className={`bg-gray-50 text-gray-400 border border-gray-200 px-2 py-0.5 rounded text-[12px] font-semibold ${base}`}
       title={onToggle ? 'クリックで切替' : undefined}
     >
       なし
@@ -341,7 +341,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   }) {
     return (
       <div className="border-t border-blue-100 bg-blue-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-        <div className="text-[11px] font-semibold text-blue-700 mb-2">{title}</div>
+        <div className="text-[13px] font-semibold text-blue-700 mb-2">{title}</div>
         <div className="grid grid-cols-1 gap-2">
           <IMESafeInput
             placeholder="金融機関名（例: 三菱UFJ銀行）"
@@ -359,13 +359,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           <button
             onClick={onSubmit}
             disabled={saving}
-            className="px-3 py-1 bg-blue-600 text-white text-[11px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+            className="px-3 py-1 bg-blue-600 text-white text-[13px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {saving ? '保存中...' : '追加'}
           </button>
           <button
             onClick={onCancel}
-            className="px-3 py-1 text-gray-500 text-[11px] font-medium rounded-lg hover:bg-gray-100 transition"
+            className="px-3 py-1 text-gray-500 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition"
           >
             キャンセル
           </button>
@@ -499,7 +499,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           {properties.map(p => (
             <div key={p.id} className="border-t border-gray-100 pt-3 mt-3">
               <div className="flex items-start justify-between mb-2">
-                <div className="text-[11px] font-semibold text-gray-700">
+                <div className="text-[13px] font-semibold text-gray-700">
                   <InlineEdit
                     value={p.property_type}
                     placeholder="種別未設定"
@@ -508,7 +508,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 </div>
                 <button
                   onClick={() => handleDeleteProperty(p.id)}
-                  className="text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
+                  className="text-[12px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
                 >
                   削除
                 </button>
@@ -533,7 +533,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     value={p.area_evaluation}
                     displayValue={
                       p.area_evaluation ? (
-                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[12px] font-semibold">
                           {p.area_evaluation}
                         </span>
                       ) : (
@@ -562,7 +562,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                     options={SELLING_INTENTIONS.map(o => ({ value: o, label: o }))}
                     displayValue={
                       p.sale_intention ? (
-                        <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                        <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-[12px] font-semibold">
                           {p.sale_intention}
                         </span>
                       ) : (
@@ -672,7 +672,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           {/* Add property form - inline within the section */}
           {showPropertyForm && (
             <div className="border-t border-blue-100 bg-blue-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-              <div className="text-[11px] font-semibold text-blue-700 mb-2">不動産を追加</div>
+              <div className="text-[13px] font-semibold text-blue-700 mb-2">不動産を追加</div>
               <div className="grid grid-cols-1 gap-2">
                 <input
                   type="text"
@@ -701,13 +701,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 <button
                   onClick={handleAddProperty}
                   disabled={saving}
-                  className="px-3 py-1 bg-blue-600 text-white text-[11px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="px-3 py-1 bg-blue-600 text-white text-[13px] font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
                 >
                   {saving ? '保存中...' : '追加'}
                 </button>
                 <button
                   onClick={() => setShowPropertyForm(false)}
-                  className="px-3 py-1 text-gray-500 text-[11px] font-medium rounded-lg hover:bg-gray-100 transition"
+                  className="px-3 py-1 text-gray-500 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition"
                 >
                   キャンセル
                 </button>
@@ -735,19 +735,19 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   <div className="flex items-center gap-2">
                     <InlineEdit
                       value={d.institution_name}
-                      displayValue={<span className="text-[12px] font-bold text-gray-800">{d.institution_name}</span>}
+                      displayValue={<span className="text-[14px] font-bold text-gray-800">{d.institution_name}</span>}
                       onSave={async (val) => { if (val) await updateFinancialAsset(d.id, 'institution_name', val) }}
                     />
                     <InlineEdit
                       value={d.branch_name}
-                      displayValue={<span className="text-[11px] text-gray-400">{d.branch_name ?? '—'}</span>}
+                      displayValue={<span className="text-[13px] text-gray-400">{d.branch_name ?? '—'}</span>}
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'branch_name', val || null) }}
                       placeholder="支店名"
                     />
                   </div>
                   <button
                     onClick={() => handleDeleteFinancial(d.id)}
-                    className="text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
+                    className="text-[12px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
                   >
                     削除
                   </button>
@@ -755,20 +755,20 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 {d.required_docs && d.required_docs.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {d.required_docs.map((doc, i) => (
-                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[9px] font-semibold">
+                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[11px] font-semibold">
                         {doc}
                       </span>
                     ))}
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     現存確認要否：
                     <InlineEdit
                       value={d.existence_check}
                       displayValue={
                         d.existence_check ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
                             d.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'
                           }`}>
                             {d.existence_check}
@@ -785,7 +785,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'existence_check', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     残高証明基準日：
                     <InlineEdit
                       value={d.balance_cert_date}
@@ -794,13 +794,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'balance_cert_date', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     取引履歴期間：
                     <InlineEdit
                       value={d.transaction_history_period}
                       displayValue={
                         d.transaction_history_period ? (
-                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-[9px] font-semibold">
+                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">
                             {d.transaction_history_period}
                           </span>
                         ) : (
@@ -810,13 +810,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'transaction_history_period', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     貸金庫有無：
                     <InlineEdit
                       value={d.safe_deposit_box}
                       displayValue={
                         d.safe_deposit_box ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
                             d.safe_deposit_box === '有' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'
                           }`}>
                             {d.safe_deposit_box}
@@ -833,13 +833,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'safe_deposit_box', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     解約受注状況：
                     <InlineEdit
                       value={d.dissolution_status}
                       displayValue={
                         d.dissolution_status ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
                             d.dissolution_status === '受注' ? 'bg-green-50 text-green-700' :
                             d.dissolution_status === '未提案' ? 'bg-gray-100 text-gray-500' :
                             'bg-amber-50 text-amber-700'
@@ -855,13 +855,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'dissolution_status', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     通帳取り扱い：
                     <InlineEdit
                       value={d.passbook_status}
                       displayValue={
                         d.passbook_status ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
                             d.passbook_status === '紛失' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                           }`}>
                             {d.passbook_status}
@@ -875,7 +875,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(d.id, 'passbook_status', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     新口座判明日：
                     <InlineEdit
                       value={d.new_account_found_date}
@@ -920,19 +920,19 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   <div className="flex items-center gap-2">
                     <InlineEdit
                       value={s.institution_name}
-                      displayValue={<span className="text-[12px] font-bold text-gray-800">{s.institution_name}</span>}
+                      displayValue={<span className="text-[14px] font-bold text-gray-800">{s.institution_name}</span>}
                       onSave={async (val) => { if (val) await updateFinancialAsset(s.id, 'institution_name', val) }}
                     />
                     <InlineEdit
                       value={s.branch_name}
-                      displayValue={<span className="text-[11px] text-gray-400">{s.branch_name ?? '—'}</span>}
+                      displayValue={<span className="text-[13px] text-gray-400">{s.branch_name ?? '—'}</span>}
                       onSave={async (val) => { await updateFinancialAsset(s.id, 'branch_name', val || null) }}
                       placeholder="支店名"
                     />
                   </div>
                   <button
                     onClick={() => handleDeleteFinancial(s.id)}
-                    className="text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
+                    className="text-[12px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
                   >
                     削除
                   </button>
@@ -940,21 +940,21 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 {s.required_docs && s.required_docs.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {s.required_docs.map((doc, i) => (
-                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[9px] font-semibold">
+                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[11px] font-semibold">
                         {doc}
                       </span>
                     ))}
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     ほふり照会：
                     <BoolTag
                       value={s.houri_inquiry}
                       onToggle={async () => { await updateFinancialAsset(s.id, 'houri_inquiry', !s.houri_inquiry) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     端株処理：
                     <InlineEdit
                       value={s.odd_lot_handling}
@@ -963,7 +963,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(s.id, 'odd_lot_handling', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     未受領配当金：
                     <InlineEdit
                       value={s.unclaimed_dividend}
@@ -1008,19 +1008,19 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                   <div className="flex items-center gap-2">
                     <InlineEdit
                       value={t.institution_name}
-                      displayValue={<span className="text-[12px] font-bold text-gray-800">{t.institution_name}</span>}
+                      displayValue={<span className="text-[14px] font-bold text-gray-800">{t.institution_name}</span>}
                       onSave={async (val) => { if (val) await updateFinancialAsset(t.id, 'institution_name', val) }}
                     />
                     <InlineEdit
                       value={t.branch_name}
-                      displayValue={<span className="text-[11px] text-gray-400">{t.branch_name ?? '—'}</span>}
+                      displayValue={<span className="text-[13px] text-gray-400">{t.branch_name ?? '—'}</span>}
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'branch_name', val || null) }}
                       placeholder="支店名"
                     />
                   </div>
                   <button
                     onClick={() => handleDeleteFinancial(t.id)}
-                    className="text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
+                    className="text-[12px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition"
                   >
                     削除
                   </button>
@@ -1028,14 +1028,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                 {t.required_docs && t.required_docs.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {t.required_docs.map((doc, i) => (
-                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[9px] font-semibold">
+                      <span key={i} className="bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded text-[11px] font-semibold">
                         {doc}
                       </span>
                     ))}
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     銘柄名：
                     <InlineEdit
                       value={t.stock_name}
@@ -1044,13 +1044,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       placeholder="銘柄名"
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     現存確認要否：
                     <InlineEdit
                       value={t.existence_check}
                       displayValue={
                         t.existence_check ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${t.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${t.existence_check === '要' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
                             {t.existence_check}
                           </span>
                         ) : <span className="text-gray-300">—</span>
@@ -1060,7 +1060,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'existence_check', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     残高証明基準日：
                     <InlineEdit
                       value={t.balance_cert_date}
@@ -1069,25 +1069,25 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'balance_cert_date', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     取引履歴期間：
                     <InlineEdit
                       value={t.transaction_history_period}
                       displayValue={
                         t.transaction_history_period ? (
-                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-[9px] font-semibold">{t.transaction_history_period}</span>
+                          <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">{t.transaction_history_period}</span>
                         ) : <span className="text-gray-300">—</span>
                       }
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'transaction_history_period', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     解約受注状況：
                     <InlineEdit
                       value={t.dissolution_status}
                       displayValue={
                         t.dissolution_status ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
                             t.dissolution_status === '受注' ? 'bg-green-50 text-green-700' :
                             t.dissolution_status === '未提案' ? 'bg-gray-100 text-gray-500' :
                             'bg-amber-50 text-amber-700'
@@ -1099,13 +1099,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'dissolution_status', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     貸金庫有無：
                     <InlineEdit
                       value={t.safe_deposit_box}
                       displayValue={
                         t.safe_deposit_box ? (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${t.safe_deposit_box === '有' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${t.safe_deposit_box === '有' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
                             {t.safe_deposit_box}
                           </span>
                         ) : <span className="text-gray-300">—</span>
@@ -1115,14 +1115,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'safe_deposit_box', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     ほふり照会：
                     <BoolTag
                       value={t.houri_inquiry}
                       onToggle={async () => { await updateFinancialAsset(t.id, 'houri_inquiry', !t.houri_inquiry) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     端株処理：
                     <InlineEdit
                       value={t.odd_lot_handling}
@@ -1131,7 +1131,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'odd_lot_handling', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     未受領配当金：
                     <InlineEdit
                       value={t.unclaimed_dividend}
@@ -1140,7 +1140,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
                       onSave={async (val) => { await updateFinancialAsset(t.id, 'unclaimed_dividend', val || null) }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-400">
+                  <div className="text-[12px] text-gray-400">
                     新口座判明日：
                     <InlineEdit
                       value={t.new_account_found_date}
@@ -1187,7 +1187,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               value={caseData.tax_filing_required}
               displayValue={
                 caseData.tax_filing_required ? (
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                  <span className={`px-2 py-0.5 rounded text-[13px] font-semibold border ${
                     caseData.tax_filing_required === '要'
                       ? 'bg-red-50 text-red-700 border-red-200'
                       : caseData.tax_filing_required === '不要'
@@ -1240,12 +1240,12 @@ function Section({ title, icon, children, onEdit, actionLabel, onAction }: {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-sm">{icon}</span>
+        
         <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{title}</h3>
         {actionLabel && onAction && (
           <button
             onClick={onAction}
-            className="text-[11px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
+            className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
           >
             + {actionLabel}
           </button>
@@ -1253,7 +1253,7 @@ function Section({ title, icon, children, onEdit, actionLabel, onAction }: {
         {onEdit && (
           <button
             onClick={onEdit}
-            className="text-[11px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
+            className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition"
           >
             編集
           </button>
@@ -1275,7 +1275,7 @@ function FieldGrid({ children, cols }: { children: React.ReactNode; cols?: numbe
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {children}
     </div>
   )

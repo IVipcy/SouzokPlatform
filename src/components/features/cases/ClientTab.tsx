@@ -100,7 +100,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                 <thead>
                   <tr>
                     {['氏名', '続柄', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
+                      <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -109,34 +109,34 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                     <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF]">
                       <td className="px-3 py-2.5">
                         <div className="text-xs font-semibold text-gray-900">{heir.name}</div>
-                        {heir.furigana && <div className="text-[10px] text-gray-400">{heir.furigana}</div>}
+                        {heir.furigana && <div className="text-[12px] text-gray-400">{heir.furigana}</div>}
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           {heir.relationship_type && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">{heir.relationship_type}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-blue-50 text-blue-600 border-blue-200">{heir.relationship_type}</span>
                           )}
                           {heir.relationship && heir.relationship !== heir.relationship_type && (
-                            <span className="text-[10px] text-gray-500">{heir.relationship}</span>
+                            <span className="text-[12px] text-gray-500">{heir.relationship}</span>
                           )}
                           {heir.is_applicant && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{heir.registered_address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[11px] font-mono text-gray-600">{heir.email ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.email ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         {heir.is_legal_heir && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-600 border border-green-200">✓</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-green-50 text-green-600 border border-green-200">✓</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5">
                         <button
                           onClick={() => handleDeleteHeir(heir.id)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                          className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
                           title="削除"
                         >🗑</button>
                       </td>
@@ -154,7 +154,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                 <FormField label="氏名 *" value={heirForm.name} onChange={v => setHeirForm(f => ({ ...f, name: v }))} />
                 <FormField label="ふりがな" value={heirForm.furigana} onChange={v => setHeirForm(f => ({ ...f, furigana: v }))} />
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">続柄区分 *</label>
+                  <label className="text-[12px] font-semibold text-gray-500 block mb-1">続柄区分 *</label>
                   <select
                     value={heirForm.relationship_type}
                     onChange={e => setHeirForm(f => ({ ...f, relationship_type: e.target.value as typeof f.relationship_type }))}
@@ -173,7 +173,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                 <FormField label="TEL" value={heirForm.phone} onChange={v => setHeirForm(f => ({ ...f, phone: v }))} />
                 <FormField label="メール" value={heirForm.email} onChange={v => setHeirForm(f => ({ ...f, email: v }))} />
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 block mb-1">フラグ</label>
+                  <label className="text-[12px] font-semibold text-gray-500 block mb-1">フラグ</label>
                   <div className="flex flex-col gap-1">
                     <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
@@ -276,7 +276,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <input
           ref={inputRef}
@@ -296,7 +296,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {displayValue ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>
@@ -310,10 +310,10 @@ function Section({ title, icon, children, actionLabel, onAction }: {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-sm">{icon}</span>
+        
         <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{title}</h3>
         {actionLabel && onAction && (
-          <button onClick={onAction} className="text-[11px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition border border-blue-200 bg-blue-50">
+          <button onClick={onAction} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 transition border border-blue-200 bg-blue-50">
             {actionLabel}
           </button>
         )}
@@ -330,7 +330,7 @@ function FieldGrid({ children }: { children: React.ReactNode }) {
 function FormField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
-      <label className="text-[10px] font-semibold text-gray-500 block mb-1">{label}</label>
+      <label className="text-[12px] font-semibold text-gray-500 block mb-1">{label}</label>
       <input
         type="text"
         value={value}

@@ -113,7 +113,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
                       <span className="text-xs font-medium text-gray-700 flex-1 truncate">
                         {fromTask?.title ?? '不明なタスク'}
                       </span>
-                      <span className="text-[10px] text-gray-400 flex-shrink-0">
+                      <span className="text-[12px] text-gray-400 flex-shrink-0">
                         {dep.label ?? dep.condition_type}
                       </span>
                       <button
@@ -144,7 +144,7 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
                       <span className="text-xs font-medium text-gray-700 flex-1 truncate">
                         {toTask?.title ?? '不明なタスク'}
                       </span>
-                      <span className="text-[10px] text-gray-400 flex-shrink-0">
+                      <span className="text-[12px] text-gray-400 flex-shrink-0">
                         {dep.label ?? dep.condition_type}
                       </span>
                       <button

@@ -468,15 +468,15 @@ function PersonBox({
   return (
     <div className="absolute" style={{ left: x, top: y, width, zIndex: 2 }}>
       <div className={`${borderClass} bg-white text-center`}>
-        <div className={`text-[9px] tracking-widest py-1 border-b border-black font-semibold ${labelBg}`}>
+        <div className={`text-[11px] tracking-widest py-1 border-b border-black font-semibold ${labelBg}`}>
           {label}
         </div>
         <div className="p-2 flex flex-col items-center gap-1">
           <div className="text-[13px] font-bold tracking-wider flex items-center gap-1">
             {name ?? '—'}
-            {isApplicant && <span className="text-[9px] font-semibold text-red-600">（申出人）</span>}
+            {isApplicant && <span className="text-[11px] font-semibold text-red-600">（申出人）</span>}
           </div>
-          <div className="text-[9px] text-gray-700 text-left w-full px-1 leading-relaxed">
+          <div className="text-[11px] text-gray-700 text-left w-full px-1 leading-relaxed">
             {birthDate && <div><span className="text-gray-400">出生</span> {birthDate}</div>}
             {deathDate && <div><span className="text-gray-400">死亡</span> {deathDate}</div>}
             {address && (
@@ -491,12 +491,12 @@ function PersonBox({
             )}
           </div>
           {isDeceased && (
-            <div className="w-[30px] h-[30px] border-[1.5px] border-red-600 rounded-full flex items-center justify-center text-[8px] text-red-600 font-bold mt-1">
+            <div className="w-[30px] h-[30px] border-[1.5px] border-red-600 rounded-full flex items-center justify-center text-[10px] text-red-600 font-bold mt-1">
               死亡
             </div>
           )}
           {!isDeceased && isLegalHeir && (
-            <div className="text-[9px] text-green-700 font-semibold mt-1">（法定相続人）</div>
+            <div className="text-[11px] text-green-700 font-semibold mt-1">（法定相続人）</div>
           )}
         </div>
       </div>

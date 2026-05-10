@@ -167,7 +167,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
         </div>
 
         <div className="border-t border-gray-100 pt-3 mt-3">
-          <p className="text-[11px] font-semibold text-gray-400 mb-2">依頼者情報（任意）</p>
+          <p className="text-[13px] font-semibold text-gray-400 mb-2">依頼者情報（任意）</p>
           <FormField label="依頼者氏名">
             <input
               type="text"

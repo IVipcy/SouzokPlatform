@@ -106,18 +106,18 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
         {/* Case link + detail page button */}
         {caseInfo && (
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-            <span className="text-[11px] text-gray-400">案件：</span>
-            <span className="text-[12px] font-mono text-gray-500">{caseInfo.case_number}</span>
-            <span className="text-[12px] font-medium text-gray-700 flex-1">{caseInfo.deal_name}</span>
+            <span className="text-[13px] text-gray-400">案件：</span>
+            <span className="text-[14px] font-mono text-gray-500">{caseInfo.case_number}</span>
+            <span className="text-[14px] font-medium text-gray-700 flex-1">{caseInfo.deal_name}</span>
             <button
               onClick={() => { onClose(); router.push(`/tasks/${task.id}`) }}
-              className="text-[11px] font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition border border-blue-200 bg-white"
+              className="text-[13px] font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition border border-blue-200 bg-white"
             >
               タスク詳細 →
             </button>
             <button
               onClick={() => { onClose(); router.push(`/cases/${task.case_id}?tab=tasks`) }}
-              className="text-[11px] font-medium text-gray-600 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50 transition border border-gray-200 bg-white"
+              className="text-[13px] font-medium text-gray-600 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50 transition border border-gray-200 bg-white"
             >
               案件詳細 →
             </button>
@@ -126,7 +126,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
         {/* Task name */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">タスク名 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">タスク名 *</label>
           <input
             type="text"
             value={form.title}
@@ -137,7 +137,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
         {/* Phase */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">フェーズ</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">フェーズ</label>
           <select
             value={form.phase}
             onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
@@ -149,13 +149,13 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
         {/* ステータスはボタンで進行するため編集不可 */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          <span className="text-[11px] text-gray-500">💡 ステータスはタスク一覧・詳細画面のボタンで進行します（着手前 → 対応中 → 完了）</span>
+          <span className="text-[13px] text-gray-500">💡 ステータスはタスク一覧・詳細画面のボタンで進行します（着手前 → 対応中 → 完了）</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Due date */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">期限</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">期限</label>
             <input
               type="date"
               value={form.dueDate}
@@ -166,7 +166,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
           {/* Category */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">カテゴリ</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">カテゴリ</label>
             <input
               type="text"
               value={form.category}
@@ -179,14 +179,14 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
         {/* 担当区分 */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">
             担当区分 <span className="text-gray-400 font-normal">（誰がやる作業か）</span>
           </label>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={() => setForm(p => ({ ...p, workRole: '' }))}
-              className={`px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+              className={`px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
                 form.workRole === '' ? 'ring-2 ring-blue-400 ring-offset-1 bg-gray-100 text-gray-700 border-gray-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               }`}
             >
@@ -197,11 +197,11 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
                 key={r.key}
                 type="button"
                 onClick={() => setForm(p => ({ ...p, workRole: r.key }))}
-                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold rounded-lg border transition-colors ${
+                className={`flex items-center gap-1 px-3 py-1.5 text-[13px] font-semibold rounded-lg border transition-colors ${
                   form.workRole === r.key ? `ring-2 ring-blue-400 ring-offset-1 ${r.solid} border-transparent` : r.pill
                 }`}
               >
-                <span>{r.icon}</span>
+                <r.Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
                 {r.label}
               </button>
             ))}
@@ -210,13 +210,13 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
 
         {/* Priority */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">優先度</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">優先度</label>
           <div className="flex gap-1.5">
             {TASK_PRIORITIES.map(p => (
               <button
                 key={p.key}
                 onClick={() => setForm(prev => ({ ...prev, priority: p.key }))}
-                className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
                   form.priority === p.key ? 'ring-2 ring-blue-400 ring-offset-1' : ''
                 } ${p.style}`}
               >
@@ -229,7 +229,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
         {/* 着手情報（読み取り専用） */}
         {task.started_by && (
           <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-            <span className="text-[11px] text-green-700 font-medium">
+            <span className="text-[13px] text-green-700 font-medium">
               着手済み {task.started_at && `(${new Date(task.started_at).toLocaleDateString('ja-JP')})`}
             </span>
           </div>

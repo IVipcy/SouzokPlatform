@@ -78,7 +78,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
 
         {/* Case */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">案件 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">案件 *</label>
           <select
             value={form.case_id}
             onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}
@@ -91,7 +91,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
 
         {/* Invoice type */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">請求種別</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">請求種別</label>
           <div className="flex gap-2">
             {(['前受金', '確定請求'] as const).map(t => (
               <button
@@ -109,7 +109,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
 
         {/* Amount */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">金額（税込） *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">金額（税込） *</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
             <input
@@ -125,7 +125,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
         <div className="grid grid-cols-2 gap-3">
           {/* Issued date */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">請求日</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">請求日</label>
             <input
               type="date"
               value={form.issued_date}
@@ -135,7 +135,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
           </div>
           {/* Due date */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">支払期限</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">支払期限</label>
             <input
               type="date"
               value={form.due_date}
@@ -147,7 +147,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
 
         {/* Notes */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">備考</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">備考</label>
           <textarea
             value={form.notes}
             onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}

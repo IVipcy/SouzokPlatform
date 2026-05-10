@@ -121,7 +121,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
           >
             {syncing ? '読み込み中...' : '案件の預貯金情報を取得する'}
           </button>
-          <p className="text-[10px] text-gray-400 mt-2">
+          <p className="text-[12px] text-gray-400 mt-2">
             案件詳細の「財産情報」タブで預貯金を登録してから実行してください
           </p>
         </div>
@@ -181,7 +181,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
                       {bank.institution_name}
                     </div>
                     {bank.branch_name && (
-                      <div className="text-gray-400 text-[10px]">{bank.branch_name}</div>
+                      <div className="text-gray-400 text-[12px]">{bank.branch_name}</div>
                     )}
                   </td>
                   {/* 凍結済チェックボックス */}
@@ -224,13 +224,13 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
         </table>
       </div>
       <div className="flex items-center justify-between mt-2 px-1">
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[12px] text-gray-400">
           ※ 到着日を入力すると書類受取完了になります。全件揃ったらタスクを「完了」にしてください。
         </p>
         <button
           onClick={syncFromCase}
           disabled={syncing}
-          className="text-[10px] font-medium text-gray-400 hover:text-blue-600 disabled:opacity-50 whitespace-nowrap ml-2 transition-colors"
+          className="text-[12px] font-medium text-gray-400 hover:text-blue-600 disabled:opacity-50 whitespace-nowrap ml-2 transition-colors"
         >
           {syncing ? '...' : '↻ 銀行を更新'}
         </button>

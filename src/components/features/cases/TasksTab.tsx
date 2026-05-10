@@ -146,7 +146,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
               }}
             />
           </div>
-          <div className="flex gap-4 mt-2 text-[10px] text-gray-500">
+          <div className="flex gap-4 mt-2 text-[12px] text-gray-500">
             <span>着手前: {todoTasks}</span>
             <span>対応中: {doingTasks}</span>
             <span>完了: {completedTasks}</span>
@@ -239,19 +239,19 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
           <button onClick={onAdvance}
             className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 transition-colors flex items-center justify-center"
             title="着手する">
-            <span className="text-[8px] text-gray-400 group-hover:text-green-600">▶</span>
+            <span className="text-[10px] text-gray-400 group-hover:text-green-600">▶</span>
           </button>
         )}
         {current === '対応中' && (
           <button onClick={onAdvance}
             className="w-6 h-6 rounded-full border-2 border-blue-400 bg-blue-50 hover:border-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center"
             title="完了にする">
-            <span className="text-[10px] text-blue-500">✓</span>
+            <span className="text-[12px] text-blue-500">✓</span>
           </button>
         )}
         {current === '完了' && (
           <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-            <span className="text-[10px] text-white font-bold">✓</span>
+            <span className="text-[12px] text-white font-bold">✓</span>
           </div>
         )}
       </div>
@@ -263,25 +263,25 @@ function TaskItem({ task, allMembers, onEdit, onDelete, onAdvance }: {
         {task.title}
       </a>
 
-      {task.category && <span className="text-[10px] text-gray-400 font-mono">{task.category}</span>}
+      {task.category && <span className="text-[12px] text-gray-400 font-mono">{task.category}</span>}
       {statusDef && <Badge label={statusDef.key} color={statusDef.color} />}
       {task.due_date && <span className="text-xs text-gray-400 font-mono min-w-[64px] text-right">{task.due_date}</span>}
 
       {/* 着手者 */}
       <div className="flex items-center flex-shrink-0 min-w-[60px]">
         {startedMember ? (
-          <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+          <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
             style={{ backgroundColor: startedMember.avatar_color }} title={`着手: ${startedMember.name}`}>
             {startedMember.name.charAt(0)}
           </span>
         ) : (
-          <span className="text-[9px] text-gray-300">—</span>
+          <span className="text-[11px] text-gray-300">—</span>
         )}
       </div>
 
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-[11px] text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition" title="編集">✏️</button>
-        <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-[11px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
+        <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition" title="編集">✏️</button>
+        <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
       </div>
     </div>
   )

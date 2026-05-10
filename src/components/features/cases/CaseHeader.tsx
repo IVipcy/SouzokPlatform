@@ -68,7 +68,7 @@ export default function CaseHeader({ caseData }: Props) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                <span className="text-[13px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
                   {caseData.case_number}
                 </span>
               </div>
@@ -97,7 +97,7 @@ export default function CaseHeader({ caseData }: Props) {
                 >
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusDef?.color }} />
                   {caseData.status}
-                  <span className="text-[10px] opacity-70">▾</span>
+                  <span className="text-[12px] opacity-70">▾</span>
                 </button>
 
                 {dropdownOpen && (
@@ -161,7 +161,7 @@ export default function CaseHeader({ caseData }: Props) {
                       opacity: isPassed && !isActive ? 0.4 : 1,
                     }}
                   />
-                  <span className={`text-[10px] whitespace-nowrap text-center ${
+                  <span className={`text-[12px] whitespace-nowrap text-center ${
                     isActive ? 'text-blue-600 font-semibold' : 'text-gray-400'
                   }`}>
                     {status}

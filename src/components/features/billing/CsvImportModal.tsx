@@ -218,18 +218,18 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
       {step === 'upload' ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">CSVファイル</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">CSVファイル</label>
             <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition">
               <input type="file" accept=".csv" onChange={handleFileLoad} className="hidden" id="csv-upload" />
               <label htmlFor="csv-upload" className="cursor-pointer">
                 <div className="text-2xl mb-1 opacity-40">📄</div>
                 <div className="text-xs text-gray-400">銀行からダウンロードしたCSVファイルを選択</div>
-                <div className="text-[10px] text-gray-300 mt-1">Shift_JIS / UTF-8 対応</div>
+                <div className="text-[12px] text-gray-300 mt-1">Shift_JIS / UTF-8 対応</div>
               </label>
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">または直接貼り付け</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">または直接貼り付け</label>
             <textarea
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
@@ -238,7 +238,7 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
             />
           </div>
-          {csvText && <div className="text-[10px] text-gray-400">{csvText.split('\n').filter(l => l.trim()).length} 行検出</div>}
+          {csvText && <div className="text-[12px] text-gray-400">{csvText.split('\n').filter(l => l.trim()).length} 行検出</div>}
         </div>
       ) : (
         <div>
@@ -246,15 +246,15 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
           <div className="flex gap-2 mb-3">
             <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-2 text-center">
               <div className="text-lg font-bold text-green-600">{matchedCount}</div>
-              <div className="text-[10px] text-green-500">完全一致</div>
+              <div className="text-[12px] text-green-500">完全一致</div>
             </div>
             <div className="flex-1 bg-amber-50 border border-amber-200 rounded-lg p-2 text-center">
               <div className="text-lg font-bold text-amber-600">{partialCount}</div>
-              <div className="text-[10px] text-amber-500">名前一致</div>
+              <div className="text-[12px] text-amber-500">名前一致</div>
             </div>
             <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
               <div className="text-lg font-bold text-gray-500">{results.length - matchedCount - partialCount}</div>
-              <div className="text-[10px] text-gray-400">未突合</div>
+              <div className="text-[12px] text-gray-400">未突合</div>
             </div>
           </div>
 
@@ -283,15 +283,15 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
                     <td className="px-2 py-1.5 text-right font-mono font-medium">¥{r.amount.toLocaleString()}</td>
                     <td className="px-2 py-1.5">
                       {r.matchStatus === 'matched' ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-50 text-green-600 text-[10px] font-semibold border border-green-200">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-50 text-green-600 text-[12px] font-semibold border border-green-200">
                           ✓ {r.matchedCaseName}
                         </span>
                       ) : r.matchStatus === 'partial' ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-semibold border border-amber-200">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[12px] font-semibold border border-amber-200">
                           △ {r.matchedCaseName}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-gray-400">突合なし</span>
+                        <span className="text-[12px] text-gray-400">突合なし</span>
                       )}
                     </td>
                   </tr>

@@ -289,12 +289,12 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
                   <span className={`flex-1 truncate ${task.status === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                     {task.title}
                   </span>
-                  <span className="text-gray-400 font-mono text-[10px]">{getPhaseLabel(task.phase)}</span>
+                  <span className="text-gray-400 font-mono text-[12px]">{getPhaseLabel(task.phase)}</span>
                 </div>
               )
             })}
             {tasks.length > 5 && (
-              <p className="text-[10px] text-gray-400">他 {tasks.length - 5} タスク</p>
+              <p className="text-[12px] text-gray-400">他 {tasks.length - 5} タスク</p>
             )}
           </div>
         </Section>
@@ -312,11 +312,11 @@ function RevenueCard({ caseData }: { caseData: CaseRow }) {
 
   return (
     <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-      <div className="text-[10px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
+      <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
       <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
         ¥{estimate.toLocaleString()}
       </div>
-      <div className="space-y-1 text-[11px]">
+      <div className="space-y-1 text-[13px]">
         <div className="flex justify-between">
           <span className="opacity-70">資産概算</span>
           <span className="font-mono">¥{estimate.toLocaleString()}</span>
@@ -335,7 +335,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-sm">{icon}</span>
+        
         <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
       </div>
       <div className="px-4 py-3">
@@ -352,7 +352,7 @@ function FieldGrid({ children }: { children: React.ReactNode }) {
 function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
@@ -406,7 +406,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
@@ -425,7 +425,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>
@@ -453,7 +453,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
@@ -477,7 +477,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">▼</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">▼</span>
         </div>
       )}
     </div>
@@ -510,7 +510,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
@@ -522,7 +522,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
                 type="button"
                 onClick={() => toggle(opt)}
                 disabled={saving}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
+                className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
                   draft.includes(opt)
                     ? 'bg-blue-100 text-blue-700 border-blue-300'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
@@ -533,8 +533,8 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
             ))}
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[10px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
+            <button onClick={() => setEditing(false)} className="text-[12px] text-gray-400 hover:text-gray-600">キャンセル</button>
+            <button onClick={handleSave} disabled={saving} className="text-[12px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
           </div>
         </div>
       ) : (
@@ -542,7 +542,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
           {value && value.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {value.map(item => (
-                <span key={item} className="px-2 py-0.5 rounded text-[11px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
                   {item}
                 </span>
               ))}
@@ -550,7 +550,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] flex-shrink-0">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0">✏️</span>
         </div>
       )}
     </div>
@@ -582,7 +582,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </div>
       {editing ? (
@@ -601,7 +601,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
           <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">📅</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">📅</span>
         </div>
       )}
     </div>
@@ -634,7 +634,7 @@ function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <input
           ref={inputRef}
@@ -651,7 +651,7 @@ function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value != null ? `${value.toLocaleString()}${suffix ?? ''}` : '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>
@@ -683,7 +683,7 @@ function InlineCurrency({ label, value, onSave, fullWidth }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div className="flex items-center gap-1">
           <span className="text-[13px] text-gray-500">¥</span>
@@ -704,7 +704,7 @@ function InlineCurrency({ label, value, onSave, fullWidth }: {
           <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value != null ? `¥${value.toLocaleString()}` : '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>
@@ -726,7 +726,7 @@ function InlineCheckbox({ label, value, onSave }: {
 
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       <div className="flex items-center gap-2 min-h-[24px]">
         <button
           type="button"
@@ -736,7 +736,7 @@ function InlineCheckbox({ label, value, onSave }: {
             value ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 hover:border-blue-400'
           } ${saving ? 'opacity-50' : ''}`}
         >
-          {value && <span className="text-[11px]">✓</span>}
+          {value && <span className="text-[13px]">✓</span>}
         </button>
         <span className={`text-[13px] ${value ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
           {value ? 'あり' : 'なし'}
@@ -771,7 +771,7 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div>
           <textarea
@@ -783,8 +783,8 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
             className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-blue-400 rounded outline-none bg-blue-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
           />
           <div className="flex gap-2 justify-end mt-1">
-            <button onClick={() => { setDraft(value ?? ''); setEditing(false) }} className="text-[10px] text-gray-400 hover:text-gray-600">キャンセル</button>
-            <button onClick={handleSave} disabled={saving} className="text-[10px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
+            <button onClick={() => { setDraft(value ?? ''); setEditing(false) }} className="text-[12px] text-gray-400 hover:text-gray-600">キャンセル</button>
+            <button onClick={handleSave} disabled={saving} className="text-[12px] text-blue-600 font-semibold hover:text-blue-700">保存</button>
           </div>
         </div>
       ) : (
@@ -794,7 +794,7 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] flex-shrink-0 mt-0.5">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0 mt-0.5">✏️</span>
         </div>
       )}
     </div>
@@ -842,7 +842,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
 
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div className="mt-1 p-2 border border-blue-400 rounded bg-blue-50/30">
           <div className="space-y-1 max-h-[200px] overflow-y-auto">
@@ -867,7 +867,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
                   }`}
                 >
                   <span
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
                     style={{ backgroundColor: member.avatar_color }}
                   >
                     {member.name.charAt(0)}
@@ -879,7 +879,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
             })}
           </div>
           <div className="flex justify-end mt-2">
-            <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">閉じる</button>
+            <button onClick={() => setEditing(false)} className="text-[12px] text-gray-400 hover:text-gray-600">閉じる</button>
           </div>
         </div>
       ) : (
@@ -889,7 +889,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
               {assigned.map(cm => (
                 <div key={cm.member_id} className="flex items-center gap-1.5">
                   <span
-                    className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                    className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
                     style={{ backgroundColor: cm.members?.avatar_color ?? '#6B7280' }}
                   >
                     {cm.members?.name?.charAt(0) ?? '?'}
@@ -903,7 +903,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
           ) : (
             <span className="text-xs text-gray-300 italic">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>

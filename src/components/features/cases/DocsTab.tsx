@@ -112,7 +112,7 @@ export default function DocsTab({ caseData }: Props) {
           📤 アップロード
         </button>
       </div>
-      <div className="text-[11px] text-gray-400 mb-3">
+      <div className="text-[13px] text-gray-400 mb-3">
         ※ AI書類作成は各タスクの詳細画面から行えます。ここでは案件全体の書類を集約表示します。
       </div>
 
@@ -120,11 +120,11 @@ export default function DocsTab({ caseData }: Props) {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">文書名</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">関連タスク</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">種別</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide">作成日</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 tracking-wide w-24">操作</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[13px] font-bold text-gray-500 tracking-wide">文書名</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[13px] font-bold text-gray-500 tracking-wide">関連タスク</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[13px] font-bold text-gray-500 tracking-wide">種別</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[13px] font-bold text-gray-500 tracking-wide">作成日</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 text-left text-[13px] font-bold text-gray-500 tracking-wide w-24">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -150,7 +150,7 @@ export default function DocsTab({ caseData }: Props) {
                         {isAi && <span className="text-purple-500" title="AI生成">🤖</span>}
                         <span>{doc.name}</span>
                       </div>
-                      <div className="text-[10px] text-gray-400">{doc.file_type ?? '—'}</div>
+                      <div className="text-[12px] text-gray-400">{doc.file_type ?? '—'}</div>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-600">
                       {taskId && taskTitle ? (
@@ -166,11 +166,11 @@ export default function DocsTab({ caseData }: Props) {
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-500">
                       {isAi ? (
-                        <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+                        <span className="text-[12px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
                           AI生成
                         </span>
                       ) : (
-                        <span className="text-[10px] text-gray-500">アップロード</span>
+                        <span className="text-[12px] text-gray-500">アップロード</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-gray-500 font-mono">

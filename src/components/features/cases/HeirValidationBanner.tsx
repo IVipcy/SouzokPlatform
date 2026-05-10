@@ -23,7 +23,7 @@ export default function HeirValidationBanner({ heirs }: { heirs: HeirRow[] }) {
           </span>
           <div className="flex-1 text-xs">
             <div className="font-semibold">{w.message}</div>
-            {w.detail && <div className="text-[11px] mt-0.5 opacity-90">{w.detail}</div>}
+            {w.detail && <div className="text-[13px] mt-0.5 opacity-90">{w.detail}</div>}
           </div>
         </div>
       ))}

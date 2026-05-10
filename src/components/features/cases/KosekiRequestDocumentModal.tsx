@@ -220,7 +220,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                 <option key={key} value={key}>{KOSEKI_VARIANT_PRESETS[key].label}</option>
               ))}
             </select>
-            <p className="text-[10px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
+            <p className="text-[12px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">請求日</label>
@@ -276,7 +276,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             <div className="flex gap-2">
               <button
                 onClick={addRow}
-                className="text-[11px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
+                className="text-[13px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
               >
                 ＋ 請求先を追加
               </button>
@@ -359,7 +359,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                           key={type}
                           type="button"
                           onClick={() => toggleRequestType(row.id, type)}
-                          className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                          className={`text-[13px] px-2 py-1 rounded-md border transition-colors ${
                             on
                               ? 'bg-blue-600 text-white border-blue-600'
                               : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
@@ -386,7 +386,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
         </section>
 
         {heirs.length > 0 && (
-          <p className="text-[10px] text-gray-400 text-center">
+          <p className="text-[12px] text-gray-400 text-center">
             ※ 相続人 {heirs.length} 名登録済み。続柄別の戸籍請求が必要な場合は請求先を追加して設定してください。
           </p>
         )}
@@ -413,7 +413,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">{label}</span>
+      <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">{label}</span>
       {children}
     </label>
   )

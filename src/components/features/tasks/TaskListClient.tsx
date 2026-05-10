@@ -268,7 +268,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <div className="flex gap-2 mb-3 items-center flex-wrap">
           <button
             onClick={() => setFilterMine(v => !v)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
               filterMine
                 ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
@@ -276,13 +276,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           >
             <span className="text-[13px]">👤</span>
             自分が着手中
-            <span className={`text-[10px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
+            <span className={`text-[12px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
               {myTaskCount}
             </span>
           </button>
           <button
             onClick={() => setFilterUrgent(v => !v)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
               filterUrgent
                 ? 'bg-red-600 text-white border-red-600 shadow-red-200'
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
@@ -290,13 +290,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           >
             <span className="text-[13px]">🚨</span>
             要対応
-            <span className={`text-[10px] font-mono ml-0.5 ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>
+            <span className={`text-[12px] font-mono ml-0.5 ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>
               {urgentTaskCount}
             </span>
           </button>
           <button
             onClick={() => setGroupBy(v => v === 'case' ? 'phase' : 'case')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all border shadow-sm ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
               groupBy === 'case'
                 ? 'bg-gray-800 text-white border-gray-800'
                 : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
@@ -308,7 +308,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           {(filterMine || filterUrgent) && (
             <button
               onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
-              className="px-2.5 py-1.5 text-[11px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
               ✕ クリア
             </button>
@@ -325,14 +325,14 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
 
           <select value={phaseFilter} onChange={e => setPhaseFilter(e.target.value)}
-            className="text-[11px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+            className="text-[13px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
             <option value="all">全フェーズ</option>
             {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
           </select>
 
           {/* 担当区分フィルタ */}
           <div className="flex gap-1 items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <span className="text-[10px] text-gray-400 px-1 font-semibold">担当</span>
+            <span className="text-[12px] text-gray-400 px-1 font-semibold">担当</span>
             {WORK_ROLES.map(r => {
               const active = workRoleFilter.has(r.key)
               const count = workRoleCounts[r.key] ?? 0
@@ -341,32 +341,32 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                   key={r.key}
                   onClick={() => toggleWorkRole(r.key)}
                   title={r.label}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-semibold transition-all border ${
                     active ? `${r.solid} border-transparent shadow-sm` : `${r.pill} hover:brightness-95`
                   }`}
                 >
-                  <span className="text-[11px]">{r.icon}</span>
+                  <r.Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
                   {r.shortLabel}
-                  {count > 0 && <span className={`text-[10px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>}
+                  {count > 0 && <span className={`text-[12px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>}
                 </button>
               )
             })}
             <button
               onClick={() => toggleWorkRole('unset')}
               title="担当区分が未設定のタスク"
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] font-semibold transition-all border ${
                 workRoleFilter.has('unset')
                   ? 'bg-gray-700 text-white border-transparent shadow-sm'
                   : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
               }`}
             >
               未設定
-              {workRoleCounts.unset > 0 && <span className={`text-[10px] font-mono ${workRoleFilter.has('unset') ? 'opacity-80' : 'opacity-60'}`}>{workRoleCounts.unset}</span>}
+              {workRoleCounts.unset > 0 && <span className={`text-[12px] font-mono ${workRoleFilter.has('unset') ? 'opacity-80' : 'opacity-60'}`}>{workRoleCounts.unset}</span>}
             </button>
             {workRoleFilter.size > 0 && (
               <button
                 onClick={() => setWorkRoleFilter(new Set())}
-                className="px-1.5 text-[10px] text-gray-400 hover:text-gray-600"
+                className="px-1.5 text-[12px] text-gray-400 hover:text-gray-600"
               >
                 ✕
               </button>
@@ -375,7 +375,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <div className="ml-auto flex items-center gap-2">
             <button onClick={resetColWidths} title="列幅をデフォルトに戻す"
-              className="text-[11px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
+              className="text-[13px] text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
               ↔ 列幅リセット
             </button>
             <span className="text-xs text-gray-400 font-mono">{filtered.length}件</span>
@@ -393,9 +393,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           <div className="px-4 py-2.5 border-b border-red-200 flex items-center gap-2 bg-red-100/60">
             <span className="text-sm">🚨</span>
             <h3 className="text-[13px] font-bold text-red-800 flex-1">要対応（期限超過・急ぎ）</h3>
-            <span className="text-[10px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
+            <span className="text-[12px] font-mono text-red-600 bg-red-200 px-1.5 py-0.5 rounded">{alertTasks.length}件</span>
           </div>
-          <div className="grid gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[10px] font-bold text-red-400 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
+          <div className="grid gap-3 px-4 py-1.5 bg-red-50 border-b border-red-200 text-[12px] font-bold text-red-400 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
             <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
             <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
             <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
@@ -430,10 +430,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                 <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
                   <h3 className="text-[13px] font-semibold text-gray-900 flex-1">{group.label}</h3>
-                  <span className="text-[10px] font-mono text-gray-400">{group.tasks.length}件</span>
+                  <span className="text-[12px] font-mono text-gray-400">{group.tasks.length}件</span>
                 </div>
                 {/* Table header */}
-                <div className="grid gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
+                <div className="grid gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[12px] font-bold text-gray-500 uppercase tracking-wider" style={{ gridTemplateColumns: gridTemplate }}>
                   <GridResizableHeader onMouseDown={startColResize('title')}>タスク名</GridResizableHeader>
                   <GridResizableHeader onMouseDown={startColResize('case')}>案件</GridResizableHeader>
                   <GridResizableHeader onMouseDown={startColResize('action')}>進行</GridResizableHeader>
@@ -445,7 +445,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                       className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
                     >
                       期限
-                      <span className="text-[9px]">
+                      <span className="text-[11px]">
                         {dueDateSort === 'asc' ? '▲' : dueDateSort === 'desc' ? '▼' : '⇅'}
                       </span>
                     </button>
@@ -503,7 +503,7 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
   if (current === '着手前') {
     return (
       <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shadow-sm transition-all
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all
           ${loading ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}>
         {loading ? spinner : '▶'} {loading ? '処理中...' : '着手する'}
       </button>
@@ -512,13 +512,13 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
   if (current === '対応中') {
     return (
       <button onClick={e => { e.stopPropagation(); onAdvance() }} disabled={loading}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shadow-sm transition-all
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all
           ${loading ? 'bg-blue-400 cursor-wait scale-95' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'}`}>
         {loading ? spinner : '✅'} {loading ? '処理中...' : '完了にする'}
       </button>
     )
   }
-  return <span className="text-[11px] text-green-600 font-semibold">✅ 完了</span>
+  return <span className="text-[13px] text-green-600 font-semibold">✅ 完了</span>
 }
 
 // ─── grid 用ヘッダー（共通フック対応） ───
@@ -565,10 +565,10 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
       <div className="min-w-0 pr-2 flex items-center gap-1.5">
         {workRole && (
           <span
-            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${workRole.pill}`}
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-bold border flex-shrink-0 ${workRole.pill}`}
             title={workRole.label}
           >
-            <span className="text-[10px]">{workRole.icon}</span>
+            <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
             {workRole.shortLabel}
           </span>
         )}
@@ -579,11 +579,11 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
       <div className="min-w-0">
         {caseInfo ? (
           <a href={`/cases/${task.case_id}`} onClick={e => e.stopPropagation()} className="group/link block">
-            <div className="text-[11px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[11px] text-gray-500 truncate group-hover/link:text-blue-600 group-hover/link:underline transition-colors">{caseInfo.deal_name}</div>
+            <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
+            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-blue-600 group-hover/link:underline transition-colors">{caseInfo.deal_name}</div>
           </a>
         ) : (
-          <span className="text-[10px] text-gray-300">—</span>
+          <span className="text-[12px] text-gray-300">—</span>
         )}
       </div>
 
@@ -597,7 +597,7 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
         {caseInfo?.sales ? (
           <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" />
         ) : (
-          <span className="text-[9px] text-gray-300">—</span>
+          <span className="text-[11px] text-gray-300">—</span>
         )}
         {caseInfo?.manager && (
           <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />
@@ -614,24 +614,24 @@ function TaskTableRow({ task, caseMap, onEdit, onDelete, onAdvance, loading, tod
             prominent={norm(task.status) === '対応中'}
           />
         ) : (
-          <span className="text-[9px] text-gray-300">—</span>
+          <span className="text-[11px] text-gray-300">—</span>
         )}
       </div>
 
       {/* Due date */}
       <div>
         {task.due_date ? (
-          <span className={`text-[11px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+          <span className={`text-[13px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
             {isOverdue && '⚠ '}{task.due_date}
           </span>
         ) : (
-          <span className="text-[10px] text-gray-300">—</span>
+          <span className="text-[12px] text-gray-300">—</span>
         )}
       </div>
 
       {/* Actions */}
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
+        <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="削除">🗑</button>
       </div>
     </div>
   )
@@ -661,8 +661,8 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gr
       )}
       <div className="min-w-0 pr-2 flex items-center gap-1.5">
         {workRole && (
-          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${workRole.pill}`} title={workRole.label}>
-            <span className="text-[10px]">{workRole.icon}</span>
+          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-bold border flex-shrink-0 ${workRole.pill}`} title={workRole.label}>
+            <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
             {workRole.shortLabel}
           </span>
         )}
@@ -671,14 +671,14 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gr
       <div className="min-w-0">
         {caseInfo ? (
           <a href={`/cases/${task.case_id}`} className="group/link block">
-            <div className="text-[11px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[11px] text-gray-500 truncate group-hover/link:text-blue-600">{caseInfo.deal_name}</div>
+            <div className="text-[13px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
+            <div className="text-[13px] text-gray-500 truncate group-hover/link:text-blue-600">{caseInfo.deal_name}</div>
           </a>
-        ) : <span className="text-[10px] text-gray-300">—</span>}
+        ) : <span className="text-[12px] text-gray-300">—</span>}
       </div>
       <div><AdvanceButton status={task.status} onAdvance={onAdvance} loading={loading} /></div>
       <div className="flex items-center gap-1.5">
-        {caseInfo?.sales ? <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" /> : <span className="text-[9px] text-gray-300">—</span>}
+        {caseInfo?.sales ? <MemberChip name={caseInfo.sales.name} color={caseInfo.sales.avatar_color} label="受注" /> : <span className="text-[11px] text-gray-300">—</span>}
         {caseInfo?.manager && <MemberChip name={caseInfo.manager.name} color={caseInfo.manager.avatar_color} label="管理" />}
       </div>
       <div className="flex items-center gap-1">
@@ -689,18 +689,18 @@ function AlertTaskRow({ task, caseMap, allMembers, onAdvance, loading, today, gr
             label="着手"
             prominent={norm(task.status) === '対応中'}
           />
-        ) : <span className="text-[9px] text-gray-300">—</span>}
+        ) : <span className="text-[11px] text-gray-300">—</span>}
       </div>
       <div>
         {task.due_date ? (
-          <span className={`text-[11px] font-mono ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+          <span className={`text-[13px] font-mono ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
             {isOverdue && '⚠ '}{task.due_date}
           </span>
-        ) : <span className="text-[10px] text-gray-300">—</span>}
+        ) : <span className="text-[12px] text-gray-300">—</span>}
       </div>
       <div className="flex gap-1">
-        {isOverdue && <span className="text-[9px] bg-red-200 text-red-700 px-1.5 py-0.5 rounded font-semibold">期限超過</span>}
-        {isUrgent && <span className="text-[9px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-semibold">急ぎ</span>}
+        {isOverdue && <span className="text-[11px] bg-red-200 text-red-700 px-1.5 py-0.5 rounded font-semibold">期限超過</span>}
+        {isUrgent && <span className="text-[11px] bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded font-semibold">急ぎ</span>}
       </div>
     </div>
   )
@@ -714,12 +714,12 @@ function MemberChip({ name, color, label, prominent }: { name: string; color: st
         title={`${label}: ${name}（対応中）`}
       >
         <span
-          className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 ring-2 ring-white"
+          className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0 ring-2 ring-white"
           style={{ backgroundColor: color }}
         >
           {name.charAt(0)}
         </span>
-        <span className="text-[11px] text-blue-800 font-bold truncate max-w-[60px]">{name}</span>
+        <span className="text-[13px] text-blue-800 font-bold truncate max-w-[60px]">{name}</span>
       </span>
     )
   }
@@ -728,7 +728,7 @@ function MemberChip({ name, color, label, prominent }: { name: string; color: st
       <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: color }}>
         {name.charAt(0)}
       </span>
-      <span className="text-[10px] text-gray-600 font-medium truncate max-w-[50px]">{name}</span>
+      <span className="text-[12px] text-gray-600 font-medium truncate max-w-[50px]">{name}</span>
     </span>
   )
 }
@@ -755,11 +755,11 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
               <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 flex items-center gap-2 shadow-sm mb-2">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
                 <span className="text-xs font-semibold flex-1">{status.key}</span>
-                <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{columnTasks.length}</span>
+                <span className="text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{columnTasks.length}</span>
               </div>
               <div className="flex flex-col gap-1.5" style={{ minHeight: 80 }}>
                 {columnTasks.length === 0 ? (
-                  <div className="text-center text-[11px] text-gray-300 py-5 border border-dashed border-gray-200 rounded-lg">なし</div>
+                  <div className="text-center text-[13px] text-gray-300 py-5 border border-dashed border-gray-200 rounded-lg">なし</div>
                 ) : columnTasks.map(task => {
                   const caseInfo = caseMap[task.case_id]
                   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
@@ -770,14 +770,19 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                       className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}
                       style={task.priority !== '急ぎ' && task.work_role ? { borderLeft: `3px solid ${getWorkRoleDef(task.work_role)?.bar ?? '#E5E7EB'}` } : undefined}
                     >
-                      {task.work_role && getWorkRoleDef(task.work_role) && (
-                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border mb-1 ${getWorkRoleDef(task.work_role)!.pill}`}>
-                          <span>{getWorkRoleDef(task.work_role)!.icon}</span>
-                          {getWorkRoleDef(task.work_role)!.shortLabel}
-                        </span>
-                      )}
+                      {(() => {
+                        const wr = getWorkRoleDef(task.work_role)
+                        if (!wr) return null
+                        const WrIcon = wr.Icon
+                        return (
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold border mb-1 ${wr.pill}`}>
+                            <WrIcon className="w-3 h-3" strokeWidth={2.25} />
+                            {wr.shortLabel}
+                          </span>
+                        )
+                      })()}
                       <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-blue-600 ${norm(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</a>
-                      {caseInfo && <div className="text-[10px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
+                      {caseInfo && <div className="text-[12px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           {startedMember && (
@@ -786,8 +791,8 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
                           <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loadingTaskId === task.id} />
                         </div>
                         <div className="flex items-center gap-1">
-                          {task.due_date && <span className={`text-[10px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}
-                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-[10px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">🗑</button>
+                          {task.due_date && <span className={`text-[12px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}
+                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">🗑</button>
                         </div>
                       </div>
                     </div>
@@ -808,7 +813,7 @@ function FilterTab({ label, active, onClick, count }: { label: string; active: b
     <button onClick={onClick} className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
       {label}
       {count !== undefined && count > 0 && (
-        <span className={`ml-1.5 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+        <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
       )}
     </button>
   )

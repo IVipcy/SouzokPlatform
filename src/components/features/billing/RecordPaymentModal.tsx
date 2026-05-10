@@ -107,7 +107,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
 
         {/* Amount */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">入金額 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">入金額 *</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
             <input
@@ -121,7 +121,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
 
         {/* Payment date */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">入金日 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">入金日 *</label>
           <input
             type="date"
             value={form.payment_date}
@@ -132,7 +132,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
 
         {/* Payment method */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">入金方法</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">入金方法</label>
           <select
             value={form.payment_method}
             onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}
@@ -147,7 +147,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
 
         {/* Notes */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">備考</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">備考</label>
           <input
             type="text"
             value={form.notes}

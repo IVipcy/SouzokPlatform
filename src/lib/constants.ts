@@ -38,12 +38,24 @@ export const ROLES = [
 
 // === タスク担当区分（work_role） ===
 // タスクを「誰がやる作業か」で分類。タスク一覧でフィルタ・視覚化するために使う。
-export const WORK_ROLES = [
+import { Compass, Puzzle, Banknote, Megaphone, type LucideIcon } from 'lucide-react'
+
+type WorkRoleDef = {
+  key: 'manager' | 'assistant' | 'accounting' | 'sales'
+  label: string
+  shortLabel: string
+  Icon: LucideIcon
+  pill: string
+  solid: string
+  bar: string
+}
+
+export const WORK_ROLES: readonly WorkRoleDef[] = [
   {
     key: 'manager',
     label: '管理担当',
     shortLabel: '管理',
-    icon: '🧭',
+    Icon: Compass,
     pill: 'bg-purple-100 text-purple-700 border-purple-300',
     solid: 'bg-purple-600 text-white',
     bar: '#9333EA',
@@ -52,7 +64,7 @@ export const WORK_ROLES = [
     key: 'assistant',
     label: 'アシスタント',
     shortLabel: 'アシ',
-    icon: '🧩',
+    Icon: Puzzle,
     pill: 'bg-green-100 text-green-700 border-green-300',
     solid: 'bg-green-600 text-white',
     bar: '#16A34A',
@@ -61,7 +73,7 @@ export const WORK_ROLES = [
     key: 'accounting',
     label: '経理担当',
     shortLabel: '経理',
-    icon: '💴',
+    Icon: Banknote,
     pill: 'bg-orange-100 text-orange-700 border-orange-300',
     solid: 'bg-orange-600 text-white',
     bar: '#EA580C',
@@ -70,22 +82,22 @@ export const WORK_ROLES = [
     key: 'sales',
     label: '受注担当',
     shortLabel: '受注',
-    icon: '📣',
+    Icon: Megaphone,
     pill: 'bg-blue-100 text-blue-700 border-blue-300',
     solid: 'bg-blue-600 text-white',
     bar: '#2563EB',
   },
 ] as const
 
-export type WorkRoleKey = typeof WORK_ROLES[number]['key']
+export type WorkRoleKey = WorkRoleDef['key']
 
 export const getWorkRoleDef = (key: string | null | undefined) =>
   WORK_ROLES.find(r => r.key === key)
 
 // === タスク優先度 ===
 export const TASK_PRIORITIES = [
-  { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-  { key: '急ぎ', label: '🚨 急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
+  { key: '通常', label: '通常',  style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
+  { key: '急ぎ', label: '急ぎ',  style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
 ] as const
 
 // === 拠点 ===

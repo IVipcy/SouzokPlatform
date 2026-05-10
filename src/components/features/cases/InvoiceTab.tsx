@@ -179,7 +179,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
                   mono
                 />
               </FieldGrid>
-              <div className="text-[10px] text-gray-400 mt-2">
+              <div className="text-[12px] text-gray-400 mt-2">
                 ※ 紹介元パートナーは「基本情報 → 受注ルート・紹介 → 紹介パートナー」で選択します。
                 報酬金額は「請求金額（確定）× 還元率」で自動計算されます。
               </div>
@@ -194,7 +194,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
               {expenses.length > 0 ? (
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[11px] text-gray-400 border-b border-gray-100">
+                    <tr className="text-[13px] text-gray-400 border-b border-gray-100">
                       <th className="pb-1.5 font-medium">費目</th>
                       <th className="pb-1.5 font-medium text-right">金額</th>
                       <th className="pb-1.5 font-medium">発生日</th>
@@ -314,22 +314,22 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
 
       {/* Bottom summary card */}
       <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-        <div className="text-[10px] font-semibold opacity-70 tracking-wider uppercase mb-2.5">請求サマリー</div>
+        <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-2.5">請求サマリー</div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <div className="text-[11px] opacity-80 mb-0.5">報酬小計</div>
+            <div className="text-[13px] opacity-80 mb-0.5">報酬小計</div>
             <div className="text-lg font-bold tracking-tight">{yen(subtotal)}</div>
           </div>
           <div>
-            <div className="text-[11px] opacity-80 mb-0.5">立替実費合計</div>
+            <div className="text-[13px] opacity-80 mb-0.5">立替実費合計</div>
             <div className="text-lg font-bold tracking-tight">{yen(expenseTotal)}</div>
           </div>
           <div>
-            <div className="text-[11px] opacity-80 mb-0.5">請求金額（確定）</div>
+            <div className="text-[13px] opacity-80 mb-0.5">請求金額（確定）</div>
             <div className="text-lg font-bold tracking-tight">{yen(confirmedAmount)}</div>
           </div>
           <div>
-            <div className="text-[11px] opacity-80 mb-0.5">パートナー報酬額</div>
+            <div className="text-[13px] opacity-80 mb-0.5">パートナー報酬額</div>
             <div className="text-lg font-bold tracking-tight">
               {partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
             </div>

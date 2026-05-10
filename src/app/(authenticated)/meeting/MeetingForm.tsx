@@ -15,7 +15,7 @@ type Props = {
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl p-4 mb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-gray-200">
-      <div className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-2.5 flex items-center gap-1.5">
+      <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2.5 flex items-center gap-1.5">
         {required && <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />}
         {label}
       </div>
@@ -449,7 +449,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           <SectionHeader icon="👨‍👩‍👧" title="相続人情報" sub="法定相続人数は基礎控除の計算に使用" />
           {data.heirs.map((h, i) => (
             <div key={i} className="border-[1.5px] border-gray-200 rounded-xl p-4 mb-3 bg-gray-50 relative">
-              <div className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-3">相続人 {i + 1}</div>
+              <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-3">相続人 {i + 1}</div>
               <button onClick={() => { const arr = [...data.heirs]; arr.splice(i, 1); update('heirs', arr) }} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-sm hover:bg-red-100 transition">✕</button>
               <div className="grid gap-2.5">
                 <Input value={h.name} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], name: v }; update('heirs', arr) }} placeholder="氏名" />
@@ -710,7 +710,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
 function ConfirmSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <div className="text-[10px] font-bold text-gray-400 tracking-widest uppercase pb-2 mb-3 border-b-[1.5px] border-gray-200">{title}</div>
+      <div className="text-[12px] font-bold text-gray-400 tracking-widest uppercase pb-2 mb-3 border-b-[1.5px] border-gray-200">{title}</div>
       {children}
     </div>
   )

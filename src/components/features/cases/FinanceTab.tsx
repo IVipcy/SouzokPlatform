@@ -118,7 +118,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
       <div className="space-y-3.5">
         {/* Revenue card */}
         <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-          <div className="text-[10px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
+          <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
           <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
             {caseData.total_revenue_estimate != null
               ? `¥${caseData.total_revenue_estimate.toLocaleString()}`
@@ -126,7 +126,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
           </div>
           <div className="space-y-1.5">
             {revenueRows.map((r) => (
-              <div key={r.label} className="flex items-center justify-between text-[11px]">
+              <div key={r.label} className="flex items-center justify-between text-[13px]">
                 <span className="opacity-80">{r.label}</span>
                 <span className="font-semibold">
                   {r.value != null ? `¥${r.value.toLocaleString()}` : '—'}
@@ -150,7 +150,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
             {expenses.length > 0 ? (
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[11px] text-gray-400 border-b border-gray-100">
+                  <tr className="text-[13px] text-gray-400 border-b border-gray-100">
                     <th className="pb-1.5 font-medium">費目</th>
                     <th className="pb-1.5 font-medium text-right">金額</th>
                     <th className="pb-1.5 font-medium">発生日</th>
@@ -318,7 +318,7 @@ function InlineEdit({ label, value, onSave, mono, type = 'text', displayFormat }
 
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <input
           ref={inputRef}
@@ -338,7 +338,7 @@ function InlineEdit({ label, value, onSave, mono, type = 'text', displayFormat }
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue && displayValue !== '未設定' ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {displayValue ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">✏️</span>
+          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
     </div>
@@ -349,7 +349,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-sm">{icon}</span>
+        
         <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
       </div>
       <div className="px-4 py-3">{children}</div>

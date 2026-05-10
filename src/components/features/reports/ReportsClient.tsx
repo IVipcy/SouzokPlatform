@@ -89,7 +89,7 @@ export default function ReportsClient({ cases, members, invoices }: Props) {
         <div className="bg-white border border-gray-200 rounded-xl p-16 text-center shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <div className="text-4xl opacity-30 mb-3">📊</div>
           <div className="text-sm text-gray-400">レポートデータがありません</div>
-          <div className="text-[11px] text-gray-300 mt-1">案件を登録するとレポートが表示されます</div>
+          <div className="text-[13px] text-gray-300 mt-1">案件を登録するとレポートが表示されます</div>
         </div>
       ) : (
         <>
@@ -110,13 +110,13 @@ export default function ReportsClient({ cases, members, invoices }: Props) {
                     <span className="text-xs font-medium text-gray-600 w-20 text-right flex-shrink-0">{p.label}</span>
                     <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
                       <div
-                        className="h-full rounded flex items-center justify-end pr-2 text-[10px] font-semibold text-white min-w-[28px]"
+                        className="h-full rounded flex items-center justify-end pr-2 text-[12px] font-semibold text-white min-w-[28px]"
                         style={{ width: `${(p.count / maxPipeline) * 100}%`, background: p.color }}
                       >
                         {p.count}
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono text-gray-400 w-16 text-right flex-shrink-0">{p.amt > 0 ? fmt(p.amt) : ''}</span>
+                    <span className="text-[12px] font-mono text-gray-400 w-16 text-right flex-shrink-0">{p.amt > 0 ? fmt(p.amt) : ''}</span>
                   </div>
                 ))}
               </div>
@@ -129,18 +129,18 @@ export default function ReportsClient({ cases, members, invoices }: Props) {
                 <div className="space-y-3">
                   {staffPerf.map((s, i) => (
                     <div key={s.name} className="flex items-center gap-2.5">
-                      <div className="w-5 h-5 rounded flex items-center justify-center text-[11px] font-extrabold" style={{
+                      <div className="w-5 h-5 rounded flex items-center justify-center text-[13px] font-extrabold" style={{
                         background: i === 0 ? '#FEF3C7' : i === 1 ? '#F3F4F6' : '#F9FAFB',
                         color: i === 0 ? '#D97706' : '#9CA3AF'
                       }}>
                         {i + 1}
                       </div>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: s.color }}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold text-white" style={{ background: s.color }}>
                         {s.name[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-gray-900">{s.name}</div>
-                        <div className="text-[10px] text-gray-400">{s.cases}件 · {fmtFull(s.revenue)}</div>
+                        <div className="text-[12px] text-gray-400">{s.cases}件 · {fmtFull(s.revenue)}</div>
                       </div>
                     </div>
                   ))}
@@ -173,7 +173,7 @@ function KpiCard({ icon, iconBg, label, value, valueColor = '' }: {
       <div className="w-9 h-9 rounded-lg flex items-center justify-center text-base mb-2.5" style={{ background: iconBg }}>
         {icon}
       </div>
-      <div className="text-[11px] font-semibold text-gray-500 mb-1">{label}</div>
+      <div className="text-[13px] font-semibold text-gray-500 mb-1">{label}</div>
       <div className={`text-[26px] font-extrabold tracking-tight leading-none ${valueColor}`}>{value}</div>
     </div>
   )

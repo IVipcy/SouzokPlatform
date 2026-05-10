@@ -175,7 +175,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
             <p className="text-sm text-gray-400 text-center py-4">タスクがありません</p>
           ) : (
             <>
-              <div className="grid grid-cols-[1fr_180px_1fr] gap-2 px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              <div className="grid grid-cols-[1fr_180px_1fr] gap-2 px-2 py-1 text-[12px] font-semibold text-gray-400 uppercase tracking-wider">
                 <span>タスク</span>
                 <span>主担当</span>
                 <span>副担当</span>
@@ -188,7 +188,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
                     <div key={task.id} className="grid grid-cols-[1fr_180px_1fr] gap-2 px-2 py-2 items-center hover:bg-gray-50 rounded">
                       <div>
                         <div className="text-sm font-medium text-gray-700 truncate">{task.title}</div>
-                        <div className="text-[10px] text-gray-400">{getPhaseLabel(task.phase)}</div>
+                        <div className="text-[12px] text-gray-400">{getPhaseLabel(task.phase)}</div>
                       </div>
                       <SearchableSelect
                         members={allMembers}
@@ -253,7 +253,7 @@ function SearchableSelect({ members, value, onChange, placeholder, compact }: {
       >
         {selected ? (
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: selected.avatar_color }}>
+            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: selected.avatar_color }}>
               {selected.name.charAt(0)}
             </span>
             <span className="truncate text-gray-700">{selected.name}</span>
@@ -261,7 +261,7 @@ function SearchableSelect({ members, value, onChange, placeholder, compact }: {
         ) : (
           <span className="text-gray-400 flex-1">{placeholder ?? '選択...'}</span>
         )}
-        <span className="text-gray-300 text-[10px] flex-shrink-0">▼</span>
+        <span className="text-gray-300 text-[12px] flex-shrink-0">▼</span>
       </button>
 
       {open && (
@@ -291,7 +291,7 @@ function SearchableSelect({ members, value, onChange, placeholder, compact }: {
                   m.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
                 }`}
               >
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
                   {m.name.charAt(0)}
                 </span>
                 {m.name}
@@ -342,7 +342,7 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
         onClick={() => { setOpen(true); setQuery('') }}
       >
         {selectedMembers.map(m => (
-          <span key={m.id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 text-[10px] font-medium">
+          <span key={m.id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 text-[12px] font-medium">
             <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
               {m.name.charAt(0)}
             </span>
@@ -374,7 +374,7 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
                 onClick={() => { onAdd(m.id); setQuery('') }}
                 className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition text-gray-700"
               >
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>
                   {m.name.charAt(0)}
                 </span>
                 {m.name}

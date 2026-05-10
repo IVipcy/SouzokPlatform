@@ -125,7 +125,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
 
         {/* File picker */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">ファイル *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">ファイル *</label>
           <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition cursor-pointer">
             <input
               type="file"
@@ -138,13 +138,13 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
               {file ? (
                 <div>
                   <div className="text-sm font-medium text-gray-700">{file.name}</div>
-                  <div className="text-[10px] text-gray-400 mt-1">{(file.size / 1024).toFixed(1)} KB</div>
+                  <div className="text-[12px] text-gray-400 mt-1">{(file.size / 1024).toFixed(1)} KB</div>
                 </div>
               ) : (
                 <div>
                   <div className="text-2xl mb-1 opacity-40">📁</div>
                   <div className="text-xs text-gray-400">クリックしてファイルを選択</div>
-                  <div className="text-[10px] text-gray-300 mt-1">PDF, Word, Excel, CSV, 画像</div>
+                  <div className="text-[12px] text-gray-300 mt-1">PDF, Word, Excel, CSV, 画像</div>
                 </div>
               )}
             </label>
@@ -153,7 +153,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
 
         {/* Document name */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">文書名 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">文書名 *</label>
           <input
             type="text"
             value={form.name}
@@ -166,7 +166,7 @@ export default function UploadDocumentModal({ isOpen, onClose, cases, defaultCas
         {/* Case (only when not pre-locked) */}
         {!caseLocked && (
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">案件 *</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">案件 *</label>
             <select
               value={form.case_id}
               onChange={e => setForm(p => ({ ...p, case_id: e.target.value }))}

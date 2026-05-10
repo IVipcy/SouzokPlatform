@@ -135,17 +135,17 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             <div className="flex-1">
               {/* ID + Phase + Category */}
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                <span className="text-[13px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
                   {task.id.slice(0, 8)}
                 </span>
                 <span
-                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
+                  className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: getPhaseColor(task.phase) }}
                 >
                   {getPhaseLabel(task.phase)}
                 </span>
                 {task.category && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                     {task.category}
                   </span>
                 )}
@@ -181,7 +181,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '▶'}
                     {advancing ? '処理中...' : '着手する'}
                   </button>
-                  <span className="text-[10px] text-gray-400 mt-0.5">作業を始める前に押す</span>
+                  <span className="text-[12px] text-gray-400 mt-0.5">作業を始める前に押す</span>
                 </div>
               )}
               {currentStatus === '対応中' && (
@@ -195,7 +195,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✅'}
                     {advancing ? '処理中...' : '完了にする'}
                   </button>
-                  <span className="text-[10px] text-gray-400 mt-0.5">完了条件を満たしたら押す</span>
+                  <span className="text-[12px] text-gray-400 mt-0.5">完了条件を満たしたら押す</span>
                 </div>
               )}
               {currentStatus === '完了' && (
@@ -243,7 +243,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                       opacity: isPassed && !isActive ? 0.6 : 1,
                     }}
                   />
-                  <span className={`text-[10px] whitespace-nowrap text-center ${isActive ? 'text-blue-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+                  <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-blue-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
                     {step}
                   </span>
                   {!isLast && (
@@ -270,7 +270,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             <div className="text-2xl">🗂️</div>
             <div className="flex-1">
               <div className="text-sm font-semibold text-gray-900">この案件の書類作成タブを開く</div>
-              <div className="text-[11px] text-gray-500 mt-0.5">
+              <div className="text-[13px] text-gray-500 mt-0.5">
                 戸籍請求書・委任状・契約書・請求書など、案件データを元にExcel様式で作成できます
               </div>
             </div>
@@ -302,7 +302,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                   <div className="flex items-start gap-2">
                     <span className="text-green-600 text-lg leading-none mt-0.5">✅</span>
                     <div className="flex-1">
-                      <div className="text-[11px] font-bold text-green-700 mb-1">
+                      <div className="text-[13px] font-bold text-green-700 mb-1">
                         このタスクを「完了」にするタイミング
                       </div>
                       <p className="text-sm text-gray-800 font-medium leading-relaxed">
@@ -318,7 +318,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                   <div className="flex items-start gap-2">
                     <span className="text-blue-600 text-lg leading-none mt-0.5">📋</span>
                     <div className="flex-1">
-                      <div className="text-[11px] font-bold text-blue-700 mb-1">
+                      <div className="text-[13px] font-bold text-blue-700 mb-1">
                         作業手順
                       </div>
                       <div className="text-[13px] text-gray-700 whitespace-pre-line leading-relaxed">
@@ -384,14 +384,14 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
               {startedMember ? (
                 <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[13px] font-bold"
                     style={{ backgroundColor: startedMember.avatar_color }}
                   >
                     {startedMember.name[0]}
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-800">{startedMember.name}</span>
-                    <span className="text-[10px] text-gray-500 ml-2">
+                    <span className="text-[12px] text-gray-500 ml-2">
                       {task.started_at ? `${new Date(task.started_at).toLocaleDateString('ja-JP')} 着手` : '着手中'}
                     </span>
                   </div>
@@ -413,7 +413,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             {/* このタスクの活動履歴 */}
             {activities.length > 0 && (
               <div>
-                <div className="text-[10px] font-semibold text-gray-400 tracking-wide mb-2">作業履歴</div>
+                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-2">作業履歴</div>
                 <div className="space-y-1.5">
                   {activities.map(act => (
                     <div key={act.id} className="flex items-start gap-2 text-xs">
@@ -425,7 +425,7 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                       }`} />
                       <div className="flex-1 min-w-0">
                         <span className="text-gray-700">{act.description}</span>
-                        <div className="text-[10px] text-gray-400">
+                        <div className="text-[12px] text-gray-400">
                           {act.members?.name && <span className="font-medium">{act.members.name}</span>}
                           {act.members?.name && ' — '}
                           {act.activity_date}

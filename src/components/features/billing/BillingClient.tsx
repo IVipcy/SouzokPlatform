@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
@@ -108,11 +109,11 @@ export default function BillingClient({ invoices, cases }: Props) {
     const paid = invoices.filter(inv => inv.status === '入金済').length
     const partial = invoices.filter(inv => inv.status === '一部入金').length
     return [
-      { key: 'all', label: '請求合計', icon: '💴', value: fmt(total), sub: `${invoices.length}件` },
-      { key: '未請求', label: '未請求', icon: '📋', value: String(unpaid), sub: '請求書未発行', color: 'text-gray-500' },
-      { key: 'waiting', label: '入金待ち', icon: '⏳', value: String(waiting), sub: fmt(waitingAmt), color: 'text-amber-600' },
-      { key: '入金済', label: '入金済', icon: '✅', value: String(paid), sub: '今月確定', color: 'text-green-600' },
-      { key: '一部入金', label: '一部入金', icon: '⚠️', value: String(partial), sub: '差額確認要', color: 'text-red-600' },
+      { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${invoices.length}件` },
+      { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
+      { key: 'waiting', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
+      { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '今月確定', color: 'text-green-600' },
+      { key: '一部入金', label: '一部入金', Icon: AlertCircle as LucideIcon,   value: String(partial),    sub: '差額確認要', color: 'text-red-600' },
     ]
   }, [invoices])
 
@@ -175,11 +176,11 @@ export default function BillingClient({ invoices, cases }: Props) {
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold text-gray-500">{kpi.label}</span>
-              <span className="text-lg">{kpi.icon}</span>
+              <span className="text-[13px] font-semibold text-gray-500">{kpi.label}</span>
+              <kpi.Icon className="w-5 h-5 text-gray-400" strokeWidth={1.75} />
             </div>
             <div className={`text-[22px] font-extrabold tracking-tight leading-none ${kpi.color || ''}`}>{kpi.value}</div>
-            <div className="text-[10px] text-gray-400 mt-1">{kpi.sub}</div>
+            <div className="text-[12px] text-gray-400 mt-1">{kpi.sub}</div>
           </button>
         ))}
       </div>
@@ -189,10 +190,10 @@ export default function BillingClient({ invoices, cases }: Props) {
         <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
             <h2 className="text-[13px] font-semibold text-gray-900">請求・入金一覧</h2>
-            <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
+            <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
             <button
               onClick={resetColWidths}
-              className="ml-auto text-[10px] text-gray-400 hover:text-gray-600 transition"
+              className="ml-auto text-[12px] text-gray-400 hover:text-gray-600 transition"
               title="列幅をリセット"
             >
               列幅リセット
@@ -209,7 +210,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
-                    className={`relative bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-[10px] font-bold text-gray-400 tracking-wider uppercase ${h.align === 'right' ? 'text-right' : 'text-left'}`}
+                    className={`relative bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-[12px] font-bold text-gray-400 tracking-wider uppercase ${h.align === 'right' ? 'text-right' : 'text-left'}`}
                   >
                     {h.label}
                     <ResizeHandle onMouseDown={startColResize(h.key)} />
@@ -241,10 +242,10 @@ export default function BillingClient({ invoices, cases }: Props) {
                     >
                       <td className="px-3.5 py-2.5 overflow-hidden">
                         <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
-                        <div className="text-[10px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                        <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
                           {inv.status}
                         </span>
@@ -261,7 +262,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                       <td className="px-3.5 py-2.5">
                         {assignee ? (
                           <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: assignee.color }}>
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: assignee.color }}>
                               {assignee.name[0]}
                             </div>
                             <span className="text-xs text-gray-600">{assignee.name}</span>
@@ -288,11 +289,11 @@ export default function BillingClient({ invoices, cases }: Props) {
             <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden flex-shrink-0">
               <div className="px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-gray-400">{selected.cases?.case_number || ''}</span>
+                  <span className="text-[12px] text-gray-400">{selected.cases?.case_number || ''}</span>
                   <button onClick={() => setSelectedId(null)} className="w-6 h-6 rounded flex items-center justify-center text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition">✕</button>
                 </div>
                 <div className="text-sm font-bold text-gray-900">{selected.cases?.deal_name || '—'}</div>
-                <div className="text-[11px] text-gray-400">被相続人: {selected.cases?.deceased_name || '—'}</div>
+                <div className="text-[13px] text-gray-400">被相続人: {selected.cases?.deceased_name || '—'}</div>
                 {/* Payment flow */}
                 <div className="flex items-center gap-0 mt-3">
                   {['未請求', '前受金', '入金待ち', '入金済'].map((step, i) => {
@@ -302,7 +303,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                     return (
                       <div key={step} className="flex-1 flex flex-col items-center gap-1 relative">
                         <div className={`w-2.5 h-2.5 rounded-full z-10 ${active ? 'bg-green-500 ring-2 ring-green-200 w-3 h-3' : passed ? 'bg-green-500 opacity-50' : 'bg-gray-300'}`} />
-                        <span className={`text-[9px] ${active ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>{step}</span>
+                        <span className={`text-[11px] ${active ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>{step}</span>
                         {i < 3 && <div className={`absolute top-1.5 left-1/2 right-[-50%] h-px z-0 ${passed ? 'bg-green-400 opacity-40' : 'bg-gray-200'}`} />}
                       </div>
                     )
@@ -392,7 +393,7 @@ export default function BillingClient({ invoices, cases }: Props) {
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-2 pb-1.5 border-b border-gray-100">{title}</div>
+      <div className="text-[12px] font-bold text-gray-400 tracking-wider uppercase mb-2 pb-1.5 border-b border-gray-100">{title}</div>
       <div className="space-y-1">{children}</div>
     </div>
   )

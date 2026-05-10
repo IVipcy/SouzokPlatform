@@ -58,12 +58,12 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide">案件番号</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide">案件名</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide">依頼者</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide">電話番号</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide">ステータス</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[11px] font-bold text-gray-400 tracking-wide w-20">操作</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">案件番号</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">案件名</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">依頼者</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">電話番号</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">ステータス</th>
+              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide w-20">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -81,13 +81,13 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   onClick={() => onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '' })}
                 >
                   <td className="px-3.5 py-2.5">
-                    <span className="font-mono text-[11px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{c.case_number}</span>
+                    <span className="font-mono text-[13px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{c.case_number}</span>
                   </td>
                   <td className="px-3.5 py-2.5 text-xs font-semibold text-gray-900">{c.deal_name}</td>
                   <td className="px-3.5 py-2.5 text-xs text-gray-600">{c.clients?.name ?? '—'}</td>
                   <td className="px-3.5 py-2.5 text-xs font-mono text-gray-500">{c.clients?.phone ?? '—'}</td>
                   <td className="px-3.5 py-2.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
                       {c.status}
                     </span>
@@ -95,7 +95,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   <td className="px-3.5 py-2.5">
                     <button
                       onClick={e => { e.stopPropagation(); onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '' }) }}
-                      className="px-2.5 py-1 rounded-md bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700 transition"
+                      className="px-2.5 py-1 rounded-md bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700 transition"
                     >
                       選択
                     </button>

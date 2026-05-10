@@ -95,7 +95,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
 
         {/* Task name */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">タスク名 *</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">タスク名 *</label>
           <input
             type="text"
             value={form.title}
@@ -108,7 +108,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
         <div className="grid grid-cols-2 gap-3">
           {/* Phase */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">フェーズ</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">フェーズ</label>
             <select
               value={form.phase}
               onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
@@ -122,7 +122,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
 
           {/* Due date */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">期限</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">期限</label>
             <input
               type="date"
               value={form.dueDate}
@@ -134,13 +134,13 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
 
         {/* Priority */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">優先度</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">優先度</label>
           <div className="flex gap-1.5">
             {PRIORITIES.map(p => (
               <button
                 key={p.key}
                 onClick={() => setForm(prev => ({ ...prev, priority: p.key }))}
-                className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
                   form.priority === p.key
                     ? 'ring-2 ring-blue-400 ring-offset-1'
                     : ''
@@ -152,7 +152,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
           </div>
         </div>
 
-        <div className="text-[11px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+        <div className="text-[13px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
           💡 タスクの担当は事前に割り振りません。パートタイマーが出勤時にタスク一覧から「着手する」で開始します。
         </div>
       </div>

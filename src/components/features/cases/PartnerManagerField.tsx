@@ -125,7 +125,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
 
   return (
     <div ref={rootRef} className="relative py-1.5 border-b border-gray-50">
-      <div className="text-[10px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       <div
         onClick={() => setOpen(o => !o)}
         className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]"
@@ -133,7 +133,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
         <span className={`text-[13px] ${current ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
           {current ? `${current.name}（${current.kickback_rate}%）` : '未設定'}
         </span>
-        <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">▾</span>
+        <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">▾</span>
       </div>
 
       {open && (
@@ -141,16 +141,16 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
           ref={popRef}
           className="absolute z-30 left-0 top-full mt-1 w-[320px] bg-white border border-gray-200 rounded-lg shadow-lg p-2"
         >
-          <div className="text-[10px] text-gray-400 px-1.5 pb-1.5 border-b border-gray-100">
+          <div className="text-[12px] text-gray-400 px-1.5 pb-1.5 border-b border-gray-100">
             パートナー選択・管理
           </div>
 
           {loading ? (
-            <div className="py-3 text-center text-[11px] text-gray-400">読み込み中...</div>
+            <div className="py-3 text-center text-[13px] text-gray-400">読み込み中...</div>
           ) : (
             <div className="max-h-[260px] overflow-y-auto">
               {partners.length === 0 && (
-                <div className="py-3 text-center text-[11px] text-gray-400">
+                <div className="py-3 text-center text-[13px] text-gray-400">
                   パートナー未登録。下の「＋ 新規追加」から登録してください
                 </div>
               )}
@@ -171,7 +171,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
             {partnerId && (
               <button
                 onClick={() => selectPartner(null)}
-                className="w-full text-left text-[11px] text-gray-500 hover:bg-gray-50 px-2 py-1 rounded"
+                className="w-full text-left text-[13px] text-gray-500 hover:bg-gray-50 px-2 py-1 rounded"
               >
                 × 紐付けを解除
               </button>
@@ -183,7 +183,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   placeholder="パートナー名"
-                  className="w-full px-2 py-1 text-[12px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                  className="w-full px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
                 />
                 <div className="flex items-center gap-1.5">
                   <input
@@ -192,19 +192,19 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
                     onChange={e => setNewRate(e.target.value)}
                     placeholder="還元率"
                     step="0.1"
-                    className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                    className="flex-1 px-2 py-1 text-[14px] border border-gray-200 rounded focus:outline-none focus:border-blue-400"
                   />
-                  <span className="text-[11px] text-gray-500">%</span>
+                  <span className="text-[13px] text-gray-500">%</span>
                   <button
                     onClick={addPartner}
                     disabled={!newName.trim()}
-                    className="px-2 py-1 text-[11px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40"
+                    className="px-2 py-1 text-[13px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40"
                   >
                     追加
                   </button>
                   <button
                     onClick={() => { setAddMode(false); setNewName(''); setNewRate('') }}
-                    className="px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-50 rounded"
+                    className="px-2 py-1 text-[13px] text-gray-500 hover:bg-gray-50 rounded"
                   >
                     ×
                   </button>
@@ -213,7 +213,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
             ) : (
               <button
                 onClick={() => setAddMode(true)}
-                className="w-full text-left text-[11px] text-blue-600 hover:bg-blue-50 px-2 py-1 rounded font-medium"
+                className="w-full text-left text-[13px] text-blue-600 hover:bg-blue-50 px-2 py-1 rounded font-medium"
               >
                 ＋ 新規パートナーを追加
               </button>
@@ -258,7 +258,7 @@ function PartnerRowItem({
     >
       <button
         onClick={onSelect}
-        className="flex-1 text-left text-[12px] font-medium text-gray-800 truncate"
+        className="flex-1 text-left text-[14px] font-medium text-gray-800 truncate"
         title={partner.name}
       >
         {isSelected ? '● ' : '○ '}
@@ -276,12 +276,12 @@ function PartnerRowItem({
           }}
           step="0.1"
           autoFocus
-          className="w-14 px-1 py-0.5 text-[11px] border border-blue-400 rounded font-mono"
+          className="w-14 px-1 py-0.5 text-[13px] border border-blue-400 rounded font-mono"
         />
       ) : (
         <button
           onClick={() => { setRateDraft(String(partner.kickback_rate)); setEditingRate(true) }}
-          className="text-[11px] text-gray-600 font-mono px-1.5 py-0.5 rounded hover:bg-gray-100"
+          className="text-[13px] text-gray-600 font-mono px-1.5 py-0.5 rounded hover:bg-gray-100"
           title="還元率を編集"
         >
           {partner.kickback_rate}%
@@ -289,7 +289,7 @@ function PartnerRowItem({
       )}
       <button
         onClick={onDelete}
-        className="text-[10px] text-gray-300 hover:text-red-500 px-1"
+        className="text-[12px] text-gray-300 hover:text-red-500 px-1"
         title="削除"
       >
         🗑

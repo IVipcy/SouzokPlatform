@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { FileText, FileType2, FileSpreadsheet, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import UploadDocumentModal from './UploadDocumentModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -16,13 +17,13 @@ type Props = {
   cases: CaseOption[]
 }
 
-const FORMAT_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
-  PDF: { bg: 'bg-red-50', text: 'text-red-500', icon: '📄' },
-  Word: { bg: 'bg-blue-50', text: 'text-blue-500', icon: '📝' },
-  Excel: { bg: 'bg-green-50', text: 'text-green-500', icon: '📊' },
+const FORMAT_STYLES: Record<string, { bg: string; text: string; Icon: LucideIcon }> = {
+  PDF:   { bg: 'bg-red-50',   text: 'text-red-500',   Icon: FileText },
+  Word:  { bg: 'bg-blue-50',  text: 'text-blue-500',  Icon: FileType2 },
+  Excel: { bg: 'bg-green-50', text: 'text-green-500', Icon: FileSpreadsheet },
 }
 
-const DEFAULT_FORMAT = { bg: 'bg-gray-50', text: 'text-gray-500', icon: '📄' }
+const DEFAULT_FORMAT = { bg: 'bg-gray-50', text: 'text-gray-500', Icon: FileText as LucideIcon }
 
 function getAssignee(doc: DocumentRow): { name: string; color: string } | null {
   const caseMembers = (doc.cases as DocumentRow['cases'] & { case_members?: Array<{ role: string; members: MemberRow }> })?.case_members
@@ -179,9 +180,9 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
               typeFilter === card.key ? 'border-blue-300 bg-blue-50 border-t-[3px] border-t-blue-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
-            <div className="text-[11px] font-semibold text-gray-500 mb-2">{card.label}</div>
+            <div className="text-[13px] font-semibold text-gray-500 mb-2">{card.label}</div>
             <div className={`text-[22px] font-extrabold tracking-tight leading-none ${card.color}`}>{card.count}</div>
-            <div className="text-[10px] text-gray-400 mt-1">{card.sub}</div>
+            <div className="text-[12px] text-gray-400 mt-1">{card.sub}</div>
           </button>
         ))}
       </div>
@@ -199,7 +200,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
         {(caseFilter || typeFilter !== 'all') && (
           <button
             onClick={() => { setCaseFilter(''); setTypeFilter('all') }}
-            className="ml-auto text-[11px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded-lg"
+            className="ml-auto text-[13px] font-medium text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded-lg"
           >
             ✕ フィルタ解除
           </button>
@@ -211,7 +212,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
         <div className="flex items-center justify-end px-3.5 py-1.5 border-b border-gray-100">
           <button
             onClick={resetColWidths}
-            className="text-[10px] text-gray-400 hover:text-gray-600 transition"
+            className="text-[12px] text-gray-400 hover:text-gray-600 transition"
             title="列幅をリセット"
           >
             列幅リセット
@@ -228,7 +229,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
               {HEADERS.map(h => (
                 <th
                   key={h.key as string}
-                  className="relative bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[10px] font-bold text-gray-400 tracking-wider uppercase"
+                  className="relative bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[12px] font-bold text-gray-400 tracking-wider uppercase"
                 >
                   {h.label}
                   {h.resizable !== false && <ResizeHandle onMouseDown={startColResize(h.key)} />}
@@ -244,7 +245,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                   <div className="text-sm text-gray-400">
                     {documents.length === 0 ? 'ドキュメントが登録されていません' : '該当するドキュメントがありません'}
                   </div>
-                  <div className="text-[11px] text-gray-300 mt-1">
+                  <div className="text-[13px] text-gray-300 mt-1">
                     {documents.length === 0 ? '案件にドキュメントを追加してください' : 'フィルタ条件を変更してください'}
                   </div>
                 </td>
@@ -261,12 +262,12 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                   <tr key={doc.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
                     <td className="px-3.5 py-2.5 overflow-hidden">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={`w-8 h-8 rounded-md flex items-center justify-center text-base flex-shrink-0 ${fmt.bg}`}>
-                          {fmt.icon}
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${fmt.bg}`}>
+                          <fmt.Icon className={`w-4 h-4 ${fmt.text}`} strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-semibold text-gray-900 truncate">{doc.name}</div>
-                          <div className="text-[10px] text-gray-400 truncate">{fileType} · {doc.generated_by ?? '-'}</div>
+                          <div className="text-[12px] text-gray-400 truncate">{fileType} · {doc.generated_by ?? '-'}</div>
                         </div>
                       </div>
                     </td>
@@ -274,7 +275,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                       {doc.cases ? (
                         <>
                           <div className="text-xs font-medium text-blue-600 cursor-pointer hover:underline truncate">{doc.cases.deal_name}</div>
-                          <div className="text-[10px] text-gray-400 truncate">{doc.cases.case_number}</div>
+                          <div className="text-[12px] text-gray-400 truncate">{doc.cases.case_number}</div>
                         </>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
@@ -283,11 +284,11 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                     <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{taskTitle}</td>
                     <td className="px-3.5 py-2.5">
                       {isAi ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-purple-50 text-purple-600 border-purple-200">
+                        <span className="px-2 py-0.5 rounded text-[12px] font-semibold border bg-purple-50 text-purple-600 border-purple-200">
                           🤖 AI生成
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-gray-50 text-gray-600 border-gray-200">
+                        <span className="px-2 py-0.5 rounded text-[12px] font-semibold border bg-gray-50 text-gray-600 border-gray-200">
                           アップロード
                         </span>
                       )}
@@ -295,7 +296,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
                     <td className="px-3.5 py-2.5">
                       {assignee ? (
                         <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: assignee.color }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: assignee.color }}>
                             {assignee.name[0]}
                           </div>
                           <span className="text-xs text-gray-600">{assignee.name}</span>
@@ -331,7 +332,7 @@ export default function DocumentsClient({ documents, members, cases }: Props) {
         </table>
         {filtered.length > 0 && (
           <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-gray-200 bg-white">
-            <div className="text-[11px] text-gray-400">{filtered.length} 件表示</div>
+            <div className="text-[13px] text-gray-400">{filtered.length} 件表示</div>
           </div>
         )}
       </div>

@@ -54,7 +54,7 @@ export default function BulkAssignBar({ selectedTaskIds, allMembers, onDone, onC
 
       {/* Primary assignee */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[11px] opacity-80">主担当:</span>
+        <span className="text-[13px] opacity-80">主担当:</span>
         <SearchableSelectCompact
           members={allMembers}
           value={primaryId}
@@ -65,7 +65,7 @@ export default function BulkAssignBar({ selectedTaskIds, allMembers, onDone, onC
 
       {/* Sub assignees */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[11px] opacity-80">副担当:</span>
+        <span className="text-[13px] opacity-80">副担当:</span>
         <MultiSelectCompact
           members={allMembers}
           selectedIds={subIds}
@@ -133,7 +133,7 @@ function SearchableSelectCompact({ members, value, onChange, placeholder }: {
         ) : (
           <span className="opacity-70">{placeholder}</span>
         )}
-        <span className="text-[9px] ml-auto opacity-60">▼</span>
+        <span className="text-[11px] ml-auto opacity-60">▼</span>
       </button>
 
       {open && (
@@ -149,7 +149,7 @@ function SearchableSelectCompact({ members, value, onChange, placeholder }: {
             {filtered.map(m => (
               <button key={m.id} onClick={() => { onChange(m.id); setOpen(false) }}
                 className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition ${m.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}>
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
                 {m.name}
               </button>
             ))}
@@ -193,7 +193,7 @@ function MultiSelectCompact({ members, selectedIds, onAdd, onRemove, placeholder
       >
         {selectedMembers.length > 0 ? (
           selectedMembers.map(m => (
-            <span key={m.id} className="inline-flex items-center gap-0.5 bg-white/30 rounded px-1 py-0.5 text-[10px]">
+            <span key={m.id} className="inline-flex items-center gap-0.5 bg-white/30 rounded px-1 py-0.5 text-[12px]">
               {m.name}
               <button onClick={e => { e.stopPropagation(); onRemove(m.id) }} className="hover:text-red-200 ml-0.5">✕</button>
             </span>
@@ -213,7 +213,7 @@ function MultiSelectCompact({ members, selectedIds, onAdd, onRemove, placeholder
             {available.map(m => (
               <button key={m.id} onClick={() => { onAdd(m.id); setQuery('') }}
                 className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-blue-50 transition text-gray-700">
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name.charAt(0)}</span>
                 {m.name}
               </button>
             ))}

@@ -78,7 +78,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Total asset estimate */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">資産合計概算</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">資産合計概算</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
             <input
@@ -93,7 +93,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Property rank */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">不動産ランク</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">不動産ランク</label>
           <div className="flex gap-1.5">
             {['S', 'A', 'B', 'C', '確認中'].map(rank => (
               <button
@@ -115,7 +115,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Tax filing required */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">相続税申告</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">相続税申告</label>
           <div className="flex gap-1.5">
             {['要', '不要', '確認中'].map(v => (
               <button
@@ -139,7 +139,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Tax filing deadline */}
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">申告期限</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">申告期限</label>
           <input
             type="date"
             value={form.tax_filing_deadline}
