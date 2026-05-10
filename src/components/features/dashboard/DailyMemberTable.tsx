@@ -3,11 +3,13 @@ import {
   type DailyMetricsBundle,
   type MetricsBundle,
 } from '@/lib/dashboardMetrics'
+import UserAvatar from '@/components/ui/UserAvatar'
 
 export type DailyMemberRow = {
   id: string
   name: string
   avatarColor: string
+  avatarUrl?: string | null
   teamName: string | null
   jobType: string | null
   joinedAt: string | null
@@ -83,12 +85,7 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
                 <tr key={r.id} className={`border-b border-gray-100 ${rowBg}`}>
                   <td className="px-2.5 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: r.avatarColor }}
-                      >
-                        {r.name.charAt(0)}
-                      </span>
+                      <UserAvatar name={r.name} color={r.avatarColor} url={r.avatarUrl} size="sm" />
                       <span className="font-medium text-gray-900 truncate">{r.name}</span>
                       <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}

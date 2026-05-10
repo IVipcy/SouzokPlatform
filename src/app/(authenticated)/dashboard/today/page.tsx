@@ -14,6 +14,7 @@ type MemberRow = {
   id: string
   name: string
   avatar_color: string
+  avatar_url: string | null
   primary_role: string | null
   job_type: string | null
   joined_at: string | null
@@ -40,7 +41,7 @@ export default async function DeptTodayDashboard() {
   ] = await Promise.all([
     supabase.from('cases').select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,primary_role,job_type,joined_at,team_id').eq('is_active', true),
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true),
     supabase.from('teams').select('id,name').eq('is_active', true),
     supabase
       .from('activity_log')
@@ -79,6 +80,7 @@ export default async function DeptTodayDashboard() {
         id: m.id,
         name: m.name,
         avatarColor: m.avatar_color ?? '#6B7280',
+        avatarUrl: m.avatar_url,
         teamName: m.team_id ? teamNameById.get(m.team_id) ?? null : null,
         jobType: m.job_type,
         joinedAt: m.joined_at,

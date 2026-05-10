@@ -12,6 +12,7 @@ type MemberRow = {
   id: string
   name: string
   avatar_color: string
+  avatar_url: string | null
   primary_role: string | null
   job_type: string | null
   joined_at: string | null
@@ -34,7 +35,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from('cases').select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,primary_role,job_type,joined_at,team_id,is_active').eq('is_active', true),
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id,is_active').eq('is_active', true),
     supabase.from('teams').select('id,name').eq('is_active', true),
   ])
 
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
       id: m.id,
       name: m.name,
       avatar_color: m.avatar_color ?? '#6B7280',
+      avatar_url: m.avatar_url,
       primary_role: m.primary_role as 'sales' | 'manager',
       team_name: m.team_id ? teamMap[m.team_id] ?? null : null,
       job_type: m.job_type,

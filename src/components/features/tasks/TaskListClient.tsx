@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
@@ -471,7 +472,12 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
       {/* 受注担当 */}
       <td className="px-3.5 py-2.5">
         {caseInfo?.sales ? (
-          <span className="text-[13px] text-gray-700 truncate block">{caseInfo.sales.name}</span>
+          <Link
+            href={`/profile/${caseInfo.sales.id}`}
+            className="text-[13px] text-gray-700 hover:text-brand-700 hover:underline truncate block"
+          >
+            {caseInfo.sales.name}
+          </Link>
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
         )}
@@ -480,7 +486,12 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
       {/* 管理担当 */}
       <td className="px-3.5 py-2.5">
         {caseInfo?.manager ? (
-          <span className="text-[13px] text-gray-700 truncate block">{caseInfo.manager.name}</span>
+          <Link
+            href={`/profile/${caseInfo.manager.id}`}
+            className="text-[13px] text-gray-700 hover:text-brand-700 hover:underline truncate block"
+          >
+            {caseInfo.manager.name}
+          </Link>
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
         )}

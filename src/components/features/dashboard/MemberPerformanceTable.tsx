@@ -7,11 +7,13 @@ import {
   type DashCase,
   type DashCaseMember,
 } from '@/lib/dashboardMetrics'
+import UserAvatar from '@/components/ui/UserAvatar'
 
 export type MemberWithProfile = {
   id: string
   name: string
   avatar_color: string
+  avatar_url?: string | null
   primary_role: 'sales' | 'manager'
   team_name: string | null
   job_type: string | null
@@ -145,12 +147,7 @@ export default function MemberPerformanceTable({
                     style={{ left: LEFT_OFFSET.name, width: COL_W.name }}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: m.avatar_color }}
-                      >
-                        {m.name.charAt(0)}
-                      </span>
+                      <UserAvatar name={m.name} color={m.avatar_color} url={m.avatar_url} size="sm" />
                       <span className="font-medium text-gray-900 truncate">{m.name}</span>
                       <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
                         {role.label}

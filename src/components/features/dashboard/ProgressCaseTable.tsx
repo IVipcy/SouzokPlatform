@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import type { CaseFlag } from '@/lib/dashboardMetrics'
+import UserAvatar from '@/components/ui/UserAvatar'
 
 export type ProgressCaseRow = {
   id: string
@@ -9,6 +10,7 @@ export type ProgressCaseRow = {
   managerId: string | null
   managerName: string | null
   managerAvatarColor: string | null
+  managerAvatarUrl?: string | null
   expectedCompletionDate: string | null
   clientName: string | null
   flag: CaseFlag | null  // null = 完了予定日未設定（フラグ判定対象外）
@@ -120,15 +122,15 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                 <td className="px-2.5 py-2 text-gray-700">
                   {r.managerName && r.managerId ? (
                     <Link
-                      href={`/dashboard/member/${r.managerId}/progress`}
+                      href={`/profile/${r.managerId}`}
                       className="flex items-center gap-1.5 hover:text-brand-700 hover:underline"
                     >
-                      <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: r.managerAvatarColor ?? '#6B7280' }}
-                      >
-                        {r.managerName.charAt(0)}
-                      </span>
+                      <UserAvatar
+                        name={r.managerName}
+                        color={r.managerAvatarColor ?? '#6B7280'}
+                        url={r.managerAvatarUrl}
+                        size="sm"
+                      />
                       <span className="truncate">{r.managerName}</span>
                     </Link>
                   ) : (

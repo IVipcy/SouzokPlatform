@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { Building2 } from 'lucide-react'
+import UserAvatar from '@/components/ui/UserAvatar'
 
 export type TeamNavMember = {
   id: string
   name: string
   avatarColor: string
+  avatarUrl?: string | null
   primaryRole: 'sales' | 'manager'
 }
 
@@ -61,12 +63,7 @@ export default function TeamMemberNav({ teamId, teamName, members, currentMember
                   : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
               }`}
             >
-              <span
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: m.avatarColor }}
-              >
-                {m.name.charAt(0)}
-              </span>
+              <UserAvatar name={m.name} color={m.avatarColor} url={m.avatarUrl} size="sm" />
               <span>{m.name}</span>
               <span
                 className={`text-[14px] font-mono px-1.5 py-0 rounded border ${active ? 'bg-white/20 text-white border-white/30' : role.cls}`}

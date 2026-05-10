@@ -203,6 +203,17 @@ export type MemberRow = {
   email: string | null
   avatar_color: string
   is_active: boolean
+  team_id?: string | null
+  job_type?: string | null
+  joined_at?: string | null
+  primary_role?: 'sales' | 'manager' | 'assistant' | 'lp' | 'accounting' | null
+  avatar_url?: string | null
+  phone?: string | null
+  bio?: string | null
+  hobbies?: string[] | null
+  specialties?: string[] | null
+  hometown?: string | null
+  favorite_food?: string | null
 }
 
 export type CaseMemberRow = {

@@ -15,6 +15,16 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/components/providers/AuthProvider'
+import UserAvatar from '@/components/ui/UserAvatar'
+
+const ROLE_LABEL: Record<string, string> = {
+  sales: '受注担当',
+  manager: '管理担当',
+  assistant: 'アシスタント',
+  lp: 'LP担当',
+  accounting: '経理担当',
+}
 
 type NavItem = {
   href: string
@@ -46,6 +56,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const user = useAuth()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -107,8 +118,35 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* ログアウト */}
-      <div className="p-3 border-t border-gray-100">
+      {/* プロフィール + ログアウト */}
+      <div className="p-3 border-t border-gray-100 space-y-1">
+        {user?.memberId && (
+          <Link
+            href="/profile"
+            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition w-full ${
+              pathname.startsWith('/profile')
+                ? 'bg-brand-50'
+                : 'hover:bg-gray-50'
+            }`}
+          >
+            <UserAvatar
+              name={user.memberName ?? '?'}
+              color={user.avatarColor ?? '#6B7280'}
+              url={user.avatarUrl}
+              size="lg"
+            />
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-medium truncate ${pathname.startsWith('/profile') ? 'text-brand-700' : 'text-gray-800'}`}>
+                {user.memberName ?? 'メンバー未設定'}
+              </div>
+              {user.primaryRole && (
+                <div className="text-[11px] text-gray-400 truncate">
+                  {ROLE_LABEL[user.primaryRole] ?? user.primaryRole}
+                </div>
+              )}
+            </div>
+          </Link>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition w-full"

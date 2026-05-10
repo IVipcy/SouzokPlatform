@@ -1,9 +1,11 @@
 import { tenureLabel, formatMan, type SalesMetricsBundle } from '@/lib/dashboardMetrics'
+import UserAvatar from '@/components/ui/UserAvatar'
 
 export type SalesMemberRow = {
   id: string
   name: string
   avatarColor: string
+  avatarUrl?: string | null
   jobType: string | null
   joinedAt: string | null
   metrics: SalesMetricsBundle
@@ -109,12 +111,7 @@ function TeamGroupRows({ group, today }: { group: SalesTeamGroup; today: Date })
           <td className="px-2.5 py-2 text-gray-300 text-[14px]"></td>
           <td className="px-2.5 py-2">
             <div className="flex items-center gap-1.5 pl-3">
-              <span
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: m.avatarColor }}
-              >
-                {m.name.charAt(0)}
-              </span>
+              <UserAvatar name={m.name} color={m.avatarColor} url={m.avatarUrl} size="sm" />
               <span className="text-gray-700 truncate">{m.name}</span>
             </div>
           </td>

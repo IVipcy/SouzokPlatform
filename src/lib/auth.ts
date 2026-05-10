@@ -5,6 +5,9 @@ export type UserWithRoles = {
   email: string
   memberId: string | null
   memberName: string | null
+  avatarColor: string | null
+  avatarUrl: string | null
+  primaryRole: string | null
   roles: string[]
   permissions: string[]
 }
@@ -22,7 +25,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
   // Find matching member by email
   const { data: member } = await supabase
     .from('members')
-    .select('id, name, email')
+    .select('id, name, email, avatar_color, avatar_url, primary_role')
     .eq('email', user.email!)
     .eq('is_active', true)
     .single()
@@ -33,6 +36,9 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
       email: user.email!,
       memberId: null,
       memberName: null,
+      avatarColor: null,
+      avatarUrl: null,
+      primaryRole: null,
       roles: [],
       permissions: [],
     }
@@ -62,6 +68,9 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
     email: user.email!,
     memberId: member.id,
     memberName: member.name,
+    avatarColor: member.avatar_color ?? null,
+    avatarUrl: member.avatar_url ?? null,
+    primaryRole: member.primary_role ?? null,
     roles: [...new Set(roles)],
     permissions: [...new Set(permissions)],
   }

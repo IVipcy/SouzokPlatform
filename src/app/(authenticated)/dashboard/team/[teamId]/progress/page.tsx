@@ -22,6 +22,7 @@ type MemberRow = {
   id: string
   name: string
   avatar_color: string
+  avatar_url: string | null
   primary_role: string | null
   team_id: string | null
 }
@@ -52,8 +53,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     { data: clientsRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
-    supabase.from('members').select('id,name,avatar_color,primary_role,team_id').eq('is_active', true).eq('team_id', teamId),
-    supabase.from('members').select('id,name,avatar_color'),
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,team_id').eq('is_active', true).eq('team_id', teamId),
+    supabase.from('members').select('id,name,avatar_color,avatar_url'),
     supabase.from('case_members').select('case_id,member_id,role').in('role', ['sales', 'manager']),
     supabase.from('clients').select('id,name'),
   ])
@@ -61,7 +62,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   if (!team) notFound()
 
   const teamMembers = (teamMembersRaw ?? []) as MemberRow[]
-  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string }>
+  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string; avatar_url: string | null }>
   const caseMembers = (caseMembersRaw ?? []) as CaseMemberRow[]
   const clients = (clientsRaw ?? []) as Array<{ id: string; name: string }>
   const memberById = new Map(allMembers.map(m => [m.id, m]))
@@ -81,6 +82,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       id: m.id,
       name: m.name,
       avatarColor: m.avatar_color ?? '#6B7280',
+      avatarUrl: m.avatar_url,
       primaryRole: m.primary_role as 'sales' | 'manager',
     }))
 
@@ -111,7 +113,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today)
 
   // 案件IDごとに manager を引く
-  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string }>()
+  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
   for (const cm of caseMembers) {
     if (cm.role !== 'manager') continue
     if (!teamCaseIds.has(cm.case_id)) continue
@@ -147,6 +149,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         managerId: mgr?.id ?? null,
         managerName: mgr?.name ?? null,
         managerAvatarColor: mgr?.avatar_color ?? null,
+        managerAvatarUrl: mgr?.avatar_url ?? null,
         expectedCompletionDate: c.expected_completion_date ?? null,
         clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
         flag,

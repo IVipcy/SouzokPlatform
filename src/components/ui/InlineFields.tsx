@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import UserAvatar from '@/components/ui/UserAvatar'
 import type { CaseMemberRow, MemberRow } from '@/types'
 
 /** 保存後にトーストを表示する共通ラッパ */
@@ -647,12 +649,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                     isAssigned ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
-                  <span
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: member.avatar_color }}
-                  >
-                    {member.name.charAt(0)}
-                  </span>
+                  <UserAvatar name={member.name} color={member.avatar_color} url={member.avatar_url} size="sm" />
                   <span>{member.name}</span>
                   {isAssigned && <span className="ml-auto text-brand-500">✓</span>}
                 </button>
@@ -664,18 +661,28 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
       ) : (
         <div onClick={() => setEditing(true)} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
           {assigned.length > 0 ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {assigned.map(cm => (
                 <div key={cm.member_id} className="flex items-center gap-1.5">
-                  <span
-                    className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: cm.members?.avatar_color ?? '#6B7280' }}
-                  >
-                    {cm.members?.name?.charAt(0) ?? '?'}
-                  </span>
-                  <span className="text-sm font-medium text-gray-700">
-                    {cm.members?.name ?? '未設定'}
-                  </span>
+                  <UserAvatar
+                    name={cm.members?.name ?? '?'}
+                    color={cm.members?.avatar_color ?? '#6B7280'}
+                    url={cm.members?.avatar_url}
+                    size="md"
+                  />
+                  {cm.members?.id ? (
+                    <Link
+                      href={`/profile/${cm.members.id}`}
+                      onClick={e => e.stopPropagation()}
+                      className="text-sm font-medium text-gray-700 hover:text-brand-700 hover:underline"
+                    >
+                      {cm.members.name}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium text-gray-700">
+                      {cm.members?.name ?? '未設定'}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
