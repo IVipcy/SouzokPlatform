@@ -1,12 +1,50 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────
+   タイポグラフィ・カラー基盤
+   ──────────────────────────────────────── */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* フォントスタック: 英数字は Inter、日本語は Noto Sans JP */
+  --font-sans:
+    var(--font-inter), var(--font-noto-sans-jp),
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo",
+    system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), "SF Mono", Menlo, Consolas, monospace;
+
+  /* カラー: 業務SaaSとして信頼感のある配色 */
+  --color-brand-50:  #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+}
+
+/* ─── Body ベース ─── */
+html {
+  font-feature-settings: "palt" 1, "ss01" 1;  /* プロポーショナル詰め＋セリフ表現 */
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  color: #1f2937;
+  background-color: #f9fafb;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
+  line-height: 1.6;
+}
+
+/* 数字を等幅で揃える（タブlocaleは個別指定で上書き） */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── 相続関係説明図 印刷用 ─── */
@@ -32,4 +70,3 @@ body {
     display: none !important;
   }
 }
-
