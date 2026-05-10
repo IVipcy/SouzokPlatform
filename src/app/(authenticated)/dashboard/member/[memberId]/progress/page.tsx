@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
+import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -41,19 +42,37 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     { data: caseMembersRaw },
     { data: clientsRaw },
   ] = await Promise.all([
-    supabase.from('members').select('id,name,avatar_color,primary_role').eq('id', memberId).eq('is_active', true).single(),
-    supabase.from('members').select('id,name,avatar_color'),
+    supabase.from('members').select('id,name,avatar_color,primary_role,team_id').eq('id', memberId).eq('is_active', true).single(),
+    supabase.from('members').select('id,name,avatar_color,primary_role,team_id').eq('is_active', true),
     supabase.from('case_members').select('case_id,member_id,role').in('role', ['sales', 'manager']),
     supabase.from('clients').select('id,name'),
   ])
 
   if (!member) notFound()
 
-  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string }>
+  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string; primary_role: string | null; team_id: string | null }>
   const caseMembers = (caseMembersRaw ?? []) as CaseMemberRow[]
   const clients = (clientsRaw ?? []) as Array<{ id: string; name: string }>
   const memberById = new Map(allMembers.map(m => [m.id, m]))
   const clientById = new Map(clients.map(c => [c.id, c.name]))
+
+  // チームメンバー切替パネル用
+  let teamForNav: { id: string; name: string } | null = null
+  let navMembers: TeamNavMember[] = []
+  if (member.team_id) {
+    const { data: t } = await supabase.from('teams').select('id,name').eq('id', member.team_id).single()
+    if (t) {
+      teamForNav = t
+      navMembers = allMembers
+        .filter(m => m.team_id === member.team_id && (m.primary_role === 'sales' || m.primary_role === 'manager'))
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          avatarColor: m.avatar_color ?? '#6B7280',
+          primaryRole: m.primary_role as 'sales' | 'manager',
+        }))
+    }
+  }
 
   // この人が sales or manager で紐づく case_ids
   const myCaseIds = new Set<string>()
@@ -69,6 +88,9 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     return (
       <div>
         <ProgressKpis scopeLabel={member.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
+        {teamForNav && (
+          <TeamMemberNav teamId={teamForNav.id} teamName={teamForNav.name} members={navMembers} currentMemberId={memberId} />
+        )}
         <MonthSelector basePath={`/dashboard/member/${memberId}/progress`} selectedMonth={selectedMonth} today={today} />
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           この担当者に紐づく案件がありません
@@ -147,6 +169,9 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   return (
     <div>
       <ProgressKpis scopeLabel={member.name} metrics={kpis} />
+      {teamForNav && (
+        <TeamMemberNav teamId={teamForNav.id} teamName={teamForNav.name} members={navMembers} currentMemberId={memberId} />
+      )}
       <MonthSelector basePath={`/dashboard/member/${memberId}/progress`} selectedMonth={selectedMonth} today={today} />
       <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={true} />
     </div>

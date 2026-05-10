@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
+import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -73,10 +74,21 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     if (teamMemberIds.has(cm.member_id)) teamCaseIds.add(cm.case_id)
   }
 
+  // メンバー切替パネル用
+  const navMembers: TeamNavMember[] = teamMembers
+    .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
+    .map(m => ({
+      id: m.id,
+      name: m.name,
+      avatarColor: m.avatar_color ?? '#6B7280',
+      primaryRole: m.primary_role as 'sales' | 'manager',
+    }))
+
   if (teamCaseIds.size === 0) {
     return (
       <div>
         <ProgressKpis scopeLabel={team.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
+        <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
         <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           このチームに紐づく案件がありません
@@ -157,6 +169,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   return (
     <div>
       <ProgressKpis scopeLabel={team.name} metrics={kpis} />
+      <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
       <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />
       <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
     </div>
