@@ -331,7 +331,7 @@ function RevenueCard({ caseData }: { caseData: CaseRow }) {
 }
 
 // ─── Section ───
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({ title, icon: _icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Trash2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { CaseRow, HeirRow } from '@/types'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
@@ -136,9 +137,9 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
                       <td className="px-3 py-2.5">
                         <button
                           onClick={() => handleDeleteHeir(heir.id)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                          className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
                           title="削除"
-                        >🗑</button>
+                        ><Trash2 className="w-3 h-3" strokeWidth={1.75} /></button>
                       </td>
                     </tr>
                   ))}
@@ -296,7 +297,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {displayValue ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
         </div>
       )}
     </div>
@@ -304,7 +305,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
 }
 
 // ─── Shared components ───
-function Section({ title, icon, children, actionLabel, onAction }: {
+function Section({ title, icon: _icon, children, actionLabel, onAction }: {
   title: string; icon: string; children: React.ReactNode; actionLabel?: string; onAction?: () => void
 }) {
   return (

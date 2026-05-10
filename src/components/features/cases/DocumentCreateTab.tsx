@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
 import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
@@ -53,7 +54,9 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
       {/* ヘッダ */}
       <div className="bg-gradient-to-r from-indigo-50 to-brand-50 border border-indigo-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
-          <div className="text-2xl">📄</div>
+          <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-indigo-600" strokeWidth={2} />
+          </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-indigo-900">書類作成</h3>
             <p className="text-xs text-indigo-700 mt-1">

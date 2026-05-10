@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sparkles, Upload, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import UploadDocumentModal from '@/components/features/documents/UploadDocumentModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import Button from '@/components/ui/Button'
 import type { CaseRow, DocumentRow } from '@/types'
 
 type Props = {
@@ -100,17 +102,15 @@ export default function DocsTab({ caseData }: Props) {
         <button
           onClick={handleGenerateTest}
           disabled={generating}
-          className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
           title="テスト用：案件名・依頼者名をテンプレートに埋め込んで.docxを生成"
         >
-          {generating ? '生成中...' : '📝 テスト書類生成'}
+          <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
+          {generating ? '生成中...' : 'テスト書類生成'}
         </button>
-        <button
-          onClick={() => setUploadOpen(true)}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          📤 アップロード
-        </button>
+        <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setUploadOpen(true)}>
+          アップロード
+        </Button>
       </div>
       <div className="text-[13px] text-gray-400 mb-3">
         ※ AI書類作成は各タスクの詳細画面から行えます。ここでは案件全体の書類を集約表示します。
@@ -147,7 +147,7 @@ export default function DocsTab({ caseData }: Props) {
                   <tr key={doc.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
                     <td className="px-4 py-2.5">
                       <div className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                        {isAi && <span className="text-purple-500" title="AI生成">🤖</span>}
+                        {isAi && <Bot className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" strokeWidth={2} aria-label="AI生成" />}
                         <span>{doc.name}</span>
                       </div>
                       <div className="text-[12px] text-gray-400">{doc.file_type ?? '—'}</div>

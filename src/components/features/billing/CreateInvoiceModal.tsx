@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
 
@@ -64,12 +65,10 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved }: 
       title="＋ 請求書発行"
       footer={
         <>
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
-            キャンセル
-          </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
+          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
+          <Button variant="primary" onClick={handleSubmit} loading={saving}>
             {saving ? '作成中...' : '発行する'}
-          </button>
+          </Button>
         </>
       }
     >

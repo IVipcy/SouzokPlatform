@@ -107,7 +107,7 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
       {/* メモ入力 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-4">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <span className="text-sm">📝</span>
+          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
           <h3 className="text-[13px] font-semibold text-gray-900">メモを追加</h3>
         </div>
         <div className="px-4 py-3 flex gap-2">
@@ -132,7 +132,7 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
       {/* タイムライン */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <span className="text-sm">📅</span>
+          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
           <h3 className="text-[13px] font-semibold text-gray-900">活動履歴</h3>
           <span className="text-[12px] font-mono text-gray-400 ml-auto">{allEvents.length}件</span>
         </div>

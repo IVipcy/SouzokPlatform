@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
 import {
@@ -335,9 +336,10 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                   <span className="text-xs font-semibold text-gray-600">物件 #{idx + 1}</span>
                   <button
                     onClick={() => deleteRow(row.id)}
-                    className="text-gray-300 hover:text-red-500 text-xs"
+                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
                   >
-                    🗑 削除
+                    <Trash2 className="w-3 h-3" strokeWidth={1.75} />
+                    削除
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

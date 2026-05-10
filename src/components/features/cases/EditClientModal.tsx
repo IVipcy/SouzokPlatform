@@ -111,7 +111,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
 
         {/* Client section */}
         <div>
-          <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2">👤 依頼者情報</div>
+          <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2">依頼者情報</div>
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <FormField label="氏名 *" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} />

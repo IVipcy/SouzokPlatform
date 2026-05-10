@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { User, AlertTriangle, Plus } from 'lucide-react'
+import { User, AlertTriangle, Plus, Search, X, Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { CASE_STATUSES } from '@/lib/constants'
@@ -153,7 +153,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[220px]">
-            <span className="text-gray-400 text-xs">🔍</span>
+            <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
             <input
               type="text"
               value={search}
@@ -201,9 +201,10 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
         {(filterMine || filterUrgent) && (
           <button
             onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
-            className="px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
           >
-            ✕ クリア
+            <X className="w-3.5 h-3.5" strokeWidth={2} />
+            クリア
           </button>
         )}
       </div>
@@ -384,10 +385,10 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
                   <td className="px-3.5 py-3">
                     <button
                       onClick={(e) => { e.stopPropagation(); onDelete(c) }}
-                      className="w-6 h-6 rounded flex items-center justify-center text-[13px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                      className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
                       title="削除"
                     >
-                      🗑
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                   </td>
                 </tr>

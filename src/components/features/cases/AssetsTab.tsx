@@ -1229,9 +1229,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
 /* ── Shared sub-components ── */
 
-function Section({ title, icon, children, onEdit, actionLabel, onAction }: {
+function Section({ title, icon: _icon, children, onEdit, actionLabel, onAction }: {
   title: string
-  icon: string
+  icon?: string
   children: React.ReactNode
   onEdit?: () => void
   actionLabel?: string

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { X, Pencil } from 'lucide-react'
 import type { CaseRow, ExpenseRow } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -170,10 +171,10 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
                       <td className="py-1.5">
                         <button
                           onClick={() => handleDeleteExpense(e.id)}
-                          className="text-red-400 hover:text-red-600 text-xs"
+                          className="text-red-400 hover:text-red-600 inline-flex"
                           title="削除"
                         >
-                          ✕
+                          <X className="w-3.5 h-3.5" strokeWidth={2} />
                         </button>
                       </td>
                     </tr>
@@ -338,14 +339,14 @@ function InlineEdit({ label, value, onSave, mono, type = 'text', displayFormat }
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue && displayValue !== '未設定' ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {displayValue ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
         </div>
       )}
     </div>
   )
 }
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({ title, icon: _icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import { CASE_STATUSES } from '@/lib/constants'
 import type { CaseRow } from '@/types'
 
@@ -98,19 +99,10 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
       maxWidth="max-w-2xl"
       footer={
         <>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
-          >
+          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
+          <Button variant="primary" onClick={handleSubmit} loading={saving}>
             {saving ? '保存中...' : '保存'}
-          </button>
+          </Button>
         </>
       }
     >

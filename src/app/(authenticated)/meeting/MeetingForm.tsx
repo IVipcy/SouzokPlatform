@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { ClipboardList, User, FileText, Home, Banknote, CheckCircle2, X, Folder, Users, Scale, ScrollText, Shield, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, type FormData, type Heir, type PropertyDetail, type BankAccount, type Division } from './formData'
@@ -78,10 +79,12 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
   )
 }
 
-function SectionHeader({ icon, title, sub }: { icon: string; title: string; sub?: string }) {
+function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-lg flex-shrink-0">{icon}</div>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-brand-600 to-brand-800 shadow-sm">
+        <Icon className="w-5 h-5 text-white" strokeWidth={2} />
+      </div>
       <div>
         <div className="text-lg font-bold text-gray-900">{title}</div>
         {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
@@ -391,7 +394,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
     switch (STEPS[step].id) {
       case 'basic': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="📋" title="基本情報" sub="面談開始時に確認する項目" />
+          <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目" />
           <Card label="面談日" required><Input type="date" value={data.orderDate} onChange={v => update('orderDate', v)} /></Card>
           <Card label="受注担当" required><Input value={data.salesOwner} onChange={v => update('salesOwner', v)} placeholder="担当者名を入力" /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
@@ -400,7 +403,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'client': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="👤" title="依頼者情報" sub="面談にご来所された方の情報" />
+          <SectionHeader Icon={User} title="依頼者情報" sub="面談にご来所された方の情報" />
           <Card label="氏名" required>
             <div className="grid gap-2.5">
               <Input value={data.clientName} onChange={v => update('clientName', v)} placeholder="山田 太郎" />
@@ -431,7 +434,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'deceased': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="📁" title="被相続人情報" sub="お亡くなりになった方の情報" />
+          <SectionHeader Icon={Folder} title="被相続人情報" sub="お亡くなりになった方の情報" />
           <Card label="氏名" required>
             <div className="grid gap-2.5">
               <Input value={data.deceasedName} onChange={v => update('deceasedName', v)} placeholder="田中 花子" />
@@ -446,11 +449,11 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'heirs': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="👨‍👩‍👧" title="相続人情報" sub="法定相続人数は基礎控除の計算に使用" />
+          <SectionHeader Icon={Users} title="相続人情報" sub="法定相続人数は基礎控除の計算に使用" />
           {data.heirs.map((h, i) => (
             <div key={i} className="border-[1.5px] border-gray-200 rounded-xl p-4 mb-3 bg-gray-50 relative">
               <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-3">相続人 {i + 1}</div>
-              <button onClick={() => { const arr = [...data.heirs]; arr.splice(i, 1); update('heirs', arr) }} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-sm hover:bg-red-100 transition">✕</button>
+              <button onClick={() => { const arr = [...data.heirs]; arr.splice(i, 1); update('heirs', arr) }} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition"><X className="w-4 h-4" strokeWidth={2.25} /></button>
               <div className="grid gap-2.5">
                 <Input value={h.name} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], name: v }; update('heirs', arr) }} placeholder="氏名" />
                 <Input value={h.kana} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], kana: v }; update('heirs', arr) }} placeholder="ふりがな" />
@@ -480,7 +483,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'order': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="📝" title="受注内容" sub="受任する業務の範囲を確認" />
+          <SectionHeader Icon={FileText} title="受注内容" sub="受任する業務の範囲を確認" />
           <Card label="手続区分" required><Pills value={data.procedureType} options={['手続一式', '登記', '遺言', '放棄']} onChange={v => update('procedureType', v as string[])} multi /></Card>
           <Card label="付帯サービス"><Pills value={data.additionalServices} options={['相続税申告', '不動産売却', '生命保険']} onChange={v => update('additionalServices', v as string[])} multi /></Card>
           <Card label="特記事項・備考"><Textarea value={data.importantNotes} onChange={v => update('importantNotes', v)} placeholder="特別な事情・注意事項があれば記入" /></Card>
@@ -488,7 +491,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'property': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="🏠" title="不動産" sub="不動産評価ランクが売却スピードに影響します" />
+          <SectionHeader Icon={Home} title="不動産" sub="不動産評価ランクが売却スピードに影響します" />
           <Card label="物件種別"><Pills value={data.propertyType} options={['戸建', 'マンション', '土地', '収益物件', 'その他']} onChange={v => update('propertyType', v as string)} /></Card>
           <Card label="住人有無"><Pills value={data.residentStatus} options={['空き家', '居住中（相続人）', '居住中（第三者）']} onChange={v => update('residentStatus', v as string)} /></Card>
           <Card label="エリア評価"><Pills value={data.areaRating} options={['人気エリア', '標準', '不人気エリア']} onChange={v => update('areaRating', v as string)} /></Card>
@@ -526,7 +529,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'finance': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="💴" title="金融資産・相続税" sub="資産合計から相続税申告の要否を自動判定" />
+          <SectionHeader Icon={Banknote} title="金融資産・相続税" sub="資産合計から相続税申告の要否を自動判定" />
           <Card label="金融機関（判明分）"><Textarea value={data.bankNames} onChange={v => update('bankNames', v)} placeholder="例：きらぼし銀行、三菱UFJ銀行、野村証券" /></Card>
           <Card label="通帳の状況"><Pills value={data.passbookStatus} options={['即日預かり', '送ってもらう', '紛失']} onChange={v => update('passbookStatus', v as string)} /></Card>
           <Card label="解約サポート"><Pills value={data.cancellationSupport} options={['受注', '受注していない', '検討中', '未提案']} onChange={v => update('cancellationSupport', v as string)} /></Card>
@@ -578,14 +581,14 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'division': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="⚖️" title="遺産分割・遺言" sub="分割方針と遺言の有無を確認" />
+          <SectionHeader Icon={Scale} title="遺産分割・遺言" sub="分割方針と遺言の有無を確認" />
           <Card label="依頼者の意向"><Textarea value={data.clientIntention} onChange={v => update('clientIntention', v)} placeholder="例：長男が不動産を取得し、残りを3人で均等に分けたい" /></Card>
           <Card label="分配方針"><Pills value={data.distributionPolicy} options={['法定相続', '2次相続を踏まえて', 'その他']} onChange={v => update('distributionPolicy', v as string)} /></Card>
           <Card label="分配方針の提案"><Pills value={data.distributionProposal} options={['あり', 'なし']} onChange={v => update('distributionProposal', v as string)} /></Card>
           <Card label="協議書の調印方法"><Pills value={data.agreementSigning} options={['依頼者から各相続人へ', 'OCから各相続人へ', 'オーシャンで調印', 'その他']} onChange={v => update('agreementSigning', v as string)} /></Card>
           <Card label="財産目録の記載区分"><Pills value={data.inventoryItems} options={['不動産', '金融資産', '債務・負債', '諸費用・経費', '生命保険', 'その他']} onChange={v => update('inventoryItems', v as string[])} multi /></Card>
           <div className="h-px bg-gray-200 my-4" />
-          <SectionHeader icon="📜" title="遺言" sub="遺言がある場合・遺言作成業務がある場合" />
+          <SectionHeader Icon={ScrollText} title="遺言" sub="遺言がある場合・遺言作成業務がある場合" />
           <Card label="遺言種別"><Pills value={data.willType} options={['自筆', '公正証書', 'その他']} onChange={v => update('willType', v as string)} /></Card>
           <Card label="遺言保管"><Pills value={data.willStorage} options={['お客様保管', 'ご案内していない', 'ご案内済(検討中)', 'ご依頼']} onChange={v => update('willStorage', v as string)} /></Card>
           <Card label="遺言執行"><Pills value={data.willExecution} options={['執行不要', 'ご案内していない', 'ご案内済(検討中)', 'ご依頼']} onChange={v => update('willExecution', v as string)} /></Card>
@@ -595,7 +598,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
             </div>
           </Card>
           <div className="h-px bg-gray-200 my-4" />
-          <SectionHeader icon="🛡️" title="生命保険" sub="生命保険の照会・提案" />
+          <SectionHeader Icon={Shield} title="生命保険" sub="生命保険の照会・提案" />
           <Card label="生命保険提案"><Pills value={data.insuranceProposal} options={['提案した', '提案しない']} onChange={v => update('insuranceProposal', v as string)} /></Card>
           {data.insuranceProposal === '提案した' && (
             <Card label="保険会社・種類">
@@ -609,7 +612,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       )
       case 'confirm': return (
         <div className="max-w-[800px]">
-          <SectionHeader icon="✅" title="入力内容の確認" sub="内容を確認して「送信・確定」してください" />
+          <SectionHeader Icon={CheckCircle2} title="入力内容の確認" sub="内容を確認して「送信・確定」してください" />
           {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{saveError}</div>}
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <ConfirmSection title="基本情報">

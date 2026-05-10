@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Section, FieldGrid, Field,
@@ -273,9 +274,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                         <td className="py-1.5">
                           <button
                             onClick={() => handleDeleteExpense(e.id)}
-                            className="text-red-400 hover:text-red-600 text-xs"
+                            className="text-red-400 hover:text-red-600 inline-flex"
                             title="削除"
-                          >✕</button>
+                          ><X className="w-3.5 h-3.5" strokeWidth={2} /></button>
                         </td>
                       </tr>
                     ))}

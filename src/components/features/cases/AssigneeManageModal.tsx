@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import { ROLES } from '@/lib/constants'
@@ -347,7 +348,7 @@ function MultiSearchableSelect({ members, selectedIds, onAdd, onRemove, placehol
               {m.name.charAt(0)}
             </span>
             {m.name}
-            <button onClick={(e) => { e.stopPropagation(); onRemove(m.id) }} className="text-brand-400 hover:text-red-500 ml-0.5">✕</button>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(m.id) }} className="text-brand-400 hover:text-red-500 ml-0.5"><X className="w-3 h-3" strokeWidth={2.5} /></button>
           </span>
         ))}
         {selectedIds.length === 0 && (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Trash2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { CaseRow, DivisionDetailRow } from '@/types'
 import {
@@ -133,9 +134,9 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
                     <td className="px-3 py-2.5">
                       <button
                         onClick={() => handleDeleteDetail(detail.id)}
-                        className="w-5 h-5 rounded flex items-center justify-center text-[12px] text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                        className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
                         title="削除"
-                      >🗑</button>
+                      ><Trash2 className="w-3 h-3" strokeWidth={1.75} /></button>
                     </td>
                   </tr>
                 ))}
@@ -196,7 +197,7 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
 
           {caseData.will_type === '自筆' && (
             <div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
-              <span className="text-sm flex-shrink-0">⚠️</span>
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" strokeWidth={2.25} />
               <p className="text-[13px] text-amber-700 font-medium leading-relaxed">
                 自筆遺言のため家庭裁判所への検認申立が必要です。
               </p>
@@ -315,7 +316,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth }: {
 
 // ─── Shared components ───
 
-function Section({ title, icon, children, actionLabel, onAction }: {
+function Section({ title, icon: _icon, children, actionLabel, onAction }: {
   title: string; icon: string; children: React.ReactNode; actionLabel?: string; onAction?: () => void
 }) {
   return (

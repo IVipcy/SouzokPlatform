@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import type { MemberRow } from '@/types'
 
@@ -16,7 +17,7 @@ type Props = {
 
 const PRIORITIES = [
   { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-  { key: '急ぎ', label: '🚨 急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
+  { key: '急ぎ', label: '急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
 ] as const
 
 export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved }: Props) {
@@ -72,19 +73,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
       title="＋ タスク追加"
       footer={
         <>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
-          >
+          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
+          <Button variant="primary" onClick={handleSubmit} loading={saving}>
             {saving ? '追加中...' : '追加する'}
-          </button>
+          </Button>
         </>
       }
     >

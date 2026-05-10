@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import type { InvoiceRow, PaymentRow } from '@/types'
 
 type Props = {
@@ -74,15 +75,13 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="💰 入金消込"
+      title="入金消込"
       footer={
         <>
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
-            キャンセル
-          </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
+          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
+          <Button variant="primary" onClick={handleSubmit} loading={saving}>
             {saving ? '記録中...' : '入金を記録'}
-          </button>
+          </Button>
         </>
       }
     >

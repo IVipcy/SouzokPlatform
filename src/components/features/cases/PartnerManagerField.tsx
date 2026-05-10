@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { PartnerRow } from '@/types'
 import { showToast } from '@/components/ui/Toast'
@@ -289,10 +290,10 @@ function PartnerRowItem({
       )}
       <button
         onClick={onDelete}
-        className="text-[12px] text-gray-300 hover:text-red-500 px-1"
+        className="text-gray-300 hover:text-red-500 px-1 inline-flex"
         title="削除"
       >
-        🗑
+        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
     </div>
   )
