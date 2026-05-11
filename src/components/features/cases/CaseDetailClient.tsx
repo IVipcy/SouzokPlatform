@@ -45,12 +45,26 @@ const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'ass
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, currentMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialTab = (() => {
+  const tabFromUrl = (() => {
     const p = searchParams.get('tab')
     return p && (VALID_TABS as string[]).includes(p) ? (p as TabKey) : 'basicInfo'
   })()
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
+  const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
+
+  // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
+  // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
+  useEffect(() => {
+    setActiveTabState(prev => (prev === tabFromUrl ? prev : tabFromUrl))
+  }, [tabFromUrl])
+
+  // タブ切替時は URL を書き換えてリフレッシュ等で消えないようにする
+  const setActiveTab = (tab: TabKey) => {
+    setActiveTabState(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   const bulkTaskModal = useModal()
 
