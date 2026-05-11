@@ -31,6 +31,7 @@ import {
   FINANCIAL_SURVEY_START_CONDITIONS,
   INVESTIGATION_DOCUMENTS,
   INVENTORY_CATEGORIES,
+  PROPERTY_TYPES,
   ODD_LOT_HANDLING_OPTIONS,
   UNCLAIMED_DIVIDEND_OPTIONS,
 } from '@/lib/constants'
@@ -682,28 +683,43 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             <div className="border-t border-brand-100 bg-brand-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
               <div className="text-[13px] font-semibold text-brand-700 mb-2">不動産を追加</div>
               <div className="grid grid-cols-1 gap-2">
-                <input
-                  type="text"
-                  placeholder="物件種別（例: 戸建, マンション, 土地）"
-                  value={propForm.property_type}
-                  onChange={e => setPropForm(f => ({ ...f, property_type: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                  autoFocus
-                />
-                <input
-                  type="text"
-                  placeholder="所在地"
-                  value={propForm.address}
-                  onChange={e => setPropForm(f => ({ ...f, address: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                />
-                <input
-                  type="text"
-                  placeholder="地番"
-                  value={propForm.lot_number}
-                  onChange={e => setPropForm(f => ({ ...f, lot_number: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                />
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">物件区分</label>
+                  <input
+                    type="text"
+                    list="property-type-options"
+                    placeholder="戸建 / マンション / 土地 など（自由入力可）"
+                    value={propForm.property_type}
+                    onChange={e => setPropForm(f => ({ ...f, property_type: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
+                    autoFocus
+                  />
+                  <datalist id="property-type-options">
+                    {PROPERTY_TYPES.map(t => <option key={t} value={t} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">所在地（住所）</label>
+                  <input
+                    type="text"
+                    placeholder="例: 横浜市港北区新横浜1-2-3"
+                    value={propForm.address}
+                    onChange={e => setPropForm(f => ({ ...f, address: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                    地番 <span className="font-normal text-gray-400">（登記簿上の番号・住居表示の住所とは別）</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="例: 港北区新横浜町1234番5"
+                    value={propForm.lot_number}
+                    onChange={e => setPropForm(f => ({ ...f, lot_number: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
+                  />
+                </div>
               </div>
               <div className="flex gap-2 mt-2">
                 <button

@@ -164,6 +164,17 @@ export const DISPATCH_DOCUMENT_NAMES = [
 // === 財産調査使用書類 ===
 export const INVESTIGATION_DOCUMENTS = ['委任状', '契約書'] as const
 
+// === 不動産: 物件区分 ===
+export const PROPERTY_TYPES = [
+  '戸建',
+  'マンション',
+  '土地',
+  '農地',
+  '山林',
+  '駐車場',
+  'その他',
+] as const
+
 // === 契約形態 ===
 export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名', 'いきいきライフ協会'] as const
 
