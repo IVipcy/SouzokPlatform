@@ -140,12 +140,13 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
         .from('documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true })
       if (upErr) throw upErr
-      const { error: dbErr } = await supabase.from('documents').insert({
+      const { error: dbErr } = await supabase.from('case_documents').insert({
         case_id: caseData.id,
-        name: `相続関係説明図_${ymd}`,
-        file_path: path,
-        file_type: 'PNG',
-        status: '完成',
+        document_name: `相続関係説明図_${ymd}`,
+        outbound_file_path: path,
+        outbound_file_name: `相続関係説明図_${ymd}.png`,
+        outbound_file_type: 'PNG',
+        outbound_file_bucket: 'documents',
         generated_by: 'system',
       })
       if (dbErr) throw dbErr
