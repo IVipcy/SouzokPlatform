@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Search, Loader2, Check, Send } from 'lucide-react'
+import { Search, Loader2, FileText } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -22,10 +22,13 @@ type Props = {
   defaultCaseId?: string
 }
 
-export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defaultCaseId }: Props) {
+type DocKind = 'sent' | 'received' | 'memo'
+
+export default function NewCaseDocumentModal({ isOpen, onClose, cases, onSaved, defaultCaseId }: Props) {
   const [caseSearch, setCaseSearch] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(defaultCaseId ?? null)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [kind, setKind] = useState<DocKind>('sent')
   const [documentName, setDocumentName] = useState('戸籍謄本')
   const [sentDate, setSentDate] = useState('')
   const [sentTo, setSentTo] = useState('')
@@ -34,12 +37,12 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
   const [saving, setSaving] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // モーダルを開いた時に状態をリセット
   useEffect(() => {
     if (isOpen) {
       setCaseSearch('')
       setSelectedCaseId(defaultCaseId ?? null)
       setShowDropdown(false)
+      setKind('sent')
       setDocumentName('戸籍謄本')
       setSentDate(new Date().toISOString().slice(0, 10))
       setSentTo('')
@@ -48,7 +51,6 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
     }
   }, [isOpen, defaultCaseId])
 
-  // 外クリックでドロップダウン閉じる
   useEffect(() => {
     if (!showDropdown) return
     const onDoc = (e: MouseEvent) => {
@@ -91,16 +93,23 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
     setSaving(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('document_dispatches').insert({
+      const payload: Record<string, unknown> = {
         case_id: selectedCaseId,
         document_name: documentName.trim(),
-        sent_date: sentDate || null,
-        sent_to: sentTo.trim() || null,
         quantity: Math.max(0, quantity),
-        received_date: receivedDate || null,
-      })
+      }
+      if (kind === 'sent') {
+        payload.sent_date = sentDate || null
+        payload.sent_to = sentTo.trim() || null
+        if (receivedDate) payload.received_date = receivedDate
+      } else if (kind === 'received') {
+        payload.received_date = receivedDate || new Date().toISOString().slice(0, 10)
+      }
+      // memo は何も追加しない
+      const { error } = await supabase.from('case_documents').insert(payload)
       if (error) throw error
-      showToast('発送を記録しました', 'success')
+      const msg = kind === 'sent' ? '発送を記録しました' : kind === 'received' ? '受領を記録しました' : 'メモを記録しました'
+      showToast(msg, 'success')
       onSaved()
       onClose()
     } catch (e) {
@@ -115,7 +124,7 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="新規発送を記録"
+      title="新規書類を記録"
       maxWidth="max-w-xl"
       footer={
         <>
@@ -131,13 +140,20 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
             disabled={!canSave || saving}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
           >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
             記録する
           </button>
         </>
       }
     >
       <div className="space-y-4">
+        {/* 種別タブ */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+          <KindTab active={kind === 'sent'} onClick={() => setKind('sent')} label="📤 発送する" desc="お客さま・役所等へ送る" />
+          <KindTab active={kind === 'received'} onClick={() => setKind('received')} label="📥 受領する" desc="一方的に届いた書類" />
+          <KindTab active={kind === 'memo'} onClick={() => setKind('memo')} label="📝 メモ" desc="社内資料・面談メモ等" />
+        </div>
+
         {/* 案件選択 */}
         <div>
           <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">
@@ -196,48 +212,64 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
           )}
         </div>
 
-        {/* 書類名 + 通数 */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2">
-            <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">
-              書類名 <span className="text-red-400">*</span>
-            </label>
-            <input
-              list="dispatch-doc-names-modal"
-              value={documentName}
-              onChange={e => setDocumentName(e.target.value)}
-              disabled={saving}
-              className="w-full px-2.5 py-2 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
-            />
-            <datalist id="dispatch-doc-names-modal">
-              {DISPATCH_DOCUMENT_NAMES.map(n => <option key={n} value={n} />)}
-            </datalist>
-          </div>
-          <div>
-            <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">通数</label>
-            <input
-              type="number"
-              min={0}
-              value={quantity}
-              onChange={e => setQuantity(parseInt(e.target.value, 10) || 0)}
-              disabled={saving}
-              className="w-full px-2.5 py-2 text-[13px] font-mono text-right border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
-            />
-          </div>
+        {/* 書類名 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">
+            書類名 <span className="text-red-400">*</span>
+          </label>
+          <input
+            list="case-doc-names-modal"
+            value={documentName}
+            onChange={e => setDocumentName(e.target.value)}
+            disabled={saving}
+            className="w-full px-2.5 py-2 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+          />
+          <datalist id="case-doc-names-modal">
+            {DISPATCH_DOCUMENT_NAMES.map(n => <option key={n} value={n} />)}
+          </datalist>
         </div>
 
-        {/* 発送日 + 発送先 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">発送日</label>
-            <input
-              type="date"
-              value={sentDate}
-              onChange={e => setSentDate(e.target.value)}
-              disabled={saving}
-              className="w-full px-2.5 py-2 text-[13px] font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
-            />
-          </div>
+        {/* 種別ごとの追加フィールド */}
+        {kind === 'sent' && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">発送日</label>
+                <input
+                  type="date"
+                  value={sentDate}
+                  onChange={e => setSentDate(e.target.value)}
+                  disabled={saving}
+                  className="w-full px-2.5 py-2 text-[13px] font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">通数</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={quantity}
+                  onChange={e => setQuantity(parseInt(e.target.value, 10) || 0)}
+                  disabled={saving}
+                  className="w-full px-2.5 py-2 text-[13px] font-mono text-right border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">発送先</label>
+              <input
+                type="text"
+                value={sentTo}
+                onChange={e => setSentTo(e.target.value)}
+                placeholder="例：法務局、年金事務所、〇〇銀行など"
+                disabled={saving}
+                className="w-full px-2.5 py-2 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+              />
+            </div>
+          </>
+        )}
+
+        {kind === 'received' && (
           <div>
             <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">届いた日付</label>
             <input
@@ -248,26 +280,28 @@ export default function NewDispatchModal({ isOpen, onClose, cases, onSaved, defa
               className="w-full px-2.5 py-2 text-[13px] font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
             />
           </div>
-        </div>
+        )}
 
-        {/* 発送先 */}
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">発送先</label>
-          <input
-            type="text"
-            value={sentTo}
-            onChange={e => setSentTo(e.target.value)}
-            placeholder="例：法務局、年金事務所、〇〇銀行など"
-            disabled={saving}
-            className="w-full px-2.5 py-2 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
-          />
-        </div>
-
-        <div className="text-[12px] text-gray-400 flex items-start gap-1.5 pt-1">
-          <Check className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-0.5" />
-          受領書類のアップロードは記録後に各行から行えます。
+        <div className="text-[12px] text-gray-400 pt-1">
+          {kind === 'sent' && '発送した書類の情報を記録します。受領（返送）が来たら同じ行で記録できます。'}
+          {kind === 'received' && '一方的にお客様や役所から届いた書類（例：銀行口座情報）。'}
+          {kind === 'memo' && '送らない社内資料・面談メモ等。ファイルは記録後にアップロードできます。'}
         </div>
       </div>
     </Modal>
+  )
+}
+
+function KindTab({ active, onClick, label, desc }: { active: boolean; onClick: () => void; label: string; desc: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 px-3 py-2 rounded-md text-[12px] font-semibold transition ${
+        active ? 'bg-white text-brand-700 shadow-sm border border-brand-200' : 'text-gray-500 hover:text-gray-700'
+      }`}
+    >
+      <div>{label}</div>
+      <div className={`text-[11px] mt-0.5 font-normal ${active ? 'text-brand-500' : 'text-gray-400'}`}>{desc}</div>
+    </button>
   )
 }

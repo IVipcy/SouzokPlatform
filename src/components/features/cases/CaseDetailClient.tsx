@@ -11,7 +11,6 @@ import BasicInfoTab from './BasicInfoTab'
 import TasksTab from './TasksTab'
 import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
-import MailingTab from './MailingTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
 import DocsTab from './DocsTab'
@@ -21,7 +20,7 @@ import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, DocumentDispatchRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -34,16 +33,16 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
-  dispatches: DocumentDispatchRow[]
+  documents: CaseDocumentRow[]
   currentMemberId: string | null
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'mailing', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
+const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, dispatches, currentMemberId }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, currentMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialTab = (() => {
@@ -103,7 +102,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         activeTab={activeTab}
         onTabChange={setActiveTab}
         taskCount={tasks.length}
-        docCount={0}
+        docCount={documents.length}
       />
 
       {activeTab === 'basicInfo' && (
@@ -118,9 +117,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {activeTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
-      {activeTab === 'mailing' && (
-        <MailingTab caseData={caseState} dispatches={dispatches} onRefresh={handleSaved} patchCase={patchCase} />
-      )}
       {activeTab === 'assets' && (
         <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />
       )}
@@ -131,7 +127,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ReferralTab caseData={caseState} patchCase={patchCase} />
       )}
       {activeTab === 'docs' && (
-        <DocsTab caseData={caseState} />
+        <DocsTab caseData={caseState} documents={documents} />
       )}
       {activeTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />

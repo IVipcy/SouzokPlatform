@@ -62,15 +62,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `ファイルアップロード失敗: ${uploadErr.message}` }, { status: 500 })
     }
 
-    // documentsレコード作成
+    // case_documents レコード作成（自社控えとして登録）
     const docName = `テスト書類_${caseData.case_number ?? ''}_${new Date().toISOString().slice(0, 10)}`
-    const { data: docRow, error: docErr } = await supabase.from('documents').insert({
+    const { data: docRow, error: docErr } = await supabase.from('case_documents').insert({
       case_id: caseId,
-      name: docName,
-      file_path: storagePath,
-      file_type: 'Word',
-      status: '作成済',
-      generated_by: 'manual',
+      document_name: docName,
+      outbound_file_path: storagePath,
+      outbound_file_name: `${docName}.docx`,
+      outbound_file_type: 'Word',
+      outbound_file_bucket: 'documents',
+      generated_by: 'AI',
     }).select('id').single()
 
     if (docErr) {

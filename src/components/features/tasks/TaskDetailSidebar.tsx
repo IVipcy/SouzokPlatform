@@ -6,11 +6,11 @@ import { QIRow } from '@/components/ui/InlineFields'
 import { getPhaseLabel } from '@/lib/phases'
 import { getWorkRoleDef } from '@/lib/constants'
 import { evaluateCondition } from '@/lib/taskDependencyUtils'
-import type { TaskRow, DocumentRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, CaseDocumentRow, TaskDependencyRow } from '@/types'
 
 type Props = {
   task: TaskRow
-  documents: DocumentRow[]
+  documents: CaseDocumentRow[]
   dependencies?: TaskDependencyRow[]
 }
 
@@ -329,14 +329,14 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
             {documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-xs">
                 {doc.generated_by === 'AI' ? <Bot className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.75} /> : <FileText className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.75} />}
-                <span className="text-gray-700 font-medium truncate flex-1">{doc.name}</span>
+                <span className="text-gray-700 font-medium truncate flex-1">{doc.document_name}</span>
               </div>
             ))}
           </div>
           {caseData && (
             <div className="mt-2 flex gap-2">
               <Link
-                href={`/cases/${caseData.id}?tab=documents`}
+                href={`/cases/${caseData.id}?tab=docs`}
                 className="flex-1 text-center text-[12px] font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg py-1.5 transition-colors"
               >
                 案件書類

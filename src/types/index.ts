@@ -444,23 +444,38 @@ export type ExpenseRow = {
   created_at: string
 }
 
-// === 書類発着管理簿 ===
-export type DocumentDispatchRow = {
+// === 案件書類（旧 document_dispatches / documents の統合） ===
+export type CaseDocumentRow = {
   id: string
   case_id: string
+  task_id: string | null
   document_name: string
+  // 発送情報
   sent_date: string | null
   sent_to: string | null
   quantity: number
+  // 受領情報
   received_date: string | null
+  // 自社控えファイル（AI生成や手動アップロード）
+  outbound_file_path: string | null
+  outbound_file_name: string | null
+  outbound_file_type: string | null
+  outbound_file_bucket: string | null
+  // 受領ファイル
   received_file_path: string | null
   received_file_name: string | null
   received_file_type: string | null
+  received_file_bucket: string | null
+  generated_by: string | null
   notes: string | null
   created_at: string
   updated_at: string
   cases?: { id: string; case_number: string; deal_name: string } | null
+  tasks?: { id: string; title: string } | null
 }
+
+/** 旧名（後方互換用エイリアス） */
+export type DocumentDispatchRow = CaseDocumentRow
 
 export type PartnerRow = {
   id: string

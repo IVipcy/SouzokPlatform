@@ -15,12 +15,12 @@ import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
 
 type Props = {
   task: TaskRow
   allMembers: MemberRow[]
-  documents: DocumentRow[]
+  documents: CaseDocumentRow[]
   activities: CaseActivityRow[]
   currentMemberId: string | null
   dependencies?: TaskDependencyRow[]

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, DocumentDispatchRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -13,7 +13,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, dispatchesResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -61,8 +61,8 @@ export default async function CaseDetailPage({ params }: Props) {
       .eq('case_id', id)
       .order('expense_date'),
     supabase
-      .from('document_dispatches')
-      .select('*')
+      .from('case_documents')
+      .select('*, tasks(id,title)')
       .eq('case_id', id)
       .order('sent_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
@@ -84,7 +84,7 @@ export default async function CaseDetailPage({ params }: Props) {
       financialAssets={(financialAssetsResult.data ?? []) as FinancialAssetRow[]}
       divisionDetails={(divisionDetailsResult.data ?? []) as DivisionDetailRow[]}
       expenses={(expensesResult.data ?? []) as ExpenseRow[]}
-      dispatches={(dispatchesResult.data ?? []) as DocumentDispatchRow[]}
+      documents={(documentsResult.data ?? []) as CaseDocumentRow[]}
       currentMemberId={currentUser?.memberId ?? null}
     />
   )

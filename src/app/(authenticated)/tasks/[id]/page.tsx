@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import TaskDetailClient from '@/components/features/tasks/TaskDetailClient'
-import type { TaskRow, MemberRow, DocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -25,7 +25,7 @@ export default async function TaskDetailPage({ params }: Props) {
       .eq('is_active', true)
       .order('name'),
     supabase
-      .from('documents')
+      .from('case_documents')
       .select('*')
       .eq('task_id', id)
       .order('created_at', { ascending: false }),
@@ -69,7 +69,7 @@ export default async function TaskDetailPage({ params }: Props) {
     <TaskDetailClient
       task={task}
       allMembers={(allMembersResult.data ?? []) as MemberRow[]}
-      documents={(documentsResult.data ?? []) as DocumentRow[]}
+      documents={(documentsResult.data ?? []) as CaseDocumentRow[]}
       activities={(activitiesResult.data ?? []) as CaseActivityRow[]}
       currentMemberId={currentUser?.memberId ?? null}
       dependencies={dependencies}

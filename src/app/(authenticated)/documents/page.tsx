@@ -1,30 +1,32 @@
 import { createClient } from '@/lib/supabase/server'
 import DocumentsClient from '@/components/features/documents/DocumentsClient'
-import type { DocumentRow, MemberRow } from '@/types'
+import type { CaseDocumentRow } from '@/types'
+
+type CaseLite = {
+  id: string
+  case_number: string
+  deal_name: string
+  status: string
+}
 
 export default async function DocumentsPage() {
   const supabase = await createClient()
 
-  const [docsResult, membersResult, casesResult] = await Promise.all([
+  const [{ data: documentsRaw }, { data: casesRaw }] = await Promise.all([
     supabase
-      .from('documents')
-      .select('*, cases(id, case_number, deal_name, case_members(*, members(*))), tasks(id, title)')
+      .from('case_documents')
+      .select('*, tasks(id,title)')
+      .order('sent_date', { ascending: false, nullsFirst: false })
+      .order('received_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
     supabase
-      .from('members')
-      .select('*')
-      .eq('is_active', true),
-    supabase
       .from('cases')
-      .select('id, case_number, deal_name')
+      .select('id,case_number,deal_name,status')
       .order('case_number'),
   ])
 
-  return (
-    <DocumentsClient
-      documents={(docsResult.data ?? []) as DocumentRow[]}
-      members={(membersResult.data ?? []) as MemberRow[]}
-      cases={casesResult.data ?? []}
-    />
-  )
+  const documents = (documentsRaw ?? []) as CaseDocumentRow[]
+  const cases = (casesRaw ?? []) as CaseLite[]
+
+  return <DocumentsClient documents={documents} cases={cases} />
 }
