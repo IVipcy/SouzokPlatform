@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useTransition } from 'react'
+import { useState, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Upload, FileText, ExternalLink, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -251,6 +251,14 @@ function DateCell({ value, onSave }: { value: string | null; onSave: (v: string 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      try { inputRef.current.showPicker?.() } catch { /* unsupported */ }
+    }
+  }, [editing])
 
   const commit = async () => {
     const next = draft || null
@@ -271,17 +279,18 @@ function DateCell({ value, onSave }: { value: string | null; onSave: (v: string 
   if (editing) {
     return (
       <input
+        ref={inputRef}
         type="date"
-        autoFocus
         value={draft}
         onChange={e => setDraft(e.target.value)}
+        onClick={() => { try { inputRef.current?.showPicker?.() } catch { /* unsupported */ } }}
         onBlur={commit}
         onKeyDown={e => {
           if (e.key === 'Enter') commit()
           else if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
         }}
         disabled={saving}
-        className="w-full px-1.5 py-0.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30"
+        className="w-full px-1.5 py-0.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer"
       />
     )
   }

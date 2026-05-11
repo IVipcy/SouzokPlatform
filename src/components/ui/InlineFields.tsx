@@ -304,7 +304,11 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus()
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      // 編集モードに入ったら即カレンダーを開く（対応ブラウザのみ）
+      try { inputRef.current.showPicker?.() } catch { /* unsupported */ }
+    }
   }, [editing])
 
   const handleSave = async () => {
@@ -325,10 +329,12 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
           type="date"
           value={draft}
           onChange={e => setDraft(e.target.value)}
+          onClick={() => { try { inputRef.current?.showPicker?.() } catch { /* unsupported */ } }}
+          onFocus={() => { try { inputRef.current?.showPicker?.() } catch { /* unsupported */ } }}
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
