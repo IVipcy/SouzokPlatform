@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/InlineFields'
 import {
   KOSEKI_REQUEST_REASONS,
-  KOSEKI_REQUEST_PATTERNS,
   KOSEKI_REQUEST_TYPES,
 } from '@/lib/constants'
 
@@ -192,12 +191,6 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                 value={caseData.koseki_request_reason_other}
                 onSave={v => saveCaseField('koseki_request_reason_other', v)}
                 fullWidth
-              />
-              <InlineSelect
-                label="実費負担者"
-                value={caseData.koseki_request_pattern}
-                options={[...KOSEKI_REQUEST_PATTERNS]}
-                onSave={v => saveCaseField('koseki_request_pattern', v)}
               />
               <InlineMultiSelect
                 label="請求の種別"
