@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { X, ExternalLink, Receipt } from 'lucide-react'
+import { ExternalLink, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Section, FieldGrid, Field,
-  InlineSelect, InlineCurrency, InlineDate, InlineTextarea, FormField,
+  InlineSelect, InlineCurrency, InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { CONTRACT_TYPES, EXPENSE_CATEGORIES } from '@/lib/constants'
+import { CONTRACT_TYPES } from '@/lib/constants'
 import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
 
 type Props = {
@@ -22,13 +22,8 @@ type Props = {
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, tasks, onRefresh, patchCase }: Props) {
+export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase }: Props) {
   const [partner, setPartner] = useState<PartnerRow | null>(null)
-  const [showExpenseForm, setShowExpenseForm] = useState(false)
-  const [savingExpense, setSavingExpense] = useState(false)
-  const [expenseForm, setExpenseForm] = useState({
-    category: '', amount: '', expense_date: '', related_task_id: '', notes: '',
-  })
 
   // パートナー取得
   useEffect(() => {
@@ -55,35 +50,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
   const feeRealEstate = caseData.fee_real_estate ?? 0
   const feeTaxReferral = caseData.fee_tax_referral ?? 0
   const totalRevenue = feeSubtotal + feeRealEstate + feeTaxReferral
-
-  // 立替実費
-  const handleAddExpense = async () => {
-    if (!expenseForm.category || !expenseForm.amount) return
-    setSavingExpense(true)
-    const supabase = createClient()
-    await supabase.from('expenses').insert({
-      case_id: caseData.id,
-      category: expenseForm.category,
-      item_name: expenseForm.category,
-      amount: Number(expenseForm.amount),
-      expense_date: expenseForm.expense_date || null,
-      related_task_id: expenseForm.related_task_id || null,
-      related_task: expenseForm.related_task_id
-        ? tasks.find(t => t.id === expenseForm.related_task_id)?.title ?? null
-        : null,
-      notes: expenseForm.notes || null,
-    })
-    setExpenseForm({ category: '', amount: '', expense_date: '', related_task_id: '', notes: '' })
-    setShowExpenseForm(false)
-    setSavingExpense(false)
-    onRefresh()
-  }
-
-  const handleDeleteExpense = async (id: string) => {
-    const supabase = createClient()
-    await supabase.from('expenses').delete().eq('id', id)
-    onRefresh()
-  }
 
   const getRelatedTaskName = (expense: ExpenseRow) => {
     if (expense.related_task_id) {
@@ -232,8 +198,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
             </div>
           </div>
 
-          {/* 立替実費明細 */}
-          <Section title="立替実費明細" icon="🧾" actionLabel="追加" onAction={() => setShowExpenseForm(true)}>
+          {/* 立替実費明細（読み取り専用・入力は /billing の請求書発行モーダルで） */}
+          <Section title="立替実費明細">
             <div className="text-sm">
               {expenses.length > 0 ? (
                 <table className="w-full text-left">
@@ -243,7 +209,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                       <th className="pb-1.5 font-medium text-right">金額</th>
                       <th className="pb-1.5 font-medium">発生日</th>
                       <th className="pb-1.5 font-medium">備考</th>
-                      <th className="pb-1.5 w-6"></th>
+                      <th className="pb-1.5 font-medium text-[11px]">請求</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -256,11 +222,11 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                           {getRelatedTaskName(e) !== '—' ? getRelatedTaskName(e) : (e.notes ?? '—')}
                         </td>
                         <td className="py-1.5">
-                          <button
-                            onClick={() => handleDeleteExpense(e.id)}
-                            className="text-red-400 hover:text-red-600 inline-flex"
-                            title="削除"
-                          ><X className="w-3.5 h-3.5" strokeWidth={2} /></button>
+                          {e.billed_invoice_id ? (
+                            <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">請求済</span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">未請求</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -276,79 +242,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
               ) : (
                 <p className="text-gray-400 text-center py-3 text-xs">立替実費はありません</p>
               )}
-
-              {/* 追加フォーム */}
-              {showExpenseForm && (
-                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <FormField label="費目" required>
-                      <select
-                        value={expenseForm.category}
-                        onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                      >
-                        <option value="">選択してください</option>
-                        {EXPENSE_CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                    </FormField>
-                    <FormField label="金額" required>
-                      <input
-                        type="number"
-                        placeholder="金額"
-                        value={expenseForm.amount}
-                        onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                      />
-                    </FormField>
-                    <FormField label="発生日">
-                      <input
-                        type="date"
-                        value={expenseForm.expense_date}
-                        onChange={e => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                      />
-                    </FormField>
-                    <FormField label="関連タスク">
-                      <select
-                        value={expenseForm.related_task_id}
-                        onChange={e => setExpenseForm({ ...expenseForm, related_task_id: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                      >
-                        <option value="">（なし）</option>
-                        {tasks.map(t => (
-                          <option key={t.id} value={t.id}>{t.title}</option>
-                        ))}
-                      </select>
-                    </FormField>
-                  </div>
-                  <FormField label="備考">
-                    <input
-                      type="text"
-                      placeholder="備考"
-                      value={expenseForm.notes}
-                      onChange={e => setExpenseForm({ ...expenseForm, notes: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                    />
-                  </FormField>
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={() => setShowExpenseForm(false)}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5"
-                    >
-                      キャンセル
-                    </button>
-                    <button
-                      onClick={handleAddExpense}
-                      disabled={savingExpense || !expenseForm.category || !expenseForm.amount}
-                      className="text-xs bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:opacity-50"
-                    >
-                      {savingExpense ? '保存中...' : '追加'}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <p className="text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100">
+                立替実費の追加・編集は<Link href={`/billing?case=${caseData.id}`} className="text-brand-600 hover:underline mx-0.5">請求・入金</Link>の請求書発行時に行えます。
+              </p>
             </div>
           </Section>
         </div>

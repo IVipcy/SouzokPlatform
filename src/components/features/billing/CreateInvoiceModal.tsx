@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Receipt } from 'lucide-react'
+import { Loader2, Receipt, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { EXPENSE_CATEGORIES } from '@/lib/constants'
 import type { ExpenseRow } from '@/types'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
@@ -42,6 +44,17 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // モーダル内での新規立替実費追加用
+  const [showExpenseForm, setShowExpenseForm] = useState(false)
+  const [addingExpense, setAddingExpense] = useState(false)
+  const [newExpense, setNewExpense] = useState({
+    category: '',
+    item_name: '',
+    amount: '',
+    expense_date: new Date().toISOString().slice(0, 10),
+    notes: '',
+  })
+
   // モーダル開時にリセット
   useEffect(() => {
     if (isOpen) {
@@ -57,6 +70,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setUnbilledExpenses([])
       setSelectedExpenseIds(new Set())
       setCaseFees(null)
+      setShowExpenseForm(false)
+      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '' })
     }
   }, [isOpen, defaultCaseId])
 
@@ -111,6 +126,51 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
   }
   const selectAll = () => setSelectedExpenseIds(new Set(unbilledExpenses.map(e => e.id)))
   const deselectAll = () => setSelectedExpenseIds(new Set())
+
+  // モーダル内で新規立替実費を追加（即座に未請求リストへ反映）
+  const handleAddExpense = async () => {
+    if (!form.case_id) return
+    const itemName = newExpense.item_name.trim() || newExpense.category
+    const amountNum = Number(newExpense.amount)
+    if (!itemName) { showToast('費目を選択するか項目名を入力してください', 'error'); return }
+    if (!amountNum || amountNum <= 0) { showToast('金額を入力してください', 'error'); return }
+
+    setAddingExpense(true)
+    try {
+      const supabase = createClient()
+      const { data: inserted, error: insErr } = await supabase
+        .from('expenses')
+        .insert({
+          case_id: form.case_id,
+          category: newExpense.category || null,
+          item_name: itemName,
+          amount: amountNum,
+          expense_date: newExpense.expense_date || null,
+          notes: newExpense.notes.trim() || null,
+        })
+        .select('*')
+        .single()
+      if (insErr || !inserted) throw insErr ?? new Error('insert returned empty')
+      const row = inserted as ExpenseRow
+      // リストに追加してチェックON
+      setUnbilledExpenses(prev => [row, ...prev])
+      setSelectedExpenseIds(prev => {
+        const next = new Set(prev)
+        next.add(row.id)
+        return next
+      })
+      // フォームリセット
+      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '' })
+      setShowExpenseForm(false)
+      showToast('立替実費を追加しました', 'success')
+    } catch (e) {
+      console.error(e)
+      const msg = e instanceof Error ? e.message : '追加に失敗しました'
+      showToast(msg, 'error')
+    } finally {
+      setAddingExpense(false)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!form.case_id) { setError('案件を選択してください'); return }
@@ -266,7 +326,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                     </span>
                   </div>
 
-                  {unbilledExpenses.length === 0 ? (
+                  {unbilledExpenses.length === 0 && !showExpenseForm ? (
                     <div className="px-3 py-3 text-center text-[12px] text-gray-400">
                       未請求の立替実費はありません
                     </div>
@@ -298,6 +358,110 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                         )
                       })}
                     </ul>
+                  )}
+
+                  {/* + 立替実費を追加 */}
+                  {showExpenseForm ? (
+                    <div className="px-3 py-3 bg-brand-50/40 border-t border-brand-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[12px] font-semibold text-brand-700">新規立替実費を追加</span>
+                        <button
+                          onClick={() => setShowExpenseForm(false)}
+                          disabled={addingExpense}
+                          className="ml-auto p-0.5 text-gray-400 hover:text-gray-600 rounded"
+                          title="閉じる"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-12 gap-2">
+                        <div className="col-span-3">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">費目</label>
+                          <select
+                            value={newExpense.category}
+                            onChange={e => setNewExpense(p => ({ ...p, category: e.target.value, item_name: p.item_name || e.target.value }))}
+                            disabled={addingExpense}
+                            className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none bg-white"
+                          >
+                            <option value="">選択</option>
+                            {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div className="col-span-4">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">項目名</label>
+                          <input
+                            type="text"
+                            placeholder="例: 戸籍謄本 ×3通"
+                            value={newExpense.item_name}
+                            onChange={e => setNewExpense(p => ({ ...p, item_name: e.target.value }))}
+                            disabled={addingExpense}
+                            className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">金額</label>
+                          <div className="relative">
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">¥</span>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="0"
+                              value={newExpense.amount}
+                              onChange={e => setNewExpense(p => ({ ...p, amount: e.target.value }))}
+                              disabled={addingExpense}
+                              className="w-full pl-4 pr-1.5 py-1 text-[12px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">発生日</label>
+                          <input
+                            type="date"
+                            value={newExpense.expense_date}
+                            onChange={e => setNewExpense(p => ({ ...p, expense_date: e.target.value }))}
+                            disabled={addingExpense}
+                            className="w-full px-1.5 py-1 text-[11px] font-mono border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                          />
+                        </div>
+                        <div className="col-span-12">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">備考（任意）</label>
+                          <input
+                            type="text"
+                            placeholder="補足"
+                            value={newExpense.notes}
+                            onChange={e => setNewExpense(p => ({ ...p, notes: e.target.value }))}
+                            disabled={addingExpense}
+                            className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end mt-2">
+                        <button
+                          onClick={() => setShowExpenseForm(false)}
+                          disabled={addingExpense}
+                          className="px-3 py-1 text-[12px] text-gray-500 hover:text-gray-700 rounded hover:bg-white"
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={handleAddExpense}
+                          disabled={addingExpense}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 rounded"
+                        >
+                          {addingExpense ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          追加
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowExpenseForm(true)}
+                      disabled={saving}
+                      className="w-full px-3 py-2 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 border-t border-gray-100 transition flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      立替実費を追加（戸籍代・郵送料など）
+                    </button>
                   )}
                 </div>
 
