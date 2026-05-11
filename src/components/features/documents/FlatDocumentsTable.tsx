@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect, useTransition, useMemo } from 'react'
+import { useState, useRef, useEffect, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Trash2, Upload, FileText, ExternalLink, Loader2, X,
+  Trash2, Upload, FileText, ExternalLink, Loader2, X,
   Mail, MailOpen, FileCheck, StickyNote,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,23 +13,19 @@ import { DISPATCH_DOCUMENT_NAMES } from '@/lib/constants'
 import type { CaseDocumentRow } from '@/types'
 
 const ACCEPTED_TYPES = 'application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-const ACCEPTED_EXT_LABEL = 'PDF / JPG / PNG / Word / Excel'
 
-/** 状態フィルタのキー */
-type StatusFilter = 'all' | 'memo' | 'sent' | 'waiting' | 'received' | 'completed'
+type StatusKey = 'memo' | 'sent' | 'waiting' | 'received' | 'completed'
 
-/** 状態の判定 */
-function statusOf(r: CaseDocumentRow): Exclude<StatusFilter, 'all'> {
+function statusOf(r: CaseDocumentRow): StatusKey {
   const hasSent = !!r.sent_date
   const hasReceived = !!r.received_date
   if (hasSent && hasReceived) return 'completed'
   if (hasSent && !hasReceived) return 'waiting'
   if (!hasSent && hasReceived) return 'received'
-  // 両方空: 自社控えファイルがあれば memo、それ以外も memo として扱う
   return 'memo'
 }
 
-const STATUS_LABEL: Record<Exclude<StatusFilter, 'all'>, { label: string; cls: string; Icon: typeof Mail }> = {
+const STATUS_LABEL: Record<StatusKey, { label: string; cls: string; Icon: typeof Mail }> = {
   memo:      { label: 'メモ',     cls: 'bg-gray-50 text-gray-600 border-gray-200',     Icon: StickyNote },
   sent:      { label: '発送のみ', cls: 'bg-brand-50 text-brand-600 border-brand-200',  Icon: Mail },
   waiting:   { label: '返送待ち', cls: 'bg-amber-50 text-amber-700 border-amber-200',  Icon: Mail },
@@ -36,90 +33,40 @@ const STATUS_LABEL: Record<Exclude<StatusFilter, 'all'>, { label: string; cls: s
   completed: { label: '完了',     cls: 'bg-green-50 text-green-700 border-green-200',  Icon: FileCheck },
 }
 
+type CaseLite = { id: string; case_number: string; deal_name: string }
+
 type Props = {
-  caseId: string
   rows: CaseDocumentRow[]
-  /** セクションタイトル（指定するとカード上部に | アクセント付きヘッダー） */
-  title?: string
-  subtitle?: string
-  /** 状態フィルタを表示するか */
-  showStatusFilter?: boolean
+  caseLookup: Map<string, CaseLite>
 }
 
-export default function CaseDocumentTable({ caseId, rows, title, subtitle, showStatusFilter = true }: Props) {
+export default function FlatDocumentsTable({ rows, caseLookup }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [adding, setAdding] = useState(false)
-  const [filter, setFilter] = useState<StatusFilter>('all')
-  const supabase = createClient()
-
   const refresh = () => startTransition(() => router.refresh())
-
-  const filtered = useMemo(() => {
-    if (filter === 'all') return rows
-    return rows.filter(r => statusOf(r) === filter)
-  }, [rows, filter])
-
-  const counts = useMemo(() => {
-    const c: Record<Exclude<StatusFilter, 'all'>, number> = { memo: 0, sent: 0, waiting: 0, received: 0, completed: 0 }
-    for (const r of rows) c[statusOf(r)]++
-    return c
-  }, [rows])
-
-  const handleAdd = async () => {
-    setAdding(true)
-    try {
-      const { error } = await supabase.from('case_documents').insert({
-        case_id: caseId,
-        document_name: '',
-        quantity: 1,
-      })
-      if (error) throw error
-      refresh()
-    } catch (e) {
-      console.error(e)
-      showToast('追加に失敗しました', 'error')
-    } finally {
-      setAdding(false)
-    }
-  }
+  const supabase = createClient()
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      {title && (
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
-          {subtitle && <span className="text-[12px] font-normal text-gray-400">{subtitle}</span>}
-        </div>
-      )}
-
-      {showStatusFilter && (
-        <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/40 flex items-center gap-1.5 flex-wrap text-[12px]">
-          <FilterChip label="全て" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
-          <FilterChip label="メモ" count={counts.memo} active={filter === 'memo'} onClick={() => setFilter('memo')} icon={StickyNote} />
-          <FilterChip label="発送のみ" count={counts.sent} active={filter === 'sent'} onClick={() => setFilter('sent')} icon={Mail} />
-          <FilterChip label="返送待ち" count={counts.waiting} active={filter === 'waiting'} onClick={() => setFilter('waiting')} icon={Mail} tone="amber" />
-          <FilterChip label="受領のみ" count={counts.received} active={filter === 'received'} onClick={() => setFilter('received')} icon={MailOpen} />
-          <FilterChip label="完了" count={counts.completed} active={filter === 'completed'} onClick={() => setFilter('completed')} icon={FileCheck} tone="green" />
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <colgroup>
-            <col style={{ width: 190 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 180 }} />
+            <col style={{ width: 160 }} />
             <col style={{ width: 110 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 180 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 60 }} />
-            <col style={{ width: 180 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 180 }} />
+            <col style={{ width: 150 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 50 }} />
           </colgroup>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-[12px]">
+              <th className="px-3 py-2 text-left font-semibold">案件番号</th>
+              <th className="px-3 py-2 text-left font-semibold">案件名</th>
               <th className="px-3 py-2 text-left font-semibold">書類名</th>
               <th
                 className="px-3 py-2 text-left font-semibold"
@@ -137,80 +84,40 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, showS
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-gray-400 text-[13px]">
-                  {rows.length === 0
-                    ? 'まだ書類はありません。下の「+ 書類を追加」から登録してください。'
-                    : '該当する書類がありません（フィルタを変えてください）'}
+                <td colSpan={11} className="px-4 py-12 text-center text-gray-400 text-[13px]">
+                  該当する書類がありません
                 </td>
               </tr>
             )}
-            {filtered.map(r => (
-              <DocRow key={r.id} row={r} onChanged={refresh} supabase={supabase} />
+            {rows.map(r => (
+              <FlatDocRow
+                key={r.id}
+                row={r}
+                caseInfo={caseLookup.get(r.case_id) ?? null}
+                onChanged={refresh}
+                supabase={supabase}
+              />
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/50">
-        <button
-          onClick={handleAdd}
-          disabled={adding}
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-700 hover:text-brand-800 disabled:opacity-50"
-        >
-          {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          書類を追加
-        </button>
-        <span className="ml-3 text-[12px] text-gray-400">
-          各セルをクリックして編集・ファイルは {ACCEPTED_EXT_LABEL} をアップロード可
-        </span>
       </div>
     </div>
   )
 }
 
 // ─────────────────────────────────────
-// フィルタチップ
-// ─────────────────────────────────────
-function FilterChip({
-  label, count, active, onClick, icon: Icon, tone = 'brand',
-}: {
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-  icon?: typeof Mail
-  tone?: 'brand' | 'amber' | 'green'
-}) {
-  const baseTone = tone === 'amber' ? 'amber' : tone === 'green' ? 'green' : 'brand'
-  const activeCls =
-    baseTone === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300'
-    : baseTone === 'green' ? 'bg-green-100 text-green-800 border-green-300'
-    : 'bg-brand-100 text-brand-800 border-brand-300'
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border transition ${
-        active ? activeCls : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-      }`}
-    >
-      {Icon && <Icon className="w-3 h-3" />}
-      <span>{label}</span>
-      <span className="font-mono font-semibold">{count}</span>
-    </button>
-  )
-}
-
-// ─────────────────────────────────────
 // 行コンポーネント
 // ─────────────────────────────────────
-function DocRow({
+function FlatDocRow({
   row,
+  caseInfo,
   onChanged,
   supabase,
 }: {
   row: CaseDocumentRow
+  caseInfo: CaseLite | null
   onChanged: () => void
   supabase: ReturnType<typeof createClient>
 }) {
@@ -247,6 +154,27 @@ function DocRow({
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50/40 group align-top">
+      <td className="px-3 py-1.5 text-[12px] font-mono text-gray-500">
+        {caseInfo ? (
+          <Link
+            href={`/cases/${caseInfo.id}?tab=docs`}
+            className="hover:text-brand-700 hover:underline"
+          >
+            {caseInfo.case_number}
+          </Link>
+        ) : '—'}
+      </td>
+      <td className="px-3 py-1.5 text-[13px] text-gray-800">
+        {caseInfo ? (
+          <Link
+            href={`/cases/${caseInfo.id}?tab=docs`}
+            className="hover:text-brand-700 hover:underline truncate inline-flex items-center gap-1"
+          >
+            {caseInfo.deal_name}
+            <ExternalLink className="w-2.5 h-2.5 opacity-50 flex-shrink-0" />
+          </Link>
+        ) : '—'}
+      </td>
       <td className="px-3 py-1.5">
         <DocumentNameCell value={row.document_name} onSave={v => updateField({ document_name: v })} />
       </td>
@@ -266,23 +194,13 @@ function DocRow({
         <NumberCell value={row.quantity} onSave={v => updateField({ quantity: v })} />
       </td>
       <td className="px-3 py-1.5">
-        <FileCell
-          row={row}
-          kind="outbound"
-          onChanged={onChanged}
-          supabase={supabase}
-        />
+        <FileCell row={row} kind="outbound" onChanged={onChanged} supabase={supabase} />
       </td>
       <td className="px-3 py-1.5">
         <DateCell value={row.received_date} onSave={v => updateField({ received_date: v })} />
       </td>
       <td className="px-3 py-1.5">
-        <FileCell
-          row={row}
-          kind="received"
-          onChanged={onChanged}
-          supabase={supabase}
-        />
+        <FileCell row={row} kind="received" onChanged={onChanged} supabase={supabase} />
       </td>
       <td className="px-2 py-1.5 text-center">
         <button
@@ -299,7 +217,7 @@ function DocRow({
 }
 
 // ─────────────────────────────────────
-// 書類名（datalist 固定候補 + 自由入力）
+// セル類（CaseDocumentTable と同じ動作）
 // ─────────────────────────────────────
 function DocumentNameCell({ value, onSave }: { value: string; onSave: (v: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
@@ -327,7 +245,7 @@ function DocumentNameCell({ value, onSave }: { value: string; onSave: (v: string
     return (
       <>
         <input
-          list="case-document-names"
+          list="flat-doc-names"
           autoFocus
           value={draft}
           placeholder="例：戸籍謄本"
@@ -343,7 +261,7 @@ function DocumentNameCell({ value, onSave }: { value: string; onSave: (v: string
           disabled={saving}
           className="w-full px-1.5 py-0.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30"
         />
-        <datalist id="case-document-names">
+        <datalist id="flat-doc-names">
           {DISPATCH_DOCUMENT_NAMES.map(n => <option key={n} value={n} />)}
         </datalist>
       </>
@@ -361,9 +279,6 @@ function DocumentNameCell({ value, onSave }: { value: string; onSave: (v: string
   )
 }
 
-// ─────────────────────────────────────
-// 日付セル
-// ─────────────────────────────────────
 function DateCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -421,13 +336,8 @@ function DateCell({ value, onSave }: { value: string | null; onSave: (v: string 
   )
 }
 
-// ─────────────────────────────────────
-// テキストセル
-// ─────────────────────────────────────
 function TextCell({
-  value,
-  onSave,
-  placeholder,
+  value, onSave, placeholder,
 }: {
   value: string | null
   onSave: (v: string | null) => Promise<void>
@@ -486,9 +396,6 @@ function TextCell({
   )
 }
 
-// ─────────────────────────────────────
-// 数値セル
-// ─────────────────────────────────────
 function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(value ?? 0))
@@ -539,14 +446,8 @@ function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => P
   )
 }
 
-// ─────────────────────────────────────
-// ファイルセル（outbound / received 共通）
-// ─────────────────────────────────────
 function FileCell({
-  row,
-  kind,
-  onChanged,
-  supabase,
+  row, kind, onChanged, supabase,
 }: {
   row: CaseDocumentRow
   kind: 'outbound' | 'received'
@@ -567,7 +468,6 @@ function FileCell({
     if (!file) return
     setBusy(true)
     try {
-      // 既存ファイルがあれば置換
       if (path && bucket) {
         await supabase.storage.from(bucket).remove([path])
       }
@@ -655,7 +555,7 @@ function FileCell({
         <button
           onClick={handleOpen}
           disabled={busy}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded transition truncate max-w-[140px]"
+          className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded transition truncate max-w-[120px]"
           title={name ?? ''}
         >
           <FileText className="w-3 h-3 flex-shrink-0" />
