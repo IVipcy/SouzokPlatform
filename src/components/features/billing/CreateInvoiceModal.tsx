@@ -80,8 +80,9 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       const fees = caseRow as CaseFees | null
       setCaseFees(fees)
       // form.fee_amount が空なら自動セット（編集中の値は尊重）
+      const defaultFee = fees?.fee_total ?? ((fees?.fee_administrative ?? 0) + (fees?.fee_judicial ?? 0))
       setForm(prev => prev.fee_amount === ''
-        ? { ...prev, fee_amount: String(fees?.fee_total ?? ((fees?.fee_administrative ?? 0) + (fees?.fee_judicial ?? 0)) ?? 0) }
+        ? { ...prev, fee_amount: String(defaultFee) }
         : prev
       )
       const exps = (expRows ?? []) as ExpenseRow[]
