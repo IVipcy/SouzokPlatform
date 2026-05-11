@@ -325,7 +325,9 @@ export type InvoiceRow = {
   case_id: string
   invoice_number: string | null
   invoice_type: '前受金' | '確定請求'
-  amount: number
+  amount: number             // 請求総額（fee_amount + expenses_amount）
+  fee_amount: number         // 報酬部分
+  expenses_amount: number    // 立替実費部分
   status: InvoiceStatus
   issued_date: string | null
   due_date: string | null
@@ -443,6 +445,8 @@ export type ExpenseRow = {
   notes: string | null
   category: string | null
   related_task_id: string | null
+  /** どの請求書で請求済みか（null = 未請求） */
+  billed_invoice_id: string | null
   created_at: string
 }
 

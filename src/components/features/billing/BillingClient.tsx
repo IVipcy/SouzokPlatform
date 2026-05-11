@@ -287,7 +287,14 @@ export default function BillingClient({ invoices, cases }: Props) {
                           {inv.status}
                         </span>
                       </td>
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">{fmt(inv.amount)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
+                        <div>{fmt(inv.amount)}</div>
+                        {inv.expenses_amount > 0 && (
+                          <div className="text-[10px] text-gray-400 font-normal mt-0.5" title="報酬 + 立替実費">
+                            報酬 ¥{inv.fee_amount.toLocaleString()} + 実費 ¥{inv.expenses_amount.toLocaleString()}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono text-green-600">{fmt(paidAmount)}</td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
                         {inv.amount > 0 ? (
@@ -350,6 +357,12 @@ export default function BillingClient({ invoices, cases }: Props) {
               <div className="px-4 py-3 space-y-4">
                 <DetailSection title="請求情報">
                   <DetailRow label="請求金額" value={fmt(selected.amount)} />
+                  {selected.expenses_amount > 0 && (
+                    <>
+                      <DetailRow label="└ 報酬" value={fmt(selected.fee_amount)} className="text-gray-400 text-[11px]" />
+                      <DetailRow label="└ 立替実費" value={fmt(selected.expenses_amount)} className="text-gray-400 text-[11px]" />
+                    </>
+                  )}
                   <DetailRow label="入金済額" value={fmt(selPaidAmount)} className="text-green-600" />
                   <DetailRow label="差額" value={selected.amount > 0 ? fmt(selDiff) : '—'} className={selDiff > 0 ? 'text-red-500' : ''} />
                   <DetailRow label="請求日" value={selected.issued_date || '—'} />
@@ -394,6 +407,7 @@ export default function BillingClient({ invoices, cases }: Props) {
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         cases={cases}
+        defaultCaseId={caseFilter ?? undefined}
         onSaved={() => { setCreateOpen(false); router.refresh() }}
       />
 
