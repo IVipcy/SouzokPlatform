@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, type LucideIcon } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import CreateInvoiceModal from './CreateInvoiceModal'
@@ -56,9 +56,30 @@ function getSalesAssignee(caseData: InvoiceWithRelations['cases'] | null): { nam
 
 export default function BillingClient({ invoices, cases }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const caseFromUrl = searchParams.get('case')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const [caseFilter, setCaseFilter] = useState<string | null>(caseFromUrl)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // URL の ?case= が変わったら state にも反映
+  useEffect(() => {
+    setCaseFilter(caseFromUrl)
+  }, [caseFromUrl])
+
+  const filteredCase = useMemo(() =>
+    caseFilter ? cases.find(c => c.id === caseFilter) ?? null : null,
+    [caseFilter, cases]
+  )
+
+  const clearCaseFilter = () => {
+    setCaseFilter(null)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('case')
+    const qs = params.toString()
+    router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false })
+  }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
     case: 260, status: 110, amount: 110, paid: 110, diff: 100, assignee: 140, invoiceDate: 110,
@@ -81,6 +102,7 @@ export default function BillingClient({ invoices, cases }: Props) {
 
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
+      if (caseFilter && inv.case_id !== caseFilter) return false
       if (statusFilter === 'waiting') {
         if (!['前受金請求済', '確定請求済'].includes(inv.status)) return false
       } else if (statusFilter !== 'all' && inv.status !== statusFilter) {
@@ -99,7 +121,7 @@ export default function BillingClient({ invoices, cases }: Props) {
       }
       return true
     })
-  }, [invoices, statusFilter, search])
+  }, [invoices, caseFilter, statusFilter, search])
 
   const kpis = useMemo(() => {
     const total = invoices.reduce((s, inv) => s + inv.amount, 0)
@@ -161,6 +183,24 @@ export default function BillingClient({ invoices, cases }: Props) {
           </>
         }
       />
+
+      {/* 案件フィルタ表示（?case= で遷移してきた場合） */}
+      {filteredCase && (
+        <div className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 border border-brand-200 rounded-full text-[13px]">
+          <span className="text-gray-500">この案件で絞り込み中:</span>
+          <span className="font-mono text-brand-700 bg-white px-1.5 py-0.5 rounded border border-brand-200 text-[12px]">
+            {filteredCase.case_number}
+          </span>
+          <span className="font-semibold text-gray-900">{filteredCase.deal_name}</span>
+          <button
+            onClick={clearCaseFilter}
+            className="ml-1 p-0.5 text-gray-400 hover:text-red-500 rounded hover:bg-white"
+            title="絞り込みを解除"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-3 mb-5">

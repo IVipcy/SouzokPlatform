@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import Link from 'next/link'
+import { X, ExternalLink, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Section, FieldGrid, Field,
   InlineSelect, InlineCurrency, InlineDate, InlineTextarea, FormField,
 } from '@/components/ui/InlineFields'
-import { CONTRACT_TYPES, INVOICE_STATUSES, PAYMENT_STATUSES, EXPENSE_CATEGORIES } from '@/lib/constants'
+import { CONTRACT_TYPES, EXPENSE_CATEGORIES } from '@/lib/constants'
 import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
 
 type Props = {
@@ -125,15 +126,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
             </FieldGrid>
           </Section>
 
-          {/* 2. 報酬・請求 */}
-          <Section title="報酬・請求" icon="💳">
+          {/* 2. 報酬（契約条件） */}
+          <Section title="報酬（契約条件）" icon="💳">
             <FieldGrid cols={1}>
-              <InlineSelect
-                label="請求書ステータス"
-                value={caseData.invoice_status}
-                options={[...INVOICE_STATUSES]}
-                onSave={v => save('invoice_status', v)}
-              />
               <InlineCurrency
                 label="報酬金額（行政）"
                 value={caseData.fee_administrative}
@@ -151,38 +146,27 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh, patc
                 onSave={v => save('advance_payment', v)}
               />
               <Field label="請求金額（確定）" value={yen(confirmedAmount)} mono />
-              <InlineDate
-                label="請求日"
-                value={caseData.invoice_date}
-                onSave={v => save('invoice_date', v)}
-              />
-              <InlineSelect
-                label="入金ステータス"
-                value={caseData.payment_status}
-                options={[...PAYMENT_STATUSES]}
-                onSave={v => save('payment_status', v)}
-              />
-              <InlineDate
-                label="入金期限"
-                value={caseData.payment_due_date}
-                onSave={v => save('payment_due_date', v)}
-              />
-              <InlineDate
-                label="入金確認日"
-                value={caseData.payment_confirmed_date}
-                onSave={v => save('payment_confirmed_date', v)}
-              />
-              <InlineCurrency
-                label="入金額"
-                value={caseData.payment_amount}
-                onSave={v => save('payment_amount', v)}
-              />
               <InlineTextarea
                 label="メモ"
                 value={caseData.invoice_memo}
                 onSave={v => save('invoice_memo', v)}
               />
             </FieldGrid>
+
+            {/* 請求・入金 への導線 */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <Link
+                href={`/billing?case=${caseData.id}`}
+                className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-md transition w-full justify-center"
+              >
+                <Receipt className="w-4 h-4" />
+                請求書発行・入金状況は「請求・入金」で管理
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </Link>
+              <p className="text-[11px] text-gray-400 mt-1.5 px-1">
+                請求書ステータス・請求日・入金ステータス・入金確認日・入金額は <span className="font-mono">/billing</span> で一元管理しています。
+              </p>
+            </div>
           </Section>
 
           {/* 3. 付帯収益 */}
