@@ -350,7 +350,7 @@ function Section({ title, icon: _icon, children }: { title: string; icon: string
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        
+        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
         <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
       </div>
       <div className="px-4 py-3">{children}</div>
