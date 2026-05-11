@@ -9,7 +9,7 @@ import {
   ROLES, TASK_STATUSES, CASE_STATUSES,
   LOCATIONS, TEAMS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
   ORDER_ROUTES, ORDER_ROUTE_DETAILS, LOST_REASONS, MEETING_PLACES,
-  MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS,
+  MAILING_DESTINATIONS,
 } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
@@ -148,7 +148,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
         <Section title="郵送・書類設定" icon="📬">
           <FieldGrid>
             <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
-            <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => saveCaseField('investigation_document', v)} />
             <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
           </FieldGrid>
         </Section>

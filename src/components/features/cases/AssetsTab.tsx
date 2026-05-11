@@ -29,6 +29,7 @@ import {
   PROPERTY_EVALUATION_METHODS,
   REAL_ESTATE_APPRAISAL_STATUSES,
   FINANCIAL_SURVEY_START_CONDITIONS,
+  INVESTIGATION_DOCUMENTS,
   INVENTORY_CATEGORIES,
   ODD_LOT_HANDLING_OPTIONS,
   UNCLAIMED_DIVIDEND_OPTIONS,
@@ -399,6 +400,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               value={caseData.financial_survey_start_condition}
               options={[...FINANCIAL_SURVEY_START_CONDITIONS]}
               onSave={v => saveCaseFieldStr('financial_survey_start_condition', v)}
+              fullWidth
+            />
+            <InlineSelect
+              label="財産調査使用書類"
+              value={caseData.investigation_document}
+              options={[...INVESTIGATION_DOCUMENTS]}
+              onSave={v => saveCaseFieldStr('investigation_document', v)}
               fullWidth
             />
           </SharedFieldGrid>
