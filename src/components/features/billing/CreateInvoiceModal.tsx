@@ -75,8 +75,10 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     }
   }, [isOpen, defaultCaseId])
 
-  // 案件選択時に報酬+未請求実費を取得
+  // モーダル開時または案件変更時に、報酬と未請求実費を取得
+  // （isOpen を deps に含めることで再オープン時も同じ case_id でも fetch する）
   useEffect(() => {
+    if (!isOpen) return
     if (!form.case_id) {
       setCaseFees(null)
       setUnbilledExpenses([])
@@ -84,7 +86,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       return
     }
     let cancelled = false
-    const fetch = async () => {
+    const run = async () => {
       setLoadingCase(true)
       const supabase = createClient()
       const [{ data: caseRow }, { data: expRows }] = await Promise.all([
@@ -94,21 +96,21 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       if (cancelled) return
       const fees = caseRow as CaseFees | null
       setCaseFees(fees)
-      // form.fee_amount が空なら自動セット（編集中の値は尊重）
+      // 案件の報酬を fee_amount に自動セット（fee_total 優先、無ければ 行政+司法）
       const defaultFee = fees?.fee_total ?? ((fees?.fee_administrative ?? 0) + (fees?.fee_judicial ?? 0))
-      setForm(prev => prev.fee_amount === ''
+      // 既存値が空 or '0' なら上書き、それ以外（ユーザーが手入力した値）は尊重
+      setForm(prev => (prev.fee_amount === '' || prev.fee_amount === '0')
         ? { ...prev, fee_amount: String(defaultFee) }
         : prev
       )
       const exps = (expRows ?? []) as ExpenseRow[]
       setUnbilledExpenses(exps)
-      // 全件チェック既定
       setSelectedExpenseIds(new Set(exps.map(e => e.id)))
       setLoadingCase(false)
     }
-    fetch()
+    run()
     return () => { cancelled = true }
-  }, [form.case_id])
+  }, [isOpen, form.case_id])
 
   const feeAmountNum = Number(form.fee_amount) || 0
   const selectedExpensesTotal = unbilledExpenses
