@@ -35,7 +35,7 @@ import {
   UNCLAIMED_DIVIDEND_OPTIONS,
 } from '@/lib/constants'
 import { InlineMultiSelect } from '@/components/ui/InlineFields'
-import CreatePropertyModal from './CreatePropertyModal'
+import CreatePropertyForm from './CreatePropertyForm'
 
 type Props = {
   caseData: CaseRow
@@ -245,7 +245,7 @@ function BoolTag({
 }
 
 export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase }: Props) {
-  const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [showPropertyForm, setShowPropertyForm] = useState(false)
   const [showDepositForm, setShowDepositForm] = useState(false)
   const [showSecuritiesForm, setShowSecuritiesForm] = useState(false)
   const [showTrustForm, setShowTrustForm] = useState(false)
@@ -448,8 +448,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <Section
           title="不動産"
           icon="🏠"
-          actionLabel="追加"
-          onAction={() => setShowPropertyModal(true)}
+          actionLabel={showPropertyForm ? '閉じる' : '追加'}
+          onAction={() => setShowPropertyForm(v => !v)}
         >
           {/* 案件全体の査定対応状況のみ。評価ランクは物件単位に移行（各物件の行に表示） */}
           <FieldGrid>
@@ -663,15 +663,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             </div>
           ))}
 
+          {/* 不動産追加フォーム（インライン展開） */}
+          {showPropertyForm && (
+            <CreatePropertyForm
+              caseId={caseData.id}
+              onCancel={() => setShowPropertyForm(false)}
+              onSaved={onRefresh}
+            />
+          )}
         </Section>
-
-        {/* 不動産追加モーダル */}
-        <CreatePropertyModal
-          isOpen={showPropertyModal}
-          onClose={() => setShowPropertyModal(false)}
-          caseId={caseData.id}
-          onSaved={onRefresh}
-        />
 
         {/* Bank deposits */}
         <Section

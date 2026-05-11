@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Home } from 'lucide-react'
-import Modal from '@/components/ui/Modal'
+import { Loader2, Home, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
@@ -15,9 +14,8 @@ import {
 } from '@/lib/constants'
 
 type Props = {
-  isOpen: boolean
-  onClose: () => void
   caseId: string
+  onCancel: () => void
   onSaved: () => void
 }
 
@@ -45,13 +43,16 @@ const initialForm = () => ({
   notes: '',
 })
 
-export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }: Props) {
+/**
+ * 不動産追加フォーム（インライン展開）。
+ * AssetsTab の「不動産」セクション下にカードとして表示される。
+ */
+export default function CreatePropertyForm({ caseId, onCancel, onSaved }: Props) {
   const [form, setForm] = useState(initialForm())
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (isOpen) setForm(initialForm())
-  }, [isOpen])
+  // マウント時にリセット（再オープン時のクリーンスタート用）
+  useEffect(() => { setForm(initialForm()) }, [])
 
   const set = <K extends keyof ReturnType<typeof initialForm>>(key: K, value: ReturnType<typeof initialForm>[K]) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -91,49 +92,39 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
       if (error) throw error
       showToast('不動産を登録しました', 'success')
       onSaved()
-      onClose()
+      onCancel()
     } catch (e) {
       console.error(e)
-      showToast('登録に失敗しました', 'error')
+      const msg = e instanceof Error ? e.message : '登録に失敗しました'
+      showToast(msg, 'error')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="不動産を追加"
-      maxWidth="max-w-3xl"
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-1.5 text-[13px] font-medium text-gray-600 hover:text-gray-800"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Home className="w-3.5 h-3.5" />}
-            登録する
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5">
+    <div className="border-t border-brand-100 bg-brand-50/30 pt-4 mt-3 -mx-4 px-4 pb-4 -mb-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Home className="w-4 h-4 text-brand-600" />
+        <h4 className="text-[14px] font-bold text-brand-700">不動産を追加</h4>
+        <button
+          onClick={onCancel}
+          disabled={saving}
+          className="ml-auto p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-white"
+          title="閉じる"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
         {/* 基本情報 */}
-        <Section title="基本情報">
+        <FormSection title="基本情報">
           <Grid2>
             <Field label="物件区分">
               <input
                 type="text"
-                list="prop-type-options-modal"
+                list="prop-type-form-options"
                 placeholder="戸建 / マンション / 土地 など"
                 value={form.property_type}
                 onChange={e => set('property_type', e.target.value)}
@@ -141,7 +132,7 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
                 autoFocus
                 className={inputCls}
               />
-              <datalist id="prop-type-options-modal">
+              <datalist id="prop-type-form-options">
                 {PROPERTY_TYPES.map(t => <option key={t} value={t} />)}
               </datalist>
             </Field>
@@ -155,7 +146,9 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
                     disabled={saving}
                     className={`px-3 py-1.5 text-[12px] font-bold rounded border ${
                       form.rank === r
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        ? r === '確認中'
+                          ? 'bg-gray-100 text-gray-700 border-gray-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
                         : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -174,7 +167,7 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
                 className={inputCls}
               />
             </Field>
-            <Field label="地番（登記簿上の番号）" colSpan={2}>
+            <Field label="地番（登記簿上の番号・住居表示の住所とは別）" colSpan={2}>
               <input
                 type="text"
                 placeholder="例: 港北区新横浜町1234番5"
@@ -185,10 +178,10 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
               />
             </Field>
           </Grid2>
-        </Section>
+        </FormSection>
 
         {/* 物件状況 */}
-        <Section title="物件状況">
+        <FormSection title="物件状況">
           <Grid2>
             <Field label="住人状況">
               <Select value={form.resident_status} onChange={v => set('resident_status', v)} options={[...OCCUPANCY_STATUSES]} disabled={saving} />
@@ -217,10 +210,10 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
               <Select value={form.sale_intention} onChange={v => set('sale_intention', v)} options={[...SELLING_INTENTIONS]} disabled={saving} />
             </Field>
           </Grid2>
-        </Section>
+        </FormSection>
 
         {/* 売却関連 */}
-        <Section title="売却">
+        <FormSection title="売却">
           <Grid2>
             <Field label="売却業者名">
               <input
@@ -241,10 +234,10 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
               />
             </Field>
           </Grid2>
-        </Section>
+        </FormSection>
 
         {/* 書類・登記 */}
-        <Section title="書類・登記">
+        <FormSection title="書類・登記">
           <Grid2>
             <Field label="名寄せ請求先">
               <Select value={form.name_consolidation_dest} onChange={v => set('name_consolidation_dest', v)} options={[...NAMEYOSE_TARGETS]} disabled={saving} />
@@ -271,10 +264,10 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
             <Check label="路線価取得済" value={form.has_route_price} onChange={v => set('has_route_price', v)} />
             <Check label="マンション敷地注意" value={form.is_condo_land} onChange={v => set('is_condo_land', v)} />
           </div>
-        </Section>
+        </FormSection>
 
         {/* メモ */}
-        <Section title="メモ">
+        <FormSection title="メモ">
           <textarea
             placeholder="物件についての補足など"
             value={form.notes}
@@ -283,21 +276,39 @@ export default function CreatePropertyModal({ isOpen, onClose, caseId, onSaved }
             rows={2}
             className={inputCls + ' resize-y'}
           />
-        </Section>
+        </FormSection>
       </div>
-    </Modal>
+
+      <div className="flex gap-2 justify-end mt-4 pt-3 border-t border-brand-100">
+        <button
+          onClick={onCancel}
+          disabled={saving}
+          className="px-4 py-1.5 text-[13px] font-medium text-gray-600 hover:text-gray-800 border border-gray-200 rounded-md hover:bg-white"
+        >
+          キャンセル
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!canSave || saving}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Home className="w-3.5 h-3.5" />}
+          登録する
+        </button>
+      </div>
+    </div>
   )
 }
 
 // ─────────────────────────────────────
-const inputCls = 'w-full px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none'
+const inputCls = 'w-full px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none bg-white'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h4 className="text-[13px] font-semibold text-gray-900">{title}</h4>
+        <h5 className="text-[13px] font-semibold text-gray-900">{title}</h5>
       </div>
       <div className="pl-3">{children}</div>
     </div>
@@ -323,7 +334,7 @@ function Select({ value, onChange, options, disabled }: { value: string; onChang
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className={inputCls + ' bg-white'}
+      className={inputCls}
     >
       <option value="">選択してください</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -333,7 +344,7 @@ function Select({ value, onChange, options, disabled }: { value: string; onChang
 
 function Check({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="inline-flex items-center gap-2 px-2.5 py-1 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer text-[12px] text-gray-700">
+    <label className="inline-flex items-center gap-2 px-2.5 py-1 border border-gray-200 bg-white rounded-md hover:bg-gray-50 cursor-pointer text-[12px] text-gray-700">
       <input
         type="checkbox"
         checked={value}
