@@ -285,8 +285,21 @@ export default function BillingClient({ invoices, cases }: Props) {
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                     >
                       <td className="px-3.5 py-2.5 overflow-hidden">
-                        <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
-                        <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                        {inv.cases?.id ? (
+                          <Link
+                            href={`/cases/${inv.cases.id}`}
+                            onClick={e => e.stopPropagation()}
+                            className="block group"
+                          >
+                            <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
+                            <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                          </Link>
+                        ) : (
+                          <>
+                            <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
+                            <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                          </>
+                        )}
                       </td>
                       <td className="px-3.5 py-2.5">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
