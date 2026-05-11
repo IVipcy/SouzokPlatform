@@ -407,7 +407,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <input
@@ -454,7 +454,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <select
@@ -511,7 +511,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
@@ -583,7 +583,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <input

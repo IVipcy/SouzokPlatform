@@ -113,7 +113,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <input
@@ -167,7 +167,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <select
@@ -247,7 +247,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   return (
     <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
@@ -317,7 +317,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </div>
       {editing ? (
         <input
@@ -705,7 +705,7 @@ export function FormField({ label, required, children }: {
   return (
     <div>
       <label className="block text-xs font-semibold text-gray-500 mb-1">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}
       </label>
       {children}
     </div>
