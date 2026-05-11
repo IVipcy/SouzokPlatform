@@ -375,6 +375,7 @@ export type RealEstatePropertyRow = {
   address: string | null
   lot_number: string | null
   rank: 'S' | 'A' | 'B' | 'C' | '確認中' | null
+  appraisal_status: '未対応' | '対応中' | '完了' | '不要' | null
   resident_status: string | null
   area_evaluation: string | null
   building_age: number | null

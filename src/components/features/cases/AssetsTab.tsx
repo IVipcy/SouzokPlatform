@@ -451,17 +451,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           actionLabel={showPropertyForm ? '閉じる' : '追加'}
           onAction={() => setShowPropertyForm(v => !v)}
         >
-          {/* 案件全体の査定対応状況のみ。評価ランクは物件単位に移行（各物件の行に表示） */}
-          <FieldGrid>
-            <Field label="査定対応状況">
-              <InlineEdit
-                value={caseData.real_estate_appraisal_status}
-                type="select"
-                options={REAL_ESTATE_APPRAISAL_STATUSES.map(o => ({ value: o, label: o }))}
-                onSave={async (val) => { await updateCase('real_estate_appraisal_status', val || null) }}
-              />
-            </Field>
-          </FieldGrid>
+          {/* 評価ランクも査定対応状況も物件単位に移行（各物件の行に表示） */}
 
           {/* Property entries */}
           {properties.length === 0 && (
@@ -471,15 +461,41 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           )}
           {properties.map(p => (
             <div key={p.id} className="border-t border-gray-100 pt-3 mt-3">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <div className="text-[13px] font-semibold text-gray-700 flex-1">
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <div className="text-[13px] font-semibold text-gray-700 flex-1 min-w-[120px]">
                   <InlineEdit
                     value={p.property_type}
                     placeholder="種別未設定"
                     onSave={async (val) => { await updateProperty(p.id, 'property_type', val || null) }}
                   />
                 </div>
+
+                {/* 査定対応状況 */}
+                <div className="flex items-center gap-1 text-[11px]">
+                  <span className="text-gray-400">査定:</span>
+                  <select
+                    value={p.appraisal_status ?? ''}
+                    onChange={e => updateProperty(p.id, 'appraisal_status', e.target.value || null)}
+                    className={`px-1.5 py-0.5 text-[11px] font-semibold rounded border outline-none cursor-pointer ${
+                      p.appraisal_status === '完了'
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : p.appraisal_status === '対応中'
+                          ? 'bg-brand-50 text-brand-700 border-brand-200'
+                          : p.appraisal_status === '不要'
+                            ? 'bg-gray-100 text-gray-600 border-gray-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    <option value="">未設定</option>
+                    {REAL_ESTATE_APPRAISAL_STATUSES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 評価ランク */}
                 <div className="flex items-center gap-0.5">
+                  <span className="text-[11px] text-gray-400 mr-0.5">ランク:</span>
                   {PROPERTY_RANKS.map(r => {
                     const active = (p.rank ?? '確認中') === r
                     return (

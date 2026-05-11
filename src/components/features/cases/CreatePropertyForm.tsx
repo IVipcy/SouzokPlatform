@@ -11,6 +11,7 @@ import {
   SELLING_INTENTIONS,
   NAMEYOSE_TARGETS,
   PROPERTY_EVALUATION_METHODS,
+  REAL_ESTATE_APPRAISAL_STATUSES,
 } from '@/lib/constants'
 
 type Props = {
@@ -24,6 +25,7 @@ const initialForm = () => ({
   address: '',
   lot_number: '',
   rank: '確認中' as 'S' | 'A' | 'B' | 'C' | '確認中',
+  appraisal_status: '' as '' | '未対応' | '対応中' | '完了' | '不要',
   resident_status: '',
   area_evaluation: '',
   building_age: '',
@@ -71,6 +73,7 @@ export default function CreatePropertyForm({ caseId, onCancel, onSaved }: Props)
         address: form.address.trim() || null,
         lot_number: form.lot_number.trim() || null,
         rank: form.rank,
+        appraisal_status: form.appraisal_status || null,
         resident_status: form.resident_status || null,
         area_evaluation: form.area_evaluation.trim() || null,
         building_age: form.building_age ? Number(form.building_age) : null,
@@ -213,8 +216,16 @@ export default function CreatePropertyForm({ caseId, onCancel, onSaved }: Props)
         </FormSection>
 
         {/* 売却関連 */}
-        <FormSection title="売却">
+        <FormSection title="売却・査定">
           <Grid2>
+            <Field label="査定対応状況">
+              <Select
+                value={form.appraisal_status}
+                onChange={v => set('appraisal_status', v as typeof form.appraisal_status)}
+                options={[...REAL_ESTATE_APPRAISAL_STATUSES]}
+                disabled={saving}
+              />
+            </Field>
             <Field label="売却業者名">
               <input
                 type="text"
