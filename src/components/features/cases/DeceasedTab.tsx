@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Trash2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { toPng } from 'html-to-image'
+import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, HeirRow } from '@/types'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
@@ -33,48 +35,128 @@ type Props = {
 const RELATIONSHIP_OPTIONS = ['配偶者', '子', '父', '母', '兄弟姉妹', 'その他'] as const
 type RelType = typeof RELATIONSHIP_OPTIONS[number]
 
+const emptyHeirForm = () => ({
+  name: '',
+  furigana: '',
+  relationship: '' as RelType | '',
+  birth_date: '',
+  address: '',
+  registered_address: '',
+  phone: '',
+  email: '',
+  is_legal_heir: true,
+  is_applicant: false,
+})
+
 export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: Props) {
   const [showAddHeir, setShowAddHeir] = useState(false)
-  const [heirForm, setHeirForm] = useState({
-    name: '',
-    furigana: '',
-    relationship: '' as RelType | '',
-    birth_date: '',
-    address: '',
-    registered_address: '',
-    phone: '',
-    email: '',
-    is_legal_heir: true,
-    is_applicant: false,
-  })
+  // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
+  const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
+  const [heirForm, setHeirForm] = useState(emptyHeirForm())
+  const diagramRef = useRef<HTMLDivElement>(null)
+  const [savingDiagram, setSavingDiagram] = useState(false)
 
   const saveCaseField = async (field: string, value: string | boolean | string[]) => {
     await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
 
-  const handleAddHeir = async () => {
+  const startAdd = () => {
+    setEditingHeirId(null)
+    setHeirForm(emptyHeirForm())
+    setShowAddHeir(true)
+  }
+
+  const startEdit = (heir: HeirRow) => {
+    setEditingHeirId(heir.id)
+    setHeirForm({
+      name: heir.name,
+      furigana: heir.furigana ?? '',
+      relationship: (heir.relationship_type ?? heir.relationship ?? '') as RelType | '',
+      birth_date: heir.birth_date ?? '',
+      address: heir.address ?? '',
+      registered_address: heir.registered_address ?? '',
+      phone: heir.phone ?? '',
+      email: heir.email ?? '',
+      is_legal_heir: heir.is_legal_heir,
+      is_applicant: heir.is_applicant,
+    })
+    setShowAddHeir(true)
+  }
+
+  const cancelEdit = () => {
+    setShowAddHeir(false)
+    setEditingHeirId(null)
+    setHeirForm(emptyHeirForm())
+  }
+
+  const handleSaveHeir = async () => {
     if (!heirForm.name.trim()) return
     const supabase = createClient()
     // 申出人は1案件1名のみ
     if (heirForm.is_applicant) {
-      await supabase.from('heirs').update({ is_applicant: false }).eq('case_id', caseData.id)
+      let query = supabase.from('heirs').update({ is_applicant: false }).eq('case_id', caseData.id)
+      if (editingHeirId) query = query.neq('id', editingHeirId)
+      await query
     }
-    await supabase.from('heirs').insert({
-      case_id: caseData.id,
+    const payload = {
       ...heirForm,
-      relationship_type: heirForm.relationship || null,  // relationship と relationship_type を同期
+      relationship_type: heirForm.relationship || null,
       birth_date: heirForm.birth_date || null,
-      sort_order: heirs.length,
-    })
-    setHeirForm({ name: '', furigana: '', relationship: '', birth_date: '', address: '', registered_address: '', phone: '', email: '', is_legal_heir: true, is_applicant: false })
-    setShowAddHeir(false)
+    }
+    if (editingHeirId) {
+      await supabase.from('heirs').update(payload).eq('id', editingHeirId)
+      showToast('相続人情報を更新しました', 'success')
+    } else {
+      await supabase.from('heirs').insert({ case_id: caseData.id, ...payload, sort_order: heirs.length })
+      showToast('相続人を追加しました', 'success')
+    }
+    cancelEdit()
     onRefresh()
   }
 
   const handleDeleteHeir = async (heirId: string) => {
+    if (!confirm('この相続人を削除しますか？')) return
     const supabase = createClient()
     await supabase.from('heirs').delete().eq('id', heirId)
     onRefresh()
+  }
+
+  // 相続関係説明図を PNG として書類タブに保存
+  const handleSaveDiagram = async () => {
+    if (!diagramRef.current) return
+    setSavingDiagram(true)
+    try {
+      const dataUrl = await toPng(diagramRef.current, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+      })
+      const blob = await (await fetch(dataUrl)).blob()
+      const ts = new Date()
+      const ymd = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, '0')}${String(ts.getDate()).padStart(2, '0')}_${String(ts.getHours()).padStart(2, '0')}${String(ts.getMinutes()).padStart(2, '0')}`
+      const path = `${caseData.id}/inheritance-diagram-${ymd}.png`
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from('documents')
+        .upload(path, blob, { contentType: 'image/png', upsert: true })
+      if (upErr) throw upErr
+      const { error: dbErr } = await supabase.from('documents').insert({
+        case_id: caseData.id,
+        name: `相続関係説明図_${ymd}`,
+        file_path: path,
+        file_type: 'PNG',
+        status: '完成',
+        generated_by: 'system',
+      })
+      if (dbErr) throw dbErr
+      showToast('相続関係説明図を書類タブに保存しました', 'success')
+      onRefresh()
+    } catch (e) {
+      console.error(e)
+      showToast('保存に失敗しました', 'error')
+    } finally {
+      setSavingDiagram(false)
+    }
   }
 
   return (
@@ -146,7 +228,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
       {/* A. 相続人一覧 */}
       <div className="mt-3.5">
         <HeirValidationBanner heirs={heirs} />
-        <Section title={`相続人一覧（${heirs.length}名）`} icon="👪" actionLabel="＋ 追加" onAction={() => setShowAddHeir(true)}>
+        <Section title={`相続人一覧（${heirs.length}名）`} icon="👪" actionLabel="＋ 追加" onAction={startAdd}>
           {heirs.length === 0 && !showAddHeir ? (
             <div className="text-sm text-gray-400 text-center py-6">
               相続人を追加してください
@@ -156,14 +238,14 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
               <table className="w-full border-collapse" style={{ minWidth: 900 }}>
                 <thead>
                   <tr>
-                    {['氏名', 'ふりがな', '続柄', '生年月日', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
+                    {['氏名', 'ふりがな', '被相続人との続柄', '生年月日', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
                       <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {heirs.map(heir => (
-                    <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF]">
+                    <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] group">
                       <td className="px-3 py-2.5">
                         <div className="text-xs font-semibold text-gray-900">{heir.name}</div>
                       </td>
@@ -191,11 +273,18 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => handleDeleteHeir(heir.id)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
-                          title="削除"
-                        ><Trash2 className="w-3 h-3" strokeWidth={1.75} /></button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                          <button
+                            onClick={() => startEdit(heir)}
+                            className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition"
+                            title="編集"
+                          ><Pencil className="w-3 h-3" strokeWidth={1.75} /></button>
+                          <button
+                            onClick={() => handleDeleteHeir(heir.id)}
+                            className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition"
+                            title="削除"
+                          ><Trash2 className="w-3 h-3" strokeWidth={1.75} /></button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -204,9 +293,12 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
             </div>
           )}
 
-          {/* Add heir form */}
+          {/* Add / Edit heir form */}
           {showAddHeir && (
             <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="text-[13px] font-semibold text-gray-700 mb-2">
+                {editingHeirId ? '相続人を編集' : '相続人を追加'}
+              </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <FormField label="氏名" required>
                   <input
@@ -224,7 +316,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
-                <FormField label="続柄">
+                <FormField label="被相続人との続柄">
                   <select
                     value={heirForm.relationship}
                     onChange={e => setHeirForm(f => ({ ...f, relationship: e.target.value as RelType | '' }))}
@@ -293,8 +385,10 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                 </FormField>
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowAddHeir(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-                <button onClick={handleAddHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">追加</button>
+                <button onClick={cancelEdit} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
+                <button onClick={handleSaveHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">
+                  {editingHeirId ? '更新' : '追加'}
+                </button>
               </div>
             </div>
           )}
@@ -303,13 +397,20 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
 
       {/* 相続関係説明図 */}
       <div className="mt-3.5">
-        <Section title="相続関係説明図" icon="🔗" actionLabel="🖨️ 印刷" onAction={() => window.print()}>
+        <Section
+          title="相続関係説明図"
+          icon="🔗"
+          actionLabel={savingDiagram ? '保存中…' : '書類タブに保存'}
+          onAction={heirs.length === 0 || savingDiagram ? undefined : handleSaveDiagram}
+        >
           {heirs.length === 0 ? (
             <div className="text-sm text-gray-400 text-center py-6">
               相続人を追加すると相続関係説明図が表示されます
             </div>
           ) : (
-            <InheritanceDiagramV2 deceased={caseData} heirs={heirs} />
+            <div ref={diagramRef}>
+              <InheritanceDiagramV2 deceased={caseData} heirs={heirs} />
+            </div>
           )}
         </Section>
       </div>
