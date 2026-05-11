@@ -144,14 +144,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
           </FieldGrid>
         </Section>
 
-        {/* 郵送・書類設定（旧「郵送管理」タブから移設） */}
-        <Section title="郵送・書類設定" icon="📬">
-          <FieldGrid>
-            <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
-            <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
-          </FieldGrid>
-        </Section>
-
         {/* 7. 受注ルート・紹介 */}
         <Section title="受注ルート・紹介" icon="🔗">
           <FieldGrid>
@@ -182,6 +174,14 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               />
             )}
             <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />
+          </FieldGrid>
+        </Section>
+
+        {/* 郵送・書類設定（旧「郵送管理」タブから移設） */}
+        <Section title="郵送・書類設定" icon="📬">
+          <FieldGrid>
+            <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
+            <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
           </FieldGrid>
         </Section>
       </div>
