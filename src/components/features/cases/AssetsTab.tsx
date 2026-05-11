@@ -31,11 +31,11 @@ import {
   FINANCIAL_SURVEY_START_CONDITIONS,
   INVESTIGATION_DOCUMENTS,
   INVENTORY_CATEGORIES,
-  PROPERTY_TYPES,
   ODD_LOT_HANDLING_OPTIONS,
   UNCLAIMED_DIVIDEND_OPTIONS,
 } from '@/lib/constants'
 import { InlineMultiSelect } from '@/components/ui/InlineFields'
+import CreatePropertyModal from './CreatePropertyModal'
 
 type Props = {
   caseData: CaseRow
@@ -245,14 +245,11 @@ function BoolTag({
 }
 
 export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase }: Props) {
-  const [showPropertyForm, setShowPropertyForm] = useState(false)
+  const [showPropertyModal, setShowPropertyModal] = useState(false)
   const [showDepositForm, setShowDepositForm] = useState(false)
   const [showSecuritiesForm, setShowSecuritiesForm] = useState(false)
   const [showTrustForm, setShowTrustForm] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  // Property form state
-  const [propForm, setPropForm] = useState({ property_type: '', address: '', lot_number: '' })
 
   // Financial asset form states (per section)
   const [depositForm, setDepositForm] = useState({ institution_name: '', branch_name: '' })
@@ -282,22 +279,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   }
 
   /* ── Add handlers ── */
-
-  async function handleAddProperty() {
-    if (!propForm.property_type && !propForm.address) return
-    setSaving(true)
-    const supabase = createClient()
-    await supabase.from('real_estate_properties').insert({
-      case_id: caseData.id,
-      property_type: propForm.property_type || null,
-      address: propForm.address || null,
-      lot_number: propForm.lot_number || null,
-    })
-    setPropForm({ property_type: '', address: '', lot_number: '' })
-    setShowPropertyForm(false)
-    setSaving(false)
-    onRefresh()
-  }
 
   async function handleAddFinancial(assetType: string, form: { institution_name: string; branch_name: string }, resetForm: () => void, closeForm: () => void) {
     if (!form.institution_name) return
@@ -468,27 +449,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           title="不動産"
           icon="🏠"
           actionLabel="追加"
-          onAction={() => setShowPropertyForm(v => !v)}
+          onAction={() => setShowPropertyModal(true)}
         >
-          {/* Property rank from caseData */}
+          {/* 案件全体の査定対応状況のみ。評価ランクは物件単位に移行（各物件の行に表示） */}
           <FieldGrid>
-            <Field label="評価ランク">
-              <InlineEdit
-                value={caseData.property_rank}
-                displayValue={
-                  caseData.property_rank && caseData.property_rank !== '確認中' ? (
-                    <span className="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded font-extrabold text-sm inline-block mt-0.5">
-                      {caseData.property_rank}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300 italic text-xs">{caseData.property_rank ?? '未設定'}</span>
-                  )
-                }
-                type="select"
-                options={PROPERTY_RANKS.map(r => ({ value: r, label: r }))}
-                onSave={async (val) => { await updateCase('property_rank', val || null) }}
-              />
-            </Field>
             <Field label="査定対応状況">
               <InlineEdit
                 value={caseData.real_estate_appraisal_status}
@@ -500,20 +464,41 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           </FieldGrid>
 
           {/* Property entries */}
-          {properties.length === 0 && !showPropertyForm && (
+          {properties.length === 0 && (
             <div className="text-xs text-gray-400 text-center py-4 mt-2 border-t border-gray-50">
               不動産情報が登録されていません
             </div>
           )}
           {properties.map(p => (
             <div key={p.id} className="border-t border-gray-100 pt-3 mt-3">
-              <div className="flex items-start justify-between mb-2">
-                <div className="text-[13px] font-semibold text-gray-700">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="text-[13px] font-semibold text-gray-700 flex-1">
                   <InlineEdit
                     value={p.property_type}
                     placeholder="種別未設定"
                     onSave={async (val) => { await updateProperty(p.id, 'property_type', val || null) }}
                   />
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {PROPERTY_RANKS.map(r => {
+                    const active = (p.rank ?? '確認中') === r
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => updateProperty(p.id, 'rank', r)}
+                        className={`px-2 py-0.5 text-[11px] font-bold rounded border transition ${
+                          active
+                            ? r === '確認中'
+                              ? 'bg-gray-100 text-gray-600 border-gray-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-white text-gray-300 border-gray-200 hover:border-gray-300'
+                        }`}
+                        title={`評価ランクを ${r} に設定`}
+                      >
+                        {r}
+                      </button>
+                    )
+                  })}
                 </div>
                 <button
                   onClick={() => handleDeleteProperty(p.id)}
@@ -678,67 +663,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             </div>
           ))}
 
-          {/* Add property form - inline within the section */}
-          {showPropertyForm && (
-            <div className="border-t border-brand-100 bg-brand-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-              <div className="text-[13px] font-semibold text-brand-700 mb-2">不動産を追加</div>
-              <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">物件区分</label>
-                  <input
-                    type="text"
-                    list="property-type-options"
-                    placeholder="戸建 / マンション / 土地 など（自由入力可）"
-                    value={propForm.property_type}
-                    onChange={e => setPropForm(f => ({ ...f, property_type: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                    autoFocus
-                  />
-                  <datalist id="property-type-options">
-                    {PROPERTY_TYPES.map(t => <option key={t} value={t} />)}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">所在地（住所）</label>
-                  <input
-                    type="text"
-                    placeholder="例: 横浜市港北区新横浜1-2-3"
-                    value={propForm.address}
-                    onChange={e => setPropForm(f => ({ ...f, address: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
-                    地番 <span className="font-normal text-gray-400">（登記簿上の番号・住居表示の住所とは別）</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="例: 港北区新横浜町1234番5"
-                    value={propForm.lot_number}
-                    onChange={e => setPropForm(f => ({ ...f, lot_number: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={handleAddProperty}
-                  disabled={saving}
-                  className="px-3 py-1 bg-brand-600 text-white text-[13px] font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition"
-                >
-                  {saving ? '保存中...' : '追加'}
-                </button>
-                <button
-                  onClick={() => setShowPropertyForm(false)}
-                  className="px-3 py-1 text-gray-500 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </div>
-          )}
         </Section>
+
+        {/* 不動産追加モーダル */}
+        <CreatePropertyModal
+          isOpen={showPropertyModal}
+          onClose={() => setShowPropertyModal(false)}
+          caseId={caseData.id}
+          onSaved={onRefresh}
+        />
 
         {/* Bank deposits */}
         <Section

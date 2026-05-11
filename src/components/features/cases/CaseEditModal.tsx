@@ -245,18 +245,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
             </div>
           </FormField>
 
-          {/* 不動産ランク */}
-          <FormField label="不動産ランク">
-            <select
-              value={form.property_rank}
-              onChange={e => setForm(p => ({ ...p, property_rank: e.target.value as typeof form.property_rank }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            >
-              {RANK_OPTIONS.map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </FormField>
+          {/* 不動産ランクは物件単位の管理に移行（財産情報タブの各物件で設定） */}
         </div>
 
         <div className="grid grid-cols-3 gap-4">

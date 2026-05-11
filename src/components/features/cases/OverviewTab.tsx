@@ -247,15 +247,6 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <QIRow label="相続開始日">
               <span className="font-mono text-gray-700">{caseData.date_of_death ?? '未設定'}</span>
             </QIRow>
-            <QIRow label="不動産ランク">
-              {caseData.property_rank && caseData.property_rank !== '確認中' ? (
-                <span className="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded font-extrabold text-sm">
-                  {caseData.property_rank}
-                </span>
-              ) : (
-                <span className="text-gray-400">{caseData.property_rank ?? '未設定'}</span>
-              )}
-            </QIRow>
             <QIRow label="拠点">
               <span className="text-gray-700">{caseData.location ?? '未設定'}</span>
             </QIRow>
@@ -320,10 +311,6 @@ function RevenueCard({ caseData }: { caseData: CaseRow }) {
         <div className="flex justify-between">
           <span className="opacity-70">資産概算</span>
           <span className="font-mono">¥{estimate.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="opacity-70">不動産ランク</span>
-          <span className="font-mono">{caseData.property_rank ?? '—'}</span>
         </div>
       </div>
     </div>

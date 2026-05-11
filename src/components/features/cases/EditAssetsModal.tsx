@@ -91,27 +91,7 @@ export default function EditAssetsModal({ isOpen, onClose, caseData, onSaved }: 
           </div>
         </div>
 
-        {/* Property rank */}
-        <div>
-          <label className="block text-[13px] font-semibold text-gray-500 mb-1">不動産ランク</label>
-          <div className="flex gap-1.5">
-            {['S', 'A', 'B', 'C', '確認中'].map(rank => (
-              <button
-                key={rank}
-                onClick={() => setForm(p => ({ ...p, property_rank: rank }))}
-                className={`flex-1 px-3 py-2 text-xs font-bold rounded-lg border transition-colors ${
-                  form.property_rank === rank
-                    ? rank === '確認中'
-                      ? 'ring-2 ring-brand-400 ring-offset-1 border-amber-200 bg-amber-50 text-amber-700'
-                      : 'ring-2 ring-brand-400 ring-offset-1 border-brand-200 bg-brand-50 text-brand-700'
-                    : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-                }`}
-              >
-                {rank}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* 不動産ランクは物件単位（財産情報タブの各物件で設定） */}
 
         {/* Tax filing required */}
         <div>
