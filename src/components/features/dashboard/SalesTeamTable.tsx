@@ -45,7 +45,7 @@ export default function SalesTeamTable({ groups, today }: Props) {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
+        <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 120 }} />
             <col style={{ width: 140 }} />

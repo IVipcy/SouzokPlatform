@@ -66,7 +66,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-      <table className="text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
+      <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
         <colgroup>
           {!hideFlagColumn && <col style={{ width: 70 }} />}
           <col style={{ width: 120 }} />
