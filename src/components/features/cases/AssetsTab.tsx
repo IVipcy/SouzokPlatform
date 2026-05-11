@@ -36,6 +36,7 @@ import {
 } from '@/lib/constants'
 import { InlineMultiSelect } from '@/components/ui/InlineFields'
 import CreatePropertyForm from './CreatePropertyForm'
+import CreateFinancialAssetForm from './CreateFinancialAssetForm'
 
 type Props = {
   caseData: CaseRow
@@ -43,41 +44,6 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
-}
-
-/* ── IME-safe input (日本語入力中の変な値に進まないようにする) ── */
-function IMESafeInput({ value, onChange, placeholder, autoFocus }: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  autoFocus?: boolean
-}) {
-  const composingRef = useRef(false)
-  const [localValue, setLocalValue] = useState(value)
-  useEffect(() => {
-    // 合成中でない時だけ外側のvalueに同期
-    if (!composingRef.current) setLocalValue(value)
-  }, [value])
-  return (
-    <input
-      type="text"
-      placeholder={placeholder}
-      autoFocus={autoFocus}
-      value={localValue}
-      onChange={e => {
-        setLocalValue(e.target.value)
-        // 合成中は親に伝えない（中間変換値が反映されないように）
-        if (!composingRef.current) onChange(e.target.value)
-      }}
-      onCompositionStart={() => { composingRef.current = true }}
-      onCompositionEnd={e => {
-        composingRef.current = false
-        // 合成終了後に確定値を親へ
-        onChange((e.target as HTMLInputElement).value)
-      }}
-      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
-    />
-  )
 }
 
 /* ── InlineEdit component ── */
@@ -251,11 +217,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const [showTrustForm, setShowTrustForm] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Financial asset form states (per section)
-  const [depositForm, setDepositForm] = useState({ institution_name: '', branch_name: '' })
-  const [securitiesForm, setSecuritiesForm] = useState({ institution_name: '', branch_name: '' })
-  const [trustForm, setTrustForm] = useState({ institution_name: '', branch_name: '' })
-
   const deposits = financialAssets.filter(a => a.asset_type === '預貯金')
   const securities = financialAssets.filter(a => a.asset_type === '証券')
   const trustBanks = financialAssets.filter(a => a.asset_type === '信託銀行')
@@ -280,22 +241,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
   /* ── Add handlers ── */
 
-  async function handleAddFinancial(assetType: string, form: { institution_name: string; branch_name: string }, resetForm: () => void, closeForm: () => void) {
-    if (!form.institution_name) return
-    setSaving(true)
-    const supabase = createClient()
-    await supabase.from('financial_assets').insert({
-      case_id: caseData.id,
-      asset_type: assetType,
-      institution_name: form.institution_name,
-      branch_name: form.branch_name || null,
-    })
-    resetForm()
-    closeForm()
-    setSaving(false)
-    onRefresh()
-  }
-
   async function handleDeleteProperty(id: string) {
     const supabase = createClient()
     await supabase.from('real_estate_properties').delete().eq('id', id)
@@ -306,55 +251,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
     const supabase = createClient()
     await supabase.from('financial_assets').delete().eq('id', id)
     onRefresh()
-  }
-
-  /* ── Inline add form component ── */
-  function InlineAddForm({
-    title,
-    form,
-    setForm,
-    onSubmit,
-    onCancel,
-  }: {
-    title: string
-    form: { institution_name: string; branch_name: string }
-    setForm: React.Dispatch<React.SetStateAction<{ institution_name: string; branch_name: string }>>
-    onSubmit: () => void
-    onCancel: () => void
-  }) {
-    return (
-      <div className="border-t border-brand-100 bg-brand-50/30 pt-3 mt-3 -mx-4 px-4 pb-3 -mb-3">
-        <div className="text-[13px] font-semibold text-brand-700 mb-2">{title}</div>
-        <div className="grid grid-cols-1 gap-2">
-          <IMESafeInput
-            placeholder="金融機関名（例: 三菱UFJ銀行）"
-            value={form.institution_name}
-            onChange={v => setForm(f => ({ ...f, institution_name: v }))}
-            autoFocus
-          />
-          <IMESafeInput
-            placeholder="支店名（例: 渋谷支店）"
-            value={form.branch_name}
-            onChange={v => setForm(f => ({ ...f, branch_name: v }))}
-          />
-        </div>
-        <div className="flex gap-2 mt-2">
-          <button
-            onClick={onSubmit}
-            disabled={saving}
-            className="px-3 py-1 bg-brand-600 text-white text-[13px] font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition"
-          >
-            {saving ? '保存中...' : '追加'}
-          </button>
-          <button
-            onClick={onCancel}
-            className="px-3 py-1 text-gray-500 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition"
-          >
-            キャンセル
-          </button>
-        </div>
-      </div>
-    )
   }
 
   const saveCaseFieldStr = async (field: string, value: string) => {
@@ -862,14 +758,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             ))}
           </div>
 
-          {/* Inline add form for deposits */}
+          {/* 預貯金 追加フォーム（インライン展開） */}
           {showDepositForm && (
-            <InlineAddForm
-              title="預貯金を追加"
-              form={depositForm}
-              setForm={setDepositForm}
-              onSubmit={() => handleAddFinancial('預貯金', depositForm, () => setDepositForm({ institution_name: '', branch_name: '' }), () => setShowDepositForm(false))}
+            <CreateFinancialAssetForm
+              caseId={caseData.id}
+              kind="預貯金"
               onCancel={() => setShowDepositForm(false)}
+              onSaved={onRefresh}
             />
           )}
         </Section>
@@ -950,14 +845,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             ))}
           </div>
 
-          {/* Inline add form for securities */}
+          {/* 証券 追加フォーム（インライン展開） */}
           {showSecuritiesForm && (
-            <InlineAddForm
-              title="証券を追加"
-              form={securitiesForm}
-              setForm={setSecuritiesForm}
-              onSubmit={() => handleAddFinancial('証券', securitiesForm, () => setSecuritiesForm({ institution_name: '', branch_name: '' }), () => setShowSecuritiesForm(false))}
+            <CreateFinancialAssetForm
+              caseId={caseData.id}
+              kind="証券"
               onCancel={() => setShowSecuritiesForm(false)}
+              onSaved={onRefresh}
             />
           )}
         </Section>
@@ -1127,14 +1021,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             ))}
           </div>
 
-          {/* Inline add form for trust banks */}
+          {/* 信託銀行 追加フォーム（インライン展開） */}
           {showTrustForm && (
-            <InlineAddForm
-              title="信託銀行を追加"
-              form={trustForm}
-              setForm={setTrustForm}
-              onSubmit={() => handleAddFinancial('信託銀行', trustForm, () => setTrustForm({ institution_name: '', branch_name: '' }), () => setShowTrustForm(false))}
+            <CreateFinancialAssetForm
+              caseId={caseData.id}
+              kind="信託銀行"
               onCancel={() => setShowTrustForm(false)}
+              onSaved={onRefresh}
             />
           )}
         </Section>
