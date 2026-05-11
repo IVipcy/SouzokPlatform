@@ -19,6 +19,8 @@ type Props = {
   onSaved: (newInvoiceId?: string) => void
   /** デフォルトで選択する案件ID（/billing?case=xxx の時など） */
   defaultCaseId?: string
+  /** 既存の '未請求' プレースホルダー invoice を上書きする時の id */
+  existingInvoiceId?: string
 }
 
 type CaseFees = {
@@ -28,7 +30,7 @@ type CaseFees = {
   advance_payment: number | null
 }
 
-export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId }: Props) {
+export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId, existingInvoiceId }: Props) {
   const [form, setForm] = useState({
     case_id: defaultCaseId ?? '',
     invoice_type: '確定請求' as '前受金' | '確定請求',
@@ -185,27 +187,56 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     // 作成時点ではまだ送付前。送付後にユーザーが手動で 前受金請求済 / 確定請求済 に変更
     const status = '作成済'
 
-    const { data: newInvoice, error: insertErr } = await supabase
-      .from('invoices')
-      .insert({
-        case_id: form.case_id,
-        invoice_type: form.invoice_type,
-        amount: totalAmount,
-        fee_amount: feeAmountNum,
-        expenses_amount: selectedExpensesTotal,
-        status,
-        issued_date: form.issued_date || null,
-        due_date: form.due_date || null,
-        notes: form.notes || null,
-      })
-      .select('id')
-      .single()
-
-    if (insertErr || !newInvoice) {
-      setError(`作成に失敗しました: ${insertErr?.message ?? '不明なエラー'}`)
-      setSaving(false)
-      return
+    let newInvoiceId: string
+    if (existingInvoiceId) {
+      // 既存の「未請求」プレースホルダーを上書き
+      const { data: updated, error: updateErr } = await supabase
+        .from('invoices')
+        .update({
+          case_id: form.case_id,
+          invoice_type: form.invoice_type,
+          amount: totalAmount,
+          fee_amount: feeAmountNum,
+          expenses_amount: selectedExpensesTotal,
+          status,
+          issued_date: form.issued_date || null,
+          due_date: form.due_date || null,
+          notes: form.notes || null,
+        })
+        .eq('id', existingInvoiceId)
+        .select('id')
+        .single()
+      if (updateErr || !updated) {
+        setError(`作成に失敗しました: ${updateErr?.message ?? '不明なエラー'}`)
+        setSaving(false)
+        return
+      }
+      newInvoiceId = updated.id
+    } else {
+      const { data: newInvoice, error: insertErr } = await supabase
+        .from('invoices')
+        .insert({
+          case_id: form.case_id,
+          invoice_type: form.invoice_type,
+          amount: totalAmount,
+          fee_amount: feeAmountNum,
+          expenses_amount: selectedExpensesTotal,
+          status,
+          issued_date: form.issued_date || null,
+          due_date: form.due_date || null,
+          notes: form.notes || null,
+        })
+        .select('id')
+        .single()
+      if (insertErr || !newInvoice) {
+        setError(`作成に失敗しました: ${insertErr?.message ?? '不明なエラー'}`)
+        setSaving(false)
+        return
+      }
+      newInvoiceId = newInvoice.id
     }
+    // 互換のため変数名を残す
+    const newInvoice = { id: newInvoiceId }
 
     // 選択した立替実費に billed_invoice_id をセット（請求済みマーク）
     if (selectedExpenseIds.size > 0) {

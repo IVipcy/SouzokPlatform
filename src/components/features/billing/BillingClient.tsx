@@ -107,6 +107,38 @@ export default function BillingClient({ invoices, cases }: Props) {
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceWithRelations | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceWithRelations | null>(null)
 
+  // 一覧で選択中の「未請求」行（請求書発行ボタンで使う）
+  const [checkedInvoiceId, setCheckedInvoiceId] = useState<string | null>(null)
+
+  // 月フィルタ（KPIs用）
+  const ymToday = new Date().toISOString().slice(0, 7)
+  const [monthFilter, setMonthFilter] = useState<string>(ymToday)
+
+  // 月候補（過去12ヶ月 + 全期間）
+  const monthOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = []
+    const today = new Date()
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = i === 0 ? `今月 (${d.getFullYear()}年${d.getMonth() + 1}月)` : `${d.getFullYear()}年${d.getMonth() + 1}月`
+      opts.push({ value: ym, label })
+    }
+    opts.push({ value: 'all', label: '全期間' })
+    return opts
+  }, [])
+
+  // KPI 計算対象の invoices（月でフィルタ済み）
+  const monthFilteredInvoices = useMemo(() => {
+    if (monthFilter === 'all') return invoices
+    return invoices.filter(inv => (inv.issued_date ?? '').startsWith(monthFilter) || (!inv.issued_date && inv.status === '未請求'))
+  }, [invoices, monthFilter])
+
+  const checkedInvoice = useMemo(
+    () => checkedInvoiceId ? invoices.find(i => i.id === checkedInvoiceId) ?? null : null,
+    [checkedInvoiceId, invoices]
+  )
+
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
       if (caseFilter && inv.case_id !== caseFilter) return false
@@ -131,22 +163,25 @@ export default function BillingClient({ invoices, cases }: Props) {
   }, [invoices, caseFilter, statusFilter, search])
 
   const kpis = useMemo(() => {
-    const total = invoices.reduce((s, inv) => s + inv.amount, 0)
-    const unpaid = invoices.filter(inv => inv.status === '未請求').length
-    const waiting = invoices.filter(inv => ['前受金請求済', '確定請求済'].includes(inv.status)).length
-    const waitingAmt = invoices
-      .filter(inv => ['前受金請求済', '確定請求済'].includes(inv.status))
+    const src = monthFilteredInvoices
+    // 「請求合計」は実発行された請求書のみ（未請求プレースホルダーは除外）
+    const issuedInvoices = src.filter(inv => inv.status !== '未請求')
+    const total = issuedInvoices.reduce((s, inv) => s + inv.amount, 0)
+    const unpaid = src.filter(inv => inv.status === '未請求').length
+    const waiting = src.filter(inv => ['作成済', '前受金請求済', '確定請求済'].includes(inv.status)).length
+    const waitingAmt = src
+      .filter(inv => ['作成済', '前受金請求済', '確定請求済'].includes(inv.status))
       .reduce((s, inv) => s + inv.amount - getPaidAmount(inv.payments), 0)
-    const paid = invoices.filter(inv => inv.status === '入金済').length
-    const partial = invoices.filter(inv => inv.status === '一部入金').length
+    const paid = src.filter(inv => inv.status === '入金済').length
+    const partial = src.filter(inv => inv.status === '一部入金').length
     return [
-      { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${invoices.length}件` },
+      { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${issuedInvoices.length}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
       { key: 'waiting', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
-      { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '今月確定', color: 'text-green-600' },
+      { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '入金確定', color: 'text-green-600' },
       { key: '一部入金', label: '一部入金', Icon: AlertCircle as LucideIcon,   value: String(partial),    sub: '差額確認要', color: 'text-red-600' },
     ]
-  }, [invoices])
+  }, [monthFilteredInvoices])
 
   const selected = selectedId ? invoices.find(inv => inv.id === selectedId) ?? null : null
 
@@ -181,11 +216,26 @@ export default function BillingClient({ invoices, cases }: Props) {
                 className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
               />
             </div>
+            <select
+              value={monthFilter}
+              onChange={e => setMonthFilter(e.target.value)}
+              className="px-2.5 py-1 text-[12px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white"
+              title="KPI集計期間"
+            >
+              {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
             <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
               銀行CSV取込
             </Button>
-            <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setCreateOpen(true)}>
-              請求書発行
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              {checkedInvoice
+                ? `選択した案件で請求書発行（${checkedInvoice.cases?.case_number ?? ''}）`
+                : '請求書発行'}
             </Button>
           </>
         }
@@ -245,12 +295,14 @@ export default function BillingClient({ invoices, cases }: Props) {
           </div>
           <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
+              <col style={{ width: 36 }} />
               {HEADERS.map(h => (
                 <col key={h.key as string} style={{ width: colWidths[h.key] }} />
               ))}
             </colgroup>
             <thead>
               <tr>
+                <th className="bg-gray-50 border-b border-gray-200 px-2 py-2" />
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
@@ -265,7 +317,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
@@ -278,12 +330,27 @@ export default function BillingClient({ invoices, cases }: Props) {
                   const caseName = inv.cases?.deal_name || '—'
                   const caseNumber = inv.cases?.case_number || ''
                   const deceasedName = inv.cases?.deceased_name || ''
+                  const isUnissued = inv.status === '未請求'
+                  const isChecked = checkedInvoiceId === inv.id
                   return (
                     <tr
                       key={inv.id}
-                      className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${selectedId === inv.id ? 'bg-brand-50/60' : 'hover:bg-gray-50/50'}`}
+                      className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${
+                        isChecked ? 'bg-brand-50/80' : selectedId === inv.id ? 'bg-brand-50/40' : 'hover:bg-gray-50/50'
+                      }`}
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                     >
+                      <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                        {isUnissued ? (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => setCheckedInvoiceId(isChecked ? null : inv.id)}
+                            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            title="この案件で請求書を発行"
+                          />
+                        ) : null}
+                      </td>
                       <td className="px-3.5 py-2.5 overflow-hidden">
                         {inv.cases?.id ? (
                           <Link
@@ -443,10 +510,11 @@ export default function BillingClient({ invoices, cases }: Props) {
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         cases={cases}
-        defaultCaseId={caseFilter ?? undefined}
+        defaultCaseId={checkedInvoice?.case_id ?? caseFilter ?? undefined}
+        existingInvoiceId={checkedInvoice?.status === '未請求' ? checkedInvoice.id : undefined}
         onSaved={(newId) => {
           setCreateOpen(false)
-          // 作成後は請求書プレビュー画面に遷移（DL・書類タブ保存を行いやすい）
+          setCheckedInvoiceId(null)
           if (newId) {
             router.push(`/invoices/${newId}/preview?firstView=1`)
           } else {
