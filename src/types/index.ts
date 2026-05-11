@@ -318,7 +318,7 @@ export type DocumentRow = {
 }
 
 // === 請求・入金 ===
-export type InvoiceStatus = '未請求' | '前受金請求済' | '前受金入金済' | '確定請求済' | '入金済' | '一部入金'
+export type InvoiceStatus = '未請求' | '作成済' | '前受金請求済' | '前受金入金済' | '確定請求済' | '入金済' | '一部入金'
 
 export type InvoiceRow = {
   id: string

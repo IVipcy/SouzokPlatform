@@ -15,7 +15,8 @@ type Props = {
   isOpen: boolean
   onClose: () => void
   cases: CaseOption[]
-  onSaved: () => void
+  /** 作成完了時に呼ばれる。新規発行された invoice id を引数で受け取れる。 */
+  onSaved: (newInvoiceId?: string) => void
   /** デフォルトで選択する案件ID（/billing?case=xxx の時など） */
   defaultCaseId?: string
 }
@@ -181,7 +182,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     setSaving(true)
     setError('')
     const supabase = createClient()
-    const status = form.invoice_type === '前受金' ? '前受金請求済' : '確定請求済'
+    // 作成時点ではまだ送付前。送付後にユーザーが手動で 前受金請求済 / 確定請求済 に変更
+    const status = '作成済'
 
     const { data: newInvoice, error: insertErr } = await supabase
       .from('invoices')
@@ -219,7 +221,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     }
 
     setSaving(false)
-    onSaved()
+    onSaved(newInvoice.id)
     onClose()
   }
 
