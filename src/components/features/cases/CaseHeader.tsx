@@ -63,7 +63,7 @@ export default function CaseHeader({ caseData }: Props) {
       </div>
 
       {/* Case header card */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
