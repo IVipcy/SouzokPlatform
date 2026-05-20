@@ -10,6 +10,9 @@ export type DashCase = {
   expected_completion_date?: string | null
   fee_total: number | null
   total_revenue_estimate: number | null
+  // 内訳別タブで使用（主区分 = 配列の先頭）。
+  // 未設定の案件は '未設定' バケットに集計される。
+  procedure_type?: string[] | null
 }
 
 export type DashCaseMember = {
@@ -491,6 +494,108 @@ export function computeSalesMetrics(
     completedCount,
     completedAmount,
     avgCycleMonths,
+  }
+}
+
+// ============================================================
+// 部全体ダッシュボード（サマリ / 内訳別）用
+// ============================================================
+
+// dept_targets テーブルの行型
+export type DeptTargetRow = {
+  ym: string
+  new_orders: number
+  managing: number
+  completed: number
+  cycle_months: number      // numeric は JS では number
+  completed_amount: number  // 円
+}
+
+// 目標が未設定の場合のデフォルト
+export const EMPTY_DEPT_TARGET: Omit<DeptTargetRow, 'ym'> = {
+  new_orders: 0,
+  managing: 0,
+  completed: 0,
+  cycle_months: 0,
+  completed_amount: 0,
+}
+
+// 達成率算出: target=0 のときは null（未設定扱い）
+export function achievementRate(actual: number, target: number): number | null {
+  if (!target || target <= 0) return null
+  return actual / target
+}
+
+// サイクルは「短いほうが良い」指標なので別扱い
+//   - target=0 / actual=null は null
+//   - actual<=target は 100%、それを超えると比率に応じて低下
+export function cycleAchievementRate(actual: number | null, target: number): number | null {
+  if (!target || target <= 0) return null
+  if (actual === null) return null
+  if (actual <= 0) return 1
+  return target / actual
+}
+
+// 主区分の候補（CaseEditModal の PROCEDURE_OPTIONS と揃える）
+export const PROCEDURE_BUCKETS = ['手続一式', '登記', '遺産分割協議書のみ', '相続人調査のみ', '未設定'] as const
+export type ProcedureBucket = (typeof PROCEDURE_BUCKETS)[number]
+
+export type ProcedureBreakdownItem = {
+  procedure: ProcedureBucket
+  caseCount: number
+  amount: number       // 円
+  ratio: number        // 0..1 （金額ベース）
+}
+
+export type ProcedureBreakdown = {
+  totalAmount: number  // 円
+  totalCases: number
+  items: ProcedureBreakdownItem[]  // amount 降順、最低でも全バケットを返す
+}
+
+// 当月完了した案件を「手続区分（主区分=配列先頭）」で集計する
+export function computeProcedureBreakdown(cases: DashCase[], ym: string): ProcedureBreakdown {
+  const { start, end } = monthRange(ym)
+  const completed = cases.filter(c =>
+    c.status === '完了' &&
+    c.completion_date &&
+    c.completion_date >= start &&
+    c.completion_date <= end,
+  )
+
+  const buckets: Record<ProcedureBucket, { caseCount: number; amount: number }> = {
+    '手続一式': { caseCount: 0, amount: 0 },
+    '登記': { caseCount: 0, amount: 0 },
+    '遺産分割協議書のみ': { caseCount: 0, amount: 0 },
+    '相続人調査のみ': { caseCount: 0, amount: 0 },
+    '未設定': { caseCount: 0, amount: 0 },
+  }
+
+  let totalAmount = 0
+  for (const c of completed) {
+    const amount = c.fee_total ?? c.total_revenue_estimate ?? 0
+    const primary = (c.procedure_type ?? [])[0]
+    const bucket: ProcedureBucket = (PROCEDURE_BUCKETS as readonly string[]).includes(primary ?? '')
+      ? (primary as ProcedureBucket)
+      : '未設定'
+    buckets[bucket].caseCount++
+    buckets[bucket].amount += amount
+    totalAmount += amount
+  }
+
+  const items: ProcedureBreakdownItem[] = (Object.entries(buckets) as Array<[ProcedureBucket, { caseCount: number; amount: number }]>)
+    .map(([procedure, v]) => ({
+      procedure,
+      caseCount: v.caseCount,
+      amount: v.amount,
+      ratio: totalAmount > 0 ? v.amount / totalAmount : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+
+  return {
+    totalAmount,
+    totalCases: completed.length,
+    items,
   }
 }
 

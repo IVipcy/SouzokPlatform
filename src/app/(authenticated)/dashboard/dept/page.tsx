@@ -1,13 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import SummaryKpis from '@/components/features/dashboard/SummaryKpis'
+import DeptDashboardTabs from '@/components/features/dashboard/DeptDashboardTabs'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
 import {
   computeMetrics,
+  computeProcedureBreakdown,
+  EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
   type DashCase,
   type DashCaseMember,
+  type DeptTargetRow,
 } from '@/lib/dashboardMetrics'
 
 type MemberRow = {
@@ -34,11 +37,22 @@ export default async function DashboardPage() {
     { data: caseMembersRaw },
     { data: membersRaw },
     { data: teamsRaw },
+    { data: targetRaw },
   ] = await Promise.all([
-    supabase.from('cases').select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate'),
+    supabase
+      .from('cases')
+      .select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate,procedure_type'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id,is_active').eq('is_active', true),
+    supabase
+      .from('members')
+      .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id,is_active')
+      .eq('is_active', true),
     supabase.from('teams').select('id,name').eq('is_active', true),
+    supabase
+      .from('dept_targets')
+      .select('ym,new_orders,managing,completed,cycle_months,completed_amount')
+      .eq('ym', thisYm)
+      .maybeSingle(),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]
@@ -49,6 +63,21 @@ export default async function DashboardPage() {
 
   // 部全体・当月のKPI
   const summary = computeMetrics(cases, thisYm)
+
+  // 当月の手続区分別 内訳
+  const breakdown = computeProcedureBreakdown(cases, thisYm)
+
+  // 目標値（未設定なら 0 埋め）
+  const initialTarget: DeptTargetRow = targetRaw
+    ? {
+        ym: targetRaw.ym,
+        new_orders: targetRaw.new_orders ?? 0,
+        managing: targetRaw.managing ?? 0,
+        completed: targetRaw.completed ?? 0,
+        cycle_months: Number(targetRaw.cycle_months ?? 0),
+        completed_amount: Number(targetRaw.completed_amount ?? 0),
+      }
+    : { ym: thisYm, ...EMPTY_DEPT_TARGET }
 
   // 個人テーブルに並べる対象 = primary_role が 'sales' or 'manager'
   const tableMembers: MemberWithProfile[] = members
@@ -80,8 +109,14 @@ export default async function DashboardPage() {
         icon={Building2}
         description={`${today.getFullYear()}年度・相続事業部の月次サマリーとメンバー別成績`}
       />
-      <div className="space-y-2">
-        <SummaryKpis monthLabel={monthLabel} metrics={summary} />
+      <div className="space-y-3">
+        <DeptDashboardTabs
+          ym={thisYm}
+          monthLabel={monthLabel}
+          metrics={summary}
+          initialTarget={initialTarget}
+          breakdown={breakdown}
+        />
         <MemberPerformanceTable
           members={tableMembers}
           cases={cases}
