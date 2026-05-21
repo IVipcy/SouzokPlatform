@@ -13,6 +13,14 @@ export type DashCase = {
   // 内訳別タブで使用（主区分 = 配列の先頭）。
   // 未設定の案件は '未設定' バケットに集計される。
   procedure_type?: string[] | null
+  // 受注担当ダッシュボードの「相続税申告件数」算出に使用
+  tax_filing_required?: string | null
+}
+
+// 受注担当ダッシュボードの「不動産査定件数」算出に使用する物件行型
+export type DashProperty = {
+  case_id: string
+  appraisal_status: '未対応' | '対応中' | '完了' | '不要' | null
 }
 
 export type DashCaseMember = {
@@ -117,6 +125,8 @@ export type SalesMetricsBundle = {
   newOrdersCount: number         // 当月新規受注件数
   conversionRate: number | null  // 受注率（小数 0..1）
   avgOrderUnit: number | null    // 平均受注単価（円）
+  taxFilingCount: number         // 相続税申告件数（当月新規受注のうち tax_filing_required='要'）
+  propertyAppraisalCount: number // 不動産査定件数（当月新規受注に紐づく不動産で appraisal_status IN ('対応中','完了') の物件数）
   expectedCompletions: number    // 業務完了予定件数
   completedCount: number         // 業務完了件数
   completedAmount: number        // 業務完了金額（円）
@@ -415,12 +425,14 @@ export function computeDailyMetrics(
   }
 }
 
-// 受注担当ダッシュボード用の8KPIを計算する。
-// cases / statusChanges は呼び出し側でスコープ（個人/チーム/全体）に絞って渡す。
+// 受注担当ダッシュボード用の KPI を計算する。
+// cases / statusChanges / properties は呼び出し側でスコープ（個人/チーム/全体）に絞って渡す。
+//   - properties は呼び出し側で渡したい案件群のものに絞っておくこと
 export function computeSalesMetrics(
   cases: DashCase[],
   statusChanges: DashStatusChange[],
   ym: string,
+  properties: DashProperty[] = [],
 ): SalesMetricsBundle {
   const { start, end } = monthRange(ym)
   const startTs = `${start}T00:00:00`
@@ -457,6 +469,16 @@ export function computeSalesMetrics(
   )
   const avgOrderUnit = newOrderCases.length > 0 ? orderTotal / newOrderCases.length : null
 
+  // 相続税申告件数 = 当月新規受注したうち tax_filing_required='要' の件数
+  const taxFilingCount = newOrderCases.filter(c => c.tax_filing_required === '要').length
+
+  // 不動産査定件数 = 当月新規受注した案件に紐づく不動産のうち、
+  // 査定ステータスが '対応中' または '完了' の物件数
+  const propertyAppraisalCount = properties.filter(p =>
+    newOrderCaseIds.has(p.case_id) &&
+    (p.appraisal_status === '対応中' || p.appraisal_status === '完了'),
+  ).length
+
   // 業務完了予定件数 = expected_completion_date が当月、未完了
   const expectedCompletions = cases.filter(c =>
     c.expected_completion_date &&
@@ -490,6 +512,8 @@ export function computeSalesMetrics(
     newOrdersCount,
     conversionRate,
     avgOrderUnit,
+    taxFilingCount,
+    propertyAppraisalCount,
     expectedCompletions,
     completedCount,
     completedAmount,
@@ -518,6 +542,26 @@ export const EMPTY_DEPT_TARGET: Omit<DeptTargetRow, 'ym'> = {
   completed: 0,
   cycle_months: 0,
   completed_amount: 0,
+}
+
+// sales_targets テーブルの行型
+export type SalesTargetRow = {
+  ym: string
+  meetings_count: number
+  new_orders_count: number
+  conversion_rate: number       // % 値 (0..100)
+  avg_order_unit: number        // 円
+  tax_filing_count: number
+  property_appraisal_count: number
+}
+
+export const EMPTY_SALES_TARGET: Omit<SalesTargetRow, 'ym'> = {
+  meetings_count: 0,
+  new_orders_count: 0,
+  conversion_rate: 0,
+  avg_order_unit: 0,
+  tax_filing_count: 0,
+  property_appraisal_count: 0,
 }
 
 // 達成率算出: target=0 のときは null（未設定扱い）

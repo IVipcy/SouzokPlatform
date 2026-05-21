@@ -1,16 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { Megaphone } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import SalesKpis from '@/components/features/dashboard/SalesKpis'
+import SalesKpiTable from '@/components/features/dashboard/SalesKpiTable'
 import SalesTeamTable, {
   type SalesTeamGroup,
   type SalesMemberRow,
 } from '@/components/features/dashboard/SalesTeamTable'
 import {
   computeSalesMetrics,
+  EMPTY_SALES_TARGET,
   type DashCase,
   type DashCaseMember,
+  type DashProperty,
   type DashStatusChange,
+  type SalesTargetRow,
 } from '@/lib/dashboardMetrics'
 
 type MemberRow = {
@@ -44,10 +47,18 @@ export default async function SalesDashboardPage() {
     { data: membersRaw },
     { data: teamsRaw },
     { data: changesRaw },
+    { data: propertiesRaw },
+    { data: targetRaw },
   ] = await Promise.all([
-    supabase.from('cases').select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate'),
+    supabase
+      .from('cases')
+      .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true).eq('primary_role', 'sales'),
+    supabase
+      .from('members')
+      .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id')
+      .eq('is_active', true)
+      .eq('primary_role', 'sales'),
     supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
     supabase
       .from('activity_log')
@@ -56,6 +67,12 @@ export default async function SalesDashboardPage() {
       .eq('action', 'status_change')
       .gte('created_at', monthStart)
       .lt('created_at', nextMonthStart),
+    supabase.from('real_estate_properties').select('case_id,appraisal_status'),
+    supabase
+      .from('sales_targets')
+      .select('ym,meetings_count,new_orders_count,conversion_rate,avg_order_unit,tax_filing_count,property_appraisal_count')
+      .eq('ym', ym)
+      .maybeSingle(),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]
@@ -63,6 +80,7 @@ export default async function SalesDashboardPage() {
   const salesMembers = (membersRaw ?? []) as MemberRow[]
   const teams = (teamsRaw ?? []) as TeamRow[]
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
+  const properties = (propertiesRaw ?? []) as DashProperty[]
 
   // メンバーごとの担当案件IDセット
   const caseIdsByMember = new Map<string, Set<string>>()
@@ -72,20 +90,31 @@ export default async function SalesDashboardPage() {
     caseIdsByMember.get(cm.member_id)!.add(cm.case_id)
   }
 
-  // ユーティリティ: 案件IDセットから対応する cases / statusChanges を抽出
+  // ユーティリティ: 案件IDセットから対応する cases / statusChanges / properties を抽出
   const filterByIds = (caseIds: Set<string>) => ({
     cases: cases.filter(c => caseIds.has(c.id)),
     changes: statusChanges.filter(sc => caseIds.has(sc.entity_id)),
+    properties: properties.filter(p => caseIds.has(p.case_id)),
   })
 
   // 部全体（受注担当の合算）の集計
   const allSalesCaseIds = new Set<string>()
   for (const set of caseIdsByMember.values()) for (const id of set) allSalesCaseIds.add(id)
-  const overall = computeSalesMetrics(
-    cases.filter(c => allSalesCaseIds.has(c.id)),
-    statusChanges.filter(sc => allSalesCaseIds.has(sc.entity_id)),
-    ym,
-  )
+  const overallScoped = filterByIds(allSalesCaseIds)
+  const overall = computeSalesMetrics(overallScoped.cases, overallScoped.changes, ym, overallScoped.properties)
+
+  // 目標値（未設定なら 0 埋め）
+  const initialTarget: SalesTargetRow = targetRaw
+    ? {
+        ym: targetRaw.ym,
+        meetings_count: targetRaw.meetings_count ?? 0,
+        new_orders_count: targetRaw.new_orders_count ?? 0,
+        conversion_rate: Number(targetRaw.conversion_rate ?? 0),
+        avg_order_unit: Number(targetRaw.avg_order_unit ?? 0),
+        tax_filing_count: targetRaw.tax_filing_count ?? 0,
+        property_appraisal_count: targetRaw.property_appraisal_count ?? 0,
+      }
+    : { ym, ...EMPTY_SALES_TARGET }
 
   // チームごとにグループ化
   const teamSortOrder = new Map(teams.map(t => [t.id, t.sort_order]))
@@ -112,7 +141,7 @@ export default async function SalesDashboardPage() {
       if (ids) for (const id of ids) teamCaseIds.add(id)
     }
     const teamFiltered = filterByIds(teamCaseIds)
-    const teamMetrics = computeSalesMetrics(teamFiltered.cases, teamFiltered.changes, ym)
+    const teamMetrics = computeSalesMetrics(teamFiltered.cases, teamFiltered.changes, ym, teamFiltered.properties)
 
     const memberRows: SalesMemberRow[] = members
       .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
@@ -126,7 +155,7 @@ export default async function SalesDashboardPage() {
           avatarUrl: m.avatar_url,
           jobType: m.job_type,
           joinedAt: m.joined_at,
-          metrics: computeSalesMetrics(my.cases, my.changes, ym),
+          metrics: computeSalesMetrics(my.cases, my.changes, ym, my.properties),
         }
       })
 
@@ -143,10 +172,17 @@ export default async function SalesDashboardPage() {
         eyebrow="Sales · Monthly"
         title="受注担当ダッシュボード"
         icon={Megaphone}
-        description="営業の月次成績・面談数・受注率・平均単価・完了予定など"
+        description="営業の月次成績・面談数・受注率・平均単価・相続税申告・不動産査定など"
       />
-      <SalesKpis monthLabel={monthLabel} metrics={overall} />
-      <SalesTeamTable groups={groups} today={today} />
+      <div className="space-y-3">
+        <SalesKpiTable
+          ym={ym}
+          monthLabel={monthLabel}
+          metrics={overall}
+          initialTarget={initialTarget}
+        />
+        <SalesTeamTable groups={groups} today={today} />
+      </div>
     </div>
   )
 }
