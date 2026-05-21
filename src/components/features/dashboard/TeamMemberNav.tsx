@@ -15,6 +15,9 @@ type Props = {
   teamName: string
   members: TeamNavMember[]
   currentMemberId?: string  // 個人ボード表示中のメンバーID（ハイライト用）
+  // URL ビルダー（未指定なら進捗ボードへリンク）
+  buildTeamHref?: (teamId: string) => string
+  buildMemberHref?: (memberId: string, teamId: string) => string
 }
 
 const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = {
@@ -22,7 +25,14 @@ const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = 
   manager: { label: '管理', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
-export default function TeamMemberNav({ teamId, teamName, members, currentMemberId }: Props) {
+export default function TeamMemberNav({
+  teamId,
+  teamName,
+  members,
+  currentMemberId,
+  buildTeamHref = (tid) => `/dashboard/team/${tid}/progress`,
+  buildMemberHref = (mid) => `/dashboard/member/${mid}/progress`,
+}: Props) {
   if (members.length === 0) return null
 
   // 受注 → 管理 → 名前順
@@ -38,7 +48,7 @@ export default function TeamMemberNav({ teamId, teamName, members, currentMember
 
         {/* チーム全体へのリンク */}
         <Link
-          href={`/dashboard/team/${teamId}/progress`}
+          href={buildTeamHref(teamId)}
           className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border transition ${
             !currentMemberId
               ? 'bg-brand-600 text-white border-brand-600'
@@ -56,7 +66,7 @@ export default function TeamMemberNav({ teamId, teamName, members, currentMember
           return (
             <Link
               key={m.id}
-              href={`/dashboard/member/${m.id}/progress`}
+              href={buildMemberHref(m.id, teamId)}
               className={`inline-flex items-center gap-1.5 text-sm font-medium px-2.5 py-1.5 rounded-md border transition ${
                 active
                   ? 'bg-brand-600 text-white border-brand-600'

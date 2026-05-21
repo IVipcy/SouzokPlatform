@@ -2,14 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { Users } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import DailyKpis from '@/components/features/dashboard/DailyKpis'
-import DailyMemberTable, { type DailyMemberRow } from '@/components/features/dashboard/DailyMemberTable'
+import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
+import SalesTeamTable, {
+  type SalesTeamGroup,
+  type SalesMemberRow,
+} from '@/components/features/dashboard/SalesTeamTable'
+import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import {
-  computeDailyMetrics,
-  computeMetrics,
+  computeSalesDailyMetrics,
+  computeSalesMetrics,
   todayJstYmd,
   type DashCase,
   type DashCaseMember,
+  type DashProperty,
   type DashStatusChange,
 } from '@/lib/dashboardMetrics'
 
@@ -24,17 +29,23 @@ type MemberRow = {
   team_id: string | null
 }
 
-type Props = { params: Promise<{ teamId: string }> }
+type Props = {
+  params: Promise<{ teamId: string }>
+  searchParams: Promise<{ member?: string }>
+}
 
-export default async function TeamTodayDashboard({ params }: Props) {
+export default async function TeamTodayDashboard({ params, searchParams }: Props) {
   const { teamId } = await params
+  const { member: selectedMemberId } = await searchParams
   const supabase = await createClient()
   const today = new Date()
   const ymd = todayJstYmd(today)
   const ym = ymd.slice(0, 7)
 
-  const dayStart = `${ymd}T00:00:00`
-  const dayEnd = `${ymd}T23:59:59.999`
+  // 当月の月初〜月末（activity_log フィルタ用）— 月次集計と本日集計の両方に必要
+  const monthStart = `${ym}-01T00:00:00`
+  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
 
   const [
     { data: team },
@@ -42,18 +53,26 @@ export default async function TeamTodayDashboard({ params }: Props) {
     { data: caseMembersRaw },
     { data: membersRaw },
     { data: changesRaw },
+    { data: propertiesRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
-    supabase.from('cases').select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate'),
+    supabase
+      .from('cases')
+      .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true).eq('team_id', teamId),
+    supabase
+      .from('members')
+      .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id')
+      .eq('is_active', true)
+      .eq('team_id', teamId),
     supabase
       .from('activity_log')
       .select('entity_id,old_value,new_value,created_at')
       .eq('entity_type', 'case')
       .eq('action', 'status_change')
-      .gte('created_at', dayStart)
-      .lte('created_at', dayEnd),
+      .gte('created_at', monthStart)
+      .lt('created_at', nextMonthStart),
+    supabase.from('real_estate_properties').select('case_id,appraisal_status'),
   ])
 
   if (!team) notFound()
@@ -62,64 +81,111 @@ export default async function TeamTodayDashboard({ params }: Props) {
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const teamMembers = (membersRaw ?? []) as MemberRow[]
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
+  const properties = (propertiesRaw ?? []) as DashProperty[]
 
-  // チームメンバー (sales/manager) のみ
-  const tableMembers = teamMembers.filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
+  // 受注担当のみ抽出（管理は除外）
+  const salesMembers = teamMembers.filter(m => m.primary_role === 'sales')
 
-  // チームの担当案件IDセット（チームのsales/manager 全員の担当案件のunion）
-  const teamCaseIds = new Set<string>()
-  for (const m of tableMembers) {
-    const role = m.primary_role as 'sales' | 'manager'
+  // 個人フィルタ: ?member= で指定された人がチームの受注担当に居れば、そのメンバーのみ対象
+  const focusedMember = selectedMemberId
+    ? salesMembers.find(m => m.id === selectedMemberId) ?? null
+    : null
+
+  // KPI スコープのメンバー集合（個人指定時はその1名、未指定時はチーム全員）
+  const scopeMembers = focusedMember ? [focusedMember] : salesMembers
+
+  // スコープ案件IDセット
+  const scopeCaseIds = new Set<string>()
+  for (const m of scopeMembers) {
     for (const cm of caseMembers) {
-      if (cm.member_id === m.id && cm.role === role) teamCaseIds.add(cm.case_id)
+      if (cm.member_id === m.id && cm.role === 'sales') scopeCaseIds.add(cm.case_id)
     }
   }
-  const teamCases = cases.filter(c => teamCaseIds.has(c.id))
-  const teamChanges = statusChanges.filter(sc => teamCaseIds.has(sc.entity_id))
+  const scopeCases = cases.filter(c => scopeCaseIds.has(c.id))
+  const scopeChanges = statusChanges.filter(sc => scopeCaseIds.has(sc.entity_id))
+  const scopeProperties = properties.filter(p => scopeCaseIds.has(p.case_id))
 
-  const teamDaily = computeDailyMetrics(teamCases, teamChanges, today)
+  // TOP の本日 KPI
+  const dailyMetrics = computeSalesDailyMetrics(scopeCases, scopeChanges, scopeProperties, today)
 
-  const rows: DailyMemberRow[] = tableMembers
+  // チーム合算（テーブル上部の小計）
+  const teamCaseIds = new Set<string>()
+  for (const m of salesMembers) {
+    for (const cm of caseMembers) {
+      if (cm.member_id === m.id && cm.role === 'sales') teamCaseIds.add(cm.case_id)
+    }
+  }
+  const teamFilteredCases = cases.filter(c => teamCaseIds.has(c.id))
+  const teamFilteredChanges = statusChanges.filter(sc => teamCaseIds.has(sc.entity_id))
+  const teamFilteredProperties = properties.filter(p => teamCaseIds.has(p.case_id))
+  const teamMonthlyMetrics = computeSalesMetrics(teamFilteredCases, teamFilteredChanges, ym, teamFilteredProperties)
+
+  // 個人別の月次成績（テーブルの個人行）
+  const memberRows: SalesMemberRow[] = salesMembers
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
     .map(m => {
-      const role = m.primary_role as 'sales' | 'manager'
       const myCaseIds = new Set(
         caseMembers
-          .filter(cm => cm.member_id === m.id && cm.role === role)
+          .filter(cm => cm.member_id === m.id && cm.role === 'sales')
           .map(cm => cm.case_id),
       )
       const myCases = cases.filter(c => myCaseIds.has(c.id))
       const myChanges = statusChanges.filter(sc => myCaseIds.has(sc.entity_id))
-
+      const myProperties = properties.filter(p => myCaseIds.has(p.case_id))
       return {
         id: m.id,
         name: m.name,
         avatarColor: m.avatar_color ?? '#6B7280',
         avatarUrl: m.avatar_url,
-        teamName: team.name,
         jobType: m.job_type,
         joinedAt: m.joined_at,
-        primaryRole: role,
-        monthly: computeMetrics(myCases, ym),
-        daily: computeDailyMetrics(myCases, myChanges, today),
+        metrics: computeSalesMetrics(myCases, myChanges, ym, myProperties),
       }
     })
-    .sort((a, b) => {
-      if (a.primaryRole !== b.primaryRole) return a.primaryRole === 'sales' ? -1 : 1
-      return a.name.localeCompare(b.name, 'ja')
-    })
+
+  const tableGroup: SalesTeamGroup = {
+    teamName: team.name,
+    teamMetrics: teamMonthlyMetrics,
+    members: memberRows,
+  }
+
+  // メンバー切替ナビ（チームの全メンバー、受注/管理混在）
+  const navMembers: TeamNavMember[] = teamMembers
+    .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
+    .map(m => ({
+      id: m.id,
+      name: m.name,
+      avatarColor: m.avatar_color ?? '#6B7280',
+      avatarUrl: m.avatar_url,
+      primaryRole: m.primary_role as 'sales' | 'manager',
+    }))
 
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
+
+  const scopeLabel = focusedMember ? focusedMember.name : `${team.name}`
 
   return (
     <div>
       <PageHeader
-        eyebrow="Team · Today"
-        title={`${team.name}・本日`}
+        eyebrow="Team · Sales · Today"
+        title={`${team.name}・受注担当 本日`}
         icon={Users}
-        description={`${dateLabel}・チーム全体の累計と本日の動き`}
+        description={`${dateLabel}・受注担当の本日の動きとチームの月次成績`}
       />
-      <DailyKpis scopeLabel={team.name} metrics={teamDaily} />
-      <DailyMemberTable rows={rows} today={today} showTeamColumn={false} />
+
+      <TeamMemberNav
+        teamId={teamId}
+        teamName={team.name}
+        members={navMembers}
+        currentMemberId={selectedMemberId}
+        buildTeamHref={(tid) => `/dashboard/team/${tid}`}
+        buildMemberHref={(mid, tid) => `/dashboard/team/${tid}?member=${mid}`}
+      />
+
+      <div className="space-y-3">
+        <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
+        <SalesTeamTable groups={[tableGroup]} today={today} />
+      </div>
     </div>
   )
 }

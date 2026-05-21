@@ -133,6 +133,16 @@ export type SalesMetricsBundle = {
   avgCycleMonths: number | null  // 平均サイクル
 }
 
+// 受注担当 日次ダッシュボード（チーム別）用の 6 KPI
+export type SalesDailyMetricsBundle = {
+  meetingsCount: number          // 本日面談数
+  newOrdersCount: number         // 本日新規受注件数
+  conversionRate: number | null  // 受注率（本日, 0..1）
+  avgOrderUnit: number | null    // 平均受注単価（本日新規受注の fee_total 平均, 円）
+  taxFilingCount: number         // 相続税申告件数（本日新規受注のうち tax_filing_required='要'）
+  propertyAppraisalCount: number // 不動産査定件数（本日新規受注の不動産で appraisal_status IN ('対応中','完了') の物件数）
+}
+
 const STATUS_AFTER_ORDER = new Set(['受注', '対応中', '保留・長期', '完了'])
 const AVG_DAYS_PER_MONTH = 30.4375
 
@@ -422,6 +432,68 @@ export function computeDailyMetrics(
     cycleMonths,
     monthExpected,
     monthCompleted,
+  }
+}
+
+// 受注担当チーム日次ダッシュボード用の 6 KPI を計算する。
+// 引数はすでにスコープ（チーム or 個人）に絞られている前提。
+export function computeSalesDailyMetrics(
+  cases: DashCase[],
+  statusChanges: DashStatusChange[],
+  properties: DashProperty[],
+  today: Date = new Date(),
+): SalesDailyMetricsBundle {
+  const ymd = todayJstYmd(today)
+  const todayStartTs = `${ymd}T00:00:00`
+  const todayEndTs = `${ymd}T23:59:59.999`
+
+  // 当日の status_change のみ
+  const todayChanges = statusChanges.filter(
+    sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
+  )
+
+  // 本日 面談数: 面談設定済 → 検討中/受注/失注/保留・長期 への遷移
+  const meetingCaseIds = new Set(
+    todayChanges
+      .filter(sc => sc.old_value === '面談設定済' && sc.new_value && POST_MEETING_STATUSES.has(sc.new_value))
+      .map(sc => sc.entity_id),
+  )
+  const meetingsCount = meetingCaseIds.size
+
+  // 本日 新規受注: 面談設定済 → 受注
+  const newOrderCaseIds = new Set(
+    todayChanges
+      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .map(sc => sc.entity_id),
+  )
+  const newOrdersCount = newOrderCaseIds.size
+
+  const conversionRate = meetingsCount > 0 ? newOrdersCount / meetingsCount : null
+
+  // 平均受注単価 = 本日新規受注した案件の fee_total 平均
+  const newOrderCases = cases.filter(c => newOrderCaseIds.has(c.id))
+  const orderTotal = newOrderCases.reduce(
+    (s, c) => s + (c.fee_total ?? c.total_revenue_estimate ?? 0),
+    0,
+  )
+  const avgOrderUnit = newOrderCases.length > 0 ? orderTotal / newOrderCases.length : null
+
+  // 相続税申告件数 = 本日新規受注のうち tax_filing_required='要'
+  const taxFilingCount = newOrderCases.filter(c => c.tax_filing_required === '要').length
+
+  // 不動産査定件数 = 本日新規受注に紐づく不動産で appraisal_status IN ('対応中','完了') の物件数
+  const propertyAppraisalCount = properties.filter(p =>
+    newOrderCaseIds.has(p.case_id) &&
+    (p.appraisal_status === '対応中' || p.appraisal_status === '完了'),
+  ).length
+
+  return {
+    meetingsCount,
+    newOrdersCount,
+    conversionRate,
+    avgOrderUnit,
+    taxFilingCount,
+    propertyAppraisalCount,
   }
 }
 
