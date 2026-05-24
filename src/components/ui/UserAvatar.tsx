@@ -12,13 +12,13 @@ const SIZE_CLASS: Record<Size, string> = {
   xl: 'w-16 h-16 text-2xl',
 }
 
-// 達成リング用の外枠サイズ
+// 達成リング用の外枠 padding（レインボーが見えるよう、ホワイト縁取り＋αの余白を確保）
 const RING_PAD_CLASS: Record<Size, string> = {
-  xs: 'p-[2px]',
-  sm: 'p-[2px]',
-  md: 'p-[2px]',
-  lg: 'p-[3px]',
-  xl: 'p-[4px]',
+  xs: 'p-[3px]',
+  sm: 'p-[3px]',
+  md: 'p-[3px]',
+  lg: 'p-[4px]',
+  xl: 'p-[5px]',
 }
 
 type Props = {
@@ -56,11 +56,15 @@ export default function UserAvatar({
       ? { bg: color, fg: '#ffffff' }
       : colorsForRole(null)
 
-  // 内側の本体（写真 or 文字）
-  const ringStyle = showRing
-    ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
-    : undefined
+  // 通常時のリング（ホワイト + ロール色の二重リング）
+  // 達成時は外側がレインボーなので、内側のホワイト縁取りだけにする
+  const ringStyle = achievedFrame
+    ? { boxShadow: `0 0 0 1.5px white` }
+    : showRing
+      ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
+      : undefined
 
+  // 内側の本体（写真 or 文字）
   const inner = url ? (
     <img
       src={url}
@@ -78,14 +82,20 @@ export default function UserAvatar({
     </span>
   )
 
-  // 達成時はレインボーリングで包む
+  // 達成時はレインボーリングで包む。
+  //   - 回転するのは「内側の絶対配置レイヤー（背景レイヤー）」だけ
+  //   - アバター本体は relative で前面に配置 → 回転しない
   if (achievedFrame) {
     return (
       <span
-        className={`inline-flex achievement-avatar-ring rounded-full flex-shrink-0 ${RING_PAD_CLASS[size]} ${className}`}
+        className={`relative inline-flex flex-shrink-0 rounded-full ${RING_PAD_CLASS[size]} ${className}`}
         title="今月の新規受注目標を達成！"
       >
-        {inner}
+        <span
+          className="achievement-avatar-ring absolute inset-0 rounded-full pointer-events-none"
+          aria-hidden
+        />
+        <span className="relative inline-flex">{inner}</span>
       </span>
     )
   }
