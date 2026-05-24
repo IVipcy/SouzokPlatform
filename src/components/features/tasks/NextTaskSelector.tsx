@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, Plus, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
@@ -26,239 +25,171 @@ const STATUS_BADGE: Record<string, string> = {
   '差戻し': 'bg-red-100 text-red-700',
 }
 
+/**
+ * 「このタスクが終わったら」セクション
+ * - 案件内の他タスク（自分以外、完了済み除く）を1つのチェックボックスリストで表示
+ * - 既に紐づいているタスクは ON 状態（再度クリックで紐づけ解除）
+ * - チェックの ON/OFF で task_dependencies の insert/delete が走る
+ * - 追加と解除が同じ操作（チェック）で完結する双方向UI
+ */
 export default function NextTaskSelector({ currentTask, candidates, linkedIds, existingDeps }: Props) {
   const router = useRouter()
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(true)
+  const [query, setQuery] = useState('')
 
-  // ピッカーに出すのは「未着手 or 対応中」のタスクのみ。完了済みは候補から外す。
-  const pickable = useMemo(
-    () => candidates.filter(t => t.status !== '完了'),
-    [candidates]
-  )
-
-  const linkedTasks = useMemo(
-    () => existingDeps
-      .map(d => d.to_task)
-      .filter((t): t is TaskRow => !!t),
-    [existingDeps]
-  )
+  // 紐づけ対象になり得るタスク: 自分以外 + 完了済み以外
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return candidates
+      .filter(t => t.status !== '完了')
+      .filter(t => {
+        if (!q) return true
+        return (
+          t.title.toLowerCase().includes(q) ||
+          (t.category ?? '').toLowerCase().includes(q) ||
+          getPhaseLabel(t.phase).toLowerCase().includes(q)
+        )
+      })
+      // 紐づけ済みを上に表示
+      .sort((a, b) => {
+        const aL = linkedIds.has(a.id) ? 0 : 1
+        const bL = linkedIds.has(b.id) ? 0 : 1
+        if (aL !== bL) return aL - bL
+        return 0
+      })
+  }, [candidates, query, linkedIds])
 
   const refresh = () => startTransition(() => router.refresh())
 
-  const handleLink = async (taskId: string) => {
+  const handleToggle = async (taskId: string, currentlyLinked: boolean) => {
     setBusyId(taskId)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('task_dependencies').insert({
-        case_id: currentTask.case_id,
-        from_task_id: currentTask.id,
-        to_task_id: taskId,
-        condition_type: 'task_completed',
-      })
-      if (error) throw error
-      showToast('次タスクとして紐づけました', 'success')
+      if (currentlyLinked) {
+        // 解除
+        const dep = existingDeps.find(d => d.to_task_id === taskId)
+        if (!dep) {
+          setBusyId(null)
+          return
+        }
+        const { error } = await supabase.from('task_dependencies').delete().eq('id', dep.id)
+        if (error) throw error
+        showToast('紐づけを解除しました', 'success')
+      } else {
+        // 追加
+        const { error } = await supabase.from('task_dependencies').insert({
+          case_id: currentTask.case_id,
+          from_task_id: currentTask.id,
+          to_task_id: taskId,
+          condition_type: 'task_completed',
+        })
+        if (error) throw error
+        showToast('次タスクとして紐づけました', 'success')
+      }
       refresh()
     } catch (e) {
       console.error(e)
-      showToast('紐づけに失敗しました', 'error')
+      showToast('操作に失敗しました', 'error')
     } finally {
       setBusyId(null)
     }
   }
 
-  const handleUnlink = async (taskId: string) => {
-    setBusyId(taskId)
-    try {
-      const dep = existingDeps.find(d => d.to_task_id === taskId)
-      if (!dep) return
-      const supabase = createClient()
-      const { error } = await supabase.from('task_dependencies').delete().eq('id', dep.id)
-      if (error) throw error
-      showToast('紐づけを解除しました', 'success')
-      refresh()
-    } catch (e) {
-      console.error(e)
-      showToast('解除に失敗しました', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
+  const linkedCount = linkedIds.size
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-3 py-2.5 bg-brand-600 flex items-center gap-2">
-        <ChevronRight className="w-4 h-4 text-white" strokeWidth={2.25} />
+      {/* ヘッダー（折りたたみ可） */}
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className="w-full px-3 py-2.5 bg-brand-600 flex items-center gap-2 hover:bg-brand-700 transition-colors"
+      >
+        {expanded
+          ? <ChevronDown className="w-4 h-4 text-white" strokeWidth={2.25} />
+          : <ChevronRight className="w-4 h-4 text-white" strokeWidth={2.25} />}
         <span className="text-white text-[14px] font-bold">このタスクが終わったら</span>
-      </div>
+        {linkedCount > 0 && (
+          <span className="ml-auto text-[11px] font-bold text-white bg-white/30 px-2 py-0.5 rounded-full">
+            {linkedCount} 件紐づけ済
+          </span>
+        )}
+      </button>
 
-      {/* 紐づけ済みの次タスク */}
-      <div className="divide-y divide-gray-100">
-        {linkedTasks.length === 0 ? (
-          <div className="px-3 py-4 text-center text-[12px] text-gray-400">
-            次のタスクは未設定です
-          </div>
-        ) : (
-          linkedTasks.map(t => (
-            <div key={t.id} className="flex items-stretch group">
-              <Link
-                href={`/tasks/${t.id}`}
-                className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-100">
-                  <ChevronRight className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-800 truncate group-hover:text-brand-600">
-                    {t.title}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
-                      style={{ backgroundColor: getPhaseColor(t.phase) }}
-                    >
-                      {getPhaseLabel(t.phase)}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${STATUS_BADGE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {t.status}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-              <button
-                type="button"
-                onClick={() => handleUnlink(t.id)}
-                disabled={busyId === t.id}
-                className="px-2 text-gray-300 hover:text-red-500 text-[12px] disabled:opacity-50"
-                title="紐づけを解除"
-              >
-                {busyId === t.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '×'}
-              </button>
+      {expanded && (
+        <>
+          {/* 検索 */}
+          {candidates.length > 6 && (
+            <div className="px-3 pt-2.5 pb-1">
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="タスク名・カテゴリ・Phaseで検索"
+                className="w-full px-2 py-1 text-[12px] border border-gray-300 rounded outline-none focus:ring-1 focus:ring-brand-300 focus:border-brand-400"
+              />
             </div>
-          ))
-        )}
-      </div>
+          )}
 
-      {/* 追加ボタン or ピッカー */}
-      <div className="border-t border-gray-100 bg-gray-50/40">
-        {!pickerOpen ? (
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="w-full px-3 py-2 inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            次タスクを選択
-          </button>
-        ) : (
-          <NextTaskPicker
-            pickable={pickable}
-            linkedIds={linkedIds}
-            busyId={busyId}
-            onLink={handleLink}
-            onClose={() => setPickerOpen(false)}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function NextTaskPicker({
-  pickable,
-  linkedIds,
-  busyId,
-  onLink,
-  onClose,
-}: {
-  pickable: TaskRow[]
-  linkedIds: Set<string>
-  busyId: string | null
-  onLink: (taskId: string) => void
-  onClose: () => void
-}) {
-  const [query, setQuery] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return pickable.filter(t => {
-      if (linkedIds.has(t.id)) return false
-      if (!q) return true
-      return (
-        t.title.toLowerCase().includes(q) ||
-        (t.category ?? '').toLowerCase().includes(q) ||
-        getPhaseLabel(t.phase).toLowerCase().includes(q)
-      )
-    })
-  }, [pickable, linkedIds, query])
-
-  return (
-    <div className="p-2.5 space-y-2">
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          autoFocus
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="タスク名・カテゴリ・Phaseで検索"
-          className="flex-1 px-2 py-1 text-[12px] border border-gray-300 rounded outline-none focus:ring-1 focus:ring-brand-300 focus:border-brand-400"
-        />
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-[11px] text-gray-500 hover:text-gray-700 font-semibold px-1"
-        >
-          閉じる
-        </button>
-      </div>
-      <div className="max-h-[260px] overflow-y-auto rounded border border-gray-200 bg-white">
-        {filtered.length === 0 ? (
-          <div className="px-2 py-4 text-center text-[12px] text-gray-400">
-            候補のタスクはありません
+          {/* チェックボックスリスト */}
+          <div className="max-h-[360px] overflow-y-auto">
+            {visible.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12px] text-gray-400">
+                {query ? '該当するタスクはありません' : '紐づけ可能なタスクがありません'}
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {visible.map(t => {
+                  const isLinked = linkedIds.has(t.id)
+                  const isBusy = busyId === t.id
+                  return (
+                    <li key={t.id}>
+                      <label
+                        className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-colors ${
+                          isLinked ? 'bg-brand-50/60 hover:bg-brand-50' : 'hover:bg-gray-50'
+                        } ${isBusy ? 'opacity-50' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isLinked}
+                          disabled={isBusy}
+                          onChange={() => handleToggle(t.id, isLinked)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] truncate ${isLinked ? 'font-bold text-brand-800' : 'font-medium text-gray-800'}`}>
+                            {t.title}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span
+                              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
+                              style={{ backgroundColor: getPhaseColor(t.phase) }}
+                            >
+                              {getPhaseLabel(t.phase)}
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${STATUS_BADGE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {t.status}
+                            </span>
+                            {t.category && (
+                              <span className="text-[10px] text-gray-500 truncate">{t.category}</span>
+                            )}
+                          </div>
+                        </div>
+                        {isBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600 flex-shrink-0 mt-1" />}
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {filtered.map(t => {
-              const isBusy = busyId === t.id
-              return (
-                <li key={t.id}>
-                  <label className={`flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-brand-50/50 ${isBusy ? 'opacity-50' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      disabled={isBusy}
-                      onChange={() => onLink(t.id)}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-400"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium text-gray-800 truncate">{t.title}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
-                          style={{ backgroundColor: getPhaseColor(t.phase) }}
-                        >
-                          {getPhaseLabel(t.phase)}
-                        </span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${STATUS_BADGE[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {t.status}
-                        </span>
-                        {t.category && (
-                          <span className="text-[10px] text-gray-500">{t.category}</span>
-                        )}
-                      </div>
-                    </div>
-                    {isBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />}
-                  </label>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-      <p className="text-[11px] text-gray-400 px-0.5">
-        チェックすると即座に「次タスク」として紐づけられます。
-      </p>
+          <div className="px-3 py-2 bg-gray-50/40 border-t border-gray-100 text-[11px] text-gray-500">
+            チェックで「次タスク」として紐づけ、外すと解除されます。
+          </div>
+        </>
+      )}
     </div>
   )
 }

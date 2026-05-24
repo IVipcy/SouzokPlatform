@@ -334,55 +334,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
         )
       })()}
 
-      {/* 👉 今やること カード（最優先で見せる） */}
-      {(() => {
-        const completionCondition = getCompletionCondition(task.template_key)
-        if (!task.procedure_text && !completionCondition) return null
-        return (
-          <div className="bg-gradient-to-br from-brand-50 to-indigo-50 border-2 border-brand-300 rounded-xl overflow-hidden mb-5 shadow-sm">
-            <div className="bg-brand-600 px-4 py-2">
-              <h2 className="text-white text-sm font-bold flex items-center gap-2">
-                <span className="text-base">👉</span> 今やること
-              </h2>
-            </div>
-            <div className="p-4 space-y-4">
-              {/* 完了条件（一番重要） */}
-              {completionCondition && (
-                <div className="bg-white border border-green-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-green-600 text-lg leading-none mt-0.5">✅</span>
-                    <div className="flex-1">
-                      <div className="text-[13px] font-bold text-green-700 mb-1">
-                        このタスクを「完了」にするタイミング
-                      </div>
-                      <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                        {completionCondition}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* 作業手順 */}
-              {task.procedure_text && (
-                <div className="bg-white border border-brand-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-brand-600 text-lg leading-none mt-0.5">📋</span>
-                    <div className="flex-1">
-                      <div className="text-[13px] font-bold text-brand-700 mb-1">
-                        作業手順
-                      </div>
-                      <div className="text-[13px] text-gray-700 whitespace-pre-line leading-relaxed">
-                        {task.procedure_text}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      })()}
-
       {/* 2カラムレイアウト */}
       <div className="flex gap-5">
         {/* 左カラム */}
@@ -420,18 +371,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
               currentMemberId={currentMemberId}
             />
           )}
-
-          {/* 1-c. 作業メモ（個別管理項目）— 既存 tasks.notes を活用 */}
-          <Section title="作業メモ" icon="🗒️">
-            <div className="text-[12px] text-gray-500 mb-1.5">
-              作業中の気づき・依頼者連絡時の覚え書きなど、自由に記入できます。
-            </div>
-            <InlineTextarea
-              label=""
-              value={task.notes ?? ''}
-              onSave={v => saveField('notes', v)}
-            />
-          </Section>
 
           {/* 2. 着手者・作業履歴 */}
           <Section title="着手者・作業履歴" icon="👤">
@@ -494,11 +433,12 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             )}
           </Section>
 
-          {/* 3. カテゴリ別セクション（作業内容） */}
-          <TaskCategorySections task={task} onRefresh={() => router.refresh()} />
-
-          {/* 3-b. 実施結果（次タスクで「前段作業の実施結果」として読み取られる） */}
-          <ExecutionResultSection task={task} />
+          {/* 3. このタスクの作業内容 — 作業内容(procedure_text) + カテゴリ別フォーム + 実施結果 + 進捗メモ */}
+          <TaskWorkSection
+            task={task}
+            saveField={saveField}
+            onRefresh={() => router.refresh()}
+          />
 
           {/* 4. 作成物（同一案件で作成された書類はタスクを跨いで共有） */}
           <CaseDocumentSection
@@ -521,82 +461,125 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
   )
 }
 
-// =================== 実施結果セクション ===================
-// このタスクの完了結果を自由記述。
-// 次タスク（このタスクを from_task に持つ task_dependencies の to_task）の
-// PrevTaskReviewSection で「前段作業の実施結果」として読み取られる。
-// 保存先: ext_data.execution_result（migration 不要）
-function ExecutionResultSection({ task }: { task: TaskRow }) {
+// =================== このタスクの作業内容セクション ===================
+// 構成:
+//   1. 作業内容（procedure_text + 完了条件を読み取り表示）
+//   2. カテゴリ別の作業フォーム（TaskCategorySections）
+//   3. 実施結果（自由記述、次タスクの前段確認で読み取られる）
+//   4. 作業進捗メモ（tasks.notes、本人の備忘）
+function TaskWorkSection({
+  task,
+  saveField,
+  onRefresh,
+}: {
+  task: TaskRow
+  saveField: (field: string, value: unknown) => Promise<void>
+  onRefresh: () => void
+}) {
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
-  const initial = typeof ext.execution_result === 'string' ? ext.execution_result : ''
-  const [draft, setDraft] = useState<string>(initial)
-  const [saving, setSaving] = useState(false)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
-  const router = useRouter()
+  const completionCondition = getCompletionCondition(task.template_key)
 
-  // 外部更新（router.refresh 後）と同期
-  if (initial !== draft && !saving && savedAt === null) {
-    // ユーザー編集中（savedAt === null）なら上書きしない。ここは初回マウント時のみ作用。
-  }
+  // --- 実施結果（ext_data.execution_result） ---
+  const initialResult = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+  const [resultDraft, setResultDraft] = useState<string>(initialResult)
+  const [savingResult, setSavingResult] = useState(false)
+  const [resultSavedAt, setResultSavedAt] = useState<string | null>(null)
 
-  const handleSave = async () => {
-    if (draft === initial) return
-    setSaving(true)
+  const handleSaveResult = async () => {
+    if (resultDraft === initialResult) return
+    setSavingResult(true)
     try {
       const supabase = createClient()
-      const nextExt = { ...ext, execution_result: draft }
+      const nextExt = { ...ext, execution_result: resultDraft }
       const { error } = await supabase
         .from('tasks')
         .update({ ext_data: nextExt })
         .eq('id', task.id)
       if (error) throw error
-      setSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
+      setResultSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
       showToast('実施結果を保存しました', 'success')
-      router.refresh()
+      onRefresh()
     } catch (e) {
       console.error(e)
       showToast('保存に失敗しました', 'error')
     } finally {
-      setSaving(false)
+      setSavingResult(false)
     }
   }
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-        <span className="text-base">✍️</span>
-        <h2 className="text-[14px] font-bold text-gray-900">実施結果</h2>
-        <span className="text-[12px] text-gray-400">
-          次のタスクの作業者がここを読みます
-        </span>
-        {savedAt && (
-          <span className="ml-auto text-[11px] text-green-600">{savedAt} 保存</span>
-        )}
+      {/* セクションヘッダー */}
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+        <span className="text-base">📝</span>
+        <h2 className="text-[14px] font-bold text-gray-900">このタスクの作業内容</h2>
       </div>
-      <div className="p-4 space-y-2">
-        <textarea
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          placeholder="このタスクで何を・どう完了したかを記入します。&#10;例: 三井住友銀行 ○○支店宛に残高証明請求書を発送 (基準日 2026-03-15)。到着予定は 2026-03-25 頃。"
-          rows={5}
-          className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-gray-400">
-            このタスクの完了時に書き残すと、次の人が前段確認で読み取れます。
-          </span>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || draft === initial}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all ${
-              saving || draft === initial
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-brand-600 hover:bg-brand-700'
-            }`}
-          >
-            {saving ? '保存中...' : '保存'}
-          </button>
+
+      <div className="p-4 space-y-5">
+        {/* 1. 作業内容（procedure_text + 完了条件） */}
+        {(task.procedure_text || completionCondition) && (
+          <div>
+            <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業内容</div>
+            <div className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-line leading-relaxed space-y-2">
+              {task.procedure_text && (
+                <div>{task.procedure_text}</div>
+              )}
+              {completionCondition && (
+                <div className="pt-2 border-t border-gray-200">
+                  <span className="font-semibold text-green-700">✅ 完了タイミング: </span>
+                  <span>{completionCondition}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 2. カテゴリ別の作業フォーム */}
+        <TaskCategorySections task={task} onRefresh={onRefresh} />
+
+        {/* 3. 実施結果 */}
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="text-[13px] font-semibold text-gray-700">実施結果</div>
+            <span className="text-[11px] text-gray-400">次のタスクの作業者がここを読みます</span>
+            {resultSavedAt && (
+              <span className="ml-auto text-[11px] text-green-600">{resultSavedAt} 保存</span>
+            )}
+          </div>
+          <textarea
+            value={resultDraft}
+            onChange={e => setResultDraft(e.target.value)}
+            placeholder="タスクの実施結果を記載してください。&#10;例: 三井住友銀行 ○○支店宛に残高証明請求書を発送 (基準日 2026-03-15)。到着予定は 2026-03-25 頃。"
+            rows={4}
+            className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
+          />
+          <div className="mt-1 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={handleSaveResult}
+              disabled={savingResult || resultDraft === initialResult}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-bold text-white shadow-sm transition-all ${
+                savingResult || resultDraft === initialResult
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-brand-600 hover:bg-brand-700'
+              }`}
+            >
+              {savingResult ? '保存中...' : '実施結果を保存'}
+            </button>
+          </div>
+        </div>
+
+        {/* 4. 作業進捗メモ（既存 tasks.notes 流用） */}
+        <div>
+          <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業進捗メモ</div>
+          <InlineTextarea
+            label=""
+            value={task.notes ?? ''}
+            onSave={v => saveField('notes', v)}
+          />
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            いつ何をやったのか、作業の進捗が分かるメモを記載
+          </div>
         </div>
       </div>
     </section>
