@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Loader2, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
-import type { TaskRow, TaskDependencyRow } from '@/types'
+import { PHASES } from '@/lib/constants'
+import type { TaskRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
 
 type Props = {
   currentTask: TaskRow
@@ -16,6 +17,8 @@ type Props = {
   linkedIds: Set<string>
   /** 既存の next dependency 行（解除用に dep.id を保持） */
   existingDeps: TaskDependencyRow[]
+  /** タスクテンプレ（新規タスク作成フォームの候補） */
+  taskTemplates?: TaskTemplateRow[]
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -32,12 +35,13 @@ const STATUS_BADGE: Record<string, string> = {
  * - チェックの ON/OFF で task_dependencies の insert/delete が走る
  * - 追加と解除が同じ操作（チェック）で完結する双方向UI
  */
-export default function NextTaskSelector({ currentTask, candidates, linkedIds, existingDeps }: Props) {
+export default function NextTaskSelector({ currentTask, candidates, linkedIds, existingDeps, taskTemplates = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(true)
   const [query, setQuery] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
 
   // 紐づけ対象になり得るタスク: 自分以外 + 完了済み以外
   const visible = useMemo(() => {
@@ -185,11 +189,205 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
               </ul>
             )}
           </div>
+          {/* 新規タスク作成（折りたたみフォーム） */}
+          <div className="border-t border-gray-100">
+            {!createOpen ? (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="w-full px-3 py-2 inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                新しいタスクを作成して紐づける
+              </button>
+            ) : (
+              <CreateTaskForm
+                currentTask={currentTask}
+                taskTemplates={taskTemplates}
+                onClose={() => setCreateOpen(false)}
+                onCreated={() => {
+                  setCreateOpen(false)
+                  refresh()
+                }}
+              />
+            )}
+          </div>
+
           <div className="px-3 py-2 bg-gray-50/40 border-t border-gray-100 text-[11px] text-gray-500">
             チェックで「次タスク」として紐づけ、外すと解除されます。
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// =================== 新規タスク作成フォーム ===================
+function CreateTaskForm({
+  currentTask,
+  taskTemplates,
+  onClose,
+  onCreated,
+}: {
+  currentTask: TaskRow
+  taskTemplates: TaskTemplateRow[]
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const [phase, setPhase] = useState<string>(currentTask.phase ?? PHASES[0].key)
+  const [busy, setBusy] = useState(false)
+  // datalist 経由で「タスク名から選択 or フリー入力」を実現
+  const datalistId = `task-template-titles-${currentTask.id}`
+
+  // 選択されたタスク名がテンプレに一致する場合はそのテンプレ情報を利用
+  const matchedTemplate = useMemo(() => {
+    const t = title.trim()
+    if (!t) return null
+    return taskTemplates.find(tpl => tpl.label === t) ?? null
+  }, [title, taskTemplates])
+
+  // テンプレが一致したら Phase を自動同期
+  const handleTitleChange = (next: string) => {
+    setTitle(next)
+    const tpl = taskTemplates.find(t => t.label === next)
+    if (tpl?.phase) setPhase(tpl.phase)
+  }
+
+  const handleSubmit = async () => {
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      showToast('タスク名を入力してください', 'error')
+      return
+    }
+    setBusy(true)
+    try {
+      const supabase = createClient()
+
+      // 1) 新規タスクを insert
+      const newTask: Record<string, unknown> = {
+        case_id: currentTask.case_id,
+        title: trimmedTitle,
+        phase,
+        status: '着手前',
+        priority: '通常',
+        sort_order: 0,
+      }
+      if (matchedTemplate) {
+        newTask.template_key = matchedTemplate.key
+        newTask.category = matchedTemplate.category ?? null
+        newTask.procedure_text = matchedTemplate.procedure_text ?? null
+        // work_role は default_role を流用（'sales' などが入っていれば）
+        if (matchedTemplate.default_role) {
+          newTask.work_role = matchedTemplate.default_role
+        }
+      }
+      const { data: inserted, error: insErr } = await supabase
+        .from('tasks')
+        .insert(newTask)
+        .select('id')
+        .single()
+      if (insErr || !inserted) throw insErr ?? new Error('insert failed')
+
+      // 2) task_dependencies で「このタスク → 新規タスク」を紐づけ
+      const { error: depErr } = await supabase.from('task_dependencies').insert({
+        case_id: currentTask.case_id,
+        from_task_id: currentTask.id,
+        to_task_id: inserted.id,
+        condition_type: 'task_completed',
+      })
+      if (depErr) throw depErr
+
+      showToast(`「${trimmedTitle}」を作成して紐づけました`, 'success')
+      setTitle('')
+      onCreated()
+    } catch (e) {
+      console.error(e)
+      showToast('作成に失敗しました', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="px-3 py-2.5 bg-brand-50/40 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[12px] font-semibold text-brand-800">新しいタスクを作成</div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600"
+          title="閉じる"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* タスク名（datalist でテンプレ候補表示 + フリー入力可） */}
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">タスク名</label>
+        <input
+          type="text"
+          list={datalistId}
+          value={title}
+          onChange={e => handleTitleChange(e.target.value)}
+          placeholder="リストから選択、または自由入力"
+          disabled={busy}
+          className="w-full px-2 py-1 text-[12px] border border-gray-300 rounded outline-none focus:ring-1 focus:ring-brand-300 focus:border-brand-400 disabled:opacity-50"
+        />
+        <datalist id={datalistId}>
+          {taskTemplates.map(t => (
+            <option key={t.id} value={t.label}>{t.phase} / {t.category}</option>
+          ))}
+        </datalist>
+        {matchedTemplate && (
+          <div className="text-[11px] text-green-700 mt-0.5">
+            ✓ テンプレ「{matchedTemplate.label}」を使用（カテゴリ・作業手順を自動セット）
+          </div>
+        )}
+      </div>
+
+      {/* Phase */}
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">Phase</label>
+        <select
+          value={phase}
+          onChange={e => setPhase(e.target.value)}
+          disabled={busy}
+          className="w-full px-2 py-1 text-[12px] border border-gray-300 rounded outline-none focus:ring-1 focus:ring-brand-300 focus:border-brand-400 disabled:opacity-50 bg-white"
+        >
+          {PHASES.map(p => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+        >
+          キャンセル
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={busy || !title.trim()}
+          className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-[12px] font-bold text-white rounded shadow-sm ${
+            busy || !title.trim()
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-brand-600 hover:bg-brand-700'
+          }`}
+        >
+          {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+          作成して紐づける
+        </button>
+      </div>
+      <div className="text-[11px] text-gray-400">
+        担当区分・期限・詳細は作成後にタスク詳細から設定してください。
+      </div>
     </div>
   )
 }

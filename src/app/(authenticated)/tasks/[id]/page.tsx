@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import TaskDetailClient from '@/components/features/tasks/TaskDetailClient'
-import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -46,7 +46,7 @@ export default async function TaskDetailPage({ params }: Props) {
 
   // 依存関係と関連タスク情報を取得
   // 関連タスクには 前段作業の確認セクションで使う started_by/completed_at/started_by_member などを含める
-  const [depsResult, relatedTasksResult, caseDocsResult] = await Promise.all([
+  const [depsResult, relatedTasksResult, caseDocsResult, taskTemplatesResult] = await Promise.all([
     supabase
       .from('task_dependencies')
       .select('*')
@@ -61,6 +61,12 @@ export default async function TaskDetailPage({ params }: Props) {
       .select('*')
       .eq('case_id', caseId)
       .order('updated_at', { ascending: false }),
+    // タスクテンプレ（次タスク新規作成時の候補）
+    supabase
+      .from('task_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order'),
   ])
 
   // 依存関係に関連タスク情報を付与
@@ -93,6 +99,7 @@ export default async function TaskDetailPage({ params }: Props) {
       currentMemberId={currentUser?.memberId ?? null}
       dependencies={dependencies}
       caseTasks={relatedTasks}
+      taskTemplates={(taskTemplatesResult.data ?? []) as TaskTemplateRow[]}
     />
   )
 }

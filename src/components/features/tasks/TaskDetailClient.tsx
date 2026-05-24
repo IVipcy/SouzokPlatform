@@ -10,13 +10,12 @@ import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } f
 import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
-import { getCompletionCondition } from '@/lib/taskCompletionConditions'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
 
 type Props = {
   task: TaskRow
@@ -29,6 +28,8 @@ type Props = {
   currentMemberId: string | null
   dependencies?: TaskDependencyRow[]
   caseTasks?: TaskRow[]
+  /** タスクテンプレ（次タスク新規作成時の候補） */
+  taskTemplates?: TaskTemplateRow[]
 }
 
 const PRIORITIES = [
@@ -45,7 +46,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TaskDetailClient({ task, allMembers, documents, caseDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [] }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, caseDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [] }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
@@ -432,11 +433,10 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             )}
           </Section>
 
-          {/* 3. このタスクの作業内容 — 作業内容(procedure_text) + カテゴリ別フォーム + 実施結果 + 進捗メモ */}
+          {/* 3. このタスクの作業内容 — 作業内容(procedure_text) + 実施結果 + 進捗メモ */}
           <TaskWorkSection
             task={task}
             saveField={saveField}
-            onRefresh={() => router.refresh()}
           />
 
           {/* 4. 作成物（同一案件で作成された書類はタスクを跨いで共有） */}
@@ -453,6 +453,7 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             documents={documents}
             dependencies={dependencies}
             caseTasks={caseTasks}
+            taskTemplates={taskTemplates}
           />
         </div>
       </div>
@@ -461,49 +462,28 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
 }
 
 // =================== このタスクの作業内容セクション ===================
-// 構成:
-//   1. 作業内容（procedure_text + 完了条件を読み取り表示）
-//   2. カテゴリ別の作業フォーム（TaskCategorySections）
-//   3. 実施結果（自由記述、次タスクの前段確認で読み取られる）
-//   4. 作業進捗メモ（tasks.notes、本人の備忘）
+// 構成（全項目クリックで編集 → 外クリックで自動保存、保存ボタン無し）:
+//   1. 作業内容 (tasks.procedure_text)  — テンプレ初期値 + 上書き可
+//   2. 実施結果 (ext_data.execution_result) — 次タスクの前段確認で読み取られる
+//   3. 作業進捗メモ (tasks.notes) — 本人の備忘録
 function TaskWorkSection({
   task,
   saveField,
-  onRefresh,
 }: {
   task: TaskRow
   saveField: (field: string, value: unknown) => Promise<void>
-  onRefresh: () => void
+  onRefresh?: () => void
 }) {
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
-  const completionCondition = getCompletionCondition(task.template_key)
 
-  // --- 実施結果（ext_data.execution_result） ---
-  const initialResult = typeof ext.execution_result === 'string' ? ext.execution_result : ''
-  const [resultDraft, setResultDraft] = useState<string>(initialResult)
-  const [savingResult, setSavingResult] = useState(false)
-  const [resultSavedAt, setResultSavedAt] = useState<string | null>(null)
-
-  const handleSaveResult = async () => {
-    if (resultDraft === initialResult) return
-    setSavingResult(true)
-    try {
-      const supabase = createClient()
-      const nextExt = { ...ext, execution_result: resultDraft }
-      const { error } = await supabase
-        .from('tasks')
-        .update({ ext_data: nextExt })
-        .eq('id', task.id)
-      if (error) throw error
-      setResultSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
-      showToast('実施結果を保存しました', 'success')
-      onRefresh()
-    } catch (e) {
-      console.error(e)
-      showToast('保存に失敗しました', 'error')
-    } finally {
-      setSavingResult(false)
-    }
+  const handleSaveExecutionResult = async (next: string) => {
+    const supabase = createClient()
+    const nextExt = { ...ext, execution_result: next }
+    const { error } = await supabase
+      .from('tasks')
+      .update({ ext_data: nextExt })
+      .eq('id', task.id)
+    if (error) throw error
   }
 
   return (
@@ -514,66 +494,35 @@ function TaskWorkSection({
         <h2 className="text-[14px] font-bold text-gray-900">このタスクの作業内容</h2>
       </div>
 
-      <div className="p-4 space-y-5">
-        {/* 1. 作業内容（procedure_text + 完了条件 を読み取り表示） */}
-        <div>
-          <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業内容</div>
-          <div className={`px-3 py-2.5 rounded-lg text-[13px] whitespace-pre-line leading-relaxed space-y-2 ${
-            task.procedure_text || completionCondition
-              ? 'bg-gray-50 border border-gray-200 text-gray-800'
-              : 'bg-gray-50/50 border border-dashed border-gray-200 text-gray-400 italic'
-          }`}>
-            {task.procedure_text ? (
-              <div>{task.procedure_text}</div>
-            ) : !completionCondition ? (
-              <div>作業内容は設定されていません</div>
-            ) : null}
-            {completionCondition && (
-              <div className={task.procedure_text ? 'pt-2 border-t border-gray-200' : ''}>
-                <span className="font-semibold text-green-700">✅ 完了タイミング: </span>
-                <span className="text-gray-800">{completionCondition}</span>
-              </div>
-            )}
+      <div className="px-4 py-3 divide-y divide-gray-100">
+        {/* 1. 作業内容 */}
+        <div className="pb-3">
+          <InlineTextarea
+            label="作業内容"
+            value={task.procedure_text ?? ''}
+            onSave={v => saveField('procedure_text', v)}
+          />
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            タスクテンプレートの内容が初期値で入っています。このタスク用に上書きできます。
           </div>
         </div>
 
         {/* 2. 実施結果 */}
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="text-[13px] font-semibold text-gray-700">実施結果</div>
-            <span className="text-[11px] text-gray-400">次のタスクの作業者がここを読みます</span>
-            {resultSavedAt && (
-              <span className="ml-auto text-[11px] text-green-600">{resultSavedAt} 保存</span>
-            )}
-          </div>
-          <textarea
-            value={resultDraft}
-            onChange={e => setResultDraft(e.target.value)}
-            placeholder="タスクの実施結果を記載してください。&#10;例: 三井住友銀行 ○○支店宛に残高証明請求書を発送 (基準日 2026-03-15)。到着予定は 2026-03-25 頃。"
-            rows={4}
-            className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
+        <div className="py-3">
+          <InlineTextarea
+            label="実施結果"
+            value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
+            onSave={handleSaveExecutionResult}
           />
-          <div className="mt-1 flex items-center justify-end">
-            <button
-              type="button"
-              onClick={handleSaveResult}
-              disabled={savingResult || resultDraft === initialResult}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-bold text-white shadow-sm transition-all ${
-                savingResult || resultDraft === initialResult
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-brand-600 hover:bg-brand-700'
-              }`}
-            >
-              {savingResult ? '保存中...' : '実施結果を保存'}
-            </button>
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            次のタスクの作業者が「前段作業の実施結果」としてここを読みます。
           </div>
         </div>
 
-        {/* 3. 作業進捗メモ（既存 tasks.notes 流用） */}
-        <div>
-          <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業進捗メモ</div>
+        {/* 3. 作業進捗メモ */}
+        <div className="pt-3">
           <InlineTextarea
-            label=""
+            label="作業進捗メモ"
             value={task.notes ?? ''}
             onSave={v => saveField('notes', v)}
           />

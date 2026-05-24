@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Bot, FileText } from 'lucide-react'
-import type { TaskRow, CaseDocumentRow, TaskDependencyRow } from '@/types'
+import type { TaskRow, CaseDocumentRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
 import NextTaskSelector from './NextTaskSelector'
 
 type Props = {
@@ -11,6 +11,8 @@ type Props = {
   dependencies?: TaskDependencyRow[]
   /** 同一案件の他タスク（次タスク選択UI用） */
   caseTasks?: TaskRow[]
+  /** タスクテンプレ（次タスク新規作成フォーム用） */
+  taskTemplates?: TaskTemplateRow[]
 }
 
 const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
@@ -19,7 +21,7 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   '完了': { bg: 'bg-green-50', text: 'text-green-700' },
 }
 
-export default function TaskDetailSidebar({ task, documents, dependencies = [], caseTasks = [] }: Props) {
+export default function TaskDetailSidebar({ task, documents, dependencies = [], caseTasks = [], taskTemplates = [] }: Props) {
   const caseData = task.cases
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
 
@@ -155,6 +157,7 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
         candidates={nextCandidates}
         linkedIds={linkedNextIds}
         existingDeps={nextTaskDeps}
+        taskTemplates={taskTemplates}
       />
 
       {/* タイムライン */}
