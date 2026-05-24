@@ -72,17 +72,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     { data: allMembersRaw },
     { data: caseMembersRaw },
     { data: clientsRaw },
-    { data: memberTargetsRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true).eq('team_id', teamId),
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role'),
     supabase.from('case_members').select('case_id,member_id,role').in('role', ['sales', 'manager']),
     supabase.from('clients').select('id,name'),
-    supabase
-      .from('member_targets')
-      .select('member_id,new_orders_count,invoice_count')
-      .eq('ym', ymToday),
   ])
 
   if (!team) notFound()
@@ -95,8 +90,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const clientById = new Map(clients.map(c => [c.id, c.name]))
 
   // メンバー切替パネル用（進捗管理は管理担当の仕事なので、管理担当のみ表示）
-  // 達成情報は後で managerRows 集計後に上書きする
-  let navMembers: TeamNavMember[] = teamMembers
+  // ※管理担当には個人目標を設定しないので、achieved は常に false
+  const navMembers: TeamNavMember[] = teamMembers
     .filter(m => m.primary_role === 'manager')
     .map(m => ({
       id: m.id,
@@ -104,7 +99,6 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       avatarColor: m.avatar_color ?? '#6B7280',
       avatarUrl: m.avatar_url,
       primaryRole: m.primary_role as 'sales' | 'manager',
-      achieved: false,  // 後で達成中の管理担当に true をセット
     }))
 
   // チームの管理担当全員のID
@@ -385,11 +379,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     })
 
   // ─── 管理担当別 月次成績テーブルのデータ生成（フォーカス無関係に全管理担当を表示） ───
-  const memberTargets = (memberTargetsRaw ?? []) as Array<{
-    member_id: string; new_orders_count: number; invoice_count: number
-  }>
-  const invoiceTargetByMember = new Map(memberTargets.map(t => [t.member_id, t.invoice_count]))
-
+  // 管理担当には個人目標を設定しない方針なので、純粋に実績を集計するだけ。
   const ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
   const managerRows: ManagerRow[] = teamMembers
     .filter(m => m.primary_role === 'manager')
@@ -420,9 +410,6 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         c.completion_date <= monthEndYmd,
       ).length
 
-      const invoiceTarget = invoiceTargetByMember.get(mgr.id) ?? 0
-      const achieved = invoiceTarget > 0 && monthlyInvoiceCount >= invoiceTarget
-
       return {
         id: mgr.id,
         name: mgr.name,
@@ -432,14 +419,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         monthlyInvoiceCount,
         totalAssigned,
         monthlyCompleted,
-        invoiceTarget,
-        achieved,
       }
     })
-
-  // 達成中の管理担当ID（メンバー切替ナビでもレインボー表示するため）
-  const achievedManagerIds = new Set(managerRows.filter(r => r.achieved).map(r => r.id))
-  navMembers = navMembers.map(nm => ({ ...nm, achieved: achievedManagerIds.has(nm.id) }))
 
   return (
     <div>
@@ -489,12 +470,11 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         <BillingStatusView summary={billingSummary} rows={billingRows} />
       )}
 
-      {/* 管理担当別 月次成績テーブル（請求件数の個人目標を編集できる場所） */}
+      {/* 管理担当別 月次成績テーブル（実績の可視化のみ。個人目標は持たない方針） */}
       <ManagerProgressTable
         rows={managerRows}
         teamName={team.name}
         today={today}
-        ym={ymToday}
       />
     </div>
   )
