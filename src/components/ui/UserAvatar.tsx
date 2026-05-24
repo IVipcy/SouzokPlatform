@@ -47,10 +47,15 @@ export default function UserAvatar({
       ? { bg: color, fg: '#ffffff' }
       : colorsForRole(null)
 
-  // リング（ホワイト + ロール色の二重リング）— achievedFrame 関係なく常に同じ
-  const ringStyle = showRing
-    ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
-    : undefined
+  // リング（白縁取り）
+  //   - 通常時: 白 + ロール色の二重リング
+  //   - 達成時: 細いホワイトのみ（外側にレインボー画像が出るので、ロール色リングがあると
+  //             レインボーを覆い隠してしまう）
+  const ringStyle = achievedFrame
+    ? { boxShadow: `0 0 0 1.5px white` }
+    : showRing
+      ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
+      : undefined
 
   // 内側の本体（写真 or 文字）
   const inner = url ? (
