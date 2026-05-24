@@ -16,6 +16,9 @@ type Props = {
   /** セクションタイトル（指定するとカード上部にアクセント付きヘッダー） */
   title?: string
   subtitle?: string
+  /** 「+書類を追加」で挿入する行に紐づけるタスクID。
+   *  タスク詳細から作成する際に渡すと、クロスタスクで参照可能になる。 */
+  defaultTaskId?: string | null
 }
 
 // 1レコードあたりの「代表ファイル」を取得（受領 > 自社控え の優先順）
@@ -45,7 +48,7 @@ function fmtDate(iso: string | null): string {
  *   - 書類名 / ファイル更新日 / ファイル(プレビュー or DL) の3列のみ
  *   - 状態フィルタや発送/受領カラムは廃止
  */
-export default function CaseDocumentTable({ caseId, rows, title, subtitle }: Props) {
+export default function CaseDocumentTable({ caseId, rows, title, subtitle, defaultTaskId = null }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [adding, setAdding] = useState(false)
@@ -56,11 +59,13 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle }: Pro
   const handleAdd = async () => {
     setAdding(true)
     try {
-      const { error } = await supabase.from('case_documents').insert({
+      const payload: { case_id: string; document_name: string; quantity: number; task_id?: string } = {
         case_id: caseId,
         document_name: '',
         quantity: 1,
-      })
+      }
+      if (defaultTaskId) payload.task_id = defaultTaskId
+      const { error } = await supabase.from('case_documents').insert(payload)
       if (error) throw error
       refresh()
     } catch (e) {

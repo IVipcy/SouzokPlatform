@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2 } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, RotateCcw, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
@@ -13,6 +13,8 @@ import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { getCompletionCondition } from '@/lib/taskCompletionConditions'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
+import PrevTaskReviewSection from './PrevTaskReviewSection'
+import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow } from '@/types'
@@ -20,7 +22,10 @@ import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependen
 type Props = {
   task: TaskRow
   allMembers: MemberRow[]
+  /** このタスクに紐づく書類のみ（サイドバー「関連ドキュメント」用） */
   documents: CaseDocumentRow[]
+  /** 同一案件の全書類（「作成物」セクション用、他タスク作成分も含む） */
+  caseDocuments?: CaseDocumentRow[]
   activities: CaseActivityRow[]
   currentMemberId: string | null
   dependencies?: TaskDependencyRow[]
@@ -32,19 +37,25 @@ const PRIORITIES = [
   { key: '急ぎ', label: '急ぎ' },
 ]
 
-// ステータス正規化: 旧ステータスを新3段階に変換
+// ステータス正規化: 旧ステータスを新3段階+差戻しに変換
+// 差戻しは前段タスク評価×時にセットされる例外ステータス（フロー外）
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
-  if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
+  if (['Wチェック待ち', '保留'].includes(status)) return '対応中'
   if (status === 'キャンセル') return '完了'
   return status
 }
 
-export default function TaskDetailClient({ task, allMembers, documents, activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [] }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, caseDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [] }: Props) {
+  void caseTasks
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
   const clientData = caseData?.clients
+
+  // 前段作業（task_completed 型依存の from_task）を抽出
+  const prereqDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
+  const hasPrereq = prereqDeps.some(d => d.condition_type === 'task_completed' && d.from_task)
 
   const currentStatus = normalizeStatus(task.status)
   const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
@@ -98,6 +109,19 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
           })
         }
         showToast(`「${task.title}」を完了しました`)
+      } else if (currentStatus === '差戻し') {
+        // 差戻し → 対応中 に戻す（再対応）
+        const { error } = await supabase.from('tasks').update({ status: '対応中' }).eq('id', task.id)
+        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+        if (memberId) {
+          await supabase.from('case_activities').insert({
+            case_id: task.case_id, task_id: task.id, member_id: memberId,
+            activity_type: 'status_change',
+            description: `${task.title} を再対応開始`,
+            activity_date: new Date().toISOString().split('T')[0],
+          })
+        }
+        showToast(`「${task.title}」を再対応中にしました`)
       }
       router.refresh()
     } catch {
@@ -205,6 +229,23 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
                   完了
                 </span>
               )}
+              {currentStatus === '差戻し' && (
+                <div className="flex flex-col items-end">
+                  <button
+                    onClick={handleAdvance}
+                    disabled={advancing}
+                    className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                      ${advancing ? 'bg-red-400 cursor-wait scale-95' : 'bg-red-600 hover:bg-red-700 hover:scale-105 active:scale-95'}`}
+                  >
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <RotateCcw className="w-4 h-4" strokeWidth={2.25} />}
+                    {advancing ? '処理中...' : '再対応する'}
+                  </button>
+                  <span className="text-[12px] text-red-500 mt-0.5 inline-flex items-center gap-0.5">
+                    <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
+                    差戻されています
+                  </span>
+                </div>
+              )}
 
               {/* 現在ステータス */}
               <span
@@ -260,6 +301,39 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
           </div>
         </div>
       </div>
+
+      {/* 差戻しバナー（差戻し理由を見せる） */}
+      {currentStatus === '差戻し' && (() => {
+        const ext = (task.ext_data ?? {}) as Record<string, unknown>
+        const reason = typeof ext.returned_reason === 'string' ? ext.returned_reason : null
+        const returnedAt = typeof ext.returned_at === 'string' ? ext.returned_at.slice(0, 10) : null
+        return (
+          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 mb-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" strokeWidth={2.25} />
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] font-bold text-red-800 mb-1">
+                  このタスクは差戻されました
+                  {returnedAt && (
+                    <span className="ml-2 text-[12px] font-normal text-red-600">({returnedAt})</span>
+                  )}
+                </div>
+                {reason ? (
+                  <div className="text-[13px] text-gray-800 bg-white border border-red-200 rounded-lg p-2.5 whitespace-pre-line">
+                    <span className="font-semibold text-red-700">差戻し理由: </span>
+                    {reason}
+                  </div>
+                ) : (
+                  <div className="text-[13px] text-gray-600">理由は記録されていません</div>
+                )}
+                <div className="text-[12px] text-red-700 mt-1.5">
+                  内容を修正したら、右上の <span className="font-bold">「再対応する」</span> ボタンを押してください。
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 👉 今やること カード（最優先で見せる） */}
       {(() => {
@@ -345,6 +419,27 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             </div>
           </Section>
 
+          {/* 1-b. 前段作業の確認（前提タスクがある場合のみ） */}
+          {hasPrereq && (
+            <PrevTaskReviewSection
+              task={task}
+              prereqDeps={prereqDeps}
+              currentMemberId={currentMemberId}
+            />
+          )}
+
+          {/* 1-c. 作業メモ（個別管理項目）— 既存 tasks.notes を活用 */}
+          <Section title="作業メモ" icon="🗒️">
+            <div className="text-[12px] text-gray-500 mb-1.5">
+              作業中の気づき・依頼者連絡時の覚え書きなど、自由に記入できます。
+            </div>
+            <InlineTextarea
+              label=""
+              value={task.notes ?? ''}
+              onSave={v => saveField('notes', v)}
+            />
+          </Section>
+
           {/* 2. 着手者・作業履歴 */}
           <Section title="着手者・作業履歴" icon="👤">
             {/* 着手者表示 */}
@@ -408,6 +503,12 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
 
           {/* 3. カテゴリ別セクション（作業内容） */}
           <TaskCategorySections task={task} onRefresh={() => router.refresh()} />
+
+          {/* 4. 作成物（同一案件で作成された書類はタスクを跨いで共有） */}
+          <CaseDocumentSection
+            task={task}
+            caseDocuments={caseDocuments}
+          />
         </div>
 
         {/* 右カラム */}
@@ -420,5 +521,74 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
         </div>
       </div>
     </div>
+  )
+}
+
+// =================== 作成物セクション ===================
+// 同一案件の全書類を表示し、このタスク発の書類とそれ以外を分けて見せる。
+// アップロード/追加時に task_id を埋めるため、CaseDocumentTable には絞り込み済みの2グループを渡す。
+function CaseDocumentSection({ task, caseDocuments }: {
+  task: TaskRow
+  caseDocuments: CaseDocumentRow[]
+}) {
+  const [filter, setFilter] = useState<'this_task' | 'all'>('this_task')
+
+  const thisTaskDocs = caseDocuments.filter(d => d.task_id === task.id)
+  const otherDocs = caseDocuments.filter(d => d.task_id !== task.id)
+  const shownDocs = filter === 'this_task' ? thisTaskDocs : caseDocuments
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+        <span className="text-base">📎</span>
+        <h2 className="text-[14px] font-bold text-gray-900">作成物</h2>
+        <span className="text-[12px] text-gray-400">
+          このタスクで作成・受領した書類。同じ案件の他タスクからも参照できます
+        </span>
+        <div className="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden text-[12px]">
+          <button
+            type="button"
+            onClick={() => setFilter('this_task')}
+            className={`px-3 py-1 transition-colors ${
+              filter === 'this_task'
+                ? 'bg-brand-600 text-white font-semibold'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            このタスク（{thisTaskDocs.length}）
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1 border-l border-gray-200 transition-colors ${
+              filter === 'all'
+                ? 'bg-brand-600 text-white font-semibold'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            案件全体（{caseDocuments.length}）
+          </button>
+        </div>
+      </div>
+      <div className="p-3">
+        <CaseDocumentTable
+          caseId={task.case_id}
+          rows={shownDocs}
+          defaultTaskId={filter === 'this_task' ? task.id : null}
+        />
+        {filter === 'this_task' && otherDocs.length > 0 && (
+          <div className="mt-2 text-[12px] text-gray-500">
+            他タスクで作成された書類が {otherDocs.length} 件あります。
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className="ml-1 text-brand-600 hover:underline font-semibold"
+            >
+              すべて表示
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

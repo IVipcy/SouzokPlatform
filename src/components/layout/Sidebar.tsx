@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import UserAvatar from '@/components/ui/UserAvatar'
+import NotificationBell from '@/components/features/notifications/NotificationBell'
 
 const ROLE_LABEL: Record<string, string> = {
   sales: '受注担当',
@@ -118,8 +119,9 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* プロフィール + ログアウト */}
+      {/* プロフィール + 通知 + ログアウト */}
       <div className="p-3 border-t border-gray-100 space-y-1">
+        {user?.memberId && <NotificationBell />}
         {user?.memberId && (
           <Link
             href="/profile"
