@@ -181,7 +181,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   // KPI計算
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
-  // 案件IDごとに manager を引く
+  // 案件IDごとに manager を引く（進捗テーブル表示用）
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
   for (const cm of caseMembers) {
     if (cm.role !== 'manager') continue
@@ -189,6 +189,26 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     if (managerByCase.has(cm.case_id)) continue
     const m = memberById.get(cm.member_id)
     if (m) managerByCase.set(cm.case_id, m)
+  }
+
+  // 請求状況ビュー用の「チーム視点」担当者マップ。
+  //   - 個人フィルタ中: その個人を表示
+  //   - チーム全体: 優先順 [スコープ内の管理 > スコープ内の受注 > スコープ外の管理]
+  // ※スコープ内＝チームメンバー（または focusMember）
+  const teamAssigneeByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
+  for (const cm of caseMembers) {
+    if (!scopeCaseIds.has(cm.case_id)) continue
+    const isInScope = scopeMemberIds.has(cm.member_id)
+    if (!isInScope) continue
+    const existing = teamAssigneeByCase.get(cm.case_id)
+    const m = memberById.get(cm.member_id)
+    if (!m) continue
+    // 管理担当を優先（既に管理がいれば上書きしない、なければ受注でセット）
+    if (cm.role === 'manager') {
+      teamAssigneeByCase.set(cm.case_id, m)
+    } else if (!existing) {
+      teamAssigneeByCase.set(cm.case_id, m)
+    }
   }
 
   // タスクを case ごとにグルーピング
@@ -296,20 +316,31 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     }
   }
 
+  // 請求行の担当者: 個人フィルタ中はその個人を表示。
+  // チーム全体ではスコープ内メンバー優先（管理→受注）、いなければ管理担当を表示。
   const billingRows: BillingViewRow[] = monthlyInvoices
     .sort((a, b) => (b.issued_date ?? '').localeCompare(a.issued_date ?? ''))
     .map(inv => {
       const c = cases.find(c => c.id === inv.case_id)
-      const mgr = managerByCase.get(inv.case_id) ?? null
+      let displayMember = teamAssigneeByCase.get(inv.case_id) ?? null
+      // フォールバック: チーム内担当が見つからなければ管理担当
+      if (!displayMember) {
+        displayMember = managerByCase.get(inv.case_id) ?? null
+      }
+      // 個人フィルタ中は強制的にそのメンバー（チーム外の管理担当を表示しないように）
+      if (focusMember) {
+        const fm = memberById.get(focusMember.id)
+        if (fm) displayMember = fm
+      }
       return {
         invoiceId: inv.id,
         caseId: inv.case_id,
         caseNumber: c?.case_number ?? '-',
         dealName: c?.deal_name ?? '-',
-        managerName: mgr?.name ?? null,
-        managerId: mgr?.id ?? null,
-        managerAvatarColor: mgr?.avatar_color ?? null,
-        managerAvatarUrl: mgr?.avatar_url ?? null,
+        managerName: displayMember?.name ?? null,
+        managerId: displayMember?.id ?? null,
+        managerAvatarColor: displayMember?.avatar_color ?? null,
+        managerAvatarUrl: displayMember?.avatar_url ?? null,
         status: inv.status,
         amount: inv.amount,
         issuedDate: inv.issued_date,

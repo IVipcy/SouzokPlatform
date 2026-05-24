@@ -7,7 +7,7 @@ import {
   Section, FieldGrid, InlineEdit, InlineSelect, InlineMultiSelect, InlineCheckbox,
 } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
 import type { CaseRow, ClientCommunicationRow } from '@/types'
 
@@ -284,7 +284,10 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
     status: row.status,
   })
 
-  const datalistId = `comm-type-${row.id}`
+  // 連絡内容が5択に含まれない値（自由入力）の場合は自由入力モードでスタート
+  const [typeMode, setTypeMode] = useState<'select' | 'free'>(
+    COMMUNICATION_TYPE_OPTIONS.includes(row.communication_type) ? 'select' : 'free',
+  )
 
   const save = async (patch: Partial<typeof editing>) => {
     const next = { ...editing, ...patch }
@@ -328,18 +331,63 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
         />
       </td>
       <td className="px-2 py-1.5 border border-gray-200">
-        <input
-          type="text"
-          list={datalistId}
-          value={editing.communication_type}
-          onChange={e => setEditing(p => ({ ...p, communication_type: e.target.value }))}
-          onBlur={e => save({ communication_type: e.target.value })}
-          placeholder="進捗連絡 等"
-          className="w-full px-1.5 py-1 text-[13px] border border-gray-200 rounded outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-200"
-        />
-        <datalist id={datalistId}>
-          {COMMUNICATION_TYPE_OPTIONS.map(opt => <option key={opt} value={opt} />)}
-        </datalist>
+        {typeMode === 'select' ? (
+          <div className="flex items-center gap-1">
+            <select
+              value={editing.communication_type}
+              onChange={e => {
+                if (e.target.value === '__free__') {
+                  // 自由入力モードへ切替（値は維持して編集できるように）
+                  setTypeMode('free')
+                  return
+                }
+                const v = e.target.value
+                setEditing(p => ({ ...p, communication_type: v }))
+                save({ communication_type: v })
+              }}
+              className="flex-1 px-1.5 py-1 text-[13px] border border-gray-200 rounded outline-none bg-white focus:border-brand-400 focus:ring-1 focus:ring-brand-200"
+            >
+              {COMMUNICATION_TYPE_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+              <option value="__free__">— 自由入力に切替 —</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setTypeMode('free')}
+              className="text-gray-400 hover:text-brand-600 p-1"
+              title="自由入力モードに切替"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={editing.communication_type}
+              onChange={e => setEditing(p => ({ ...p, communication_type: e.target.value }))}
+              onBlur={e => save({ communication_type: e.target.value })}
+              placeholder="連絡内容を入力"
+              className="flex-1 px-1.5 py-1 text-[13px] border border-gray-200 rounded outline-none bg-amber-50/40 focus:border-brand-400 focus:ring-1 focus:ring-brand-200"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                // 選択モードに戻す。現在値が5択に無い場合はデフォルト「進捗連絡」に戻す
+                if (!COMMUNICATION_TYPE_OPTIONS.includes(editing.communication_type)) {
+                  setEditing(p => ({ ...p, communication_type: '進捗連絡' }))
+                  save({ communication_type: '進捗連絡' })
+                }
+                setTypeMode('select')
+              }}
+              className="text-gray-400 hover:text-brand-600 p-1"
+              title="選択肢に戻す"
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </td>
       <td className="px-2 py-1.5 border border-gray-200">
         <input
