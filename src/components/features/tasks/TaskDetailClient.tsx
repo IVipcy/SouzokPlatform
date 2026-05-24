@@ -11,7 +11,6 @@ import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { getCompletionCondition } from '@/lib/taskCompletionConditions'
-import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
@@ -516,28 +515,29 @@ function TaskWorkSection({
       </div>
 
       <div className="p-4 space-y-5">
-        {/* 1. 作業内容（procedure_text + 完了条件） */}
-        {(task.procedure_text || completionCondition) && (
-          <div>
-            <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業内容</div>
-            <div className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-line leading-relaxed space-y-2">
-              {task.procedure_text && (
-                <div>{task.procedure_text}</div>
-              )}
-              {completionCondition && (
-                <div className="pt-2 border-t border-gray-200">
-                  <span className="font-semibold text-green-700">✅ 完了タイミング: </span>
-                  <span>{completionCondition}</span>
-                </div>
-              )}
-            </div>
+        {/* 1. 作業内容（procedure_text + 完了条件 を読み取り表示） */}
+        <div>
+          <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業内容</div>
+          <div className={`px-3 py-2.5 rounded-lg text-[13px] whitespace-pre-line leading-relaxed space-y-2 ${
+            task.procedure_text || completionCondition
+              ? 'bg-gray-50 border border-gray-200 text-gray-800'
+              : 'bg-gray-50/50 border border-dashed border-gray-200 text-gray-400 italic'
+          }`}>
+            {task.procedure_text ? (
+              <div>{task.procedure_text}</div>
+            ) : !completionCondition ? (
+              <div>作業内容は設定されていません</div>
+            ) : null}
+            {completionCondition && (
+              <div className={task.procedure_text ? 'pt-2 border-t border-gray-200' : ''}>
+                <span className="font-semibold text-green-700">✅ 完了タイミング: </span>
+                <span className="text-gray-800">{completionCondition}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* 2. カテゴリ別の作業フォーム */}
-        <TaskCategorySections task={task} onRefresh={onRefresh} />
-
-        {/* 3. 実施結果 */}
+        {/* 2. 実施結果 */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <div className="text-[13px] font-semibold text-gray-700">実施結果</div>
@@ -569,7 +569,7 @@ function TaskWorkSection({
           </div>
         </div>
 
-        {/* 4. 作業進捗メモ（既存 tasks.notes 流用） */}
+        {/* 3. 作業進捗メモ（既存 tasks.notes 流用） */}
         <div>
           <div className="text-[13px] font-semibold text-gray-700 mb-1.5">作業進捗メモ</div>
           <InlineTextarea
