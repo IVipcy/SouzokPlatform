@@ -10,16 +10,32 @@ import type { CaseRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
+  // 依頼者との最新やり取り日（YYYY-MM-DD）。null=履歴なし。
+  // ステータスが受注/対応中で、これが2週間以上前 or null のとき「要進捗連絡」マークを点滅表示
+  latestCommunicationDate: string | null
+}
+
+const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
+
+// 2週間以上経過しているか判定
+function needsFollowup(status: string, latestDate: string | null): boolean {
+  if (!FOLLOWUP_STATUSES.has(status)) return false
+  if (!latestDate) return true  // 履歴なし＝要進捗連絡
+  const last = new Date(latestDate)
+  const today = new Date()
+  const diffDays = (today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24)
+  return diffDays >= 14
 }
 
 const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '保留・長期', '完了', '失注']
 
-export default function CaseHeader({ caseData }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate }: Props) {
   const router = useRouter()
   const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669', '確認中': '#D97706' }
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
+  const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -72,8 +88,16 @@ export default function CaseHeader({ caseData }: Props) {
                   {caseData.case_number}
                 </span>
               </div>
-              <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight mb-0.5">
+              <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight mb-0.5 inline-flex items-center gap-2 flex-wrap">
                 {caseData.deal_name}
+                {caseData.has_complaint && (
+                  <span
+                    className="inline-flex w-5 h-5 rounded-full bg-purple-600 items-center justify-center shadow-[0_0_0_2px_rgba(147,51,234,0.2)]"
+                    title="クレーム案件（紫フラグ）"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  </span>
+                )}
               </h1>
               {caseData.deceased_name && (
                 <p className="text-[13px] text-gray-500">
@@ -130,6 +154,15 @@ export default function CaseHeader({ caseData }: Props) {
                   label={`相続税 ${caseData.tax_filing_required}`}
                   color={taxColors[caseData.tax_filing_required] ?? '#6B7280'}
                 />
+              )}
+              {followupNeeded && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 border-amber-300 text-amber-700 followup-blink"
+                  title="受注/対応中ステータスで、お客様への最終進捗連絡から2週間以上経過しています"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  要進捗連絡
+                </span>
               )}
             </div>
           </div>

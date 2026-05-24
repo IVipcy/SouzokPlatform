@@ -176,9 +176,26 @@ export type CaseRow = {
   payment_amount: number | null
   partner_compensation: number | null
   invoice_memo: string | null
+  // 依頼者情報タブ
+  client_trait: 'smile' | 'neutral' | 'angry' | null
+  client_trait_detail: string | null
+  has_complaint: boolean
+  complaint_detail: string | null
   created_at: string
   updated_at: string
   clients?: ClientRow | null
+}
+
+// 依頼者とのやり取り履歴
+export type ClientCommunicationRow = {
+  id: string
+  case_id: string
+  communicated_at: string  // YYYY-MM-DD
+  communication_type: string
+  detail: string | null
+  status: 'お客様待ち' | '完了'
+  created_at: string
+  updated_at: string
 }
 
 export type ClientRow = {

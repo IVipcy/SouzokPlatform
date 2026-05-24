@@ -78,3 +78,17 @@ body {
     display: none !important;
   }
 }
+
+/* ─── 要進捗連絡（点滅）─── */
+@keyframes followup-blink-anim {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.followup-blink {
+  animation: followup-blink-anim 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .followup-blink {
+    animation: none;
+  }
+}

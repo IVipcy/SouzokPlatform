@@ -8,6 +8,7 @@ import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
+import ClientInfoTab from './ClientInfoTab'
 import TasksTab from './TasksTab'
 import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
@@ -20,7 +21,7 @@ import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -34,15 +35,16 @@ type Props = {
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
   documents: CaseDocumentRow[]
+  clientCommunications: ClientCommunicationRow[]
   currentMemberId: string | null
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['basicInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
+const VALID_TABS: TabKey[] = ['basicInfo', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, currentMemberId }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -108,9 +110,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     }
   }
 
+  // 最新のお客様やり取り日（要進捗連絡マーク用）
+  const latestCommunicationDate = clientCommunications.length > 0
+    ? clientCommunications.reduce((max, c) => (c.communicated_at > max ? c.communicated_at : max), clientCommunications[0].communicated_at)
+    : null
+
   return (
     <div>
-      <CaseHeader caseData={caseState} />
+      <CaseHeader caseData={caseState} latestCommunicationDate={latestCommunicationDate} />
 
       <CaseTabs
         activeTab={activeTab}
@@ -121,6 +128,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
       {activeTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} patchClient={patchClient} />
+      )}
+      {activeTab === 'clientInfo' && (
+        <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} />
       )}
       {activeTab === 'tasks' && (
         <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />

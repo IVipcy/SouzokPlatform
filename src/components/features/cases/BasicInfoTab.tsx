@@ -3,13 +3,12 @@
 import Badge from '@/components/ui/Badge'
 import {
   Section, FieldGrid, Field, QIRow, InlineEdit, InlineSelect, InlineMultiSelect,
-  InlineDate, InlineNumber, InlineMemberSelect, InlineCheckbox,
+  InlineDate, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
 import {
   ROLES, TASK_STATUSES, CASE_STATUSES,
-  LOCATIONS, TEAMS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
+  LOCATIONS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
   ORDER_ROUTES, ORDER_ROUTE_DETAILS, LOST_REASONS, MEETING_PLACES,
-  MAILING_DESTINATIONS,
 } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
@@ -25,7 +24,7 @@ type Props = {
   patchClient: (patch: Record<string, unknown>) => Promise<void>
 }
 
-export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers, onRefresh, patchCase, patchClient }: Props) {
+export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers, onRefresh, patchCase }: Props) {
   const completedTasks = tasks.filter(t => t.status === '完了').length
   const totalTasks = tasks.length
   const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
@@ -33,12 +32,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
-
-  const saveClientField = async (field: string, value: unknown) => {
-    await patchClient({ [field]: value ?? null })
-  }
-
-  const client = caseData.clients
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
@@ -98,30 +91,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
           </FieldGrid>
         </Section>
 
-        {/* 3. 依頼者情報 */}
-        <Section title="依頼者情報" icon="👤">
-          {caseData.client_id && client ? (
-            <FieldGrid>
-              <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
-              <InlineEdit label="依頼者ふりがな" value={client.furigana} onSave={v => saveClientField('furigana', v)} />
-              <InlineEdit label="郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))} />
-              <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
-              <InlineEdit label="依頼者TEL" value={client.phone} onSave={v => saveClientField('phone', v.replace(/[^0-9]/g, ''))} />
-              <InlineEdit label="依頼者携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v.replace(/[^0-9]/g, ''))} />
-              <InlineEdit label="依頼者メール" value={client.email} onSave={v => saveClientField('email', v)} />
-              <InlineMultiSelect
-                label="連絡先希望"
-                value={client.preferred_contact}
-                options={['自宅TEL', '携帯TEL', 'メール']}
-                onSave={v => saveClientField('preferred_contact', v)}
-              />
-              <InlineCheckbox label="依頼者外字有無" value={client.has_special_chars} onSave={v => saveClientField('has_special_chars', v)} />
-            </FieldGrid>
-          ) : (
-            <p className="text-sm text-gray-400 italic py-2">依頼者未登録</p>
-          )}
-        </Section>
-
         {/* 5. 受注内容 */}
         <Section title="受注内容" icon="📦">
           <FieldGrid>
@@ -177,13 +146,6 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
           </FieldGrid>
         </Section>
 
-        {/* 郵送・書類設定（旧「郵送管理」タブから移設） */}
-        <Section title="郵送・書類設定" icon="📬">
-          <FieldGrid>
-            <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
-            <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
-          </FieldGrid>
-        </Section>
       </div>
 
       {/* Right column */}
