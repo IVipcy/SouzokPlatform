@@ -4,11 +4,11 @@ import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   achievementRate,
-  cycleAchievementRate,
   formatMan,
   type DeptTargetRow,
   type MetricsBundle,
 } from '@/lib/dashboardMetrics'
+import { parseIntInput, parseFloatInput } from '@/lib/inputHelpers'
 
 type Props = {
   ym: string
@@ -17,6 +17,11 @@ type Props = {
 }
 
 type EditField = 'new_orders' | 'managing' | 'completed' | 'cycle_months' | 'completed_amount'
+
+// 達成行の表示種別:
+//   'rate'             … 達成率 % + プログレスバー（高いほど良い指標用）
+//   'diff-lower-better' … 目標との差分（短いほど良い指標用、サイクル等）
+type AchievementKind = 'rate' | 'diff-lower-better'
 
 type KpiCol = {
   key: EditField
@@ -29,10 +34,12 @@ type KpiCol = {
   toInput: (t: DeptTargetRow) => string
   // input 値 → DB 保存用の値
   fromInput: (s: string) => number
-  // 達成率（null = 未設定）
-  rate: (m: MetricsBundle, t: DeptTargetRow) => number | null
-  // 数値型ヒント
-  inputStep: string
+  // 達成行の種別
+  achievementKind: AchievementKind
+  // rate 用: 達成率（null = 未設定/評価不能）
+  rate?: (m: MetricsBundle, t: DeptTargetRow) => number | null
+  // diff-lower-better 用: actual - target を返す（null = 未設定/評価不能）
+  diff?: (m: MetricsBundle, t: DeptTargetRow) => number | null
 }
 
 const COLS: KpiCol[] = [
@@ -43,9 +50,9 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.newOrders),
     formatTarget: t => String(t.new_orders),
     toInput: t => String(t.new_orders),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
+    achievementKind: 'rate',
     rate: (m, t) => achievementRate(m.newOrders, t.new_orders),
-    inputStep: '1',
   },
   {
     key: 'managing',
@@ -54,9 +61,9 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.managing),
     formatTarget: t => String(t.managing),
     toInput: t => String(t.managing),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
+    achievementKind: 'rate',
     rate: (m, t) => achievementRate(m.managing, t.managing),
-    inputStep: '1',
   },
   {
     key: 'completed',
@@ -65,9 +72,9 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.completed),
     formatTarget: t => String(t.completed),
     toInput: t => String(t.completed),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
+    achievementKind: 'rate',
     rate: (m, t) => achievementRate(m.completed, t.completed),
-    inputStep: '1',
   },
   {
     key: 'cycle_months',
@@ -76,9 +83,14 @@ const COLS: KpiCol[] = [
     formatActual: m => (m.cycleMonths === null ? '-' : m.cycleMonths.toFixed(1)),
     formatTarget: t => t.cycle_months.toFixed(1),
     toInput: t => t.cycle_months.toString(),
-    fromInput: s => Math.max(0, Number(s) || 0),
-    rate: (m, t) => cycleAchievementRate(m.cycleMonths, t.cycle_months),
-    inputStep: '0.1',
+    fromInput: s => Math.max(0, parseFloatInput(s)),
+    achievementKind: 'diff-lower-better',
+    // サイクルは短いほど良い → 実績 - 目標。負（早い）が好ましい。
+    diff: (m, t) => {
+      if (!t.cycle_months || t.cycle_months <= 0) return null
+      if (m.cycleMonths === null) return null
+      return m.cycleMonths - t.cycle_months
+    },
   },
   {
     key: 'completed_amount',
@@ -89,9 +101,9 @@ const COLS: KpiCol[] = [
     // 円 → 万円
     toInput: t => String(Math.round(t.completed_amount / 10_000)),
     // 万円入力 → 円
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0) * 10_000),
+    fromInput: s => Math.max(0, parseIntInput(s) * 10_000),
+    achievementKind: 'rate',
     rate: (m, t) => achievementRate(m.completedAmount, t.completed_amount),
-    inputStep: '1',
   },
 ]
 
@@ -195,10 +207,10 @@ export default function SummaryKpiTable({ ym, metrics, initialTarget }: Props) {
                       <div className="flex items-center justify-center gap-1">
                         <input
                           autoFocus
-                          type="number"
-                          step={col.inputStep}
-                          min={0}
+                          type="text"
+                          inputMode="decimal"
                           value={draft}
+                          onFocus={e => e.target.select()}
                           onChange={e => setDraft(e.target.value)}
                           onBlur={() => commitEdit(col)}
                           onKeyDown={e => {
@@ -237,11 +249,42 @@ export default function SummaryKpiTable({ ym, metrics, initialTarget }: Props) {
               ))}
             </tr>
 
-            {/* 達成率 */}
+            {/* 達成率 / 差分 */}
             <tr>
               <td className="border border-gray-200 bg-gray-50 px-2 py-2 text-center text-[12px] font-semibold text-gray-600">達成率</td>
               {COLS.map(col => {
-                const r = col.rate(metrics, target)
+                // サイクル等は差分表示
+                if (col.achievementKind === 'diff-lower-better' && col.diff) {
+                  const d = col.diff(metrics, target)
+                  if (d === null) {
+                    return (
+                      <td key={col.key} className="border border-gray-200 px-3 py-2 bg-white">
+                        <div className="text-center text-[12px] text-gray-400">目標未設定</div>
+                      </td>
+                    )
+                  }
+                  // d <= 0 = 早い（良い）, d > 0 = 遅い（悪い）
+                  const isGood = d <= 0
+                  const sign = d > 0 ? '+' : ''
+                  return (
+                    <td key={col.key} className="border border-gray-200 px-3 py-2 bg-white">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className="flex items-baseline gap-1">
+                          <span className={`font-mono font-bold text-[16px] ${isGood ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {sign}{d.toFixed(1)}
+                          </span>
+                          <span className="text-[11px] text-gray-500">{col.unit}</span>
+                        </div>
+                        <span className={`text-[10px] ${isGood ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {isGood ? '目標より早い' : '目標を超過'}
+                        </span>
+                      </div>
+                    </td>
+                  )
+                }
+
+                // 通常の達成率
+                const r = col.rate ? col.rate(metrics, target) : null
                 const pct = r === null ? null : clampPct(r)
                 return (
                   <td key={col.key} className="border border-gray-200 px-3 py-2 bg-white">

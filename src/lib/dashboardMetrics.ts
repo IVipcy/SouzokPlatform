@@ -754,57 +754,30 @@ export type AchievementResult = {
   achieved: boolean
 }
 
-// 部全体ダッシュボード（5指標）の達成判定
-//   - 新規受注 / 管理 / 完了 / 業務完了金額: 高いほど良い → actual >= target なら達成
-//   - サイクル: 低いほど良い → actual <= target なら達成
-//   - 目標 0 は「未設定」として評価対象外
+// 部全体ダッシュボード ポップアップ判定（業務完了金額 単独）
+//   - completed_amount 目標が未設定 → ポップアップ非表示
+//   - actual >= target なら達成
 export function isDeptAchieved(
   m: MetricsBundle,
-  t: { new_orders: number; managing: number; completed: number; cycle_months: number; completed_amount: number },
+  t: { completed_amount: number },
 ): AchievementResult {
-  type Check = { actual: number; target: number; lowerIsBetter?: boolean }
-  const checks: Check[] = [
-    { actual: m.newOrders, target: t.new_orders },
-    { actual: m.managing, target: t.managing },
-    { actual: m.completed, target: t.completed },
-    // cycleMonths が null は「データ不足」なので評価不能（達成側に倒さない）
-    { actual: m.cycleMonths ?? Infinity, target: t.cycle_months, lowerIsBetter: true },
-    { actual: m.completedAmount, target: t.completed_amount },
-  ]
-  const setChecks = checks.filter(c => c.target > 0)
-  if (setChecks.length === 0) return { hasTargets: false, achieved: false }
-  const achieved = setChecks.every(c =>
-    c.lowerIsBetter ? c.actual <= c.target : c.actual >= c.target,
-  )
-  return { hasTargets: true, achieved }
+  if (!t.completed_amount || t.completed_amount <= 0) {
+    return { hasTargets: false, achieved: false }
+  }
+  return { hasTargets: true, achieved: m.completedAmount >= t.completed_amount }
 }
 
-// 受注担当ダッシュボード（6指標）の達成判定
-//   - すべて「高いほど良い」
-//   - conversion_rate は target=0..100、actual=0..1 の小数なので 100 倍して比較
+// 受注担当ダッシュボード ポップアップ判定（新規受注件数 単独）
+//   - new_orders_count 目標が未設定 → ポップアップ非表示
+//   - actual >= target なら達成
 export function isSalesAchieved(
   m: SalesMetricsBundle,
-  t: {
-    meetings_count: number
-    new_orders_count: number
-    conversion_rate: number
-    avg_order_unit: number
-    tax_filing_count: number
-    property_appraisal_count: number
-  },
+  t: { new_orders_count: number },
 ): AchievementResult {
-  const checks: { actual: number; target: number }[] = [
-    { actual: m.meetingsCount, target: t.meetings_count },
-    { actual: m.newOrdersCount, target: t.new_orders_count },
-    { actual: (m.conversionRate ?? 0) * 100, target: t.conversion_rate },
-    { actual: m.avgOrderUnit ?? 0, target: t.avg_order_unit },
-    { actual: m.taxFilingCount, target: t.tax_filing_count },
-    { actual: m.propertyAppraisalCount, target: t.property_appraisal_count },
-  ]
-  const setChecks = checks.filter(c => c.target > 0)
-  if (setChecks.length === 0) return { hasTargets: false, achieved: false }
-  const achieved = setChecks.every(c => c.actual >= c.target)
-  return { hasTargets: true, achieved }
+  if (!t.new_orders_count || t.new_orders_count <= 0) {
+    return { hasTargets: false, achieved: false }
+  }
+  return { hasTargets: true, achieved: m.newOrdersCount >= t.new_orders_count }
 }
 
 // 円 → 万円表示

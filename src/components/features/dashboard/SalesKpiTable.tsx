@@ -8,6 +8,7 @@ import {
   type SalesMetricsBundle,
   type SalesTargetRow,
 } from '@/lib/dashboardMetrics'
+import { parseIntInput, parseFloatInput } from '@/lib/inputHelpers'
 
 type Props = {
   ym: string
@@ -21,7 +22,6 @@ type EditField =
   | 'new_orders_count'
   | 'conversion_rate'
   | 'avg_order_unit'
-  | 'tax_filing_count'
   | 'property_appraisal_count'
 
 type KpiCol = {
@@ -33,7 +33,6 @@ type KpiCol = {
   toInput: (t: SalesTargetRow) => string
   fromInput: (s: string) => number
   rate: (m: SalesMetricsBundle, t: SalesTargetRow) => number | null
-  inputStep: string
 }
 
 const COLS: KpiCol[] = [
@@ -44,9 +43,8 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.meetingsCount),
     formatTarget: t => String(t.meetings_count),
     toInput: t => String(t.meetings_count),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
     rate: (m, t) => achievementRate(m.meetingsCount, t.meetings_count),
-    inputStep: '1',
   },
   {
     key: 'new_orders_count',
@@ -55,9 +53,8 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.newOrdersCount),
     formatTarget: t => String(t.new_orders_count),
     toInput: t => String(t.new_orders_count),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
     rate: (m, t) => achievementRate(m.newOrdersCount, t.new_orders_count),
-    inputStep: '1',
   },
   {
     key: 'conversion_rate',
@@ -66,7 +63,7 @@ const COLS: KpiCol[] = [
     formatActual: m => (m.conversionRate === null ? '-' : `${Math.round(m.conversionRate * 100)}`),
     formatTarget: t => `${t.conversion_rate}`,
     toInput: t => String(t.conversion_rate),
-    fromInput: s => Math.max(0, Math.min(100, Number(s) || 0)),
+    fromInput: s => Math.max(0, Math.min(100, parseFloatInput(s))),
     // 受注率は 0..1 と 0..100 の混在に注意:
     // metrics.conversionRate は 0..1、target.conversion_rate は 0..100 で保存
     rate: (m, t) => {
@@ -74,7 +71,6 @@ const COLS: KpiCol[] = [
       if (m.conversionRate === null) return null
       return (m.conversionRate * 100) / t.conversion_rate
     },
-    inputStep: '0.1',
   },
   {
     key: 'avg_order_unit',
@@ -83,24 +79,12 @@ const COLS: KpiCol[] = [
     formatActual: m => (m.avgOrderUnit === null ? '-' : formatMan(m.avgOrderUnit)),
     formatTarget: t => formatMan(t.avg_order_unit),
     toInput: t => String(Math.round(t.avg_order_unit / 10_000)),       // 円→万円
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0) * 10_000),  // 万円→円
+    fromInput: s => Math.max(0, parseIntInput(s) * 10_000),            // 万円→円
     rate: (m, t) => {
       if (!t.avg_order_unit || t.avg_order_unit <= 0) return null
       if (m.avgOrderUnit === null) return null
       return m.avgOrderUnit / t.avg_order_unit
     },
-    inputStep: '1',
-  },
-  {
-    key: 'tax_filing_count',
-    label: '相続税申告件数',
-    unit: '件/月',
-    formatActual: m => String(m.taxFilingCount),
-    formatTarget: t => String(t.tax_filing_count),
-    toInput: t => String(t.tax_filing_count),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
-    rate: (m, t) => achievementRate(m.taxFilingCount, t.tax_filing_count),
-    inputStep: '1',
   },
   {
     key: 'property_appraisal_count',
@@ -109,9 +93,8 @@ const COLS: KpiCol[] = [
     formatActual: m => String(m.propertyAppraisalCount),
     formatTarget: t => String(t.property_appraisal_count),
     toInput: t => String(t.property_appraisal_count),
-    fromInput: s => Math.max(0, Math.floor(Number(s) || 0)),
+    fromInput: s => Math.max(0, parseIntInput(s)),
     rate: (m, t) => achievementRate(m.propertyAppraisalCount, t.property_appraisal_count),
-    inputStep: '1',
   },
 ]
 
@@ -222,10 +205,10 @@ export default function SalesKpiTable({ ym, monthLabel, metrics, initialTarget }
                       <div className="flex items-center justify-center gap-1">
                         <input
                           autoFocus
-                          type="number"
-                          step={col.inputStep}
-                          min={0}
+                          type="text"
+                          inputMode="decimal"
                           value={draft}
+                          onFocus={e => e.target.select()}
                           onChange={e => setDraft(e.target.value)}
                           onBlur={() => commitEdit(col)}
                           onKeyDown={e => {
