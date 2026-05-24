@@ -21,7 +21,7 @@ type CaseFull = DashCase & {
 }
 type CaseMemberRow = { case_id: string; member_id: string; role: string }
 
-const FLAG_RANK: Record<CaseFlag, number> = { red: 0, yellow: 1, blue: 2 }
+const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -96,7 +96,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
           icon={User}
           description="この担当者の受注／管理案件のフラグでリスクを早期発見"
         />
-        <ProgressKpis scopeLabel={member.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
+        <ProgressKpis scopeLabel={member.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, purpleCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null, invoiceCount: 0 }} />
         {teamForNav && (
           <TeamMemberNav teamId={teamForNav.id} teamName={teamForNav.name} members={navMembers} currentMemberId={memberId} />
         )}
@@ -109,15 +109,17 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   }
 
   const caseIdArray = Array.from(myCaseIds)
-  const [{ data: casesRaw }, { data: tasksRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id').in('id', caseIdArray),
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+    supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
   ])
 
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
+  const invoices = (invoicesRaw ?? []) as Array<{ case_id: string; issued_date: string | null }>
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today)
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
   // case → manager マップ
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
@@ -146,7 +148,10 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     .filter(c => ACTIVE.has(c.status))
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null
-      const flag = c.expected_completion_date ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today) : null
+      // クレームありは紫を最優先（完了予定日未設定でも紫扱い）
+      const flag = (c.has_complaint || c.expected_completion_date)
+        ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+        : null
       const myRoles = Array.from(myRolesPerCase.get(c.id) ?? [])
       return {
         id: c.id,
@@ -164,7 +169,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     })
 
   const rowsWithFlag = allRows
-    .filter(r => r.flag !== null && inSelectedMonth(r.expectedCompletionDate))
+    .filter(r => r.flag !== null && (r.flag === 'purple' || inSelectedMonth(r.expectedCompletionDate)))
     .sort((a, b) => {
       const fa = FLAG_RANK[a.flag!]
       const fb = FLAG_RANK[b.flag!]

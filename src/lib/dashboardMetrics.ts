@@ -15,6 +15,8 @@ export type DashCase = {
   procedure_type?: string[] | null
   // 受注担当ダッシュボードの「相続税申告件数」算出に使用
   tax_filing_required?: string | null
+  // 進捗管理ボードで紫フラグ（最優先）判定に使用
+  has_complaint?: boolean | null
 }
 
 // 受注担当ダッシュボードの「不動産査定件数」算出に使用する物件行型
@@ -51,7 +53,7 @@ export type DashTask = {
   due_date: string | null
 }
 
-export type CaseFlag = 'red' | 'yellow' | 'blue'
+export type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue'
 
 // 進捗管理ボードのしきい値（運用しながら調整可能）
 const FLAG_THRESHOLDS = {
@@ -64,11 +66,17 @@ const FLAG_THRESHOLDS = {
 const isTaskOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
 
 // 案件単位のフラグ判定
+//   優先度: 紫（クレームあり） > 赤 > 黄 > 青
 export function computeCaseFlag(
-  caseRow: { expected_completion_date?: string | null },
+  caseRow: { expected_completion_date?: string | null; has_complaint?: boolean | null },
   tasks: DashTask[],
   today: Date = new Date(),
 ): CaseFlag {
+  // (0) クレームあり → 紫（最優先）
+  if (caseRow.has_complaint) {
+    return 'purple'
+  }
+
   const ymd = todayJstYmd(today)
   const plus3 = new Date(today)
   plus3.setDate(plus3.getDate() + FLAG_THRESHOLDS.yellowImminentDays)
@@ -105,9 +113,11 @@ export type ProgressKpiBundle = {
   blueCount: number              // 青件数
   yellowCount: number            // 黄件数
   redCount: number               // 赤件数
+  purpleCount: number            // 紫件数（クレームあり、最優先）
   monthCompletionTarget: number  // 業完対象（選択月の完了予定件数）
   monthCompleted: number         // 月初〜本日完了件数（完了割合の分子）
   cycleMonths: number | null     // サイクル
+  invoiceCount: number           // 当月発行された請求書の件数
 }
 
 export type DailyMetricsBundle = {
@@ -266,14 +276,22 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
 // アクティブ = 受注済〜未完了（失注・受注前は除く）
 const ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
 
+// 当月発行された請求書を集計するため、月内 issued_date を持つ行型
+export type DashInvoice = {
+  case_id: string
+  issued_date: string | null
+}
+
 // 進捗管理ボード用のKPI計算
 // scopedCases: 対象スコープ（チーム or 個人）に絞り込み済みの案件
+// scopedInvoices: 同スコープの請求書（issued_date 当月のものをカウント）
 // selectedMonth: フラグ集計と業完対象の対象月（null なら全期間）
 export function computeProgressKpis(
   scopedCases: DashCase[],
   scopedTasks: DashTask[],
   selectedMonth: string | null,
   today: Date = new Date(),
+  scopedInvoices: DashInvoice[] = [],
 ): ProgressKpiBundle {
   const tasksByCase = new Map<string, DashTask[]>()
   for (const t of scopedTasks) {
@@ -298,10 +316,11 @@ export function computeProgressKpis(
       })()
 
   // 各案件のフラグ集計
-  let blueCount = 0, yellowCount = 0, redCount = 0
+  let blueCount = 0, yellowCount = 0, redCount = 0, purpleCount = 0
   for (const c of monthFiltered) {
     const flag = computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
-    if (flag === 'red') redCount++
+    if (flag === 'purple') purpleCount++
+    else if (flag === 'red') redCount++
     else if (flag === 'yellow') yellowCount++
     else blueCount++
   }
@@ -335,14 +354,23 @@ export function computeProgressKpis(
     ? cycles.reduce((s, x) => s + x, 0) / cycles.length
     : null
 
+  // 請求件数: 選択月（未指定なら当月）に issued_date がある請求書をカウント
+  const invoiceMonth = selectedMonth ?? currentYm
+  const { start: invStart, end: invEnd } = monthRange(invoiceMonth)
+  const invoiceCount = scopedInvoices.filter(inv =>
+    inv.issued_date && inv.issued_date >= invStart && inv.issued_date <= invEnd,
+  ).length
+
   return {
     totalAssigned,
     blueCount,
     yellowCount,
     redCount,
+    purpleCount,
     monthCompletionTarget,
     monthCompleted,
     cycleMonths,
+    invoiceCount,
   }
 }
 

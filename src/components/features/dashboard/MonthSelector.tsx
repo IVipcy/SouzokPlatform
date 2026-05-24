@@ -4,6 +4,8 @@ type Props = {
   basePath: string
   selectedMonth: string | 'all'  // 'YYYY-MM' or 'all'
   today: Date
+  // 月切替時に保持したい追加クエリパラメータ（例: ?view=billing&member=xxx）
+  extraParams?: Record<string, string | undefined>
 }
 
 function ymOf(d: Date): string {
@@ -16,7 +18,7 @@ function addMonths(d: Date, n: number): Date {
   return r
 }
 
-export default function MonthSelector({ basePath, selectedMonth, today }: Props) {
+export default function MonthSelector({ basePath, selectedMonth, today, extraParams }: Props) {
   const thisYm = ymOf(today)
   const nextYm = ymOf(addMonths(today, 1))
   const twoYm = ymOf(addMonths(today, 2))
@@ -30,6 +32,17 @@ export default function MonthSelector({ basePath, selectedMonth, today }: Props)
     { label: '全期間',   value: 'all' as const },
   ]
 
+  const buildHref = (monthValue: string): string => {
+    const params = new URLSearchParams()
+    params.set('month', monthValue)
+    if (extraParams) {
+      for (const [k, v] of Object.entries(extraParams)) {
+        if (v) params.set(k, v)
+      }
+    }
+    return `${basePath}?${params.toString()}`
+  }
+
   return (
     <div className="mb-4 flex items-center gap-2">
       <span className="text-[13px] font-semibold text-gray-500">表示月：</span>
@@ -39,11 +52,10 @@ export default function MonthSelector({ basePath, selectedMonth, today }: Props)
           const cls = active
             ? 'bg-brand-600 text-white border-brand-600'
             : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
-          const href = `${basePath}?month=${item.value}`
           return (
             <Link
               key={item.value}
-              href={href}
+              href={buildHref(item.value)}
               className={`text-[13px] font-medium px-3 py-1.5 rounded border transition ${cls}`}
             >
               {item.label}

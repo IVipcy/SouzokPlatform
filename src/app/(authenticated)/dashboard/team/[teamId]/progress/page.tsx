@@ -6,11 +6,18 @@ import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
+import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
+import BillingStatusView, {
+  type BillingViewRow,
+  type BillingViewSummary,
+} from '@/components/features/dashboard/BillingStatusView'
 import {
   computeProgressKpis,
   computeCaseFlag,
+  monthRange,
   type CaseFlag,
   type DashCase,
+  type DashInvoice,
   type DashTask,
 } from '@/lib/dashboardMetrics'
 
@@ -28,17 +35,25 @@ type MemberRow = {
   primary_role: string | null
   team_id: string | null
 }
+type InvoiceFull = DashInvoice & {
+  id: string
+  invoice_number: string | null
+  amount: number
+  status: string
+  invoice_type: string
+}
+type PaymentRow = { invoice_id: string; amount: number }
 
-const FLAG_RANK: Record<CaseFlag, number> = { red: 0, yellow: 1, blue: 2 }
+const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
 
 type Props = {
   params: Promise<{ teamId: string }>
-  searchParams: Promise<{ month?: string }>
+  searchParams: Promise<{ month?: string; view?: string; member?: string }>
 }
 
 export default async function TeamProgressPage({ params, searchParams }: Props) {
   const { teamId } = await params
-  const { month } = await searchParams
+  const { month, view: viewParam, member: memberParam } = await searchParams
   const supabase = await createClient()
   const today = new Date()
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -46,6 +61,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   // 月パラメータの解決
   const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
   const selectedMonthForKpis: string | null = selectedMonth === 'all' ? null : selectedMonth
+  const currentView: ProgressView = viewParam === 'billing' ? 'billing' : 'progress'
 
   const [
     { data: team },
@@ -70,13 +86,6 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const memberById = new Map(allMembers.map(m => [m.id, m]))
   const clientById = new Map(clients.map(c => [c.id, c.name]))
 
-  // チームに関係する案件 = チーム員が sales or manager で紐づく case_ids
-  const teamMemberIds = new Set(teamMembers.filter(m => m.primary_role === 'sales' || m.primary_role === 'manager').map(m => m.id))
-  const teamCaseIds = new Set<string>()
-  for (const cm of caseMembers) {
-    if (teamMemberIds.has(cm.member_id)) teamCaseIds.add(cm.case_id)
-  }
-
   // メンバー切替パネル用
   const navMembers: TeamNavMember[] = teamMembers
     .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
@@ -88,43 +97,95 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       primaryRole: m.primary_role as 'sales' | 'manager',
     }))
 
-  if (teamCaseIds.size === 0) {
-    return (
-      <div>
-        <PageHeader
-          eyebrow="Team · Progress"
-          title={`${team.name}・進捗管理`}
-          icon={AlertTriangle}
-          description="案件のフラグ（青/黄/赤）でリスクを早期発見"
-        />
-        <ProgressKpis scopeLabel={team.name} metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null }} />
-        <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
-        <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />
-        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
-          このチームに紐づく案件がありません
-        </div>
-      </div>
-    )
+  // フィルタ対象のメンバーID集合
+  // - member=xxx が指定されていれば、そのメンバーが sales or manager で紐づく案件のみ
+  // - 未指定なら、チーム員（sales/manager）全員が紐づく案件
+  const focusMember = memberParam ? teamMembers.find(m => m.id === memberParam) ?? null : null
+  const scopeMemberIds = focusMember
+    ? new Set([focusMember.id])
+    : new Set(teamMembers.filter(m => m.primary_role === 'sales' || m.primary_role === 'manager').map(m => m.id))
+
+  const scopeCaseIds = new Set<string>()
+  for (const cm of caseMembers) {
+    if (scopeMemberIds.has(cm.member_id)) scopeCaseIds.add(cm.case_id)
   }
 
-  // 関連する案件と、そのタスクを取得
-  const caseIdArray = Array.from(teamCaseIds)
-  const [{ data: casesRaw }, { data: tasksRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id').in('id', caseIdArray),
+  const basePath = `/dashboard/team/${teamId}/progress`
+  const extraParams: Record<string, string | undefined> = {}
+  if (currentView !== 'progress') extraParams.view = currentView
+  if (memberParam) extraParams.member = memberParam
+
+  // 空状態のレンダラ（早期 return 用、ヘッダー等は共通化）
+  const renderEmpty = () => (
+    <div>
+      <PageHeader
+        eyebrow="Team · Progress"
+        title={`${team.name}・進捗管理`}
+        icon={AlertTriangle}
+        description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
+      />
+      <ProgressKpis
+        scopeLabel={focusMember ? focusMember.name : team.name}
+        metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, purpleCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null, invoiceCount: 0 }}
+      />
+      <TeamMemberNav
+        teamId={teamId}
+        teamName={team.name}
+        members={navMembers}
+        currentMemberId={memberParam}
+        buildTeamHref={tid => {
+          const p = new URLSearchParams()
+          if (currentView !== 'progress') p.set('view', currentView)
+          if (selectedMonth !== ymToday) p.set('month', selectedMonth)
+          const qs = p.toString()
+          return qs ? `/dashboard/team/${tid}/progress?${qs}` : `/dashboard/team/${tid}/progress`
+        }}
+        buildMemberHref={(mid, tid) => {
+          const p = new URLSearchParams()
+          p.set('member', mid)
+          if (currentView !== 'progress') p.set('view', currentView)
+          if (selectedMonth !== ymToday) p.set('month', selectedMonth)
+          return `/dashboard/team/${tid}/progress?${p.toString()}`
+        }}
+      />
+      <ProgressViewTabs basePath={basePath} currentView={currentView} extraParams={{ ...extraParams, month: selectedMonth !== ymToday ? selectedMonth : undefined }} />
+      <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={extraParams} />
+      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
+        {focusMember ? `${focusMember.name} に紐づく案件がありません` : 'このチームに紐づく案件がありません'}
+      </div>
+    </div>
+  )
+
+  if (scopeCaseIds.size === 0) {
+    return renderEmpty()
+  }
+
+  // 関連する案件と、そのタスク・請求書を取得
+  const caseIdArray = Array.from(scopeCaseIds)
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
+    supabase
+      .from('cases')
+      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint')
+      .in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+    supabase
+      .from('invoices')
+      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type')
+      .in('case_id', caseIdArray),
   ])
 
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
+  const invoices = (invoicesRaw ?? []) as InvoiceFull[]
 
   // KPI計算
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today)
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
   // 案件IDごとに manager を引く
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
   for (const cm of caseMembers) {
     if (cm.role !== 'manager') continue
-    if (!teamCaseIds.has(cm.case_id)) continue
+    if (!scopeCaseIds.has(cm.case_id)) continue
     if (managerByCase.has(cm.case_id)) continue
     const m = memberById.get(cm.member_id)
     if (m) managerByCase.set(cm.case_id, m)
@@ -149,7 +210,10 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     .filter(c => ACTIVE.has(c.status))
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null
-      const flag = c.expected_completion_date ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today) : null
+      // クレームありは紫を最優先で返す（expected_completion_date 未設定でも紫扱い）
+      const flag = (c.has_complaint || c.expected_completion_date)
+        ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+        : null
       return {
         id: c.id,
         caseNumber: c.case_number,
@@ -164,8 +228,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       }
     })
 
+  // 紫はクレームに紐づくので月フィルタの対象外（常に表示）
   const rowsWithFlag = allRows
-    .filter(r => r.flag !== null && inSelectedMonth(r.expectedCompletionDate))
+    .filter(r => r.flag !== null && (r.flag === 'purple' || inSelectedMonth(r.expectedCompletionDate)))
     .sort((a, b) => {
       const fa = FLAG_RANK[a.flag!]
       const fb = FLAG_RANK[b.flag!]
@@ -177,18 +242,128 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
 
   const rowsUnset = allRows.filter(r => r.flag === null)
 
+  // ─── 請求状況ビュー用のデータ生成 ───
+  const billingSummaryBase: BillingViewSummary = {
+    invoiceTotal: 0,
+    invoiceTotalCount: 0,
+    unbilled: 0,
+    awaitingPayment: 0,
+    paid: 0,
+    partialPaid: 0,
+  }
+
+  // 当月（or selectedMonth）に issued_date のある請求書、または「未請求」状態のものを表示
+  // 未請求は invoices に対応行がない or status='未請求' のもの。
+  // ここでは案件ごとの代表として、選択月の請求書 + 未請求status の請求書を含める
+  const billingRange = selectedMonth === 'all' ? null : monthRange(selectedMonth)
+  const monthlyInvoices = invoices.filter(inv => {
+    if (inv.status === '未請求') return true
+    if (!inv.issued_date) return false
+    if (!billingRange) return true
+    return inv.issued_date >= billingRange.start && inv.issued_date <= billingRange.end
+  })
+
+  // 支払い情報を取得（一部入金/入金済を補完するため）
+  const paymentMap = new Map<string, number>()
+  if (monthlyInvoices.length > 0) {
+    const invIds = monthlyInvoices.map(i => i.id)
+    const { data: paymentsRaw } = await supabase
+      .from('payments')
+      .select('invoice_id,amount')
+      .in('invoice_id', invIds)
+    for (const p of ((paymentsRaw ?? []) as PaymentRow[])) {
+      paymentMap.set(p.invoice_id, (paymentMap.get(p.invoice_id) ?? 0) + p.amount)
+    }
+  }
+
+  // 集計
+  const billingSummary: BillingViewSummary = { ...billingSummaryBase }
+  for (const inv of monthlyInvoices) {
+    const paid = paymentMap.get(inv.id) ?? 0
+    if (inv.status === '未請求') {
+      billingSummary.unbilled++
+      continue
+    }
+    billingSummary.invoiceTotal += inv.amount
+    billingSummary.invoiceTotalCount++
+    if (inv.status === '入金済' || paid >= inv.amount) {
+      billingSummary.paid++
+    } else if (inv.status === '一部入金' || (paid > 0 && paid < inv.amount)) {
+      billingSummary.partialPaid++
+    } else {
+      // 作成済 / 前受金請求済 / 確定請求済 などは入金待ち扱い
+      billingSummary.awaitingPayment++
+    }
+  }
+
+  const billingRows: BillingViewRow[] = monthlyInvoices
+    .sort((a, b) => (b.issued_date ?? '').localeCompare(a.issued_date ?? ''))
+    .map(inv => {
+      const c = cases.find(c => c.id === inv.case_id)
+      const mgr = managerByCase.get(inv.case_id) ?? null
+      return {
+        invoiceId: inv.id,
+        caseId: inv.case_id,
+        caseNumber: c?.case_number ?? '-',
+        dealName: c?.deal_name ?? '-',
+        managerName: mgr?.name ?? null,
+        managerId: mgr?.id ?? null,
+        managerAvatarColor: mgr?.avatar_color ?? null,
+        managerAvatarUrl: mgr?.avatar_url ?? null,
+        status: inv.status,
+        amount: inv.amount,
+        issuedDate: inv.issued_date,
+        hasPdf: inv.status !== '未請求',
+      }
+    })
+
   return (
     <div>
       <PageHeader
         eyebrow="Team · Progress"
         title={`${team.name}・進捗管理`}
         icon={AlertTriangle}
-        description="案件のフラグ（青/黄/赤）でリスクを早期発見"
+        description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
       />
-      <ProgressKpis scopeLabel={team.name} metrics={kpis} />
-      <TeamMemberNav teamId={teamId} teamName={team.name} members={navMembers} />
-      <MonthSelector basePath={`/dashboard/team/${teamId}/progress`} selectedMonth={selectedMonth} today={today} />
-      <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+      <ProgressKpis
+        scopeLabel={focusMember ? focusMember.name : team.name}
+        metrics={kpis}
+      />
+      <TeamMemberNav
+        teamId={teamId}
+        teamName={team.name}
+        members={navMembers}
+        currentMemberId={memberParam}
+        buildTeamHref={tid => {
+          const p = new URLSearchParams()
+          if (currentView !== 'progress') p.set('view', currentView)
+          if (selectedMonth !== ymToday) p.set('month', selectedMonth)
+          const qs = p.toString()
+          return qs ? `/dashboard/team/${tid}/progress?${qs}` : `/dashboard/team/${tid}/progress`
+        }}
+        buildMemberHref={(mid, tid) => {
+          const p = new URLSearchParams()
+          p.set('member', mid)
+          if (currentView !== 'progress') p.set('view', currentView)
+          if (selectedMonth !== ymToday) p.set('month', selectedMonth)
+          return `/dashboard/team/${tid}/progress?${p.toString()}`
+        }}
+      />
+      <ProgressViewTabs
+        basePath={basePath}
+        currentView={currentView}
+        extraParams={{
+          month: selectedMonth !== ymToday ? selectedMonth : undefined,
+          member: memberParam,
+        }}
+      />
+      <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={extraParams} />
+
+      {currentView === 'progress' ? (
+        <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+      ) : (
+        <BillingStatusView summary={billingSummary} rows={billingRows} />
+      )}
     </div>
   )
 }

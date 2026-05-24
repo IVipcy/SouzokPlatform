@@ -24,6 +24,7 @@ type Props = {
 }
 
 const FLAG_DEF: Record<CaseFlag, { label: string; cls: string }> = {
+  purple: { label: '紫', cls: 'bg-purple-600 text-white' },
   red:    { label: '赤', cls: 'bg-red-600 text-white' },
   yellow: { label: '黄', cls: 'bg-yellow-400 text-gray-900' },
   blue:   { label: '青', cls: 'bg-brand-600 text-white' },
