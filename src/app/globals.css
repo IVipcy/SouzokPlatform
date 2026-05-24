@@ -79,6 +79,38 @@ body {
   }
 }
 
+/* ─── ダッシュボード達成ポップアップ ─── */
+@keyframes achievement-popup-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes achievement-popup-pop-in {
+  0%   { opacity: 0; transform: scale(0.85) translateY(8px); }
+  60%  { opacity: 1; transform: scale(1.02) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes achievement-popup-result-pop {
+  0%   { transform: scale(0.95); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.achievement-popup-overlay {
+  animation: achievement-popup-fade-in 0.35s ease-out;
+}
+.achievement-popup-card {
+  animation: achievement-popup-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.achievement-popup-result-img {
+  animation: achievement-popup-result-pop 0.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .achievement-popup-overlay,
+  .achievement-popup-card,
+  .achievement-popup-result-img {
+    animation: none;
+  }
+}
+
 /* ─── 要進捗連絡（点滅）─── */
 @keyframes followup-blink-anim {
   0%, 100% { opacity: 1; }

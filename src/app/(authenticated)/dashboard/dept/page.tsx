@@ -3,11 +3,13 @@ import { Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import DeptDashboardTabs from '@/components/features/dashboard/DeptDashboardTabs'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
+import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import {
   computeMetrics,
   computeProcedureBreakdown,
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
+  isDeptAchieved,
   type DashCase,
   type DashCaseMember,
   type DeptTargetRow,
@@ -101,8 +103,17 @@ export default async function DashboardPage() {
   const months = fiscalYearMonthsToDate(today)
   const monthLabel = `${today.getMonth() + 1}月`
 
+  // 達成判定（目標が1つでも設定されていればポップアップ表示）
+  const achievement = isDeptAchieved(summary, initialTarget)
+
   return (
     <div>
+      {achievement.hasTargets && (
+        <DashboardAchievementPopup
+          isAchieved={achievement.achieved}
+          storageKey={`dash-popup-dept-${thisYm}`}
+        />
+      )}
       <PageHeader
         eyebrow="Department · Monthly"
         title="部全体ダッシュボード"

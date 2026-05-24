@@ -6,9 +6,11 @@ import SalesTeamTable, {
   type SalesTeamGroup,
   type SalesMemberRow,
 } from '@/components/features/dashboard/SalesTeamTable'
+import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import {
   computeSalesMetrics,
   EMPTY_SALES_TARGET,
+  isSalesAchieved,
   type DashCase,
   type DashCaseMember,
   type DashProperty,
@@ -166,8 +168,17 @@ export default async function SalesDashboardPage() {
     }
   })
 
+  // 達成判定（目標が1つでも設定されていればポップアップ表示）
+  const achievement = isSalesAchieved(overall, initialTarget)
+
   return (
     <div>
+      {achievement.hasTargets && (
+        <DashboardAchievementPopup
+          isAchieved={achievement.achieved}
+          storageKey={`dash-popup-sales-${ym}`}
+        />
+      )}
       <PageHeader
         eyebrow="Sales · Monthly"
         title="受注担当ダッシュボード"
