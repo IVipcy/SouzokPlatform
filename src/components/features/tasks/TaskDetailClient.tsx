@@ -47,7 +47,6 @@ const normalizeStatus = (status: string) => {
 }
 
 export default function TaskDetailClient({ task, allMembers, documents, caseDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [] }: Props) {
-  void caseTasks
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
@@ -407,12 +406,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
                 options={PRIORITIES.map(p => p.key)}
                 onSave={v => saveField('priority', v)}
               />
-              <InlineSelect
-                label="Wチェック担当"
-                value={task.wcheck_by ?? ''}
-                options={allMembers.map(m => m.name)}
-                onSave={v => saveField('wcheck_by', v || null)}
-              />
             </FieldGrid>
             <div className="mt-2 space-y-2">
               <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
@@ -504,6 +497,9 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
           {/* 3. カテゴリ別セクション（作業内容） */}
           <TaskCategorySections task={task} onRefresh={() => router.refresh()} />
 
+          {/* 3-b. 実施結果（次タスクで「前段作業の実施結果」として読み取られる） */}
+          <ExecutionResultSection task={task} />
+
           {/* 4. 作成物（同一案件で作成された書類はタスクを跨いで共有） */}
           <CaseDocumentSection
             task={task}
@@ -517,10 +513,93 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             task={task}
             documents={documents}
             dependencies={dependencies}
+            caseTasks={caseTasks}
           />
         </div>
       </div>
     </div>
+  )
+}
+
+// =================== 実施結果セクション ===================
+// このタスクの完了結果を自由記述。
+// 次タスク（このタスクを from_task に持つ task_dependencies の to_task）の
+// PrevTaskReviewSection で「前段作業の実施結果」として読み取られる。
+// 保存先: ext_data.execution_result（migration 不要）
+function ExecutionResultSection({ task }: { task: TaskRow }) {
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  const initial = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+  const [draft, setDraft] = useState<string>(initial)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const router = useRouter()
+
+  // 外部更新（router.refresh 後）と同期
+  if (initial !== draft && !saving && savedAt === null) {
+    // ユーザー編集中（savedAt === null）なら上書きしない。ここは初回マウント時のみ作用。
+  }
+
+  const handleSave = async () => {
+    if (draft === initial) return
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const nextExt = { ...ext, execution_result: draft }
+      const { error } = await supabase
+        .from('tasks')
+        .update({ ext_data: nextExt })
+        .eq('id', task.id)
+      if (error) throw error
+      setSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
+      showToast('実施結果を保存しました', 'success')
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('保存に失敗しました', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+        <span className="text-base">✍️</span>
+        <h2 className="text-[14px] font-bold text-gray-900">実施結果</h2>
+        <span className="text-[12px] text-gray-400">
+          次のタスクの作業者がここを読みます
+        </span>
+        {savedAt && (
+          <span className="ml-auto text-[11px] text-green-600">{savedAt} 保存</span>
+        )}
+      </div>
+      <div className="p-4 space-y-2">
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          placeholder="このタスクで何を・どう完了したかを記入します。&#10;例: 三井住友銀行 ○○支店宛に残高証明請求書を発送 (基準日 2026-03-15)。到着予定は 2026-03-25 頃。"
+          rows={5}
+          className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
+        />
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-gray-400">
+            このタスクの完了時に書き残すと、次の人が前段確認で読み取れます。
+          </span>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || draft === initial}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all ${
+              saving || draft === initial
+                ? 'bg-gray-300 cursor-not-allowed'
+                : 'bg-brand-600 hover:bg-brand-700'
+            }`}
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </section>
   )
 }
 

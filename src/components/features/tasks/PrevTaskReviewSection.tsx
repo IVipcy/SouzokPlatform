@@ -41,22 +41,11 @@ export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberI
   const [defectNote, setDefectNote] = useState<string>(initialNote)
   const [saving, setSaving] = useState(false)
 
-  // 表示する前段の主要 ext_data フィールド（汎用キー）
+  // 前段タスクの「実施結果」（前担当者が記入した自由記述）
   const prevExt = (prevTask?.ext_data ?? {}) as Record<string, unknown>
-  const summaryEntries: { label: string; value: string }[] = []
-  const SUMMARY_KEYS: Array<[string, string]> = [
-    ['reqDate', '請求日'],
-    ['sendDate', '発送日'],
-    ['arrDate', '到着日'],
-    ['processDate', '手続日'],
-    ['completeDate', '完了日'],
-    ['contactDate', '連絡日'],
-    ['memo', 'メモ'],
-  ]
-  SUMMARY_KEYS.forEach(([k, label]) => {
-    const v = prevExt[k]
-    if (typeof v === 'string' && v.trim() !== '') summaryEntries.push({ label, value: v })
-  })
+  const prevExecutionResult = typeof prevExt.execution_result === 'string'
+    ? prevExt.execution_result
+    : ''
 
   if (!prevTask) return null
 
@@ -155,78 +144,79 @@ export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberI
         </span>
       </div>
 
-      <div className="p-4 space-y-3">
-        {/* 前タスクの概要 */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-semibold text-gray-500 mb-0.5">前のタスク</div>
-              <Link
-                href={`/tasks/${prevTask.id}`}
-                className="text-[14px] font-bold text-brand-700 hover:underline truncate block"
-              >
-                {prevTask.title}
-              </Link>
-            </div>
-            <div className="text-right text-[12px] flex-shrink-0">
-              {performerName && (
-                <div className="text-gray-700">
-                  <span className="text-gray-400">担当: </span>
-                  <span className="font-semibold">{performerName}</span>
-                </div>
-              )}
-              {completedDate && (
-                <div className="text-gray-500 font-mono">{completedDate} 完了</div>
-              )}
-            </div>
-          </div>
-          {summaryEntries.length > 0 && (
-            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-              {summaryEntries.map(e => (
-                <div key={e.label} className="flex gap-1.5 min-w-0">
-                  <span className="text-gray-400 flex-shrink-0">{e.label}:</span>
-                  <span className="text-gray-700 truncate">{e.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 内容評価 */}
+      <div className="p-4 space-y-4">
+        {/* 前のタスクへのリンク */}
         <div>
-          <div className="text-[13px] font-semibold text-gray-700 mb-1.5">内容評価</div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEvaluation('不備なし')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 text-[13px] font-bold transition-all ${
-                evaluation === '不備なし'
-                  ? 'bg-green-50 border-green-500 text-green-700'
-                  : 'bg-white border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-              ○ 不備なし
-            </button>
-            <button
-              type="button"
-              onClick={() => setEvaluation('差戻し')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 text-[13px] font-bold transition-all ${
-                evaluation === '差戻し'
-                  ? 'bg-red-50 border-red-500 text-red-700'
-                  : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:bg-red-50/50'
-              }`}
-            >
-              <XCircle className="w-4 h-4" strokeWidth={2.25} />
-              × 差戻し
-            </button>
+          <div className="text-[12px] font-semibold text-gray-500 mb-0.5">前のタスク</div>
+          <Link
+            href={`/tasks/${prevTask.id}`}
+            className="text-[14px] font-bold text-brand-700 hover:underline inline-flex items-center gap-1"
+          >
+            {prevTask.title}
+          </Link>
+        </div>
+
+        {/* 前段作業の実施結果 */}
+        <div>
+          <div className="text-[13px] font-semibold text-gray-700 mb-1">前段作業の実施結果</div>
+          <div className={`px-3 py-2 rounded-lg border text-[13px] whitespace-pre-line min-h-[64px] ${
+            prevExecutionResult
+              ? 'bg-white border-gray-300 text-gray-800'
+              : 'bg-gray-50 border-gray-200 text-gray-400 italic'
+          }`}>
+            {prevExecutionResult || '前担当者の実施結果はまだ記入されていません'}
           </div>
         </div>
 
-        {/* 差戻し理由 */}
+        {/* 実施者 / 完了日 / 内容評価 を横並び */}
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-start">
+          <div>
+            <div className="text-[12px] font-semibold text-gray-500 mb-1">作業実施者</div>
+            <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[13px] text-gray-800 min-h-[34px] flex items-center">
+              {performerName || <span className="text-gray-400 italic">未設定</span>}
+            </div>
+          </div>
+          <div>
+            <div className="text-[12px] font-semibold text-gray-500 mb-1">作業完了日</div>
+            <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[13px] font-mono text-gray-800 min-h-[34px] flex items-center">
+              {completedDate || <span className="text-gray-400 italic">未完了</span>}
+            </div>
+          </div>
+          <div>
+            <div className="text-[12px] font-semibold text-gray-500 mb-1">内容評価</div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setEvaluation('不備なし')}
+                className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border-2 text-[12px] font-bold transition-all ${
+                  evaluation === '不備なし'
+                    ? 'bg-green-50 border-green-500 text-green-700'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.25} />
+                ○ 不備なし
+              </button>
+              <button
+                type="button"
+                onClick={() => setEvaluation('差戻し')}
+                className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border-2 text-[12px] font-bold transition-all ${
+                  evaluation === '差戻し'
+                    ? 'bg-red-50 border-red-500 text-red-700'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:bg-red-50/50'
+                }`}
+              >
+                <XCircle className="w-3.5 h-3.5" strokeWidth={2.25} />
+                × 差戻し
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 不備内容（差戻しの場合のみ） */}
         {evaluation === '差戻し' && (
           <div>
-            <div className="text-[13px] font-semibold text-gray-700 mb-1">不備内容（差戻し理由）</div>
+            <div className="text-[12px] font-semibold text-gray-500 mb-1">不備内容（差戻し理由）</div>
             <textarea
               value={defectNote}
               onChange={e => setDefectNote(e.target.value)}

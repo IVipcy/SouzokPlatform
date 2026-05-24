@@ -2,16 +2,16 @@
 
 import Link from 'next/link'
 import { Bot, FileText } from 'lucide-react'
-import { QIRow } from '@/components/ui/InlineFields'
-import { getPhaseLabel } from '@/lib/phases'
-import { getWorkRoleDef } from '@/lib/constants'
 import { evaluateCondition } from '@/lib/taskDependencyUtils'
 import type { TaskRow, CaseDocumentRow, TaskDependencyRow } from '@/types'
+import NextTaskSelector from './NextTaskSelector'
 
 type Props = {
   task: TaskRow
   documents: CaseDocumentRow[]
   dependencies?: TaskDependencyRow[]
+  /** 同一案件の他タスク（次タスク選択UI用） */
+  caseTasks?: TaskRow[]
 }
 
 const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   '完了': { bg: 'bg-green-50', text: 'text-green-700' },
 }
 
-export default function TaskDetailSidebar({ task, documents, dependencies = [] }: Props) {
+export default function TaskDetailSidebar({ task, documents, dependencies = [], caseTasks = [] }: Props) {
   const caseData = task.cases
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
 
@@ -28,6 +28,14 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
   const nextTaskDeps = dependencies.filter(d => d.from_task_id === task.id && d.to_task)
   // 前提条件（このタスクの前提）
   const prereqDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
+  // 既に紐づけられている「次タスクID」のセット
+  const linkedNextIds = new Set(
+    dependencies
+      .filter(d => d.from_task_id === task.id && d.condition_type === 'task_completed')
+      .map(d => d.to_task_id)
+  )
+  // 次タスク候補（同一案件の他タスク、自分自身は除外）
+  const nextCandidates = caseTasks.filter(t => t.id !== task.id)
 
   // タイムラインイベント構築
   const timelineEvents: { date: string; label: string; color: string }[] = []
@@ -144,87 +152,13 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
         </div>
       )}
 
-      {/* クイック情報 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-gray-500 mb-1">クイック情報</h4>
-        <QIRow label="フェーズ">
-          <span className="text-xs font-semibold text-gray-700">{getPhaseLabel(task.phase)}</span>
-        </QIRow>
-        <QIRow label="担当区分">
-          {(() => {
-            const wr = getWorkRoleDef(task.work_role)
-            if (!wr) return <span className="text-[13px] text-gray-400">未設定</span>
-            const WrIcon = wr.Icon
-            return (
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[13px] font-bold border ${wr.pill}`}>
-                <WrIcon className="w-3.5 h-3.5" strokeWidth={2.25} />
-                {wr.label}
-              </span>
-            )
-          })()}
-        </QIRow>
-        {task.category && (
-          <QIRow label="カテゴリ">
-            <span className="text-xs font-medium text-gray-700">{task.category}</span>
-          </QIRow>
-        )}
-        <QIRow label="起票日">
-          <span className="text-xs font-mono text-gray-600">{task.issued_date ?? task.created_at?.slice(0, 10)}</span>
-        </QIRow>
-        <QIRow label="期限">
-          <span className={`text-xs font-mono ${
-            task.due_date && new Date(task.due_date) < new Date() ? 'text-red-600 font-bold' : 'text-gray-600'
-          }`}>
-            {task.due_date ?? '未設定'}
-          </span>
-        </QIRow>
-      </div>
-
-      {/* このタスクが終わったら */}
-      {nextTaskDeps.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-3 py-2.5 bg-brand-600 flex items-center gap-2">
-            <span className="text-white text-[14px] font-bold">このタスクが終わったら</span>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {nextTaskDeps.map(dep => {
-              const toTask = dep.to_task!
-              const isMet = evaluateCondition(task, dep)
-              return (
-                <Link
-                  key={dep.id}
-                  href={`/tasks/${toTask.id}`}
-                  className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors group ${
-                    isMet ? 'bg-green-50 hover:bg-green-100' : ''
-                  }`}
-                >
-                  {/* 矢印アイコン */}
-                  <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center ${
-                    isMet ? 'bg-green-500' : 'bg-gray-200'
-                  }`}>
-                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 group-hover:text-brand-600 truncate">
-                      {toTask.title}
-                    </p>
-                    {isMet && (
-                      <p className="text-[12px] text-green-600 font-medium">今すぐ着手できます</p>
-                    )}
-                  </div>
-                  {isMet && (
-                    <span className="text-[12px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                      着手OK
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* このタスクが終わったら（次タスク選択 + 既存ジャンプ） */}
+      <NextTaskSelector
+        currentTask={task}
+        candidates={nextCandidates}
+        linkedIds={linkedNextIds}
+        existingDeps={nextTaskDeps}
+      />
 
       {/* このタスクを始めるには */}
       {prereqDeps.length > 0 && (() => {
