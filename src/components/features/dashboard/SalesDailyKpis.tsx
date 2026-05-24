@@ -6,12 +6,12 @@ type Props = {
 }
 
 const KPIS = [
-  { key: 'meetings',  label: '当月面談数',       unit: '件/日' },
-  { key: 'newOrders', label: '当月新規受注件数', unit: '件/日' },
-  { key: 'conv',      label: '受注率',           unit: '%' },
-  { key: 'avgUnit',   label: '平均受注単価',     unit: '万円/件' },
-  { key: 'taxFiling', label: '相続税申告件数',   unit: '件/日' },
-  { key: 'appraisal', label: '不動産査定件数',   unit: '件/日' },
+  { key: 'meetings',  label: '本日面談数',       unit: '件/日' },
+  { key: 'newOrders', label: '本日新規受注件数', unit: '件/日' },
+  { key: 'conv',      label: '本日受注率',       unit: '%' },
+  { key: 'avgUnit',   label: '本日平均受注単価', unit: '万円/件' },
+  { key: 'taxFiling', label: '本日 相続税申告', unit: '件/日' },
+  { key: 'appraisal', label: '本日 不動産査定', unit: '件/日' },
 ] as const
 
 function valueOf(key: typeof KPIS[number]['key'], m: SalesDailyMetricsBundle): string {

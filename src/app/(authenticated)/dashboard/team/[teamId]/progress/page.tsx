@@ -11,6 +11,7 @@ import BillingStatusView, {
   type BillingViewRow,
   type BillingViewSummary,
 } from '@/components/features/dashboard/BillingStatusView'
+import ManagerProgressTable, { type ManagerRow } from '@/components/features/dashboard/ManagerProgressTable'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -33,6 +34,8 @@ type MemberRow = {
   avatar_color: string
   avatar_url: string | null
   primary_role: string | null
+  job_type: string | null
+  joined_at: string | null
   team_id: string | null
 }
 type InvoiceFull = DashInvoice & {
@@ -69,12 +72,17 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     { data: allMembersRaw },
     { data: caseMembersRaw },
     { data: clientsRaw },
+    { data: memberTargetsRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
-    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,team_id').eq('is_active', true).eq('team_id', teamId),
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true).eq('team_id', teamId),
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role'),
     supabase.from('case_members').select('case_id,member_id,role').in('role', ['sales', 'manager']),
     supabase.from('clients').select('id,name'),
+    supabase
+      .from('member_targets')
+      .select('member_id,new_orders_count,invoice_count')
+      .eq('ym', ymToday),
   ])
 
   if (!team) notFound()
@@ -87,7 +95,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const clientById = new Map(clients.map(c => [c.id, c.name]))
 
   // メンバー切替パネル用（進捗管理は管理担当の仕事なので、管理担当のみ表示）
-  const navMembers: TeamNavMember[] = teamMembers
+  // 達成情報は後で managerRows 集計後に上書きする
+  let navMembers: TeamNavMember[] = teamMembers
     .filter(m => m.primary_role === 'manager')
     .map(m => ({
       id: m.id,
@@ -95,7 +104,22 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       avatarColor: m.avatar_color ?? '#6B7280',
       avatarUrl: m.avatar_url,
       primaryRole: m.primary_role as 'sales' | 'manager',
+      achieved: false,  // 後で達成中の管理担当に true をセット
     }))
+
+  // チームの管理担当全員のID
+  const teamManagerIds = new Set(
+    teamMembers.filter(m => m.primary_role === 'manager').map(m => m.id),
+  )
+
+  // 全管理担当が role='manager' で紐づく案件IDセット
+  // → 管理担当別テーブルの計算に使う（フォーカスに関係なく全管理担当の実績が見える）
+  const allManagerCaseIds = new Set<string>()
+  for (const cm of caseMembers) {
+    if (cm.role === 'manager' && teamManagerIds.has(cm.member_id)) {
+      allManagerCaseIds.add(cm.case_id)
+    }
+  }
 
   // フィルタ対象のメンバーID集合
   // - member=xxx が指定されていれば、その管理担当が紐づく案件のみ
@@ -103,12 +127,15 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const focusMember = memberParam ? teamMembers.find(m => m.id === memberParam) ?? null : null
   const scopeMemberIds = focusMember
     ? new Set([focusMember.id])
-    : new Set(teamMembers.filter(m => m.primary_role === 'manager').map(m => m.id))
+    : teamManagerIds
 
   const scopeCaseIds = new Set<string>()
   for (const cm of caseMembers) {
     if (scopeMemberIds.has(cm.member_id)) scopeCaseIds.add(cm.case_id)
   }
+
+  // 月境界（管理担当別テーブルの請求件数/完了件数集計用）
+  const { start: monthStartYmd, end: monthEndYmd } = monthRange(ymToday)
 
   const basePath = `/dashboard/team/${teamId}/progress`
   const extraParams: Record<string, string | undefined> = {}
@@ -156,30 +183,36 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     </div>
   )
 
-  if (scopeCaseIds.size === 0) {
+  if (allManagerCaseIds.size === 0) {
     return renderEmpty()
   }
 
-  // 関連する案件と、そのタスク・請求書を取得
-  const caseIdArray = Array.from(scopeCaseIds)
+  // チームの全管理担当が関わる案件を取得（管理担当別テーブル用に「広めに」フェッチ）
+  // KPI・進捗テーブル等は scopeCaseIds でさらに絞り込む
+  const allCaseIdArray = Array.from(allManagerCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase
       .from('cases')
       .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint')
-      .in('id', caseIdArray),
-    supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+      .in('id', allCaseIdArray),
+    supabase.from('tasks').select('case_id,status,due_date').in('case_id', allCaseIdArray),
     supabase
       .from('invoices')
       .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type')
-      .in('case_id', caseIdArray),
+      .in('case_id', allCaseIdArray),
   ])
 
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as InvoiceFull[]
 
+  // KPI・進捗テーブル用にスコープでさらに絞り込む
+  const scopedCases = cases.filter(c => scopeCaseIds.has(c.id))
+  const scopedTasks = tasks.filter(t => scopeCaseIds.has(t.case_id))
+  const scopedInvoices = invoices.filter(i => scopeCaseIds.has(i.case_id))
+
   // KPI計算
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
+  const kpis = computeProgressKpis(scopedCases, scopedTasks, selectedMonthForKpis, today, scopedInvoices)
 
   // 案件IDごとに manager を引く（進捗テーブル表示用）
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
@@ -211,9 +244,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     }
   }
 
-  // タスクを case ごとにグルーピング
+  // タスクを case ごとにグルーピング（フォーカス時はスコープ内のみ）
   const tasksByCase = new Map<string, DashTask[]>()
-  for (const t of tasks) {
+  for (const t of scopedTasks) {
     if (!tasksByCase.has(t.case_id)) tasksByCase.set(t.case_id, [])
     tasksByCase.get(t.case_id)!.push(t)
   }
@@ -226,7 +259,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     return d.startsWith(selectedMonth)
   }
 
-  const allRows: ProgressCaseRow[] = cases
+  const allRows: ProgressCaseRow[] = scopedCases
     .filter(c => ACTIVE.has(c.status))
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null
@@ -276,8 +309,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   // 当月（or selectedMonth）に issued_date のある請求書、または「未請求」状態のものを表示
   // 未請求は invoices に対応行がない or status='未請求' のもの。
   // ここでは案件ごとの代表として、選択月の請求書 + 未請求status の請求書を含める
+  // ※ scopedInvoices を使う（フォーカス時は絞り込み）
   const billingRange = selectedMonth === 'all' ? null : monthRange(selectedMonth)
-  const monthlyInvoices = invoices.filter(inv => {
+  const monthlyInvoices = scopedInvoices.filter(inv => {
     if (inv.status === '未請求') return true
     if (!inv.issued_date) return false
     if (!billingRange) return true
@@ -322,7 +356,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const billingRows: BillingViewRow[] = monthlyInvoices
     .sort((a, b) => (b.issued_date ?? '').localeCompare(a.issued_date ?? ''))
     .map(inv => {
-      const c = cases.find(c => c.id === inv.case_id)
+      const c = scopedCases.find(c => c.id === inv.case_id)
       let displayMember = teamAssigneeByCase.get(inv.case_id) ?? null
       // フォールバック: チーム内担当が見つからなければ管理担当
       if (!displayMember) {
@@ -349,6 +383,63 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         hasPdf: inv.status !== '未請求',
       }
     })
+
+  // ─── 管理担当別 月次成績テーブルのデータ生成（フォーカス無関係に全管理担当を表示） ───
+  const memberTargets = (memberTargetsRaw ?? []) as Array<{
+    member_id: string; new_orders_count: number; invoice_count: number
+  }>
+  const invoiceTargetByMember = new Map(memberTargets.map(t => [t.member_id, t.invoice_count]))
+
+  const ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
+  const managerRows: ManagerRow[] = teamMembers
+    .filter(m => m.primary_role === 'manager')
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    .map(mgr => {
+      // この管理担当が role='manager' で紐づく案件のIDセット
+      const myCaseIds = new Set<string>()
+      for (const cm of caseMembers) {
+        if (cm.role === 'manager' && cm.member_id === mgr.id) {
+          myCaseIds.add(cm.case_id)
+        }
+      }
+
+      // 当月発行請求件数（管理担当の case に紐づき、issued_date が当月内）
+      const monthlyInvoiceCount = invoices.filter(inv =>
+        myCaseIds.has(inv.case_id) &&
+        inv.issued_date &&
+        inv.issued_date >= monthStartYmd &&
+        inv.issued_date <= monthEndYmd,
+      ).length
+
+      const myCases = cases.filter(c => myCaseIds.has(c.id))
+      const totalAssigned = myCases.filter(c => ACTIVE_STATUSES.has(c.status)).length
+      const monthlyCompleted = myCases.filter(c =>
+        c.status === '完了' &&
+        c.completion_date &&
+        c.completion_date >= monthStartYmd &&
+        c.completion_date <= monthEndYmd,
+      ).length
+
+      const invoiceTarget = invoiceTargetByMember.get(mgr.id) ?? 0
+      const achieved = invoiceTarget > 0 && monthlyInvoiceCount >= invoiceTarget
+
+      return {
+        id: mgr.id,
+        name: mgr.name,
+        avatarUrl: mgr.avatar_url,
+        jobType: mgr.job_type,
+        joinedAt: mgr.joined_at,
+        monthlyInvoiceCount,
+        totalAssigned,
+        monthlyCompleted,
+        invoiceTarget,
+        achieved,
+      }
+    })
+
+  // 達成中の管理担当ID（メンバー切替ナビでもレインボー表示するため）
+  const achievedManagerIds = new Set(managerRows.filter(r => r.achieved).map(r => r.id))
+  navMembers = navMembers.map(nm => ({ ...nm, achieved: achievedManagerIds.has(nm.id) }))
 
   return (
     <div>
@@ -397,6 +488,14 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       ) : (
         <BillingStatusView summary={billingSummary} rows={billingRows} />
       )}
+
+      {/* 管理担当別 月次成績テーブル（請求件数の個人目標を編集できる場所） */}
+      <ManagerProgressTable
+        rows={managerRows}
+        teamName={team.name}
+        today={today}
+        ym={ymToday}
+      />
     </div>
   )
 }

@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation'
 import { Users } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
-import SalesTeamTable, {
-  type SalesTeamGroup,
-  type SalesMemberRow,
-} from '@/components/features/dashboard/SalesTeamTable'
+import SalesDailyTeamTable, {
+  type SalesDailyTeamGroup,
+  type SalesDailyMemberRow,
+} from '@/components/features/dashboard/SalesDailyTeamTable'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import {
   computeSalesDailyMetrics,
@@ -42,7 +42,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const ymd = todayJstYmd(today)
   const ym = ymd.slice(0, 7)
 
-  // 当月の月初〜月末（activity_log フィルタ用）— 月次集計と本日集計の両方に必要
+  // 当月の月初〜月末（activity_log フィルタ用）— 月次累計と本日集計の両方に必要
   const monthStart = `${ym}-01T00:00:00`
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
@@ -127,10 +127,11 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const teamFilteredCases = cases.filter(c => teamCaseIds.has(c.id))
   const teamFilteredChanges = statusChanges.filter(sc => teamCaseIds.has(sc.entity_id))
   const teamFilteredProperties = properties.filter(p => teamCaseIds.has(p.case_id))
+  const teamDailyMetrics = computeSalesDailyMetrics(teamFilteredCases, teamFilteredChanges, teamFilteredProperties, today)
   const teamMonthlyMetrics = computeSalesMetrics(teamFilteredCases, teamFilteredChanges, ym, teamFilteredProperties)
 
-  // 個人別の月次成績（テーブルの個人行）
-  const memberRows: SalesMemberRow[] = salesMembers
+  // 個人別の本日成績（テーブルの個人行）
+  const memberRows: SalesDailyMemberRow[] = salesMembers
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
     .map(m => {
       const myCaseIds = new Set(
@@ -141,29 +142,32 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       const myCases = cases.filter(c => myCaseIds.has(c.id))
       const myChanges = statusChanges.filter(sc => myCaseIds.has(sc.entity_id))
       const myProperties = properties.filter(p => myCaseIds.has(p.case_id))
-      const myMetrics = computeSalesMetrics(myCases, myChanges, ym, myProperties)
+      const myDaily = computeSalesDailyMetrics(myCases, myChanges, myProperties, today)
+      const myMonthly = computeSalesMetrics(myCases, myChanges, ym, myProperties)
       const myTarget = memberTargetByMember.get(m.id) ?? 0
-      const achieved = myTarget > 0 && myMetrics.newOrdersCount >= myTarget
+      const achieved = myTarget > 0 && myMonthly.newOrdersCount >= myTarget
       return {
         id: m.id,
         name: m.name,
-        avatarColor: m.avatar_color ?? '#6B7280',
         avatarUrl: m.avatar_url,
         jobType: m.job_type,
         joinedAt: m.joined_at,
-        metrics: myMetrics,
+        daily: myDaily,
         newOrdersTarget: myTarget,
+        monthlyNewOrders: myMonthly.newOrdersCount,
         achieved,
       }
     })
 
-  const tableGroup: SalesTeamGroup = {
+  const tableGroup: SalesDailyTeamGroup = {
     teamName: team.name,
-    teamMetrics: teamMonthlyMetrics,
+    teamDaily: teamDailyMetrics,
+    teamMonthlyNewOrders: teamMonthlyMetrics.newOrdersCount,
     members: memberRows,
   }
 
   // メンバー切替ナビ（受注担当ダッシュボードなので、受注担当のみ表示）
+  const achievedMemberIds = new Set(memberRows.filter(r => r.achieved).map(r => r.id))
   const navMembers: TeamNavMember[] = teamMembers
     .filter(m => m.primary_role === 'sales')
     .map(m => ({
@@ -172,6 +176,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       avatarColor: m.avatar_color ?? '#6B7280',
       avatarUrl: m.avatar_url,
       primaryRole: m.primary_role as 'sales' | 'manager',
+      achieved: achievedMemberIds.has(m.id),
     }))
 
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
@@ -184,7 +189,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         eyebrow="Team · Sales · Today"
         title={`${team.name}・受注担当 本日`}
         icon={Users}
-        description={`${dateLabel}・受注担当の本日の動きとチームの月次成績`}
+        description={`${dateLabel}・受注担当の本日の動きとチームの本日成績`}
       />
 
       <TeamMemberNav
@@ -198,7 +203,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
 
       <div className="space-y-3">
         <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
-        <SalesTeamTable groups={[tableGroup]} today={today} ym={ym} />
+        <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
       </div>
     </div>
   )

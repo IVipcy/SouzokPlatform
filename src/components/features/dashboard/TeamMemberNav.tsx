@@ -8,6 +8,8 @@ export type TeamNavMember = {
   avatarColor: string  // 互換用、未使用
   avatarUrl?: string | null
   primaryRole: 'sales' | 'manager'
+  // 個人目標を達成しているとアバターにレインボーリングが表示される
+  achieved?: boolean
 }
 
 type Props = {
@@ -68,7 +70,13 @@ export default function TeamMemberNav({
               }`}
               title={m.primaryRole === 'sales' ? `${m.name}（受注担当）` : `${m.name}（管理担当）`}
             >
-              <UserAvatar name={m.name} role={m.primaryRole} url={m.avatarUrl} size="sm" />
+              <UserAvatar
+                name={m.name}
+                role={m.primaryRole}
+                url={m.avatarUrl}
+                size="sm"
+                achievedFrame={m.achieved}
+              />
               <span>{m.name}</span>
             </Link>
           )

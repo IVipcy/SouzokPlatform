@@ -4,15 +4,27 @@ import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { parseIntInput } from '@/lib/inputHelpers'
 
+// 編集可能な目標フィールド
+//   - new_orders_count: 受注担当の月間新規受注件数目標
+//   - invoice_count:    管理担当の月間発行請求件数目標
+type Field = 'new_orders_count' | 'invoice_count'
+
 type Props = {
   memberId: string
   ym: string
   initialTarget: number
+  // どの列を更新するか（受注担当 or 管理担当の目標）
+  field?: Field
 }
 
-// SalesTeamTable の「目標(新規受注)」セル。
+// SalesTeamTable / ManagerProgressTable の「目標」セル。
 // クリックで編集モード → blur / Enter で保存。Esc で取消。
-export default function EditableMemberTarget({ memberId, ym, initialTarget }: Props) {
+export default function EditableMemberTarget({
+  memberId,
+  ym,
+  initialTarget,
+  field = 'new_orders_count',
+}: Props) {
   const [target, setTarget] = useState(initialTarget)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -33,12 +45,16 @@ export default function EditableMemberTarget({ memberId, ym, initialTarget }: Pr
     setTarget(next)
     startTransition(async () => {
       const supabase = createClient()
+      // 同一 (member_id, ym) で同時に複数フィールドが入る可能性があるため、
+      // upsert で対象列だけを書き換える。
+      const payload: Record<string, unknown> = {
+        member_id: memberId,
+        ym,
+        [field]: next,
+      }
       const { error } = await supabase
         .from('member_targets')
-        .upsert(
-          { member_id: memberId, ym, new_orders_count: next },
-          { onConflict: 'member_id,ym' },
-        )
+        .upsert(payload, { onConflict: 'member_id,ym' })
       if (error) {
         // 失敗時ロールバック
         setTarget(prev)
