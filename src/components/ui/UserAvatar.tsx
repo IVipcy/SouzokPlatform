@@ -12,15 +12,6 @@ const SIZE_CLASS: Record<Size, string> = {
   xl: 'w-16 h-16 text-2xl',
 }
 
-// 達成リング用の外枠 padding（レインボーが見えるよう、ホワイト縁取り＋αの余白を確保）
-const RING_PAD_CLASS: Record<Size, string> = {
-  xs: 'p-[3px]',
-  sm: 'p-[3px]',
-  md: 'p-[3px]',
-  lg: 'p-[4px]',
-  xl: 'p-[5px]',
-}
-
 type Props = {
   name: string
   // 新方式: ロールに紐づく色を使う（推奨）
@@ -29,7 +20,7 @@ type Props = {
   color?: string
   url?: string | null
   size?: Size
-  // 個人目標を達成しているとレインボーリングが表示される
+  // 個人目標を達成しているとレインボーリング画像が周囲に表示される
   achievedFrame?: boolean
   // リング（白の縁取り）の表示を強制 / 抑制
   showRing?: boolean
@@ -56,13 +47,10 @@ export default function UserAvatar({
       ? { bg: color, fg: '#ffffff' }
       : colorsForRole(null)
 
-  // 通常時のリング（ホワイト + ロール色の二重リング）
-  // 達成時は外側がレインボーなので、内側のホワイト縁取りだけにする
-  const ringStyle = achievedFrame
-    ? { boxShadow: `0 0 0 1.5px white` }
-    : showRing
-      ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
-      : undefined
+  // リング（ホワイト + ロール色の二重リング）— achievedFrame 関係なく常に同じ
+  const ringStyle = showRing
+    ? { boxShadow: `0 0 0 2px white, 0 0 0 3px ${bg}` }
+    : undefined
 
   // 内側の本体（写真 or 文字）
   const inner = url ? (
@@ -82,20 +70,34 @@ export default function UserAvatar({
     </span>
   )
 
-  // 達成時はレインボーリングで包む。
-  //   - 回転するのは「内側の絶対配置レイヤー（背景レイヤー）」だけ
-  //   - アバター本体は relative で前面に配置 → 回転しない
+  // 達成時はリング画像で囲む。
+  //   - 画像は absolute 配置で z-index 0、scale(2) で拡大してアバターより大きく見せる
+  //   - 外枠 span は元のアバターサイズ（レイアウトはずれない）
+  //   - overflow: visible で画像が外側へはみ出せるように
+  //   - アバター本体は z-index 1 で前面に固定（回転しない）
   if (achievedFrame) {
     return (
       <span
-        className={`relative inline-flex flex-shrink-0 rounded-full ${RING_PAD_CLASS[size]} ${className}`}
-        title="今月の新規受注目標を達成！"
+        className={`relative inline-flex flex-shrink-0 items-center justify-center ${sizeCls.split(' ').slice(0, 2).join(' ')} ${className}`}
+        title="今月の目標を達成！"
+        style={{ overflow: 'visible' }}
       >
-        <span
-          className="achievement-avatar-ring absolute inset-0 rounded-full pointer-events-none"
+        <img
+          src="/dashboard-popup/achievement-ring.png"
+          alt=""
           aria-hidden
+          className="absolute inset-0 pointer-events-none achievement-avatar-img"
+          style={{
+            width: '100%',
+            height: '100%',
+            transformOrigin: 'center',
+            zIndex: 0,
+          }}
+          draggable={false}
         />
-        <span className="relative inline-flex">{inner}</span>
+        <span className="relative inline-flex" style={{ zIndex: 1 }}>
+          {inner}
+        </span>
       </span>
     )
   }

@@ -79,28 +79,19 @@ body {
   }
 }
 
-/* ─── 達成アバターリング（レインボー回転） ─── */
+/* ─── 達成アバターリング（画像をアバターより大きく + ゆっくり回転） ─── */
+/* base で scale(2) を当てておく → animation で上書きされる時もスケールを保持。
+   prefers-reduced-motion なら animation:none で base の scale(2) のみが残る。 */
 @keyframes achievement-avatar-spin {
-  to { transform: rotate(360deg); }
+  from { transform: scale(2) rotate(0deg); }
+  to   { transform: scale(2) rotate(360deg); }
 }
-.achievement-avatar-ring {
-  position: relative;
-  background: conic-gradient(
-    from 0deg,
-    #ff6b6b,
-    #ffd93d,
-    #6bcf7f,
-    #4ecdc4,
-    #45b7d1,
-    #a78bfa,
-    #ff6b6b
-  );
-  background-size: 100% 100%;
-  border-radius: 9999px;
-  animation: achievement-avatar-spin 4s linear infinite;
+.achievement-avatar-img {
+  transform: scale(2);
+  animation: achievement-avatar-spin 8s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .achievement-avatar-ring {
+  .achievement-avatar-img {
     animation: none;
   }
 }
