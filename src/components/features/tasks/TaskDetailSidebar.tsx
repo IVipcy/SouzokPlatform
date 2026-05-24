@@ -90,43 +90,54 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [] }
 
   return (
     <div className="sticky top-[90px] flex flex-col gap-4">
-      {/* 関連案件カード */}
+      {/* AI書類作成ボタン（案件カードの上） */}
       {caseData && (
-        <div className="rounded-xl p-4 text-white bg-gradient-to-br from-brand-800 to-brand-600 shadow-lg">
-          <h3 className="text-[15px] font-bold mb-2">{caseData.deal_name}</h3>
-          <div className="space-y-1.5 text-[14px] opacity-90">
+        <Link
+          href={`/cases/${caseData.id}?tab=documentCreate`}
+          className="flex items-center justify-center gap-2 px-3 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-sm font-semibold text-sm transition-colors"
+        >
+          <FileText className="w-4 h-4" strokeWidth={2.25} />
+          AI書類作成
+        </Link>
+      )}
+
+      {/* 関連案件カード（グラデーション廃止、他の画面と揃えてフラットに） */}
+      {caseData && (
+        <div className="rounded-xl p-4 bg-white border border-gray-200 shadow-sm">
+          <h3 className="text-[15px] font-bold text-gray-900 mb-2">{caseData.deal_name}</h3>
+          <div className="space-y-1.5 text-[13px] text-gray-600">
             {caseData.deceased_name && (
               <div className="flex justify-between">
-                <span>被相続人</span>
-                <span className="font-medium">{caseData.deceased_name}</span>
+                <span className="text-gray-400">被相続人</span>
+                <span className="font-medium text-gray-800">{caseData.deceased_name}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span>管理番号</span>
-              <span className="font-mono">{caseData.case_number}</span>
+              <span className="text-gray-400">管理番号</span>
+              <span className="font-mono text-gray-800">{caseData.case_number}</span>
             </div>
             {caseData.date_of_death && (
               <div className="flex justify-between">
-                <span>死亡日</span>
-                <span className="font-mono">{caseData.date_of_death}</span>
+                <span className="text-gray-400">死亡日</span>
+                <span className="font-mono text-gray-800">{caseData.date_of_death}</span>
               </div>
             )}
             {caseData.contract_type && (
               <div className="flex justify-between">
-                <span>契約形態</span>
-                <span>{caseData.contract_type}</span>
+                <span className="text-gray-400">契約形態</span>
+                <span className="text-gray-800">{caseData.contract_type}</span>
               </div>
             )}
             {caseData.location && (
               <div className="flex justify-between">
-                <span>拠点</span>
-                <span>{caseData.location}</span>
+                <span className="text-gray-400">拠点</span>
+                <span className="text-gray-800">{caseData.location}</span>
               </div>
             )}
           </div>
           <Link
             href={`/cases/${caseData.id}`}
-            className="mt-3 block text-center text-[13px] font-semibold bg-white/20 hover:bg-white/30 rounded-lg py-1.5 transition-colors"
+            className="mt-3 block text-center text-[13px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg py-1.5 transition-colors"
           >
             案件詳細を開く
           </Link>

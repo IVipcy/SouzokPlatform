@@ -261,6 +261,9 @@ export type TaskRow = {
   issued_date: string | null
   notes: string | null
   remarks: string | null
+  // 作業完了予定日 / 完了日（migration 043 で追加）
+  expected_completion_date: string | null
+  completed_at: string | null
   created_at: string
   updated_at: string
   task_assignees?: TaskAssigneeRow[]

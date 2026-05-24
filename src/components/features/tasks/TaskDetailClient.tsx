@@ -3,13 +3,13 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, FileText, FolderOpen } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
+import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
-import { TASK_STATUSES_V12, STATUS_FLOW_STEPS, TASK_CATEGORIES } from '@/lib/taskSectionDefs'
+import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { getCompletionCondition } from '@/lib/taskCompletionConditions'
 import TaskCategorySections from './TaskCategorySections'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -27,7 +27,6 @@ type Props = {
   caseTasks?: TaskRow[]
 }
 
-const DB_PHASES = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 const PRIORITIES = [
   { key: '通常', label: '通常' },
   { key: '急ぎ', label: '急ぎ' },
@@ -262,33 +261,6 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
         </div>
       </div>
 
-      {/* 書類作成リンク（全タスク共通） */}
-      {caseData && (
-        <div className="bg-white border border-indigo-200 rounded-xl mb-5 overflow-hidden shadow-sm">
-          <div className="bg-gradient-to-r from-indigo-500 to-brand-500 px-4 py-2 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-white" strokeWidth={2.25} />
-            <h2 className="text-white text-sm font-bold flex-1">書類作成</h2>
-          </div>
-          <div className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <FolderOpen className="w-5 h-5 text-indigo-600" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-gray-900">この案件の書類作成タブを開く</div>
-              <div className="text-[13px] text-gray-500 mt-0.5">
-                戸籍請求書・委任状・契約書・請求書など、案件データを元にExcel様式で作成できます
-              </div>
-            </div>
-            <Link
-              href={`/cases/${caseData.id}?tab=documentCreate`}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition shadow-sm whitespace-nowrap"
-            >
-              書類作成へ →
-            </Link>
-          </div>
-        </div>
-      )}
-
       {/* 👉 今やること カード（最優先で見せる） */}
       {(() => {
         const completionCondition = getCompletionCondition(task.template_key)
@@ -343,31 +315,23 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
         {/* 左カラム */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
 
-          {/* 1. 基本情報 */}
+          {/* 1. 基本情報（タスク件名 / Phase / カテゴリはヘッダーに記載されているので重複除外） */}
           <Section title="基本情報" icon="📝">
             <FieldGrid>
-              <InlineEdit label="タスク件名" value={task.title} onSave={v => saveField('title', v)} required />
-              <Field label="起票日" value={task.issued_date ?? task.created_at?.slice(0, 10)} mono />
-              <InlineDate label="期限" value={task.due_date} onSave={v => saveField('due_date', v)} />
+              <InlineDate label="タスク期限" value={task.due_date} onSave={v => saveField('due_date', v)} />
               <Field label="ステータス" value={currentStatus} mono />
+              <Field label="起票日" value={task.issued_date ?? task.created_at?.slice(0, 10)} mono />
+              <InlineDate
+                label="作業完了予定日"
+                value={task.expected_completion_date}
+                onSave={v => saveField('expected_completion_date', v)}
+              />
+              <Field label="作業完了日" value={task.completed_at ?? '—'} mono />
               <InlineSelect
                 label="優先度"
                 value={task.priority}
                 options={PRIORITIES.map(p => p.key)}
                 onSave={v => saveField('priority', v)}
-              />
-              <InlineSelect
-                label="フェーズ"
-                value={task.phase}
-                options={DB_PHASES}
-                onSave={v => saveField('phase', v)}
-                renderValue={v => getPhaseLabel(v)}
-              />
-              <InlineSelect
-                label="タスクカテゴリ"
-                value={task.category ?? ''}
-                options={TASK_CATEGORIES}
-                onSave={v => saveField('category', v)}
               />
               <InlineSelect
                 label="Wチェック担当"
@@ -378,7 +342,6 @@ export default function TaskDetailClient({ task, allMembers, documents, activiti
             </FieldGrid>
             <div className="mt-2 space-y-2">
               <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
-              <InlineTextarea label="内部メモ" value={task.notes ?? ''} onSave={v => saveField('notes', v)} />
             </div>
           </Section>
 
