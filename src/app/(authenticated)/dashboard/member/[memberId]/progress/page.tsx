@@ -122,7 +122,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
   // case → manager マップ
-  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
+  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
   for (const cm of caseMembers) {
     if (cm.role !== 'manager') continue
     if (!myCaseIds.has(cm.case_id)) continue
@@ -161,6 +161,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
         managerName: mgr?.name ?? null,
         managerAvatarColor: mgr?.avatar_color ?? null,
         managerAvatarUrl: mgr?.avatar_url ?? null,
+        managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
         expectedCompletionDate: c.expected_completion_date ?? null,
         clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
         flag,

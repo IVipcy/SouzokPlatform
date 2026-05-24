@@ -11,6 +11,8 @@ export type ProgressCaseRow = {
   managerName: string | null
   managerAvatarColor: string | null
   managerAvatarUrl?: string | null
+  // 担当者列で表示する人の主たるロール（色決定用）
+  managerPrimaryRole?: 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null
   expectedCompletionDate: string | null
   clientName: string | null
   flag: CaseFlag | null  // null = 完了予定日未設定（フラグ判定対象外）
@@ -128,7 +130,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     >
                       <UserAvatar
                         name={r.managerName}
-                        color={r.managerAvatarColor ?? '#6B7280'}
+                        role={r.managerPrimaryRole ?? 'manager'}
                         url={r.managerAvatarUrl}
                         size="sm"
                       />

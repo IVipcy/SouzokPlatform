@@ -655,7 +655,12 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                     isAssigned ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
-                  <UserAvatar name={member.name} color={member.avatar_color} url={member.avatar_url} size="sm" />
+                  <UserAvatar
+                    name={member.name}
+                    role={member.primary_role as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | undefined}
+                    url={member.avatar_url}
+                    size="sm"
+                  />
                   <span>{member.name}</span>
                   {isAssigned && <span className="ml-auto text-brand-500">✓</span>}
                 </button>
@@ -672,7 +677,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                 <div key={cm.member_id} className="flex items-center gap-1.5">
                   <UserAvatar
                     name={cm.members?.name ?? '?'}
-                    color={cm.members?.avatar_color ?? '#6B7280'}
+                    role={cm.members?.primary_role as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | undefined}
                     url={cm.members?.avatar_url}
                     size="md"
                   />

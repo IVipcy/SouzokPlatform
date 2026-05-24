@@ -29,11 +29,6 @@ type Props = {
   today: Date
 }
 
-const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = {
-  sales:   { label: '受注', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
-  manager: { label: '管理', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-}
-
 // 左固定列の幅 (px)。CSSのleftオフセット計算に使うので合わせる。
 const COL_W = { name: 140, team: 110, job: 80, tenure: 110 } as const
 const LEFT_OFFSET = {
@@ -139,7 +134,6 @@ export default function MemberPerformanceTable({
           <tbody>
             {members.map((m, rowIdx) => {
               const myCases = casesForMember(cases, caseMembers, m.id, m.primary_role)
-              const role = ROLE_BADGE[m.primary_role]
               const rowBg = rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
               return (
                 <tr key={m.id} className={`border-b border-gray-100 ${rowBg}`}>
@@ -152,11 +146,8 @@ export default function MemberPerformanceTable({
                       className="flex items-center gap-1.5 group/name"
                       title={`${m.name} のプロフィール`}
                     >
-                      <UserAvatar name={m.name} color={m.avatar_color} url={m.avatar_url} size="sm" />
+                      <UserAvatar name={m.name} role={m.primary_role} url={m.avatar_url} size="sm" />
                       <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate">{m.name}</span>
-                      <span className={`text-[13px] font-mono px-1 py-0.5 rounded border flex-shrink-0 ${role.cls}`}>
-                        {role.label}
-                      </span>
                     </Link>
                   </td>
                   <td

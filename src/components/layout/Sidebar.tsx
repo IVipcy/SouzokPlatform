@@ -131,7 +131,7 @@ export default function Sidebar() {
           >
             <UserAvatar
               name={user.memberName ?? '?'}
-              color={user.avatarColor ?? '#6B7280'}
+              role={user.primaryRole as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | undefined}
               url={user.avatarUrl}
               size="lg"
             />

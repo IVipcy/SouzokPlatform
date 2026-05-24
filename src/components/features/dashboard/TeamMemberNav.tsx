@@ -5,7 +5,7 @@ import UserAvatar from '@/components/ui/UserAvatar'
 export type TeamNavMember = {
   id: string
   name: string
-  avatarColor: string
+  avatarColor: string  // 互換用、未使用
   avatarUrl?: string | null
   primaryRole: 'sales' | 'manager'
 }
@@ -18,11 +18,6 @@ type Props = {
   // URL ビルダー（未指定なら進捗ボードへリンク）
   buildTeamHref?: (teamId: string) => string
   buildMemberHref?: (memberId: string, teamId: string) => string
-}
-
-const ROLE_BADGE: Record<'sales' | 'manager', { label: string; cls: string }> = {
-  sales:   { label: '受注', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
-  manager: { label: '管理', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
 export default function TeamMemberNav({
@@ -59,10 +54,9 @@ export default function TeamMemberNav({
           <span>{teamName} 全体</span>
         </Link>
 
-        {/* 各メンバー */}
+        {/* 各メンバー（ロールはアバターの色で表現、テキストチップは廃止） */}
         {sorted.map(m => {
           const active = m.id === currentMemberId
-          const role = ROLE_BADGE[m.primaryRole]
           return (
             <Link
               key={m.id}
@@ -72,14 +66,10 @@ export default function TeamMemberNav({
                   ? 'bg-brand-600 text-white border-brand-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400 hover:bg-brand-50/40'
               }`}
+              title={m.primaryRole === 'sales' ? `${m.name}（受注担当）` : `${m.name}（管理担当）`}
             >
-              <UserAvatar name={m.name} color={m.avatarColor} url={m.avatarUrl} size="sm" />
+              <UserAvatar name={m.name} role={m.primaryRole} url={m.avatarUrl} size="sm" />
               <span>{m.name}</span>
-              <span
-                className={`text-[14px] font-mono px-1.5 py-0 rounded border ${active ? 'bg-white/20 text-white border-white/30' : role.cls}`}
-              >
-                {role.label}
-              </span>
             </Link>
           )
         })}

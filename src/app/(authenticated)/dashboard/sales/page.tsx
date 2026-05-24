@@ -51,6 +51,7 @@ export default async function SalesDashboardPage() {
     { data: changesRaw },
     { data: propertiesRaw },
     { data: targetRaw },
+    { data: memberTargetsRaw },
   ] = await Promise.all([
     supabase
       .from('cases')
@@ -75,6 +76,10 @@ export default async function SalesDashboardPage() {
       .select('ym,meetings_count,new_orders_count,conversion_rate,avg_order_unit,tax_filing_count,property_appraisal_count')
       .eq('ym', ym)
       .maybeSingle(),
+    supabase
+      .from('member_targets')
+      .select('member_id,new_orders_count')
+      .eq('ym', ym),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]
@@ -83,6 +88,8 @@ export default async function SalesDashboardPage() {
   const teams = (teamsRaw ?? []) as TeamRow[]
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
+  const memberTargets = (memberTargetsRaw ?? []) as Array<{ member_id: string; new_orders_count: number }>
+  const memberTargetByMember = new Map(memberTargets.map(t => [t.member_id, t.new_orders_count]))
 
   // メンバーごとの担当案件IDセット
   const caseIdsByMember = new Map<string, Set<string>>()
@@ -150,6 +157,9 @@ export default async function SalesDashboardPage() {
       .map(m => {
         const myIds = caseIdsByMember.get(m.id) ?? new Set<string>()
         const my = filterByIds(myIds)
+        const myMetrics = computeSalesMetrics(my.cases, my.changes, ym, my.properties)
+        const myTarget = memberTargetByMember.get(m.id) ?? 0
+        const achieved = myTarget > 0 && myMetrics.newOrdersCount >= myTarget
         return {
           id: m.id,
           name: m.name,
@@ -157,7 +167,9 @@ export default async function SalesDashboardPage() {
           avatarUrl: m.avatar_url,
           jobType: m.job_type,
           joinedAt: m.joined_at,
-          metrics: computeSalesMetrics(my.cases, my.changes, ym, my.properties),
+          metrics: myMetrics,
+          newOrdersTarget: myTarget,
+          achieved,
         }
       })
 
@@ -192,7 +204,7 @@ export default async function SalesDashboardPage() {
           metrics={overall}
           initialTarget={initialTarget}
         />
-        <SalesTeamTable groups={groups} today={today} />
+        <SalesTeamTable groups={groups} today={today} ym={ym} />
       </div>
     </div>
   )

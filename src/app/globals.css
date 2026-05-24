@@ -79,6 +79,32 @@ body {
   }
 }
 
+/* ─── 達成アバターリング（レインボー回転） ─── */
+@keyframes achievement-avatar-spin {
+  to { transform: rotate(360deg); }
+}
+.achievement-avatar-ring {
+  position: relative;
+  background: conic-gradient(
+    from 0deg,
+    #ff6b6b,
+    #ffd93d,
+    #6bcf7f,
+    #4ecdc4,
+    #45b7d1,
+    #a78bfa,
+    #ff6b6b
+  );
+  background-size: 100% 100%;
+  border-radius: 9999px;
+  animation: achievement-avatar-spin 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .achievement-avatar-ring {
+    animation: none;
+  }
+}
+
 /* ─── ダッシュボード達成ポップアップ ─── */
 @keyframes achievement-popup-fade-in {
   from { opacity: 0; }

@@ -237,7 +237,12 @@ function AvatarBlock({ member, isOwner, onUploaded }: { member: MemberRow; isOwn
       onClick={handleClick}
       title={isOwner ? 'クリックして画像を変更' : undefined}
     >
-      <UserAvatar name={member.name} color={member.avatar_color} url={member.avatar_url} size="xl" />
+      <UserAvatar
+        name={member.name}
+        role={member.primary_role as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | undefined}
+        url={member.avatar_url}
+        size="xl"
+      />
       {isOwner && (
         <>
           <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

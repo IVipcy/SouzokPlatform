@@ -12,6 +12,8 @@ export type BillingViewRow = {
   managerId: string | null
   managerAvatarColor: string | null
   managerAvatarUrl: string | null
+  // 担当者列で表示する人の主たるロール（色決定用）
+  managerPrimaryRole?: 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null
   status: string          // InvoiceStatus 文字列
   amount: number          // 円
   issuedDate: string | null
@@ -142,7 +144,7 @@ export default function BillingStatusView({ summary, rows }: Props) {
                           >
                             <UserAvatar
                               name={r.managerName}
-                              color={r.managerAvatarColor ?? '#6B7280'}
+                              role={r.managerPrimaryRole ?? 'manager'}
                               url={r.managerAvatarUrl}
                               size="sm"
                             />

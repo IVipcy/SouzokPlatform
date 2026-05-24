@@ -72,7 +72,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,team_id').eq('is_active', true).eq('team_id', teamId),
-    supabase.from('members').select('id,name,avatar_color,avatar_url'),
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role'),
     supabase.from('case_members').select('case_id,member_id,role').in('role', ['sales', 'manager']),
     supabase.from('clients').select('id,name'),
   ])
@@ -80,7 +80,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   if (!team) notFound()
 
   const teamMembers = (teamMembersRaw ?? []) as MemberRow[]
-  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string; avatar_url: string | null }>
+  const allMembers = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>
   const caseMembers = (caseMembersRaw ?? []) as CaseMemberRow[]
   const clients = (clientsRaw ?? []) as Array<{ id: string; name: string }>
   const memberById = new Map(allMembers.map(m => [m.id, m]))
@@ -182,7 +182,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
   // 案件IDごとに manager を引く（進捗テーブル表示用）
-  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
+  const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
   for (const cm of caseMembers) {
     if (cm.role !== 'manager') continue
     if (!scopeCaseIds.has(cm.case_id)) continue
@@ -195,7 +195,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   //   - 個人フィルタ中: その個人を表示
   //   - チーム全体: 優先順 [スコープ内の管理 > スコープ内の受注 > スコープ外の管理]
   // ※スコープ内＝チームメンバー（または focusMember）
-  const teamAssigneeByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null }>()
+  const teamAssigneeByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
   for (const cm of caseMembers) {
     if (!scopeCaseIds.has(cm.case_id)) continue
     const isInScope = scopeMemberIds.has(cm.member_id)
@@ -242,6 +242,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         managerName: mgr?.name ?? null,
         managerAvatarColor: mgr?.avatar_color ?? null,
         managerAvatarUrl: mgr?.avatar_url ?? null,
+        managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
         expectedCompletionDate: c.expected_completion_date ?? null,
         clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
         flag,
@@ -341,6 +342,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         managerId: displayMember?.id ?? null,
         managerAvatarColor: displayMember?.avatar_color ?? null,
         managerAvatarUrl: displayMember?.avatar_url ?? null,
+        managerPrimaryRole: (displayMember?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
         status: inv.status,
         amount: inv.amount,
         issuedDate: inv.issued_date,

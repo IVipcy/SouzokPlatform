@@ -1,15 +1,20 @@
 import Link from 'next/link'
 import { tenureLabel, formatMan, type SalesMetricsBundle } from '@/lib/dashboardMetrics'
 import UserAvatar from '@/components/ui/UserAvatar'
+import EditableMemberTarget from './EditableMemberTarget'
 
 export type SalesMemberRow = {
   id: string
   name: string
-  avatarColor: string
+  avatarColor: string  // 互換用に残置（未使用）
   avatarUrl?: string | null
   jobType: string | null
   joinedAt: string | null
   metrics: SalesMetricsBundle
+  // 新規受注件数の個人目標（未設定なら 0）
+  newOrdersTarget: number
+  // 個人目標達成状態（true=新規受注 actual>=target、target>0）
+  achieved: boolean
 }
 
 export type SalesTeamGroup = {
@@ -21,9 +26,11 @@ export type SalesTeamGroup = {
 type Props = {
   groups: SalesTeamGroup[]
   today: Date
+  // 当月（target upsert に渡す）
+  ym: string
 }
 
-export default function SalesTeamTable({ groups, today }: Props) {
+export default function SalesTeamTable({ groups, today, ym }: Props) {
   const totalMembers = groups.reduce((s, g) => s + g.members.length, 0)
 
   if (totalMembers === 0) {
@@ -41,17 +48,20 @@ export default function SalesTeamTable({ groups, today }: Props) {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-900">チーム別／個人別 月次成績</h3>
-        <p className="text-[14px] text-gray-400">チーム合計の下にメンバーの内訳が並びます</p>
+        <p className="text-[12px] text-gray-400">
+          「目標(新規受注)」列をクリックで個人目標を編集できます。達成すると氏名アイコンにレインボーリング 🌈
+        </p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 120 }} />
-            <col style={{ width: 140 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 100 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 70 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 70 }} />
+            <col style={{ width: 80 }} />
             <col style={{ width: 80 }} />
             <col style={{ width: 70 }} />
             <col style={{ width: 90 }} />
@@ -68,6 +78,7 @@ export default function SalesTeamTable({ groups, today }: Props) {
               <th className="px-2.5 py-2 text-left font-semibold">在籍期間</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月面談数">面談数</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月新規受注件数">新規受注</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200 bg-amber-50/50" title="新規受注の個人目標（クリックで編集）">目標(新規受注)</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">受注率</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">平均単価</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="業務完了予定件数">完了予定</th>
@@ -78,7 +89,7 @@ export default function SalesTeamTable({ groups, today }: Props) {
           </thead>
           <tbody>
             {groups.map(g => (
-              <TeamGroupRows key={g.teamName} group={g} today={today} />
+              <TeamGroupRows key={g.teamName} group={g} today={today} ym={ym} />
             ))}
           </tbody>
         </table>
@@ -87,7 +98,7 @@ export default function SalesTeamTable({ groups, today }: Props) {
   )
 }
 
-function TeamGroupRows({ group, today }: { group: SalesTeamGroup; today: Date }) {
+function TeamGroupRows({ group, today, ym }: { group: SalesTeamGroup; today: Date; ym: string }) {
   return (
     <>
       {/* チーム小計 */}
@@ -116,7 +127,13 @@ function TeamGroupRows({ group, today }: { group: SalesTeamGroup; today: Date })
               className="flex items-center gap-1.5 pl-3 group/name"
               title={`${m.name} のプロフィール`}
             >
-              <UserAvatar name={m.name} color={m.avatarColor} url={m.avatarUrl} size="sm" />
+              <UserAvatar
+                name={m.name}
+                role="sales"
+                url={m.avatarUrl}
+                size="sm"
+                achievedFrame={m.achieved}
+              />
               <span className="text-gray-700 group-hover/name:text-brand-700 group-hover/name:underline truncate">{m.name}</span>
             </Link>
           </td>
@@ -124,13 +141,14 @@ function TeamGroupRows({ group, today }: { group: SalesTeamGroup; today: Date })
             {m.jobType ?? <span className="text-gray-400">-</span>}
           </td>
           <td className="px-2.5 py-2 text-gray-700">{tenureLabel(m.joinedAt, today)}</td>
-          <MetricCells metrics={m.metrics} />
+          <MemberMetricCells metrics={m.metrics} target={m.newOrdersTarget} achieved={m.achieved} memberId={m.id} ym={ym} />
         </tr>
       ))}
     </>
   )
 }
 
+// チーム合計の指標セル（目標列は「-」）
 function MetricCells({ metrics: m, bold }: { metrics: SalesMetricsBundle; bold?: boolean }) {
   const cls = `px-2 py-2 text-right tabular-nums font-mono border-l border-gray-100 ${bold ? 'font-bold text-gray-900' : 'text-gray-700'}`
   const dim = <span className="text-gray-300">-</span>
@@ -139,6 +157,49 @@ function MetricCells({ metrics: m, bold }: { metrics: SalesMetricsBundle; bold?:
     <>
       <td className={cls}>{m.meetingsCount > 0 ? m.meetingsCount : dim}</td>
       <td className={cls}>{m.newOrdersCount > 0 ? m.newOrdersCount : dim}</td>
+      <td className={`${cls} bg-amber-50/30`}>{dim}</td>
+      <td className={cls}>
+        {m.conversionRate === null ? dim : `${Math.round(m.conversionRate * 100)}%`}
+      </td>
+      <td className={cls}>{m.avgOrderUnit === null ? dim : `${formatMan(m.avgOrderUnit)}万`}</td>
+      <td className={cls}>{m.expectedCompletions > 0 ? m.expectedCompletions : dim}</td>
+      <td className={cls}>{m.completedCount > 0 ? m.completedCount : dim}</td>
+      <td className={cls}>{m.completedAmount > 0 ? `${formatMan(m.completedAmount)}万` : dim}</td>
+      <td className={cls}>{m.avgCycleMonths === null ? dim : m.avgCycleMonths.toFixed(1)}</td>
+    </>
+  )
+}
+
+// 個人行の指標セル（目標列は編集可能）
+function MemberMetricCells({
+  metrics: m,
+  target,
+  achieved,
+  memberId,
+  ym,
+}: {
+  metrics: SalesMetricsBundle
+  target: number
+  achieved: boolean
+  memberId: string
+  ym: string
+}) {
+  const cls = 'px-2 py-2 text-right tabular-nums font-mono border-l border-gray-100 text-gray-700'
+  const dim = <span className="text-gray-300">-</span>
+  // 新規受注の数値色: 達成時は緑、未達+目標ありは赤、目標なしは通常
+  const newOrdersColor = target <= 0
+    ? ''
+    : achieved
+      ? 'text-emerald-700 font-bold'
+      : 'text-red-600'
+
+  return (
+    <>
+      <td className={cls}>{m.meetingsCount > 0 ? m.meetingsCount : dim}</td>
+      <td className={`${cls} ${newOrdersColor}`}>{m.newOrdersCount > 0 ? m.newOrdersCount : dim}</td>
+      <td className={`px-2 py-2 border-l border-gray-100 bg-amber-50/30`}>
+        <EditableMemberTarget memberId={memberId} ym={ym} initialTarget={target} />
+      </td>
       <td className={cls}>
         {m.conversionRate === null ? dim : `${Math.round(m.conversionRate * 100)}%`}
       </td>

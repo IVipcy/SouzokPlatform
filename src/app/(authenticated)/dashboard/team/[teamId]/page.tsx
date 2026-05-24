@@ -54,6 +54,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     { data: membersRaw },
     { data: changesRaw },
     { data: propertiesRaw },
+    { data: memberTargetsRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase
@@ -73,6 +74,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .gte('created_at', monthStart)
       .lt('created_at', nextMonthStart),
     supabase.from('real_estate_properties').select('case_id,appraisal_status'),
+    supabase
+      .from('member_targets')
+      .select('member_id,new_orders_count')
+      .eq('ym', ym),
   ])
 
   if (!team) notFound()
@@ -82,6 +87,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const teamMembers = (membersRaw ?? []) as MemberRow[]
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
+  const memberTargetByMember = new Map(
+    ((memberTargetsRaw ?? []) as Array<{ member_id: string; new_orders_count: number }>)
+      .map(t => [t.member_id, t.new_orders_count]),
+  )
 
   // 受注担当のみ抽出（管理は除外）
   const salesMembers = teamMembers.filter(m => m.primary_role === 'sales')
@@ -132,6 +141,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       const myCases = cases.filter(c => myCaseIds.has(c.id))
       const myChanges = statusChanges.filter(sc => myCaseIds.has(sc.entity_id))
       const myProperties = properties.filter(p => myCaseIds.has(p.case_id))
+      const myMetrics = computeSalesMetrics(myCases, myChanges, ym, myProperties)
+      const myTarget = memberTargetByMember.get(m.id) ?? 0
+      const achieved = myTarget > 0 && myMetrics.newOrdersCount >= myTarget
       return {
         id: m.id,
         name: m.name,
@@ -139,7 +151,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         avatarUrl: m.avatar_url,
         jobType: m.job_type,
         joinedAt: m.joined_at,
-        metrics: computeSalesMetrics(myCases, myChanges, ym, myProperties),
+        metrics: myMetrics,
+        newOrdersTarget: myTarget,
+        achieved,
       }
     })
 
@@ -184,7 +198,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
 
       <div className="space-y-3">
         <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
-        <SalesTeamTable groups={[tableGroup]} today={today} />
+        <SalesTeamTable groups={[tableGroup]} today={today} ym={ym} />
       </div>
     </div>
   )
