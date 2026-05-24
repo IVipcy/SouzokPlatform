@@ -86,9 +86,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const memberById = new Map(allMembers.map(m => [m.id, m]))
   const clientById = new Map(clients.map(c => [c.id, c.name]))
 
-  // メンバー切替パネル用
+  // メンバー切替パネル用（進捗管理は管理担当の仕事なので、管理担当のみ表示）
   const navMembers: TeamNavMember[] = teamMembers
-    .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
+    .filter(m => m.primary_role === 'manager')
     .map(m => ({
       id: m.id,
       name: m.name,
@@ -98,12 +98,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     }))
 
   // フィルタ対象のメンバーID集合
-  // - member=xxx が指定されていれば、そのメンバーが sales or manager で紐づく案件のみ
-  // - 未指定なら、チーム員（sales/manager）全員が紐づく案件
+  // - member=xxx が指定されていれば、その管理担当が紐づく案件のみ
+  // - 未指定なら、チームの管理担当全員が紐づく案件
   const focusMember = memberParam ? teamMembers.find(m => m.id === memberParam) ?? null : null
   const scopeMemberIds = focusMember
     ? new Set([focusMember.id])
-    : new Set(teamMembers.filter(m => m.primary_role === 'sales' || m.primary_role === 'manager').map(m => m.id))
+    : new Set(teamMembers.filter(m => m.primary_role === 'manager').map(m => m.id))
 
   const scopeCaseIds = new Set<string>()
   for (const cm of caseMembers) {

@@ -2,13 +2,9 @@ import Link from 'next/link'
 import {
   Building2,
   Megaphone,
-  Compass,
-  PuzzleIcon,
   CalendarDays,
   Users,
   AlertTriangle,
-  Banknote,
-  User,
   LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react'
@@ -64,20 +60,6 @@ export default async function DashboardTopPage() {
           Icon: Megaphone,
           tone: 'blue',
         },
-        {
-          href: null,
-          title: '管理担当',
-          description: '管理担当の業務状況。タスク消化・案件進捗・滞留状況など（準備中）。',
-          Icon: Compass,
-          tone: 'gray',
-        },
-        {
-          href: null,
-          title: 'アシスタント',
-          description: 'アシスタントのタスク捌き状況・パフォーマンス（準備中）。',
-          Icon: PuzzleIcon,
-          tone: 'gray',
-        },
       ],
     },
     {
@@ -108,25 +90,6 @@ export default async function DashboardTopPage() {
         Icon: AlertTriangle,
         tone: 'amber' as const,
       })),
-    },
-    {
-      title: 'その他',
-      cards: [
-        {
-          href: null,
-          title: '請求・入金',
-          description: '請求書発行・入金状況・未回収のサマリー（準備中）。',
-          Icon: Banknote,
-          tone: 'gray',
-        },
-        {
-          href: null,
-          title: '個人マイページ',
-          description: '自分の月次成績と担当案件のサマリー（準備中）。',
-          Icon: User,
-          tone: 'gray',
-        },
-      ],
     },
   ]
 

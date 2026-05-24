@@ -163,9 +163,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     members: memberRows,
   }
 
-  // メンバー切替ナビ（チームの全メンバー、受注/管理混在）
+  // メンバー切替ナビ（受注担当ダッシュボードなので、受注担当のみ表示）
   const navMembers: TeamNavMember[] = teamMembers
-    .filter(m => m.primary_role === 'sales' || m.primary_role === 'manager')
+    .filter(m => m.primary_role === 'sales')
     .map(m => ({
       id: m.id,
       name: m.name,
