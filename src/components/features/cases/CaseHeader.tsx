@@ -2,17 +2,22 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import { CASE_STATUSES } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import type { CaseRow } from '@/types'
+import CaseProgressPanel from './CaseProgressPanel'
+import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
   // 依頼者との最新やり取り日（YYYY-MM-DD）。null=履歴なし。
   // ステータスが受注/対応中で、これが2週間以上前 or null のとき「要進捗連絡」マークを点滅表示
   latestCommunicationDate: string | null
+  // 「対応中」展開パネル用のデータ
+  tasks: TaskRow[]
+  properties: RealEstatePropertyRow[]
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -29,13 +34,17 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
 
 const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '保留・長期', '完了', '失注']
 
-export default function CaseHeader({ caseData, latestCommunicationDate }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, tasks, properties }: Props) {
   const router = useRouter()
   const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669', '確認中': '#D97706' }
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
+
+  // 対応中ノードを clickable に & 進捗パネル表示
+  const isInProgress = caseData.status === '対応中'
+  const [progressOpen, setProgressOpen] = useState(false)
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -176,15 +185,16 @@ export default function CaseHeader({ caseData, latestCommunicationDate }: Props)
               const isActive = i === currentIdx
               const isLast = i === STATUS_ORDER.length - 1
               const def = CASE_STATUSES.find(s => s.key === status)
+              const isClickableInProgress = status === '対応中' && isInProgress
 
-              return (
-                <div key={status} className="flex flex-col items-center gap-1 flex-1 relative">
+              const innerContent = (
+                <>
                   <div
                     className={`rounded-full relative z-10 transition-all ${
                       isActive
                         ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]'
                         : 'w-2.5 h-2.5'
-                    }`}
+                    } ${isClickableInProgress ? 'group-hover/step:scale-125' : ''}`}
                     style={{
                       backgroundColor: isActive
                         ? (def?.color ?? '#2563EB')
@@ -194,10 +204,15 @@ export default function CaseHeader({ caseData, latestCommunicationDate }: Props)
                       opacity: isPassed && !isActive ? 0.4 : 1,
                     }}
                   />
-                  <span className={`text-[12px] whitespace-nowrap text-center ${
+                  <span className={`text-[12px] whitespace-nowrap text-center inline-flex items-center gap-0.5 ${
                     isActive ? 'text-brand-600 font-semibold' : 'text-gray-400'
-                  }`}>
+                  } ${isClickableInProgress ? 'group-hover/step:underline' : ''}`}>
                     {status}
+                    {isClickableInProgress && (
+                      progressOpen
+                        ? <ChevronUp className="w-3 h-3" strokeWidth={2.5} />
+                        : <ChevronDown className="w-3 h-3" strokeWidth={2.5} />
+                    )}
                   </span>
                   {!isLast && (
                     <div
@@ -208,12 +223,36 @@ export default function CaseHeader({ caseData, latestCommunicationDate }: Props)
                       }}
                     />
                   )}
+                </>
+              )
+
+              return (
+                <div key={status} className="flex flex-col items-center gap-1 flex-1 relative">
+                  {isClickableInProgress ? (
+                    <button
+                      type="button"
+                      onClick={() => setProgressOpen(o => !o)}
+                      className="group/step flex flex-col items-center gap-1 w-full cursor-pointer rounded-md py-0.5 px-1 hover:bg-brand-50 transition-colors"
+                      title="クリックでタスク進捗を表示"
+                    >
+                      {innerContent}
+                    </button>
+                  ) : (
+                    innerContent
+                  )}
                 </div>
               )
             })}
           </div>
         </div>
       </div>
+
+      {/* 「対応中」クリックで展開する Phase × タスクの進捗パネル */}
+      {isInProgress && progressOpen && (
+        <div className="mt-3">
+          <CaseProgressPanel tasks={tasks} properties={properties} />
+        </div>
+      )}
     </div>
   )
 }

@@ -117,7 +117,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   return (
     <div>
-      <CaseHeader caseData={caseState} latestCommunicationDate={latestCommunicationDate} />
+      <CaseHeader
+        caseData={caseState}
+        latestCommunicationDate={latestCommunicationDate}
+        tasks={tasks}
+        properties={properties}
+      />
 
       <CaseTabs
         activeTab={activeTab}
