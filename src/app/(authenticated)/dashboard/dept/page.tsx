@@ -7,11 +7,13 @@ import DashboardAchievementPopup from '@/components/features/dashboard/Dashboard
 import {
   computeMetrics,
   computeProcedureBreakdown,
+  computeSalesMetrics,
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
   isDeptAchieved,
   type DashCase,
   type DashCaseMember,
+  type DashStatusChange,
   type DeptTargetRow,
 } from '@/lib/dashboardMetrics'
 
@@ -34,12 +36,19 @@ export default async function DashboardPage() {
   const today = new Date()
   const thisYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
+  // 当月の月初〜月末（activity_log フィルタ用 — 受注担当の達成判定に使う）
+  const monthStart = `${thisYm}-01T00:00:00`
+  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
+
   const [
     { data: casesRaw },
     { data: caseMembersRaw },
     { data: membersRaw },
     { data: teamsRaw },
     { data: targetRaw },
+    { data: memberTargetsRaw },
+    { data: statusChangesRaw },
   ] = await Promise.all([
     supabase
       .from('cases')
@@ -55,12 +64,26 @@ export default async function DashboardPage() {
       .select('ym,new_orders,managing,completed,cycle_months,completed_amount')
       .eq('ym', thisYm)
       .maybeSingle(),
+    supabase
+      .from('member_targets')
+      .select('member_id,new_orders_count')
+      .eq('ym', thisYm),
+    supabase
+      .from('activity_log')
+      .select('entity_id,old_value,new_value,created_at')
+      .eq('entity_type', 'case')
+      .eq('action', 'status_change')
+      .gte('created_at', monthStart)
+      .lt('created_at', nextMonthStart),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const members = (membersRaw ?? []) as MemberRow[]
   const teams = (teamsRaw ?? []) as TeamRow[]
+  const statusChanges = (statusChangesRaw ?? []) as DashStatusChange[]
+  const memberTargets = (memberTargetsRaw ?? []) as Array<{ member_id: string; new_orders_count: number }>
+  const memberTargetByMember = new Map(memberTargets.map(t => [t.member_id, t.new_orders_count]))
   const teamMap: Record<string, string> = Object.fromEntries(teams.map(t => [t.id, t.name]))
 
   // 部全体・当月のKPI
@@ -103,6 +126,27 @@ export default async function DashboardPage() {
   const months = fiscalYearMonthsToDate(today)
   const monthLabel = `${today.getMonth() + 1}月`
 
+  // 受注担当の達成判定（個人月間目標 = 新規受注件数 を達成しているか）
+  // → アバターにレインボーリングを表示するため
+  const achievedMemberIds = new Set<string>()
+  for (const m of members) {
+    if (m.primary_role !== 'sales') continue
+    const target = memberTargetByMember.get(m.id) ?? 0
+    if (target <= 0) continue
+    // この受注担当が role='sales' で紐づく案件
+    const mySalesCaseIds = new Set(
+      caseMembers
+        .filter(cm => cm.role === 'sales' && cm.member_id === m.id)
+        .map(cm => cm.case_id),
+    )
+    const myCases = cases.filter(c => mySalesCaseIds.has(c.id))
+    const myChanges = statusChanges.filter(sc => mySalesCaseIds.has(sc.entity_id))
+    const myMetrics = computeSalesMetrics(myCases, myChanges, thisYm)
+    if (myMetrics.newOrdersCount >= target) {
+      achievedMemberIds.add(m.id)
+    }
+  }
+
   // 達成判定（目標が1つでも設定されていればポップアップ表示）
   const achievement = isDeptAchieved(summary, initialTarget)
 
@@ -134,6 +178,7 @@ export default async function DashboardPage() {
           caseMembers={caseMembers}
           months={months}
           today={today}
+          achievedMemberIds={achievedMemberIds}
         />
       </div>
     </div>

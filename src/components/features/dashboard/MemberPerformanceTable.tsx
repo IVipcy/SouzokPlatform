@@ -27,6 +27,8 @@ type Props = {
   caseMembers: DashCaseMember[]
   months: string[]   // 当月→過去 順
   today: Date
+  // 達成中のメンバー（個人月間目標を満たしている、アバターにレインボーリング表示）
+  achievedMemberIds?: Set<string>
 }
 
 // 左固定列の幅 (px)。CSSのleftオフセット計算に使うので合わせる。
@@ -45,6 +47,7 @@ export default function MemberPerformanceTable({
   caseMembers,
   months,
   today,
+  achievedMemberIds,
 }: Props) {
   if (members.length === 0) {
     return (
@@ -146,7 +149,13 @@ export default function MemberPerformanceTable({
                       className="flex items-center gap-1.5 group/name"
                       title={`${m.name} のプロフィール`}
                     >
-                      <UserAvatar name={m.name} role={m.primary_role} url={m.avatar_url} size="sm" />
+                      <UserAvatar
+                        name={m.name}
+                        role={m.primary_role}
+                        url={m.avatar_url}
+                        size="sm"
+                        achievedFrame={achievedMemberIds?.has(m.id) ?? false}
+                      />
                       <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate">{m.name}</span>
                     </Link>
                   </td>

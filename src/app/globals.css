@@ -79,21 +79,10 @@ body {
   }
 }
 
-/* ─── 達成アバターリング（画像をアバターより大きく + ゆっくり回転） ─── */
-/* base で scale(2) を当てておく → animation で上書きされる時もスケールを保持。
-   prefers-reduced-motion なら animation:none で base の scale(2) のみが残る。 */
-@keyframes achievement-avatar-spin {
-  from { transform: scale(2) rotate(0deg); }
-  to   { transform: scale(2) rotate(360deg); }
-}
+/* ─── 達成アバターリング（画像をアバターより少しだけ大きく、静止表示） ─── */
+/* アバターを 30% 程度はみ出すサイズ感。回転アニメーションは廃止。 */
 .achievement-avatar-img {
-  transform: scale(2);
-  animation: achievement-avatar-spin 8s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .achievement-avatar-img {
-    animation: none;
-  }
+  transform: scale(1.3);
 }
 
 /* ─── ダッシュボード達成ポップアップ ─── */
