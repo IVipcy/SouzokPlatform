@@ -80,17 +80,17 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[14px] font-semibold text-gray-900">Phase別タスク進捗</h3>
-        <span className="text-[11px] text-gray-400 ml-auto">
-          <span className="inline-flex items-center gap-1 mr-3">
+        <h3 className="text-[15px] font-semibold text-gray-900">Phase別タスク進捗</h3>
+        <span className="text-[12px] text-gray-500 ml-auto flex items-center gap-3 flex-wrap">
+          <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-cyan-500" />完了
           </span>
-          <span className="inline-flex items-center gap-1 mr-3">
+          <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />対応中
           </span>
-          <span className="inline-flex items-center gap-1 mr-3">
+          <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-white border-2 border-red-500" />期限超過
           </span>
           <span className="inline-flex items-center gap-1">
@@ -110,8 +110,8 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
       {visibleProperties.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex items-center gap-2 mb-3">
-            <span className="inline-block w-[3px] h-4 bg-amber-500 rounded-full" />
-            <h3 className="text-[14px] font-semibold text-gray-900">不動産査定</h3>
+            <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+            <h3 className="text-[15px] font-semibold text-gray-900">不動産査定</h3>
           </div>
           <div className="space-y-3">
             {visibleProperties.map((p, i) => (
@@ -143,9 +143,9 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
   return (
     <div className="flex gap-3 items-start">
       {/* Phase 名 */}
-      <div className="w-32 flex-shrink-0 pt-1">
-        <div className="text-[12px] font-bold text-gray-700 leading-tight">{phaseLabel}</div>
-        <span className={`inline-flex items-center mt-1 text-[10px] font-mono px-1.5 py-0.5 rounded border ${phaseBadge.cls}`}>
+      <div className="w-36 flex-shrink-0 pt-1">
+        <div className="text-[13px] font-bold text-gray-800 leading-tight">{phaseLabel}</div>
+        <span className={`inline-flex items-center mt-1.5 text-[11px] font-mono px-2 py-0.5 rounded border ${phaseBadge.cls}`}>
           {phaseBadge.label} {done}/{total}
         </span>
       </div>
@@ -157,12 +157,12 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
             const state = classifyTask(t, todayYmd)
             const isLast = idx === tasks.length - 1
             return (
-              <div key={t.id} className="flex items-start" style={{ minWidth: 100 }}>
-                <div className="flex flex-col items-center" style={{ width: 100 }}>
+              <div key={t.id} className="flex items-start" style={{ minWidth: 130 }}>
+                <div className="flex flex-col items-center" style={{ width: 130 }}>
                   {/* ノードと線を同じ行に並べる */}
                   <div className="flex items-center w-full">
                     <span
-                      className={`flex-shrink-0 w-3.5 h-3.5 rounded-full border-2 ${nodeStyle(state).cls}`}
+                      className={`flex-shrink-0 w-4 h-4 rounded-full border-2 ${nodeStyle(state).cls}`}
                       title={`${t.title}\nステータス: ${t.status}${t.due_date ? `\n期限: ${t.due_date}` : ''}`}
                     />
                     {!isLast && (
@@ -171,8 +171,8 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
                   </div>
                   {/* タスク名（下） */}
                   <div
-                    className={`mt-1.5 text-[10px] text-center leading-tight w-full px-1 ${
-                      state === 'overdue' || state === 'active' ? 'text-red-600 font-semibold' : 'text-gray-600'
+                    className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 ${
+                      state === 'overdue' || state === 'active' ? 'text-red-600 font-semibold' : 'text-gray-700'
                     }`}
                     style={{ wordBreak: 'break-word' }}
                   >
@@ -207,31 +207,28 @@ function PropertyAppraisalRow({ property, index }: { property: RealEstatePropert
   return (
     <div className="flex gap-3 items-center">
       {/* 物件ラベル */}
-      <div className="w-48 flex-shrink-0 text-[12px] text-gray-700 truncate" title={propertyLabel}>
+      <div className="w-48 flex-shrink-0 text-[13px] text-gray-800 truncate" title={propertyLabel}>
         {propertyLabel}
       </div>
 
-      {/* 3 ステップバー */}
-      <div className="flex-1 max-w-xs flex items-center">
+      {/* 3 ステップバー（シアン統一）*/}
+      <div className="flex-1 max-w-md flex items-center">
         {steps.map((step, idx) => {
           const isReached = idx <= safeIdx
-          const isCurrent = idx === safeIdx
           const isLast = idx === steps.length - 1
           return (
             <div key={step.key} className="flex items-center flex-1 last:flex-initial">
-              <div className="flex flex-col items-center" style={{ minWidth: 70 }}>
+              <div className="flex flex-col items-center" style={{ minWidth: 80 }}>
                 <span
-                  className={`w-3.5 h-3.5 rounded-full border-2 ${
-                    isCurrent
-                      ? 'bg-amber-500 border-amber-500 ring-2 ring-amber-200'
-                      : isReached
-                        ? 'bg-cyan-500 border-cyan-500'
-                        : 'bg-white border-gray-300'
+                  className={`w-4 h-4 rounded-full border-2 ${
+                    isReached
+                      ? 'bg-cyan-500 border-cyan-500'
+                      : 'bg-white border-gray-300'
                   }`}
                 />
                 <span
-                  className={`mt-1 text-[10px] ${
-                    isCurrent ? 'text-amber-700 font-semibold' : isReached ? 'text-cyan-700' : 'text-gray-500'
+                  className={`mt-1.5 text-[12px] ${
+                    isReached ? 'text-cyan-700 font-semibold' : 'text-gray-400'
                   }`}
                 >
                   {step.label}
@@ -242,7 +239,7 @@ function PropertyAppraisalRow({ property, index }: { property: RealEstatePropert
                   className={`flex-1 h-[2px] ${
                     idx < safeIdx ? 'bg-cyan-400' : 'bg-gray-200'
                   }`}
-                  style={{ marginBottom: 18 }}
+                  style={{ marginBottom: 22 }}
                 />
               )}
             </div>

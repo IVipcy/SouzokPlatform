@@ -34,11 +34,17 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
 
 const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '保留・長期', '完了', '失注']
 
+// ステータス系の表示色をブランド単色に統一（per-status カラーは廃止）
+const STATUS_ACTIVE_COLOR = '#0f487e'    // brand-600
+const STATUS_PASSED_COLOR = '#7daac8'    // brand-300 — 経過済みは薄めで
+const STATUS_FUTURE_COLOR = '#CBD5E1'    // gray-300
+
 export default function CaseHeader({ caseData, latestCommunicationDate, tasks, properties }: Props) {
   const router = useRouter()
-  const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
-  const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669', '確認中': '#D97706' }
+  // 相続税バッジ: '要' / '不要' のみ表示。'確認中' は未確定なので非表示。
+  const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669' }
+  const showTaxBadge = caseData.tax_filing_required === '要' || caseData.tax_filing_required === '不要'
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
 
@@ -117,18 +123,13 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
             </div>
 
             <div className="flex items-center gap-2 flex-wrap pt-1">
-              {/* Status dropdown */}
+              {/* Status dropdown（ブランド単色） */}
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors"
-                  style={{
-                    color: statusDef?.color,
-                    borderColor: `${statusDef?.color}40`,
-                    backgroundColor: `${statusDef?.color}10`,
-                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusDef?.color }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
                   {caseData.status}
                   <span className="text-[12px] opacity-70">▾</span>
                 </button>
@@ -139,11 +140,10 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                       <button
                         key={s.key}
                         onClick={() => handleStatusChange(s.key)}
-                        className={`w-full px-3.5 py-2 text-xs font-medium flex items-center gap-2 hover:bg-gray-50 transition-colors ${
-                          s.key === caseData.status ? 'bg-brand-50 text-brand-600' : 'text-gray-700'
+                        className={`w-full px-3.5 py-2 text-xs font-medium flex items-center hover:bg-gray-50 transition-colors ${
+                          s.key === caseData.status ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-700'
                         }`}
                       >
-                        <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                         {s.key}
                       </button>
                     ))}
@@ -158,7 +158,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                   variant="solid"
                 />
               )}
-              {caseData.tax_filing_required && (
+              {showTaxBadge && caseData.tax_filing_required && (
                 <Badge
                   label={`相続税 ${caseData.tax_filing_required}`}
                   color={taxColors[caseData.tax_filing_required] ?? '#6B7280'}
@@ -184,28 +184,27 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
               const isPassed = i < currentIdx
               const isActive = i === currentIdx
               const isLast = i === STATUS_ORDER.length - 1
-              const def = CASE_STATUSES.find(s => s.key === status)
               const isClickableInProgress = status === '対応中' && isInProgress
+
+              // 単色化: アクティブ=brand-600、経過=brand-300、未来=gray-300
+              const dotColor = isActive
+                ? STATUS_ACTIVE_COLOR
+                : isPassed
+                  ? STATUS_PASSED_COLOR
+                  : STATUS_FUTURE_COLOR
 
               const innerContent = (
                 <>
                   <div
                     className={`rounded-full relative z-10 transition-all ${
                       isActive
-                        ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]'
+                        ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(15,72,126,0.2)]'
                         : 'w-2.5 h-2.5'
                     } ${isClickableInProgress ? 'group-hover/step:scale-125' : ''}`}
-                    style={{
-                      backgroundColor: isActive
-                        ? (def?.color ?? '#2563EB')
-                        : isPassed
-                          ? '#2563EB'
-                          : '#CBD5E1',
-                      opacity: isPassed && !isActive ? 0.4 : 1,
-                    }}
+                    style={{ backgroundColor: dotColor }}
                   />
                   <span className={`text-[12px] whitespace-nowrap text-center inline-flex items-center gap-0.5 ${
-                    isActive ? 'text-brand-600 font-semibold' : 'text-gray-400'
+                    isActive ? 'text-brand-700 font-semibold' : 'text-gray-400'
                   } ${isClickableInProgress ? 'group-hover/step:underline' : ''}`}>
                     {status}
                     {isClickableInProgress && (
@@ -217,10 +216,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                   {!isLast && (
                     <div
                       className="absolute top-[5px] left-[50%] right-[-50%] h-px z-0"
-                      style={{
-                        backgroundColor: isPassed ? '#2563EB' : '#CBD5E1',
-                        opacity: isPassed ? 0.35 : 1,
-                      }}
+                      style={{ backgroundColor: isPassed ? STATUS_PASSED_COLOR : STATUS_FUTURE_COLOR }}
                     />
                   )}
                 </>
