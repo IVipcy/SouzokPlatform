@@ -10,14 +10,9 @@ type Props = {
 
 /**
  * 案件詳細「書類」タブ。
- *
- * 旧「書類タブ + 郵送管理タブ」を統合したもの。
- *   - メモ書き
- *   - 発送のみ
- *   - 返送待ち
- *   - 受領のみ（お客様から一方的に届く書類）
- *   - 完了（発送 → 受領済み）
- * を 1 つのテーブルで管理する。
+ * /documents の「ドキュメント管理」タブと同じシンプル仕様:
+ *   - 書類名 / ファイル更新日 / ファイル(プレビュー or DL) の3列のみ
+ *   - 状態フィルタや発送/受領系カラムは廃止
  */
 export default function DocsTab({ caseData, documents }: Props) {
   return (
@@ -26,7 +21,7 @@ export default function DocsTab({ caseData, documents }: Props) {
         caseId={caseData.id}
         rows={documents}
         title="書類一覧"
-        subtitle="この案件に紐づくすべての書類（発送・受領・メモ）を一元管理"
+        subtitle="この案件に紐づく書類のファイル管理"
       />
     </div>
   )
