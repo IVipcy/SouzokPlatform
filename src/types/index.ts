@@ -497,6 +497,35 @@ export type CaseDocumentRow = {
   tasks?: { id: string; title: string } | null
 }
 
+// === 書類受信簿 ===
+export type DocumentReceiptItemRow = {
+  id: string
+  receipt_id: string
+  item_name: string         // 戸籍 / 住民票 / 名古屋戸籍 など
+  quantity: number | null   // 通数
+  received_from: string | null  // 受領先
+  sort_order: number
+  created_at: string
+}
+
+export type DocumentReceiptRow = {
+  id: string
+  case_id: string
+  received_date: string     // YYYY-MM-DD
+  sequence_no: number       // 当日の連番
+  dual_check_member_id: string | null
+  dual_checked_at: string | null
+  started_by_member_id: string | null
+  started_at: string | null
+  created_at: string
+  updated_at: string
+  // join 用
+  cases?: { id: string; case_number: string; deal_name: string } | null
+  items?: DocumentReceiptItemRow[]
+  dual_check_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
+  started_by_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
+}
+
 /** 旧名（後方互換用エイリアス） */
 export type DocumentDispatchRow = CaseDocumentRow
 

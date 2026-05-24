@@ -2,85 +2,76 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Search, FileText, Plus, AlertTriangle,
-  Mail, MailOpen, FileCheck, StickyNote,
-} from 'lucide-react'
-import FlatDocumentsTable from '@/components/features/documents/FlatDocumentsTable'
-import NewCaseDocumentModal from '@/components/features/documents/NewCaseDocumentModal'
+import { Search, FileText, Plus, Inbox } from 'lucide-react'
+import DocumentManagementList from './DocumentManagementList'
+import DocumentReceiptList from './DocumentReceiptList'
+import NewCaseDocumentModal from './NewCaseDocumentModal'
+import NewDocumentReceiptModal from './NewDocumentReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
-import type { CaseDocumentRow } from '@/types'
+import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
 
-type CaseLite = {
-  id: string
-  case_number: string
-  deal_name: string
-  status: string
-}
+type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
 
-type StatusFilter = 'all' | 'memo' | 'sent' | 'waiting' | 'received' | 'completed'
+type TabKey = 'receipts' | 'docs'
 
 type Props = {
   documents: CaseDocumentRow[]
+  receipts: DocumentReceiptRow[]
   cases: CaseLite[]
+  currentMemberId: string | null
+  currentMember: MemberRow | null
 }
 
-function statusOf(r: CaseDocumentRow): Exclude<StatusFilter, 'all'> {
-  const hasSent = !!r.sent_date
-  const hasReceived = !!r.received_date
-  if (hasSent && hasReceived) return 'completed'
-  if (hasSent && !hasReceived) return 'waiting'
-  if (!hasSent && hasReceived) return 'received'
-  return 'memo'
-}
-
-export default function DocumentsClient({ documents, cases }: Props) {
+export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [search, setSearch] = useState('')
-  const [caseFilter, setCaseFilter] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [modalOpen, setModalOpen] = useState(false)
-
   const refresh = () => startTransition(() => router.refresh())
 
-  // 案件 lookup
+  const [tab, setTab] = useState<TabKey>('receipts')
+  const [search, setSearch] = useState('')
+  const [caseFilter, setCaseFilter] = useState<string>('')
+  const [docModalOpen, setDocModalOpen] = useState(false)
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false)
+
   const caseLookup = useMemo(() => {
     const m = new Map<string, CaseLite>()
     for (const c of cases) m.set(c.id, c)
     return m
   }, [cases])
 
-  // 状態別カウント
-  const counts = useMemo(() => {
-    const c: Record<Exclude<StatusFilter, 'all'>, number> = { memo: 0, sent: 0, waiting: 0, received: 0, completed: 0 }
-    for (const d of documents) c[statusOf(d)]++
-    return c
-  }, [documents])
-
-  // 絞り込み済みデータ
-  const filtered = useMemo(() => {
+  // ── ドキュメント管理タブ用の絞り込み ──
+  const filteredDocuments = useMemo(() => {
     const q = search.trim().toLowerCase()
     return documents.filter(d => {
       if (caseFilter && d.case_id !== caseFilter) return false
-      if (statusFilter !== 'all' && statusOf(d) !== statusFilter) return false
       if (q) {
         const ci = caseLookup.get(d.case_id)
+        const hay = [d.document_name, ci?.case_number ?? '', ci?.deal_name ?? ''].join(' ').toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [documents, caseFilter, search, caseLookup])
+
+  // ── 書類受信簿タブ用の絞り込み ──
+  const filteredReceipts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return receipts.filter(r => {
+      if (caseFilter && r.case_id !== caseFilter) return false
+      if (q) {
+        const items = r.items ?? []
         const hay = [
-          d.document_name,
-          d.sent_to ?? '',
-          ci?.case_number ?? '',
-          ci?.deal_name ?? '',
+          r.cases?.case_number ?? '',
+          r.cases?.deal_name ?? '',
+          ...items.flatMap(it => [it.item_name, it.received_from ?? '']),
         ].join(' ').toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [documents, caseFilter, statusFilter, search, caseLookup])
+  }, [receipts, caseFilter, search])
 
-  const totalCases = useMemo(() => {
-    return new Set(documents.map(d => d.case_id)).size
-  }, [documents])
+  const totalCases = useMemo(() => new Set(documents.map(d => d.case_id)).size, [documents])
 
   return (
     <div className="pb-8">
@@ -88,54 +79,50 @@ export default function DocumentsClient({ documents, cases }: Props) {
         eyebrow="Documents"
         title="ドキュメント"
         icon={FileText}
-        description={`全 ${totalCases} 案件・${documents.length} 件の書類（発送・受領・メモ）`}
+        description={`受信簿 ${receipts.length} 件・ドキュメント管理 ${documents.length} 件（${totalCases} 案件）`}
         right={
           <>
-            {counts.waiting > 0 && (
-              <button
-                onClick={() => setStatusFilter('waiting')}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                返送待ち {counts.waiting} 件
-              </button>
-            )}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="書類名・案件・発送先で検索"
+                placeholder="書類名・案件で検索"
                 className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
               />
             </div>
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => tab === 'receipts' ? setReceiptModalOpen(true) : setDocModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              新規書類を記録
+              新規作成
             </button>
           </>
         }
       />
 
-      {/* フィルタバー */}
+      {/* タブ切替 */}
+      <div className="mb-3 inline-flex bg-gray-100 rounded-lg p-0.5">
+        <TabButton
+          active={tab === 'receipts'}
+          onClick={() => setTab('receipts')}
+          icon={<Inbox className="w-3.5 h-3.5" />}
+          label="書類受信簿"
+          count={receipts.length}
+        />
+        <TabButton
+          active={tab === 'docs'}
+          onClick={() => setTab('docs')}
+          icon={<FileText className="w-3.5 h-3.5" />}
+          label="ドキュメント管理"
+          count={documents.length}
+        />
+      </div>
+
+      {/* 共通: 案件絞り込み */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
-        {/* 状態フィルタチップ */}
-        <div className="flex items-center gap-1 flex-wrap text-[12px]">
-          <Chip label="全て" count={documents.length} active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
-          <Chip label="メモ"     count={counts.memo}      active={statusFilter === 'memo'}      onClick={() => setStatusFilter('memo')}      icon={StickyNote} />
-          <Chip label="発送のみ" count={counts.sent}      active={statusFilter === 'sent'}      onClick={() => setStatusFilter('sent')}      icon={Mail} />
-          <Chip label="返送待ち" count={counts.waiting}   active={statusFilter === 'waiting'}   onClick={() => setStatusFilter('waiting')}   icon={Mail}      tone="amber" />
-          <Chip label="受領のみ" count={counts.received}  active={statusFilter === 'received'}  onClick={() => setStatusFilter('received')}  icon={MailOpen} />
-          <Chip label="完了"     count={counts.completed} active={statusFilter === 'completed'} onClick={() => setStatusFilter('completed')} icon={FileCheck} tone="green" />
-        </div>
-
-        <div className="h-5 w-px bg-gray-200" />
-
-        {/* 案件絞り込みドロップダウン */}
         <select
           value={caseFilter}
           onChange={e => setCaseFilter(e.target.value)}
@@ -150,15 +137,33 @@ export default function DocumentsClient({ documents, cases }: Props) {
         </select>
 
         <span className="text-[12px] text-gray-400 ml-auto">
-          表示中: {filtered.length} 件 / 全 {documents.length} 件
+          {tab === 'receipts'
+            ? `表示中: ${filteredReceipts.length} 件 / 全 ${receipts.length} 件`
+            : `表示中: ${filteredDocuments.length} 件 / 全 ${documents.length} 件`}
         </span>
       </div>
 
-      <FlatDocumentsTable rows={filtered} caseLookup={caseLookup} />
+      {/* タブごとのビュー */}
+      {tab === 'receipts' ? (
+        <DocumentReceiptList
+          receipts={filteredReceipts}
+          currentMemberId={currentMemberId}
+          currentMember={currentMember}
+          onChanged={refresh}
+        />
+      ) : (
+        <DocumentManagementList rows={filteredDocuments} caseLookup={caseLookup} />
+      )}
 
       <NewCaseDocumentModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={docModalOpen}
+        onClose={() => setDocModalOpen(false)}
+        cases={cases}
+        onSaved={refresh}
+      />
+      <NewDocumentReceiptModal
+        isOpen={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
         cases={cases}
         onSaved={refresh}
       />
@@ -166,33 +171,34 @@ export default function DocumentsClient({ documents, cases }: Props) {
   )
 }
 
-// ─────────────────────────────────────
-// フィルタチップ
-// ─────────────────────────────────────
-function Chip({
-  label, count, active, onClick, icon: Icon, tone = 'brand',
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+  count,
 }: {
-  label: string
-  count: number
   active: boolean
   onClick: () => void
-  icon?: typeof Mail
-  tone?: 'brand' | 'amber' | 'green'
+  icon: React.ReactNode
+  label: string
+  count: number
 }) {
-  const activeCls =
-    tone === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-300'
-    : tone === 'green' ? 'bg-green-100 text-green-800 border-green-300'
-    : 'bg-brand-100 text-brand-800 border-brand-300'
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border transition ${
-        active ? activeCls : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+      className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-semibold rounded-md transition-all ${
+        active
+          ? 'bg-white text-brand-700 shadow-sm'
+          : 'text-gray-500 hover:text-gray-700'
       }`}
     >
-      {Icon && <Icon className="w-3 h-3" />}
+      {icon}
       <span>{label}</span>
-      <span className="font-mono font-semibold">{count}</span>
+      <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${active ? 'bg-brand-50 text-brand-700' : 'bg-gray-200 text-gray-600'}`}>
+        {count}
+      </span>
     </button>
   )
 }

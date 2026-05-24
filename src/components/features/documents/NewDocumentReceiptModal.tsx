@@ -1,0 +1,290 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { Plus, Trash2, Search } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
+
+type CaseLite = {
+  id: string
+  case_number: string
+  deal_name: string
+}
+
+type ItemDraft = {
+  key: string  // クライアント側の一意キー（再レンダリング用）
+  item_name: string
+  quantity: string  // 文字列で保持して入力柔軟性を確保
+  received_from: string
+}
+
+type Props = {
+  isOpen: boolean
+  onClose: () => void
+  cases: CaseLite[]
+  onSaved: () => void
+}
+
+function newItem(): ItemDraft {
+  return {
+    key: Math.random().toString(36).slice(2),
+    item_name: '',
+    quantity: '',
+    received_from: '',
+  }
+}
+
+export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSaved }: Props) {
+  const todayYmd = new Date().toISOString().slice(0, 10)
+
+  const [caseQuery, setCaseQuery] = useState('')
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
+  const [receivedDate, setReceivedDate] = useState(todayYmd)
+  const [items, setItems] = useState<ItemDraft[]>([newItem()])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // モーダルを閉じるたびに状態リセット
+  const handleClose = () => {
+    if (saving) return
+    setCaseQuery('')
+    setSelectedCaseId(null)
+    setReceivedDate(todayYmd)
+    setItems([newItem()])
+    setError('')
+    onClose()
+  }
+
+  // 案件検索結果
+  const filteredCases = useMemo(() => {
+    const q = caseQuery.trim().toLowerCase()
+    if (!q) return cases.slice(0, 8)
+    return cases
+      .filter(c =>
+        c.case_number.toLowerCase().includes(q) ||
+        c.deal_name.toLowerCase().includes(q),
+      )
+      .slice(0, 20)
+  }, [cases, caseQuery])
+
+  const selectedCase = useMemo(
+    () => (selectedCaseId ? cases.find(c => c.id === selectedCaseId) : null),
+    [cases, selectedCaseId],
+  )
+
+  const addItem = () => {
+    setItems(prev => [...prev, newItem()])
+  }
+
+  const removeItem = (key: string) => {
+    setItems(prev => (prev.length <= 1 ? prev : prev.filter(i => i.key !== key)))
+  }
+
+  const updateItem = (key: string, patch: Partial<ItemDraft>) => {
+    setItems(prev => prev.map(i => (i.key === key ? { ...i, ...patch } : i)))
+  }
+
+  const handleSubmit = async () => {
+    setError('')
+    if (!selectedCaseId) {
+      setError('案件を選択してください')
+      return
+    }
+    if (!receivedDate) {
+      setError('到着日を入力してください')
+      return
+    }
+    const validItems = items.filter(i => i.item_name.trim() !== '')
+    if (validItems.length === 0) {
+      setError('到着物を1件以上入力してください')
+      return
+    }
+
+    setSaving(true)
+    const supabase = createClient()
+    // 1. 親レコード作成（sequence_no は DB トリガで自動採番）
+    const { data: receiptInserted, error: insertErr } = await supabase
+      .from('document_receipts')
+      .insert({
+        case_id: selectedCaseId,
+        received_date: receivedDate,
+      })
+      .select('id')
+      .single()
+
+    if (insertErr || !receiptInserted) {
+      setError(`受信レコードの作成に失敗しました: ${insertErr?.message ?? ''}`)
+      setSaving(false)
+      return
+    }
+
+    // 2. 子レコード（受領項目）一括 INSERT
+    const itemRows = validItems.map((it, idx) => ({
+      receipt_id: receiptInserted.id,
+      item_name: it.item_name.trim(),
+      quantity: it.quantity ? Number(it.quantity) : null,
+      received_from: it.received_from.trim() || null,
+      sort_order: idx,
+    }))
+    const { error: itemsErr } = await supabase
+      .from('document_receipt_items')
+      .insert(itemRows)
+
+    if (itemsErr) {
+      // 親は作られたまま残る。エラー表示
+      setError(`項目の登録に失敗しました: ${itemsErr.message}`)
+      setSaving(false)
+      return
+    }
+
+    setSaving(false)
+    showToast('書類受信を登録しました', 'success')
+    onSaved()
+    handleClose()
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="書類受信を登録"
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button variant="secondary" onClick={handleClose} disabled={saving}>キャンセル</Button>
+          <Button variant="primary" onClick={handleSubmit} loading={saving}>
+            {saving ? '登録中...' : '登録する'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error && (
+          <div className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        {/* 案件検索・選択 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">案件 <span className="text-red-500">*</span></label>
+          {selectedCase ? (
+            <div className="flex items-center justify-between bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">
+              <div className="text-[13px]">
+                <span className="font-mono font-semibold text-brand-700">{selectedCase.case_number}</span>
+                <span className="ml-2 text-gray-800">{selectedCase.deal_name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedCaseId(null); setCaseQuery('') }}
+                className="text-[12px] text-gray-500 hover:text-gray-700"
+              >
+                変更
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={caseQuery}
+                  onChange={e => setCaseQuery(e.target.value)}
+                  placeholder="案件管理番号または案件名で検索"
+                  className="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                />
+              </div>
+              <div className="mt-1.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {filteredCases.length === 0 ? (
+                  <div className="px-3 py-3 text-[12px] text-gray-400">該当する案件がありません</div>
+                ) : (
+                  filteredCases.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCaseId(c.id)}
+                      className="w-full px-3 py-1.5 text-left text-[13px] hover:bg-brand-50 transition-colors"
+                    >
+                      <span className="font-mono font-semibold text-brand-700">{c.case_number}</span>
+                      <span className="ml-2 text-gray-800">{c.deal_name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 到着日 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">到着日 <span className="text-red-500">*</span></label>
+          <input
+            type="date"
+            value={receivedDate}
+            onChange={e => setReceivedDate(e.target.value)}
+            className="w-48 px-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+          />
+        </div>
+
+        {/* 到着物（複数） */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[12px] font-semibold text-gray-500">到着物 <span className="text-red-500">*</span></label>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={addItem}
+            >
+              項目を追加
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {items.map(it => (
+              <div key={it.key} className="grid grid-cols-[1fr_80px_1fr_28px] gap-2 items-center">
+                <input
+                  type="text"
+                  value={it.item_name}
+                  onChange={e => updateItem(it.key, { item_name: e.target.value })}
+                  placeholder="到着物（例: 戸籍）"
+                  className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={it.quantity}
+                  onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                  placeholder="通数"
+                  className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                />
+                <input
+                  type="text"
+                  value={it.received_from}
+                  onChange={e => updateItem(it.key, { received_from: e.target.value })}
+                  placeholder="受領先（例: 名古屋市区役所）"
+                  className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeItem(it.key)}
+                  disabled={items.length <= 1}
+                  className="text-gray-300 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed p-1"
+                  title="この行を削除"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-[11px] text-gray-400">
+          登録後、一覧の「W-Check」「着手」ボタンから書類確認・着手記録ができます。
+        </p>
+      </div>
+    </Modal>
+  )
+}
