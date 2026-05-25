@@ -30,9 +30,10 @@ type Props = {
   currentMemberId: string | null
 }
 
+// 差戻し は独立ステータスとして保持。古い「Wチェック待ち / 保留」のみ「対応中」へ吸収。
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
-  if (['Wチェック待ち', '差戻し', '保留'].includes(status)) return '対応中'
+  if (['Wチェック待ち', '保留'].includes(status)) return '対応中'
   if (status === 'キャンセル') return '完了'
   return status
 }
@@ -97,6 +98,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     todo: tasks.filter(t => normalizeStatus(t.status) === '着手前').length,
     doing: tasks.filter(t => normalizeStatus(t.status) === '対応中').length,
     done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
+    returned: tasks.filter(t => normalizeStatus(t.status) === '差戻し').length,
   }), [tasks])
 
   const myTaskCount = currentMemberId
@@ -237,10 +239,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         {/* Toolbar: status pills + view mode */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="すべて"   count={kpis.total} active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
-            <FilterTab label="着手前"   count={kpis.todo}  active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
-            <FilterTab label="対応中"   count={kpis.doing} active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
-            <FilterTab label="完了"     count={kpis.done}  active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
+            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            <FilterTab label="着手前"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
+            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
+            <FilterTab label="差戻し"   count={kpis.returned} active={statusFilter === '差戻し'} onClick={() => setStatusFilter('差戻し')} accent="danger" />
+            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -330,17 +333,22 @@ function ListView({
   onDelete: (task: TaskRow) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    title: 280, status: 100, caseCol: 220, sales: 130, manager: 130, due: 110, action: 130, ops: 50,
+    title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
+    execResult: 220, defectFlag: 110, defectNote: 220,
+    action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
-    { key: 'title',   label: 'タスク名' },
-    { key: 'status',  label: 'ステータス' },
-    { key: 'caseCol', label: '案件' },
-    { key: 'sales',   label: '受注担当' },
-    { key: 'manager', label: '管理担当' },
-    { key: 'due',     label: '期限' },
-    { key: 'action',  label: '操作' },
-    { key: 'ops',     label: '' },
+    { key: 'title',      label: 'タスク名' },
+    { key: 'status',     label: 'ステータス' },
+    { key: 'caseCol',    label: '案件' },
+    { key: 'sales',      label: '受注担当' },
+    { key: 'manager',    label: '管理担当' },
+    { key: 'due',        label: '期限' },
+    { key: 'execResult', label: '実施結果' },
+    { key: 'defectFlag', label: '不備有無' },
+    { key: 'defectNote', label: '不備内容' },
+    { key: 'action',     label: '操作' },
+    { key: 'ops',        label: '' },
   ]
 
   return (
@@ -415,6 +423,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
   const caseInfo = caseMap[task.case_id]
   const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
   const workRole = getWorkRoleDef(task.work_role)
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
 
   return (
     <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${isOverdue ? 'bg-red-50/30' : ''}`}>
@@ -507,6 +516,54 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
         )}
+      </td>
+
+      {/* 実施結果（ext_data.execution_result） */}
+      <td className="px-3.5 py-2.5 align-top">
+        {(() => {
+          const result = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+          if (!result.trim()) return <span className="text-[12px] text-gray-300">—</span>
+          return (
+            <span
+              className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-line"
+              title={result}
+            >
+              {result}
+            </span>
+          )
+        })()}
+      </td>
+
+      {/* 不備有無（差戻し中 = 不備あり / 過去に差戻し履歴あり = 不備あり履歴） */}
+      <td className="px-3.5 py-2.5">
+        {(() => {
+          const isReturned = task.status === '差戻し'
+          const hasHistory = typeof ext.returned_reason === 'string' && ext.returned_reason.trim() !== ''
+          if (isReturned) {
+            return <Badge label="不備あり" color="#DC2626" variant="solid" />
+          }
+          if (hasHistory) {
+            return <Badge label="不備あり(履歴)" color="#DC2626" />
+          }
+          // 評価記録がない場合は空（未評価）
+          return <span className="text-[12px] text-gray-300">—</span>
+        })()}
+      </td>
+
+      {/* 不備内容（ext_data.returned_reason — 差戻された理由） */}
+      <td className="px-3.5 py-2.5 align-top">
+        {(() => {
+          const reason = typeof ext.returned_reason === 'string' ? ext.returned_reason : ''
+          if (!reason.trim()) return <span className="text-[12px] text-gray-300">—</span>
+          return (
+            <span
+              className="text-[12px] text-red-700 line-clamp-2 whitespace-pre-line"
+              title={reason}
+            >
+              {reason}
+            </span>
+          )
+        })()}
       </td>
 
       {/* 操作（着手/完了ボタン） */}
@@ -642,17 +699,21 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
 }
 
 // ─── Sub components ───
-function FilterTab({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
+function FilterTab({ label, active, onClick, count, accent }: { label: string; active: boolean; onClick: () => void; count?: number; accent?: 'danger' }) {
+  const activeCls = accent === 'danger'
+    ? 'bg-red-600 text-white font-semibold shadow-sm'
+    : 'bg-brand-600 text-white font-semibold shadow-sm'
+  const inactiveCls = accent === 'danger' && count && count > 0
+    ? 'text-red-600 hover:text-red-700 hover:bg-red-50'
+    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
   return (
     <button
       onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${
-        active ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-      }`}
+      className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? activeCls : inactiveCls}`}
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+        <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
       )}
     </button>
   )
