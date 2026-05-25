@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { getPhaseDefinition } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { TaskRow, RealEstatePropertyRow } from '@/types'
@@ -172,17 +173,19 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
                       <span className={`flex-1 h-[2px] ${connectorClass(state)}`} />
                     )}
                   </div>
-                  {/* タスク名（下） */}
-                  <div
-                    className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 ${
+                  {/* タスク名（下） — クリックでタスク詳細へ */}
+                  <Link
+                    href={`/tasks/${t.id}`}
+                    className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 hover:underline hover:text-brand-700 transition-colors ${
                       state === 'overdue' ? 'text-red-600 font-semibold' :
                       state === 'active' ? 'text-brand-700 font-semibold' :
                       'text-gray-700'
                     }`}
                     style={{ wordBreak: 'break-word' }}
+                    title={`「${t.title}」のタスク詳細を開く`}
                   >
                     {t.title}
-                  </div>
+                  </Link>
                 </div>
               </div>
             )

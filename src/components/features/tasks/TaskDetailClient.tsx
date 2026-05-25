@@ -507,15 +507,15 @@ function TaskWorkSection({
           </div>
         </div>
 
-        {/* 2. 実施結果 */}
+        {/* 2. 実施結果・引継ぎ事項 */}
         <div className="py-3">
           <InlineTextarea
-            label="実施結果"
+            label="実施結果・引継ぎ事項"
             value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
             onSave={handleSaveExecutionResult}
           />
           <div className="text-[11px] text-gray-400 mt-0.5">
-            次のタスクの作業者が「前段作業の実施結果」としてここを読みます。
+            次のタスクの作業者が「前段作業の実施結果・引継ぎ事項」としてここを読みます。
           </div>
         </div>
 

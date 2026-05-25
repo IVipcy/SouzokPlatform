@@ -156,15 +156,15 @@ export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberI
           </Link>
         </div>
 
-        {/* 前段作業の実施結果 */}
+        {/* 前段作業の実施結果・引継ぎ事項 */}
         <div>
-          <div className="text-[13px] font-semibold text-gray-700 mb-1">前段作業の実施結果</div>
+          <div className="text-[13px] font-semibold text-gray-700 mb-1">前段作業の実施結果・引継ぎ事項</div>
           <div className={`px-3 py-2 rounded-lg border text-[13px] whitespace-pre-line min-h-[64px] ${
             prevExecutionResult
               ? 'bg-white border-gray-300 text-gray-800'
               : 'bg-gray-50 border-gray-200 text-gray-400 italic'
           }`}>
-            {prevExecutionResult || '前担当者の実施結果はまだ記入されていません'}
+            {prevExecutionResult || '前担当者の実施結果・引継ぎ事項はまだ記入されていません'}
           </div>
         </div>
 
