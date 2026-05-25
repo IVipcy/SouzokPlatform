@@ -59,8 +59,13 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
   // ラベル類は direction で切り替え
   const isPrev = direction === 'prev'
   const headerLabel = isPrev ? 'このタスクの前のタスク' : 'このタスクが終わったら'
-  const emptyLabel = isPrev ? '前のタスクは未設定です' : '次のタスクは未設定です'
   const HeaderIcon = isPrev ? ChevronLeft : ChevronRight
+  // 0件時の表示: スタート/ゴール地点として明示
+  const emptyEmoji = isPrev ? '🚩' : '🏁'
+  const emptyTitle = isPrev
+    ? 'このタスクは案件のスタート地点です'
+    : 'このタスクはゴール地点です'
+  const emptySub = isPrev ? '前のタスクはありません' : '次のタスクはありません'
 
   // 紐づけ済みタスクの配列
   //   - next: existingDeps[].to_task
@@ -150,8 +155,17 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
         <>
           {/* 紐づけ済みリスト */}
           {linkedTasks.length === 0 ? (
-            <div className="px-3 py-4 text-center text-[12px] text-gray-400">
-              {emptyLabel}
+            <div className="px-3 py-5 text-center bg-gradient-to-b from-brand-50/40 to-transparent">
+              <div className="text-[28px] leading-none mb-1.5" aria-hidden="true">{emptyEmoji}</div>
+              <div className="text-[12px] font-bold text-gray-700 leading-tight">
+                {emptyTitle}
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                {emptySub}
+              </div>
+              <div className="text-[10px] text-gray-400 mt-2 leading-tight">
+                {isPrev ? '前に' : '次に'}紐づけたい場合は下のボタンから追加
+              </div>
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
