@@ -25,7 +25,7 @@ import NotificationBell from '@/components/features/notifications/NotificationBe
 const ROLE_LABEL: Record<string, string> = {
   sales: '受注担当',
   manager: '管理担当',
-  assistant: 'アシスタント',
+  assistant: '事務管理',
   lp: 'LP担当',
   accounting: '経理担当',
 }

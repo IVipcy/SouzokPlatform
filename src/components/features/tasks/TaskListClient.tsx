@@ -50,6 +50,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
+  // 一括操作用の選択状態
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('assignee') === 'mine') setFilterMine(true)
@@ -172,6 +176,83 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     router.refresh()
   }
 
+  // 一括: 選択切替
+  const toggleSelect = useCallback((taskId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }, [])
+
+  // 一括: 表示中の全タスクを選択 / 解除
+  const toggleSelectAll = useCallback((visibleIds: string[]) => {
+    setSelectedIds(prev => {
+      const allSelected = visibleIds.every(id => prev.has(id))
+      if (allSelected) {
+        const next = new Set(prev)
+        visibleIds.forEach(id => next.delete(id))
+        return next
+      }
+      const next = new Set(prev)
+      visibleIds.forEach(id => next.add(id))
+      return next
+    })
+  }, [])
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  // 一括: ステータス変更
+  const handleBulkStatus = useCallback(async (nextStatus: string) => {
+    if (selectedIds.size === 0 || bulkBusy) return
+    setBulkBusy(true)
+    try {
+      const supabase = createClient()
+      const ids = Array.from(selectedIds)
+      const updates: Record<string, unknown> = { status: nextStatus }
+      // 対応中に変更する場合、着手者と着手日時もセット（未セットのものに対して）
+      if (nextStatus === '対応中' && currentMemberId) {
+        updates.started_by = currentMemberId
+        updates.started_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from('tasks').update(updates).in('id', ids)
+      if (error) throw error
+      // 活動履歴: 件数が多いとうるさいので一括時は省略
+      showToast(`${ids.length} 件のステータスを「${nextStatus}」に変更しました`, 'success')
+      clearSelection()
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('一括変更に失敗しました', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }, [selectedIds, bulkBusy, currentMemberId, clearSelection, router])
+
+  // 一括: 削除
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0 || bulkBusy) return
+    setBulkBusy(true)
+    try {
+      const supabase = createClient()
+      const ids = Array.from(selectedIds)
+      await supabase.from('task_assignees').delete().in('task_id', ids)
+      await supabase.from('task_dependencies').delete().or(`from_task_id.in.(${ids.join(',')}),to_task_id.in.(${ids.join(',')})`)
+      const { error } = await supabase.from('tasks').delete().in('id', ids)
+      if (error) throw error
+      showToast(`${ids.length} 件を削除しました`, 'success')
+      clearSelection()
+      setBulkDeleteOpen(false)
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('一括削除に失敗しました', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }, [selectedIds, bulkBusy, clearSelection, router])
+
   return (
     <div>
       {/* ===== Sticky top zone ===== */}
@@ -267,6 +348,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
       </div>
 
+      {/* 一括操作バー（選択数 > 0 時のみ） */}
+      {selectedIds.size > 0 && viewMode === 'list' && (
+        <BulkActionBar
+          count={selectedIds.size}
+          busy={bulkBusy}
+          onClear={clearSelection}
+          onStatus={handleBulkStatus}
+          onDelete={() => setBulkDeleteOpen(true)}
+        />
+      )}
+
       {/* Content */}
       {viewMode === 'list' ? (
         <ListView
@@ -278,6 +370,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           loadingTaskId={loadingTaskId}
           onEdit={setEditTask}
           onDelete={setDeleteTask}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={toggleSelectAll}
         />
       ) : (
         <TaskKanban
@@ -308,6 +403,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         message={`「${deleteTask?.title}」を削除しますか？この操作は取り消せません。`}
         onConfirm={handleDelete}
       />
+      <DeleteConfirmModal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        title="タスク一括削除"
+        message={`選択した ${selectedIds.size} 件のタスクを削除しますか？この操作は取り消せません。\n紐づけ・担当者割当も同時に削除されます。`}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   )
 }
@@ -322,6 +424,9 @@ function ListView({
   loadingTaskId,
   onEdit: _onEdit,
   onDelete,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }: {
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
@@ -331,13 +436,17 @@ function ListView({
   loadingTaskId: string | null
   onEdit: (task: TaskRow) => void
   onDelete: (task: TaskRow) => void
+  selectedIds: Set<string>
+  onToggleSelect: (taskId: string) => void
+  onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
+    select: 40, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
     execResult: 220, defectFlag: 110, defectNote: 220,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
+    { key: 'select',     label: '' },
     { key: 'title',      label: 'タスク名' },
     { key: 'status',     label: 'ステータス' },
     { key: 'caseCol',    label: '案件' },
@@ -350,6 +459,10 @@ function ListView({
     { key: 'action',     label: '操作' },
     { key: 'ops',        label: '' },
   ]
+
+  const visibleIds = tasks.map(t => t.id)
+  const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+  const someSelected = visibleIds.some(id => selectedIds.has(id))
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -382,8 +495,19 @@ function ListView({
                   key={h.key}
                   className="relative text-left px-3.5 py-2.5 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200"
                 >
-                  <span className="truncate block">{h.label}</span>
-                  {h.key !== 'ops' && <ResizeHandle onMouseDown={startResize(h.key)} />}
+                  {h.key === 'select' ? (
+                    <input
+                      type="checkbox"
+                      aria-label="表示中の全タスクを選択"
+                      checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = !allSelected && someSelected }}
+                      onChange={() => onToggleSelectAll(visibleIds)}
+                      className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
+                    />
+                  ) : (
+                    <span className="truncate block">{h.label}</span>
+                  )}
+                  {h.key !== 'ops' && h.key !== 'select' && <ResizeHandle onMouseDown={startResize(h.key)} />}
                 </th>
               ))}
             </tr>
@@ -399,6 +523,8 @@ function ListView({
                 onAdvance={onAdvance}
                 loading={loadingTaskId === task.id}
                 onDelete={onDelete}
+                selected={selectedIds.has(task.id)}
+                onToggleSelect={() => onToggleSelect(task.id)}
               />
             ))}
           </tbody>
@@ -409,7 +535,7 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete, selected, onToggleSelect }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
@@ -417,6 +543,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
   onAdvance: (task: TaskRow) => void
   loading: boolean
   onDelete: (task: TaskRow) => void
+  selected: boolean
+  onToggleSelect: () => void
 }) {
   const status = normalizeStatus(task.status)
   const statusDef = TASK_STATUSES.find(s => s.key === status)
@@ -426,7 +554,20 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
 
   return (
-    <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${isOverdue ? 'bg-red-50/30' : ''}`}>
+    <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${
+      selected ? 'bg-brand-50/60' : isOverdue ? 'bg-red-50/30' : ''
+    }`}>
+      {/* チェックボックス */}
+      <td className="px-3.5 py-2.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          aria-label={`タスク「${task.title}」を選択`}
+          className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
+        />
+      </td>
+
       {/* タスク名 */}
       <td className="px-3.5 py-2.5 relative">
         {/* 担当区分カラーバー（左端） */}
@@ -618,6 +759,59 @@ function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvan
       <CheckCircle2 className="w-3 h-3" strokeWidth={2} />
       完了
     </span>
+  )
+}
+
+// ─── 一括操作バー ───
+function BulkActionBar({ count, busy, onClear, onStatus, onDelete }: {
+  count: number
+  busy: boolean
+  onClear: () => void
+  onStatus: (status: string) => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3 flex-wrap shadow-sm">
+      <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-brand-800">
+        <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+        {count} 件選択中
+      </span>
+      <span className="text-[12px] text-gray-500">一括操作:</span>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {TASK_STATUSES.map(s => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => onStatus(s.key)}
+            disabled={busy}
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-white rounded-md border shadow-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+            style={{ backgroundColor: s.color, borderColor: s.color }}
+            title={`${s.key} に変更`}
+          >
+            {s.key}
+          </button>
+        ))}
+        <span className="text-gray-300 mx-1">|</span>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={busy}
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-red-700 bg-white border border-red-200 hover:bg-red-50 rounded-md disabled:opacity-50 transition-colors"
+        >
+          <Trash2 className="w-3 h-3" strokeWidth={2} />
+          削除
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={busy}
+        className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-[12px] text-gray-500 hover:text-gray-700 hover:bg-white rounded transition-colors"
+      >
+        <X className="w-3 h-3" />
+        選択解除
+      </button>
+    </div>
   )
 }
 

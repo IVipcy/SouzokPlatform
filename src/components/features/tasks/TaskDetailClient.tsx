@@ -10,6 +10,7 @@ import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } f
 import Badge from '@/components/ui/Badge'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
+import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import NextTaskSelector from './NextTaskSelector'
@@ -383,6 +384,15 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
                 value={task.priority}
                 options={PRIORITIES.map(p => p.key)}
                 onSave={v => saveField('priority', v)}
+              />
+              <InlineSelect
+                label="タスク分類"
+                value={WORK_ROLES.find(r => r.key === task.work_role)?.label ?? ''}
+                options={WORK_ROLES.map(r => r.label)}
+                onSave={async v => {
+                  const key = WORK_ROLES.find(r => r.label === v)?.key ?? null
+                  await saveField('work_role', key)
+                }}
               />
             </FieldGrid>
             <div className="mt-2 space-y-2">

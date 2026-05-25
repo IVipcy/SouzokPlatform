@@ -65,8 +65,8 @@ export const WORK_ROLES: readonly WorkRoleDef[] = [
   },
   {
     key: 'assistant',
-    label: 'アシスタント',
-    shortLabel: 'アシ',
+    label: '事務管理',
+    shortLabel: '事務',
     Icon: Puzzle,
     pill: 'bg-green-100 text-green-700 border-green-300',
     solid: 'bg-green-600 text-white',
