@@ -12,6 +12,7 @@ import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
+import NextTaskSelector from './NextTaskSelector'
 import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -334,9 +335,35 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
         )
       })()}
 
-      {/* 2カラムレイアウト */}
-      <div className="flex gap-5">
-        {/* 左カラム */}
+      {/* 3カラムレイアウト
+          左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)
+          中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
+          右:  次タスク紐づけ + タイムライン         (時系列: 未来) */}
+      <div className="flex gap-5 lg:flex-row flex-col">
+        {/* 左カラム — 前段 */}
+        <aside className="w-full lg:w-[300px] lg:flex-shrink-0 flex flex-col gap-4">
+          <div className="lg:sticky lg:top-[90px] flex flex-col gap-4">
+            {/* このタスクの前のタスク（前段紐づけ） */}
+            <NextTaskSelector
+              currentTask={task}
+              direction="prev"
+              candidates={caseTasks.filter(t => t.id !== task.id)}
+              linkedIds={new Set(dependencies.filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed').map(d => d.from_task_id))}
+              existingDeps={dependencies.filter(d => d.to_task_id === task.id && d.from_task)}
+              taskTemplates={taskTemplates}
+            />
+            {/* 前段作業の確認（前提タスクがある場合のみ） */}
+            {hasPrereq && (
+              <PrevTaskReviewSection
+                task={task}
+                prereqDeps={prereqDeps}
+                currentMemberId={currentMemberId}
+              />
+            )}
+          </div>
+        </aside>
+
+        {/* 中央カラム — メイン */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
 
           {/* 1. 基本情報（タスク件名 / Phase / カテゴリはヘッダーに記載されているので重複除外） */}
@@ -362,15 +389,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
               <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
             </div>
           </Section>
-
-          {/* 1-b. 前段作業の確認（前提タスクがある場合のみ） */}
-          {hasPrereq && (
-            <PrevTaskReviewSection
-              task={task}
-              prereqDeps={prereqDeps}
-              currentMemberId={currentMemberId}
-            />
-          )}
 
           {/* 2. 着手者・作業履歴 */}
           <Section title="着手者・作業履歴" icon="👤">
@@ -446,8 +464,8 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
           />
         </div>
 
-        {/* 右カラム */}
-        <div className="w-[320px] flex-shrink-0">
+        {/* 右カラム — 後続 */}
+        <aside className="w-full lg:w-[300px] lg:flex-shrink-0">
           <TaskDetailSidebar
             task={task}
             documents={documents}
@@ -455,7 +473,7 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             caseTasks={caseTasks}
             taskTemplates={taskTemplates}
           />
-        </div>
+        </aside>
       </div>
     </div>
   )
