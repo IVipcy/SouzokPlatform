@@ -135,13 +135,15 @@ export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberI
 
   return (
     <div className="bg-white rounded-xl border-2 border-amber-200 shadow-sm overflow-hidden">
-      {/* ヘッダー */}
-      <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2">
-        <ArrowLeft className="w-4 h-4 text-amber-700" strokeWidth={2.25} />
-        <h3 className="text-[14px] font-bold text-amber-800">前段作業の確認</h3>
-        <span className="text-[12px] text-amber-700/80">
+      {/* ヘッダー（縦並びで省スペース） */}
+      <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200">
+        <div className="flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4 text-amber-700 flex-shrink-0" strokeWidth={2.25} />
+          <h3 className="text-[14px] font-bold text-amber-800">前段作業の確認</h3>
+        </div>
+        <p className="text-[11px] text-amber-700/80 mt-0.5 leading-tight">
           前タスクの結果を確認してから着手しましょう
-        </span>
+        </p>
       </div>
 
       <div className="p-4 space-y-4">
@@ -168,48 +170,50 @@ export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberI
           </div>
         </div>
 
-        {/* 実施者 / 完了日 / 内容評価 を横並び */}
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-start">
-          <div>
-            <div className="text-[12px] font-semibold text-gray-500 mb-1">作業実施者</div>
-            <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[13px] text-gray-800 min-h-[34px] flex items-center">
+        {/* 実施者 / 完了日（インライン2行で省スペース） */}
+        <div className="space-y-1.5 text-[12px]">
+          <div className="flex items-baseline gap-2">
+            <span className="text-gray-500 font-semibold w-[72px] flex-shrink-0">作業実施者</span>
+            <span className="text-gray-800 font-medium truncate">
               {performerName || <span className="text-gray-400 italic">未設定</span>}
-            </div>
+            </span>
           </div>
-          <div>
-            <div className="text-[12px] font-semibold text-gray-500 mb-1">作業完了日</div>
-            <div className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[13px] font-mono text-gray-800 min-h-[34px] flex items-center">
+          <div className="flex items-baseline gap-2">
+            <span className="text-gray-500 font-semibold w-[72px] flex-shrink-0">作業完了日</span>
+            <span className="text-gray-800 font-mono">
               {completedDate || <span className="text-gray-400 italic">未完了</span>}
-            </div>
+            </span>
           </div>
-          <div>
-            <div className="text-[12px] font-semibold text-gray-500 mb-1">内容評価</div>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setEvaluation('不備なし')}
-                className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border-2 text-[12px] font-bold transition-all ${
-                  evaluation === '不備なし'
-                    ? 'bg-green-50 border-green-500 text-green-700'
-                    : 'bg-white border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50'
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.25} />
-                ○ 不備なし
-              </button>
-              <button
-                type="button"
-                onClick={() => setEvaluation('差戻し')}
-                className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg border-2 text-[12px] font-bold transition-all ${
-                  evaluation === '差戻し'
-                    ? 'bg-red-50 border-red-500 text-red-700'
-                    : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:bg-red-50/50'
-                }`}
-              >
-                <XCircle className="w-3.5 h-3.5" strokeWidth={2.25} />
-                × 差戻し
-              </button>
-            </div>
+        </div>
+
+        {/* 内容評価（独立した行で横並び2ボタン） */}
+        <div>
+          <div className="text-[12px] font-semibold text-gray-500 mb-1.5">内容評価</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setEvaluation('不備なし')}
+              className={`inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg border-2 text-[12px] font-bold transition-all ${
+                evaluation === '不備なし'
+                  ? 'bg-green-50 border-green-500 text-green-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.25} />
+              ○ 不備なし
+            </button>
+            <button
+              type="button"
+              onClick={() => setEvaluation('差戻し')}
+              className={`inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg border-2 text-[12px] font-bold transition-all ${
+                evaluation === '差戻し'
+                  ? 'bg-red-50 border-red-500 text-red-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-red-300 hover:bg-red-50/50'
+              }`}
+            >
+              <XCircle className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.25} />
+              × 差戻し
+            </button>
           </div>
         </div>
 

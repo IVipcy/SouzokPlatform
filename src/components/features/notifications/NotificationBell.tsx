@@ -32,7 +32,7 @@ function relativeTime(iso: string): string {
   return iso.slice(0, 10)
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ collapsed = false }: { collapsed?: boolean } = {}) {
   const user = useAuth()
   const memberId = user?.memberId ?? null
   const [open, setOpen] = useState(false)
@@ -108,7 +108,8 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`relative flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+        title={collapsed ? `通知${unreadCount > 0 ? ` (${unreadCount}件未読)` : ''}` : undefined}
+        className={`relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'} w-full py-2 rounded-lg text-sm font-medium transition-colors ${
           open
             ? 'bg-brand-50 text-brand-700'
             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -126,8 +127,8 @@ export default function NotificationBell() {
             </span>
           )}
         </span>
-        通知
-        {unreadCount > 0 && (
+        {!collapsed && '通知'}
+        {!collapsed && unreadCount > 0 && (
           <span className="ml-auto text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5">
             {unreadCount}
           </span>
