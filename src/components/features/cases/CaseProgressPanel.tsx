@@ -10,38 +10,47 @@ type Props = {
   properties: RealEstatePropertyRow[]
 }
 
-// タスクの「現在の様子」を 4 区分に正規化する。
+// タスクの「現在の様子」を 5 区分に正規化する。
 //   - done       … 完了
-//   - active     … 対応中 / Wチェック待ち / 差戻し（期限内）
+//   - active     … 対応中 / Wチェック待ち（期限内）
+//   - returned   … 差戻し
 //   - overdue    … 期限超過（status を問わず due_date が過ぎていれば最優先で overdue）
 //   - pending    … 未着手かつ期限内
-// 色は brand(濃い青) ベースに統一し、期限超過のときだけ赤で警告。
-type TaskVisualState = 'done' | 'active' | 'overdue' | 'pending'
+// 色はブランド寄せ案B: 完了=濃い青 / 対応中=シアン / 差戻し=紫 / 期限超過=赤 / 未着手=グレー
+type TaskVisualState = 'done' | 'active' | 'returned' | 'overdue' | 'pending'
 
 function classifyTask(t: TaskRow, todayYmd: string): TaskVisualState {
   if (t.status === '完了') return 'done'
+  if (t.status === '差戻し') return 'returned'
   const isOverdue = !!(t.due_date && t.due_date < todayYmd)
-  if (t.status === '対応中' || t.status === 'Wチェック待ち' || t.status === '差戻し') {
+  if (t.status === '対応中' || t.status === 'Wチェック待ち') {
     return isOverdue ? 'overdue' : 'active'
   }
   // 未着手
   return isOverdue ? 'overdue' : 'pending'
 }
 
-// 線の色: 左タスクが done または active（着手済み）なら濃い青、それ以外はグレー
+// 線の色: 左タスクの状態に応じて、その先へ流れる色を変える
+//   - done    → 濃い青（完了済みの完成された線）
+//   - active  → シアン（進行中ライン）
+//   - returned→ 紫（差戻し中ライン）
+//   - その他  → グレー
 function connectorClass(leftState: TaskVisualState): string {
-  return leftState === 'done' || leftState === 'active'
-    ? 'bg-brand-600'
-    : 'bg-gray-200'
+  if (leftState === 'done') return 'bg-brand-600'
+  if (leftState === 'active') return 'bg-sky-500'
+  if (leftState === 'returned') return 'bg-purple-600'
+  return 'bg-gray-200'
 }
 
-// ノードのスタイル
+// ノードのスタイル（案B: ブランド寄せ）
 function nodeStyle(state: TaskVisualState): { cls: string } {
   switch (state) {
     case 'done':
       return { cls: 'bg-brand-600 border-brand-600' }
     case 'active':
-      return { cls: 'bg-brand-600 border-brand-600 ring-2 ring-brand-100' }
+      return { cls: 'bg-sky-500 border-sky-500 ring-2 ring-sky-100' }
+    case 'returned':
+      return { cls: 'bg-purple-600 border-purple-600 ring-2 ring-purple-100' }
     case 'overdue':
       return { cls: 'bg-red-500 border-red-500 ring-2 ring-red-100' }
     case 'pending':
@@ -92,7 +101,10 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-600" />完了
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 ring-2 ring-brand-100" />対応中
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 ring-2 ring-sky-100" />対応中
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-600 ring-2 ring-purple-100" />差戻し
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-100" />期限超過
@@ -137,9 +149,11 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
     t.status === '対応中' || t.status === 'Wチェック待ち' || t.status === '差戻し',
   )
   const hasOverdue = tasks.some(t => t.status !== '完了' && t.due_date && t.due_date < todayYmd)
+  const hasReturned = tasks.some(t => t.status === '差戻し')
   const phaseBadge = (() => {
     if (done === total) return { label: '完了', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
     if (hasOverdue) return { label: '遅延あり', cls: 'bg-red-50 text-red-700 border-red-200' }
+    if (hasReturned) return { label: '差戻しあり', cls: 'bg-purple-50 text-purple-700 border-purple-200' }
     if (hasActive || done > 0) return { label: '進行中', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
     return { label: '未着手', cls: 'bg-gray-50 text-gray-500 border-gray-200' }
   })()
@@ -178,7 +192,9 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
                     href={`/tasks/${t.id}`}
                     className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 hover:underline hover:text-brand-700 transition-colors ${
                       state === 'overdue' ? 'text-red-600 font-semibold' :
-                      state === 'active' ? 'text-brand-700 font-semibold' :
+                      state === 'returned' ? 'text-purple-700 font-semibold' :
+                      state === 'active' ? 'text-sky-700 font-semibold' :
+                      state === 'done' ? 'text-brand-700' :
                       'text-gray-700'
                     }`}
                     style={{ wordBreak: 'break-word' }}
