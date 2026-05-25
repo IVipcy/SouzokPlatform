@@ -3,20 +3,27 @@
 import { useState, useMemo, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, ChevronDown, Loader2, Plus, X, ListPlus } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronLeft, Loader2, Plus, X, ListPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
 import { PHASES } from '@/lib/constants'
 import type { TaskRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
 
+/**
+ * direction='next': 「このタスクが終わったら → 次タスク」を紐づける
+ * direction='prev': 「前のタスク → このタスク」を紐づける（前段作業の指定）
+ */
+type Direction = 'prev' | 'next'
+
 type Props = {
   currentTask: TaskRow
+  direction?: Direction
   /** 同一案件の他タスク（候補） */
   candidates: TaskRow[]
-  /** 既に「次タスク」として紐づいているタスクの ID セット */
+  /** 既に紐づいているタスクの ID セット（direction に応じて prev / next 側） */
   linkedIds: Set<string>
-  /** 既存の next dependency 行（解除用に dep.id を保持） */
+  /** 既存の dependency 行（解除用に dep.id を保持） */
   existingDeps: TaskDependencyRow[]
   /** タスクテンプレ（新規タスク作成フォームの候補） */
   taskTemplates?: TaskTemplateRow[]
@@ -40,7 +47,7 @@ type Mode = 'idle' | 'picker' | 'create'
  *     - ピッカー: 未紐づけのタスクのみチェックボックスで表示（検索付き）
  *     - 作成: タスク名(テンプレ候補 or 自由入力) + Phase の最小フォーム
  */
-export default function NextTaskSelector({ currentTask, candidates, linkedIds, existingDeps, taskTemplates = [] }: Props) {
+export default function NextTaskSelector({ currentTask, direction = 'next', candidates, linkedIds, existingDeps, taskTemplates = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -49,17 +56,25 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
 
   const refresh = () => startTransition(() => router.refresh())
 
-  // 紐づけ済みタスクの配列（既存 deps から to_task を抽出、無ければ candidates から id 一致で補完）
+  // ラベル類は direction で切り替え
+  const isPrev = direction === 'prev'
+  const headerLabel = isPrev ? 'このタスクの前のタスク' : 'このタスクが終わったら'
+  const emptyLabel = isPrev ? '前のタスクは未設定です' : '次のタスクは未設定です'
+  const HeaderIcon = isPrev ? ChevronLeft : ChevronRight
+
+  // 紐づけ済みタスクの配列
+  //   - next: existingDeps[].to_task
+  //   - prev: existingDeps[].from_task
   const linkedTasks = useMemo(() => {
+    const pick = (d: TaskDependencyRow) => (isPrev ? d.from_task : d.to_task)
     const fromDeps = existingDeps
-      .map(d => d.to_task)
+      .map(pick)
       .filter((t): t is TaskRow => !!t)
     if (fromDeps.length === existingDeps.length) return fromDeps
-    // フォールバック
     return Array.from(linkedIds)
       .map(id => candidates.find(c => c.id === id))
       .filter((t): t is TaskRow => !!t)
-  }, [existingDeps, linkedIds, candidates])
+  }, [existingDeps, linkedIds, candidates, isPrev])
 
   // 候補（紐づいてない、完了済みでない、自分以外）
   const unlinkedCandidates = useMemo(
@@ -71,12 +86,12 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
     setBusyId(taskId)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('task_dependencies').insert({
-        case_id: currentTask.case_id,
-        from_task_id: currentTask.id,
-        to_task_id: taskId,
-        condition_type: 'task_completed',
-      })
+      // direction='next': currentTask → taskId
+      // direction='prev': taskId → currentTask
+      const payload = isPrev
+        ? { case_id: currentTask.case_id, from_task_id: taskId, to_task_id: currentTask.id, condition_type: 'task_completed' as const }
+        : { case_id: currentTask.case_id, from_task_id: currentTask.id, to_task_id: taskId, condition_type: 'task_completed' as const }
+      const { error } = await supabase.from('task_dependencies').insert(payload)
       if (error) throw error
       showToast('紐づけました', 'success')
       refresh()
@@ -91,7 +106,10 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
   const handleUnlink = async (taskId: string) => {
     setBusyId(taskId)
     try {
-      const dep = existingDeps.find(d => d.to_task_id === taskId)
+      // 解除対象の dep を direction に応じて検索
+      const dep = existingDeps.find(d =>
+        isPrev ? d.from_task_id === taskId : d.to_task_id === taskId
+      )
       if (!dep) {
         setBusyId(null)
         return
@@ -119,8 +137,8 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
       >
         {expanded
           ? <ChevronDown className="w-4 h-4 text-white" strokeWidth={2.25} />
-          : <ChevronRight className="w-4 h-4 text-white" strokeWidth={2.25} />}
-        <span className="text-white text-[14px] font-bold">このタスクが終わったら</span>
+          : <HeaderIcon className="w-4 h-4 text-white" strokeWidth={2.25} />}
+        <span className="text-white text-[14px] font-bold">{headerLabel}</span>
         {linkedTasks.length > 0 && (
           <span className="ml-auto text-[11px] font-bold text-white bg-white/30 px-2 py-0.5 rounded-full">
             {linkedTasks.length} 件紐づけ済
@@ -133,7 +151,7 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
           {/* 紐づけ済みリスト */}
           {linkedTasks.length === 0 ? (
             <div className="px-3 py-4 text-center text-[12px] text-gray-400">
-              次のタスクは未設定です
+              {emptyLabel}
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
@@ -146,7 +164,9 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
                       className="flex-1 min-w-0 flex items-start gap-2 px-3 py-2.5 hover:bg-brand-50/40 transition-colors"
                     >
                       <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center bg-brand-100 mt-0.5">
-                        <ChevronRight className="w-3 h-3 text-brand-600" strokeWidth={2.5} />
+                        {isPrev
+                          ? <ChevronLeft className="w-3 h-3 text-brand-600" strokeWidth={2.5} />
+                          : <ChevronRight className="w-3 h-3 text-brand-600" strokeWidth={2.5} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-gray-800 truncate group-hover:text-brand-700">
@@ -223,6 +243,7 @@ export default function NextTaskSelector({ currentTask, candidates, linkedIds, e
             {mode === 'create' && (
               <CreateTaskForm
                 currentTask={currentTask}
+                direction={direction}
                 taskTemplates={taskTemplates}
                 onClose={() => setMode('idle')}
                 onCreated={() => {
@@ -345,15 +366,18 @@ function ExistingTaskPicker({
 // =================== 新規タスク作成フォーム ===================
 function CreateTaskForm({
   currentTask,
+  direction,
   taskTemplates,
   onClose,
   onCreated,
 }: {
   currentTask: TaskRow
+  direction: Direction
   taskTemplates: TaskTemplateRow[]
   onClose: () => void
   onCreated: () => void
 }) {
+  const isPrev = direction === 'prev'
   const [title, setTitle] = useState('')
   const [phase, setPhase] = useState<string>(currentTask.phase ?? PHASES[0].key)
   const [busy, setBusy] = useState(false)
@@ -404,12 +428,11 @@ function CreateTaskForm({
         .single()
       if (insErr || !inserted) throw insErr ?? new Error('insert failed')
 
-      const { error: depErr } = await supabase.from('task_dependencies').insert({
-        case_id: currentTask.case_id,
-        from_task_id: currentTask.id,
-        to_task_id: inserted.id,
-        condition_type: 'task_completed',
-      })
+      // direction='next': currentTask → 新規, direction='prev': 新規 → currentTask
+      const depPayload = isPrev
+        ? { case_id: currentTask.case_id, from_task_id: inserted.id, to_task_id: currentTask.id, condition_type: 'task_completed' as const }
+        : { case_id: currentTask.case_id, from_task_id: currentTask.id, to_task_id: inserted.id, condition_type: 'task_completed' as const }
+      const { error: depErr } = await supabase.from('task_dependencies').insert(depPayload)
       if (depErr) throw depErr
 
       showToast(`「${trimmedTitle}」を作成して紐づけました`, 'success')
@@ -426,7 +449,9 @@ function CreateTaskForm({
   return (
     <div className="px-3 py-2.5 bg-brand-50/40 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-[12px] font-semibold text-brand-800">新しいタスクを作成</div>
+        <div className="text-[12px] font-semibold text-brand-800">
+          新しいタスクを作成して{isPrev ? '前のタスクに' : '次のタスクに'}紐づける
+        </div>
         <button
           type="button"
           onClick={onClose}

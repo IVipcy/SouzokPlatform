@@ -11,38 +11,41 @@ type Props = {
 
 // タスクの「現在の様子」を 4 区分に正規化する。
 //   - done       … 完了
-//   - active     … 対応中 / Wチェック待ち / 差戻し（=「いま手がついている／止まっている」）
-//   - overdue    … 未着手だが due_date が過ぎている
+//   - active     … 対応中 / Wチェック待ち / 差戻し（期限内）
+//   - overdue    … 期限超過（status を問わず due_date が過ぎていれば最優先で overdue）
 //   - pending    … 未着手かつ期限内
+// 色は brand(濃い青) ベースに統一し、期限超過のときだけ赤で警告。
 type TaskVisualState = 'done' | 'active' | 'overdue' | 'pending'
 
 function classifyTask(t: TaskRow, todayYmd: string): TaskVisualState {
   if (t.status === '完了') return 'done'
-  if (t.status === '対応中' || t.status === 'Wチェック待ち' || t.status === '差戻し') return 'active'
+  const isOverdue = !!(t.due_date && t.due_date < todayYmd)
+  if (t.status === '対応中' || t.status === 'Wチェック待ち' || t.status === '差戻し') {
+    return isOverdue ? 'overdue' : 'active'
+  }
   // 未着手
-  if (t.due_date && t.due_date < todayYmd) return 'overdue'
-  return 'pending'
+  return isOverdue ? 'overdue' : 'pending'
 }
 
-// 線の色: 左タスクが done のときだけシアン、それ以外はグレー破線
+// 線の色: 左タスクが done または active（着手済み）なら濃い青、それ以外はグレー
 function connectorClass(leftState: TaskVisualState): string {
-  return leftState === 'done'
-    ? 'bg-cyan-400'
+  return leftState === 'done' || leftState === 'active'
+    ? 'bg-brand-600'
     : 'bg-gray-200'
 }
 
 // ノードのスタイル
-function nodeStyle(state: TaskVisualState): { cls: string; bg: string; border: string } {
+function nodeStyle(state: TaskVisualState): { cls: string } {
   switch (state) {
     case 'done':
-      return { cls: 'bg-cyan-500 border-cyan-500', bg: '#06b6d4', border: '#06b6d4' }
+      return { cls: 'bg-brand-600 border-brand-600' }
     case 'active':
-      return { cls: 'bg-red-500 border-red-500 ring-2 ring-red-200', bg: '#ef4444', border: '#ef4444' }
+      return { cls: 'bg-brand-600 border-brand-600 ring-2 ring-brand-100' }
     case 'overdue':
-      return { cls: 'bg-white border-red-500 ring-2 ring-red-100', bg: '#ffffff', border: '#ef4444' }
+      return { cls: 'bg-red-500 border-red-500 ring-2 ring-red-100' }
     case 'pending':
     default:
-      return { cls: 'bg-white border-gray-300', bg: '#ffffff', border: '#d1d5db' }
+      return { cls: 'bg-white border-gray-300' }
   }
 }
 
@@ -85,13 +88,13 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
         <h3 className="text-[15px] font-semibold text-gray-900">Phase別タスク進捗</h3>
         <span className="text-[12px] text-gray-500 ml-auto flex items-center gap-3 flex-wrap">
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-cyan-500" />完了
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-600" />完了
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />対応中
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 ring-2 ring-brand-100" />対応中
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-white border-2 border-red-500" />期限超過
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-100" />期限超過
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-white border border-gray-300" />未着手
@@ -134,7 +137,7 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
   )
   const hasOverdue = tasks.some(t => t.status !== '完了' && t.due_date && t.due_date < todayYmd)
   const phaseBadge = (() => {
-    if (done === total) return { label: '完了', cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' }
+    if (done === total) return { label: '完了', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
     if (hasOverdue) return { label: '遅延あり', cls: 'bg-red-50 text-red-700 border-red-200' }
     if (hasActive || done > 0) return { label: '進行中', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
     return { label: '未着手', cls: 'bg-gray-50 text-gray-500 border-gray-200' }
@@ -172,7 +175,9 @@ function PhaseRow({ phaseLabel, tasks, todayYmd }: { phaseLabel: string; tasks: 
                   {/* タスク名（下） */}
                   <div
                     className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 ${
-                      state === 'overdue' || state === 'active' ? 'text-red-600 font-semibold' : 'text-gray-700'
+                      state === 'overdue' ? 'text-red-600 font-semibold' :
+                      state === 'active' ? 'text-brand-700 font-semibold' :
+                      'text-gray-700'
                     }`}
                     style={{ wordBreak: 'break-word' }}
                   >
@@ -211,7 +216,7 @@ function PropertyAppraisalRow({ property, index }: { property: RealEstatePropert
         {propertyLabel}
       </div>
 
-      {/* 3 ステップバー（シアン統一）*/}
+      {/* 3 ステップバー（brand 濃い青で統一、ヘッダーステータスと同色）*/}
       <div className="flex-1 max-w-md flex items-center">
         {steps.map((step, idx) => {
           const isReached = idx <= safeIdx
@@ -222,13 +227,13 @@ function PropertyAppraisalRow({ property, index }: { property: RealEstatePropert
                 <span
                   className={`w-4 h-4 rounded-full border-2 ${
                     isReached
-                      ? 'bg-cyan-500 border-cyan-500'
+                      ? 'bg-brand-600 border-brand-600'
                       : 'bg-white border-gray-300'
                   }`}
                 />
                 <span
                   className={`mt-1.5 text-[12px] ${
-                    isReached ? 'text-cyan-700 font-semibold' : 'text-gray-400'
+                    isReached ? 'text-brand-700 font-semibold' : 'text-gray-400'
                   }`}
                 >
                   {step.label}
@@ -237,7 +242,7 @@ function PropertyAppraisalRow({ property, index }: { property: RealEstatePropert
               {!isLast && (
                 <span
                   className={`flex-1 h-[2px] ${
-                    idx < safeIdx ? 'bg-cyan-400' : 'bg-gray-200'
+                    idx < safeIdx ? 'bg-brand-600' : 'bg-gray-200'
                   }`}
                   style={{ marginBottom: 22 }}
                 />

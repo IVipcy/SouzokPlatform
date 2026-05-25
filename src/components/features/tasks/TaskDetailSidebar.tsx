@@ -27,14 +27,21 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
 
   // 次のタスク（このタスクが前提のもの）
   const nextTaskDeps = dependencies.filter(d => d.from_task_id === task.id && d.to_task)
-  // 既に紐づけられている「次タスクID」のセット
+  // 前のタスク（このタスクの前段）
+  const prevTaskDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
+  // 紐づけ済 ID（前 / 次）
   const linkedNextIds = new Set(
     dependencies
       .filter(d => d.from_task_id === task.id && d.condition_type === 'task_completed')
       .map(d => d.to_task_id)
   )
-  // 次タスク候補（同一案件の他タスク、自分自身は除外）
-  const nextCandidates = caseTasks.filter(t => t.id !== task.id)
+  const linkedPrevIds = new Set(
+    dependencies
+      .filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed')
+      .map(d => d.from_task_id)
+  )
+  // 候補（同一案件の他タスク、自分自身は除外）
+  const otherCaseTasks = caseTasks.filter(t => t.id !== task.id)
 
   // タイムラインイベント構築
   const timelineEvents: { date: string; label: string; color: string }[] = []
@@ -151,10 +158,21 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
         </div>
       )}
 
-      {/* このタスクが終わったら（次タスク選択 + 既存ジャンプ） */}
+      {/* このタスクの前のタスク（前段紐づけ） */}
       <NextTaskSelector
         currentTask={task}
-        candidates={nextCandidates}
+        direction="prev"
+        candidates={otherCaseTasks}
+        linkedIds={linkedPrevIds}
+        existingDeps={prevTaskDeps}
+        taskTemplates={taskTemplates}
+      />
+
+      {/* このタスクが終わったら（次タスク紐づけ） */}
+      <NextTaskSelector
+        currentTask={task}
+        direction="next"
+        candidates={otherCaseTasks}
         linkedIds={linkedNextIds}
         existingDeps={nextTaskDeps}
         taskTemplates={taskTemplates}
