@@ -69,7 +69,7 @@ function matchPayments(rows: ParsedRow[], invoices: Props['invoices']): MatchRes
     const exactMatch = invoices.find(inv => {
       const paidAmount = inv.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
       const remaining = inv.amount - paidAmount
-      return remaining === row.amount && ['前受金請求済', '確定請求済', '一部入金'].includes(inv.status)
+      return remaining === row.amount && inv.status === '入金待ち'
     })
 
     if (exactMatch) {
@@ -86,7 +86,7 @@ function matchPayments(rows: ParsedRow[], invoices: Props['invoices']): MatchRes
     const partialMatch = invoices.find(inv => {
       const clientName = inv.cases?.clients?.name ?? ''
       const nameMatch = clientName && row.payerName.includes(clientName)
-      return nameMatch && ['前受金請求済', '確定請求済', '一部入金'].includes(inv.status)
+      return nameMatch && inv.status === '入金待ち'
     })
 
     if (partialMatch) {
@@ -165,7 +165,7 @@ export default function CsvImportModal({ isOpen, onClose, invoices, onSaved }: P
       const invoice = invoices.find(inv => inv.id === row.matchedInvoiceId)
       if (invoice) {
         const paidAmount = (invoice.payments?.reduce((s, p) => s + p.amount, 0) ?? 0) + row.amount
-        const newStatus = paidAmount >= invoice.amount ? '入金済' : '一部入金'
+        const newStatus = paidAmount >= invoice.amount ? '入金済' : '入金待ち'
         await supabase.from('invoices').update({ status: newStatus }).eq('id', invoice.id)
       }
     }

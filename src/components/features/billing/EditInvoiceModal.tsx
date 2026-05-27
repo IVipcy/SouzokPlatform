@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import type { InvoiceRow, InvoiceStatus } from '@/types'
 
-const STATUSES: InvoiceStatus[] = ['作成済', '前受金請求済', '前受金入金済', '確定請求済', '一部入金', '入金済']
+const STATUSES: InvoiceStatus[] = ['作成済', '入金待ち', '入金済']
 
 type Props = {
   isOpen: boolean

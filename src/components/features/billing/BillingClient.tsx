@@ -14,6 +14,8 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
 import { Edit2, FileText } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
+import { showToast } from '@/components/ui/Toast'
+import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES } from '@/lib/constants'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow } from '@/types'
 
 type InvoiceWithRelations = InvoiceRow & {
@@ -31,17 +33,8 @@ type Props = {
   cases: CaseOption[]
 }
 
-const STATUS_STYLES: Record<InvoiceStatus, { bg: string; text: string; border: string }> = {
-  '未請求': { bg: 'bg-gray-100', text: 'text-gray-500', border: 'border-gray-300' },
-  '作成済': { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-300' },
-  '前受金請求済': { bg: 'bg-brand-50', text: 'text-brand-600', border: 'border-brand-200' },
-  '前受金入金済': { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200' },
-  '確定請求済': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
-  '入金済': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
-  '一部入金': { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
-}
-
-const STATUS_ORDER: InvoiceStatus[] = ['作成済', '前受金請求済', '前受金入金済', '確定請求済', '一部入金', '入金済']
+// 4 種類のシンプル化ステータス（DB値 = 表示）
+const EDITABLE_STATUSES: InvoiceStatus[] = ['作成済', '入金待ち', '入金済']
 
 function fmt(n: number) {
   if (n === 0) return '—'
@@ -88,10 +81,11 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    case: 260, status: 110, amount: 110, paid: 110, diff: 100, assignee: 140, invoiceDate: 110,
+    case: 240, type: 100, status: 130, amount: 110, paid: 110, diff: 100, assignee: 130, invoiceDate: 100,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'case', label: '案件' },
+    { key: 'type', label: '請求分類' },
     { key: 'status', label: 'ステータス' },
     { key: 'amount', label: '請求金額', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
@@ -109,6 +103,10 @@ export default function BillingClient({ invoices, cases }: Props) {
 
   // 一覧で選択中の「未請求」行（請求書発行ボタンで使う）
   const [checkedInvoiceId, setCheckedInvoiceId] = useState<string | null>(null)
+  // 一括操作用の選択（複数）
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   // 月フィルタ（KPIs用）
   const ymToday = new Date().toISOString().slice(0, 7)
@@ -143,7 +141,7 @@ export default function BillingClient({ invoices, cases }: Props) {
     return invoices.filter(inv => {
       if (caseFilter && inv.case_id !== caseFilter) return false
       if (statusFilter === 'waiting') {
-        if (!['前受金請求済', '確定請求済'].includes(inv.status)) return false
+        if (inv.status !== '入金待ち') return false
       } else if (statusFilter !== 'all' && inv.status !== statusFilter) {
         return false
       }
@@ -168,18 +166,18 @@ export default function BillingClient({ invoices, cases }: Props) {
     const issuedInvoices = src.filter(inv => inv.status !== '未請求')
     const total = issuedInvoices.reduce((s, inv) => s + inv.amount, 0)
     const unpaid = src.filter(inv => inv.status === '未請求').length
-    const waiting = src.filter(inv => ['作成済', '前受金請求済', '確定請求済'].includes(inv.status)).length
+    const created = src.filter(inv => inv.status === '作成済').length
+    const waiting = src.filter(inv => inv.status === '入金待ち').length
     const waitingAmt = src
-      .filter(inv => ['作成済', '前受金請求済', '確定請求済'].includes(inv.status))
+      .filter(inv => inv.status === '入金待ち')
       .reduce((s, inv) => s + inv.amount - getPaidAmount(inv.payments), 0)
     const paid = src.filter(inv => inv.status === '入金済').length
-    const partial = src.filter(inv => inv.status === '一部入金').length
     return [
       { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${issuedInvoices.length}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
-      { key: 'waiting', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
+      { key: '作成済',   label: '作成済',   Icon: AlertCircle as LucideIcon,   value: String(created),    sub: '請求書作成済', color: 'text-gray-700' },
+      { key: '入金待ち', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
       { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '入金確定', color: 'text-green-600' },
-      { key: '一部入金', label: '一部入金', Icon: AlertCircle as LucideIcon,   value: String(partial),    sub: '差額確認要', color: 'text-red-600' },
     ]
   }, [monthFilteredInvoices])
 
@@ -195,6 +193,85 @@ export default function BillingClient({ invoices, cases }: Props) {
     setDeleteInvoice(null)
     setSelectedId(null)
     router.refresh()
+  }
+
+  // 個別: ステータス変更
+  const handleStatusChange = async (invoiceId: string, nextStatus: InvoiceStatus) => {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('invoices').update({ status: nextStatus }).eq('id', invoiceId)
+      if (error) throw error
+      showToast(`ステータスを「${nextStatus}」に変更しました`, 'success')
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('ステータス変更に失敗しました', 'error')
+    }
+  }
+
+  // 一括: 選択切替
+  const toggleBulkSelect = (invoiceId: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(invoiceId)) next.delete(invoiceId)
+      else next.add(invoiceId)
+      return next
+    })
+  }
+
+  // 一括: 表示中の全行を選択 / 解除
+  const toggleSelectAll = (ids: string[]) => {
+    setBulkSelected(prev => {
+      const all = ids.every(id => prev.has(id))
+      const next = new Set(prev)
+      if (all) ids.forEach(id => next.delete(id))
+      else ids.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  const clearBulkSelection = () => setBulkSelected(new Set())
+
+  // 一括: ステータス変更
+  const handleBulkStatus = async (nextStatus: InvoiceStatus) => {
+    if (bulkSelected.size === 0 || bulkBusy) return
+    setBulkBusy(true)
+    try {
+      const supabase = createClient()
+      const ids = Array.from(bulkSelected)
+      const { error } = await supabase.from('invoices').update({ status: nextStatus }).in('id', ids)
+      if (error) throw error
+      showToast(`${ids.length} 件のステータスを「${nextStatus}」に変更しました`, 'success')
+      clearBulkSelection()
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('一括変更に失敗しました', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  // 一括: 削除
+  const handleBulkDelete = async () => {
+    if (bulkSelected.size === 0 || bulkBusy) return
+    setBulkBusy(true)
+    try {
+      const supabase = createClient()
+      const ids = Array.from(bulkSelected)
+      await supabase.from('payments').delete().in('invoice_id', ids)
+      const { error } = await supabase.from('invoices').delete().in('id', ids)
+      if (error) throw error
+      showToast(`${ids.length} 件を削除しました`, 'success')
+      clearBulkSelection()
+      setBulkDeleteOpen(false)
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('一括削除に失敗しました', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   return (
@@ -259,6 +336,53 @@ export default function BillingClient({ invoices, cases }: Props) {
         </div>
       )}
 
+      {/* 一括操作バー（選択数 > 0 時のみ） */}
+      {bulkSelected.size > 0 && (
+        <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-3 flex-wrap shadow-sm">
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-brand-800">
+            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+            {bulkSelected.size} 件選択中
+          </span>
+          <span className="text-[12px] text-gray-500">一括操作:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {EDITABLE_STATUSES.map(s => {
+              const style = INVOICE_STATUS_STYLES[s] ?? { bg: '', text: '', border: '', dot: '#6B7280' }
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleBulkStatus(s)}
+                  disabled={bulkBusy}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-white rounded-md border shadow-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  style={{ backgroundColor: style.dot, borderColor: style.dot }}
+                  title={`${s} に変更`}
+                >
+                  {s}
+                </button>
+              )
+            })}
+            <span className="text-gray-300 mx-1">|</span>
+            <button
+              type="button"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-red-700 bg-white border border-red-200 hover:bg-red-50 rounded-md disabled:opacity-50 transition-colors"
+            >
+              削除
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={clearBulkSelection}
+            disabled={bulkBusy}
+            className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-[12px] text-gray-500 hover:text-gray-700 hover:bg-white rounded transition-colors"
+          >
+            <X className="w-3 h-3" />
+            選択解除
+          </button>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-3 mb-5">
         {kpis.map(kpi => (
@@ -302,7 +426,24 @@ export default function BillingClient({ invoices, cases }: Props) {
             </colgroup>
             <thead>
               <tr>
-                <th className="bg-gray-50 border-b border-gray-200 px-2 py-2" />
+                <th className="bg-gray-50 border-b border-gray-200 px-2 py-2">
+                  {/* 全選択（発行済の行のみが対象、未請求は別チェック用） */}
+                  {(() => {
+                    const issuableIds = filtered.filter(inv => inv.status !== '未請求').map(inv => inv.id)
+                    const allSel = issuableIds.length > 0 && issuableIds.every(id => bulkSelected.has(id))
+                    const someSel = issuableIds.some(id => bulkSelected.has(id))
+                    return (
+                      <input
+                        type="checkbox"
+                        aria-label="表示中の全請求書を選択"
+                        checked={allSel}
+                        ref={el => { if (el) el.indeterminate = !allSel && someSel }}
+                        onChange={() => toggleSelectAll(issuableIds)}
+                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                      />
+                    )
+                  })()}
+                </th>
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
@@ -317,13 +458,13 @@ export default function BillingClient({ invoices, cases }: Props) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
               ) : (
                 filtered.map(inv => {
-                  const st = STATUS_STYLES[inv.status]
+                  const st = INVOICE_STATUS_STYLES[inv.status] ?? INVOICE_STATUS_STYLES['作成済']
                   const paidAmount = getPaidAmount(inv.payments)
                   const diff = inv.amount - paidAmount
                   const assignee = getSalesAssignee(inv.cases)
@@ -332,11 +473,17 @@ export default function BillingClient({ invoices, cases }: Props) {
                   const deceasedName = inv.cases?.deceased_name || ''
                   const isUnissued = inv.status === '未請求'
                   const isChecked = checkedInvoiceId === inv.id
+                  const isBulkSelected = bulkSelected.has(inv.id)
+                  const typeLabel = INVOICE_TYPE_LABEL[inv.invoice_type] ?? inv.invoice_type
+                  const typeStyle = INVOICE_TYPE_STYLES[inv.invoice_type] ?? { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' }
                   return (
                     <tr
                       key={inv.id}
                       className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition ${
-                        isChecked ? 'bg-brand-50/80' : selectedId === inv.id ? 'bg-brand-50/40' : 'hover:bg-gray-50/50'
+                        isBulkSelected ? 'bg-brand-50/60' :
+                        isChecked ? 'bg-brand-50/80' :
+                        selectedId === inv.id ? 'bg-brand-50/40' :
+                        'hover:bg-gray-50/50'
                       }`}
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                     >
@@ -349,7 +496,15 @@ export default function BillingClient({ invoices, cases }: Props) {
                             className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                             title="この案件で請求書を発行"
                           />
-                        ) : null}
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={isBulkSelected}
+                            onChange={() => toggleBulkSelect(inv.id)}
+                            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            title="一括操作の対象に追加"
+                          />
+                        )}
                       </td>
                       <td className="px-3.5 py-2.5 overflow-hidden">
                         {inv.cases?.id ? (
@@ -368,11 +523,31 @@ export default function BillingClient({ invoices, cases }: Props) {
                           </>
                         )}
                       </td>
+                      {/* 請求分類（前受金 / 確定売上） */}
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {inv.status}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+                          {typeLabel}
                         </span>
+                      </td>
+                      {/* ステータス（個別ドロップダウン編集可能） */}
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
+                        {isUnissued ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />
+                            {inv.status}
+                          </span>
+                        ) : (
+                          <select
+                            value={inv.status}
+                            onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`}
+                            title="クリックでステータス変更"
+                          >
+                            {EDITABLE_STATUSES.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
                         <div>{fmt(inv.amount)}</div>
@@ -425,17 +600,17 @@ export default function BillingClient({ invoices, cases }: Props) {
                 </div>
                 <div className="text-sm font-bold text-gray-900">{selected.cases?.deal_name || '—'}</div>
                 <div className="text-[13px] text-gray-400">被相続人: {selected.cases?.deceased_name || '—'}</div>
-                {/* Payment flow */}
+                {/* Payment flow（4ステップ統一） */}
                 <div className="flex items-center gap-0 mt-3">
-                  {['未請求', '前受金', '入金待ち', '入金済'].map((step, i) => {
-                    const stepIndex = selected.status === '未請求' ? 0 : selected.status === '前受金請求済' ? 1 : selected.status === '前受金入金済' ? 2 : selected.status === '確定請求済' ? 2 : selected.status === '入金済' ? 3 : 1
+                  {(['未請求', '作成済', '入金待ち', '入金済'] as InvoiceStatus[]).map((step, i, arr) => {
+                    const stepIndex = arr.indexOf(selected.status)
                     const passed = i < stepIndex
                     const active = i === stepIndex
                     return (
                       <div key={step} className="flex-1 flex flex-col items-center gap-1 relative">
                         <div className={`w-2.5 h-2.5 rounded-full z-10 ${active ? 'bg-green-500 ring-2 ring-green-200 w-3 h-3' : passed ? 'bg-green-500 opacity-50' : 'bg-gray-300'}`} />
                         <span className={`text-[11px] ${active ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>{step}</span>
-                        {i < 3 && <div className={`absolute top-1.5 left-1/2 right-[-50%] h-px z-0 ${passed ? 'bg-green-400 opacity-40' : 'bg-gray-200'}`} />}
+                        {i < arr.length - 1 && <div className={`absolute top-1.5 left-1/2 right-[-50%] h-px z-0 ${passed ? 'bg-green-400 opacity-40' : 'bg-gray-200'}`} />}
                       </div>
                     )
                   })}
@@ -456,6 +631,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                 </DetailSection>
                 <DetailSection title="案件情報">
                   <DetailRow label="受注担当" value={selAssignee?.name || '—'} />
+                  <DetailRow label="請求分類" value={INVOICE_TYPE_LABEL[selected.invoice_type] ?? selected.invoice_type} />
                   <DetailRow label="ステータス" value={selected.status} />
                 </DetailSection>
                 {/* Payment history */}
@@ -556,6 +732,14 @@ export default function BillingClient({ invoices, cases }: Props) {
         title="請求書削除"
         message={`この請求書を削除しますか？関連する入金記録も削除されます。`}
         onConfirm={handleDeleteInvoice}
+      />
+      {/* Bulk Delete Confirm */}
+      <DeleteConfirmModal
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        title="請求書一括削除"
+        message={`選択した ${bulkSelected.size} 件の請求書を削除しますか？関連する入金記録も同時に削除されます。\nこの操作は取り消せません。`}
+        onConfirm={handleBulkDelete}
       />
     </div>
   )

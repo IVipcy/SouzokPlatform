@@ -181,9 +181,9 @@ export const PROPERTY_TYPES = [
 // === 契約形態 ===
 export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名', 'いきいきライフ協会'] as const
 
-// === 入金ステータス ===
+// === 入金ステータス（migration 045 で4種類に統一） ===
 export const PAYMENT_STATUSES = [
-  '未請求', '前受金請求済', '前受金入金済', '確定請求済', '入金済', '一部入金',
+  '未請求', '作成済', '入金待ち', '入金済',
 ] as const
 
 // === 遺言種別 ===
@@ -218,10 +218,31 @@ export const LOST_REASONS = [
   '価格', '他社選択', '手続不要と判断', '連絡不通', 'その他',
 ] as const
 
-// === 請求書ステータス ===
+// === 請求書ステータス（migration 045 で4種類に統一） ===
+// '未請求' は請求書未作成のプレースホルダー（invoices 行はあるが請求書未発行）
 export const INVOICE_STATUSES = [
-  '下書き', '実費集計中', '確認待ち', '発行済', '入金待ち', '入金確認済', '完了',
+  '未請求', '作成済', '入金待ち', '入金済',
 ] as const
+
+// 請求書のステータススタイル
+export const INVOICE_STATUS_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  '未請求': { bg: 'bg-gray-100', text: 'text-gray-500', border: 'border-gray-300', dot: '#9CA3AF' },
+  '作成済': { bg: 'bg-gray-50',  text: 'text-gray-700', border: 'border-gray-300', dot: '#6B7280' },
+  '入金待ち': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: '#D97706' },
+  '入金済': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: '#16A34A' },
+}
+
+// === 請求分類 (invoice_type) ===
+// DB上は「確定請求」のままだが、UI表記は「確定売上」に統一
+export const INVOICE_TYPES = ['前受金', '確定請求'] as const
+export const INVOICE_TYPE_LABEL: Record<string, string> = {
+  '前受金': '前受金',
+  '確定請求': '確定売上',
+}
+export const INVOICE_TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  '前受金':   { bg: 'bg-sky-50',    text: 'text-sky-700',    border: 'border-sky-200' },
+  '確定請求': { bg: 'bg-brand-50',  text: 'text-brand-700',  border: 'border-brand-200' },
+}
 
 // === 不動産: 売却意向 ===
 export const SELLING_INTENTIONS = [

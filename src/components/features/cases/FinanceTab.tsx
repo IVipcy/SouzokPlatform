@@ -14,11 +14,12 @@ type Props = {
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
+// 旧ステータスは migration 045 で集約済みだが、cases.payment_status は
+// invoices.status とは別軸（顧客側の支払いステータス）なので一部残す
 const paymentStatusColor: Record<string, string> = {
   '未入金': 'bg-red-100 text-red-700',
-  '一部入金': 'bg-yellow-100 text-yellow-700',
+  '入金待ち': 'bg-amber-100 text-amber-700',
   '入金済': 'bg-green-100 text-green-700',
-  '前受金入金済': 'bg-brand-100 text-brand-700',
 }
 
 export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {

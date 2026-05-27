@@ -38,14 +38,12 @@ function fmtYen(n: number): string {
   return `¥${n.toLocaleString()}`
 }
 
+// migration 045 で4種類に集約
 const STATUS_COLOR: Record<string, string> = {
-  '未請求':       'bg-gray-100 text-gray-700 border-gray-200',
-  '作成済':       'bg-amber-50 text-amber-700 border-amber-200',
-  '前受金請求済': 'bg-blue-50 text-blue-700 border-blue-200',
-  '前受金入金済': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  '確定請求済':   'bg-brand-50 text-brand-700 border-brand-200',
-  '入金済':       'bg-emerald-100 text-emerald-700 border-emerald-200',
-  '一部入金':     'bg-amber-100 text-amber-700 border-amber-200',
+  '未請求': 'bg-gray-100 text-gray-700 border-gray-200',
+  '作成済': 'bg-gray-50 text-gray-700 border-gray-300',
+  '入金待ち': 'bg-amber-50 text-amber-700 border-amber-200',
+  '入金済':   'bg-green-50 text-green-700 border-green-200',
 }
 
 export default function BillingStatusView({ summary, rows }: Props) {
@@ -82,11 +80,11 @@ export default function BillingStatusView({ summary, rows }: Props) {
           tone="green"
         />
         <SummaryBox
-          icon={<Send className="w-4 h-4 text-amber-600" strokeWidth={2.25} />}
-          label="一部入金"
+          icon={<Send className="w-4 h-4 text-gray-500" strokeWidth={2.25} />}
+          label="作成済"
           value={String(summary.partialPaid)}
-          sub="差額確認要"
-          tone="amber"
+          sub="請求書作成済"
+          tone="neutral"
         />
       </div>
 

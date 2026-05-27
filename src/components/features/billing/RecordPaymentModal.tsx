@@ -55,13 +55,13 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
       return
     }
 
-    // Update invoice status
+    // Update invoice status (migration 045 でステータスは 4 種類に統一)
     const newPaidTotal = paidAmount + paymentAmount
     let newStatus: string
     if (newPaidTotal >= invoice.amount) {
       newStatus = '入金済'
     } else {
-      newStatus = '一部入金'
+      newStatus = '入金待ち'  // 一部入金 / 未入金は「入金待ち」に集約
     }
 
     await supabase.from('invoices').update({ status: newStatus }).eq('id', invoice.id)

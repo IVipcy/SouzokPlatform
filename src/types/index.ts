@@ -338,7 +338,9 @@ export type DocumentRow = {
 }
 
 // === 請求・入金 ===
-export type InvoiceStatus = '未請求' | '作成済' | '前受金請求済' | '前受金入金済' | '確定請求済' | '入金済' | '一部入金'
+// migration 045 でシンプル化: 未請求 / 作成済 / 入金待ち / 入金済 の4種類
+// 「前受金 / 確定請求」の区別は invoice_type 列で表現する
+export type InvoiceStatus = '未請求' | '作成済' | '入金待ち' | '入金済'
 
 export type InvoiceRow = {
   id: string

@@ -312,10 +312,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     billingSummary.invoiceTotalCount++
     if (inv.status === '入金済' || paid >= inv.amount) {
       billingSummary.paid++
-    } else if (inv.status === '一部入金' || (paid > 0 && paid < inv.amount)) {
+    } else if (inv.status === '入金待ち' || paid > 0) {
+      billingSummary.awaitingPayment++
+    } else if (inv.status === '作成済') {
+      // 作成済（partialPaid 枠を「作成済」件数に流用）
       billingSummary.partialPaid++
     } else {
-      // 作成済 / 前受金請求済 / 確定請求済 などは入金待ち扱い
       billingSummary.awaitingPayment++
     }
   }
