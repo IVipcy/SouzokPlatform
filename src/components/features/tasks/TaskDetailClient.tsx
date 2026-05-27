@@ -176,20 +176,36 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
                 )}
               </div>
 
-              {/* タスク名 */}
-              <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight mb-0.5">
-                {task.title}
-              </h1>
+              {/* タスク名（ラベル付き） */}
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">タスク名:</span>
+                <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight">
+                  {task.title}
+                </h1>
+              </div>
 
-              {/* 案件リンク */}
+              {/* 案件名（ラベル付き） + 手続き区分 */}
               {caseData && (
-                <Link
-                  href={`/cases/${caseData.id}`}
-                  className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1.5"
-                >
-                  <Briefcase className="w-3.5 h-3.5" strokeWidth={2} />
-                  {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
-                </Link>
+                <div className="space-y-0.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">案件名:</span>
+                    <Link
+                      href={`/cases/${caseData.id}`}
+                      className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1.5"
+                    >
+                      <Briefcase className="w-3.5 h-3.5" strokeWidth={2} />
+                      {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
+                    </Link>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">手続き区分:</span>
+                    <span className="text-[13px] text-gray-700">
+                      {caseData.procedure_type && caseData.procedure_type.length > 0
+                        ? caseData.procedure_type.join('・')
+                        : <span className="text-gray-300 italic">未設定</span>}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
 
