@@ -63,10 +63,18 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               onSave={v => saveCaseField('probability', v != null ? Number(v) : null)}
               renderValue={v => v != null ? `${v}%` : ''}
             />
-            <InlineDate label="面談予定日" value={caseData.meeting_date} onSave={v => saveCaseField('meeting_date', v || null)} />
-            <InlineSelect label="面談場所" value={caseData.meeting_place} options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
             <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-            <InlineSelect label="失注の理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
+          </FieldGrid>
+        </Section>
+
+        {/* 1-b. 面談内容 — 面談予定日/実施日/場所、お客様回答予定日、失注理由 */}
+        <Section title="面談内容" icon="🤝">
+          <FieldGrid>
+            <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
+            <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
+            <InlineSelect label="面談場所"      value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
+            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} />
+            <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           </FieldGrid>
         </Section>
 

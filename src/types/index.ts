@@ -105,6 +105,8 @@ export type CaseRow = {
   team: string | null
   probability: number | null
   meeting_date: string | null
+  meeting_executed_date: string | null      // migration 049: 面談実施日
+  client_response_due_date: string | null   // migration 049: お客様回答予定日
   order_received_date: string | null
   lost_reason: string | null
   // 受注内容追加

@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, Target, ClipboardList, ListChecks } from 'lucide-react'
+import { UserCircle, Target, ClipboardList, ListChecks, Calendar } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import MyPageTargetInput from '@/components/features/my/MyPageTargetInput'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import type { TaskRow } from '@/types'
 
 /**
@@ -19,10 +20,12 @@ import type { TaskRow } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string }>
+type TabKey = 'overview' | 'cases' | 'tasks' | 'meetings'
 
 export default async function MyPage({ searchParams }: { searchParams: SearchParams }) {
   const { tab } = await searchParams
-  const activeTab: 'overview' | 'cases' | 'tasks' = tab === 'cases' || tab === 'tasks' ? tab : 'overview'
+  const validTabs: TabKey[] = ['overview', 'cases', 'tasks', 'meetings']
+  const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : 'overview'
 
   const user = await getCurrentUser()
   if (!user?.memberId) {
@@ -42,7 +45,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const [{ data: myCaseRows }, { data: targetRow }, { data: systemTaskRows }] = await Promise.all([
     supabase
       .from('case_members')
-      .select('case_id, role, cases(id, case_number, deal_name, status, deceased_name, expected_completion_date, completion_date)')
+      .select('case_id, role, cases(id, case_number, deal_name, status, deceased_name, expected_completion_date, completion_date, meeting_date, meeting_executed_date, client_response_due_date, meeting_place, lost_reason)')
       .eq('member_id', memberId),
     supabase
       .from('member_targets')
@@ -60,9 +63,28 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // 自分担当の case_id セット
   const myCaseIds = new Set<string>(((myCaseRows ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
+  type MyCase = {
+    id: string
+    case_number: string
+    deal_name: string
+    status: string
+    deceased_name: string | null
+    expected_completion_date: string | null
+    completion_date: string | null
+    meeting_date: string | null
+    meeting_executed_date: string | null
+    client_response_due_date: string | null
+    meeting_place: string | null
+    lost_reason: string | null
+  }
   const myCases = ((myCaseRows ?? []) as Array<{ cases: unknown }>)
     .map(r => r.cases)
-    .filter((c): c is { id: string; case_number: string; deal_name: string; status: string; deceased_name: string | null; expected_completion_date: string | null; completion_date: string | null } => !!c)
+    .filter((c): c is MyCase => !!c)
+
+  // 当月面談の絞り込み: meeting_date or meeting_executed_date が当月
+  const myMonthlyMeetingCases = myCases.filter(c =>
+    (c.meeting_date?.startsWith(ym)) || (c.meeting_executed_date?.startsWith(ym))
+  )
 
   // 自分担当案件に紐づくシステムタスクを抽出
   const mySystemTasks = ((systemTaskRows ?? []) as TaskRow[]).filter(t => myCaseIds.has(t.case_id))
@@ -83,9 +105,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       />
 
       {/* タブ */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
+      <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
         <TabLink href="/my" label="概要" Icon={UserCircle} active={activeTab === 'overview'} />
         <TabLink href="/my?tab=cases" label={`担当案件 (${myCases.length})`} Icon={ClipboardList} active={activeTab === 'cases'} />
+        {isSales && (
+          <TabLink href="/my?tab=meetings" label={`当月面談 (${myMonthlyMeetingCases.length})`} Icon={Calendar} active={activeTab === 'meetings'} />
+        )}
         <TabLink href="/my?tab=tasks" label={`システムタスク (${mySystemTasks.length})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
@@ -154,6 +179,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           emptyText="未完了のシステムタスクはありません"
           showCase={true}
           includeCompleted={false}
+        />
+      )}
+
+      {activeTab === 'meetings' && (
+        <MonthlyMeetingsTable
+          cases={myMonthlyMeetingCases}
+          title={`📅 ${ym} の面談一覧`}
         />
       )}
     </div>

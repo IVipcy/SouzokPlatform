@@ -9,6 +9,7 @@ import SalesDailyTeamTable, {
 } from '@/components/features/dashboard/SalesDailyTeamTable'
 import TeamMemberTabs, { type TeamMemberEntry } from '@/components/features/dashboard/TeamMemberTabs'
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import type { TaskRow } from '@/types'
 import {
@@ -64,7 +65,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase
       .from('cases')
-      .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required'),
+      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required,meeting_date,meeting_executed_date,client_response_due_date,meeting_place,lost_reason'),
     supabase.from('case_members').select('case_id,member_id,role'),
     // 全アクティブメンバー（メンバー追加候補にも使うため、team フィルタは外す）
     supabase
@@ -251,6 +252,33 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         />
 
         <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
+
+        {/* 当月面談一覧（スコープ内案件のうち、当月に面談予定/実施したもの） */}
+        {(() => {
+          const monthlyMeetings = scopeCases
+            .filter(c =>
+              (c.meeting_date && c.meeting_date.startsWith(ym)) ||
+              (c.meeting_executed_date && c.meeting_executed_date.startsWith(ym))
+            )
+            .map(c => ({
+              id: c.id,
+              case_number: c.case_number ?? '',
+              deal_name: c.deal_name ?? '',
+              status: c.status,
+              meeting_date: c.meeting_date ?? null,
+              meeting_executed_date: c.meeting_executed_date ?? null,
+              client_response_due_date: c.client_response_due_date ?? null,
+              meeting_place: c.meeting_place ?? null,
+              lost_reason: c.lost_reason ?? null,
+            }))
+          if (monthlyMeetings.length === 0) return null
+          return (
+            <MonthlyMeetingsTable
+              cases={monthlyMeetings}
+              title={`📅 ${ym} の面談一覧（${focusedMember ? focusedMember.name : team.name}チーム）`}
+            />
+          )
+        })()}
 
         {/* システムタスク（フォーカスされたメンバー / チーム全体） */}
         {(() => {

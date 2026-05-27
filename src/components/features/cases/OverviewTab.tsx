@@ -65,9 +65,17 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineSelect label="拠点" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
             <InlineSelect label="チーム" value={caseData.team} options={[...TEAMS]} onSave={v => saveCaseField('team', v)} />
             <InlineNumber label="確度（%）" value={caseData.probability} onSave={v => saveCaseField('probability', v)} suffix="%" />
-            <InlineDate label="面談予定日" value={caseData.meeting_date} onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-            <InlineSelect label="失注の理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
+          </FieldGrid>
+        </Section>
+
+        {/* 1-b. 面談内容 */}
+        <Section title="面談内容" icon="🤝">
+          <FieldGrid>
+            <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
+            <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
+            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} />
+            <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           </FieldGrid>
         </Section>
 

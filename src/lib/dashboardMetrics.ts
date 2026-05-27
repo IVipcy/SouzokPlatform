@@ -4,6 +4,8 @@
 
 export type DashCase = {
   id: string
+  case_number?: string
+  deal_name?: string
   status: string
   order_received_date: string | null
   completion_date: string | null
@@ -17,6 +19,12 @@ export type DashCase = {
   tax_filing_required?: string | null
   // 進捗管理ボードで紫フラグ（最優先）判定に使用
   has_complaint?: boolean | null
+  // 当月面談一覧 (migration 049)
+  meeting_date?: string | null
+  meeting_executed_date?: string | null
+  client_response_due_date?: string | null
+  meeting_place?: string | null
+  lost_reason?: string | null
 }
 
 // 受注担当ダッシュボードの「不動産査定件数」算出に使用する物件行型
