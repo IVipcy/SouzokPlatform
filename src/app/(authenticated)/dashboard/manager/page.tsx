@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { Compass, Users } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import PeriodSwitcher, { parsePeriod } from '@/components/features/dashboard/PeriodSwitcher'
+import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import { parsePeriod } from '@/lib/dashboardPeriod'
 import { createClient } from '@/lib/supabase/server'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 

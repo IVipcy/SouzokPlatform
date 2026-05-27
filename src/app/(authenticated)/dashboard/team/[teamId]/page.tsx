@@ -8,7 +8,8 @@ import SalesDailyTeamTable, {
   type SalesDailyMemberRow,
 } from '@/components/features/dashboard/SalesDailyTeamTable'
 import TeamMemberTabs, { type TeamMemberEntry } from '@/components/features/dashboard/TeamMemberTabs'
-import PeriodSwitcher, { parsePeriod } from '@/components/features/dashboard/PeriodSwitcher'
+import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import { parsePeriod } from '@/lib/dashboardPeriod'
 import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'

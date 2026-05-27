@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { BarChart3, Calendar, type LucideIcon } from 'lucide-react'
+import { type LucideIcon } from 'lucide-react'
 
 type Tab = {
   value: string
@@ -69,5 +69,3 @@ export default function DashboardViewTabs({ tabs, current, paramKey = 'view' }: 
   )
 }
 
-// 既定のアイコンを参照しやすいように再エクスポート
-export { BarChart3, Calendar }
