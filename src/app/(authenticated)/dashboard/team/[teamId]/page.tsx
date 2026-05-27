@@ -8,7 +8,8 @@ import SalesDailyTeamTable, {
   type SalesDailyMemberRow,
 } from '@/components/features/dashboard/SalesDailyTeamTable'
 import TeamMemberTabs, { type TeamMemberEntry } from '@/components/features/dashboard/TeamMemberTabs'
-import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import PeriodSwitcher, { parsePeriod } from '@/components/features/dashboard/PeriodSwitcher'
+import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import type { TaskRow } from '@/types'
@@ -35,12 +36,17 @@ type MemberRow = {
 
 type Props = {
   params: Promise<{ teamId: string }>
-  searchParams: Promise<{ member?: string }>
+  searchParams: Promise<{ member?: string; period?: string; view?: string }>
 }
 
 export default async function TeamTodayDashboard({ params, searchParams }: Props) {
   const { teamId } = await params
-  const { member: selectedMemberId } = await searchParams
+  const { member: selectedMemberId, period, view } = await searchParams
+  const currentPeriod = parsePeriod(period)
+  const currentView: 'stats' | 'meetings' = view === 'meetings' ? 'meetings' : 'stats'
+  const periodLabel = currentPeriod === 'today' ? '本日'
+    : currentPeriod === 'month' ? '当月'
+    : currentPeriod === 'ytd' ? '年度累計' : '月別'
   const supabase = await createClient()
   const today = new Date()
   const ymd = todayJstYmd(today)
@@ -242,10 +248,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   return (
     <div>
       <PageHeader
-        eyebrow="Team · Sales · Today"
-        title={`${team.name}・受注担当 本日`}
+        eyebrow="Team · Sales"
+        title={`${team.name}・受注担当 ${periodLabel}`}
         icon={Users}
-        description={`${dateLabel}・受注担当の本日の動きとチームの本日成績`}
+        description={`${dateLabel}・受注担当の${periodLabel}の動きとチーム成績`}
       />
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -264,9 +270,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           basePath={`/dashboard/team/${teamId}`}
         />
 
-        <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
-
-        {/* 当月面談一覧（スコープ内案件のうち、当月に面談予定/実施したもの） */}
+        {/* ビュー切替タブ（受注数値 / 面談一覧） */}
         {(() => {
           const monthlyMeetings = scopeCases
             .filter(c =>
@@ -284,12 +288,24 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
               meeting_place: c.meeting_place ?? null,
               lost_reason: c.lost_reason ?? null,
             }))
-          if (monthlyMeetings.length === 0) return null
           return (
-            <MonthlyMeetingsTable
-              cases={monthlyMeetings}
-              title={`📅 ${ym} の面談一覧（${focusedMember ? focusedMember.name : team.name}チーム）`}
-            />
+            <>
+              <DashboardViewTabs
+                current={currentView}
+                tabs={[
+                  { value: 'stats',    label: '受注数値' },
+                  { value: 'meetings', label: '面談一覧', count: monthlyMeetings.length },
+                ]}
+              />
+              {currentView === 'stats' ? (
+                <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
+              ) : (
+                <MonthlyMeetingsTable
+                  cases={monthlyMeetings}
+                  title={`📅 ${ym} の面談一覧（${focusedMember ? focusedMember.name : team.name}チーム）`}
+                />
+              )}
+            </>
           )
         })()}
 

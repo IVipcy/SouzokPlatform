@@ -195,9 +195,9 @@ export default async function ManagerTeamDashboard({ params, searchParams }: Pro
     <div>
       <PageHeader
         eyebrow="Team · Manager"
-        title={`${team.name}・管理担当ダッシュボード`}
+        title={`${team.name}・管理担当 ${periodLabel}`}
         icon={Compass}
-        description={`${dateLabel}・${periodLabel}の動き`}
+        description={`${dateLabel}・管理担当の${periodLabel}の動きとチーム成績`}
       />
 
       <div className="mb-3">

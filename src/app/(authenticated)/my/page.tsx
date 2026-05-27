@@ -228,11 +228,39 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       )}
 
       {activeTab === 'meetings' && (
-        <MonthlyMeetingsTable
-          cases={myMonthlyMeetingCases}
-          title={`📅 ${ym} の面談一覧`}
-        />
+        <div className="space-y-4">
+          {/* サマリ: 面談数 / 新規受注件数 / 受注率 */}
+          {(() => {
+            const totalMeetings = myMonthlyMeetingCases.length
+            const wonCount = myMonthlyMeetingCases.filter(c => c.status === '受注').length
+            const winRate = totalMeetings > 0 ? Math.round((wonCount / totalMeetings) * 1000) / 10 : null
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <MeetingKpi label="面談数" value={totalMeetings} suffix="件/月" />
+                <MeetingKpi label="新規受注件数" value={wonCount} suffix="件/月" />
+                <MeetingKpi label="受注率" value={winRate} suffix="%" />
+              </div>
+            )
+          })()}
+          <MonthlyMeetingsTable
+            cases={myMonthlyMeetingCases}
+            title={`📅 ${ym} の面談一覧`}
+            showStatusFilter
+          />
+        </div>
       )}
+    </div>
+  )
+}
+
+function MeetingKpi({ label, value, suffix }: { label: string; value: number | null; suffix: string }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+      <div className="text-[12px] font-semibold text-gray-500 mb-1.5">{label}</div>
+      <div className="text-[24px] font-extrabold tracking-tight text-brand-700 leading-none">
+        {value === null ? '—' : value}
+        <span className="text-[12px] text-gray-400 ml-1 font-normal">{suffix}</span>
+      </div>
     </div>
   )
 }
