@@ -45,6 +45,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
   const [filterUrgent, setFilterUrgent] = useState(false)
+  // タスク区分フィルタ: 'all' | 'case' | 'system'
+  const [kindFilter, setKindFilter] = useState<'all' | 'case' | 'system'>('all')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
@@ -63,6 +65,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   const filtered = useMemo(() => {
     let result = tasks
+    if (kindFilter !== 'all') result = result.filter(t => (t.task_kind ?? 'case') === kindFilter)
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (filterMine && currentMemberId) {
       result = result.filter(t =>
@@ -95,7 +98,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [tasks, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
+  }, [tasks, kindFilter, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
     total: tasks.length,
@@ -325,6 +328,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
             <FilterTab label="差戻し"   count={kpis.returned} active={statusFilter === '差戻し'} onClick={() => setStatusFilter('差戻し')} accent="danger" />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
+          </div>
+
+          {/* 区分フィルタ: 案件タスク / システムタスク */}
+          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+            <FilterTab label="全区分"     active={kindFilter === 'all'}    onClick={() => setKindFilter('all')} />
+            <FilterTab label="案件"       active={kindFilter === 'case'}   onClick={() => setKindFilter('case')} />
+            <FilterTab label="🤖 システム" active={kindFilter === 'system'} onClick={() => setKindFilter('system')} />
           </div>
 
           <div className="ml-auto flex items-center gap-2">

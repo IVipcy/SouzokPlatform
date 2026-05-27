@@ -241,9 +241,15 @@ export type CaseMemberRow = {
   members?: MemberRow
 }
 
+/** タスクの種別。
+ *  - case   : 案件タスク (Phase別、前後関係あり、手動作成)
+ *  - system : システムタスク (案件運用前後の自動生成タスク、前後関係なし) */
+export type TaskKind = 'case' | 'system'
+
 export type TaskRow = {
   id: string
   case_id: string
+  task_kind: TaskKind   // migration 046
   template_key: string | null
   title: string
   phase: string

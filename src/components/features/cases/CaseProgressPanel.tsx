@@ -64,9 +64,12 @@ const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 export default function CaseProgressPanel({ tasks, properties }: Props) {
   const todayYmd = todayJstYmd(new Date())
 
+  // Phase別タスク進捗には案件タスク (task_kind='case') のみを乗せる
+  const caseTasksOnly = tasks.filter(t => t.task_kind !== 'system')
+
   // Phase別にグルーピング、未対応の Phase はスキップ
   const tasksByPhase = new Map<string, TaskRow[]>()
-  for (const t of tasks) {
+  for (const t of caseTasksOnly) {
     const key = t.phase || 'phase1'
     if (!tasksByPhase.has(key)) tasksByPhase.set(key, [])
     tasksByPhase.get(key)!.push(t)

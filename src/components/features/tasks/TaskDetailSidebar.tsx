@@ -115,15 +115,17 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
         </Link>
       )}
 
-      {/* このタスクが終わったら（次タスク紐づけ） */}
-      <NextTaskSelector
-        currentTask={task}
-        direction="next"
-        candidates={otherCaseTasks}
-        linkedIds={linkedNextIds}
-        existingDeps={nextTaskDeps}
-        taskTemplates={taskTemplates}
-      />
+      {/* このタスクが終わったら（次タスク紐づけ）— システムタスクでは非表示 */}
+      {task.task_kind !== 'system' && (
+        <NextTaskSelector
+          currentTask={task}
+          direction="next"
+          candidates={otherCaseTasks.filter(t => t.task_kind !== 'system')}
+          linkedIds={linkedNextIds}
+          existingDeps={nextTaskDeps}
+          taskTemplates={taskTemplates}
+        />
+      )}
 
       {/* タイムライン */}
       {timelineEvents.length > 0 && (

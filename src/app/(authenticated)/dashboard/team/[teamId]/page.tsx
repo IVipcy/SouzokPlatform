@@ -8,6 +8,8 @@ import SalesDailyTeamTable, {
   type SalesDailyMemberRow,
 } from '@/components/features/dashboard/SalesDailyTeamTable'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
+import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import type { TaskRow } from '@/types'
 import {
   computeSalesDailyMetrics,
   computeSalesMetrics,
@@ -55,6 +57,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     { data: changesRaw },
     { data: propertiesRaw },
     { data: memberTargetsRaw },
+    { data: systemTasksRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase
@@ -78,6 +81,14 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .from('member_targets')
       .select('member_id,new_orders_count')
       .eq('ym', ym),
+    // システムタスク（このチームメンバーが担当する未完了分）
+    supabase
+      .from('tasks')
+      .select('*, cases(id, case_number, deal_name, status)')
+      .eq('task_kind', 'system')
+      .neq('status', '完了')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(100),
   ])
 
   if (!team) notFound()
@@ -204,6 +215,27 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       <div className="space-y-3">
         <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
         <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
+
+        {/* システムタスク（フォーカスされたメンバー / チーム全体） */}
+        {(() => {
+          const allSystemTasks = (systemTasksRaw ?? []) as TaskRow[]
+          // スコープ案件IDで絞り込み
+          const scopedSystemTasks = allSystemTasks.filter(t => scopeCaseIds.has(t.case_id))
+          if (scopedSystemTasks.length === 0) return null
+          return (
+            <SystemTaskList
+              tasks={scopedSystemTasks}
+              title={focusedMember
+                ? `🤖 ${focusedMember.name} さんのシステムタスク`
+                : `🤖 ${team.name}チームのシステムタスク`}
+              emptyText="未完了のシステムタスクはありません"
+              showCase={true}
+              includeCompleted={false}
+              limit={15}
+              seeAllHref="/tasks?kind=system"
+            />
+          )
+        })()}
       </div>
     </div>
   )

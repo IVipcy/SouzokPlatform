@@ -7,6 +7,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from '@/components/features/tasks/EditTaskModal'
+import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES } from '@/lib/constants'
 import { DB_PHASES, getPhaseLabel, getPhaseColor } from '@/lib/phases'
@@ -37,11 +38,14 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
 
+  // 案件タスクのみ Phase 別に分類（システムタスクは下部で別表示）
+  const caseTasksOnly = tasks.filter(t => t.task_kind !== 'system')
+  const systemTasks = tasks.filter(t => t.task_kind === 'system')
   const tasksByPhase = DB_PHASES.map(phase => ({
     phase,
     label: getPhaseLabel(phase),
     color: getPhaseColor(phase),
-    tasks: tasks.filter(t => t.phase === phase),
+    tasks: caseTasksOnly.filter(t => t.phase === phase),
   })).filter(g => g.tasks.length > 0)
 
   const togglePhase = (phase: string) => {
@@ -153,6 +157,19 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
             <span>対応中: {doingTasks}</span>
             <span>完了: {completedTasks}</span>
           </div>
+        </div>
+      )}
+
+      {/* システムタスク（自動生成、前後関係なし） */}
+      {systemTasks.length > 0 && (
+        <div className="mb-4">
+          <SystemTaskList
+            tasks={systemTasks}
+            title="🤖 システムタスク（自動生成）"
+            emptyText="システムタスクはありません"
+            showCase={false}
+            includeCompleted={true}
+          />
         </div>
       )}
 

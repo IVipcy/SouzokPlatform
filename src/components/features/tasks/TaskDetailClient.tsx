@@ -54,9 +54,12 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
   const caseData = task.cases
   const clientData = caseData?.clients
 
+  // システムタスクは前後関係を持たないので、関連セクションを非表示
+  const isSystemTask = task.task_kind === 'system'
+
   // 前段作業（task_completed 型依存の from_task）を抽出
   const prereqDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
-  const hasPrereq = prereqDeps.some(d => d.condition_type === 'task_completed' && d.from_task)
+  const hasPrereq = !isSystemTask && prereqDeps.some(d => d.condition_type === 'task_completed' && d.from_task)
 
   const currentStatus = normalizeStatus(task.status)
   const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
@@ -158,17 +161,23 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
         <div className="px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              {/* ID + Phase + Category */}
+              {/* ID + 区分バッジ + Phase + Category */}
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-[13px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
                   {task.id.slice(0, 8)}
                 </span>
-                <span
-                  className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: getPhaseColor(task.phase) }}
-                >
-                  {getPhaseLabel(task.phase)}
-                </span>
+                {isSystemTask ? (
+                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                    🤖 システムタスク
+                  </span>
+                ) : (
+                  <span
+                    className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white"
+                    style={{ backgroundColor: getPhaseColor(task.phase) }}
+                  >
+                    {getPhaseLabel(task.phase)}
+                  </span>
+                )}
                 {task.category && (
                   <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                     {task.category}
@@ -357,28 +366,30 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
           右:  次タスク紐づけ + タイムライン         (時系列: 未来) */}
       <div className="flex gap-5 lg:flex-row flex-col">
-        {/* 左カラム — 前段 */}
-        <aside className="w-full lg:w-[300px] lg:flex-shrink-0 flex flex-col gap-4">
-          <div className="lg:sticky lg:top-[90px] flex flex-col gap-4">
-            {/* このタスクの前のタスク（前段紐づけ） */}
-            <NextTaskSelector
-              currentTask={task}
-              direction="prev"
-              candidates={caseTasks.filter(t => t.id !== task.id)}
-              linkedIds={new Set(dependencies.filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed').map(d => d.from_task_id))}
-              existingDeps={dependencies.filter(d => d.to_task_id === task.id && d.from_task)}
-              taskTemplates={taskTemplates}
-            />
-            {/* 前段作業の確認（前提タスクがある場合のみ） */}
-            {hasPrereq && (
-              <PrevTaskReviewSection
-                task={task}
-                prereqDeps={prereqDeps}
-                currentMemberId={currentMemberId}
+        {/* 左カラム — 前段 (システムタスクでは非表示) */}
+        {!isSystemTask && (
+          <aside className="w-full lg:w-[300px] lg:flex-shrink-0 flex flex-col gap-4">
+            <div className="lg:sticky lg:top-[90px] flex flex-col gap-4">
+              {/* このタスクの前のタスク（前段紐づけ） */}
+              <NextTaskSelector
+                currentTask={task}
+                direction="prev"
+                candidates={caseTasks.filter(t => t.id !== task.id && t.task_kind !== 'system')}
+                linkedIds={new Set(dependencies.filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed').map(d => d.from_task_id))}
+                existingDeps={dependencies.filter(d => d.to_task_id === task.id && d.from_task)}
+                taskTemplates={taskTemplates}
               />
-            )}
-          </div>
-        </aside>
+              {/* 前段作業の確認（前提タスクがある場合のみ） */}
+              {hasPrereq && (
+                <PrevTaskReviewSection
+                  task={task}
+                  prereqDeps={prereqDeps}
+                  currentMemberId={currentMemberId}
+                />
+              )}
+            </div>
+          </aside>
+        )}
 
         {/* 中央カラム — メイン */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
@@ -551,17 +562,19 @@ function TaskWorkSection({
           </div>
         </div>
 
-        {/* 2. 実施結果・引継ぎ事項 */}
-        <div className="py-3">
-          <InlineTextarea
-            label="実施結果・引継ぎ事項"
-            value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
-            onSave={handleSaveExecutionResult}
-          />
-          <div className="text-[11px] text-gray-400 mt-0.5">
-            次のタスクの作業者が「前段作業の実施結果・引継ぎ事項」としてここを読みます。
+        {/* 2. 実施結果・引継ぎ事項 (システムタスクでは非表示) */}
+        {task.task_kind !== 'system' && (
+          <div className="py-3">
+            <InlineTextarea
+              label="実施結果・引継ぎ事項"
+              value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
+              onSave={handleSaveExecutionResult}
+            />
+            <div className="text-[11px] text-gray-400 mt-0.5">
+              次のタスクの作業者が「前段作業の実施結果・引継ぎ事項」としてここを読みます。
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 3. 作業進捗メモ */}
         <div className="pt-3">
