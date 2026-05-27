@@ -30,9 +30,9 @@ type Props = {
   candidates: Array<{ id: string; name: string; avatar_color: string | null; avatar_url: string | null; primary_role: string | null }>
   /** URL で選択中のメンバーID (?member=) */
   selectedMemberId?: string | null
-  /** リンクビルダ */
-  buildMemberHref: (memberId: string) => string
-  buildAllHref: () => string
+  /** 遷移先のベースパス（例: '/dashboard/team/xxx'）。
+   *  メンバー選択時は `${basePath}?member={id}` に遷移、全体は basePath そのまま */
+  basePath: string
 }
 
 /**
@@ -48,9 +48,10 @@ export default function TeamMemberTabs({
   entries,
   candidates,
   selectedMemberId,
-  buildMemberHref,
-  buildAllHref,
+  basePath,
 }: Props) {
+  const buildMemberHref = (mid: string) => `${basePath}?member=${mid}`
+  const buildAllHref = () => basePath
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()

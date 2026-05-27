@@ -261,8 +261,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           entries={memberEntries}
           candidates={candidateMembers}
           selectedMemberId={selectedMemberId}
-          buildMemberHref={(mid) => `/dashboard/team/${teamId}?member=${mid}`}
-          buildAllHref={() => `/dashboard/team/${teamId}`}
+          basePath={`/dashboard/team/${teamId}`}
         />
 
         <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />

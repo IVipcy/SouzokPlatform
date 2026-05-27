@@ -222,8 +222,7 @@ export default async function ManagerTeamDashboard({ params, searchParams }: Pro
           entries={memberEntries}
           candidates={candidateMembers}
           selectedMemberId={selectedMemberId}
-          buildMemberHref={(mid) => `/dashboard/manager/${teamId}?member=${mid}`}
-          buildAllHref={() => `/dashboard/manager/${teamId}`}
+          basePath={`/dashboard/manager/${teamId}`}
         />
 
         {/* メンバー別集計テーブル */}
