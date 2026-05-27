@@ -7,7 +7,8 @@ import SalesDailyTeamTable, {
   type SalesDailyTeamGroup,
   type SalesDailyMemberRow,
 } from '@/components/features/dashboard/SalesDailyTeamTable'
-import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
+import TeamMemberTabs, { type TeamMemberEntry } from '@/components/features/dashboard/TeamMemberTabs'
+import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import type { TaskRow } from '@/types'
 import {
@@ -58,17 +59,18 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     { data: propertiesRaw },
     { data: memberTargetsRaw },
     { data: systemTasksRaw },
+    { data: teamMembersRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase
       .from('cases')
       .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required'),
     supabase.from('case_members').select('case_id,member_id,role'),
+    // 全アクティブメンバー（メンバー追加候補にも使うため、team フィルタは外す）
     supabase
       .from('members')
       .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id')
-      .eq('is_active', true)
-      .eq('team_id', teamId),
+      .eq('is_active', true),
     supabase
       .from('activity_log')
       .select('entity_id,old_value,new_value,created_at')
@@ -89,13 +91,23 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false })
       .limit(100),
+    // dashboard_team_members（手動チーム編成）
+    supabase
+      .from('dashboard_team_members')
+      .select('id, member_id, kind')
+      .eq('team_id', teamId),
   ])
 
   if (!team) notFound()
 
   const cases = (casesRaw ?? []) as DashCase[]
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
-  const teamMembers = (membersRaw ?? []) as MemberRow[]
+  const allActiveMembers = (membersRaw ?? []) as MemberRow[]
+  // dashboard_team_members からチーム編成を読む（既存 members.team_id ではなくこちらが正）
+  const teamMemberRows = (teamMembersRaw ?? []) as Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }>
+  const teamMemberMap = new Map(teamMemberRows.map(r => [r.member_id, r]))
+  // 「このチームのメンバー」= dashboard_team_members に登録されている人
+  const teamMembers = allActiveMembers.filter(m => teamMemberMap.has(m.id))
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
   const memberTargetByMember = new Map(
@@ -103,8 +115,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .map(t => [t.member_id, t.new_orders_count]),
   )
 
-  // 受注担当のみ抽出（管理は除外）
-  const salesMembers = teamMembers.filter(m => m.primary_role === 'sales')
+  // 受注担当のみ抽出（管理は除外）+ メンター(kind='mentor')は集計に含めない
+  const salesMembers = teamMembers.filter(m =>
+    m.primary_role === 'sales' && teamMemberMap.get(m.id)?.kind === 'member'
+  )
 
   // 個人フィルタ: ?member= で指定された人がチームの受注担当に居れば、そのメンバーのみ対象
   const focusedMember = selectedMemberId
@@ -177,17 +191,33 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     members: memberRows,
   }
 
-  // メンバー切替ナビ（受注担当ダッシュボードなので、受注担当のみ表示）
+  // メンバータブ用エントリ（受注担当ダッシュボードなので、受注担当のみ表示）
   const achievedMemberIds = new Set(memberRows.filter(r => r.achieved).map(r => r.id))
-  const navMembers: TeamNavMember[] = teamMembers
+  const memberEntries: TeamMemberEntry[] = teamMembers
     .filter(m => m.primary_role === 'sales')
+    .map(m => {
+      const tm = teamMemberMap.get(m.id)
+      return {
+        id: tm?.id,
+        member_id: m.id,
+        name: m.name,
+        avatar_color: m.avatar_color,
+        avatar_url: m.avatar_url,
+        primary_role: m.primary_role,
+        kind: tm?.kind ?? 'member',
+        achieved: achievedMemberIds.has(m.id),
+      }
+    })
+
+  // メンバー追加候補（全アクティブメンバーから、まだチームに登録されていない受注担当）
+  const candidateMembers = allActiveMembers
+    .filter(m => m.primary_role === 'sales' && !teamMemberMap.has(m.id))
     .map(m => ({
       id: m.id,
       name: m.name,
-      avatarColor: m.avatar_color ?? '#6B7280',
-      avatarUrl: m.avatar_url,
-      primaryRole: m.primary_role as 'sales' | 'manager',
-      achieved: achievedMemberIds.has(m.id),
+      avatar_color: m.avatar_color,
+      avatar_url: m.avatar_url,
+      primary_role: m.primary_role,
     }))
 
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
@@ -203,17 +233,23 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         description={`${dateLabel}・受注担当の本日の動きとチームの本日成績`}
       />
 
-      <TeamMemberNav
-        teamId={teamId}
-        teamName={team.name}
-        members={navMembers}
-        currentMemberId={selectedMemberId}
-        buildTeamHref={(tid) => `/dashboard/team/${tid}`}
-        buildMemberHref={(mid, tid) => `/dashboard/team/${tid}?member=${mid}`}
-      />
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <PeriodSwitcher />
+      </div>
 
       <div className="space-y-3">
         <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
+
+        {/* メンバータブ + 追加機能（サマリの下に配置） */}
+        <TeamMemberTabs
+          teamId={teamId}
+          entries={memberEntries}
+          candidates={candidateMembers}
+          selectedMemberId={selectedMemberId}
+          buildMemberHref={(mid) => `/dashboard/team/${teamId}?member=${mid}`}
+          buildAllHref={() => `/dashboard/team/${teamId}`}
+        />
+
         <SalesDailyTeamTable groups={[tableGroup]} today={today} ym={ym} />
 
         {/* システムタスク（フォーカスされたメンバー / チーム全体） */}
