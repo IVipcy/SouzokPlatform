@@ -11,7 +11,7 @@ import type { TaskRow } from '@/types'
 type Props = {
   /** 表示対象のタスク（既に system タスクに絞られた配列） */
   tasks: TaskRow[]
-  /** セクション見出し */
+  /** セクション見出し（既定: 「タスク」） */
   title?: string
   /** 0件時に表示するテキスト */
   emptyText?: string
@@ -53,8 +53,8 @@ const normalizeStatus = (s: string) => {
  */
 export default function SystemTaskList({
   tasks,
-  title = '🤖 システムタスク',
-  emptyText = 'システムタスクはありません',
+  title = 'タスク',
+  emptyText = 'タスクはありません',
   showCase = true,
   includeCompleted = false,
   limit,

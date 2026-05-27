@@ -54,7 +54,7 @@ export default async function DashboardTopPage() {
         {
           href: '/my',
           title: 'マイページ',
-          description: 'あなた専用。月間目標 / 担当案件 / 当月面談 / システムタスク。受注担当・管理担当で表示が切り替わる。',
+          description: 'あなた専用。月間目標 / 担当案件 / 当月面談 / タスク。受注担当・管理担当で表示が切り替わる。',
           Icon: UserCircle,
           tone: 'blue',
         },

@@ -13,7 +13,6 @@ import {
   BarChart3,
   LogOut,
   Building2,
-  UserCircle,
   ChevronsLeft,
   ChevronsRight,
   type LucideIcon,
@@ -41,7 +40,6 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: 'メイン',
     items: [
-      { href: '/my',       label: 'マイページ',     Icon: UserCircle },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件管理',       Icon: Briefcase },
       { href: '/meeting',  label: '案件編集',       Icon: PenSquare },

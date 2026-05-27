@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Briefcase, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Briefcase } from 'lucide-react'
 
-type CaseLite = {
+type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
+
+export type MyCaseRow = {
   id: string
   case_number: string
   deal_name: string
@@ -11,36 +13,77 @@ type CaseLite = {
   deceased_name: string | null
   expected_completion_date: string | null
   completion_date: string | null
+  has_complaint?: boolean | null
+  client_name?: string | null
+  sales_name?: string | null
+  manager_name?: string | null
+  /** 進捗管理ダッシュボード経由で計算済の場合 */
+  flag?: CaseFlag
 }
 
 type Props = {
   memberId: string
-  cases: CaseLite[]
+  cases: MyCaseRow[]
+  /** ヘッダーや「↗ 全件見る」など最小表示にする */
   compact?: boolean
 }
 
-// 進捗マーカーの色（赤/黄/青）— 進捗管理ダッシュボードと統一
-function getProgressColor(c: CaseLite): { color: string; label: string } {
-  if (c.status === '完了') return { color: '#0f487e', label: '完了' }
-  if (c.status === '失注') return { color: '#9CA3AF', label: '失注' }
+const FLAG_LABEL: Record<NonNullable<CaseFlag>, string> = {
+  purple: '紫',
+  red:    '赤',
+  yellow: '黄',
+  blue:   '青',
+}
+const FLAG_BG: Record<NonNullable<CaseFlag>, string> = {
+  purple: 'bg-purple-600 text-white',
+  red:    'bg-red-500 text-white',
+  yellow: 'bg-yellow-400 text-gray-900',
+  blue:   'bg-sky-500 text-white',
+}
+
+const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
+  purple: 0, red: 1, yellow: 2, blue: 3,
+}
+
+// 簡易フラグ計算（進捗管理ロジックの簡略版。タスク情報無しで案件だけで判定）
+function computeFlagSimple(c: MyCaseRow): CaseFlag {
+  if (c.has_complaint) return 'purple'
+  if (c.status === '完了' || c.status === '失注') return null
   const today = new Date().toISOString().split('T')[0]
-  if (c.expected_completion_date && c.expected_completion_date < today) {
-    return { color: '#DC2626', label: '完了予定超過' }  // 赤
-  }
-  if (c.status === '対応中') return { color: '#0EA5E9', label: '対応中' }  // 青
-  return { color: '#D97706', label: c.status }  // 黄
+  if (c.expected_completion_date && c.expected_completion_date < today) return 'red'
+  if (c.status === '対応中') return 'blue'
+  return 'blue'
 }
 
 /**
- * マイページの担当案件一覧。
- * 進捗管理ダッシュボードと同じく、赤/黄/青の進捗マーカー付き。
+ * マイページの担当案件タブ
+ * 進捗管理ダッシュボードと同じテーブル形式:
+ *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
 export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false }: Props) {
   void _memberId
-  if (cases.length === 0) {
+
+  const rows = cases.map(c => ({
+    ...c,
+    flag: c.flag ?? computeFlagSimple(c),
+  }))
+
+  // 完了・失注は除外（フラグなし）
+  const visibleRows = rows.filter(r => r.flag !== null)
+  // ソート: フラグ優先度 → 完了予定日昇順
+  visibleRows.sort((a, b) => {
+    const fa = FLAG_RANK[a.flag!]
+    const fb = FLAG_RANK[b.flag!]
+    if (fa !== fb) return fa - fb
+    const ad = a.expected_completion_date ?? '9999-12-31'
+    const bd = b.expected_completion_date ?? '9999-12-31'
+    return ad.localeCompare(bd)
+  })
+
+  if (visibleRows.length === 0) {
     return (
-      <div className="px-4 py-8 text-center text-[13px] text-gray-400">
-        担当案件はありません
+      <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
+        対応中の案件はありません
       </div>
     )
   }
@@ -48,72 +91,43 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   return (
     <div className={`bg-white rounded-xl overflow-hidden ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
       <table className="w-full text-[13px]">
-        <colgroup>
-          <col style={{ width: 8 }} />
-          <col />
-          <col style={{ width: 120 }} />
-          <col style={{ width: 140 }} />
-        </colgroup>
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
-            <th />
-            <th className="px-3 py-2 text-left font-bold">案件</th>
-            <th className="px-3 py-2 text-left font-bold">ステータス</th>
-            <th className="px-3 py-2 text-left font-bold">完了予定</th>
+            <th className="px-3 py-2 text-center font-bold" style={{ width: 60 }}>フラグ</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 120 }}>案件管理番号</th>
+            <th className="px-3 py-2 text-left font-bold">案件名</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>受注担当</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>管理担当</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 120 }}>完了予定日</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 140 }}>依頼者名</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {cases.map(c => {
-            const prog = getProgressColor(c)
-            return (
-              <tr key={c.id} className="hover:bg-gray-50/60">
-                <td className="px-1 py-2.5">
-                  <span
-                    className="inline-block w-2 h-2 rounded-full"
-                    style={{ backgroundColor: prog.color }}
-                    title={prog.label}
-                  />
-                </td>
-                <td className="px-3 py-2.5">
-                  <Link href={`/cases/${c.id}`} className="block group">
-                    <div className="text-[12px] font-mono text-gray-400">{c.case_number}</div>
-                    <div className="text-[13px] font-semibold text-gray-800 group-hover:text-brand-600 group-hover:underline truncate">
-                      {c.deal_name}
-                    </div>
-                    {c.deceased_name && (
-                      <div className="text-[11px] text-gray-400 truncate">被相続人: {c.deceased_name}</div>
-                    )}
-                  </Link>
-                </td>
-                <td className="px-3 py-2.5 text-[12px] text-gray-700 font-semibold">
-                  {c.status}
-                </td>
-                <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">
-                  {c.completion_date ? (
-                    <span className="inline-flex items-center gap-1 text-brand-700">
-                      <CheckCircle2 className="w-3 h-3" strokeWidth={2} />
-                      {c.completion_date}
-                    </span>
-                  ) : c.expected_completion_date ? (
-                    <span className={c.expected_completion_date < new Date().toISOString().split('T')[0] ? 'text-red-600 font-bold' : 'text-gray-500'}>
-                      {c.expected_completion_date < new Date().toISOString().split('T')[0] && (
-                        <AlertTriangle className="w-3 h-3 inline mr-0.5" strokeWidth={2.25} />
-                      )}
-                      {c.expected_completion_date}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300">—</span>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+          {visibleRows.map(c => (
+            <tr key={c.id} className="hover:bg-gray-50/60">
+              <td className="px-3 py-2.5 text-center">
+                <span className={`inline-flex items-center justify-center w-12 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag!]}`}>
+                  {FLAG_LABEL[c.flag!]}
+                </span>
+              </td>
+              <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600">{c.case_number}</td>
+              <td className="px-3 py-2.5">
+                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[260px]">
+                  {c.deal_name}
+                </Link>
+              </td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? '—'}</td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700 truncate">{c.client_name || <span className="text-gray-300">—</span>}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       {compact && (
         <div className="px-4 py-2 text-center bg-gray-50/40 border-t border-gray-100">
           <Briefcase className="w-3 h-3 inline-block mr-1 text-gray-400" />
-          <span className="text-[11px] text-gray-500">担当案件 {cases.length} 件</span>
+          <span className="text-[11px] text-gray-500">担当案件 {visibleRows.length} 件</span>
         </div>
       )}
     </div>

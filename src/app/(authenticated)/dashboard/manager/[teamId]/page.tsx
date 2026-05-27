@@ -77,14 +77,18 @@ export default async function ManagerTeamDashboard({ params, searchParams }: Pro
   const teamMemberRows = (teamMembersRaw ?? []) as Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }>
   const teamMemberMap = new Map(teamMemberRows.map(r => [r.member_id, r]))
 
-  // このチームのメンバー（dashboard_team_members 経由）
-  const teamMembers = allActiveMembers.filter(m => teamMemberMap.has(m.id))
+  // dashboard_team_members 未マイグレーション時のフォールバック
+  const teamMembers = teamMemberRows.length > 0
+    ? allActiveMembers.filter(m => teamMemberMap.has(m.id))
+    : allActiveMembers.filter(m => m.team_id === teamId)
 
-  // 管理担当のみ（メンター除外）
-  const managerMembers = teamMembers.filter(m =>
-    (m.primary_role === 'manager' || m.primary_role === 'sub_manager')
-    && teamMemberMap.get(m.id)?.kind === 'member'
-  )
+  // 管理担当のみ（メンター除外、フォールバック時は kind='member' 扱い）
+  const managerMembers = teamMembers.filter(m => {
+    if (m.primary_role !== 'manager' && m.primary_role !== 'sub_manager') return false
+    const tm = teamMemberMap.get(m.id)
+    if (!tm) return true
+    return tm.kind === 'member'
+  })
 
   // フォーカスメンバー
   const focusedMember = selectedMemberId

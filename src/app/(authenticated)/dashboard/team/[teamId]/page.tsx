@@ -104,11 +104,15 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const cases = (casesRaw ?? []) as DashCase[]
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const allActiveMembers = (membersRaw ?? []) as MemberRow[]
-  // dashboard_team_members からチーム編成を読む（既存 members.team_id ではなくこちらが正）
+  // dashboard_team_members からチーム編成を読む（migration 048 未適用環境でも動くようフォールバック）
   const teamMemberRows = (teamMembersRaw ?? []) as Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }>
   const teamMemberMap = new Map(teamMemberRows.map(r => [r.member_id, r]))
-  // 「このチームのメンバー」= dashboard_team_members に登録されている人
-  const teamMembers = allActiveMembers.filter(m => teamMemberMap.has(m.id))
+  // 「このチームのメンバー」
+  //   - dashboard_team_members が存在 (≥1行) するなら、そこに登録されている人
+  //   - 未マイグレーション or 未登録の場合は、members.team_id でフォールバック
+  const teamMembers = teamMemberRows.length > 0
+    ? allActiveMembers.filter(m => teamMemberMap.has(m.id))
+    : allActiveMembers.filter(m => m.team_id === teamId)
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
   const memberTargetByMember = new Map(
@@ -117,9 +121,13 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   )
 
   // 受注担当のみ抽出（管理は除外）+ メンター(kind='mentor')は集計に含めない
-  const salesMembers = teamMembers.filter(m =>
-    m.primary_role === 'sales' && teamMemberMap.get(m.id)?.kind === 'member'
-  )
+  // dashboard_team_members に未登録 (フォールバック) の場合は kind は 'member' 扱い
+  const salesMembers = teamMembers.filter(m => {
+    if (m.primary_role !== 'sales') return false
+    const tm = teamMemberMap.get(m.id)
+    if (!tm) return true  // フォールバック: dashboard_team_members 不在の場合
+    return tm.kind === 'member'
+  })
 
   // 個人フィルタ: ?member= で指定された人がチームの受注担当に居れば、そのメンバーのみ対象
   const focusedMember = selectedMemberId
@@ -290,9 +298,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
             <SystemTaskList
               tasks={scopedSystemTasks}
               title={focusedMember
-                ? `🤖 ${focusedMember.name} さんのシステムタスク`
-                : `🤖 ${team.name}チームのシステムタスク`}
-              emptyText="未完了のシステムタスクはありません"
+                ? `${focusedMember.name} さんのタスク`
+                : `${team.name}チームのタスク`}
+              emptyText="未完了のタスクはありません"
               showCase={true}
               includeCompleted={false}
               limit={15}

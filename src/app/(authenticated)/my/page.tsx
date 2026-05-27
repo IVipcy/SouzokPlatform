@@ -42,10 +42,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const ym = today.toISOString().slice(0, 7)
 
   // 自分担当の案件と、自分宛のシステムタスクを並行取得
-  const [{ data: myCaseRows }, { data: targetRow }, { data: systemTaskRows }] = await Promise.all([
+  const [{ data: myCaseRows }, { data: targetRow }, { data: systemTaskRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
     supabase
       .from('case_members')
-      .select('case_id, role, cases(id, case_number, deal_name, status, deceased_name, expected_completion_date, completion_date, meeting_date, meeting_executed_date, client_response_due_date, meeting_place, lost_reason)')
+      .select('case_id, role, cases(id, case_number, deal_name, status, deceased_name, expected_completion_date, completion_date, meeting_date, meeting_executed_date, client_response_due_date, meeting_place, lost_reason, has_complaint, client_id)')
       .eq('member_id', memberId),
     supabase
       .from('member_targets')
@@ -59,6 +59,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       .eq('task_kind', 'system')
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false }),
+    // 担当案件の他担当（受注/管理担当）を解決するための一括取得
+    supabase.from('case_members').select('case_id, member_id, role'),
+    supabase.from('members').select('id, name').eq('is_active', true),
+    supabase.from('clients').select('id, name'),
   ])
 
   // 自分担当の case_id セット
@@ -76,10 +80,45 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     client_response_due_date: string | null
     meeting_place: string | null
     lost_reason: string | null
+    has_complaint: boolean | null
+    client_id: string | null
   }
   const myCases = ((myCaseRows ?? []) as Array<{ cases: unknown }>)
     .map(r => r.cases)
     .filter((c): c is MyCase => !!c)
+
+  // 受注担当・管理担当・依頼者名を解決
+  const memberById = new Map<string, string>(
+    ((allMembersRaw ?? []) as Array<{ id: string; name: string }>).map(m => [m.id, m.name]),
+  )
+  const clientById = new Map<string, string>(
+    ((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]),
+  )
+  const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
+  const salesByCase = new Map<string, string>()
+  const managerByCase = new Map<string, string>()
+  for (const cm of allCaseMembers) {
+    if (!myCaseIds.has(cm.case_id)) continue
+    const name = memberById.get(cm.member_id)
+    if (!name) continue
+    if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) salesByCase.set(cm.case_id, name)
+    if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, name)
+  }
+
+  // MyPageCasesTab 用の行
+  const myCasesEnriched = myCases.map(c => ({
+    id: c.id,
+    case_number: c.case_number,
+    deal_name: c.deal_name,
+    status: c.status,
+    deceased_name: c.deceased_name,
+    expected_completion_date: c.expected_completion_date,
+    completion_date: c.completion_date,
+    has_complaint: c.has_complaint,
+    client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
+    sales_name: salesByCase.get(c.id) ?? null,
+    manager_name: managerByCase.get(c.id) ?? null,
+  }))
 
   // 当月面談の絞り込み: meeting_date or meeting_executed_date が当月
   const myMonthlyMeetingCases = myCases.filter(c =>
@@ -111,7 +150,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {isSales && (
           <TabLink href="/my?tab=meetings" label={`当月面談 (${myMonthlyMeetingCases.length})`} Icon={Calendar} active={activeTab === 'meetings'} />
         )}
-        <TabLink href="/my?tab=tasks" label={`システムタスク (${mySystemTasks.length})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        <TabLink href="/my?tab=tasks" label={`タスク (${mySystemTasks.length})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
       {activeTab === 'overview' && (
@@ -145,8 +184,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <section className="lg:col-span-2">
             <SystemTaskList
               tasks={mySystemTasks}
-              title="🤖 あなたのシステムタスク"
-              emptyText="未完了のシステムタスクはありません"
+              title="あなたのタスク"
+              emptyText="未完了のタスクはありません"
               showCase={true}
               includeCompleted={false}
               limit={5}
@@ -163,20 +202,20 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                 すべて見る →
               </Link>
             </div>
-            <MyPageCasesTab memberId={memberId} cases={myCases.slice(0, 5)} compact />
+            <MyPageCasesTab memberId={memberId} cases={myCasesEnriched.slice(0, 5)} compact />
           </section>
         </div>
       )}
 
       {activeTab === 'cases' && (
-        <MyPageCasesTab memberId={memberId} cases={myCases} />
+        <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
       )}
 
       {activeTab === 'tasks' && (
         <SystemTaskList
           tasks={mySystemTasks}
-          title="🤖 あなたのシステムタスク"
-          emptyText="未完了のシステムタスクはありません"
+          title="あなたのタスク"
+          emptyText="未完了のタスクはありません"
           showCase={true}
           includeCompleted={false}
         />

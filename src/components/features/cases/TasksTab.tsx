@@ -165,7 +165,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
         <div className="mb-4">
           <SystemTaskList
             tasks={systemTasks}
-            title="🤖 システムタスク（自動生成）"
+            title="システム自動生成タスク"
             emptyText="システムタスクはありません"
             showCase={false}
             includeCompleted={true}
