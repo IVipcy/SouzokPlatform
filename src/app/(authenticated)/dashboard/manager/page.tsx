@@ -28,14 +28,20 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const ymd = todayJstYmd(today)
   const ym = ymd.slice(0, 7)
 
-  const [{ data: teamsRaw }, { data: casesRaw }, { data: caseMembersRaw }, { data: membersRaw }, { data: invoicesRaw }, { data: teamMembersRaw }] = await Promise.all([
+  const [{ data: teamsRaw }, { data: casesRaw }, { data: caseMembersRaw }, { data: membersRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
     supabase.from('cases').select('id,status'),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase.from('members').select('id,team_id,primary_role').eq('is_active', true),
     supabase.from('invoices').select('id,case_id,status,issued_date,amount'),
-    supabase.from('dashboard_team_members').select('team_id,member_id,kind'),
   ])
+
+  // dashboard_team_members は migration 048 未適用環境でも動くよう try/catch
+  let teamMembersRaw: Array<{ team_id: string; member_id: string; kind: 'member' | 'mentor' }> | null = null
+  try {
+    const { data } = await supabase.from('dashboard_team_members').select('team_id,member_id,kind')
+    teamMembersRaw = (data ?? null) as typeof teamMembersRaw
+  } catch { /* migration 048 未適用 → フォールバックロジックで対応 */ }
 
   const teams = (teamsRaw ?? []) as Team[]
   const cases = (casesRaw ?? []) as Array<{ id: string; status: string }>

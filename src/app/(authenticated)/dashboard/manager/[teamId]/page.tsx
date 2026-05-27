@@ -51,7 +51,6 @@ export default async function ManagerTeamDashboard({ params, searchParams }: Pro
     { data: membersRaw },
     { data: invoicesRaw },
     { data: memberTargetsRaw },
-    { data: teamMembersRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date'),
@@ -61,8 +60,14 @@ export default async function ManagerTeamDashboard({ params, searchParams }: Pro
       .eq('is_active', true),
     supabase.from('invoices').select('id,case_id,status,issued_date,amount,fee_amount'),
     supabase.from('member_targets').select('member_id,invoice_count').eq('ym', ym),
-    supabase.from('dashboard_team_members').select('id, member_id, kind').eq('team_id', teamId),
   ])
+
+  // dashboard_team_members は migration 048 未適用環境でも動くよう try/catch
+  let teamMembersRaw: Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }> | null = null
+  try {
+    const { data } = await supabase.from('dashboard_team_members').select('id, member_id, kind').eq('team_id', teamId)
+    teamMembersRaw = (data ?? null) as typeof teamMembersRaw
+  } catch { /* migration 048 未適用 → フォールバックロジックで対応 */ }
 
   if (!team) notFound()
 

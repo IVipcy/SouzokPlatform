@@ -51,6 +51,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
 
+  // 必須クエリ（既存テーブルのみ。これらが失敗するとページが開けない想定）
   const [
     { data: team },
     { data: casesRaw },
@@ -59,15 +60,11 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     { data: changesRaw },
     { data: propertiesRaw },
     { data: memberTargetsRaw },
-    { data: systemTasksRaw },
-    { data: teamMembersRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
-    supabase
-      .from('cases')
-      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required,meeting_date,meeting_executed_date,client_response_due_date,meeting_place,lost_reason'),
+    // 安全のため * を使用（新カラム meeting_executed_date 等の migration 適用前でも動くように）
+    supabase.from('cases').select('*'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    // 全アクティブメンバー（メンバー追加候補にも使うため、team フィルタは外す）
     supabase
       .from('members')
       .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id')
@@ -84,20 +81,29 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .from('member_targets')
       .select('member_id,new_orders_count')
       .eq('ym', ym),
-    // システムタスク（このチームメンバーが担当する未完了分）
-    supabase
+  ])
+
+  // 新規追加テーブル系（migration 未適用でも安全にフォールバック）
+  let systemTasksRaw: unknown[] | null = null
+  try {
+    const { data } = await supabase
       .from('tasks')
       .select('*, cases(id, case_number, deal_name, status)')
       .eq('task_kind', 'system')
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false })
-      .limit(100),
-    // dashboard_team_members（手動チーム編成）
-    supabase
+      .limit(100)
+    systemTasksRaw = data
+  } catch { /* migration 046 未適用 → 空扱い */ }
+
+  let teamMembersRaw: Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }> | null = null
+  try {
+    const { data } = await supabase
       .from('dashboard_team_members')
       .select('id, member_id, kind')
-      .eq('team_id', teamId),
-  ])
+      .eq('team_id', teamId)
+    teamMembersRaw = (data ?? null) as typeof teamMembersRaw
+  } catch { /* migration 048 未適用 → フォールバックロジックで対応 */ }
 
   if (!team) notFound()
 

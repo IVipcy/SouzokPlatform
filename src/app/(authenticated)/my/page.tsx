@@ -41,11 +41,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const today = new Date()
   const ym = today.toISOString().slice(0, 7)
 
-  // 自分担当の案件と、自分宛のシステムタスクを並行取得
-  const [{ data: myCaseRows }, { data: targetRow }, { data: systemTaskRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
+  // 必須クエリ
+  const [{ data: myCaseRows }, { data: targetRow }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
+    // cases の追加カラム (migration 049 未適用環境でも動くように * を使用)
     supabase
       .from('case_members')
-      .select('case_id, role, cases(id, case_number, deal_name, status, deceased_name, expected_completion_date, completion_date, meeting_date, meeting_executed_date, client_response_due_date, meeting_place, lost_reason, has_complaint, client_id)')
+      .select('case_id, role, cases(*)')
       .eq('member_id', memberId),
     supabase
       .from('member_targets')
@@ -53,17 +54,22 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       .eq('member_id', memberId)
       .eq('ym', ym)
       .maybeSingle(),
-    supabase
-      .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status)')
-      .eq('task_kind', 'system')
-      .neq('status', '完了')
-      .order('due_date', { ascending: true, nullsFirst: false }),
-    // 担当案件の他担当（受注/管理担当）を解決するための一括取得
     supabase.from('case_members').select('case_id, member_id, role'),
     supabase.from('members').select('id, name').eq('is_active', true),
     supabase.from('clients').select('id, name'),
   ])
+
+  // システムタスク (migration 046 未適用環境では空扱い)
+  let systemTaskRows: unknown[] | null = null
+  try {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, cases(id, case_number, deal_name, status)')
+      .eq('task_kind', 'system')
+      .neq('status', '完了')
+      .order('due_date', { ascending: true, nullsFirst: false })
+    systemTaskRows = data
+  } catch { /* ignore */ }
 
   // 自分担当の case_id セット
   const myCaseIds = new Set<string>(((myCaseRows ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
