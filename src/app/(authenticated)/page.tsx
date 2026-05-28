@@ -95,19 +95,19 @@ export default async function DashboardTopPage() {
     },
     {
       title: '管理担当',
-      description: '管理担当の月次・本日成績。請求完了件数と担当案件数が主KPI。',
+      description: '管理担当の月間進捗管理ボード。フラグ別（紫/赤/黄/青）案件監視と請求件数・完了割合・サイクルの可視化。',
       cards: [
         {
           href: '/dashboard/manager',
           title: '管理担当 全体',
-          description: '各チームの全体集計値。請求完了件数・対応中案件・完了案件など。',
+          description: '各チームの集計をまとめた全体ビュー。請求完了件数・対応中案件・完了案件など。',
           Icon: Building2,
           tone: 'purple',
         },
         ...teams.map(t => ({
-          href: `/dashboard/manager/${t.id}`,
-          title: `${t.name}（管理）`,
-          description: `${t.name}の管理担当ダッシュボード。メンバー別の請求完了件数や案件数。`,
+          href: `/dashboard/team/${t.id}/progress`,
+          title: `${t.name}（進捗）`,
+          description: `${t.name}の月間進捗管理ボード。担当案件・青/黄/赤/紫 フラグ・完了割合・サイクル・請求件数。`,
           Icon: Compass,
           tone: 'purple' as const,
         })),
