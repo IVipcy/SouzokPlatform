@@ -1,31 +1,61 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, Target, ClipboardList, ListChecks, Calendar } from 'lucide-react'
+import { UserCircle, Target, ClipboardList, ListChecks, MessageSquare, Sparkles } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
+import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { CASE_STATUSES } from '@/lib/constants'
 import MyPageTargetInput from '@/components/features/my/MyPageTargetInput'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
+import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
-import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
+import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
+import {
+  computeSalesMetrics,
+  computeProgressKpis,
+  fiscalYearMonthsToDate,
+  type DashCase,
+  type DashTask,
+  type DashStatusChange,
+  type DashProperty,
+  type SalesMetricsBundle,
+} from '@/lib/dashboardMetrics'
 import type { TaskRow } from '@/types'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
  *
- * 役割 (primary_role) に応じて表示が切り替わる:
- *   - 受注担当 (sales)   : 月間「新規受注件数」目標 + 担当案件一覧 + 自分宛システムタスク
- *   - 管理担当 (manager) : 月間「請求完了件数」目標 + 担当案件一覧 + 自分宛システムタスク
- *   - その他            : 担当案件 + システムタスクのみ（目標非表示）
+ * 受注担当 (sales):
+ *   - 当月面談（相談案件一覧）: 面談設定済/検討中/受注/失注/保留・長期 の案件。期間切替・KPIサマリ付き
+ *   - 管理案件一覧            : 受注後の進捗（対応中/完了）。進捗管理ダッシュボードと同じ見た目
+ *   - 個別管理案件            : 「紹介のみ」ステータスの案件
+ *   - タスク                  : 自分宛のタスク
+ * 管理担当 (manager) / その他: 管理案件一覧 + タスク
  */
 
-type SearchParams = Promise<{ tab?: string }>
-type TabKey = 'overview' | 'cases' | 'tasks' | 'meetings'
+type SearchParams = Promise<{ tab?: string; period?: string }>
+type TabKey = 'meetings' | 'cases' | 'referrals' | 'tasks'
+
+const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '受注', '失注', '保留・長期'])
+const pad = (n: number) => String(n).padStart(2, '0')
+
+// 相談案件の累計KPIを各月の集計から合成する（件数は合算、平均単価は件数で加重平均）
+function cumulativeSalesMetrics(perMonth: SalesMetricsBundle[]): Pick<SalesMetricsBundle, 'meetingsCount' | 'newOrdersCount' | 'conversionRate' | 'avgOrderUnit' | 'propertyAppraisalCount'> {
+  const meetingsCount = perMonth.reduce((s, m) => s + m.meetingsCount, 0)
+  const newOrdersCount = perMonth.reduce((s, m) => s + m.newOrdersCount, 0)
+  const unitWeighted = perMonth.reduce((s, m) => s + (m.avgOrderUnit ?? 0) * m.newOrdersCount, 0)
+  return {
+    meetingsCount,
+    newOrdersCount,
+    conversionRate: meetingsCount > 0 ? newOrdersCount / meetingsCount : null,
+    avgOrderUnit: newOrdersCount > 0 ? unitWeighted / newOrdersCount : null,
+    propertyAppraisalCount: perMonth.reduce((s, m) => s + m.propertyAppraisalCount, 0),
+  }
+}
 
 export default async function MyPage({ searchParams }: { searchParams: SearchParams }) {
-  const { tab } = await searchParams
-  const validTabs: TabKey[] = ['overview', 'cases', 'tasks', 'meetings']
-  const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : 'overview'
+  const { tab, period } = await searchParams
 
   const user = await getCurrentUser()
   if (!user?.memberId) {
@@ -37,69 +67,69 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const isSales = role === 'sales'
   const isManager = role === 'manager' || role === 'sub_manager'
 
+  // 役割によって表示できるタブを決める
+  const validTabs: TabKey[] = isSales
+    ? ['meetings', 'cases', 'referrals', 'tasks']
+    : ['cases', 'tasks']
+  const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
+  const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
+
   const supabase = await createClient()
   const today = new Date()
-  const ym = today.toISOString().slice(0, 7)
+  const ymToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`
 
-  // 必須クエリ
+  // 相談案件の期間切替（当月／当期の過去月／当期累計）。デフォルトは当月
+  const fiscalMonths = fiscalYearMonthsToDate(today) // [当月, ...過去] の降順
+  const selectedPeriod: string = period === 'all' || (period && fiscalMonths.includes(period)) ? period! : ymToday
+
+  // === 1st fetch ===
   const [{ data: myCaseRows }, { data: targetRow }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
-    // cases の追加カラム (migration 049 未適用環境でも動くように * を使用)
-    supabase
-      .from('case_members')
-      .select('case_id, role, cases(*)')
-      .eq('member_id', memberId),
-    supabase
-      .from('member_targets')
-      .select('new_orders_count, invoice_count')
-      .eq('member_id', memberId)
-      .eq('ym', ym)
-      .maybeSingle(),
+    supabase.from('case_members').select('case_id, role, cases(*)').eq('member_id', memberId),
+    supabase.from('member_targets').select('new_orders_count, invoice_count').eq('member_id', memberId).eq('ym', ymToday).maybeSingle(),
     supabase.from('case_members').select('case_id, member_id, role'),
     supabase.from('members').select('id, name').eq('is_active', true),
     supabase.from('clients').select('id, name'),
   ])
 
-  // システムタスク (migration 046 未適用環境では空扱い)
-  let systemTaskRows: unknown[] | null = null
-  try {
-    const { data } = await supabase
-      .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status)')
-      .eq('task_kind', 'system')
-      .neq('status', '完了')
-      .order('due_date', { ascending: true, nullsFirst: false })
-    systemTaskRows = data
-  } catch { /* ignore */ }
-
-  // 自分担当の case_id セット
-  const myCaseIds = new Set<string>(((myCaseRows ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
   type MyCase = {
     id: string
     case_number: string
     deal_name: string
     status: string
-    deceased_name: string | null
     expected_completion_date: string | null
     completion_date: string | null
+    order_received_date: string | null
     meeting_date: string | null
     meeting_executed_date: string | null
     client_response_due_date: string | null
-    meeting_place: string | null
-    lost_reason: string | null
+    order_route_detail: string | null
+    procedure_type: string[] | null
+    fee_administrative: number | null
+    fee_judicial: number | null
+    fee_total: number | null
+    total_revenue_estimate: number | null
+    tax_filing_required: string | null
     has_complaint: boolean | null
     client_id: string | null
   }
-  const myCases = ((myCaseRows ?? []) as Array<{ cases: unknown }>)
-    .map(r => r.cases)
-    .filter((c): c is MyCase => !!c)
+
+  const myCaseRowsArr = (myCaseRows ?? []) as Array<{ case_id: string; role: string; cases: unknown }>
+  const myCaseIds = new Set<string>(myCaseRowsArr.map(r => r.case_id))
+  const salesCaseIds = new Set<string>(myCaseRowsArr.filter(r => r.role === 'sales').map(r => r.case_id))
+
+  // case_id 重複（複数ロール紐付け）を除いた案件配列
+  const seenCaseId = new Set<string>()
+  const myCases: MyCase[] = []
+  for (const r of myCaseRowsArr) {
+    const c = r.cases as MyCase | null
+    if (!c || seenCaseId.has(c.id)) continue
+    seenCaseId.add(c.id)
+    myCases.push(c)
+  }
 
   // 受注担当・管理担当・依頼者名を解決
-  const memberById = new Map<string, string>(
-    ((allMembersRaw ?? []) as Array<{ id: string; name: string }>).map(m => [m.id, m.name]),
-  )
-  const clientById = new Map<string, string>(
-    ((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]),
-  )
+  const memberById = new Map<string, string>(((allMembersRaw ?? []) as Array<{ id: string; name: string }>).map(m => [m.id, m.name]))
+  const clientById = new Map<string, string>(((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]))
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const salesByCase = new Map<string, string>()
   const managerByCase = new Map<string, string>()
@@ -111,13 +141,60 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, name)
   }
 
-  // MyPageCasesTab 用の行
+  // === 2nd fetch（KPI算出に必要なデータ。マイグレーション未適用環境でも落ちないよう try で保護） ===
+  const caseIdArray = Array.from(myCaseIds)
+  const salesCaseIdArray = Array.from(salesCaseIds)
+  const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ymToday
+  const fiscalStart = `${earliestYm}-01T00:00:00`
+  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const nextMonthStart = `${nextMonthDate.getFullYear()}-${pad(nextMonthDate.getMonth() + 1)}-01T00:00:00`
+
+  let boardTasks: DashTask[] = []
+  let invoices: Array<{ case_id: string; issued_date: string | null }> = []
+  let salesChanges: DashStatusChange[] = []
+  let salesProps: DashProperty[] = []
+  let systemTaskRows: TaskRow[] = []
+
+  if (caseIdArray.length > 0) {
+    try {
+      const [tasksRes, invoicesRes, sysRes, changesRes, propsRes] = await Promise.all([
+        supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+        supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
+        supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).eq('task_kind', 'system').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
+        isSales && salesCaseIdArray.length > 0
+          ? supabase.from('activity_log').select('entity_id,old_value,new_value,created_at').eq('entity_type', 'case').eq('action', 'status_change').in('entity_id', salesCaseIdArray).gte('created_at', fiscalStart).lt('created_at', nextMonthStart)
+          : Promise.resolve({ data: [] }),
+        isSales && salesCaseIdArray.length > 0
+          ? supabase.from('real_estate_properties').select('case_id,appraisal_status').in('case_id', salesCaseIdArray)
+          : Promise.resolve({ data: [] }),
+      ])
+      boardTasks = (tasksRes.data ?? []) as DashTask[]
+      invoices = (invoicesRes.data ?? []) as Array<{ case_id: string; issued_date: string | null }>
+      systemTaskRows = (sysRes.data ?? []) as TaskRow[]
+      salesChanges = (changesRes.data ?? []) as DashStatusChange[]
+      salesProps = (propsRes.data ?? []) as DashProperty[]
+    } catch { /* migration 未適用環境では空扱い */ }
+  }
+
+  // === 管理案件一覧（進捗管理ボード）用 ===
+  const boardDashCases: DashCase[] = myCases.map(c => ({
+    id: c.id,
+    status: c.status,
+    order_received_date: c.order_received_date,
+    completion_date: c.completion_date,
+    expected_completion_date: c.expected_completion_date,
+    fee_total: c.fee_total,
+    total_revenue_estimate: c.total_revenue_estimate,
+    has_complaint: c.has_complaint,
+  }))
+  const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices)
+
   const myCasesEnriched = myCases.map(c => ({
     id: c.id,
     case_number: c.case_number,
     deal_name: c.deal_name,
     status: c.status,
-    deceased_name: c.deceased_name,
+    deceased_name: null,
     expected_completion_date: c.expected_completion_date,
     completion_date: c.completion_date,
     has_complaint: c.has_complaint,
@@ -126,19 +203,59 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     manager_name: managerByCase.get(c.id) ?? null,
   }))
 
-  // 当月面談の絞り込み: meeting_date or meeting_executed_date が当月
-  const myMonthlyMeetingCases = myCases.filter(c =>
-    (c.meeting_date?.startsWith(ym)) || (c.meeting_executed_date?.startsWith(ym))
-  )
+  // === 相談案件一覧（受注担当のみ） ===
+  const salesDashCases: DashCase[] = myCases
+    .filter(c => salesCaseIds.has(c.id))
+    .map(c => ({
+      id: c.id,
+      status: c.status,
+      order_received_date: c.order_received_date,
+      completion_date: c.completion_date,
+      expected_completion_date: c.expected_completion_date,
+      fee_total: c.fee_total,
+      total_revenue_estimate: c.total_revenue_estimate,
+      tax_filing_required: c.tax_filing_required,
+    }))
 
-  // 自分担当案件に紐づくシステムタスクを抽出
-  const mySystemTasks = ((systemTaskRows ?? []) as TaskRow[]).filter(t => myCaseIds.has(t.case_id))
+  const salesMetrics = selectedPeriod === 'all'
+    ? cumulativeSalesMetrics(fiscalMonths.map(m => computeSalesMetrics(salesDashCases, salesChanges, m, salesProps)))
+    : computeSalesMetrics(salesDashCases, salesChanges, selectedPeriod, salesProps)
 
-  const targetValue = isSales
-    ? (targetRow?.new_orders_count ?? 0)
-    : isManager
-      ? (targetRow?.invoice_count ?? 0)
-      : 0
+  let consultCasesArr = myCases.filter(c => salesCaseIds.has(c.id) && CONSULT_STATUSES.has(c.status))
+  if (selectedPeriod !== 'all') {
+    consultCasesArr = consultCasesArr.filter(c =>
+      c.meeting_date?.startsWith(selectedPeriod) || c.meeting_executed_date?.startsWith(selectedPeriod),
+    )
+  }
+  const consultRows: ConsultCase[] = consultCasesArr.map(c => ({
+    id: c.id,
+    case_number: c.case_number,
+    deal_name: c.deal_name,
+    status: c.status,
+    meeting_executed_date: c.meeting_executed_date,
+    client_response_due_date: c.client_response_due_date,
+    order_route_detail: c.order_route_detail,
+    manager_name: managerByCase.get(c.id) ?? null,
+    procedure_type: c.procedure_type,
+    order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
+  }))
+
+  // === 個別管理案件（紹介のみ） ===
+  const referralCases = myCases.filter(c => c.status === '紹介のみ')
+
+  // === 自分宛タスク ===
+  const mySystemTasks = systemTaskRows.filter(t => myCaseIds.has(t.case_id))
+
+  const targetValue = isSales ? (targetRow?.new_orders_count ?? 0) : isManager ? (targetRow?.invoice_count ?? 0) : 0
+
+  // 期間切替の選択肢
+  const periodOptions: Array<{ key: string; label: string }> = [
+    ...fiscalMonths.map(m => ({ key: m, label: m === ymToday ? '当月' : `${Number(m.split('-')[1])}月` })),
+    { key: 'all', label: '当期累計' },
+  ]
+
+  const meetingCount = consultCasesArr.length
+  const referralCount = referralCases.length
 
   return (
     <div>
@@ -151,72 +268,95 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
       {/* タブ */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
-        <TabLink href="/my" label="概要" Icon={UserCircle} active={activeTab === 'overview'} />
-        <TabLink href="/my?tab=cases" label={`担当案件 (${myCases.length})`} Icon={ClipboardList} active={activeTab === 'cases'} />
         {isSales && (
-          <TabLink href="/my?tab=meetings" label={`当月面談 (${myMonthlyMeetingCases.length})`} Icon={Calendar} active={activeTab === 'meetings'} />
+          <TabLink href="/my?tab=meetings" label={`当月面談 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
+        )}
+        <TabLink href="/my?tab=cases" label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
+        {isSales && (
+          <TabLink href="/my?tab=referrals" label={`個別管理案件 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
         <TabLink href="/my?tab=tasks" label={`タスク (${mySystemTasks.length})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* 月間目標入力（受注/管理担当のみ） */}
-          {(isSales || isManager) && (
-            <section className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-                <h3 className="text-[14px] font-bold text-gray-900">
-                  {isSales ? '今月の新規受注件数 目標' : '今月の請求完了件数 目標'}
-                </h3>
-                <span className="text-[11px] text-gray-400 font-mono">{ym}</span>
-              </div>
-              <MyPageTargetInput
-                memberId={memberId}
-                ym={ym}
-                field={isSales ? 'new_orders_count' : 'invoice_count'}
-                initialValue={targetValue}
-                label={isSales ? '新規受注件数 (件)' : '請求完了件数 (件)'}
-              />
-              <p className="text-[11px] text-gray-400 mt-2">
-                {isSales
-                  ? '達成するとアバターにレインボーリングが表示されます'
-                  : '管理担当のKPIは「請求完了件数」と「担当案件数」'}
-              </p>
-            </section>
-          )}
+      {/* 月間目標入力（受注/管理担当のみ・概要タブ廃止に伴いここへ移設） */}
+      {(isSales || isManager) && (activeTab === 'meetings' || activeTab === 'cases') && (
+        <section className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-4 max-w-md">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+            <h3 className="text-[14px] font-bold text-gray-900">
+              {isSales ? '今月の新規受注件数 目標' : '今月の請求完了件数 目標'}
+            </h3>
+            <span className="text-[11px] text-gray-400 font-mono">{ymToday}</span>
+          </div>
+          <MyPageTargetInput
+            memberId={memberId}
+            ym={ymToday}
+            field={isSales ? 'new_orders_count' : 'invoice_count'}
+            initialValue={targetValue}
+            label={isSales ? '新規受注件数 (件)' : '請求完了件数 (件)'}
+          />
+        </section>
+      )}
 
-          {/* システムタスクのプレビュー */}
-          <section className="lg:col-span-2">
-            <SystemTaskList
-              tasks={mySystemTasks}
-              title="あなたのタスク"
-              emptyText="未完了のタスクはありません"
-              showCase={true}
-              includeCompleted={false}
-              limit={5}
-              seeAllHref="/my?tab=tasks"
-            />
-          </section>
-
-          {/* 担当案件のプレビュー */}
-          <section className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardList className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-              <h3 className="text-[14px] font-bold text-gray-900">あなたの担当案件 (上位5件)</h3>
-              <Link href="/my?tab=cases" className="ml-auto text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-                すべて見る →
-              </Link>
+      {/* 当月面談（相談案件一覧） */}
+      {activeTab === 'meetings' && isSales && (
+        <div className="space-y-4">
+          {/* 期間切替 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] font-semibold text-gray-500">期間</span>
+            <div className="flex gap-1 bg-gray-50 border border-gray-200 rounded-md p-0.5 flex-wrap">
+              {periodOptions.map(p => (
+                <Link
+                  key={p.key}
+                  href={`/my?tab=meetings&period=${p.key}`}
+                  className={`px-2.5 py-1 rounded text-[12px] font-medium whitespace-nowrap transition-colors ${
+                    selectedPeriod === p.key ? 'bg-brand-600 text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  {p.label}
+                </Link>
+              ))}
             </div>
-            <MyPageCasesTab memberId={memberId} cases={myCasesEnriched.slice(0, 5)} compact />
-          </section>
+          </div>
+
+          {/* KPIサマリ（選択期間） */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <MeetingKpi label="面談数" value={salesMetrics.meetingsCount} suffix="件" />
+            <MeetingKpi label="受注数" value={salesMetrics.newOrdersCount} suffix="件" />
+            <MeetingKpi label="受注率" value={salesMetrics.conversionRate === null ? null : Math.round(salesMetrics.conversionRate * 1000) / 10} suffix="%" />
+            <MeetingKpi label="受注単価" value={salesMetrics.avgOrderUnit === null ? null : Math.round(salesMetrics.avgOrderUnit / 10000)} suffix="万円" />
+            <MeetingKpi label="不動産査定" value={salesMetrics.propertyAppraisalCount} suffix="件" />
+          </div>
+
+          <ConsultationCasesTable cases={consultRows} />
         </div>
       )}
 
+      {/* 管理案件一覧（進捗管理ダッシュボードと同じ見た目） */}
       {activeTab === 'cases' && (
-        <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
+        <div>
+          <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
+          <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
+        </div>
       )}
 
+      {/* 個別管理案件（紹介のみ） */}
+      {activeTab === 'referrals' && isSales && (
+        <ReferralCasesTable
+          cases={referralCases.map(c => ({
+            id: c.id,
+            case_number: c.case_number,
+            deal_name: c.deal_name,
+            status: c.status,
+            order_route_detail: c.order_route_detail,
+            procedure_type: c.procedure_type,
+            client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
+            manager_name: managerByCase.get(c.id) ?? null,
+          }))}
+        />
+      )}
+
+      {/* タスク */}
       {activeTab === 'tasks' && (
         <SystemTaskList
           tasks={mySystemTasks}
@@ -225,29 +365,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           showCase={true}
           includeCompleted={false}
         />
-      )}
-
-      {activeTab === 'meetings' && (
-        <div className="space-y-4">
-          {/* サマリ: 面談数 / 新規受注件数 / 受注率 */}
-          {(() => {
-            const totalMeetings = myMonthlyMeetingCases.length
-            const wonCount = myMonthlyMeetingCases.filter(c => c.status === '受注').length
-            const winRate = totalMeetings > 0 ? Math.round((wonCount / totalMeetings) * 1000) / 10 : null
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <MeetingKpi label="面談数" value={totalMeetings} suffix="件/月" />
-                <MeetingKpi label="新規受注件数" value={wonCount} suffix="件/月" />
-                <MeetingKpi label="受注率" value={winRate} suffix="%" />
-              </div>
-            )
-          })()}
-          <MonthlyMeetingsTable
-            cases={myMonthlyMeetingCases}
-            title={`📅 ${ym} の面談一覧`}
-            showStatusFilter
-          />
-        </div>
       )}
     </div>
   )
@@ -258,9 +375,87 @@ function MeetingKpi({ label, value, suffix }: { label: string; value: number | n
     <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
       <div className="text-[12px] font-semibold text-gray-500 mb-1.5">{label}</div>
       <div className="text-[24px] font-extrabold tracking-tight text-brand-700 leading-none">
-        {value === null ? '—' : value}
+        {value === null ? '—' : value.toLocaleString()}
         <span className="text-[12px] text-gray-400 ml-1 font-normal">{suffix}</span>
       </div>
+    </div>
+  )
+}
+
+type ReferralRow = {
+  id: string
+  case_number: string
+  deal_name: string
+  status: string
+  order_route_detail: string | null
+  procedure_type: string[] | null
+  client_name: string | null
+  manager_name: string | null
+}
+
+function ReferralCasesTable({ cases }: { cases: ReferralRow[] }) {
+  const statusDef = CASE_STATUSES.find(s => s.key === '紹介のみ')
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-cyan-600" strokeWidth={2.25} />
+        <h3 className="text-[14px] font-bold text-gray-900">個別管理案件（紹介のみ）</h3>
+        <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
+          {cases.length}件
+        </span>
+        <span className="ml-auto text-[11px] text-gray-400">受注に至らず紹介（税理士・不動産査定・遺品整理 等）のみ発生した案件</span>
+      </div>
+      {cases.length === 0 ? (
+        <div className="px-4 py-12 text-center text-[13px] text-gray-400">「紹介のみ」の案件はありません</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-3 py-2 text-left font-bold">案件管理番号</th>
+                <th className="px-3 py-2 text-left font-bold">案件名</th>
+                <th className="px-3 py-2 text-left font-bold">ステータス</th>
+                <th className="px-3 py-2 text-left font-bold">送客元</th>
+                <th className="px-3 py-2 text-left font-bold">紹介内容</th>
+                <th className="px-3 py-2 text-left font-bold">管理担当</th>
+                <th className="px-3 py-2 text-left font-bold">依頼者名</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {cases.map(c => {
+                const procedures = (c.procedure_type ?? []).filter(Boolean)
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50/60">
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
+                    <td className="px-3 py-2.5">
+                      <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">
+                        {c.deal_name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {statusDef ? <Badge label="紹介のみ" color={statusDef.color} /> : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.order_route_detail || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5">
+                      {procedures.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {procedures.map(p => (
+                            <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700 truncate">{c.client_name || <span className="text-gray-300">—</span>}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

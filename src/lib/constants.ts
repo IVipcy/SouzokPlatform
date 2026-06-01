@@ -18,6 +18,7 @@ export const CASE_STATUSES = [
   { key: '保留・長期', color: '#EA580C' },
   { key: '完了', color: '#059669' },
   { key: '失注', color: '#DC2626' },
+  { key: '紹介のみ', color: '#0891B2' },
 ] as const
 
 // === タスクステータス ===

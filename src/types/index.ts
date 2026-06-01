@@ -1,5 +1,5 @@
 // === 案件 ===
-export type CaseStatus = '架電案件化' | '面談設定済' | '検討中' | '受注' | '対応中' | '保留・長期' | '完了' | '失注'
+export type CaseStatus = '架電案件化' | '面談設定済' | '検討中' | '受注' | '対応中' | '保留・長期' | '完了' | '失注' | '紹介のみ'
 
 export type Case = {
   id: string

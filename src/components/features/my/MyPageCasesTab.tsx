@@ -45,13 +45,16 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
 
+// 管理案件 = 受注後に管理担当が責任をもつ案件（受注 / 対応中 / 保留・長期）。
+// 相談案件（面談設定済・検討中・失注）や「紹介のみ」「完了」は管理案件一覧には出さない。
+const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+
 // 簡易フラグ計算（進捗管理ロジックの簡略版。タスク情報無しで案件だけで判定）
 function computeFlagSimple(c: MyCaseRow): CaseFlag {
+  if (!MANAGEMENT_ACTIVE.has(c.status)) return null
   if (c.has_complaint) return 'purple'
-  if (c.status === '完了' || c.status === '失注') return null
   const today = new Date().toISOString().split('T')[0]
   if (c.expected_completion_date && c.expected_completion_date < today) return 'red'
-  if (c.status === '対応中') return 'blue'
   return 'blue'
 }
 
