@@ -43,7 +43,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件管理',       Icon: Briefcase },
       { href: '/meeting',  label: '案件編集',       Icon: PenSquare },
-      { href: '/tasks',    label: 'タスク管理',     Icon: ListChecks },
+      { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
     ],
   },
   {

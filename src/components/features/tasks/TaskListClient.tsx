@@ -30,10 +30,11 @@ type Props = {
   currentMemberId: string | null
 }
 
-// 差戻し は独立ステータスとして保持。古い「Wチェック待ち / 保留」のみ「対応中」へ吸収。
+// 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
+// 古い「Wチェック待ち / 保留」も同様に「対応中」へ。
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
-  if (['Wチェック待ち', '保留'].includes(status)) return '対応中'
+  if (['Wチェック待ち', '保留', '差戻し'].includes(status)) return '対応中'
   if (status === 'キャンセル') return '完了'
   return status
 }
@@ -45,8 +46,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
   const [filterUrgent, setFilterUrgent] = useState(false)
-  // タスク区分フィルタ: 'all' | 'case' | 'system'
-  const [kindFilter, setKindFilter] = useState<'all' | 'case' | 'system'>('all')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
@@ -63,9 +62,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   const today = new Date().toISOString().split('T')[0]
 
+  // 事務管理タスク一覧: 事務管理担当（work_role='assistant'）のタスクのみを対象とする
+  const assistantTasks = useMemo(() => tasks.filter(t => t.work_role === 'assistant'), [tasks])
+
   const filtered = useMemo(() => {
-    let result = tasks
-    if (kindFilter !== 'all') result = result.filter(t => (t.task_kind ?? 'case') === kindFilter)
+    let result = assistantTasks
     if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (filterMine && currentMemberId) {
       result = result.filter(t =>
@@ -98,18 +99,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [tasks, kindFilter, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
+  }, [assistantTasks, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
-    total: tasks.length,
-    todo: tasks.filter(t => normalizeStatus(t.status) === '着手前').length,
-    doing: tasks.filter(t => normalizeStatus(t.status) === '対応中').length,
-    done: tasks.filter(t => normalizeStatus(t.status) === '完了').length,
-    returned: tasks.filter(t => normalizeStatus(t.status) === '差戻し').length,
-  }), [tasks])
+    total: assistantTasks.length,
+    todo: assistantTasks.filter(t => normalizeStatus(t.status) === '着手前').length,
+    doing: assistantTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
+    done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了').length,
+  }), [assistantTasks])
 
   const myTaskCount = currentMemberId
-    ? tasks.filter(t =>
+    ? assistantTasks.filter(t =>
         normalizeStatus(t.status) !== '完了' && (
           t.started_by === currentMemberId ||
           (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary')
@@ -117,7 +117,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       ).length
     : 0
 
-  const urgentTaskCount = tasks.filter(t => {
+  const urgentTaskCount = assistantTasks.filter(t => {
     if (normalizeStatus(t.status) === '完了') return false
     return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
   }).length
@@ -262,9 +262,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
         <PageHeader
           eyebrow="Tasks"
-          title="タスク管理"
+          title="事務管理タスク一覧"
           icon={ListChecks}
-          description="自分・要対応・全タスクを横断して管理"
+          description="事務管理担当のタスクを管理"
           right={
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
               <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
@@ -326,15 +326,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
             <FilterTab label="着手前"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
-            <FilterTab label="差戻し"   count={kpis.returned} active={statusFilter === '差戻し'} onClick={() => setStatusFilter('差戻し')} accent="danger" />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
-          </div>
-
-          {/* 区分フィルタ: 案件タスク / システムタスク */}
-          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="全区分"     active={kindFilter === 'all'}    onClick={() => setKindFilter('all')} />
-            <FilterTab label="案件"       active={kindFilter === 'case'}   onClick={() => setKindFilter('case')} />
-            <FilterTab label="🤖 システム" active={kindFilter === 'system'} onClick={() => setKindFilter('system')} />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -452,7 +444,7 @@ function ListView({
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
     select: 40, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
-    execResult: 220, defectFlag: 110, defectNote: 220,
+    execResult: 220,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
@@ -464,8 +456,6 @@ function ListView({
     { key: 'manager',    label: '管理担当' },
     { key: 'due',        label: '期限' },
     { key: 'execResult', label: '実施結果' },
-    { key: 'defectFlag', label: '不備有無' },
-    { key: 'defectNote', label: '不備内容' },
     { key: 'action',     label: '操作' },
     { key: 'ops',        label: '' },
   ]
@@ -685,38 +675,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
         })()}
       </td>
 
-      {/* 不備有無（差戻し中 = 不備あり / 過去に差戻し履歴あり = 不備あり履歴） */}
-      <td className="px-3.5 py-2.5">
-        {(() => {
-          const isReturned = task.status === '差戻し'
-          const hasHistory = typeof ext.returned_reason === 'string' && ext.returned_reason.trim() !== ''
-          if (isReturned) {
-            return <Badge label="不備あり" color="#DC2626" variant="solid" />
-          }
-          if (hasHistory) {
-            return <Badge label="不備あり(履歴)" color="#DC2626" />
-          }
-          // 評価記録がない場合は空（未評価）
-          return <span className="text-[12px] text-gray-300">—</span>
-        })()}
-      </td>
-
-      {/* 不備内容（ext_data.returned_reason — 差戻された理由） */}
-      <td className="px-3.5 py-2.5 align-top">
-        {(() => {
-          const reason = typeof ext.returned_reason === 'string' ? ext.returned_reason : ''
-          if (!reason.trim()) return <span className="text-[12px] text-gray-300">—</span>
-          return (
-            <span
-              className="text-[12px] text-red-700 line-clamp-2 whitespace-pre-line"
-              title={reason}
-            >
-              {reason}
-            </span>
-          )
-        })()}
-      </td>
-
       {/* 操作（着手/完了ボタン） */}
       <td className="px-3.5 py-2.5">
         <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loading} />
@@ -788,7 +746,7 @@ function BulkActionBar({ count, busy, onClear, onStatus, onDelete }: {
       </span>
       <span className="text-[12px] text-gray-500">一括操作:</span>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {TASK_STATUSES.map(s => (
+        {TASK_STATUSES.filter(s => s.key !== '差戻し').map(s => (
           <button
             key={s.key}
             type="button"
@@ -838,7 +796,7 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
   return (
     <div className="overflow-x-auto pb-3">
       <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-        {TASK_STATUSES.map(status => {
+        {TASK_STATUSES.filter(s => s.key !== '差戻し').map(status => {
           const columnTasks = tasks.filter(t => normalizeStatus(t.status) === status.key)
           return (
             <div key={status.key} className="w-[260px] flex-shrink-0">
