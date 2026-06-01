@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, AlertTriangle } from 'lucide-react'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -19,6 +19,10 @@ export type MyCaseRow = {
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
+  /** 管理担当向けアラート: 週次報告の漏れ */
+  weeklyReportMissing?: boolean
+  /** 管理担当向けアラート: タスク期限超過 */
+  taskOverdue?: boolean
   /** 進捗管理ダッシュボード経由で計算済の場合 */
   flag?: CaseFlag
 }
@@ -126,6 +130,20 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[260px]">
                   {c.deal_name}
                 </Link>
+                {(c.weeklyReportMissing || c.taskOverdue) && (
+                  <div className="flex flex-wrap gap-1.5 mt-0.5">
+                    {c.weeklyReportMissing && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                        <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />【重要】週次報告の漏れ
+                      </span>
+                    )}
+                    {c.taskOverdue && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                        <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />【重要】タスク期限超過
+                      </span>
+                    )}
+                  </div>
+                )}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>

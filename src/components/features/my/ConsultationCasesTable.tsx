@@ -25,6 +25,10 @@ export type ConsultCase = {
   newOrderUnassigned?: boolean
   /** 受注から3日超過で管理担当未アサイン → アサイン未完了アラート */
   assignOverdue?: boolean
+  /** 担当者変更が発生し管理担当が未設定 → 赤NEW */
+  assigneeChanged?: boolean
+  /** 面談予定日超過なのに面談メモ未記載（info=翌日〜 / yellow=4日〜 / red=7日〜） */
+  meetingMemoMissing?: 'info' | 'yellow' | 'red' | null
 }
 
 type Props = {
@@ -162,7 +166,10 @@ export default function ConsultationCasesTable({ cases }: Props) {
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {c.newOrderUnassigned && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-600 text-white flex-shrink-0">NEW</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-600 text-white flex-shrink-0" title="新規受注・管理担当未アサイン">NEW</span>
+                        )}
+                        {c.assigneeChanged && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white flex-shrink-0" title="担当者変更・管理担当未設定">NEW</span>
                         )}
                         <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[200px]">
                           {c.deal_name}
@@ -172,6 +179,12 @@ export default function ConsultationCasesTable({ cases }: Props) {
                         <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
                           <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
                           【重要】アサインが完了していません
+                        </div>
+                      )}
+                      {c.meetingMemoMissing && (
+                        <div className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold ${c.meetingMemoMissing === 'red' ? 'text-red-600' : c.meetingMemoMissing === 'yellow' ? 'text-amber-600' : 'text-gray-500'}`}>
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
+                          【重要】面談予定日超過・面談メモ未記載
                         </div>
                       )}
                     </td>
