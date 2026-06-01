@@ -573,3 +573,18 @@ export type EventRow = {
   members?: MemberRow
   cases?: CaseRow
 }
+
+// === 進捗報告（進捗確認依頼） ===
+export type ProgressReportStatus = '依頼中' | '確認済'
+
+export type ProgressReportRow = {
+  id: string
+  case_id: string
+  requester_id: string   // 依頼した管理担当
+  confirmer_id: string   // 確認者
+  requested_date: string // 進捗確認依頼日
+  status: ProgressReportStatus
+  confirmed_date: string | null // 確認日付
+  created_at: string
+  updated_at: string
+}

@@ -11,7 +11,7 @@ type Props = {
 
 const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[] = [
   { key: 'basicInfo', label: '基本情報' },
-  { key: 'clientInfo', label: '依頼者情報' },
+  { key: 'clientInfo', label: '依頼者情報・やり取り' },
   { key: 'deceased', label: '被相続人・相続人' },
   { key: 'assets', label: '財産情報' },
   { key: 'division', label: '遺産分割・遺言' },
@@ -20,7 +20,7 @@ const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[
   { key: 'docs', label: '書類', countKey: 'docCount' },
   { key: 'documentCreate', label: '書類作成' },
   { key: 'tasks', label: 'タスク', countKey: 'taskCount' },
-  { key: 'history', label: '履歴' },
+  { key: 'history', label: '進捗報告・履歴' },
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount }: Props) {

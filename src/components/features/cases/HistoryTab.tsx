@@ -1,10 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, CheckCircle2, RefreshCw, StickyNote, ClipboardList, type LucideIcon } from 'lucide-react'
+import { Play, CheckCircle2, RefreshCw, StickyNote, ClipboardList, ClipboardCheck, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import type { CaseRow, CaseActivityRow, MemberRow } from '@/types'
+import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
+
+// 進捗報告の確認ステータス表示色
+const PR_STATUS_BADGE: Record<string, string> = {
+  '依頼中': 'bg-amber-50 text-amber-700 border-amber-200',
+  '確認済': 'bg-green-50 text-green-700 border-green-200',
+}
 
 type Props = {
   caseData: CaseRow
@@ -26,12 +32,15 @@ const ACTIVITY_COLORS: Record<string, string> = {
   'note': '#6B7280',
 }
 
-export default function HistoryTab({ caseData, allMembers: _allMembers, currentMemberId: serverMemberId }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
+  const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
   const [loading, setLoading] = useState(true)
+
+  const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
 
   const fetchActivities = async () => {
     const supabase = createClient()
@@ -42,6 +51,14 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
       .order('created_at', { ascending: false })
       .limit(100)
     setActivities((data ?? []) as CaseActivityRow[])
+    try {
+      const { data: prData } = await supabase
+        .from('progress_reports')
+        .select('*')
+        .eq('case_id', caseData.id)
+        .order('requested_date', { ascending: false })
+      setProgressReports((prData ?? []) as ProgressReportRow[])
+    } catch { /* migration 未適用環境では空扱い */ }
     setLoading(false)
   }
 
@@ -104,6 +121,45 @@ export default function HistoryTab({ caseData, allMembers: _allMembers, currentM
 
   return (
     <div style={{ maxWidth: 700 }}>
+      {/* 進捗報告履歴 */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-4">
+        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+          <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+          <h3 className="text-[13px] font-semibold text-gray-900">進捗報告履歴</h3>
+          <span className="text-[12px] font-mono text-gray-400 ml-auto">{progressReports.length}件</span>
+        </div>
+        {progressReports.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                <tr>
+                  <th className="px-3 py-2 text-left font-bold">確認者</th>
+                  <th className="px-3 py-2 text-left font-bold">進捗確認依頼日</th>
+                  <th className="px-3 py-2 text-left font-bold">確認ステータス</th>
+                  <th className="px-3 py-2 text-left font-bold">確認日付</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {progressReports.map(pr => (
+                  <tr key={pr.id} className="hover:bg-gray-50/60">
+                    <td className="px-3 py-2.5 text-[13px] text-gray-700">{memberName(pr.confirmer_id)}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.requested_date}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${PR_STATUS_BADGE[pr.status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                        {pr.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* メモ入力 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-4">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">

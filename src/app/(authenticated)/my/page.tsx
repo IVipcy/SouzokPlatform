@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, Target, ClipboardList, ListChecks, MessageSquare, Sparkles } from 'lucide-react'
+import { UserCircle, Target, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase/server'
@@ -9,6 +9,8 @@ import { CASE_STATUSES } from '@/lib/constants'
 import MyPageTargetInput from '@/components/features/my/MyPageTargetInput'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
+import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
+import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import {
@@ -21,7 +23,7 @@ import {
   type DashProperty,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
-import type { TaskRow } from '@/types'
+import type { TaskRow, ProgressReportRow } from '@/types'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -35,7 +37,7 @@ import type { TaskRow } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string }>
-type TabKey = 'meetings' | 'cases' | 'referrals' | 'tasks'
+type TabKey = 'meetings' | 'cases' | 'referrals' | 'progress' | 'reviews' | 'tasks'
 
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '受注', '失注', '保留・長期'])
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -66,13 +68,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const role = user.primaryRole
   const isSales = role === 'sales'
   const isManager = role === 'manager' || role === 'sub_manager'
-
-  // 役割によって表示できるタブを決める
-  const validTabs: TabKey[] = isSales
-    ? ['meetings', 'cases', 'referrals', 'tasks']
-    : ['cases', 'tasks']
-  const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
-  const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
 
   const supabase = await createClient()
   const today = new Date()
@@ -116,6 +111,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const myCaseRowsArr = (myCaseRows ?? []) as Array<{ case_id: string; role: string; cases: unknown }>
   const myCaseIds = new Set<string>(myCaseRowsArr.map(r => r.case_id))
   const salesCaseIds = new Set<string>(myCaseRowsArr.filter(r => r.role === 'sales').map(r => r.case_id))
+  const managerCaseIds = new Set<string>(myCaseRowsArr.filter(r => r.role === 'manager' || r.role === 'sub_manager').map(r => r.case_id))
 
   // case_id 重複（複数ロール紐付け）を除いた案件配列
   const seenCaseId = new Set<string>()
@@ -133,17 +129,22 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const salesByCase = new Map<string, string>()
   const managerByCase = new Map<string, string>()
+  const salesMemberIdByCase = new Map<string, string>()
   for (const cm of allCaseMembers) {
     if (!myCaseIds.has(cm.case_id)) continue
     const name = memberById.get(cm.member_id)
     if (!name) continue
-    if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) salesByCase.set(cm.case_id, name)
+    if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) {
+      salesByCase.set(cm.case_id, name)
+      salesMemberIdByCase.set(cm.case_id, cm.member_id)
+    }
     if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, name)
   }
 
   // === 2nd fetch（KPI算出に必要なデータ。マイグレーション未適用環境でも落ちないよう try で保護） ===
   const caseIdArray = Array.from(myCaseIds)
   const salesCaseIdArray = Array.from(salesCaseIds)
+  const managerCaseIdArray = Array.from(managerCaseIds)
   const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ymToday
   const fiscalStart = `${earliestYm}-01T00:00:00`
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
@@ -155,10 +156,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let salesProps: DashProperty[] = []
   let systemTaskRows: TaskRow[] = []
   let salesTaskRows: TaskRow[] = []
+  let managerReports: ProgressReportRow[] = []
+  let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, sysRes, salesTaskRes, changesRes, propsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, sysRes, salesTaskRes, changesRes, propsRes, mgrReportsRes, reviewReportsRes] = await Promise.all([
         supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).eq('task_kind', 'system').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
@@ -171,6 +174,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('real_estate_properties').select('case_id,appraisal_status').in('case_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
+        managerCaseIdArray.length > 0
+          ? supabase.from('progress_reports').select('*').in('case_id', managerCaseIdArray)
+          : Promise.resolve({ data: [] }),
+        supabase.from('progress_reports').select('*, cases(case_number, deal_name)').eq('confirmer_id', memberId).order('requested_date', { ascending: false }),
       ])
       boardTasks = (tasksRes.data ?? []) as DashTask[]
       invoices = (invoicesRes.data ?? []) as Array<{ case_id: string; issued_date: string | null }>
@@ -178,6 +185,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       salesTaskRows = (salesTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
+      managerReports = (mgrReportsRes.data ?? []) as ProgressReportRow[]
+      reviewReportsRaw = (reviewReportsRes.data ?? []) as typeof reviewReportsRaw
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -266,6 +275,71 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const meetingCount = consultCasesArr.length
   const referralCount = referralCases.length
 
+  // === 進捗報告（管理担当タブ） ===
+  // 案件ごとに最新の進捗報告を1件選ぶ（依頼中があれば優先、なければ依頼日が最新のもの）
+  const reportsByCase = new Map<string, ProgressReportRow[]>()
+  for (const pr of managerReports) {
+    if (!reportsByCase.has(pr.case_id)) reportsByCase.set(pr.case_id, [])
+    reportsByCase.get(pr.case_id)!.push(pr)
+  }
+  const latestReport = (caseId: string): ProgressReportRow | null => {
+    const list = reportsByCase.get(caseId)
+    if (!list || list.length === 0) return null
+    const open = list.find(r => r.status === '依頼中')
+    if (open) return open
+    return [...list].sort((a, b) => (b.requested_date ?? '').localeCompare(a.requested_date ?? ''))[0]
+  }
+  const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+  const managerProgressRows: ManagerProgressRow[] = myCases
+    .filter(c => managerCaseIds.has(c.id) && MANAGEMENT_ACTIVE.has(c.status))
+    .map(c => {
+      const rep = latestReport(c.id)
+      return {
+        case_id: c.id,
+        case_number: c.case_number,
+        deal_name: c.deal_name,
+        sales_name: salesByCase.get(c.id) ?? null,
+        sales_member_id: salesMemberIdByCase.get(c.id) ?? null,
+        reportId: rep?.id ?? null,
+        status: (rep?.status ?? '未対応') as ManagerProgressRow['status'],
+        confirmerId: rep?.confirmer_id ?? null,
+        confirmerName: rep ? memberById.get(rep.confirmer_id) ?? null : null,
+        requestedDate: rep?.requested_date ?? null,
+        confirmedDate: rep?.confirmed_date ?? null,
+      }
+    })
+  // 確認者の候補（全アクティブメンバー）
+  const confirmerCandidates = ((allMembersRaw ?? []) as Array<{ id: string; name: string }>)
+    .map(m => ({ id: m.id, name: m.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+
+  // === 進捗確認依頼（確認者タブ） ===
+  const reviewRows: ReviewProgressRow[] = reviewReportsRaw.map(pr => ({
+    reportId: pr.id,
+    case_id: pr.case_id,
+    case_number: pr.cases?.case_number ?? '—',
+    deal_name: pr.cases?.deal_name ?? '—',
+    requesterId: pr.requester_id,
+    requesterName: memberById.get(pr.requester_id) ?? null,
+    requestedDate: pr.requested_date,
+    status: pr.status,
+    confirmedDate: pr.confirmed_date,
+  }))
+  const reviewPendingCount = reviewRows.filter(r => r.status === '依頼中').length
+
+  // === タブ構成（役割 + 確認依頼の有無で決定） ===
+  const showProgress = isManager
+  const showReviews = isSales || reviewRows.length > 0
+  const validTabs: TabKey[] = []
+  if (isSales) validTabs.push('meetings')
+  validTabs.push('cases')
+  if (isSales) validTabs.push('referrals')
+  if (showProgress) validTabs.push('progress')
+  validTabs.push('tasks')
+  if (showReviews) validTabs.push('reviews')
+  const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
+  const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
+
   return (
     <div>
       <PageHeader
@@ -284,7 +358,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {isSales && (
           <TabLink href="/my?tab=referrals" label={`個別管理案件 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
+        {showProgress && (
+          <TabLink href="/my?tab=progress" label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
+        )}
         <TabLink href="/my?tab=tasks" label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        {showReviews && (
+          <TabLink href="/my?tab=reviews" label={`進捗確認依頼 (${reviewPendingCount})`} Icon={ClipboardCheck} active={activeTab === 'reviews'} />
+        )}
       </div>
 
       {/* 月間目標入力（受注/管理担当のみ・概要タブ廃止に伴いここへ移設） */}
@@ -347,6 +427,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
           <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
         </div>
+      )}
+
+      {/* 進捗報告（管理担当） */}
+      {activeTab === 'progress' && showProgress && (
+        <div>
+          <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
+          <ProgressReportManagerTab rows={managerProgressRows} candidates={confirmerCandidates} currentMemberId={memberId} />
+        </div>
+      )}
+
+      {/* 進捗確認依頼（確認者） */}
+      {activeTab === 'reviews' && showReviews && (
+        <ProgressReviewTab rows={reviewRows} currentMemberId={memberId} />
       )}
 
       {/* 個別管理案件（紹介のみ） */}
