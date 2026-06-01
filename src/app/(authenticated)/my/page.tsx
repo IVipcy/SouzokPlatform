@@ -154,13 +154,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
   let systemTaskRows: TaskRow[] = []
+  let salesTaskRows: TaskRow[] = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, sysRes, changesRes, propsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, sysRes, salesTaskRes, changesRes, propsRes] = await Promise.all([
         supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).eq('task_kind', 'system').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
+        isSales && salesCaseIdArray.length > 0
+          ? supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', salesCaseIdArray).eq('work_role', 'sales').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false })
+          : Promise.resolve({ data: [] }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,old_value,new_value,created_at').eq('entity_type', 'case').eq('action', 'status_change').in('entity_id', salesCaseIdArray).gte('created_at', fiscalStart).lt('created_at', nextMonthStart)
           : Promise.resolve({ data: [] }),
@@ -171,6 +175,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       boardTasks = (tasksRes.data ?? []) as DashTask[]
       invoices = (invoicesRes.data ?? []) as Array<{ case_id: string; issued_date: string | null }>
       systemTaskRows = (sysRes.data ?? []) as TaskRow[]
+      salesTaskRows = (salesTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
     } catch { /* migration 未適用環境では空扱い */ }
@@ -244,7 +249,11 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const referralCases = myCases.filter(c => c.status === '紹介のみ')
 
   // === 自分宛タスク ===
+  // 受注担当のタスク = システムタスク + 受注担当タスク(work_role='sales') の2区分
   const mySystemTasks = systemTaskRows.filter(t => myCaseIds.has(t.case_id))
+  const systemTaskIds = new Set(mySystemTasks.map(t => t.id))
+  const mySalesTasks = salesTaskRows.filter(t => salesCaseIds.has(t.case_id) && !systemTaskIds.has(t.id))
+  const taskTabCount = mySystemTasks.length + mySalesTasks.length
 
   const targetValue = isSales ? (targetRow?.new_orders_count ?? 0) : isManager ? (targetRow?.invoice_count ?? 0) : 0
 
@@ -275,7 +284,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {isSales && (
           <TabLink href="/my?tab=referrals" label={`個別管理案件 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
-        <TabLink href="/my?tab=tasks" label={`タスク (${mySystemTasks.length})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        <TabLink href="/my?tab=tasks" label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
       {/* 月間目標入力（受注/管理担当のみ・概要タブ廃止に伴いここへ移設） */}
@@ -356,15 +365,26 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         />
       )}
 
-      {/* タスク */}
+      {/* タスク（受注担当タスク + システムタスク） */}
       {activeTab === 'tasks' && (
-        <SystemTaskList
-          tasks={mySystemTasks}
-          title="あなたのタスク"
-          emptyText="未完了のタスクはありません"
-          showCase={true}
-          includeCompleted={false}
-        />
+        <div className="space-y-4">
+          {isSales && (
+            <SystemTaskList
+              tasks={mySalesTasks}
+              title="受注担当タスク"
+              emptyText="未完了の受注担当タスクはありません"
+              showCase={true}
+              includeCompleted={false}
+            />
+          )}
+          <SystemTaskList
+            tasks={mySystemTasks}
+            title="システムタスク"
+            emptyText="未完了のシステムタスクはありません"
+            showCase={true}
+            includeCompleted={false}
+          />
+        </div>
       )}
     </div>
   )
