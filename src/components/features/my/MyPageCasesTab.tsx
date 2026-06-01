@@ -14,6 +14,8 @@ export type MyCaseRow = {
   expected_completion_date: string | null
   completion_date: string | null
   has_complaint?: boolean | null
+  last_opened_at?: string | null
+  created_at?: string | null
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
@@ -49,12 +51,18 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
 // 相談案件（面談設定済・検討中・失注）や「紹介のみ」「完了」は管理案件一覧には出さない。
 const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
 
-// 簡易フラグ計算（進捗管理ロジックの簡略版。タスク情報無しで案件だけで判定）
+// 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの経過日数
+const FRESHNESS = { yellowDays: 7, redDays: 14 }
+
 function computeFlagSimple(c: MyCaseRow): CaseFlag {
   if (!MANAGEMENT_ACTIVE.has(c.status)) return null
   if (c.has_complaint) return 'purple'
-  const today = new Date().toISOString().split('T')[0]
-  if (c.expected_completion_date && c.expected_completion_date < today) return 'red'
+  const ref = c.last_opened_at ?? c.created_at ?? null
+  if (!ref) return 'blue'
+  const days = Math.floor((Date.now() - new Date(ref).getTime()) / 86_400_000)
+  if (Number.isNaN(days)) return 'blue'
+  if (days > FRESHNESS.redDays) return 'red'
+  if (days > FRESHNESS.yellowDays) return 'yellow'
   return 'blue'
 }
 

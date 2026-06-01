@@ -77,6 +77,15 @@ export default async function CaseDetailPage({ params }: Props) {
     notFound()
   }
 
+  // 最終接触日（鮮度フラグ用）を更新。1日1回だけ書き込む。
+  try {
+    const lastOpened = (caseResult.data as { last_opened_at?: string | null }).last_opened_at
+    const todayStr = new Date().toISOString().slice(0, 10)
+    if (!lastOpened || lastOpened.slice(0, 10) < todayStr) {
+      await supabase.from('cases').update({ last_opened_at: new Date().toISOString() }).eq('id', id)
+    }
+  } catch { /* migration 未適用環境では無視 */ }
+
   return (
     <CaseDetailClient
       caseData={caseResult.data as CaseRow}

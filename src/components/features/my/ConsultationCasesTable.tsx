@@ -21,6 +21,10 @@ export type ConsultCase = {
   procedure_type: string[] | null
   /** 受注金額 = 報酬金額（行政 or 司法の入っている方） */
   order_amount: number | null
+  /** 新規受注だが管理担当が未アサイン → 青NEW */
+  newOrderUnassigned?: boolean
+  /** 受注から3日超過で管理担当未アサイン → アサイン未完了アラート */
+  assignOverdue?: boolean
 }
 
 type Props = {
@@ -156,9 +160,20 @@ export default function ConsultationCasesTable({ cases }: Props) {
                   <tr key={c.id} className={`hover:bg-gray-50/60 ${dueOverdue ? 'bg-red-50/40' : ''}`}>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
                     <td className="px-3 py-2.5">
-                      <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">
-                        {c.deal_name}
-                      </Link>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {c.newOrderUnassigned && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-600 text-white flex-shrink-0">NEW</span>
+                        )}
+                        <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[200px]">
+                          {c.deal_name}
+                        </Link>
+                      </div>
+                      {c.assignOverdue && (
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
+                          【重要】アサインが完了していません
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.order_route_detail || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.meeting_executed_date ?? '—'}</td>

@@ -10,6 +10,9 @@ export type DashCase = {
   order_received_date: string | null
   completion_date: string | null
   expected_completion_date?: string | null
+  // 鮮度フラグ用: 案件を最後に開いた日時 / 案件作成日時（last_opened_at が無ければ created_at で代替）
+  last_opened_at?: string | null
+  created_at?: string | null
   fee_total: number | null
   total_revenue_estimate: number | null
   // 内訳別タブで使用（主区分 = 配列の先頭）。
@@ -63,56 +66,38 @@ export type DashTask = {
 
 export type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue'
 
-// 進捗管理ボードのしきい値（運用しながら調整可能）
-const FLAG_THRESHOLDS = {
-  redOverdueTasks: 2,
-  yellowOverdueTasks: 1,
-  yellowImminentDays: 3,
-  yellowImminentTasks: 2,
+// 鮮度フラグのしきい値（最終接触＝案件を最後に開いた日からの経過日数）
+//   青: <= yellowDays 日 / 黄: yellowDays+1 〜 redDays 日 / 赤: > redDays 日
+export const FRESHNESS_THRESHOLDS = {
+  yellowDays: 7,
+  redDays: 14,
 }
 
-const isTaskOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
+// 2つの日付(ISO文字列/Date)の経過日数
+export function daysSince(ref: string | null | undefined, today: Date = new Date()): number | null {
+  if (!ref) return null
+  const refTime = new Date(ref).getTime()
+  if (Number.isNaN(refTime)) return null
+  return Math.floor((today.getTime() - refTime) / 86_400_000)
+}
 
-// 案件単位のフラグ判定
-//   優先度: 紫（クレームあり） > 赤 > 黄 > 青
+// 案件単位のフラグ判定（鮮度ベース）
+//   優先度: 紫（クレームあり） > 赤/黄/青（最終接触からの経過日数）
+//   「最終接触」= 案件詳細を最後に開いた日時 last_opened_at（無ければ作成日 created_at）
 export function computeCaseFlag(
-  caseRow: { expected_completion_date?: string | null; has_complaint?: boolean | null },
-  tasks: DashTask[],
+  caseRow: { has_complaint?: boolean | null; last_opened_at?: string | null; created_at?: string | null },
+  _tasks: DashTask[] = [],
   today: Date = new Date(),
 ): CaseFlag {
-  // (0) クレームあり → 紫（最優先）
+  // (0) クレームあり → 紫（最優先・既存仕様）
   if (caseRow.has_complaint) {
     return 'purple'
   }
-
-  const ymd = todayJstYmd(today)
-  const plus3 = new Date(today)
-  plus3.setDate(plus3.getDate() + FLAG_THRESHOLDS.yellowImminentDays)
-  const ymdPlus3 = todayJstYmd(plus3)
-
-  const overdueCount = tasks.filter(t =>
-    t.due_date && t.due_date < ymd && isTaskOpen(t.status),
-  ).length
-
-  // (a) 案件の完了予定日 < 今日
-  if (caseRow.expected_completion_date && caseRow.expected_completion_date < ymd) {
-    return 'red'
-  }
-  // (b) 期限超過タスクが redOverdueTasks 件以上
-  if (overdueCount >= FLAG_THRESHOLDS.redOverdueTasks) {
-    return 'red'
-  }
-  // (c) 期限超過タスクが yellowOverdueTasks 件以上
-  if (overdueCount >= FLAG_THRESHOLDS.yellowOverdueTasks) {
-    return 'yellow'
-  }
-  // (d) 期限間近 (今日〜+3日) の未完タスクが yellowImminentTasks 件以上
-  const imminentCount = tasks.filter(t =>
-    t.due_date && t.due_date >= ymd && t.due_date <= ymdPlus3 && isTaskOpen(t.status),
-  ).length
-  if (imminentCount >= FLAG_THRESHOLDS.yellowImminentTasks) {
-    return 'yellow'
-  }
+  const ref = caseRow.last_opened_at ?? caseRow.created_at ?? null
+  const days = daysSince(ref, today)
+  if (days === null) return 'blue' // 基準日不明なら新しい扱い
+  if (days > FRESHNESS_THRESHOLDS.redDays) return 'red'
+  if (days > FRESHNESS_THRESHOLDS.yellowDays) return 'yellow'
   return 'blue'
 }
 

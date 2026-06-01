@@ -110,7 +110,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
 
   const caseIdArray = Array.from(myCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint').in('id', caseIdArray),
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
   ])
