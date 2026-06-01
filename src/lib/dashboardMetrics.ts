@@ -69,8 +69,8 @@ export type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue'
 // 鮮度フラグのしきい値（最終接触＝案件を最後に開いた日からの経過日数）
 //   青: <= yellowDays 日 / 黄: yellowDays+1 〜 redDays 日 / 赤: > redDays 日
 export const FRESHNESS_THRESHOLDS = {
-  yellowDays: 7,
-  redDays: 14,
+  yellowDays: 3, // 青: <=3日 / 黄: 4〜7日 / 赤: >7日
+  redDays: 7,
 }
 
 // 2つの日付(ISO文字列/Date)の経過日数

@@ -56,7 +56,8 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
 const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
 
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの経過日数
-const FRESHNESS = { yellowDays: 7, redDays: 14 }
+// 青: <=3日 / 黄: 4〜7日 / 赤: >7日
+const FRESHNESS = { yellowDays: 3, redDays: 7 }
 
 function computeFlagSimple(c: MyCaseRow): CaseFlag {
   if (!MANAGEMENT_ACTIVE.has(c.status)) return null
