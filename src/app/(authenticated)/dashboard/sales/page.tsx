@@ -7,8 +7,13 @@ import SalesTeamTable, {
   type SalesMemberRow,
 } from '@/components/features/dashboard/SalesTeamTable'
 import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
+import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
+import { parsePeriod } from '@/lib/dashboardPeriod'
 import {
   computeSalesMetrics,
+  computeSalesDailyMetrics,
+  fiscalYearMonthsToDate,
   EMPTY_SALES_TARGET,
   isSalesAchieved,
   type DashCase,
@@ -32,14 +37,19 @@ type TeamRow = { id: string; name: string; sort_order: number }
 
 const UNASSIGNED_TEAM = '未所属'
 
-export default async function SalesDashboardPage() {
+export default async function SalesDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  const { period } = await searchParams
+  const currentPeriod = parsePeriod(period)
+  const periodLabel = currentPeriod === 'today' ? '本日' : currentPeriod === 'month' ? '当月' : '年度累計'
   const supabase = await createClient()
   const today = new Date()
   const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const monthLabel = `${today.getMonth() + 1}月`
 
-  // 当月の月初〜月末（activity_log フィルタ用）
-  const monthStart = `${ym}-01T00:00:00`
+  // activity_log フィルタ用。年度累計でも集計できるよう年度初から取得
+  const fiscalMonths = fiscalYearMonthsToDate(today)
+  const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ym
+  const fiscalStart = `${earliestYm}-01T00:00:00`
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
 
@@ -68,7 +78,7 @@ export default async function SalesDashboardPage() {
       .select('entity_id,old_value,new_value,created_at')
       .eq('entity_type', 'case')
       .eq('action', 'status_change')
-      .gte('created_at', monthStart)
+      .gte('created_at', fiscalStart)
       .lt('created_at', nextMonthStart),
     supabase.from('real_estate_properties').select('case_id,appraisal_status'),
     supabase
@@ -180,32 +190,60 @@ export default async function SalesDashboardPage() {
     }
   })
 
-  // 達成判定（目標が1つでも設定されていればポップアップ表示）
+  // 達成判定（目標が1つでも設定されていればポップアップ表示）。当月のみ。
   const achievement = isSalesAchieved(overall, initialTarget)
+
+  // 本日 / 年度累計 用の全体6指標（目標なしのカード表示用）
+  const overallToday = computeSalesDailyMetrics(overallScoped.cases, overallScoped.changes, overallScoped.properties, today)
+  const overallYtd = (() => {
+    const per = fiscalMonths.map(m => computeSalesMetrics(overallScoped.cases, overallScoped.changes, m, overallScoped.properties))
+    const meetingsCount = per.reduce((s, x) => s + x.meetingsCount, 0)
+    const newOrdersCount = per.reduce((s, x) => s + x.newOrdersCount, 0)
+    const unitW = per.reduce((s, x) => s + (x.avgOrderUnit ?? 0) * x.newOrdersCount, 0)
+    return {
+      meetingsCount,
+      newOrdersCount,
+      conversionRate: meetingsCount > 0 ? newOrdersCount / meetingsCount : null,
+      avgOrderUnit: newOrdersCount > 0 ? unitW / newOrdersCount : null,
+      taxFilingCount: per.reduce((s, x) => s + x.taxFilingCount, 0),
+      propertyAppraisalCount: per.reduce((s, x) => s + x.propertyAppraisalCount, 0),
+    }
+  })()
 
   return (
     <div>
-      {achievement.hasTargets && (
+      {currentPeriod === 'month' && achievement.hasTargets && (
         <DashboardAchievementPopup
           isAchieved={achievement.achieved}
           storageKey={`dash-popup-sales-${ym}`}
         />
       )}
       <PageHeader
-        eyebrow="Sales · Monthly"
-        title="受注担当ダッシュボード"
+        eyebrow="Sales"
+        title={`受注担当ダッシュボード ${periodLabel}`}
         icon={Megaphone}
-        description="営業の月次成績・面談数・受注率・平均単価・相続税申告・不動産査定など"
+        description="営業成績・面談数・受注率・平均単価・相続税申告・不動産査定など"
       />
-      <div className="space-y-3">
-        <SalesKpiTable
-          ym={ym}
-          monthLabel={monthLabel}
-          metrics={overall}
-          initialTarget={initialTarget}
-        />
-        <SalesTeamTable groups={groups} today={today} ym={ym} />
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <PeriodSwitcher />
       </div>
+      {currentPeriod === 'month' ? (
+        <div className="space-y-3">
+          <SalesKpiTable
+            ym={ym}
+            monthLabel={monthLabel}
+            metrics={overall}
+            initialTarget={initialTarget}
+          />
+          <SalesTeamTable groups={groups} today={today} ym={ym} />
+        </div>
+      ) : (
+        <SalesDailyKpis
+          scopeLabel="部全体"
+          periodLabel={periodLabel}
+          metrics={currentPeriod === 'today' ? overallToday : overallYtd}
+        />
+      )}
     </div>
   )
 }
