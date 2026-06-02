@@ -1,293 +1,266 @@
 import Link from 'next/link'
-import { Compass, Users } from 'lucide-react'
+import { Compass } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
-import { parsePeriod } from '@/lib/dashboardPeriod'
+import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
+import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
+import MonthSelector from '@/components/features/dashboard/MonthSelector'
+import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
+import BillingStatusView, { type BillingViewRow, type BillingViewSummary } from '@/components/features/dashboard/BillingStatusView'
 import { createClient } from '@/lib/supabase/server'
-import { todayJstYmd } from '@/lib/dashboardMetrics'
-
-type Team = { id: string; name: string; sort_order: number }
-
-type Props = {
-  searchParams: Promise<{ period?: string }>
-}
+import { CASE_STATUSES } from '@/lib/constants'
+import {
+  computeProgressKpis,
+  computeCaseFlag,
+  monthRange,
+  type CaseFlag,
+  type DashCase,
+  type DashTask,
+} from '@/lib/dashboardMetrics'
 
 /**
  * 管理担当 全体ダッシュボード
- *
- * 仕様（ユーザー指示）:
- * - 各チームへのリンク集ではなく、各チームの内容をすべて集計した内容を表示する
- * - 主KPI: 請求完了件数 + 担当案件数 + 対応中 + 完了
- * - 期間切替対応（本日/当月/年度累計/月別）
- * - チーム別の小計テーブルも表示
+ * チーム別進捗管理ボードと同じ見た目で、全チーム（全管理担当）の案件を合算して表示する。
  */
+type CaseFull = DashCase & { case_number: string; deal_name: string; client_id: string | null }
+type MemberRow = { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null; team_id: string | null }
+type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string }
+
+const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
+const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+const INVOICE_PSTATUS = ['未請求', '作成済', '入金待ち', '入金済'] as const
+
+type Props = { searchParams: Promise<{ month?: string; view?: string; member?: string; status?: string; pstatus?: string }> }
+
 export default async function ManagerOverviewPage({ searchParams }: Props) {
-  const { period } = await searchParams
-  const currentPeriod = parsePeriod(period)
+  const { month, view: viewParam, member: memberParam, status: statusParam, pstatus: pstatusParam } = await searchParams
   const supabase = await createClient()
   const today = new Date()
-  const ymd = todayJstYmd(today)
-  const ym = ymd.slice(0, 7)
+  const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
-  const [{ data: teamsRaw }, { data: casesRaw }, { data: caseMembersRaw }, { data: membersRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
-    supabase.from('cases').select('id,status'),
+  const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
+  const selectedMonthForKpis: string | null = selectedMonth === 'all' ? null : selectedMonth
+  const currentView: ProgressView = viewParam === 'billing' ? 'billing' : 'progress'
+  const statusFilter = statusParam && CASE_STATUSES.some(s => s.key === statusParam) ? statusParam : null
+  const pstatusFilter = pstatusParam && (INVOICE_PSTATUS as readonly string[]).includes(pstatusParam) ? pstatusParam : null
+
+  const [{ data: membersRaw }, { data: caseMembersRaw }, { data: clientsRaw }] = await Promise.all([
+    supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,team_id').eq('is_active', true),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,name,team_id,primary_role').eq('is_active', true),
-    supabase.from('invoices').select('id,case_id,status,issued_date,amount'),
+    supabase.from('clients').select('id,name'),
   ])
 
-  // dashboard_team_members は migration 048 未適用環境でも動くよう try/catch
-  let teamMembersRaw: Array<{ team_id: string; member_id: string; kind: 'member' | 'mentor' }> | null = null
-  try {
-    const { data } = await supabase.from('dashboard_team_members').select('team_id,member_id,kind')
-    teamMembersRaw = (data ?? null) as typeof teamMembersRaw
-  } catch { /* migration 048 未適用 → フォールバックロジックで対応 */ }
-
-  const teams = (teamsRaw ?? []) as Team[]
-  const cases = (casesRaw ?? []) as Array<{ id: string; status: string }>
+  const members = (membersRaw ?? []) as MemberRow[]
   const caseMembers = (caseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
-  const members = (membersRaw ?? []) as Array<{ id: string; name: string; team_id: string | null; primary_role: string | null }>
-  const invoices = (invoicesRaw ?? []) as Array<{ id: string; case_id: string; status: string; issued_date: string | null; amount: number }>
-  const teamMembers = (teamMembersRaw ?? []) as Array<{ team_id: string; member_id: string; kind: 'member' | 'mentor' }>
+  const clients = (clientsRaw ?? []) as Array<{ id: string; name: string }>
+  const memberById = new Map(members.map(m => [m.id, m]))
+  const clientById = new Map(clients.map(c => [c.id, c.name]))
 
-  // 期間フィルタ
-  const periodFilter = (issuedDate: string | null) => {
-    if (!issuedDate) return false
-    if (currentPeriod === 'today') return issuedDate === ymd
-    if (currentPeriod === 'month') return issuedDate.startsWith(ym)
-    if (currentPeriod === 'ytd') {
-      const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1
-      const start = `${year}-04-01`
-      return issuedDate >= start && issuedDate <= ymd
-    }
-    return issuedDate.startsWith(ym)
+  // 全管理担当
+  const managers = members.filter(m => m.primary_role === 'manager' || m.primary_role === 'sub_manager')
+  const focusMember = memberParam ? managers.find(m => m.id === memberParam) ?? null : null
+  const scopeMemberIds = focusMember ? new Set([focusMember.id]) : new Set(managers.map(m => m.id))
+
+  // スコープ案件（管理担当として紐づく案件）
+  const scopeCaseIds = new Set<string>()
+  for (const cm of caseMembers) {
+    if (cm.role === 'manager' && scopeMemberIds.has(cm.member_id)) scopeCaseIds.add(cm.case_id)
   }
 
-  // チーム→管理担当メンバー（dashboard_team_members 経由、無ければ members.team_id フォールバック）
-  const teamManagerMembers = new Map<string, Set<string>>()
-  const hasTeamMembers = teamMembers.length > 0
-  if (hasTeamMembers) {
-    for (const tm of teamMembers) {
-      if (tm.kind !== 'member') continue
-      const m = members.find(mm => mm.id === tm.member_id)
-      if (!m || (m.primary_role !== 'manager' && m.primary_role !== 'sub_manager')) continue
-      if (!teamManagerMembers.has(tm.team_id)) teamManagerMembers.set(tm.team_id, new Set())
-      teamManagerMembers.get(tm.team_id)!.add(tm.member_id)
+  const basePath = '/dashboard/manager'
+  const buildHref = (over: Record<string, string | undefined>) => {
+    const p = new URLSearchParams()
+    const merged = {
+      month: selectedMonth !== ymToday ? selectedMonth : undefined,
+      view: currentView !== 'progress' ? currentView : undefined,
+      member: memberParam,
+      status: statusFilter ?? undefined,
+      pstatus: pstatusFilter ?? undefined,
+      ...over,
     }
-  } else {
-    for (const m of members) {
-      if (!m.team_id) continue
-      if (m.primary_role !== 'manager' && m.primary_role !== 'sub_manager') continue
-      if (!teamManagerMembers.has(m.team_id)) teamManagerMembers.set(m.team_id, new Set())
-      teamManagerMembers.get(m.team_id)!.add(m.id)
-    }
+    for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v)
+    const qs = p.toString()
+    return qs ? `${basePath}?${qs}` : basePath
   }
 
-  // チームごとの集計（カード+テーブル両方で使う）
-  const teamSummaries = teams.map(t => {
-    const managerIds = teamManagerMembers.get(t.id) ?? new Set()
-    const teamCaseIds = new Set<string>()
-    for (const cm of caseMembers) {
-      if (cm.role === 'manager' && managerIds.has(cm.member_id)) {
-        teamCaseIds.add(cm.case_id)
-      }
-    }
-    const teamCases = cases.filter(c => teamCaseIds.has(c.id))
-    const activeCases = teamCases.filter(c => c.status === '対応中' || c.status === '受注').length
-    const completedCases = teamCases.filter(c => c.status === '完了').length
-    const teamInvoices = invoices.filter(i => teamCaseIds.has(i.case_id))
-    const paidInvoices = teamInvoices.filter(i => i.status === '入金済' && periodFilter(i.issued_date))
+  const renderHeader = (kpis: Parameters<typeof ProgressKpis>[0]['metrics']) => (
+    <>
+      <PageHeader
+        eyebrow="Manager · Overview"
+        title="管理担当 全体ダッシュボード"
+        icon={Compass}
+        description="全チーム（全管理担当）を合算した進捗管理ボード"
+      />
+      <ProgressKpis scopeLabel={focusMember ? focusMember.name : '管理担当 全体'} metrics={kpis} />
+      {/* メンバー切替 */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+        <span className="text-[12px] font-semibold text-gray-500 mr-1">メンバー切替</span>
+        <Link href={buildHref({ member: undefined })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${!memberParam ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>全体</Link>
+        {managers.sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(m => (
+          <Link key={m.id} href={buildHref({ member: m.id })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${memberParam === m.id ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{m.name}</Link>
+        ))}
+      </div>
+      <ProgressViewTabs basePath={basePath} currentView={currentView} extraParams={{ month: selectedMonth !== ymToday ? selectedMonth : undefined, member: memberParam, status: statusFilter ?? undefined }} />
+      <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={{ view: currentView !== 'progress' ? currentView : undefined, member: memberParam, status: statusFilter ?? undefined, pstatus: pstatusFilter ?? undefined }} />
+    </>
+  )
+
+  const emptyKpis = { totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, purpleCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null, invoiceCount: 0 }
+  if (scopeCaseIds.size === 0) {
+    return (
+      <div>
+        {renderHeader(emptyKpis)}
+        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">該当する案件がありません</div>
+      </div>
+    )
+  }
+
+  const caseIdArray = Array.from(scopeCaseIds)
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at').in('id', caseIdArray),
+    supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+    supabase.from('invoices').select('id,case_id,invoice_number,amount,status,issued_date,invoice_type').in('case_id', caseIdArray),
+  ])
+  const cases = (casesRaw ?? []) as CaseFull[]
+  const tasks = (tasksRaw ?? []) as DashTask[]
+  const invoices = (invoicesRaw ?? []) as InvoiceFull[]
+
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
+
+  // 案件→管理担当
+  const managerByCase = new Map<string, MemberRow>()
+  for (const cm of caseMembers) {
+    if (cm.role !== 'manager' || !scopeCaseIds.has(cm.case_id)) continue
+    if (managerByCase.has(cm.case_id)) continue
+    const m = memberById.get(cm.member_id)
+    if (m) managerByCase.set(cm.case_id, m)
+  }
+
+  const tasksByCase = new Map<string, DashTask[]>()
+  for (const t of tasks) {
+    if (!tasksByCase.has(t.case_id)) tasksByCase.set(t.case_id, [])
+    tasksByCase.get(t.case_id)!.push(t)
+  }
+
+  const inSelectedMonth = (d: string | null | undefined): boolean => {
+    if (!d) return false
+    if (selectedMonth === 'all') return true
+    return d.startsWith(selectedMonth)
+  }
+
+  const baseCases = statusFilter ? cases.filter(c => c.status === statusFilter) : cases.filter(c => ACTIVE.has(c.status))
+  const allRows: ProgressCaseRow[] = baseCases.map(c => {
+    const mgr = managerByCase.get(c.id) ?? null
+    const flag = (c.has_complaint || c.expected_completion_date) ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today) : null
     return {
-      team: t,
-      managerCount: managerIds.size,
-      paidCount: paidInvoices.length,
-      paidAmount: paidInvoices.reduce((s, i) => s + i.amount, 0),
-      activeCases,
-      completedCases,
-      totalCases: teamCases.length,
+      id: c.id,
+      caseNumber: c.case_number,
+      dealName: c.deal_name,
+      managerId: mgr?.id ?? null,
+      managerName: mgr?.name ?? null,
+      managerAvatarColor: mgr?.avatar_color ?? null,
+      managerAvatarUrl: mgr?.avatar_url ?? null,
+      managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
+      expectedCompletionDate: c.expected_completion_date ?? null,
+      clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
+      flag,
     }
   })
+  const rowsWithFlag = allRows
+    .filter(r => r.flag !== null && (statusFilter !== null || r.flag === 'purple' || inSelectedMonth(r.expectedCompletionDate)))
+    .sort((a, b) => {
+      const fa = FLAG_RANK[a.flag!]; const fb = FLAG_RANK[b.flag!]
+      if (fa !== fb) return fa - fb
+      return (a.expectedCompletionDate ?? '9999-12-31').localeCompare(b.expectedCompletionDate ?? '9999-12-31')
+    })
+  const rowsUnset = allRows.filter(r => r.flag === null)
 
-  // 全体集計（全チームの合算）
-  const overall = {
-    managerCount: teamSummaries.reduce((s, t) => s + t.managerCount, 0),
-    paidCount:    teamSummaries.reduce((s, t) => s + t.paidCount, 0),
-    paidAmount:   teamSummaries.reduce((s, t) => s + t.paidAmount, 0),
-    activeCases:  teamSummaries.reduce((s, t) => s + t.activeCases, 0),
-    completedCases: teamSummaries.reduce((s, t) => s + t.completedCases, 0),
-    totalCases:   teamSummaries.reduce((s, t) => s + t.totalCases, 0),
+  // 請求状況ビュー
+  const billingRange = selectedMonth === 'all' ? null : monthRange(selectedMonth)
+  const monthlyInvoices = invoices.filter(inv => {
+    if (inv.status === '未請求') return true
+    if (!inv.issued_date) return false
+    if (!billingRange) return true
+    return inv.issued_date >= billingRange.start && inv.issued_date <= billingRange.end
+  })
+  const paymentMap = new Map<string, number>()
+  if (monthlyInvoices.length > 0) {
+    const { data: paymentsRaw } = await supabase.from('payments').select('invoice_id,amount').in('invoice_id', monthlyInvoices.map(i => i.id))
+    for (const p of ((paymentsRaw ?? []) as Array<{ invoice_id: string; amount: number }>)) {
+      paymentMap.set(p.invoice_id, (paymentMap.get(p.invoice_id) ?? 0) + p.amount)
+    }
   }
-
-  const periodLabel = currentPeriod === 'today' ? '本日'
-    : currentPeriod === 'month' ? '当月'
-    : '年度累計'
-
-  // 全管理担当メンバー一覧（チーム関係なく全員）
-  const teamNameById = new Map(teams.map(t => [t.id, t.name]))
-  const memberRows = members
-    .filter(m => m.primary_role === 'manager' || m.primary_role === 'sub_manager')
-    .map(m => {
-      const myCaseIds = new Set(
-        caseMembers.filter(cm => cm.role === 'manager' && cm.member_id === m.id).map(cm => cm.case_id),
-      )
-      const myCases = cases.filter(c => myCaseIds.has(c.id))
-      const myInvoices = invoices.filter(i => myCaseIds.has(i.case_id) && i.status === '入金済' && periodFilter(i.issued_date))
+  const billingSummary: BillingViewSummary = { invoiceTotal: 0, invoiceTotalCount: 0, unbilled: 0, awaitingPayment: 0, paid: 0, partialPaid: 0 }
+  for (const inv of monthlyInvoices) {
+    const paid = paymentMap.get(inv.id) ?? 0
+    if (inv.status === '未請求') { billingSummary.unbilled++; continue }
+    billingSummary.invoiceTotal += inv.amount
+    billingSummary.invoiceTotalCount++
+    if (inv.status === '入金済' || paid >= inv.amount) billingSummary.paid++
+    else if (inv.status === '入金待ち' || paid > 0) billingSummary.awaitingPayment++
+    else if (inv.status === '作成済') billingSummary.partialPaid++
+    else billingSummary.awaitingPayment++
+  }
+  const allBillingRows: BillingViewRow[] = monthlyInvoices
+    .sort((a, b) => (b.issued_date ?? '').localeCompare(a.issued_date ?? ''))
+    .map(inv => {
+      const c = cases.find(c => c.id === inv.case_id)
+      const mgr = managerByCase.get(inv.case_id) ?? null
       return {
-        id: m.id,
-        name: m.name,
-        teamName: m.team_id ? teamNameById.get(m.team_id) ?? null : null,
-        paidCount: myInvoices.length,
-        paidAmount: myInvoices.reduce((s, i) => s + i.amount, 0),
-        activeCases: myCases.filter(c => c.status === '対応中' || c.status === '受注').length,
-        completedCases: myCases.filter(c => c.status === '完了').length,
-        totalCases: myCases.length,
+        invoiceId: inv.id,
+        caseId: inv.case_id,
+        caseNumber: c?.case_number ?? '-',
+        dealName: c?.deal_name ?? '-',
+        managerName: mgr?.name ?? null,
+        managerId: mgr?.id ?? null,
+        managerAvatarColor: mgr?.avatar_color ?? null,
+        managerAvatarUrl: mgr?.avatar_url ?? null,
+        managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
+        status: inv.status,
+        amount: inv.amount,
+        issuedDate: inv.issued_date,
+        hasPdf: inv.status !== '未請求',
       }
     })
-    .sort((a, b) => (a.teamName ?? 'zzz').localeCompare(b.teamName ?? 'zzz', 'ja') || a.name.localeCompare(b.name, 'ja'))
+  const billingRows = pstatusFilter ? allBillingRows.filter(r => r.status === pstatusFilter) : allBillingRows
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Dashboard · Manager · Overview"
-        title="管理担当 全体ダッシュボード"
-        icon={Compass}
-        description="各チームの管理担当の集計をまとめた全体ビュー。期間切替で本日/当月/年度累計の数値を確認できます。"
-      />
+      {renderHeader(kpis)}
 
-      <div className="mb-3">
-        <PeriodSwitcher />
-      </div>
-
-      {/* 全体集計 KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Kpi label={`${periodLabel} 請求完了件数`}  value={overall.paidCount}     suffix="件" tone="purple" />
-        <Kpi label={`${periodLabel} 完了金額`}      value={overall.paidAmount}    suffix="円" mono tone="purple" />
-        <Kpi label="対応中案件 (現在)"             value={overall.activeCases}    suffix="件" tone="brand" />
-        <Kpi label="完了案件 (累計)"               value={overall.completedCases} suffix="件" tone="green" />
-      </div>
-      <div className="text-[12px] text-gray-500 mb-4 ml-1">
-        スコープ: <span className="font-semibold text-gray-700">全チーム（管理担当 {overall.managerCount}名 / 担当案件累計 {overall.totalCases}件）</span>
-      </div>
-
-      {/* チーム別集計テーブル */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-          <Users className="w-4 h-4 text-purple-600" strokeWidth={2.25} />
-          <h3 className="text-[14px] font-bold text-gray-900">チーム別 集計（{periodLabel}）</h3>
-        </div>
-        <table className="w-full text-[13px]">
-          <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-3 py-2 text-left font-bold">チーム</th>
-              <th className="px-3 py-2 text-right font-bold">管理担当</th>
-              <th className="px-3 py-2 text-right font-bold">請求完了件数</th>
-              <th className="px-3 py-2 text-right font-bold">完了金額</th>
-              <th className="px-3 py-2 text-right font-bold">対応中</th>
-              <th className="px-3 py-2 text-right font-bold">完了</th>
-              <th className="px-3 py-2 text-right font-bold">担当案件累計</th>
-              <th className="px-3 py-2 text-center font-bold" style={{ width: 80 }}>詳細</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {teamSummaries.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-[12px] text-gray-400">チームが登録されていません</td></tr>
-            ) : teamSummaries.map(s => (
-              <tr key={s.team.id} className="hover:bg-gray-50/60">
-                <td className="px-3 py-2.5 font-semibold text-gray-800">{s.team.name}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-600">{s.managerCount}名</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700 font-bold">{s.paidCount}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700">¥{s.paidAmount.toLocaleString()}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-brand-700">{s.activeCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-green-700">{s.completedCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{s.totalCases}</td>
-                <td className="px-3 py-2.5 text-center">
-                  <Link href={`/dashboard/manager/${s.team.id}`} className="text-[12px] font-semibold text-brand-600 hover:text-brand-700 hover:underline">
-                    開く →
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          {teamSummaries.length > 0 && (
-            <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-bold">
-              <tr>
-                <td className="px-3 py-2.5 text-gray-800">合計</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{overall.managerCount}名</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700">{overall.paidCount}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700">¥{overall.paidAmount.toLocaleString()}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-brand-700">{overall.activeCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-green-700">{overall.completedCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{overall.totalCases}</td>
-                <td />
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
-
-      {/* 全管理担当メンバー一覧 */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-4">
-        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-          <Users className="w-4 h-4 text-purple-600" strokeWidth={2.25} />
-          <h3 className="text-[14px] font-bold text-gray-900">管理担当メンバー一覧（{periodLabel}）</h3>
-          <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{memberRows.length}名</span>
-        </div>
-        <table className="w-full text-[13px]">
-          <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-3 py-2 text-left font-bold">氏名</th>
-              <th className="px-3 py-2 text-left font-bold">所属チーム</th>
-              <th className="px-3 py-2 text-right font-bold">請求完了件数</th>
-              <th className="px-3 py-2 text-right font-bold">完了金額</th>
-              <th className="px-3 py-2 text-right font-bold">対応中</th>
-              <th className="px-3 py-2 text-right font-bold">完了(累計)</th>
-              <th className="px-3 py-2 text-right font-bold">担当案件累計</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {memberRows.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-[12px] text-gray-400">管理担当メンバーが登録されていません</td></tr>
-            ) : memberRows.map(m => (
-              <tr key={m.id} className="hover:bg-gray-50/60">
-                <td className="px-3 py-2.5">
-                  <Link href={`/profile/${m.id}`} className="font-semibold text-gray-800 hover:text-brand-700 hover:underline">{m.name}</Link>
-                </td>
-                <td className="px-3 py-2.5 text-gray-600">{m.teamName ?? <span className="text-gray-400">-</span>}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700 font-bold">{m.paidCount}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-purple-700">¥{m.paidAmount.toLocaleString()}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-brand-700">{m.activeCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-green-700">{m.completedCases}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{m.totalCases}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-function Kpi({ label, value, suffix, mono, tone }: {
-  label: string
-  value: number
-  suffix: string
-  mono?: boolean
-  tone: 'purple' | 'brand' | 'green' | 'gray'
-}) {
-  const colorMap: Record<string, string> = {
-    purple: 'text-purple-700',
-    brand:  'text-brand-700',
-    green:  'text-green-700',
-    gray:   'text-gray-700',
-  }
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-sm">
-      <div className="text-[12px] font-semibold text-gray-500 mb-1">{label}</div>
-      <div className={`text-[22px] font-extrabold tracking-tight ${colorMap[tone]}`}>
-        {mono ? value.toLocaleString() : value}
-        <span className="text-[12px] text-gray-400 ml-1 font-normal">{suffix}</span>
-      </div>
+      {currentView === 'progress' ? (
+        <>
+          {/* 案件ステータスフィルタ */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
+            <span className="text-[12px] font-semibold text-gray-500 mr-1">ステータス</span>
+            <Link href={buildHref({ status: undefined })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === null ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>すべて</Link>
+            {CASE_STATUSES.map(s => {
+              const count = cases.filter(c => c.status === s.key).length
+              return (
+                <Link key={s.key} href={buildHref({ status: s.key })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === s.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                  {s.key}{count > 0 && <span className={`ml-1 text-[10px] font-mono ${statusFilter === s.key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
+                </Link>
+              )
+            })}
+          </div>
+          <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
+            <span className="text-[12px] font-semibold text-gray-500 mr-1">入金ステータス</span>
+            <Link href={buildHref({ pstatus: undefined })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${pstatusFilter === null ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>すべて</Link>
+            {INVOICE_PSTATUS.map(st => {
+              const count = allBillingRows.filter(r => r.status === st).length
+              return (
+                <Link key={st} href={buildHref({ pstatus: st })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${pstatusFilter === st ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                  {st}{count > 0 && <span className={`ml-1 text-[10px] font-mono ${pstatusFilter === st ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
+                </Link>
+              )
+            })}
+          </div>
+          <BillingStatusView summary={billingSummary} rows={billingRows} />
+        </>
+      )}
     </div>
   )
 }

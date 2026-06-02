@@ -436,7 +436,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
               href={buildStatusHref(null)}
               className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === null ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
             >
-              稼働中
+              すべて
             </a>
             {CASE_STATUSES.map(s => {
               const count = cases.filter(c => c.status === s.key).length
