@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { Briefcase, AlertTriangle } from 'lucide-react'
+import Badge from '@/components/ui/Badge'
+import { CASE_STATUSES } from '@/lib/constants'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -128,6 +130,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-center font-bold" style={{ width: 56 }}>フラグ</th>
             <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold">案件名</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 90 }}>ステータス</th>
             <th className="px-3 py-2 text-left font-bold" style={{ width: 100 }}>受注担当</th>
             <th className="px-3 py-2 text-left font-bold" style={{ width: 200 }}>進捗</th>
             <th className="px-3 py-2 text-center font-bold" style={{ width: 100 }}>週次報告状況</th>
@@ -141,6 +144,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             const done = c.progressDone ?? 0
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
             const weekly = c.weeklyStatus ?? '未対応'
+            const statusDef = CASE_STATUSES.find(s => s.key === c.status)
             return (
             <tr key={c.id} className="hover:bg-gray-50/60">
               <td className="px-3 py-2.5 text-center">
@@ -167,6 +171,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                     )}
                   </div>
                 )}
+              </td>
+              <td className="px-3 py-2.5">
+                {statusDef ? <Badge label={c.status} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
