@@ -29,6 +29,23 @@ type Props = {
   today: Date
   // 達成中のメンバー（個人月間目標を満たしている、アバターにレインボーリング表示）
   achievedMemberIds?: Set<string>
+  // 年度累計ビュー: 各月の左に「累計」列を表示する
+  showCumulative?: boolean
+}
+
+// 指定月群にわたる累計メトリクス（新規・完了・完了金額は合算、サイクルは完了件数で加重平均、
+// 管理は「現時点（最新月）」の値）
+function cumulativeMetrics(myCases: DashCase[], months: string[]) {
+  let newOrders = 0, completed = 0, completedAmount = 0, cycleSum = 0, cycleN = 0
+  for (const ym of months) {
+    const mm = computeMetrics(myCases, ym)
+    newOrders += mm.newOrders
+    completed += mm.completed
+    completedAmount += mm.completedAmount
+    if (mm.cycleMonths !== null) { cycleSum += mm.cycleMonths * mm.completed; cycleN += mm.completed }
+  }
+  const managing = months.length > 0 ? computeMetrics(myCases, months[0]).managing : 0
+  return { newOrders, managing, completed, cycleMonths: cycleN > 0 ? cycleSum / cycleN : null, completedAmount }
 }
 
 // 左固定列の幅 (px)。CSSのleftオフセット計算に使うので合わせる。
@@ -48,6 +65,7 @@ export default function MemberPerformanceTable({
   months,
   today,
   achievedMemberIds,
+  showCumulative = false,
 }: Props) {
   if (members.length === 0) {
     return (
@@ -76,6 +94,12 @@ export default function MemberPerformanceTable({
             <col style={{ width: COL_W.team }} />
             <col style={{ width: COL_W.job }} />
             <col style={{ width: COL_W.tenure }} />
+            {showCumulative && [
+              <col key="cum-n" style={{ width: 50 }} />,
+              <col key="cum-m" style={{ width: 50 }} />,
+              <col key="cum-c" style={{ width: 50 }} />,
+              <col key="cum-y" style={{ width: 56 }} />,
+            ]}
             {months.flatMap(m => [
               <col key={`${m}-n`} style={{ width: 50 }} />,
               <col key={`${m}-m`} style={{ width: 50 }} />,
@@ -115,12 +139,17 @@ export default function MemberPerformanceTable({
               >
                 在籍期間
               </th>
+              {showCumulative && (
+                <th colSpan={4} className="px-2 py-1.5 text-center font-semibold border-l border-gray-300 bg-amber-50 text-amber-800">
+                  累計
+                </th>
+              )}
               {months.map((m, i) => (
                 <th
                   key={m}
                   colSpan={4}
                   className={`px-2 py-1.5 text-center font-semibold border-l border-gray-300 ${
-                    i === 0 ? 'bg-brand-50 text-brand-800' : 'bg-gray-50 text-gray-700'
+                    i === 0 && !showCumulative ? 'bg-brand-50 text-brand-800' : 'bg-gray-50 text-gray-700'
                   }`}
                 >
                   {monthHeaderLabel(m, today)}
@@ -128,8 +157,9 @@ export default function MemberPerformanceTable({
               ))}
             </tr>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+              {showCumulative && <SubHeaderGroup highlight />}
               {months.map((m, i) => (
-                <SubHeaderGroup key={m} highlight={i === 0} />
+                <SubHeaderGroup key={m} highlight={i === 0 && !showCumulative} />
               ))}
             </tr>
           </thead>
@@ -177,13 +207,16 @@ export default function MemberPerformanceTable({
                   >
                     {tenureLabel(m.joined_at, today)}
                   </td>
+                  {showCumulative && (
+                    <MetricCells metrics={cumulativeMetrics(myCases, months)} highlight showAmount={false} />
+                  )}
                   {months.map((ym, i) => {
                     const metrics = computeMetrics(myCases, ym)
                     return (
                       <MetricCells
                         key={ym}
                         metrics={metrics}
-                        highlight={i === 0}
+                        highlight={i === 0 && !showCumulative}
                         showAmount={false}
                       />
                     )

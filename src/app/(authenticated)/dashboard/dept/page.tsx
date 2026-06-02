@@ -4,10 +4,14 @@ import PageHeader from '@/components/ui/PageHeader'
 import DeptDashboardTabs from '@/components/features/dashboard/DeptDashboardTabs'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
 import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
+import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
+import { parsePeriod } from '@/lib/dashboardPeriod'
 import {
   computeMetrics,
+  computeDailyMetrics,
   computeProcedureBreakdown,
   computeSalesMetrics,
+  formatMan,
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
   isDeptAchieved,
@@ -31,7 +35,10 @@ type MemberRow = {
 
 type TeamRow = { id: string; name: string }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  const { period } = await searchParams
+  const currentPeriod = parsePeriod(period)
+  const periodLabel = currentPeriod === 'today' ? '本日' : currentPeriod === 'month' ? '当月' : '年度累計'
   const supabase = await createClient()
   const today = new Date()
   const thisYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -126,6 +133,20 @@ export default async function DashboardPage() {
   const months = fiscalYearMonthsToDate(today)
   const monthLabel = `${today.getMonth() + 1}月`
 
+  // 本日 / 年度累計 用の部全体サマリ
+  const dailyMetrics = computeDailyMetrics(cases, statusChanges, today)
+  const ytdSummary = (() => {
+    let newOrders = 0, completed = 0, completedAmount = 0, cycleSum = 0, cycleN = 0
+    for (const m of months) {
+      const mm = computeMetrics(cases, m)
+      newOrders += mm.newOrders
+      completed += mm.completed
+      completedAmount += mm.completedAmount
+      if (mm.cycleMonths !== null) { cycleSum += mm.cycleMonths * mm.completed; cycleN += mm.completed }
+    }
+    return { newOrders, managing: summary.managing, completed, completedAmount, cycleMonths: cycleN > 0 ? cycleSum / cycleN : null }
+  })()
+
   // 受注担当の達成判定（個人月間目標 = 新規受注件数 を達成しているか）
   // → アバターにレインボーリングを表示するため
   const achievedMemberIds = new Set<string>()
@@ -152,35 +173,98 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      {achievement.hasTargets && (
+      {currentPeriod === 'month' && achievement.hasTargets && (
         <DashboardAchievementPopup
           isAchieved={achievement.achieved}
           storageKey={`dash-popup-dept-${thisYm}`}
         />
       )}
       <PageHeader
-        eyebrow="Department · Monthly"
-        title="部全体ダッシュボード"
+        eyebrow="Department"
+        title={`部全体ダッシュボード ${periodLabel}`}
         icon={Building2}
-        description={`${today.getFullYear()}年度・相続事業部の月次サマリーとメンバー別成績`}
+        description={`${today.getFullYear()}年度・相続事業部のサマリーとメンバー別成績`}
       />
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <PeriodSwitcher />
+      </div>
       <div className="space-y-3">
-        <DeptDashboardTabs
-          ym={thisYm}
-          monthLabel={monthLabel}
-          metrics={summary}
-          initialTarget={initialTarget}
-          breakdown={breakdown}
-        />
-        <MemberPerformanceTable
-          members={tableMembers}
-          cases={cases}
-          caseMembers={caseMembers}
-          months={months}
-          today={today}
-          achievedMemberIds={achievedMemberIds}
-        />
+        {currentPeriod === 'month' ? (
+          <>
+            <DeptDashboardTabs
+              ym={thisYm}
+              monthLabel={monthLabel}
+              metrics={summary}
+              initialTarget={initialTarget}
+              breakdown={breakdown}
+            />
+            <MemberPerformanceTable
+              members={tableMembers}
+              cases={cases}
+              caseMembers={caseMembers}
+              months={[thisYm]}
+              today={today}
+              achievedMemberIds={achievedMemberIds}
+            />
+          </>
+        ) : currentPeriod === 'today' ? (
+          <DeptSummaryCards
+            title="本日のサマリー"
+            items={[
+              { label: '新規受注', value: String(dailyMetrics.newOrders), unit: '件' },
+              { label: '管理着手', value: String(dailyMetrics.startedManaging), unit: '件' },
+              { label: '完了', value: String(dailyMetrics.completed), unit: '件' },
+              { label: '完了金額', value: formatMan(dailyMetrics.completedAmount), unit: '万円' },
+              { label: 'サイクル', value: dailyMetrics.cycleMonths === null ? '-' : dailyMetrics.cycleMonths.toFixed(1), unit: 'カ月/件' },
+            ]}
+          />
+        ) : (
+          <>
+            <DeptSummaryCards
+              title="年度累計のサマリー"
+              items={[
+                { label: '新規受注', value: String(ytdSummary.newOrders), unit: '件' },
+                { label: '管理中', value: String(ytdSummary.managing), unit: '件' },
+                { label: '完了', value: String(ytdSummary.completed), unit: '件' },
+                { label: '完了金額', value: formatMan(ytdSummary.completedAmount), unit: '万円' },
+                { label: 'サイクル', value: ytdSummary.cycleMonths === null ? '-' : ytdSummary.cycleMonths.toFixed(1), unit: 'カ月/件' },
+              ]}
+            />
+            <MemberPerformanceTable
+              members={tableMembers}
+              cases={cases}
+              caseMembers={caseMembers}
+              months={months}
+              today={today}
+              achievedMemberIds={achievedMemberIds}
+              showCumulative
+            />
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+function DeptSummaryCards({ title, items }: { title: string; items: { label: string; value: string; unit: string }[] }) {
+  return (
+    <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
+      <h2 className="text-lg font-bold text-gray-900 mb-4">{title}</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {items.map(k => (
+          <div key={k.label} className="bg-white border border-gray-300 rounded-xl overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 text-center">
+              <div className="text-[13px] font-semibold text-gray-700">{k.label}</div>
+            </div>
+            <div className="px-3 py-4 text-center">
+              <div className="flex items-baseline justify-center gap-1">
+                <span className="text-[26px] font-extrabold leading-none text-gray-900 tracking-tight">{k.value}</span>
+                <span className="text-[13px] font-bold text-gray-500">{k.unit}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
