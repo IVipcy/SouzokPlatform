@@ -19,12 +19,28 @@ export type MyCaseRow = {
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
+  /** 進捗: 次の未完了タスク + 完了/総数 */
+  nextTaskId?: string | null
+  nextTaskTitle?: string | null
+  progressDone?: number
+  progressTotal?: number
+  /** 週次報告状況 */
+  weeklyStatus?: '未対応' | '依頼中' | '確認済'
+  /** 直近お客様報告 */
+  lastCommDate?: string | null
+  lastCommDetail?: string | null
   /** 管理担当向けアラート: 週次報告の漏れ */
   weeklyReportMissing?: boolean
   /** 管理担当向けアラート: タスク期限超過 */
   taskOverdue?: boolean
   /** 進捗管理ダッシュボード経由で計算済の場合 */
   flag?: CaseFlag
+}
+
+const WEEKLY_BADGE: Record<string, string> = {
+  '未対応': 'bg-gray-100 text-gray-600 border-gray-200',
+  '依頼中': 'bg-amber-50 text-amber-700 border-amber-200',
+  '確認済': 'bg-green-50 text-green-700 border-green-200',
 }
 
 type Props = {
@@ -109,26 +125,32 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
       <table className="w-full text-[13px]">
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
-            <th className="px-3 py-2 text-center font-bold" style={{ width: 60 }}>フラグ</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 120 }}>案件管理番号</th>
+            <th className="px-3 py-2 text-center font-bold" style={{ width: 56 }}>フラグ</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold">案件名</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>受注担当</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>管理担当</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 120 }}>完了予定日</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 140 }}>依頼者名</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 100 }}>受注担当</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 200 }}>進捗</th>
+            <th className="px-3 py-2 text-center font-bold" style={{ width: 100 }}>週次報告状況</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>直近お客様報告日</th>
+            <th className="px-3 py-2 text-left font-bold" style={{ width: 200 }}>やり取り詳細</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {visibleRows.map(c => (
+          {visibleRows.map(c => {
+            const total = c.progressTotal ?? 0
+            const done = c.progressDone ?? 0
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            const weekly = c.weeklyStatus ?? '未対応'
+            return (
             <tr key={c.id} className="hover:bg-gray-50/60">
               <td className="px-3 py-2.5 text-center">
-                <span className={`inline-flex items-center justify-center w-12 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag!]}`}>
+                <span className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag!]}`}>
                   {FLAG_LABEL[c.flag!]}
                 </span>
               </td>
               <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600">{c.case_number}</td>
               <td className="px-3 py-2.5">
-                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[260px]">
+                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">
                   {c.deal_name}
                 </Link>
                 {(c.weeklyReportMissing || c.taskOverdue) && (
@@ -147,11 +169,45 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 )}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
-              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
-              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? '—'}</td>
-              <td className="px-3 py-2.5 text-[12px] text-gray-700 truncate">{c.client_name || <span className="text-gray-300">—</span>}</td>
+              {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
+              <td className="px-3 py-2.5">
+                {total > 0 ? (
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
+                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[11px] font-mono text-gray-400 flex-shrink-0">{done}/{total}</span>
+                    </div>
+                    {c.nextTaskId && c.nextTaskTitle ? (
+                      <Link href={`/tasks/${c.nextTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextTaskTitle}>
+                        ▶ {c.nextTaskTitle}
+                      </Link>
+                    ) : (
+                      <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-gray-300">—</span>
+                )}
+              </td>
+              {/* 週次報告状況 */}
+              <td className="px-3 py-2.5 text-center">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${WEEKLY_BADGE[weekly]}`}>{weekly}</span>
+              </td>
+              {/* 直近お客様報告日 */}
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.lastCommDate ?? <span className="text-gray-300">—</span>}</td>
+              {/* やり取り詳細 */}
+              <td className="px-3 py-2.5 text-[12px] text-gray-600">
+                {c.lastCommDetail ? (
+                  <span className="line-clamp-2 whitespace-pre-line" title={c.lastCommDetail}>{c.lastCommDetail}</span>
+                ) : (
+                  <span className="text-gray-300">—</span>
+                )}
+              </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
       {compact && (

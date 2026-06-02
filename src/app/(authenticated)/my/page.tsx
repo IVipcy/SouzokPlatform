@@ -1,12 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, Target, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck } from 'lucide-react'
+import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { CASE_STATUSES } from '@/lib/constants'
-import MyPageTargetInput from '@/components/features/my/MyPageTargetInput'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
@@ -80,9 +79,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const selectedPeriod: string = period === 'all' || (period && fiscalMonths.includes(period)) ? period! : ymToday
 
   // === 1st fetch ===
-  const [{ data: myCaseRows }, { data: targetRow }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
+  const [{ data: myCaseRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
     supabase.from('case_members').select('case_id, role, cases(*)').eq('member_id', memberId),
-    supabase.from('member_targets').select('new_orders_count, invoice_count').eq('member_id', memberId).eq('ym', ymToday).maybeSingle(),
     supabase.from('case_members').select('case_id, member_id, role'),
     supabase.from('members').select('id, name').eq('is_active', true),
     supabase.from('clients').select('id, name'),
@@ -154,35 +152,32 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${pad(nextMonthDate.getMonth() + 1)}-01T00:00:00`
 
-  let boardTasks: DashTask[] = []
+  type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
+  let boardTasks: BoardTask[] = []
   let invoices: Array<{ case_id: string; issued_date: string | null }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
-  let systemTaskRows: TaskRow[] = []
-  let salesTaskRows: TaskRow[] = []
-  let managerReports: ProgressReportRow[] = []
+  let roleTaskRows: TaskRow[] = []
+  let allReports: ProgressReportRow[] = []
   let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
+  let comms: Array<{ case_id: string; communicated_at: string | null; detail: string | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, sysRes, salesTaskRes, changesRes, propsRes, mgrReportsRes, reviewReportsRes, wonRes, assigneeRes] = await Promise.all([
-        supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
+        supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
-        supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).eq('task_kind', 'system').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
-        isSales && salesCaseIdArray.length > 0
-          ? supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', salesCaseIdArray).eq('work_role', 'sales').neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false })
-          : Promise.resolve({ data: [] }),
+        // 受注担当タスク(work_role=sales) / 管理担当タスク(work_role=manager) を統合取得（システムタスクも work_role で含まれる）
+        supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).in('work_role', ['sales', 'manager']).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,old_value,new_value,created_at').eq('entity_type', 'case').eq('action', 'status_change').in('entity_id', salesCaseIdArray).gte('created_at', fiscalStart).lt('created_at', nextMonthStart)
           : Promise.resolve({ data: [] }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('real_estate_properties').select('case_id,appraisal_status').in('case_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
-        managerCaseIdArray.length > 0
-          ? supabase.from('progress_reports').select('*').in('case_id', managerCaseIdArray)
-          : Promise.resolve({ data: [] }),
+        supabase.from('progress_reports').select('*').in('case_id', caseIdArray),
         supabase.from('progress_reports').select('*, cases(case_number, deal_name)').eq('confirmer_id', memberId).order('requested_date', { ascending: false }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,created_at').eq('entity_type', 'case').eq('action', 'status_change').eq('new_value', '受注').in('entity_id', salesCaseIdArray)
@@ -190,17 +185,18 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,metadata').eq('entity_type', 'case').eq('action', 'assignee_change').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
+        supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
       ])
-      boardTasks = (tasksRes.data ?? []) as DashTask[]
+      boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as Array<{ case_id: string; issued_date: string | null }>
-      systemTaskRows = (sysRes.data ?? []) as TaskRow[]
-      salesTaskRows = (salesTaskRes.data ?? []) as TaskRow[]
+      roleTaskRows = (roleTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
-      managerReports = (mgrReportsRes.data ?? []) as ProgressReportRow[]
+      allReports = (reportsRes.data ?? []) as ProgressReportRow[]
       reviewReportsRaw = (reviewReportsRes.data ?? []) as typeof reviewReportsRaw
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
+      comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -219,24 +215,68 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }))
   const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices)
 
-  // 管理担当向けアラート用の集合
+  // タスクを案件ごとにグルーピング（進捗・次タスク算出用）
+  const tasksByCase = new Map<string, BoardTask[]>()
+  for (const t of boardTasks) {
+    if (!tasksByCase.has(t.case_id)) tasksByCase.set(t.case_id, [])
+    tasksByCase.get(t.case_id)!.push(t)
+  }
+  const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
+  // 案件ごと: 次の未完了タスク / 進捗(完了数・総数)
+  const progressByCase = new Map<string, { nextTaskId: string | null; nextTaskTitle: string | null; done: number; total: number }>()
+  for (const [cid, ts] of tasksByCase) {
+    const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    const next = sorted.find(t => isOpen(t.status)) ?? null
+    progressByCase.set(cid, {
+      nextTaskId: next?.id ?? null,
+      nextTaskTitle: next?.title ?? null,
+      done: ts.filter(t => t.status === '完了').length,
+      total: ts.length,
+    })
+  }
+
   // タスク期限超過: 未完了タスクで期限切れがある案件
   const overdueCaseIds = new Set<string>()
   for (const t of boardTasks) {
-    if (t.due_date && t.due_date < todayStr && t.status !== '完了' && t.status !== 'キャンセル') overdueCaseIds.add(t.case_id)
+    if (t.due_date && t.due_date < todayStr && isOpen(t.status)) overdueCaseIds.add(t.case_id)
   }
-  // 週次報告あり: 直近7日以内に確認済の進捗報告がある案件
-  const reportConfirmedRecent = new Set<string>()
-  for (const pr of managerReports) {
-    if (pr.status === '確認済' && pr.confirmed_date) {
+
+  // 案件ごと: 週次報告状況（最新の進捗報告。確認済でも7日経過していれば「未対応」に戻す）
+  const latestReportByCase = new Map<string, ProgressReportRow>()
+  for (const pr of allReports) {
+    const cur = latestReportByCase.get(pr.case_id)
+    const isOpenReq = pr.status === '依頼中'
+    if (!cur) { latestReportByCase.set(pr.case_id, pr); continue }
+    if (isOpenReq && cur.status !== '依頼中') { latestReportByCase.set(pr.case_id, pr); continue }
+    if ((pr.requested_date ?? '') > (cur.requested_date ?? '')) latestReportByCase.set(pr.case_id, pr)
+  }
+  const weeklyStatusOf = (cid: string): '未対応' | '依頼中' | '確認済' => {
+    const pr = latestReportByCase.get(cid)
+    if (!pr) return '未対応'
+    if (pr.status === '依頼中') return '依頼中'
+    // 確認済: 7日以内なら確認済、それ以降は未対応に戻す
+    if (pr.confirmed_date) {
       const d = Math.floor((today.getTime() - new Date(pr.confirmed_date).getTime()) / 86_400_000)
-      if (d <= 7) reportConfirmedRecent.add(pr.case_id)
+      return d <= 7 ? '確認済' : '未対応'
     }
+    return '未対応'
+  }
+  const reportConfirmedRecent = new Set<string>()
+  for (const cid of latestReportByCase.keys()) {
+    if (weeklyStatusOf(cid) === '確認済') reportConfirmedRecent.add(cid)
+  }
+
+  // 案件ごと: 直近の依頼者やり取り（最新1件）
+  const lastCommByCase = new Map<string, { date: string | null; detail: string | null }>()
+  for (const c of comms) {
+    if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
   }
 
   const myCasesEnriched = myCases.map(c => {
     // アラートは管理担当のマイページ（自分が管理担当の案件）にのみ表示
     const isMgrCase = isManager && managerCaseIds.has(c.id) && MGMT_ACTIVE_STATUSES.has(c.status)
+    const prog = progressByCase.get(c.id)
+    const lastComm = lastCommByCase.get(c.id)
     return {
       id: c.id,
       case_number: c.case_number,
@@ -251,6 +291,16 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      // 進捗（次の未完了タスク + 完了/総数）
+      nextTaskId: prog?.nextTaskId ?? null,
+      nextTaskTitle: prog?.nextTaskTitle ?? null,
+      progressDone: prog?.done ?? 0,
+      progressTotal: prog?.total ?? 0,
+      // 週次報告状況
+      weeklyStatus: weeklyStatusOf(c.id),
+      // 直近お客様報告
+      lastCommDate: lastComm?.date ?? null,
+      lastCommDetail: lastComm?.detail ?? null,
       weeklyReportMissing: isMgrCase && !reportConfirmedRecent.has(c.id),
       taskOverdue: isMgrCase && overdueCaseIds.has(c.id),
     }
@@ -329,13 +379,14 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const referralCases = myCases.filter(c => c.status === '紹介のみ')
 
   // === 自分宛タスク ===
-  // 受注担当のタスク = システムタスク + 受注担当タスク(work_role='sales') の2区分
-  const mySystemTasks = systemTaskRows.filter(t => myCaseIds.has(t.case_id))
-  const systemTaskIds = new Set(mySystemTasks.map(t => t.id))
-  const mySalesTasks = salesTaskRows.filter(t => salesCaseIds.has(t.case_id) && !systemTaskIds.has(t.id))
-  const taskTabCount = mySystemTasks.length + mySalesTasks.length
+  // 役割タスク: 受注担当タスク=work_role='sales'、管理担当タスク=work_role='manager'
+  // （システムタスクも work_role を持つので、この1リストに統合される）
+  const mySalesTasks = roleTaskRows.filter(t => t.work_role === 'sales' && salesCaseIds.has(t.case_id))
+  const myManagerTasks = roleTaskRows.filter(t => t.work_role === 'manager' && managerCaseIds.has(t.case_id))
+  const roleTasks = isSales ? mySalesTasks : isManager ? myManagerTasks : []
+  const roleTaskTitle = isSales ? '受注担当タスク' : '管理担当タスク'
+  const taskTabCount = roleTasks.length
 
-  const targetValue = isSales ? (targetRow?.new_orders_count ?? 0) : isManager ? (targetRow?.invoice_count ?? 0) : 0
 
   // 期間切替の選択肢
   const periodOptions: Array<{ key: string; label: string }> = [
@@ -349,7 +400,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // === 進捗報告（管理担当タブ） ===
   // 案件ごとに最新の進捗報告を1件選ぶ（依頼中があれば優先、なければ依頼日が最新のもの）
   const reportsByCase = new Map<string, ProgressReportRow[]>()
-  for (const pr of managerReports) {
+  for (const pr of allReports) {
+    if (!managerCaseIds.has(pr.case_id)) continue
     if (!reportsByCase.has(pr.case_id)) reportsByCase.set(pr.case_id, [])
     reportsByCase.get(pr.case_id)!.push(pr)
   }
@@ -438,26 +490,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         )}
       </div>
 
-      {/* 月間目標入力（受注/管理担当のみ・概要タブ廃止に伴いここへ移設） */}
-      {(isSales || isManager) && (activeTab === 'meetings' || activeTab === 'cases') && (
-        <section className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-4 max-w-md">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-            <h3 className="text-[14px] font-bold text-gray-900">
-              {isSales ? '今月の新規受注件数 目標' : '今月の請求完了件数 目標'}
-            </h3>
-            <span className="text-[11px] text-gray-400 font-mono">{ymToday}</span>
-          </div>
-          <MyPageTargetInput
-            memberId={memberId}
-            ym={ymToday}
-            field={isSales ? 'new_orders_count' : 'invoice_count'}
-            initialValue={targetValue}
-            label={isSales ? '新規受注件数 (件)' : '請求完了件数 (件)'}
-          />
-        </section>
-      )}
-
       {/* 当月面談（相談案件一覧） */}
       {activeTab === 'meetings' && isSales && (
         <div className="space-y-4">
@@ -529,26 +561,15 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         />
       )}
 
-      {/* タスク（受注担当タスク + システムタスク） */}
+      {/* タスク（役割で統合: 受注担当タスク / 管理担当タスク） */}
       {activeTab === 'tasks' && (
-        <div className="space-y-4">
-          {isSales && (
-            <SystemTaskList
-              tasks={mySalesTasks}
-              title="受注担当タスク"
-              emptyText="未完了の受注担当タスクはありません"
-              showCase={true}
-              includeCompleted={false}
-            />
-          )}
-          <SystemTaskList
-            tasks={mySystemTasks}
-            title="システムタスク"
-            emptyText="未完了のシステムタスクはありません"
-            showCase={true}
-            includeCompleted={false}
-          />
-        </div>
+        <SystemTaskList
+          tasks={roleTasks}
+          title={roleTaskTitle}
+          emptyText={`未完了の${roleTaskTitle}はありません`}
+          showCase={true}
+          includeCompleted={false}
+        />
       )}
     </div>
   )
