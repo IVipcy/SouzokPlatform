@@ -33,7 +33,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
     supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
     supabase.from('cases').select('id,status'),
     supabase.from('case_members').select('case_id,member_id,role'),
-    supabase.from('members').select('id,team_id,primary_role').eq('is_active', true),
+    supabase.from('members').select('id,name,team_id,primary_role').eq('is_active', true),
     supabase.from('invoices').select('id,case_id,status,issued_date,amount'),
   ])
 
@@ -47,7 +47,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const teams = (teamsRaw ?? []) as Team[]
   const cases = (casesRaw ?? []) as Array<{ id: string; status: string }>
   const caseMembers = (caseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
-  const members = (membersRaw ?? []) as Array<{ id: string; team_id: string | null; primary_role: string | null }>
+  const members = (membersRaw ?? []) as Array<{ id: string; name: string; team_id: string | null; primary_role: string | null }>
   const invoices = (invoicesRaw ?? []) as Array<{ id: string; case_id: string; status: string; issued_date: string | null; amount: number }>
   const teamMembers = (teamMembersRaw ?? []) as Array<{ team_id: string; member_id: string; kind: 'member' | 'mentor' }>
 
@@ -122,6 +122,29 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const periodLabel = currentPeriod === 'today' ? '本日'
     : currentPeriod === 'month' ? '当月'
     : '年度累計'
+
+  // 全管理担当メンバー一覧（チーム関係なく全員）
+  const teamNameById = new Map(teams.map(t => [t.id, t.name]))
+  const memberRows = members
+    .filter(m => m.primary_role === 'manager' || m.primary_role === 'sub_manager')
+    .map(m => {
+      const myCaseIds = new Set(
+        caseMembers.filter(cm => cm.role === 'manager' && cm.member_id === m.id).map(cm => cm.case_id),
+      )
+      const myCases = cases.filter(c => myCaseIds.has(c.id))
+      const myInvoices = invoices.filter(i => myCaseIds.has(i.case_id) && i.status === '入金済' && periodFilter(i.issued_date))
+      return {
+        id: m.id,
+        name: m.name,
+        teamName: m.team_id ? teamNameById.get(m.team_id) ?? null : null,
+        paidCount: myInvoices.length,
+        paidAmount: myInvoices.reduce((s, i) => s + i.amount, 0),
+        activeCases: myCases.filter(c => c.status === '対応中' || c.status === '受注').length,
+        completedCases: myCases.filter(c => c.status === '完了').length,
+        totalCases: myCases.length,
+      }
+    })
+    .sort((a, b) => (a.teamName ?? 'zzz').localeCompare(b.teamName ?? 'zzz', 'ja') || a.name.localeCompare(b.name, 'ja'))
 
   return (
     <div>
@@ -200,6 +223,45 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
               </tr>
             </tfoot>
           )}
+        </table>
+      </div>
+
+      {/* 全管理担当メンバー一覧 */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-4">
+        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+          <Users className="w-4 h-4 text-purple-600" strokeWidth={2.25} />
+          <h3 className="text-[14px] font-bold text-gray-900">管理担当メンバー一覧（{periodLabel}）</h3>
+          <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{memberRows.length}名</span>
+        </div>
+        <table className="w-full text-[13px]">
+          <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+            <tr>
+              <th className="px-3 py-2 text-left font-bold">氏名</th>
+              <th className="px-3 py-2 text-left font-bold">所属チーム</th>
+              <th className="px-3 py-2 text-right font-bold">請求完了件数</th>
+              <th className="px-3 py-2 text-right font-bold">完了金額</th>
+              <th className="px-3 py-2 text-right font-bold">対応中</th>
+              <th className="px-3 py-2 text-right font-bold">完了(累計)</th>
+              <th className="px-3 py-2 text-right font-bold">担当案件累計</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {memberRows.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-[12px] text-gray-400">管理担当メンバーが登録されていません</td></tr>
+            ) : memberRows.map(m => (
+              <tr key={m.id} className="hover:bg-gray-50/60">
+                <td className="px-3 py-2.5">
+                  <Link href={`/profile/${m.id}`} className="font-semibold text-gray-800 hover:text-brand-700 hover:underline">{m.name}</Link>
+                </td>
+                <td className="px-3 py-2.5 text-gray-600">{m.teamName ?? <span className="text-gray-400">-</span>}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-purple-700 font-bold">{m.paidCount}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-purple-700">¥{m.paidAmount.toLocaleString()}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-brand-700">{m.activeCases}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-green-700">{m.completedCases}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-700">{m.totalCases}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
     </div>
