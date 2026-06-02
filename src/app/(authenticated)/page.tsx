@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import {
-  UserCircle,
   Building2,
   Megaphone,
   Compass,
@@ -45,21 +44,8 @@ export default async function DashboardTopPage() {
 
   const teams = (teamsRaw ?? []) as Array<{ id: string; name: string; sort_order: number }>
 
-  // 4カテゴリ構成（添付2枚目のスペックに合わせる）
+  // マイページはサイドバー最上段へ移設したため、ダッシュボード一覧からは削除
   const sections: CardSection[] = [
-    {
-      title: 'マイページ',
-      description: '自分にしか表示されない個人ページ。アカウント情報に基づいて作成。自分のタスクや数値の把握、月間目標設定など。',
-      cards: [
-        {
-          href: '/my',
-          title: 'マイページ',
-          description: 'あなた専用。月間目標 / 担当案件 / 当月面談 / タスク。受注担当・管理担当で表示が切り替わる。',
-          Icon: UserCircle,
-          tone: 'blue',
-        },
-      ],
-    },
     {
       title: '相続事業部全体',
       description: '相続事業部のメンバー全員がアクセスできる、部全体集計ダッシュボード。',

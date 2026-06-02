@@ -5,7 +5,7 @@ import { PERIOD_OPTIONS, parsePeriod, type DashboardPeriod } from '@/lib/dashboa
 
 /**
  * ダッシュボード共通の期間切替コンポーネント。
- * 4ビュー: 本日 / 当月 / 年度累計 / 月別
+ * 3ビュー: 本日 / 当月 / 年度累計
  * URL の ?period= で状態を保持。
  * 型・パーサは src/lib/dashboardPeriod.ts に分離（サーバから安全に import するため）。
  */

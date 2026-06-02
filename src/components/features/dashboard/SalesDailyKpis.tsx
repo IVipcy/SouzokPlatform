@@ -1,20 +1,31 @@
-import { formatMan, type SalesDailyMetricsBundle } from '@/lib/dashboardMetrics'
+import { formatMan } from '@/lib/dashboardMetrics'
+
+// SalesDailyMetricsBundle / SalesMetricsBundle のどちらも満たす共通6フィールド
+type SalesKpiMetrics = {
+  meetingsCount: number
+  newOrdersCount: number
+  conversionRate: number | null
+  avgOrderUnit: number | null
+  taxFilingCount: number
+  propertyAppraisalCount: number
+}
 
 type Props = {
   scopeLabel: string  // 例: "高橋チーム" or "高橋健一"
-  metrics: SalesDailyMetricsBundle
+  periodLabel: string // 例: "本日" / "当月" / "年度累計"
+  metrics: SalesKpiMetrics
 }
 
 const KPIS = [
-  { key: 'meetings',  label: '本日面談数',       unit: '件/日' },
-  { key: 'newOrders', label: '本日新規受注件数', unit: '件/日' },
-  { key: 'conv',      label: '本日受注率',       unit: '%' },
-  { key: 'avgUnit',   label: '本日平均受注単価', unit: '万円/件' },
-  { key: 'taxFiling', label: '本日 相続税申告', unit: '件/日' },
-  { key: 'appraisal', label: '本日 不動産査定', unit: '件/日' },
+  { key: 'meetings',  label: '面談数',       unit: '件' },
+  { key: 'newOrders', label: '新規受注件数', unit: '件' },
+  { key: 'conv',      label: '受注率',       unit: '%' },
+  { key: 'avgUnit',   label: '平均受注単価', unit: '万円/件' },
+  { key: 'taxFiling', label: '相続税申告',   unit: '件' },
+  { key: 'appraisal', label: '不動産査定',   unit: '件' },
 ] as const
 
-function valueOf(key: typeof KPIS[number]['key'], m: SalesDailyMetricsBundle): string {
+function valueOf(key: typeof KPIS[number]['key'], m: SalesKpiMetrics): string {
   switch (key) {
     case 'meetings':  return String(m.meetingsCount)
     case 'newOrders': return String(m.newOrdersCount)
@@ -25,12 +36,12 @@ function valueOf(key: typeof KPIS[number]['key'], m: SalesDailyMetricsBundle): s
   }
 }
 
-export default function SalesDailyKpis({ scopeLabel, metrics }: Props) {
+export default function SalesDailyKpis({ scopeLabel, periodLabel, metrics }: Props) {
   return (
     <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold text-gray-900">受注担当 {scopeLabel} 本日</h2>
-        <span className="text-[12px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">本日の動き</span>
+        <h2 className="text-lg font-bold text-gray-900">受注担当 {scopeLabel} {periodLabel}</h2>
+        <span className="text-[12px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">{periodLabel}の集計</span>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

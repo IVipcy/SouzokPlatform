@@ -17,6 +17,7 @@ import type { TaskRow } from '@/types'
 import {
   computeSalesDailyMetrics,
   computeSalesMetrics,
+  fiscalYearMonthsToDate,
   todayJstYmd,
   type DashCase,
   type DashCaseMember,
@@ -47,14 +48,16 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const currentView: 'stats' | 'meetings' = view === 'meetings' ? 'meetings' : 'stats'
   const periodLabel = currentPeriod === 'today' ? '本日'
     : currentPeriod === 'month' ? '当月'
-    : currentPeriod === 'ytd' ? '年度累計' : '月別'
+    : '年度累計'
   const supabase = await createClient()
   const today = new Date()
   const ymd = todayJstYmd(today)
   const ym = ymd.slice(0, 7)
 
-  // 当月の月初〜月末（activity_log フィルタ用）— 月次累計と本日集計の両方に必要
-  const monthStart = `${ym}-01T00:00:00`
+  // activity_log フィルタ用。年度累計でも集計できるよう年度初から取得する。
+  const fiscalMonths = fiscalYearMonthsToDate(today) // [当月, ...過去] 降順
+  const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ym
+  const fiscalStart = `${earliestYm}-01T00:00:00`
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
 
@@ -81,7 +84,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .select('entity_id,old_value,new_value,created_at')
       .eq('entity_type', 'case')
       .eq('action', 'status_change')
-      .gte('created_at', monthStart)
+      .gte('created_at', fiscalStart)
       .lt('created_at', nextMonthStart),
     supabase.from('real_estate_properties').select('case_id,appraisal_status'),
     supabase
@@ -161,8 +164,26 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   const scopeChanges = statusChanges.filter(sc => scopeCaseIds.has(sc.entity_id))
   const scopeProperties = properties.filter(p => scopeCaseIds.has(p.case_id))
 
-  // TOP の本日 KPI
+  // TOP の KPI（選択期間に追従: 本日 / 当月 / 年度累計）
   const dailyMetrics = computeSalesDailyMetrics(scopeCases, scopeChanges, scopeProperties, today)
+  const periodMetrics = currentPeriod === 'today'
+    ? dailyMetrics
+    : currentPeriod === 'month'
+      ? computeSalesMetrics(scopeCases, scopeChanges, ym, scopeProperties)
+      : (() => {
+          const per = fiscalMonths.map(m => computeSalesMetrics(scopeCases, scopeChanges, m, scopeProperties))
+          const meetingsCount = per.reduce((s, x) => s + x.meetingsCount, 0)
+          const newOrdersCount = per.reduce((s, x) => s + x.newOrdersCount, 0)
+          const unitW = per.reduce((s, x) => s + (x.avgOrderUnit ?? 0) * x.newOrdersCount, 0)
+          return {
+            meetingsCount,
+            newOrdersCount,
+            conversionRate: meetingsCount > 0 ? newOrdersCount / meetingsCount : null,
+            avgOrderUnit: newOrdersCount > 0 ? unitW / newOrdersCount : null,
+            taxFilingCount: per.reduce((s, x) => s + x.taxFilingCount, 0),
+            propertyAppraisalCount: per.reduce((s, x) => s + x.propertyAppraisalCount, 0),
+          }
+        })()
 
   // チーム合算（テーブル上部の小計）
   const teamCaseIds = new Set<string>()
@@ -260,7 +281,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       </div>
 
       <div className="space-y-3">
-        <SalesDailyKpis scopeLabel={scopeLabel} metrics={dailyMetrics} />
+        <SalesDailyKpis scopeLabel={scopeLabel} periodLabel={periodLabel} metrics={periodMetrics} />
 
         {/* メンバータブ + 追加機能（サマリの下に配置） */}
         <TeamMemberTabs

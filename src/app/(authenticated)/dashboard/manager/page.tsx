@@ -121,7 +121,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   const periodLabel = currentPeriod === 'today' ? '本日'
     : currentPeriod === 'month' ? '当月'
-    : currentPeriod === 'ytd' ? '年度累計' : '月別'
+    : '年度累計'
 
   return (
     <div>
