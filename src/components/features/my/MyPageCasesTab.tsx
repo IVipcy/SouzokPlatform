@@ -69,9 +69,8 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
 
-// 管理案件 = 受注後に管理担当が責任をもつ案件（受注 / 対応中 / 保留・長期）。
-// 相談案件（面談設定済・検討中・失注）や「紹介のみ」「完了」は管理案件一覧には出さない。
-const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+// 管理案件一覧 = 対応中の案件のみ（受注・保留長期・完了・相談案件・紹介のみは出さない）。
+const MANAGEMENT_ACTIVE = new Set(['対応中'])
 
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの経過日数
 // 青: <=3日 / 黄: 4〜7日 / 赤: >7日
@@ -123,19 +122,30 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   }
 
   return (
-    <div className={`bg-white rounded-xl overflow-hidden ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
-      <table className="w-full text-[13px]">
+    <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
+      <table className="w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: 50 }} />
+          <col style={{ width: 100 }} />
+          <col style={{ width: 200 }} />
+          <col style={{ width: 84 }} />
+          <col style={{ width: 96 }} />
+          <col style={{ width: 190 }} />
+          <col style={{ width: 96 }} />
+          <col style={{ width: 110 }} />
+          <col />
+        </colgroup>
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
-            <th className="px-3 py-2 text-center font-bold" style={{ width: 56 }}>フラグ</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>案件管理番号</th>
+            <th className="px-3 py-2 text-center font-bold">フラグ</th>
+            <th className="px-3 py-2 text-left font-bold">案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold">案件名</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 90 }}>ステータス</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 100 }}>受注担当</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 200 }}>進捗</th>
-            <th className="px-3 py-2 text-center font-bold" style={{ width: 100 }}>週次報告状況</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 110 }}>直近お客様報告日</th>
-            <th className="px-3 py-2 text-left font-bold" style={{ width: 200 }}>やり取り詳細</th>
+            <th className="px-3 py-2 text-left font-bold">ステータス</th>
+            <th className="px-3 py-2 text-left font-bold">受注担当</th>
+            <th className="px-3 py-2 text-left font-bold">進捗</th>
+            <th className="px-3 py-2 text-center font-bold">週次報告状況</th>
+            <th className="px-3 py-2 text-left font-bold">直近お客様報告日</th>
+            <th className="px-3 py-2 text-left font-bold">やり取り詳細</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
