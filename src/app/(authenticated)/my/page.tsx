@@ -168,8 +168,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
-        // 受注担当タスク(work_role=sales) / 管理担当タスク(work_role=manager) を統合取得（システムタスクも work_role で含まれる）
-        supabase.from('tasks').select('*, cases(id, case_number, deal_name, status)').in('case_id', caseIdArray).in('work_role', ['sales', 'manager']).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
+        // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
+        // started_by_member は「対応中（名前）」表示に使う
+        supabase.from('tasks').select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*), task_assignees!inner(member_id, role)').eq('task_assignees.member_id', memberId).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,old_value,new_value,created_at').eq('entity_type', 'case').eq('action', 'status_change').in('entity_id', salesCaseIdArray).gte('created_at', fiscalStart).lt('created_at', nextMonthStart)
           : Promise.resolve({ data: [] }),
@@ -377,13 +378,11 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // === 個別管理案件（紹介のみ） ===
   const referralCases = myCases.filter(c => c.status === '紹介のみ')
 
-  // === 自分宛タスク ===
-  // 役割タスク: 受注担当タスク=work_role='sales'、管理担当タスク=work_role='manager'
-  // （システムタスクも work_role を持つので、この1リストに統合される）
-  const mySalesTasks = roleTaskRows.filter(t => t.work_role === 'sales' && salesCaseIds.has(t.case_id))
-  const myManagerTasks = roleTaskRows.filter(t => t.work_role === 'manager' && managerCaseIds.has(t.case_id))
-  const roleTasks = isSales ? mySalesTasks : isManager ? myManagerTasks : []
-  const roleTaskTitle = isSales ? '受注担当タスク' : '管理担当タスク'
+  // === 自分宛タスク（担当者ベース） ===
+  // task_assignees で自分に紐付く未完了タスク（roleTaskRows は既にDB側で絞り込み済み）。
+  // システムタスク・案件タスクを問わず「自分が担当のもの」を1リストに統合表示する。
+  const roleTasks = roleTaskRows
+  const roleTaskTitle = isSales ? '受注担当タスク' : isManager ? '管理担当タスク' : '自分のタスク'
   const taskTabCount = roleTasks.length
 
 
@@ -568,6 +567,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           emptyText={`未完了の${roleTaskTitle}はありません`}
           showCase={true}
           includeCompleted={false}
+          currentMemberId={memberId}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Bot, CheckCircle2, Play, Loader2, AlertTriangle, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { getAssignRoleDef } from '@/lib/constants'
 import type { TaskRow } from '@/types'
 
 type Props = {
@@ -23,6 +24,10 @@ type Props = {
   limit?: number
   /** 「すべて見る」のリンク先 */
   seeAllHref?: string
+  /** 閲覧中のメンバーID（着手＝引き取り時に started_by へ記録） */
+  currentMemberId?: string
+  /** 担当区分ラベル（受注担当/管理担当/両担当）を表示するか（チームタスク欄で使用） */
+  showAssignRole?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -59,6 +64,8 @@ export default function SystemTaskList({
   includeCompleted = false,
   limit,
   seeAllHref,
+  currentMemberId,
+  showAssignRole = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -90,7 +97,13 @@ export default function SystemTaskList({
     try {
       const supabase = createClient()
       const next = current === '着手前' ? '対応中' : '完了'
-      const { error } = await supabase.from('tasks').update({ status: next }).eq('id', task.id)
+      // 着手＝引き取り: started_by に自分を記録（未記録の場合のみ）
+      const patch: { status: string; started_by?: string; started_at?: string } = { status: next }
+      if (next === '対応中' && currentMemberId && !task.started_by) {
+        patch.started_by = currentMemberId
+        patch.started_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
       if (error) throw error
       showToast(`「${task.title}」を${next === '対応中' ? '着手' : '完了'}しました`, 'success')
       startTransition(() => router.refresh())
@@ -134,6 +147,15 @@ export default function SystemTaskList({
                     {task.category}
                   </span>
                 )}
+                {/* 担当区分ラベル（受注担当/管理担当/両担当） */}
+                {showAssignRole && (() => {
+                  const def = getAssignRoleDef(task.assign_role)
+                  return def ? (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${def.pill}`}>
+                      {def.label}
+                    </span>
+                  ) : null
+                })()}
                 <div className="flex-1 min-w-0">
                   <Link
                     href={`/tasks/${task.id}`}
@@ -159,9 +181,11 @@ export default function SystemTaskList({
                     )}
                   </div>
                 </div>
-                {/* ステータスバッジ */}
+                {/* ステータスバッジ（対応中は引き取り者名を併記） */}
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border flex-shrink-0 ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                  {status}
+                  {status === '対応中' && task.started_by_member
+                    ? `対応中（${task.started_by_member.name}）`
+                    : status}
                 </span>
                 {/* 着手/完了ボタン */}
                 {status !== '完了' && (
