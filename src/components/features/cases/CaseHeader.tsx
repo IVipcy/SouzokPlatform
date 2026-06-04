@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
-import { CASE_STATUSES } from '@/lib/constants'
+import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import CaseProgressPanel from './CaseProgressPanel'
@@ -32,7 +32,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '保留・長期', '完了', '失注']
+const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注']
 
 // ステータス系の表示色をブランド単色に統一（per-status カラーは廃止）
 const STATUS_ACTIVE_COLOR = '#0f487e'    // brand-600
@@ -130,7 +130,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
-                  {caseData.status}
+                  {getCaseStatusLabel(caseData.status)}
                   <span className="text-[12px] opacity-70">▾</span>
                 </button>
 
@@ -144,7 +144,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                           s.key === caseData.status ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-700'
                         }`}
                       >
-                        {s.key}
+                        {s.label}
                       </button>
                     ))}
                   </div>
@@ -206,7 +206,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                   <span className={`text-[12px] whitespace-nowrap text-center inline-flex items-center gap-0.5 ${
                     isActive ? 'text-brand-700 font-semibold' : 'text-gray-400'
                   } ${isClickableInProgress ? 'group-hover/step:underline' : ''}`}>
-                    {status}
+                    {getCaseStatusLabel(status)}
                     {isClickableInProgress && (
                       progressOpen
                         ? <ChevronUp className="w-3 h-3" strokeWidth={2.5} />

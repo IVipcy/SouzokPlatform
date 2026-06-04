@@ -237,7 +237,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
               const count = cases.filter(c => c.status === s.key).length
               return (
                 <Link key={s.key} href={buildHref({ status: s.key })} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === s.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                  {s.key}{count > 0 && <span className={`ml-1 text-[10px] font-mono ${statusFilter === s.key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
+                  {s.label}{count > 0 && <span className={`ml-1 text-[10px] font-mono ${statusFilter === s.key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
                 </Link>
               )
             })}

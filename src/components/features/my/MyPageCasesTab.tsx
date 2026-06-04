@@ -183,7 +183,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 )}
               </td>
               <td className="px-3 py-2.5">
-                {statusDef ? <Badge label={c.status} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
+                {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}

@@ -6,7 +6,7 @@ import {
   InlineDate, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
 import {
-  ROLES, TASK_STATUSES, CASE_STATUSES,
+  ROLES, TASK_STATUSES, CASE_STATUSES, getCaseStatusLabel,
   LOCATIONS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
   ORDER_ROUTES, ORDER_ROUTE_DETAILS, LOST_REASONS, MEETING_PLACES,
 } from '@/lib/constants'
@@ -46,10 +46,11 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
               label="案件ステータス"
               value={caseData.status}
               options={CASE_STATUSES.map(s => s.key)}
+              optionLabel={getCaseStatusLabel}
               onSave={v => saveCaseField('status', v)}
               renderValue={v => {
                 const s = CASE_STATUSES.find(cs => cs.key === v)
-                return s ? <Badge label={v} color={s.color} /> : v
+                return s ? <Badge label={s.label} color={s.color} /> : v
               }}
             />
             <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
@@ -73,7 +74,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
             <InlineSelect label="面談場所"      value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
-            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} />
+            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
             <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           </FieldGrid>
         </Section>

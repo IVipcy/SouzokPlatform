@@ -5,7 +5,7 @@ import { Search, Loader2, FileText } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { DISPATCH_DOCUMENT_NAMES } from '@/lib/constants'
+import { DISPATCH_DOCUMENT_NAMES, getCaseStatusLabel } from '@/lib/constants'
 
 type CaseLite = {
   id: string
@@ -202,7 +202,7 @@ export default function NewCaseDocumentModal({ isOpen, onClose, cases, onSaved, 
                           {c.case_number}
                         </span>
                         <span className="text-gray-900 flex-1 truncate">{c.deal_name}</span>
-                        <span className="text-[11px] text-gray-400">{c.status}</span>
+                        <span className="text-[11px] text-gray-400">{getCaseStatusLabel(c.status)}</span>
                       </button>
                     ))
                   )}

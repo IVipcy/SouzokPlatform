@@ -132,7 +132,7 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
               {CASE_STATUSES.map(s => (
-                <option key={s.key} value={s.key}>{s.key}</option>
+                <option key={s.key} value={s.key}>{s.label}</option>
               ))}
             </select>
           </FormField>

@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { BarChart3 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
+import { getCaseStatusLabel } from '@/lib/constants'
 import type { CaseRow, MemberRow, CaseMemberRow } from '@/types'
 
 type InvoiceData = {
@@ -49,7 +50,7 @@ export default function ReportsClient({ cases, members, invoices }: Props) {
   // Pipeline
   const pipeline = useMemo(() => {
     return PIPELINE_STATUSES.map(status => ({
-      label: status,
+      label: getCaseStatusLabel(status),
       count: cases.filter(c => c.status === status).length,
       color: PIPELINE_COLORS[status] || '#9CA3AF',
       amt: cases.filter(c => c.status === status).reduce((s, c) => s + (c.total_asset_estimate ?? 0), 0),

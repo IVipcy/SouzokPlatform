@@ -191,7 +191,7 @@ export default function ConsultationCasesTable({ cases }: Props) {
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.order_route_detail || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.meeting_executed_date ?? '—'}</td>
                     <td className="px-3 py-2.5">
-                      {statusDef ? <Badge label={c.status} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
+                      {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] font-mono">
                       {c.client_response_due_date ? (

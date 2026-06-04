@@ -145,7 +145,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
 }
 
 // ─── InlineSelect (picklist) ───
-export function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue }: {
+export function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue, optionLabel }: {
   label: string
   value?: string | null
   options: string[]
@@ -153,6 +153,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   fullWidth?: boolean
   required?: boolean
   renderValue?: (v: string) => React.ReactNode
+  optionLabel?: (v: string) => string
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -180,7 +181,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>
           ))}
         </select>
       ) : (
@@ -318,10 +319,12 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
     setSaving(false); setEditing(false)
   }
 
+  const missing = required && !value
+
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </div>
       {editing ? (
         <input
@@ -339,11 +342,14 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
       ) : (
         <div
           onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
+          className={`group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded transition-colors ${missing ? 'hover:bg-red-50' : 'hover:bg-brand-50'}`}
           title="クリックして日付を選択"
         >
-          <span className={`text-[13px] font-mono border-b border-dashed border-gray-200 group-hover:border-brand-400 ${value ? 'text-gray-700 font-medium' : 'text-gray-400 text-xs'}`}>
-            {value ?? 'クリックして日付入力'}
+          <span className={`text-[13px] font-mono border-b border-dashed group-hover:border-brand-400 ${
+            value ? 'text-gray-700 font-medium border-gray-200'
+                  : missing ? 'text-red-500 text-xs border-red-300'
+                            : 'text-gray-400 text-xs border-gray-200'}`}>
+            {value ?? (missing ? '⚠ 未設定（必須）' : 'クリックして日付入力')}
           </span>
           <span className="text-gray-400 group-hover:opacity-100 opacity-60 transition-opacity text-[12px]">📅</span>
         </div>

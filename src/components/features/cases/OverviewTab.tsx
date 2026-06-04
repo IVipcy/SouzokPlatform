@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 import {
-  ROLES, TASK_STATUSES, CASE_STATUSES,
+  ROLES, TASK_STATUSES, CASE_STATUSES, getCaseStatusLabel,
   LOCATIONS, TEAMS, PROCEDURE_TYPES, ADDITIONAL_SERVICES, TAX_FILING_OPTIONS,
   KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_PATTERNS, KOSEKI_REQUEST_TYPES,
   ORDER_ROUTES, MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS,
@@ -53,10 +53,11 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
               label="案件ステータス"
               value={caseData.status}
               options={CASE_STATUSES.map(s => s.key)}
+              optionLabel={getCaseStatusLabel}
               onSave={v => saveCaseField('status', v)}
               renderValue={v => {
                 const s = CASE_STATUSES.find(cs => cs.key === v)
-                return s ? <Badge label={v} color={s.color} /> : v
+                return s ? <Badge label={s.label} color={s.color} /> : v
               }}
             />
             <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
@@ -74,7 +75,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
           <FieldGrid>
             <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
-            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} />
+            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
             <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           </FieldGrid>
         </Section>
@@ -428,7 +429,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
 }
 
 // ─── InlineSelect (picklist) ───
-function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue }: {
+function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue, optionLabel }: {
   label: string
   value?: string | null
   options: string[]
@@ -436,6 +437,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
   fullWidth?: boolean
   required?: boolean
   renderValue?: (v: string) => React.ReactNode
+  optionLabel?: (v: string) => string
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -462,7 +464,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>
           ))}
         </select>
       ) : (
@@ -575,10 +577,12 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
     try { await onSave(draft) } finally { setSaving(false); setEditing(false) }
   }
 
+  const missing = required && !value
+
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </div>
       {editing ? (
         <input
@@ -593,8 +597,8 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
         />
       ) : (
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
-            {value ?? '未設定'}
+          <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : missing ? 'text-red-500 text-xs' : 'text-gray-300 italic text-xs'}`}>
+            {value ?? (missing ? '⚠ 未設定（必須）' : '未設定')}
           </span>
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">📅</span>
         </div>

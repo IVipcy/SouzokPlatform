@@ -218,7 +218,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
           {CASE_STATUSES.map(s => (
             <FilterTab
               key={s.key}
-              label={s.key}
+              label={s.label}
               active={statusFilter === s.key}
               onClick={() => setStatusFilter(s.key)}
               count={viewFiltered.filter(c => c.status === s.key).length}
@@ -355,7 +355,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
                       <div className="text-[12px] text-red-500 font-semibold mt-0.5">⚠ 期限超過あり</div>
                     )}
                   </td>
-                  <td className="px-3.5 py-3">{statusDef && <Badge label={statusDef.key} color={statusDef.color} />}</td>
+                  <td className="px-3.5 py-3">{statusDef && <Badge label={statusDef.label} color={statusDef.color} />}</td>
                   <td className="px-3.5 py-3">
                     {c.difficulty && (
                       <span className="inline-flex items-center justify-center w-[22px] h-[22px] rounded text-[13px] font-bold font-mono"
@@ -415,7 +415,7 @@ function KanbanView({ cases, taskCounts, router }: {
             <div key={status.key} className="w-[248px] flex-shrink-0">
               <div className="bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 flex items-center gap-2 shadow-sm mb-2">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                <span className="text-xs font-semibold text-gray-700 flex-1">{status.key}</span>
+                <span className="text-xs font-semibold text-gray-700 flex-1">{status.label}</span>
                 <span className="text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{columnCases.length}</span>
               </div>
               <div className="flex flex-col gap-1.5" style={{ minHeight: 60 }}>

@@ -446,7 +446,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
                   href={buildStatusHref(s.key)}
                   className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === s.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                 >
-                  {s.key}
+                  {s.label}
                   {count > 0 && <span className={`ml-1 text-[10px] font-mono ${statusFilter === s.key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
                 </a>
               )

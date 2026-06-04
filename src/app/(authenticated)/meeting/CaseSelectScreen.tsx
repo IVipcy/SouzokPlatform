@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { getCaseStatusLabel } from '@/lib/constants'
 import type { CaseRow, ClientRow } from '@/types'
 import type { SelectedCase } from './MeetingPageClient'
 
@@ -89,7 +90,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   <td className="px-3.5 py-2.5">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold bg-brand-50 text-brand-600 border border-brand-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {c.status}
+                      {getCaseStatusLabel(c.status)}
                     </span>
                   </td>
                   <td className="px-3.5 py-2.5">

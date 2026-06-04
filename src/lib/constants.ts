@@ -9,17 +9,25 @@ export const PHASES = [
 ] as const
 
 // === 案件ステータス ===
+// key = 内部キー（DB値・既存ロジックの比較に使用。絶対に変更しない）
+// label = 表示名（改称はここだけ。受注→受託 / 失注→不受注 / 架電案件化→新規）
+// 表示は getCaseStatusLabel(key) を使い、key を直接画面に出さない。
 export const CASE_STATUSES = [
-  { key: '架電案件化', color: '#6B7280' },
-  { key: '面談設定済', color: '#3B82F6' },
-  { key: '検討中', color: '#D97706' },
-  { key: '受注', color: '#16A34A' },
-  { key: '対応中', color: '#7C3AED' },
-  { key: '保留・長期', color: '#EA580C' },
-  { key: '完了', color: '#059669' },
-  { key: '失注', color: '#DC2626' },
-  { key: '紹介のみ', color: '#0891B2' },
+  { key: '架電案件化', label: '新規', color: '#6B7280' },
+  { key: '面談設定済', label: '面談設定済', color: '#3B82F6' },
+  { key: '検討中', label: '検討中', color: '#D97706' },
+  { key: '検討中（契約書待ち）', label: '検討中（契約書待ち）', color: '#F59E0B' },
+  { key: '受注', label: '受託', color: '#16A34A' },
+  { key: '対応中', label: '対応中', color: '#7C3AED' },
+  { key: '保留・長期', label: '保留・長期', color: '#EA580C' },
+  { key: '完了', label: '完了', color: '#059669' },
+  { key: '失注', label: '不受注', color: '#DC2626' },
+  { key: '紹介のみ', label: '紹介のみ', color: '#0891B2' },
 ] as const
+
+// 案件ステータスの表示ラベルを取得（未知キーはそのまま返す）
+export const getCaseStatusLabel = (key: string | null | undefined): string =>
+  CASE_STATUSES.find(s => s.key === key)?.label ?? key ?? ''
 
 // === タスクステータス ===
 // メインフローは 3段階（着手前 / 対応中 / 完了）。

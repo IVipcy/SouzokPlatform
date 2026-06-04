@@ -174,7 +174,7 @@ export default function MonthlyMeetingsTable({ cases, title = '当月面談一�
                       </Link>
                     </td>
                     <td className="px-3 py-2.5">
-                      {statusDef ? <Badge label={c.status} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
+                      {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.meeting_date ?? '—'}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.meeting_executed_date ?? '—'}</td>
