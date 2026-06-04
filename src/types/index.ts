@@ -266,6 +266,7 @@ export type TaskRow = {
   priority: string
   work_role: WorkRole | null
   assign_role: AssignRole | null   // migration 056: 担当区分（受注担当/管理担当/両担当）
+  team_id: string | null           // migration 057: 担当チーム（チームタスク欄の基盤）
   due_date: string | null
   procedure_text: string | null
   wcheck_by: string | null

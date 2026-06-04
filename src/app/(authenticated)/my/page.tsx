@@ -10,6 +10,7 @@ import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import {
   computeSalesMetrics,
@@ -559,16 +560,21 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         />
       )}
 
-      {/* タスク（役割で統合: 受注担当タスク / 管理担当タスク） */}
+      {/* タスク（担当者ベース: 自分が担当のタスク） */}
       {activeTab === 'tasks' && (
-        <SystemTaskList
-          tasks={roleTasks}
-          title={roleTaskTitle}
-          emptyText={`未完了の${roleTaskTitle}はありません`}
-          showCase={true}
-          includeCompleted={false}
-          currentMemberId={memberId}
-        />
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <MyTaskCreateButton currentMemberId={memberId} />
+          </div>
+          <SystemTaskList
+            tasks={roleTasks}
+            title={roleTaskTitle}
+            emptyText={`未完了の${roleTaskTitle}はありません`}
+            showCase={true}
+            includeCompleted={false}
+            currentMemberId={memberId}
+          />
+        </div>
       )}
     </div>
   )
