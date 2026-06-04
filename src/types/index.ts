@@ -248,6 +248,12 @@ export type CaseMemberRow = {
  *  - system : システムタスク (案件運用前後の自動生成タスク、前後関係なし) */
 export type TaskKind = 'case' | 'system'
 
+/** システムタスクの担当区分。
+ *  - sales   : 受注担当
+ *  - manager : 管理担当
+ *  - both    : 両担当（受注担当＋管理担当の2人を自動アサイン） */
+export type AssignRole = 'sales' | 'manager' | 'both'
+
 export type TaskRow = {
   id: string
   case_id: string
@@ -259,6 +265,7 @@ export type TaskRow = {
   status: string
   priority: string
   work_role: WorkRole | null
+  assign_role: AssignRole | null   // migration 056: 担当区分（受注担当/管理担当/両担当）
   due_date: string | null
   procedure_text: string | null
   wcheck_by: string | null

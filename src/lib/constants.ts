@@ -29,6 +29,20 @@ export const CASE_STATUSES = [
 export const getCaseStatusLabel = (key: string | null | undefined): string =>
   CASE_STATUSES.find(s => s.key === key)?.label ?? key ?? ''
 
+// === システムタスクの担当区分（assign_role） ===
+// migration 056。チームタスク欄やタスク一覧で「誰が拾うべきか」のラベルに使う。
+export const ASSIGN_ROLES = [
+  { key: 'sales',   label: '受注担当', pill: 'bg-brand-100 text-brand-700 border-brand-300' },
+  { key: 'manager', label: '管理担当', pill: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { key: 'both',    label: '両担当',   pill: 'bg-amber-100 text-amber-700 border-amber-300' },
+] as const
+
+export const getAssignRoleDef = (key: string | null | undefined) =>
+  ASSIGN_ROLES.find(r => r.key === key)
+
+export const getAssignRoleLabel = (key: string | null | undefined): string =>
+  getAssignRoleDef(key)?.label ?? ''
+
 // === タスクステータス ===
 // メインフローは 3段階（着手前 / 対応中 / 完了）。
 // 「差戻し」は次タスクの作業者から内容評価×が付いた時にセットされる例外ステータス。
