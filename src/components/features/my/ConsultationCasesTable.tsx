@@ -150,6 +150,7 @@ export default function ConsultationCasesTable({ cases }: Props) {
                 <SortableTh label="面談実施日"      sortKey="meeting_executed" currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="面談結果"        sortKey="status"           currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="お客様回答予定日" sortKey="response_due"     currentKey={sortKey} order={sortOrder} onClick={handleSort} />
+                <th className="px-3 py-2 text-left font-bold">残り日数</th>
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
                 <th className="px-3 py-2 text-left font-bold">受注内容</th>
                 <th className="px-3 py-2 text-right font-bold">受注金額</th>
@@ -158,7 +159,11 @@ export default function ConsultationCasesTable({ cases }: Props) {
             <tbody className="divide-y divide-gray-100">
               {sorted.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
-                const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && (c.status === '検討中' || c.status === '面談設定済'))
+                const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && (c.status === '検討中' || c.status === '検討中（契約書待ち）' || c.status === '面談設定済'))
+                // 残り日数（お客様回答予定日 − 本日）。マイナス＝超過。
+                const daysRemaining = c.client_response_due_date
+                  ? Math.round((new Date(c.client_response_due_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
+                  : null
                 const procedures = (c.procedure_type ?? []).filter(Boolean)
                 return (
                   <tr key={c.id} className={`hover:bg-gray-50/60 ${dueOverdue ? 'bg-red-50/40' : ''}`}>
@@ -201,6 +206,17 @@ export default function ConsultationCasesTable({ cases }: Props) {
                         </span>
                       ) : (
                         <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono">
+                      {daysRemaining === null ? (
+                        <span className="text-gray-300">—</span>
+                      ) : daysRemaining < 0 ? (
+                        <span className="text-red-600 font-bold">{Math.abs(daysRemaining)}日超過</span>
+                      ) : daysRemaining === 0 ? (
+                        <span className="text-amber-600 font-bold">本日</span>
+                      ) : (
+                        <span className={daysRemaining <= 3 ? 'text-amber-600 font-semibold' : 'text-gray-700'}>あと{daysRemaining}日</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>

@@ -7,7 +7,7 @@ import type { ConsultCase } from '@/components/features/my/ConsultationCasesTabl
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 
 const MANAGEMENT_ACTIVE = new Set(['対応中'])
-const CONSULT = new Set(['面談設定済', '検討中', '受注', '失注', '保留・長期'])
+const CONSULT = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期'])
 
 type CaseRowRaw = {
   id: string
