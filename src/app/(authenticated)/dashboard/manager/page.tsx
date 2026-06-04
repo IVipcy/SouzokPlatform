@@ -7,6 +7,10 @@ import MonthSelector from '@/components/features/dashboard/MonthSelector'
 import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
 import BillingStatusView, { type BillingViewRow, type BillingViewSummary } from '@/components/features/dashboard/BillingStatusView'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
+import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import { todayJstYmd } from '@/lib/dashboardMetrics'
+import type { TaskRow } from '@/types'
 import { CASE_STATUSES } from '@/lib/constants'
 import {
   computeProgressKpis,
@@ -114,6 +118,9 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
     )
   }
 
+  const currentUser = await getCurrentUser()
+  const currentMemberId = currentUser?.memberId ?? null
+
   const caseIdArray = Array.from(scopeCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at').in('id', caseIdArray),
@@ -123,6 +130,27 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as InvoiceFull[]
+
+  // チームタスク欄用: スコープ案件の未完了システムタスク（要対応のみ表示）
+  let systemTasksRaw: unknown[] | null = null
+  try {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
+      .eq('task_kind', 'system')
+      .neq('status', '完了')
+      .in('case_id', caseIdArray)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(100)
+    systemTasksRaw = data
+  } catch { /* migration 046 未適用 → 空扱い */ }
+
+  // 要対応（期限超過 or あと2日以内）に絞る
+  const taskHorizon = new Date(today)
+  taskHorizon.setDate(taskHorizon.getDate() + 2)
+  const taskHorizonStr = todayJstYmd(taskHorizon)
+  const urgentTeamTasks = ((systemTasksRaw ?? []) as TaskRow[])
+    .filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
 
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
@@ -243,6 +271,21 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
             })}
           </div>
           <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+          {/* チームタスク欄（要対応のシステムタスク。担当区分ラベルで誘導・引き取りは全員可） */}
+          {urgentTeamTasks.length > 0 && (
+            <div className="mt-4">
+              <SystemTaskList
+                tasks={urgentTeamTasks}
+                title="チームタスク（要対応）"
+                emptyText="要対応のチームタスクはありません"
+                showCase={true}
+                includeCompleted={false}
+                showAssignRole={true}
+                currentMemberId={currentMemberId ?? undefined}
+                seeAllHref="/tasks?kind=system"
+              />
+            </div>
+          )}
         </>
       ) : (
         <>

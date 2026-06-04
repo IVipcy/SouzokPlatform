@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import { Users } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -93,18 +94,35 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .eq('ym', ym),
   ])
 
+  // 現在のユーザー（チームタスクの引き取り＝started_by 記録に使う）
+  const currentUser = await getCurrentUser()
+  const currentMemberId = currentUser?.memberId ?? null
+
   // 新規追加テーブル系（migration 未適用でも安全にフォールバック）
   let systemTasksRaw: unknown[] | null = null
   try {
     const { data } = await supabase
       .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status)')
+      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
       .eq('task_kind', 'system')
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false })
       .limit(100)
     systemTasksRaw = data
   } catch { /* migration 046 未適用 → 空扱い */ }
+
+  // 担当チーム指定タスク（migration 057。マイページで作成した手動タスク等）
+  let teamTaggedTasksRaw: unknown[] | null = null
+  try {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
+      .eq('team_id', teamId)
+      .neq('status', '完了')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(100)
+    teamTaggedTasksRaw = data
+  } catch { /* migration 057 未適用 → 空扱い */ }
 
   let teamMembersRaw: Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }> | null = null
   try {
@@ -331,22 +349,37 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           )
         })()}
 
-        {/* システムタスク（フォーカスされたメンバー / チーム全体） */}
+        {/* チームタスク欄（チーム全員が気づける統合表示）
+            チーム案件の未完了システムタスク + 担当チーム指定タスクのうち、
+            「期限超過 or あと1〜2日で期限」のものだけを表示（順調なものは出さない）。
+            担当区分ラベルで「誰が拾うべきか」を誘導するソフト制御。引き取りは全員可。 */}
         {(() => {
           const allSystemTasks = (systemTasksRaw ?? []) as TaskRow[]
-          // スコープ案件IDで絞り込み
-          const scopedSystemTasks = allSystemTasks.filter(t => scopeCaseIds.has(t.case_id))
-          if (scopedSystemTasks.length === 0) return null
+          const teamTagged = (teamTaggedTasksRaw ?? []) as TaskRow[]
+
+          // チーム案件のシステムタスク + 担当チーム指定タスクを統合（id 重複排除）
+          const byId = new Map<string, TaskRow>()
+          for (const t of allSystemTasks) {
+            if (teamCaseIds.has(t.case_id)) byId.set(t.id, t)
+          }
+          for (const t of teamTagged) byId.set(t.id, t)
+
+          // 期限が「あと2日以内（=超過含む）」のものに絞る
+          const horizon = new Date(today)
+          horizon.setDate(horizon.getDate() + 2)
+          const horizonStr = todayJstYmd(horizon)
+          const urgent = [...byId.values()].filter(t => !!t.due_date && t.due_date <= horizonStr)
+
+          if (urgent.length === 0) return null
           return (
             <SystemTaskList
-              tasks={scopedSystemTasks}
-              title={focusedMember
-                ? `${focusedMember.name} さんのタスク`
-                : `${team.name}チームのタスク`}
-              emptyText="未完了のタスクはありません"
+              tasks={urgent}
+              title={`${team.name}チームのチームタスク（要対応）`}
+              emptyText="要対応のチームタスクはありません"
               showCase={true}
               includeCompleted={false}
-              limit={15}
+              showAssignRole={true}
+              currentMemberId={currentMemberId ?? undefined}
               seeAllHref="/tasks?kind=system"
             />
           )
