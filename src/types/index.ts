@@ -164,6 +164,15 @@ export type CaseRow = {
   life_insurance_inquiry_notes: string | null
   // 被相続人追加
   deceased_has_special_chars: boolean
+  // 被相続人年齢（相続ステーション連携で受信。生年月日と併存）
+  deceased_age: number | null
+  // 相続ステーション連携：伺い先（訪問面談時の訪問先情報）
+  visit_address: string | null
+  visit_notes: string | null
+  // 相続ステーション連携：相談情報（LP担当ヒアリングで取得）
+  hearing_content: string | null
+  special_notes: string | null
+  other_needs: string | null
   // 不動産査定
   real_estate_appraisal_status: string | null
   // 財産目録・財産調査

@@ -55,6 +55,13 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
     onRefresh()
   }
 
+  const saveCaseNumberField = async (field: string, value: string) => {
+    const supabase = createClient()
+    const num = value.trim() === '' ? null : Number(value)
+    await supabase.from('cases').update({ [field]: num }).eq('id', caseData.id)
+    onRefresh()
+  }
+
   return (
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
@@ -78,6 +85,7 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
               <InlineEdit label="氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
               <InlineEdit label="ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
               <InlineEdit label="生年月日" value={caseData.deceased_birth_date} onSave={v => saveCaseField('deceased_birth_date', v)} mono />
+              <InlineEdit label="年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => saveCaseNumberField('deceased_age', v)} mono />
               <InlineEdit label="相続開始日" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} mono />
               <InlineEdit label="住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
               <InlineEdit label="本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />

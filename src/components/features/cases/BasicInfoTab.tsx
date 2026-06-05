@@ -3,7 +3,7 @@
 import Badge from '@/components/ui/Badge'
 import {
   Section, FieldGrid, Field, QIRow, InlineEdit, InlineSelect, InlineMultiSelect,
-  InlineDate, InlineMemberSelect,
+  InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
   ROLES, TASK_STATUSES, CASE_STATUSES, getCaseStatusLabel,
@@ -68,7 +68,7 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
           </FieldGrid>
         </Section>
 
-        {/* 1-b. 面談内容 — 面談予定日/実施日/場所、お客様回答予定日、失注理由 */}
+        {/* 1-b. 面談内容 — 面談予定日/実施日/場所、お客様回答予定日、失注理由、伺い先 */}
         <Section title="面談内容" icon="🤝">
           <FieldGrid>
             <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
@@ -76,6 +76,17 @@ export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers,
             <InlineSelect label="面談場所"      value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
             <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
             <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
+            <InlineEdit label="伺い先住所"      value={caseData.visit_address}            onSave={v => saveCaseField('visit_address', v)} fullWidth />
+            <InlineEdit label="伺い先補足"      value={caseData.visit_notes}              onSave={v => saveCaseField('visit_notes', v)} fullWidth />
+          </FieldGrid>
+        </Section>
+
+        {/* 1-c. 相談情報（相続ステーション連携で受信） */}
+        <Section title="相談情報" icon="💬">
+          <FieldGrid>
+            <InlineTextarea label="ヒアリング内容"        value={caseData.hearing_content} onSave={v => saveCaseField('hearing_content', v)} fullWidth />
+            <InlineTextarea label="特記事項（社内のみ）"   value={caseData.special_notes}   onSave={v => saveCaseField('special_notes', v)} fullWidth />
+            <InlineTextarea label="その他ニーズ"          value={caseData.other_needs}     onSave={v => saveCaseField('other_needs', v)} fullWidth />
           </FieldGrid>
         </Section>
 
