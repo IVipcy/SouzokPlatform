@@ -295,6 +295,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      procedure_type: c.procedure_type,
       // 進捗（次の未完了タスク + 完了/総数）
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,

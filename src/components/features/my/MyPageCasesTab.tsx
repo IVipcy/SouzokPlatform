@@ -19,6 +19,8 @@ export type MyCaseRow = {
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
+  /** 受注内容（手続区分） */
+  procedure_type?: string[] | null
   /** 進捗: 次の未完了タスク + 完了/総数 */
   nextTaskId?: string | null
   nextTaskTitle?: string | null
@@ -127,6 +129,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
           <col style={{ width: 104 }} />
           <col style={{ width: 200 }} />
           <col style={{ width: 90 }} />
+          <col style={{ width: 90 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 110 }} />
           <col style={{ width: 190 }} />
           <col style={{ width: 112 }} />
           <col style={{ width: 132 }} />
@@ -138,6 +143,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
@@ -178,6 +186,20 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 )}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
+              {/* 管理担当 */}
+              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+              {/* 受注内容（手続区分） */}
+              <td className="px-3 py-2.5">
+                {c.procedure_type && c.procedure_type.filter(Boolean).length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {c.procedure_type.filter(Boolean).map(p => (
+                      <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                    ))}
+                  </div>
+                ) : <span className="text-gray-300">—</span>}
+              </td>
+              {/* 完了予定日 */}
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
               {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
               <td className="px-3 py-2.5">
                 {total > 0 ? (

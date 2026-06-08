@@ -20,6 +20,7 @@ type CaseRowRaw = {
   created_at: string | null
   order_route_detail: string | null
   procedure_type: string[] | null
+  expected_completion_date: string | null
   fee_administrative: number | null
   fee_judicial: number | null
   meeting_executed_date: string | null
@@ -110,13 +111,14 @@ export default async function CasesPage() {
       deal_name: c.deal_name,
       status: c.status,
       deceased_name: null,
-      expected_completion_date: null,
+      expected_completion_date: c.expected_completion_date,
       completion_date: null,
       has_complaint: c.has_complaint,
       last_opened_at: c.last_opened_at,
       created_at: c.created_at,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      procedure_type: c.procedure_type,
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
