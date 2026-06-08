@@ -8,6 +8,7 @@ import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
+import MeetingInfoTab from './MeetingInfoTab'
 import ClientInfoTab from './ClientInfoTab'
 import TasksTab from './TasksTab'
 import DeceasedTab from './DeceasedTab'
@@ -17,7 +18,6 @@ import DivisionTab from './DivisionTab'
 import DocsTab from './DocsTab'
 import DocumentCreateTab from './DocumentCreateTab'
 import ReferralTab from './ReferralTab'
-import HistoryTab from './HistoryTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
@@ -43,7 +43,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['basicInfo', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
+const VALID_TABS: TabKey[] = ['basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts }: Props) {
   const router = useRouter()
@@ -121,8 +121,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       <CaseHeader
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
-        tasks={tasks}
-        properties={properties}
         caseAlerts={caseAlerts}
       />
 
@@ -134,7 +132,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
       {activeTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} caseMembers={caseMembers} tasks={tasks} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} patchClient={patchClient} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} />
+      )}
+      {activeTab === 'meeting' && (
+        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} />
@@ -162,9 +163,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {activeTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
-      )}
-      {activeTab === 'history' && (
-        <HistoryTab caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} />
       )}
 
       <BulkTaskGenerateModal

@@ -1,6 +1,6 @@
 'use client'
 
-export type TabKey = 'basicInfo' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -10,7 +10,8 @@ type Props = {
 }
 
 const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[] = [
-  { key: 'basicInfo', label: '基本情報' },
+  { key: 'basicInfo', label: '案件進捗' },
+  { key: 'meeting', label: '面談情報' },
   { key: 'clientInfo', label: '依頼者情報・やり取り' },
   { key: 'deceased', label: '被相続人・相続人' },
   { key: 'assets', label: '財産情報' },
@@ -20,7 +21,6 @@ const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[
   { key: 'docs', label: '書類', countKey: 'docCount' },
   { key: 'documentCreate', label: '書類作成' },
   { key: 'tasks', label: 'タスク', countKey: 'taskCount' },
-  { key: 'history', label: '進捗報告・履歴' },
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount }: Props) {

@@ -1,273 +1,173 @@
 'use client'
 
+// 「案件進捗」タブ（旧「基本情報」タブ）。
+// 構成: 進行状態サマリー → 基本情報アコーディオン → ［履歴 ｜ Phase別タスク進捗図］
+// 面談内容・相談情報・担当者・受注内容・受注ルート・収益等は「面談情報」タブへ移動済み。
+
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import {
-  Section, FieldGrid, Field, QIRow, InlineEdit, InlineSelect, InlineMultiSelect,
-  InlineDate, InlineMemberSelect, InlineTextarea,
+  FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
-import {
-  ROLES, TASK_STATUSES, CASE_STATUSES, getCaseStatusLabel,
-  LOCATIONS, PROCEDURE_TYPES, ADDITIONAL_SERVICES,
-  ORDER_ROUTES, ORDER_ROUTE_DETAILS, LOST_REASONS, MEETING_PLACES,
-} from '@/lib/constants'
+import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
-import PartnerManagerField from './PartnerManagerField'
+import { todayJstYmd } from '@/lib/dashboardMetrics'
+import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
+import CaseProgressPanel from './CaseProgressPanel'
+import HistoryTab from './HistoryTab'
 
 type Props = {
   caseData: CaseRow
-  caseMembers: CaseMemberRow[]
   tasks: TaskRow[]
+  properties: RealEstatePropertyRow[]
   allMembers: MemberRow[]
-  onRefresh?: () => void
+  currentMemberId: string | null
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
-  patchClient: (patch: Record<string, unknown>) => Promise<void>
 }
 
-export default function BasicInfoTab({ caseData, caseMembers, tasks, allMembers, onRefresh, patchCase }: Props) {
-  const completedTasks = tasks.filter(t => t.status === '完了').length
-  const totalTasks = tasks.length
-  const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
+
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase }: Props) {
+  const [basicOpen, setBasicOpen] = useState(false)
 
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
+  // ── 進行状態サマリー用の集計 ──
+  const todayYmd = todayJstYmd(new Date())
+  const caseTasks = tasks.filter(t => t.task_kind !== 'system')
+  const totalTasks = caseTasks.length
+  const completedTasks = caseTasks.filter(t => t.status === '完了').length
+  const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  const overdueCount = caseTasks.filter(t => t.status !== '完了' && t.due_date && t.due_date < todayYmd).length
+
+  // 現在フェーズ = タスクが残っている最初のPhase（全完了なら「完了」）
+  const currentPhaseLabel = (() => {
+    if (totalTasks === 0) return null
+    for (const p of PHASE_ORDER) {
+      const phaseTasks = caseTasks.filter(t => (t.phase || 'phase1') === p)
+      if (phaseTasks.length === 0) continue
+      if (phaseTasks.some(t => t.status !== '完了')) return getPhaseLabel(p)
+    }
+    return '完了'
+  })()
+
+  const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-      {/* Left column */}
-      <div className="space-y-3.5">
-        {/* 1. 基本情報 */}
-        <Section title="基本情報" icon="📋">
-          <FieldGrid>
-            <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
-            <Field label="管理番号" value={caseData.case_number} mono />
-            <InlineSelect
-              label="案件ステータス"
-              value={caseData.status}
-              options={CASE_STATUSES.map(s => s.key)}
-              optionLabel={getCaseStatusLabel}
-              onSave={v => saveCaseField('status', v)}
-              renderValue={v => {
-                const s = CASE_STATUSES.find(cs => cs.key === v)
-                return s ? <Badge label={s.label} color={s.color} /> : v
-              }}
-            />
-            <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
-            <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
-            <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
-            <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
-            <InlineSelect
-              label="確度"
-              value={caseData.probability != null ? String(caseData.probability) : null}
-              options={['0', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100']}
-              onSave={v => saveCaseField('probability', v != null ? Number(v) : null)}
-              renderValue={v => v != null ? `${v}%` : ''}
-            />
-            <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-          </FieldGrid>
-        </Section>
-
-        {/* 1-b. 面談内容 — 面談予定日/実施日/場所、お客様回答予定日、失注理由、伺い先 */}
-        <Section title="面談内容" icon="🤝">
-          <FieldGrid>
-            <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
-            <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
-            <InlineSelect label="面談場所"      value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
-            <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
-            <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
-            <InlineEdit label="伺い先住所"      value={caseData.visit_address}            onSave={v => saveCaseField('visit_address', v)} fullWidth />
-            <InlineEdit label="伺い先補足"      value={caseData.visit_notes}              onSave={v => saveCaseField('visit_notes', v)} fullWidth />
-          </FieldGrid>
-        </Section>
-
-        {/* 1-c. 相談情報（相続ステーション連携で受信） */}
-        <Section title="相談情報" icon="💬">
-          <FieldGrid>
-            <InlineTextarea label="ヒアリング内容"        value={caseData.hearing_content} onSave={v => saveCaseField('hearing_content', v)} fullWidth />
-            <InlineTextarea label="特記事項（社内のみ）"   value={caseData.special_notes}   onSave={v => saveCaseField('special_notes', v)} fullWidth />
-            <InlineTextarea label="その他ニーズ"          value={caseData.other_needs}     onSave={v => saveCaseField('other_needs', v)} fullWidth />
-          </FieldGrid>
-        </Section>
-
-        {/* 2. 担当者 */}
-        <Section title="担当者" icon="👥">
-          <FieldGrid>
-            {ROLES.map(role => {
-              const assigned = caseMembers.filter(cm => cm.role === role.key)
-              return (
-                <InlineMemberSelect
-                  key={role.key}
-                  label={role.label}
-                  roleKey={role.key}
-                  assigned={assigned}
-                  allMembers={allMembers}
-                  caseId={caseData.id}
-                  onRefresh={onRefresh}
-                  multi={false}
-                />
-              )
-            })}
-          </FieldGrid>
-        </Section>
-
-        {/* 5. 受注内容 */}
-        <Section title="受注内容" icon="📦">
-          <FieldGrid>
-            <InlineMultiSelect
-              label="手続区分"
-              value={caseData.procedure_type}
-              options={[...PROCEDURE_TYPES]}
-              onSave={v => saveCaseField('procedure_type', v)}
-              fullWidth
-              required
-            />
-            <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => saveCaseField('other_procedure', v)} />
-            <InlineMultiSelect
-              label="付帯サービス"
-              value={caseData.additional_services}
-              options={[...ADDITIONAL_SERVICES]}
-              onSave={v => saveCaseField('additional_services', v)}
-              fullWidth
-            />
-          </FieldGrid>
-        </Section>
-
-        {/* 7. 受注ルート・紹介 */}
-        <Section title="受注ルート・紹介" icon="🔗">
-          <FieldGrid>
-            <InlineSelect
-              label="受注ルート"
-              value={caseData.order_route}
-              options={[...ORDER_ROUTES]}
-              onSave={async v => {
-                await patchCase({ order_route: v, order_route_detail: null })
-              }}
-            />
-            {/* 自社・LP直・オーシャン直 → 詳細受注ルート選択 */}
-            {caseData.order_route && ORDER_ROUTE_DETAILS[caseData.order_route] && (
-              <InlineSelect
-                label="詳細受注ルート"
-                value={caseData.order_route_detail}
-                options={ORDER_ROUTE_DETAILS[caseData.order_route] as string[]}
-                onSave={v => saveCaseField('order_route_detail', v)}
-              />
+    <div className="space-y-4">
+      {/* ① 進行状態サマリー（一目でわかる） */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-4 py-3.5">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {/* ステータス */}
+          <SummaryItem label="ステータス">
+            {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-400">—</span>}
+          </SummaryItem>
+          {/* 現在フェーズ */}
+          <SummaryItem label="現在フェーズ">
+            <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
+          </SummaryItem>
+          {/* タスク進捗 */}
+          <SummaryItem label="タスク進捗">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-bold text-gray-900 tabular-nums">{completedTasks}/{totalTasks}</span>
+              <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-brand-600 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+              </div>
+              <span className="text-[13px] font-semibold text-gray-600 tabular-nums">{progressPct}%</span>
+            </div>
+          </SummaryItem>
+          {/* 遅延 */}
+          <SummaryItem label="遅延タスク">
+            {overdueCount > 0 ? (
+              <span className="inline-flex items-center gap-1 text-[14px] font-bold text-red-600">
+                <AlertTriangle className="w-4 h-4" strokeWidth={2.25} />{overdueCount}件
+              </span>
+            ) : (
+              <span className="text-[14px] font-semibold text-emerald-600">なし</span>
             )}
-            {/* その他 → パートナー選択（検索付き） */}
-            {caseData.order_route === 'その他' && (
-              <PartnerManagerField
-                caseId={caseData.id}
-                partnerId={caseData.partner_id}
-                onChange={() => onRefresh?.()}
-                label="パートナー名"
-              />
-            )}
-            <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />
-          </FieldGrid>
-        </Section>
-
+          </SummaryItem>
+          {/* 完了予定日 */}
+          <SummaryItem label="完了予定日">
+            <span className="text-[13px] font-mono text-gray-700">{caseData.expected_completion_date ?? '未設定'}</span>
+          </SummaryItem>
+        </div>
       </div>
 
-      {/* Right column */}
-      <div className="space-y-3.5">
-        {/* Revenue card */}
-        <RevenueCard caseData={caseData} />
+      {/* ② 基本情報（アコーディオン） */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setBasicOpen(o => !o)}
+          className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+        >
+          {basicOpen
+            ? <ChevronDown className="w-4 h-4 text-gray-500" strokeWidth={2.25} />
+            : <ChevronRight className="w-4 h-4 text-gray-500" strokeWidth={2.25} />}
+          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+          <h3 className="text-[13px] font-semibold text-gray-900">基本情報</h3>
+          {!basicOpen && (
+            <span className="text-[12px] text-gray-400 ml-1 truncate">
+              {caseData.deal_name} · {getCaseStatusLabel(caseData.status)}
+            </span>
+          )}
+          <span className="ml-auto text-[12px] text-gray-400">{basicOpen ? '閉じる' : '開く'}</span>
+        </button>
+        {basicOpen && (
+          <div className="px-4 py-3 border-t border-gray-100">
+            <FieldGrid>
+              <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
+              <Field label="管理番号" value={caseData.case_number} mono />
+              <InlineSelect
+                label="案件ステータス"
+                value={caseData.status}
+                options={CASE_STATUSES.map(s => s.key)}
+                optionLabel={getCaseStatusLabel}
+                onSave={v => saveCaseField('status', v)}
+                renderValue={v => {
+                  const s = CASE_STATUSES.find(cs => cs.key === v)
+                  return s ? <Badge label={s.label} color={s.color} /> : v
+                }}
+              />
+              <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
+              <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+              <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
+              <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
+              <InlineSelect
+                label="確度"
+                value={caseData.probability != null ? String(caseData.probability) : null}
+                options={['0', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100']}
+                onSave={v => saveCaseField('probability', v != null ? Number(v) : null)}
+                renderValue={v => v != null ? `${v}%` : ''}
+              />
+              <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
+            </FieldGrid>
+          </div>
+        )}
+      </div>
 
-        {/* Quick info */}
-        <Section title="クイック情報" icon="ℹ️">
-          <div className="space-y-0">
-            <QIRow label="資産概算">
-              <span className="font-mono font-medium text-gray-700">
-                {caseData.total_asset_estimate ? `¥${caseData.total_asset_estimate.toLocaleString()}` : '未設定'}
-              </span>
-            </QIRow>
-            <QIRow label="相続税申告">
-              {caseData.tax_filing_required ? (
-                <Badge
-                  label={caseData.tax_filing_required}
-                  color={caseData.tax_filing_required === '要' ? '#DC2626' : caseData.tax_filing_required === '不要' ? '#059669' : '#D97706'}
-                />
-              ) : (
-                <span className="text-gray-400">未設定</span>
-              )}
-            </QIRow>
-            <QIRow label="申告期限">
-              <span className={`font-mono ${caseData.tax_filing_deadline ? 'text-amber-600' : 'text-gray-400'}`}>
-                {caseData.tax_filing_deadline ?? '未設定'}
-              </span>
-            </QIRow>
-            <QIRow label="被相続人">
-              <span className="font-medium text-gray-700">{caseData.deceased_name ?? '未設定'}</span>
-            </QIRow>
-            <QIRow label="相続開始日">
-              <span className="font-mono text-gray-700">{caseData.date_of_death ?? '未設定'}</span>
-            </QIRow>
-            <QIRow label="拠点">
-              <span className="text-gray-700">{caseData.location ?? '未設定'}</span>
-            </QIRow>
-            <QIRow label="確度">
-              <span className="font-mono text-gray-700">{caseData.probability != null ? `${caseData.probability}%` : '未設定'}</span>
-            </QIRow>
-          </div>
-        </Section>
-
-        {/* Task progress */}
-        <Section title="タスク進捗" icon="✅">
-          <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-gray-500">完了 {completedTasks} / {totalTasks}タスク</span>
-            <span className="font-semibold">{progressPct}%</span>
-          </div>
-          <div className="w-full h-[5px] bg-gray-200 rounded-full overflow-hidden mb-3">
-            <div
-              className="h-full bg-brand-600 rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-          <div className="space-y-1">
-            {tasks.slice(0, 5).map(task => {
-              const statusDef = TASK_STATUSES.find(s => s.key === task.status)
-              return (
-                <div key={task.id} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: statusDef?.color ?? '#6B7280' }}
-                  />
-                  <span className={`flex-1 truncate ${task.status === '完了' ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                    {task.title}
-                  </span>
-                  <span className="text-gray-400 font-mono text-[12px]">{getPhaseLabel(task.phase)}</span>
-                </div>
-              )
-            })}
-            {tasks.length > 5 && (
-              <p className="text-[12px] text-gray-400">他 {tasks.length - 5} タスク</p>
-            )}
-          </div>
-        </Section>
+      {/* ③ ［履歴 ｜ Phase別タスク進捗図］ */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-4 items-start">
+        {/* 左: 進捗報告・履歴 */}
+        <div>
+          <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
+        </div>
+        {/* 右: Phase別タスク進捗 */}
+        <div>
+          <CaseProgressPanel tasks={tasks} properties={properties} />
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Revenue Card ───
-function RevenueCard({ caseData }: { caseData: CaseRow }) {
-  const estimate = caseData.total_asset_estimate ?? 0
-  const hasRevenue = estimate > 0
-
-  if (!hasRevenue) return null
-
+function SummaryItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-      <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件収益見込み</div>
-      <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
-        ¥{estimate.toLocaleString()}
-      </div>
-      <div className="space-y-1 text-[13px]">
-        <div className="flex justify-between">
-          <span className="opacity-70">資産概算</span>
-          <span className="font-mono">¥{estimate.toLocaleString()}</span>
-        </div>
-      </div>
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold text-gray-400 tracking-wide uppercase">{label}</span>
+      <div className="flex items-center min-h-[24px]">{children}</div>
     </div>
   )
 }
