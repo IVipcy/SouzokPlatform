@@ -45,6 +45,7 @@ export function computeCaseAlerts(
     recentWeeklyConfirmed: boolean        // 直近7日に確認済の進捗報告があるか
     overdueTaskCount: number              // 期限超過の未完了タスク数
     docArrivedUnstarted?: boolean         // ダブルチェック済みで未着手の書類があるか
+    docUncheckedUnstarted?: boolean       // 受信簿に登録されたがダブルチェックも着手もされていない書類があるか
   },
   today: Date,
 ): CaseAlertChip[] {
@@ -59,6 +60,7 @@ export function computeCaseAlerts(
 
   if (c.has_complaint && active) out.push({ severity: 'claim', category: 'クレーム' })
   if (active && ctx.docArrivedUnstarted) out.push({ severity: 'high', category: '書類到着（着手待ち）' })
+  else if (active && ctx.docUncheckedUnstarted) out.push({ severity: 'high', category: '書類 未処理（放置）' })
   if (ctx.overdueTaskCount > 0) out.push({ severity: 'high', category: `タスク期限超過${ctx.overdueTaskCount > 1 ? `(${ctx.overdueTaskCount})` : ''}` })
   if (c.status === '受注' && !ctx.managerExists && c.order_received_date && c.order_received_date <= assignCutStr) out.push({ severity: 'high', category: 'アサイン未完了' })
   if (active && (ctx.advanceInvoiceStatus === '作成済' || ctx.advanceInvoiceStatus === '入金待ち')) out.push({ severity: 'high', category: '前受金 未入金' })

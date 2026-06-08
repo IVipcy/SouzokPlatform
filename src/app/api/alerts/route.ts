@@ -68,6 +68,8 @@ export async function GET() {
   const receipts2 = (receiptRaw ?? []) as Array<{ case_id: string; dual_checked_at: string | null; started_by_member_id: string | null }>
   // ダブルチェック済み（着手可能）かつ未着手の書類がある案件
   const docArrivedCaseIds = new Set(receipts2.filter(r => r.dual_checked_at && !r.started_by_member_id).map(r => r.case_id))
+  // 受信簿に登録されたが、ダブルチェックも着手もされず放置されている案件
+  const docUncheckedCaseIds = new Set(receipts2.filter(r => !r.dual_checked_at && !r.started_by_member_id).map(r => r.case_id))
 
   const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
@@ -90,6 +92,8 @@ export async function GET() {
     }
     if (active && docArrivedCaseIds.has(c.id)) {
       push({ id: `docarrive-${c.id}`, severity: 'high', category: '書類到着（着手待ち）', title: name, body: 'ダブルチェック済みの原本が届いています。タスクに着手できます', href: `/documents?case=${c.id}` })
+    } else if (active && docUncheckedCaseIds.has(c.id)) {
+      push({ id: `docunchecked-${c.id}`, severity: 'high', category: '書類 未処理（放置）', title: name, body: '受信簿に登録された書類がダブルチェック・着手されていません', href: `/documents?case=${c.id}` })
     }
     if (isMySales && c.status === '受注' && !managerExists.has(c.id) && c.order_received_date && c.order_received_date <= assignCutoffStr) {
       push({ id: `assign-${c.id}`, severity: 'high', category: 'アサイン未完了', title: name, body: '受注から3日経過・管理担当が未アサイン', href: `${caseHref}?tab=basicInfo` })

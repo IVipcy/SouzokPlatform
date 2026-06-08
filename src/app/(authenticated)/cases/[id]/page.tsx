@@ -107,6 +107,7 @@ export default async function CaseDetailPage({ params }: Props) {
       recentWeeklyConfirmed: repRows.some(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr),
       overdueTaskCount: tasksForAlert.filter(t => t.due_date && t.due_date < nowStr && t.status !== '完了' && t.status !== 'キャンセル').length,
       docArrivedUnstarted: receiptRows.some(r => r.dual_checked_at && !r.started_by_member_id),
+      docUncheckedUnstarted: receiptRows.some(r => !r.dual_checked_at && !r.started_by_member_id),
     },
     now,
   )
