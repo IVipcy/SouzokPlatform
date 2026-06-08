@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
+import CaseTimeline from './CaseTimeline'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
 import MeetingInfoTab from './MeetingInfoTab'
@@ -127,6 +128,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
       />
 
+      {/* 画面上部の進捗表示: 旧ステータスフローに替えて案件タイムラインを常時表示 */}
+      <div className="mb-5">
+        <CaseTimeline
+          caseData={caseState}
+          tasks={tasks}
+          properties={properties}
+          statusHistory={statusHistory}
+          documentReceipts={documentReceipts}
+        />
+      </div>
+
       <CaseTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -135,7 +147,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
       {activeTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} statusHistory={statusHistory} documentReceipts={documentReceipts} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} />
       )}
       {activeTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} />
