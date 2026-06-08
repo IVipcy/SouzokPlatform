@@ -122,7 +122,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
       </div>
 
       {view === 'manage' && <MyPageCasesTab memberId="" cases={filteredManager} />}
-      {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} />}
+      {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} />}
     </div>

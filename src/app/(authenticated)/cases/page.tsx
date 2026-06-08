@@ -38,7 +38,7 @@ type CaseRowRaw = {
   meeting_executed_date: string | null
   client_response_due_date: string | null
   clients: { id: string; name: string } | null
-  case_members: Array<{ role: string; members: { id: string; name: string } | null }>
+  case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
 }
 
 // 確定売上金額: 契約形態に応じて 行政単独=行政報酬 / 司法単独=司法報酬 / 連名=合計
@@ -60,28 +60,35 @@ export default async function CasesPage() {
   const supabase = await createClient()
   const today = new Date()
 
-  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('*, clients(id,name), case_members(role, members(id,name))')
+      .select('*, clients(id,name), case_members(role, members(id,name,team_id))')
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),
     supabase.from('client_communications').select('case_id,communicated_at,detail').order('communicated_at', { ascending: false }),
+    supabase.from('teams').select('id,name'),
   ])
 
   const cases = (casesRaw ?? []) as CaseRowRaw[]
   const tasks = (tasksRaw ?? []) as TaskRowLite[]
   const reports = (reportsRaw ?? []) as ReportLite[]
   const comms = (commsRaw ?? []) as CommLite[]
+  const teamNameById = new Map<string, string>((((teamsRaw ?? []) as Array<{ id: string; name: string }>).map(t => [t.id, t.name])))
 
-  // 担当者名
+  // 担当者名 + 受注担当のチーム名
   const salesByCase = new Map<string, string>()
+  const salesTeamByCase = new Map<string, string>()
   const managerByCase = new Map<string, string>()
   for (const c of cases) {
     for (const cm of c.case_members ?? []) {
       if (!cm.members) continue
-      if (cm.role === 'sales' && !salesByCase.has(c.id)) salesByCase.set(c.id, cm.members.name)
+      if (cm.role === 'sales' && !salesByCase.has(c.id)) {
+        salesByCase.set(c.id, cm.members.name)
+        const teamName = cm.members.team_id ? teamNameById.get(cm.members.team_id) : undefined
+        if (teamName) salesTeamByCase.set(c.id, teamName)
+      }
       if (cm.role === 'manager' && !managerByCase.has(c.id)) managerByCase.set(c.id, cm.members.name)
     }
   }
@@ -162,6 +169,8 @@ export default async function CasesPage() {
     meeting_executed_date: c.meeting_executed_date,
     client_response_due_date: c.client_response_due_date,
     order_route_detail: c.order_route_detail,
+    team_name: salesTeamByCase.get(c.id) ?? null,
+    sales_name: salesByCase.get(c.id) ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
     procedure_type: c.procedure_type,
     order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),

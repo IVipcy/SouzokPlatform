@@ -2,8 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { MessageSquare, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { MessageSquare, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
 export type ConsultCase = {
@@ -15,6 +19,10 @@ export type ConsultCase = {
   client_response_due_date: string | null
   /** 送客元 = 案件詳細の「詳細受注ルート」 */
   order_route_detail: string | null
+  /** チーム = 受注担当メンバーの所属チーム名（manageMode で表示） */
+  team_name?: string | null
+  /** 受注担当者名（manageMode で表示） */
+  sales_name?: string | null
   /** 管理担当者名 */
   manager_name: string | null
   /** 受注内容 = 手続き区分（複数可） */
@@ -33,6 +41,27 @@ export type ConsultCase = {
 
 type Props = {
   cases: ConsultCase[]
+  /** 案件管理ページ用。チーム・受注担当列の表示＋チェックボックス選択・一括削除を有効化 */
+  manageMode?: boolean
+}
+
+// 案件1件分の関連レコードをカスケード削除（CaseListClient と同じ手順）
+async function cascadeDeleteCase(supabase: ReturnType<typeof createClient>, caseId: string) {
+  const { data: tasks } = await supabase.from('tasks').select('id').eq('case_id', caseId)
+  for (const t of tasks ?? []) {
+    await supabase.from('task_assignees').delete().eq('task_id', t.id)
+  }
+  await supabase.from('tasks').delete().eq('case_id', caseId)
+  await supabase.from('case_members').delete().eq('case_id', caseId)
+  await supabase.from('documents').delete().eq('case_id', caseId)
+  await supabase.from('events').delete().eq('case_id', caseId)
+  const { data: invoices } = await supabase.from('invoices').select('id').eq('case_id', caseId)
+  for (const inv of invoices ?? []) {
+    await supabase.from('payments').delete().eq('invoice_id', inv.id)
+  }
+  await supabase.from('invoices').delete().eq('case_id', caseId)
+  const { error } = await supabase.from('cases').delete().eq('id', caseId)
+  if (error) throw new Error(error.message)
 }
 
 // 相談案件のステータス（受注担当が責任をもって管理するステータス）
@@ -55,10 +84,13 @@ const formatMan = (yen: number): string => {
  * - お客様回答予定日が迫っている案件を上から順に表示（デフォルト）
  * - ステータスでフィルタ可能
  */
-export default function ConsultationCasesTable({ cases }: Props) {
+export default function ConsultationCasesTable({ cases, manageMode = false }: Props) {
+  const router = useRouter()
   const [sortKey, setSortKey] = useState<SortKey>('response_due')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const filtered = useMemo(() => {
     if (statusFilter === 'all') return cases
@@ -110,6 +142,42 @@ export default function ConsultationCasesTable({ cases }: Props) {
     }
   }
 
+  // ─── 選択（manageMode のみ） ───
+  const visibleIds = sorted.map(c => c.id)
+  const selectedVisible = visibleIds.filter(id => selected.has(id))
+  const allSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length
+  const someSelected = selectedVisible.length > 0 && !allSelected
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const toggleAll = () => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (allSelected) visibleIds.forEach(id => next.delete(id))
+      else visibleIds.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  // DeleteConfirmModal が削除中状態・エラー表示・クローズを管理する。
+  // ここでは削除を実行し、成功時のみトースト＋選択解除＋リフレッシュ。失敗は throw して modal に委ねる。
+  const handleDeleteSelected = async () => {
+    if (selected.size === 0) return
+    const supabase = createClient()
+    const count = selected.size
+    for (const id of selected) {
+      await cascadeDeleteCase(supabase, id)
+    }
+    showToast(`${count}件の案件を削除しました`, 'success')
+    setSelected(new Set())
+    router.refresh()
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
@@ -130,9 +198,30 @@ export default function ConsultationCasesTable({ cases }: Props) {
             />
           ))}
         </div>
-        <span className="ml-auto text-[11px] text-gray-400">
-          お客様回答予定日が迫っているものが上
-        </span>
+        {manageMode && selected.size > 0 ? (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+              選択を削除
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-[12px] text-gray-400 hover:text-gray-600 px-1"
+            >
+              解除
+            </button>
+          </div>
+        ) : (
+          <span className="ml-auto text-[11px] text-gray-400">
+            お客様回答予定日が迫っているものが上
+          </span>
+        )}
       </div>
 
       {sorted.length === 0 ? (
@@ -144,6 +233,18 @@ export default function ConsultationCasesTable({ cases }: Props) {
           <table className="w-full text-[13px]">
             <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
               <tr>
+                {manageMode && (
+                  <th className="px-3 py-2 text-center font-bold w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = someSelected }}
+                      onChange={toggleAll}
+                      className="w-4 h-4 accent-brand-600 cursor-pointer align-middle"
+                      title="表示中をすべて選択"
+                    />
+                  </th>
+                )}
                 <SortableTh label="案件管理番号"    sortKey="case_number"      currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="案件名"          sortKey="deal_name"        currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <th className="px-3 py-2 text-left font-bold">送客元</th>
@@ -151,6 +252,8 @@ export default function ConsultationCasesTable({ cases }: Props) {
                 <SortableTh label="面談結果"        sortKey="status"           currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="お客様回答予定日" sortKey="response_due"     currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <th className="px-3 py-2 text-left font-bold">残り日数</th>
+                {manageMode && <th className="px-3 py-2 text-left font-bold">チーム</th>}
+                {manageMode && <th className="px-3 py-2 text-left font-bold">受注担当</th>}
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
                 <th className="px-3 py-2 text-left font-bold">受注内容</th>
                 <th className="px-3 py-2 text-right font-bold">受注金額</th>
@@ -168,8 +271,19 @@ export default function ConsultationCasesTable({ cases }: Props) {
                   ? Math.round((new Date(c.client_response_due_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
                   : null
                 const procedures = (c.procedure_type ?? []).filter(Boolean)
+                const isSelected = selected.has(c.id)
                 return (
-                  <tr key={c.id} className={`hover:bg-gray-50/60 ${dueOverdue ? 'bg-red-50/40' : ''}`}>
+                  <tr key={c.id} className={`hover:bg-gray-50/60 ${isSelected ? 'bg-brand-50/50' : dueOverdue ? 'bg-red-50/40' : ''}`}>
+                    {manageMode && (
+                      <td className="px-3 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(c.id)}
+                          className="w-4 h-4 accent-brand-600 cursor-pointer align-middle"
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -222,6 +336,12 @@ export default function ConsultationCasesTable({ cases }: Props) {
                         <span className={daysRemaining <= 3 ? 'text-amber-600 font-semibold' : 'text-gray-700'}>あと{daysRemaining}日</span>
                       )}
                     </td>
+                    {manageMode && (
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.team_name || <span className="text-gray-300">—</span>}</td>
+                    )}
+                    {manageMode && (
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
+                    )}
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5">
                       {procedures.length > 0 ? (
@@ -248,6 +368,14 @@ export default function ConsultationCasesTable({ cases }: Props) {
           </table>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="案件の一括削除"
+        message={`選択した ${selected.size} 件の案件を削除します。関連するタスク・担当者・書類・請求書・入金も全て削除され、取り消せません。本当に削除しますか？`}
+        onConfirm={handleDeleteSelected}
+      />
     </div>
   )
 }
