@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Flag, Trophy, FileText } from 'lucide-react'
+import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, type LucideIcon } from 'lucide-react'
 import { getPhaseDefinition } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
@@ -75,12 +75,12 @@ const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 // historyOnly=true のものは「ステータス遷移の実履歴に該当ステータスがある場合のみ」表示する
 // （= 推測フォールバックでは出さない）。スキップされ得る「検討中」は実履歴必須にして、
 //   面談設定済→受託 のように検討中を踏まなかった案件で誤って出ないようにする。
-const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean; dateOf: (c: CaseRow, firstStarted: string | null) => string | null }[] = [
-  { statuses: ['面談設定済'], label: '面談',         dateOf: c => ymd(c.meeting_executed_date) ?? ymd(c.meeting_date) },
-  { statuses: ['検討中', '検討中（契約書待ち）'], label: '検討結果回答', historyOnly: true, dateOf: c => ymd(c.client_response_due_date) },
-  { statuses: ['受注'],       label: '受注',         dateOf: c => ymd(c.order_received_date) ?? ymd(c.order_date) },
-  { statuses: ['対応中'],     label: '対応開始',     dateOf: (_c, fs) => fs },
-  { statuses: ['完了'],       label: '完了',         dateOf: c => ymd(c.completion_date) },
+const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean; Icon: LucideIcon; dateOf: (c: CaseRow, firstStarted: string | null) => string | null }[] = [
+  { statuses: ['面談設定済'], label: '面談実施日',   Icon: MessagesSquare, dateOf: c => ymd(c.meeting_executed_date) ?? ymd(c.meeting_date) },
+  { statuses: ['検討中', '検討中（契約書待ち）'], label: '検討結果回答', historyOnly: true, Icon: ClipboardCheck, dateOf: c => ymd(c.client_response_due_date) },
+  { statuses: ['受注'],       label: '受注',         Icon: Handshake, dateOf: c => ymd(c.order_received_date) ?? ymd(c.order_date) },
+  { statuses: ['対応中'],     label: '対応開始',     Icon: Play, dateOf: (_c, fs) => fs },
+  { statuses: ['完了'],       label: '完了',         Icon: Trophy, dateOf: c => ymd(c.completion_date) },
 ]
 
 export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full' }: Props) {
@@ -118,9 +118,20 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     .filter(d => d.statuses.some(s => (d.historyOnly ? reachedStrict(s) : reached(s))))
     .map(d => {
       const fromHist = d.statuses.map(s => histDate.get(s)).find(Boolean) ?? null
-      return { label: d.label, date: d.dateOf(caseData, firstStarted) ?? fromHist }
+      return { label: d.label, date: d.dateOf(caseData, firstStarted) ?? fromHist, Icon: d.Icon }
     })
   const showGoalTarget = caseData.status !== '完了'
+
+  // マイルストーン軸ノード（START/GOAL は廃止し、先頭=面談実施日 / 末尾=完了予定 を端点に）
+  const axisNodes: { label: string; date: string | null; state: 'reached' | 'current' | 'future'; Icon: LucideIcon }[] = [
+    ...milestones.map((m, i) => ({
+      label: m.label,
+      date: m.date,
+      Icon: m.Icon,
+      state: (i === milestones.length - 1 && caseData.status !== '完了' ? 'current' : 'reached') as 'reached' | 'current',
+    })),
+    ...(showGoalTarget ? [{ label: '完了予定', date: ymd(caseData.expected_completion_date), state: 'future' as const, Icon: Flag }] : []),
+  ]
 
   // フェーズ別タスク
   const tasksByPhase = new Map<string, TaskRow[]>()
@@ -158,54 +169,34 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         {showDetail && <Legend />}
       </div>
 
-      {/* ① マイルストーン軸（実際に通過したステータスのみ） */}
+      {/* ① マイルストーン軸（大きめアイコン円。先頭=面談実施日 / 末尾=完了予定） */}
       {showMilestones && (
       <div className="overflow-x-auto pb-2">
-        <div className="flex items-start min-w-[640px]">
-          {/* START */}
-          <div className="flex flex-col items-center justify-start pt-1 pr-1 flex-shrink-0">
-            <div className="w-9 h-9 rounded-full bg-brand-700 text-white flex items-center justify-center shadow-sm">
-              <Flag className="w-4 h-4" strokeWidth={2.25} />
-            </div>
-            <span className="mt-1.5 text-[11px] font-bold text-gray-400 tracking-wider">START</span>
-          </div>
-
-          {milestones.map((m, i) => {
-            const isCurrent = i === milestones.length - 1 && caseData.status !== '完了'
+        <div className="flex items-start min-w-[520px] px-1">
+          {axisNodes.map((n, i) => {
+            const isFirst = i === 0
+            const isLast = i === axisNodes.length - 1
+            const leftReached = i > 0 && axisNodes[i - 1].state !== 'future'
+            const rightReached = n.state !== 'future'
+            const circleCls = n.state === 'future'
+              ? 'bg-white text-gray-400 border-2 border-gray-300'
+              : 'bg-brand-700 text-white'
+            const ring = n.state === 'current' ? 'ring-4 ring-brand-100' : ''
             return (
-              <div key={m.label + i} className="flex items-start flex-1 min-w-[130px]">
-                <div className="flex-1 h-[3px] mt-[18px] rounded-full bg-brand-500" />
-                <div className="flex flex-col items-center px-1 flex-shrink-0" style={{ width: 96 }}>
-                  <div className={`rounded-full bg-brand-600 ${isCurrent ? 'w-[18px] h-[18px] ring-4 ring-brand-100' : 'w-3.5 h-3.5'}`} />
-                  <span className="mt-2 text-[12px] text-center leading-tight text-gray-900 font-semibold">{m.label}</span>
-                  <span className="text-[11px] font-mono text-gray-400 mt-0.5">{m.date ?? '—'}</span>
+              <div key={n.label + i} className="flex flex-col items-center flex-1 min-w-[110px]">
+                {/* アイコン円 ＋ 左右の連結線（円の中心で接続） */}
+                <div className="flex items-center w-full">
+                  <span className={`flex-1 h-[3px] rounded-full ${isFirst ? 'opacity-0' : leftReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
+                  <span className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${circleCls} ${ring}`}>
+                    <n.Icon className="w-[22px] h-[22px]" strokeWidth={2} />
+                  </span>
+                  <span className={`flex-1 h-[3px] rounded-full ${isLast ? 'opacity-0' : rightReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
                 </div>
+                <span className={`mt-2 text-[13px] text-center font-semibold ${n.state === 'future' ? 'text-gray-400' : 'text-gray-900'}`}>{n.label}</span>
+                <span className="text-[11px] font-mono text-gray-400 mt-0.5">{n.date ?? '—'}</span>
               </div>
             )
           })}
-
-          {/* 完了予定（未完了時のみ・未来の目標） */}
-          {showGoalTarget && (
-            <div className="flex items-start flex-1 min-w-[130px]">
-              <div className="flex-1 h-[3px] mt-[18px] rounded-full bg-gray-200" />
-              <div className="flex flex-col items-center px-1 flex-shrink-0" style={{ width: 96 }}>
-                <div className="w-3.5 h-3.5 rounded-full bg-white border-2 border-gray-300" />
-                <span className="mt-2 text-[12px] text-center leading-tight text-gray-400">完了予定</span>
-                <span className="text-[11px] font-mono text-gray-400 mt-0.5">{ymd(caseData.expected_completion_date) ?? '—'}</span>
-              </div>
-            </div>
-          )}
-
-          {/* GOAL */}
-          <div className="flex items-start flex-shrink-0">
-            <div className={`flex-1 h-[3px] mt-[18px] rounded-full ${caseData.status === '完了' ? 'bg-brand-500' : 'bg-gray-200'} min-w-[24px]`} />
-            <div className="flex flex-col items-center justify-start pt-1 pl-1">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${caseData.status === '完了' ? 'bg-amber-400 text-white' : 'bg-gray-200 text-gray-400'}`}>
-                <Trophy className="w-4 h-4" strokeWidth={2.25} />
-              </div>
-              <span className="mt-1.5 text-[11px] font-bold text-gray-400 tracking-wider">GOAL</span>
-            </div>
-          </div>
         </div>
       </div>
       )}
@@ -316,6 +307,11 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
   const completed = ymd(task.completed_at)
   const assignee = taskAssignee(task)
   const od = overdueDays(task, todayYmd)
+  // 日付ラベル（完了 > 着手 > 期限 の優先）。各メタ行は固定高さで揃える。
+  const dateText = (state === 'done' && completed) ? `完了 ${completed}`
+    : started ? `着手 ${started}`
+    : task.due_date ? `期限 ${task.due_date}`
+    : ''
   return (
     <div className="flex flex-col items-center flex-shrink-0" style={{ width: NODE_COL_W }}>
       {/* ノード行: ドットを中央に、左右へ連結線 */}
@@ -324,28 +320,23 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
         <span className={`w-[14px] h-[14px] rounded-full border-2 flex-shrink-0 ${NODE_CLS[state]}`} title={`${task.title}（${task.status}）`} />
         <span className={`flex-1 h-[2px] ${isLast ? 'opacity-0' : CONNECTOR}`} />
       </div>
-      {/* ラベル: ドット中央下に配置 */}
+      {/* ラベル: ドット中央下。タイトル/日付/担当は固定高さで横一直線に揃える */}
       <div className="mt-2.5 px-2 text-center w-full">
         <Link
           href={`/tasks/${task.id}`}
-          className={`block text-[12px] leading-snug hover:underline ${titleCls(state)}`}
-          style={{ wordBreak: 'break-word' }}
+          className={`block text-[12px] leading-[16px] line-clamp-2 h-8 hover:underline ${titleCls(state)}`}
           title={`「${task.title}」を開く`}
         >
           {task.title}
         </Link>
-        <div className="mt-1 flex flex-col items-center gap-0.5">
-          {state === 'done' && completed
-            ? <span className="text-[11px] text-gray-400">完了 {completed}</span>
-            : started
-              ? <span className="text-[11px] text-gray-400">着手 {started}</span>
-              : task.due_date
-                ? <span className="text-[11px] text-gray-400">期限 {task.due_date}</span>
-                : null}
-          {assignee && <span className="text-[11px] text-gray-500 truncate max-w-[140px]">{assignee}</span>}
-          {od !== null && (
-            <span className="inline-block text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{od}日超過</span>
-          )}
+        <div className="mt-1.5">
+          <div className="h-[15px] leading-[15px] text-[11px] text-gray-400 truncate">{dateText}</div>
+          <div className="h-[15px] leading-[15px] text-[11px] text-gray-500 truncate">{assignee ?? ''}</div>
+          <div className="h-[20px] flex items-start justify-center">
+            {od !== null && (
+              <span className="inline-block text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{od}日超過</span>
+            )}
+          </div>
         </div>
       </div>
     </div>
