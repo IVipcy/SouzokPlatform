@@ -746,7 +746,7 @@ function BulkActionBar({ count, busy, onClear, onStatus, onDelete }: {
       </span>
       <span className="text-[12px] text-gray-500">一括操作:</span>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {TASK_STATUSES.filter(s => s.key !== '差戻し').map(s => (
+        {TASK_STATUSES.map(s => (
           <button
             key={s.key}
             type="button"
@@ -796,7 +796,7 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
   return (
     <div className="overflow-x-auto pb-3">
       <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-        {TASK_STATUSES.filter(s => s.key !== '差戻し').map(status => {
+        {TASK_STATUSES.map(status => {
           const columnTasks = tasks.filter(t => normalizeStatus(t.status) === status.key)
           return (
             <div key={status.key} className="w-[260px] flex-shrink-0">

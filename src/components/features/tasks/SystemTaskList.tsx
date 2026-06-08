@@ -36,7 +36,6 @@ const STATUS_BADGE: Record<string, string> = {
   '着手前': 'bg-gray-100 text-gray-600 border-gray-200',
   '対応中': 'bg-sky-50  text-sky-700  border-sky-200',
   '完了':   'bg-green-50 text-green-700 border-green-200',
-  '差戻し': 'bg-red-50  text-red-700  border-red-200',
 }
 
 const CATEGORY_BADGE: Record<string, string> = {

@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
@@ -39,11 +39,11 @@ const PRIORITIES = [
   { key: '急ぎ', label: '急ぎ' },
 ]
 
-// ステータス正規化: 旧ステータスを新3段階+差戻しに変換
-// 差戻しは前段タスク評価×時にセットされる例外ステータス（フロー外）
+// ステータス正規化: 旧ステータスを新3段階に変換
+// （差戻しは廃止済み。既存データの差戻しは「対応中」として扱う）
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
-  if (['Wチェック待ち', '保留'].includes(status)) return '対応中'
+  if (['Wチェック待ち', '保留', '差戻し'].includes(status)) return '対応中'
   if (status === 'キャンセル') return '完了'
   return status
 }
@@ -113,19 +113,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
           })
         }
         showToast(`「${task.title}」を完了しました`)
-      } else if (currentStatus === '差戻し') {
-        // 差戻し → 対応中 に戻す（再対応）
-        const { error } = await supabase.from('tasks').update({ status: '対応中' }).eq('id', task.id)
-        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
-        if (memberId) {
-          await supabase.from('case_activities').insert({
-            case_id: task.case_id, task_id: task.id, member_id: memberId,
-            activity_type: 'status_change',
-            description: `${task.title} を再対応開始`,
-            activity_date: new Date().toISOString().split('T')[0],
-          })
-        }
-        showToast(`「${task.title}」を再対応中にしました`)
       }
       router.refresh()
     } catch {
@@ -255,24 +242,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
                   完了
                 </span>
               )}
-              {currentStatus === '差戻し' && (
-                <div className="flex flex-col items-end">
-                  <button
-                    onClick={handleAdvance}
-                    disabled={advancing}
-                    className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                      ${advancing ? 'bg-red-400 cursor-wait scale-95' : 'bg-red-600 hover:bg-red-700 hover:scale-105 active:scale-95'}`}
-                  >
-                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <RotateCcw className="w-4 h-4" strokeWidth={2.25} />}
-                    {advancing ? '処理中...' : '再対応する'}
-                  </button>
-                  <span className="text-[12px] text-red-500 mt-0.5 inline-flex items-center gap-0.5">
-                    <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
-                    差戻されています
-                  </span>
-                </div>
-              )}
-
               {/* 現在ステータス */}
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
@@ -327,39 +296,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
           </div>
         </div>
       </div>
-
-      {/* 差戻しバナー（差戻し理由を見せる） */}
-      {currentStatus === '差戻し' && (() => {
-        const ext = (task.ext_data ?? {}) as Record<string, unknown>
-        const reason = typeof ext.returned_reason === 'string' ? ext.returned_reason : null
-        const returnedAt = typeof ext.returned_at === 'string' ? ext.returned_at.slice(0, 10) : null
-        return (
-          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 mb-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" strokeWidth={2.25} />
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-bold text-red-800 mb-1">
-                  このタスクは差戻されました
-                  {returnedAt && (
-                    <span className="ml-2 text-[12px] font-normal text-red-600">({returnedAt})</span>
-                  )}
-                </div>
-                {reason ? (
-                  <div className="text-[13px] text-gray-800 bg-white border border-red-200 rounded-lg p-2.5 whitespace-pre-line">
-                    <span className="font-semibold text-red-700">差戻し理由: </span>
-                    {reason}
-                  </div>
-                ) : (
-                  <div className="text-[13px] text-gray-600">理由は記録されていません</div>
-                )}
-                <div className="text-[12px] text-red-700 mt-1.5">
-                  内容を修正したら、右上の <span className="font-bold">「再対応する」</span> ボタンを押してください。
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       {/* 3カラムレイアウト
           左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)

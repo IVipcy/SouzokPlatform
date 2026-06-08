@@ -33,7 +33,6 @@ const STATUS_BADGE: Record<string, string> = {
   '着手前': 'bg-gray-100 text-gray-600',
   '対応中': 'bg-blue-100 text-blue-700',
   '完了': 'bg-green-100 text-green-700',
-  '差戻し': 'bg-red-100 text-red-700',
 }
 
 type Mode = 'idle' | 'picker' | 'create'

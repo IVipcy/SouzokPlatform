@@ -44,13 +44,12 @@ export const getAssignRoleLabel = (key: string | null | undefined): string =>
   getAssignRoleDef(key)?.label ?? ''
 
 // === タスクステータス ===
-// メインフローは 3段階（着手前 / 対応中 / 完了）。
-// 「差戻し」は次タスクの作業者から内容評価×が付いた時にセットされる例外ステータス。
+// メインフローは 3段階（着手前 / 対応中 / 完了）。差戻しは廃止。
+// （既存データに残る「差戻し」は各画面の正規化で「対応中」として扱う）
 export const TASK_STATUSES = [
   { key: '着手前', color: '#6B7280' },
   { key: '対応中', color: '#2563EB' },
   { key: '完了', color: '#059669' },
-  { key: '差戻し', color: '#DC2626' },
 ] as const
 
 // === ロール ===
