@@ -161,7 +161,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
   let boardTasks: BoardTask[] = []
-  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; issued_date: string | null; created_at: string | null }> = []
+  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null }> = []
+  let billingPayments: Array<{ invoice_id: string; amount: number }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
   let roleTaskRows: TaskRow[] = []
@@ -175,7 +176,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     try {
       const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
-        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,issued_date,created_at').in('case_id', caseIdArray),
+        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
         // started_by_member は「対応中（名前）」表示に使う
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*), task_assignees!inner(member_id, role)').eq('task_assignees.member_id', memberId).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
@@ -197,6 +198,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
+      if (isManager && invoices.length > 0) {
+        const { data: payRaw } = await supabase.from('payments').select('invoice_id,amount').in('invoice_id', invoices.map(i => i.id))
+        billingPayments = (payRaw ?? []) as typeof billingPayments
+      }
       roleTaskRows = (roleTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
@@ -469,7 +474,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // 請求タブ（管理担当）: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件
   const billingCaseRows = isManager
-    ? buildBillingCaseRows(myCases.filter(c => managerCaseIds.has(c.id)), allCaseMembers, memberObjById, invoices, today)
+    ? buildBillingCaseRows(myCases.filter(c => managerCaseIds.has(c.id)), allCaseMembers, memberObjById, invoices, today, billingPayments)
     : []
 
   // === タブ構成（役割 + 確認依頼の有無で決定） ===

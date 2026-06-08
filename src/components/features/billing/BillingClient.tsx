@@ -15,7 +15,7 @@ import Button from '@/components/ui/Button'
 import { Edit2, FileText } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
-import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES } from '@/lib/constants'
+import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel } from '@/lib/constants'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow } from '@/types'
 
 type InvoiceWithRelations = InvoiceRow & {
@@ -46,11 +46,26 @@ function getPaidAmount(payments: PaymentRow[] | null | undefined): number {
   return payments.reduce((sum, p) => sum + p.amount, 0)
 }
 
-function getSalesAssignee(caseData: InvoiceWithRelations['cases'] | null): { name: string; color: string } | null {
-  if (!caseData?.case_members) return null
-  const sales = caseData.case_members.find(cm => cm.role === 'sales')
-  if (!sales?.members) return null
-  return { name: sales.members.name, color: sales.members.avatar_color }
+function getAssignees(caseData: InvoiceWithRelations['cases'] | null): {
+  sales: { name: string; color: string } | null
+  manager: { name: string; color: string } | null
+} {
+  const sales = caseData?.case_members?.find(cm => cm.role === 'sales')?.members ?? null
+  const manager = caseData?.case_members?.find(cm => cm.role === 'manager')?.members ?? null
+  return {
+    sales: sales ? { name: sales.name, color: sales.avatar_color } : null,
+    manager: manager ? { name: manager.name, color: manager.avatar_color } : null,
+  }
+}
+
+// 契約形態 → 行/司/連名 色（行=青/司=赤/連名=紫）
+function contractDot(contractType: string | null | undefined): { cls: string; label: string } {
+  switch (contractType) {
+    case '行政書士法人単独': return { cls: 'bg-blue-500', label: '行' }
+    case '司法書士法人単独': return { cls: 'bg-red-500', label: '司' }
+    case '行・司連名':       return { cls: 'bg-purple-500', label: '連' }
+    default:                 return { cls: 'bg-gray-300', label: '—' }
+  }
 }
 
 export default function BillingClient({ invoices, cases }: Props) {
@@ -81,17 +96,20 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    case: 240, type: 100, status: 130, amount: 110, paid: 110, diff: 100, assignee: 130, invoiceDate: 100,
+    case: 220, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'case', label: '案件' },
     { key: 'type', label: '請求分類' },
-    { key: 'status', label: 'ステータス' },
+    { key: 'caseStatus', label: '案件ステータス' },
+    { key: 'sales', label: '受注担当' },
+    { key: 'manager', label: '管理担当' },
+    { key: 'status', label: '入金ステータス' },
     { key: 'amount', label: '請求金額', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
     { key: 'diff', label: '差額', align: 'right' },
-    { key: 'assignee', label: '担当' },
     { key: 'invoiceDate', label: '請求日' },
+    { key: 'pdf', label: '請求書PDF' },
   ]
 
   // Modal states
@@ -427,7 +445,7 @@ export default function BillingClient({ invoices, cases }: Props) {
       <div className="grid grid-cols-2 gap-3 mb-5">
         {([
           { key: 'gyosei', label: '行政書士法人', sum: firmSummary.gyosei, ring: 'border-blue-200', head: 'bg-blue-50 text-blue-800', accent: 'text-blue-700' },
-          { key: 'shiho',  label: '司法書士法人', sum: firmSummary.shiho,  ring: 'border-purple-200', head: 'bg-purple-50 text-purple-800', accent: 'text-purple-700' },
+          { key: 'shiho',  label: '司法書士法人', sum: firmSummary.shiho,  ring: 'border-red-200', head: 'bg-red-50 text-red-800', accent: 'text-red-700' },
         ] as const).map(f => (
           <div key={f.key} className={`bg-white border rounded-xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${f.ring}`}>
             <div className={`px-4 py-2 flex items-center justify-between ${f.head}`}>
@@ -516,7 +534,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
@@ -525,7 +543,9 @@ export default function BillingClient({ invoices, cases }: Props) {
                   const st = INVOICE_STATUS_STYLES[inv.status] ?? INVOICE_STATUS_STYLES['作成済']
                   const paidAmount = getPaidAmount(inv.payments)
                   const diff = inv.amount - paidAmount
-                  const assignee = getSalesAssignee(inv.cases)
+                  const { sales, manager } = getAssignees(inv.cases)
+                  const cdot = contractDot(inv.cases?.contract_type)
+                  const caseStatusLabel = getCaseStatusLabel(inv.cases?.status)
                   const caseName = inv.cases?.deal_name || '—'
                   const caseNumber = inv.cases?.case_number || ''
                   const deceasedName = inv.cases?.deceased_name || ''
@@ -564,86 +584,84 @@ export default function BillingClient({ invoices, cases }: Props) {
                           />
                         )}
                       </td>
+                      {/* 案件（左に契約形態色） */}
                       <td className="px-3.5 py-2.5 overflow-hidden">
-                        {inv.cases?.id ? (
-                          <Link
-                            href={`/cases/${inv.cases.id}`}
-                            onClick={e => e.stopPropagation()}
-                            className="block group"
-                          >
-                            <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
-                            <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
-                          </Link>
-                        ) : (
-                          <>
-                            <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
-                            <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
-                          </>
-                        )}
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold text-white flex-shrink-0 ${cdot.cls}`} title={inv.cases?.contract_type ?? '契約形態未設定'}>{cdot.label}</span>
+                          {inv.cases?.id ? (
+                            <Link href={`/cases/${inv.cases.id}`} onClick={e => e.stopPropagation()} className="block group min-w-0">
+                              <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
+                              <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                            </Link>
+                          ) : (
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
+                              <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
                       <td className="px-3.5 py-2.5">
                         <div className="flex flex-col items-start gap-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
-                            {typeLabel}
-                          </span>
-                          {inv.firm_type === 'gyosei' && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">行政書士</span>
-                          )}
-                          {inv.firm_type === 'shiho' && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-purple-50 text-purple-700 border-purple-200">司法書士</span>
-                          )}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>{typeLabel}</span>
+                          {inv.firm_type === 'gyosei' && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">行政書士</span>}
+                          {inv.firm_type === 'shiho' && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-red-50 text-red-700 border-red-200">司法書士</span>}
                         </div>
                       </td>
-                      {/* ステータス（個別ドロップダウン編集可能） */}
+                      {/* 案件ステータス */}
+                      <td className="px-3.5 py-2.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[11px] font-bold bg-gray-50 text-gray-700 border-gray-200">{caseStatusLabel || '—'}</span>
+                      </td>
+                      {/* 受注担当 */}
+                      <td className="px-3.5 py-2.5">
+                        {sales ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: sales.color }}>{sales.name[0]}</div>
+                            <span className="text-xs text-gray-600 truncate">{sales.name}</span>
+                          </div>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
+                      {/* 管理担当 */}
+                      <td className="px-3.5 py-2.5">
+                        {manager ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: manager.color }}>{manager.name[0]}</div>
+                            <span className="text-xs text-gray-600 truncate">{manager.name}</span>
+                          </div>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
+                      {/* 入金ステータス（個別ドロップダウン編集可能） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         {isUnissued ? (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />
-                            {inv.status}
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />{inv.status}
                           </span>
                         ) : (
-                          <select
-                            value={inv.status}
-                            onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`}
-                            title="クリックでステータス変更"
-                          >
-                            {EDITABLE_STATUSES.map(s => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
+                          <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`} title="クリックでステータス変更">
+                            {EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         )}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
                         <div>{fmt(inv.amount)}</div>
                         {inv.expenses_amount > 0 && (
-                          <div className="text-[10px] text-gray-400 font-normal mt-0.5" title="報酬 + 立替実費">
-                            報酬 ¥{inv.fee_amount.toLocaleString()} + 実費 ¥{inv.expenses_amount.toLocaleString()}
-                          </div>
+                          <div className="text-[10px] text-gray-400 font-normal mt-0.5" title="報酬 + 立替実費">報酬 ¥{inv.fee_amount.toLocaleString()} + 実費 ¥{inv.expenses_amount.toLocaleString()}</div>
                         )}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono text-green-600">{fmt(paidAmount)}</td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
-                        {inv.amount > 0 ? (
-                          <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-3.5 py-2.5">
-                        {assignee ? (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: assignee.color }}>
-                              {assignee.name[0]}
-                            </div>
-                            <span className="text-xs text-gray-600">{assignee.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
-                        )}
+                        {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
+                      {/* 請求書PDF */}
+                      <td className="px-3.5 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                        {!isUnissued ? (
+                          <Link href={`/invoices/${inv.id}/preview`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded">
+                            <FileText className="w-3 h-3" strokeWidth={2.25} />プレビュー
+                          </Link>
+                        ) : <span className="text-gray-300 text-[12px]">未発行</span>}
+                      </td>
                     </tr>
                   )
                 })
@@ -656,7 +674,7 @@ export default function BillingClient({ invoices, cases }: Props) {
         {selected && (() => {
           const selPaidAmount = getPaidAmount(selected.payments)
           const selDiff = selected.amount - selPaidAmount
-          const selAssignee = getSalesAssignee(selected.cases)
+          const selAssignee = getAssignees(selected.cases).sales
           return (
             <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden flex-shrink-0">
               <div className="px-4 py-3 border-b border-gray-200">

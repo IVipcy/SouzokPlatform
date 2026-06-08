@@ -9,6 +9,7 @@ export type BillingCaseRow = {
   caseNumber: string
   dealName: string
   contractType: string | null      // 行/司/連名 の色判定に使用
+  firmType: 'gyosei' | 'shiho' | null  // 行/司 集計用（請求書の発行法人、無ければ契約形態から推定）
   procedureType: string[] | null   // 受注内容（手続区分）
   salesId: string | null
   salesName: string | null
@@ -18,9 +19,11 @@ export type BillingCaseRow = {
   managerAvatarUrl: string | null
   bucket: BillingBucket
   invoiceId: string | null
+  invoiceType: string              // 請求分類（前受金 / 確定請求）
   invoiceStatus: string            // 請求(入金)ステータス。未発行は '未請求'
-  amount: number
-  issuedDate: string | null
+  amount: number                   // 請求金額
+  paidAmount: number               // 入金済額
+  issuedDate: string | null        // 請求日
 }
 
 type CaseLike = {
@@ -45,8 +48,18 @@ type InvoiceLike = {
   invoice_type: string
   status: string
   amount: number
+  firm_type?: string | null
   issued_date?: string | null
   created_at?: string | null
+}
+
+function firmFromContract(contractType: string | null | undefined): 'gyosei' | 'shiho' | null {
+  switch (contractType) {
+    case '司法書士法人単独': return 'shiho'
+    case '行政書士法人単独':
+    case '行・司連名': return 'gyosei'
+    default: return null
+  }
 }
 
 // 請求(入金)ステータスのソート順（未請求→作成済→入金待ち→入金済）
@@ -60,8 +73,11 @@ export function buildBillingCaseRows(
   membersById: Map<string, MemberLike>,
   invoices: InvoiceLike[],
   today: Date,
+  payments: Array<{ invoice_id: string; amount: number }> = [],
 ): BillingCaseRow[] {
   const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const paidByInvoice = new Map<string, number>()
+  for (const p of payments) paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount)
 
   // 案件→受注担当/管理担当
   const salesByCase = new Map<string, MemberLike>()
@@ -95,12 +111,16 @@ export function buildBillingCaseRows(
     const estimate = bucket === '受託' ? (c.advance_payment ?? 0) : feeTotal
     const sales = salesByCase.get(c.id) ?? null
     const mgr = managerByCase.get(c.id) ?? null
+    const paid = inv
+      ? (paidByInvoice.get(inv.id) ?? (inv.status === '入金済' ? inv.amount : 0))
+      : 0
 
     rows.push({
       caseId: c.id,
       caseNumber: c.case_number,
       dealName: c.deal_name,
       contractType: c.contract_type ?? null,
+      firmType: (inv?.firm_type as 'gyosei' | 'shiho' | null) ?? firmFromContract(c.contract_type),
       procedureType: c.procedure_type ?? null,
       salesId: sales?.id ?? null,
       salesName: sales?.name ?? null,
@@ -110,8 +130,10 @@ export function buildBillingCaseRows(
       managerAvatarUrl: mgr?.avatar_url ?? null,
       bucket,
       invoiceId: inv?.id ?? null,
+      invoiceType: wantType,
       invoiceStatus: inv?.status ?? '未請求',
       amount: inv?.amount ?? estimate,
+      paidAmount: paid,
       issuedDate: inv?.issued_date ?? null,
     })
   }

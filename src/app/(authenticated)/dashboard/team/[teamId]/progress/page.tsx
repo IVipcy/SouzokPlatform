@@ -41,6 +41,7 @@ type InvoiceFull = DashInvoice & {
   amount: number
   status: string
   invoice_type: string
+  firm_type: string | null
 }
 
 type Props = {
@@ -167,13 +168,23 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase
       .from('invoices')
-      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type')
+      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,firm_type')
       .in('case_id', caseIdArray),
   ])
 
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as InvoiceFull[]
+
+  // 入金額（請求タブの入金済額・差額）用に payments を取得
+  let billingPayments: Array<{ invoice_id: string; amount: number }> = []
+  if (invoices.length > 0) {
+    const { data: payRaw } = await supabase
+      .from('payments')
+      .select('invoice_id,amount')
+      .in('invoice_id', invoices.map(i => i.id))
+    billingPayments = (payRaw ?? []) as Array<{ invoice_id: string; amount: number }>
+  }
 
   // KPI計算
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
@@ -244,6 +255,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     memberById,
     invoices,
     today,
+    billingPayments,
   )
 
   return (
