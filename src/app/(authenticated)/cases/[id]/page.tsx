@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
+import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import { computeCaseAlerts } from '@/lib/alerts'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow } from '@/types'
 
@@ -14,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -74,7 +75,15 @@ export default async function CaseDetailPage({ params }: Props) {
       .order('communicated_at', { ascending: false }),
     supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
     supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
-    supabase.from('document_receipts').select('dual_checked_at,started_by_member_id').eq('case_id', id),
+    supabase.from('document_receipts')
+      .select('id, received_date, dual_checked_at, started_by_member_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(item_name, sort_order)')
+      .eq('case_id', id)
+      .order('received_date', { ascending: true }),
+    // 案件のステータス遷移履歴（マイルストーンを実績ベースで描くために使用）
+    supabase.from('activity_log')
+      .select('new_value, created_at')
+      .eq('entity_type', 'case').eq('action', 'status_change').eq('entity_id', id)
+      .order('created_at', { ascending: true }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -128,6 +137,8 @@ export default async function CaseDetailPage({ params }: Props) {
       documents={(documentsResult.data ?? []) as CaseDocumentRow[]}
       clientCommunications={(clientCommsResult.data ?? []) as ClientCommunicationRow[]}
       currentMemberId={currentUser?.memberId ?? null}
+      statusHistory={(statusHistoryResult.data ?? []) as Array<{ new_value: string | null; created_at: string }>}
+      documentReceipts={(receiptsResult.data ?? []) as unknown as TimelineReceipt[]}
     />
   )
 }

@@ -21,6 +21,7 @@ import ReferralTab from './ReferralTab'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
+import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow } from '@/types'
 
 type Props = {
@@ -38,6 +39,8 @@ type Props = {
   clientCommunications: ClientCommunicationRow[]
   currentMemberId: string | null
   caseAlerts?: import('@/lib/alerts').CaseAlertChip[]
+  statusHistory?: TimelineStatusEvent[]
+  documentReceipts?: TimelineReceipt[]
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -45,7 +48,7 @@ const TRIGGER_FIELDS = new Set(['status'])
 
 const VALID_TABS: TabKey[] = ['basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -132,7 +135,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
       {activeTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} statusHistory={statusHistory} documentReceipts={documentReceipts} />
       )}
       {activeTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} />

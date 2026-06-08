@@ -14,7 +14,7 @@ import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
-import CaseTimeline from './CaseTimeline'
+import CaseTimeline, { type TimelineReceipt, type TimelineStatusEvent } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
 
 type Props = {
@@ -24,11 +24,13 @@ type Props = {
   allMembers: MemberRow[]
   currentMemberId: string | null
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  statusHistory?: TimelineStatusEvent[]
+  documentReceipts?: TimelineReceipt[]
 }
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, statusHistory, documentReceipts }: Props) {
   const [basicOpen, setBasicOpen] = useState(false)
 
   const saveCaseField = async (field: string, value: unknown) => {
@@ -146,10 +148,16 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         )}
       </div>
 
-      {/* ③ 案件タイムライン（横型・全幅） */}
-      <CaseTimeline caseData={caseData} tasks={tasks} properties={properties} />
+      {/* ③ 案件タイムライン（横型・全幅・実績ベース） */}
+      <CaseTimeline
+        caseData={caseData}
+        tasks={tasks}
+        properties={properties}
+        statusHistory={statusHistory}
+        documentReceipts={documentReceipts}
+      />
 
-      {/* ④ 進捗報告・履歴 */}
+      {/* ④ 進捗報告・メモ（活動履歴はタイムラインに統合済み） */}
       <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
     </div>
   )
