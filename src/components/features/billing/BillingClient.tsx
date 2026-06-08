@@ -12,6 +12,7 @@ import RecordPaymentModal from './RecordPaymentModal'
 import CsvImportModal from './CsvImportModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
+import UserAvatar from '@/components/ui/UserAvatar'
 import { Edit2, FileText } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -46,16 +47,16 @@ function getPaidAmount(payments: PaymentRow[] | null | undefined): number {
   return payments.reduce((sum, p) => sum + p.amount, 0)
 }
 
+type Assignee = { id: string; name: string; avatarUrl: string | null }
 function getAssignees(caseData: InvoiceWithRelations['cases'] | null): {
-  sales: { name: string; color: string } | null
-  manager: { name: string; color: string } | null
+  sales: Assignee | null
+  manager: Assignee | null
 } {
   const sales = caseData?.case_members?.find(cm => cm.role === 'sales')?.members ?? null
   const manager = caseData?.case_members?.find(cm => cm.role === 'manager')?.members ?? null
-  return {
-    sales: sales ? { name: sales.name, color: sales.avatar_color } : null,
-    manager: manager ? { name: manager.name, color: manager.avatar_color } : null,
-  }
+  const toA = (m: MemberRow | null): Assignee | null =>
+    m ? { id: m.id, name: m.name, avatarUrl: m.avatar_url ?? null } : null
+  return { sales: toA(sales), manager: toA(manager) }
 }
 
 // 契約形態 → 行/司/連名 色（行=青/司=赤/連名=紫）
@@ -614,21 +615,21 @@ export default function BillingClient({ invoices, cases }: Props) {
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[11px] font-bold bg-gray-50 text-gray-700 border-gray-200">{caseStatusLabel || '—'}</span>
                       </td>
                       {/* 受注担当 */}
-                      <td className="px-3.5 py-2.5">
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         {sales ? (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: sales.color }}>{sales.name[0]}</div>
+                          <Link href={`/profile/${sales.id}`} className="flex items-center gap-1.5 hover:text-brand-700 hover:underline">
+                            <UserAvatar name={sales.name} role="sales" url={sales.avatarUrl} size="sm" />
                             <span className="text-xs text-gray-600 truncate">{sales.name}</span>
-                          </div>
+                          </Link>
                         ) : <span className="text-xs text-gray-300">—</span>}
                       </td>
                       {/* 管理担当 */}
-                      <td className="px-3.5 py-2.5">
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         {manager ? (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: manager.color }}>{manager.name[0]}</div>
+                          <Link href={`/profile/${manager.id}`} className="flex items-center gap-1.5 hover:text-brand-700 hover:underline">
+                            <UserAvatar name={manager.name} role="manager" url={manager.avatarUrl} size="sm" />
                             <span className="text-xs text-gray-600 truncate">{manager.name}</span>
-                          </div>
+                          </Link>
                         ) : <span className="text-xs text-gray-300">—</span>}
                       </td>
                       {/* 入金ステータス（個別ドロップダウン編集可能） */}
