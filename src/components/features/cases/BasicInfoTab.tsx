@@ -4,7 +4,7 @@
 // 構成: 進行状態サマリー → 基本情報アコーディオン → ［履歴 ｜ Phase別タスク進捗図］
 // 面談内容・相談情報・担当者・受注内容・受注ルート・収益等は「面談情報」タブへ移動済み。
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import {
@@ -14,7 +14,7 @@ import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
-import CaseProgressPanel from './CaseProgressPanel'
+import CaseTimeline from './CaseTimeline'
 import HistoryTab from './HistoryTab'
 
 type Props = {
@@ -54,16 +54,14 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
     return '完了'
   })()
 
-  const statusDef = CASE_STATUSES.find(s => s.key === caseData.status)
-
   return (
     <div className="space-y-4">
       {/* ① 進行状態サマリー（一目でわかる） */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-4 py-3.5">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          {/* ステータス */}
+          {/* ステータス（編集可能・ブランド単色でヘッダーのフローと統一） */}
           <SummaryItem label="ステータス">
-            {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-400">—</span>}
+            <StatusChipDropdown status={caseData.status} onChange={s => saveCaseField('status', s)} />
           </SummaryItem>
           {/* 現在フェーズ */}
           <SummaryItem label="現在フェーズ">
@@ -148,17 +146,11 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         )}
       </div>
 
-      {/* ③ ［履歴 ｜ Phase別タスク進捗図］ */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-4 items-start">
-        {/* 左: 進捗報告・履歴 */}
-        <div>
-          <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
-        </div>
-        {/* 右: Phase別タスク進捗 */}
-        <div>
-          <CaseProgressPanel tasks={tasks} properties={properties} />
-        </div>
-      </div>
+      {/* ③ 案件タイムライン（横型・全幅） */}
+      <CaseTimeline caseData={caseData} tasks={tasks} properties={properties} />
+
+      {/* ④ 進捗報告・履歴 */}
+      <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
     </div>
   )
 }
@@ -168,6 +160,51 @@ function SummaryItem({ label, children }: { label: string; children: React.React
     <div className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold text-gray-400 tracking-wide uppercase">{label}</span>
       <div className="flex items-center min-h-[24px]">{children}</div>
+    </div>
+  )
+}
+
+// 案件ステータスの編集チップ（ブランド単色。ヘッダーのステータスフローと色を統一）
+function StatusChipDropdown({ status, onChange }: { status: string; onChange: (s: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
+        {getCaseStatusLabel(status)}
+        <span className="text-[12px] opacity-70">▾</span>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] z-50 overflow-hidden">
+          {CASE_STATUSES.map(s => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => { setOpen(false); if (s.key !== status) onChange(s.key) }}
+              className={`w-full px-3.5 py-2 text-xs font-medium flex items-center hover:bg-gray-50 transition-colors ${
+                s.key === status ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-700'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
