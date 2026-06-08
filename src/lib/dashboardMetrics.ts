@@ -635,6 +635,37 @@ export function computeSalesMetricsForRange(
   }
 }
 
+// 複数月の SalesMetricsBundle を当期累計に合算する。
+// 件数・金額は単純合算。受注率/平均単価/サイクルは件数で加重平均する。
+export function sumSalesMetrics(bundles: SalesMetricsBundle[]): SalesMetricsBundle {
+  let meetingsCount = 0, newOrdersCount = 0, taxFilingCount = 0, propertyAppraisalCount = 0
+  let expectedCompletions = 0, completedCount = 0, completedAmount = 0
+  let unitWeighted = 0, cycleWeighted = 0
+  for (const b of bundles) {
+    meetingsCount += b.meetingsCount
+    newOrdersCount += b.newOrdersCount
+    taxFilingCount += b.taxFilingCount
+    propertyAppraisalCount += b.propertyAppraisalCount
+    expectedCompletions += b.expectedCompletions
+    completedCount += b.completedCount
+    completedAmount += b.completedAmount
+    if (b.avgOrderUnit !== null) unitWeighted += b.avgOrderUnit * b.newOrdersCount
+    if (b.avgCycleMonths !== null) cycleWeighted += b.avgCycleMonths * b.completedCount
+  }
+  return {
+    meetingsCount,
+    newOrdersCount,
+    conversionRate: meetingsCount > 0 ? newOrdersCount / meetingsCount : null,
+    avgOrderUnit: newOrdersCount > 0 ? unitWeighted / newOrdersCount : null,
+    taxFilingCount,
+    propertyAppraisalCount,
+    expectedCompletions,
+    completedCount,
+    completedAmount,
+    avgCycleMonths: completedCount > 0 ? cycleWeighted / completedCount : null,
+  }
+}
+
 // ============================================================
 // 部全体ダッシュボード（サマリ / 内訳別）用
 // ============================================================

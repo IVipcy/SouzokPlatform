@@ -9,10 +9,17 @@ import SalesTeamTable, {
 import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
+import SalesYearMatrixTable, {
+  type MatrixColumn,
+  type MatrixTeamGroup,
+  type MatrixMemberRow,
+} from '@/components/features/dashboard/SalesYearMatrixTable'
 import { parsePeriod } from '@/lib/dashboardPeriod'
 import {
   computeSalesMetrics,
   computeSalesDailyMetrics,
+  sumSalesMetrics,
+  monthHeaderLabel,
   fiscalYearMonthsToDate,
   EMPTY_SALES_TARGET,
   isSalesAchieved,
@@ -21,6 +28,7 @@ import {
   type DashProperty,
   type DashStatusChange,
   type SalesTargetRow,
+  type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
 
 type MemberRow = {
@@ -88,8 +96,8 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
       .maybeSingle(),
     supabase
       .from('member_targets')
-      .select('member_id,new_orders_count')
-      .eq('ym', ym),
+      .select('member_id,ym,new_orders_count')
+      .in('ym', fiscalMonths),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]
@@ -98,8 +106,11 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
   const teams = (teamsRaw ?? []) as TeamRow[]
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
-  const memberTargets = (memberTargetsRaw ?? []) as Array<{ member_id: string; new_orders_count: number }>
-  const memberTargetByMember = new Map(memberTargets.map(t => [t.member_id, t.new_orders_count]))
+  const memberTargets = (memberTargetsRaw ?? []) as Array<{ member_id: string; ym: string; new_orders_count: number }>
+  // 当月の個人目標（当月テーブル・達成判定用）
+  const memberTargetByMember = new Map(memberTargets.filter(t => t.ym === ym).map(t => [t.member_id, t.new_orders_count]))
+  // 各月の個人目標（年度累計マトリクスの「目標」列用）: `${member_id}:${ym}` → 件数
+  const memberTargetByMemberYm = new Map(memberTargets.map(t => [`${t.member_id}:${t.ym}`, t.new_orders_count]))
 
   // メンバーごとの担当案件IDセット
   const caseIdsByMember = new Map<string, Set<string>>()
@@ -190,6 +201,62 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
     }
   })
 
+  // 年度累計ビュー用: チーム別／個人別 月次マトリクス（左=当期累計、右=各月降順）
+  const matrixColumns: MatrixColumn[] = [
+    { key: 'cum', label: '当期累計', isCumulative: true },
+    ...fiscalMonths.map(m => ({ key: m, label: monthHeaderLabel(m), isCumulative: false })),
+  ]
+  const matrixGroups: MatrixTeamGroup[] = groupKeys.map(key => {
+    const mem = byTeam[key]
+    const teamCaseIds = new Set<string>()
+    for (const m of mem) {
+      const ids = caseIdsByMember.get(m.id)
+      if (ids) for (const id of ids) teamCaseIds.add(id)
+    }
+    const teamFiltered = filterByIds(teamCaseIds)
+    const teamMonthBundles: SalesMetricsBundle[] = fiscalMonths.map(mo =>
+      computeSalesMetrics(teamFiltered.cases, teamFiltered.changes, mo, teamFiltered.properties),
+    )
+    const teamCells = [
+      { metrics: sumSalesMetrics(teamMonthBundles), target: null },
+      ...teamMonthBundles.map(b => ({ metrics: b, target: null })),
+    ]
+
+    const matrixMembers: MatrixMemberRow[] = mem
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      .map(m => {
+        const myIds = caseIdsByMember.get(m.id) ?? new Set<string>()
+        const my = filterByIds(myIds)
+        const monthBundles: SalesMetricsBundle[] = fiscalMonths.map(mo =>
+          computeSalesMetrics(my.cases, my.changes, mo, my.properties),
+        )
+        const monthTargets = fiscalMonths.map(mo => memberTargetByMemberYm.get(`${m.id}:${mo}`) ?? null)
+        const cumTarget = monthTargets.reduce<number | null>(
+          (s, t) => (t !== null ? (s ?? 0) + t : s), null,
+        )
+        const cells = [
+          { metrics: sumSalesMetrics(monthBundles), target: cumTarget },
+          ...monthBundles.map((b, i) => ({ metrics: b, target: monthTargets[i] })),
+        ]
+        return {
+          id: m.id,
+          name: m.name,
+          jobType: m.job_type,
+          joinedAt: m.joined_at,
+          avatarUrl: m.avatar_url,
+          achieved: (memberTargetByMember.get(m.id) ?? 0) > 0
+            && computeSalesMetrics(my.cases, my.changes, ym, my.properties).newOrdersCount >= (memberTargetByMember.get(m.id) ?? 0),
+          cells,
+        }
+      })
+
+    return {
+      teamName: key === '__unassigned__' ? UNASSIGNED_TEAM : (teamNameById.get(key) ?? '不明'),
+      teamCells,
+      members: matrixMembers,
+    }
+  })
+
   // 達成判定（目標が1つでも設定されていればポップアップ表示）。当月のみ。
   const achievement = isSalesAchieved(overall, initialTarget)
 
@@ -237,12 +304,13 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
           />
           <SalesTeamTable groups={groups} today={today} ym={ym} />
         </div>
+      ) : currentPeriod === 'today' ? (
+        <SalesDailyKpis scopeLabel="部全体" periodLabel={periodLabel} metrics={overallToday} />
       ) : (
-        <SalesDailyKpis
-          scopeLabel="部全体"
-          periodLabel={periodLabel}
-          metrics={currentPeriod === 'today' ? overallToday : overallYtd}
-        />
+        <div className="space-y-3">
+          <SalesDailyKpis scopeLabel="部全体" periodLabel={periodLabel} metrics={overallYtd} />
+          <SalesYearMatrixTable columns={matrixColumns} groups={matrixGroups} today={today} />
+        </div>
       )}
     </div>
   )
