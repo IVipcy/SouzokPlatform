@@ -14,6 +14,7 @@ import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import {
   computeSalesMetrics,
+  computeSalesMetricsForDay,
   computeProgressKpis,
   fiscalYearMonthsToDate,
   type DashCase,
@@ -74,9 +75,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const ymToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`
   const todayStr = `${ymToday}-${pad(today.getDate())}`
 
-  // 相談案件の期間切替（当月／当期の過去月／当期累計）。デフォルトは当月
+  // 相談案件の期間切替（本日／当月／当期累計）。デフォルトは当月
   const fiscalMonths = fiscalYearMonthsToDate(today) // [当月, ...過去] の降順
-  const selectedPeriod: string = period === 'all' || (period && fiscalMonths.includes(period)) ? period! : ymToday
+  const selectedPeriod: string = (period === 'today' || period === 'all') ? period : ymToday
 
   // === 1st fetch ===
   const [{ data: myCaseRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
@@ -323,10 +324,16 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   const salesMetrics = selectedPeriod === 'all'
     ? cumulativeSalesMetrics(fiscalMonths.map(m => computeSalesMetrics(salesDashCases, salesChanges, m, salesProps)))
-    : computeSalesMetrics(salesDashCases, salesChanges, selectedPeriod, salesProps)
+    : selectedPeriod === 'today'
+      ? computeSalesMetricsForDay(salesDashCases, salesChanges, today, salesProps)
+      : computeSalesMetrics(salesDashCases, salesChanges, selectedPeriod, salesProps)
 
   let consultCasesArr = myCases.filter(c => salesCaseIds.has(c.id) && CONSULT_STATUSES.has(c.status))
-  if (selectedPeriod !== 'all') {
+  if (selectedPeriod === 'today') {
+    consultCasesArr = consultCasesArr.filter(c =>
+      c.meeting_date === todayStr || c.meeting_executed_date === todayStr,
+    )
+  } else if (selectedPeriod !== 'all') {
     consultCasesArr = consultCasesArr.filter(c =>
       c.meeting_date?.startsWith(selectedPeriod) || c.meeting_executed_date?.startsWith(selectedPeriod),
     )
@@ -387,9 +394,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const taskTabCount = roleTasks.length
 
 
-  // 期間切替の選択肢
+  // 期間切替の選択肢（本日／当月／当期累計）
   const periodOptions: Array<{ key: string; label: string }> = [
-    ...fiscalMonths.map(m => ({ key: m, label: m === ymToday ? '当月' : `${Number(m.split('-')[1])}月` })),
+    { key: 'today', label: '本日' },
+    { key: ymToday, label: '当月' },
     { key: 'all', label: '当期累計' },
   ]
 
