@@ -307,9 +307,10 @@ export function computeProgressKpis(
         )
       })()
 
-  // 各案件のフラグ集計
+  // 各案件のフラグ集計（フラグ＝最終接触からの鮮度。月フィルタとは無関係に
+  // 全アクティブ案件で集計する。これで青+黄+赤+紫＝担当件数となり一覧の表示と一致する）
   let blueCount = 0, yellowCount = 0, redCount = 0, purpleCount = 0
-  for (const c of monthFiltered) {
+  for (const c of activeCases) {
     const flag = computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
     if (flag === 'purple') purpleCount++
     else if (flag === 'red') redCount++
