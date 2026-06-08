@@ -202,9 +202,9 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       )}
 
       {showDetail && (<>
-      {/* ② 受注後の初期対応（系統タスク） */}
+      {/* ② 受注/管理担当タスク（系統タスク） */}
       {sortedSystem.length > 0 && (
-        <TaskLane title="受注後の初期対応" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} />
+        <TaskLane title="受注/管理担当タスク" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} />
       )}
 
       {/* ③ 書類到着（実績ベース） */}
@@ -243,7 +243,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       {/* ④ フェーズ別タスク */}
       {orderedPhases.length > 0 && (
         <div className={`${sepCls('phases')} space-y-4`}>
-          <h4 className="text-[13px] font-bold text-gray-800">対応中の作業（フェーズ別）</h4>
+          <h4 className="text-[13px] font-bold text-gray-800">事務管理担当タスク</h4>
           {orderedPhases.map(p => {
             const total = p.tasks.length
             const done = p.tasks.filter(t => t.status === '完了').length
