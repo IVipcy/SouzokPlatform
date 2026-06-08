@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bot, CheckCircle2, Play, Loader2, AlertTriangle, Briefcase } from 'lucide-react'
+import { Bot, CheckCircle2, Play, Loader2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { getAssignRoleDef } from '@/lib/constants'
@@ -133,81 +133,117 @@ export default function SystemTaskList({
       {shown.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12px] text-gray-400">{emptyText}</div>
       ) : (
-        <ul className="divide-y divide-gray-100">
-          {shown.map(task => {
-            const status = normalizeStatus(task.status)
-            const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
-            const caseData = task.cases
-            const isBusy = busyId === task.id
-            return (
-              <li key={task.id} className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50/60 ${isOverdue ? 'bg-red-50/30' : ''}`}>
-                {/* カテゴリ */}
-                {task.category && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${CATEGORY_BADGE[task.category] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                    {task.category}
-                  </span>
-                )}
-                {/* 担当区分ラベル（受注担当/管理担当/両担当） */}
-                {showAssignRole && (() => {
-                  const def = getAssignRoleDef(task.assign_role)
-                  return def ? (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${def.pill}`}>
-                      {def.label}
-                    </span>
-                  ) : null
-                })()}
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className={`text-[13px] font-semibold truncate block hover:text-brand-600 hover:underline ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}
-                  >
-                    {task.title}
-                  </Link>
-                  <div className="flex items-center gap-2 mt-0.5 text-[11px]">
-                    {showCase && caseData && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500">
+              <tr>
+                {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作業内容</th>
+                <th className="px-3 py-2 text-center font-bold whitespace-nowrap">ステータス</th>
+                <th className="px-3 py-2 text-center font-bold whitespace-nowrap"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {shown.map(task => {
+                const status = normalizeStatus(task.status)
+                const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
+                const caseData = task.cases
+                const isBusy = busyId === task.id
+                const assignDef = showAssignRole ? getAssignRoleDef(task.assign_role) : null
+                return (
+                  <tr key={task.id} className={`hover:bg-gray-50/60 ${isOverdue ? 'bg-red-50/30' : ''}`}>
+                    {/* 案件名 */}
+                    {showCase && (
+                      <td className="px-3 py-2.5 align-top">
+                        {caseData ? (
+                          <Link href={`/cases/${caseData.id}`} className="text-[12px] text-gray-600 hover:text-brand-600 hover:underline truncate block max-w-[160px]">
+                            {caseData.deal_name}
+                          </Link>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
+                    {/* カテゴリ（＋担当区分ラベル） */}
+                    <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                      <div className="flex flex-col gap-1 items-start">
+                        {task.category && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${CATEGORY_BADGE[task.category] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                            {task.category}
+                          </span>
+                        )}
+                        {assignDef && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${assignDef.pill}`}>
+                            {assignDef.label}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {/* タスク名 */}
+                    <td className="px-3 py-2.5 align-top">
                       <Link
-                        href={`/cases/${caseData.id}`}
-                        className="inline-flex items-center gap-0.5 text-gray-500 hover:text-brand-600 hover:underline truncate max-w-[200px]"
+                        href={`/tasks/${task.id}`}
+                        className={`text-[13px] font-semibold hover:text-brand-600 hover:underline block max-w-[220px] truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}
+                        title={task.title}
                       >
-                        <Briefcase className="w-3 h-3" strokeWidth={2} />
-                        {caseData.deal_name}
+                        {task.title}
                       </Link>
-                    )}
-                    {task.due_date && (
-                      <span className={`font-mono ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>
-                        {isOverdue && <AlertTriangle className="w-3 h-3 inline mr-0.5" strokeWidth={2.25} />}
-                        {task.due_date}
+                    </td>
+                    {/* タスク期限 */}
+                    <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px]">
+                      {task.due_date ? (
+                        <span className={isOverdue ? 'text-red-600 font-bold inline-flex items-center gap-0.5' : 'text-gray-600'}>
+                          {isOverdue && <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />}
+                          {task.due_date}
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* 作業内容（先頭数行を省略表示・全文はホバー） */}
+                    <td className="px-3 py-2.5 align-top">
+                      {task.procedure_text ? (
+                        <p
+                          className="text-[12px] text-gray-500 leading-snug max-w-[280px] overflow-hidden"
+                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                          title={task.procedure_text}
+                        >
+                          {task.procedure_text}
+                        </p>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* ステータス（対応中は引き取り者名を併記） */}
+                    <td className="px-3 py-2.5 align-top text-center whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                        {status === '対応中' && task.started_by_member
+                          ? `対応中（${task.started_by_member.name}）`
+                          : status}
                       </span>
-                    )}
-                  </div>
-                </div>
-                {/* ステータスバッジ（対応中は引き取り者名を併記） */}
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border flex-shrink-0 ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                  {status === '対応中' && task.started_by_member
-                    ? `対応中（${task.started_by_member.name}）`
-                    : status}
-                </span>
-                {/* 着手/完了ボタン */}
-                {status !== '完了' && (
-                  <button
-                    type="button"
-                    onClick={() => handleAdvance(task)}
-                    disabled={isBusy}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold flex-shrink-0 disabled:opacity-50 transition-colors ${
-                      status === '着手前'
-                        ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
-                        : 'text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100'
-                    }`}
-                  >
-                    {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> :
-                      status === '着手前' ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <CheckCircle2 className="w-3 h-3" strokeWidth={2.25} />}
-                    {status === '着手前' ? '着手' : '完了'}
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                    </td>
+                    {/* 着手/完了ボタン */}
+                    <td className="px-3 py-2.5 align-top text-center whitespace-nowrap">
+                      {status !== '完了' && (
+                        <button
+                          type="button"
+                          onClick={() => handleAdvance(task)}
+                          disabled={isBusy}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold disabled:opacity-50 transition-colors ${
+                            status === '着手前'
+                              ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+                              : 'text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100'
+                          }`}
+                        >
+                          {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> :
+                            status === '着手前' ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <CheckCircle2 className="w-3 h-3" strokeWidth={2.25} />}
+                          {status === '着手前' ? '着手' : '完了'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )
