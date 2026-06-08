@@ -128,14 +128,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
       />
 
-      {/* 画面上部の進捗表示: 旧ステータスフローに替えて案件タイムラインを常時表示 */}
+      {/* 画面上部の進捗表示: 旧ステータスフローに替えてマイルストーン軸を常時表示 */}
       <div className="mb-5">
         <CaseTimeline
           caseData={caseState}
           tasks={tasks}
-          properties={properties}
           statusHistory={statusHistory}
-          documentReceipts={documentReceipts}
+          variant="milestones"
         />
       </div>
 
@@ -147,7 +146,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
       {activeTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} />
       )}
       {activeTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} />

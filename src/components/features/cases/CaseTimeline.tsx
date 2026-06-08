@@ -22,6 +22,8 @@ type Props = {
   properties?: RealEstatePropertyRow[]
   statusHistory?: TimelineStatusEvent[]
   documentReceipts?: TimelineReceipt[]
+  /** full=全部 / milestones=マイルストーン軸のみ（タブ上部用） / detail=作業の線表のみ（案件進捗タブ用） */
+  variant?: 'full' | 'milestones' | 'detail'
 }
 
 // ───────── タスクの状態正規化（差戻しは廃止） ─────────
@@ -81,7 +83,10 @@ const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean
   { statuses: ['完了'],       label: '完了',         dateOf: c => ymd(c.completion_date) },
 ]
 
-export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [] }: Props) {
+export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full' }: Props) {
+  const showMilestones = variant !== 'detail'
+  const showDetail = variant !== 'milestones'
+  const cardTitle = variant === 'detail' ? '作業の進捗（タスク・書類）' : '案件タイムライン'
   const todayYmd = todayJstYmd(new Date())
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
 
@@ -135,15 +140,26 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
   const sortedSystem = systemTasks.slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
+  // detail セクションの区切り線: マイルストーン非表示時は先頭セクションだけ上線・余白なし
+  const detailKeys: string[] = []
+  if (sortedSystem.length > 0) detailKeys.push('system')
+  if (receipts.length > 0) detailKeys.push('receipts')
+  if (orderedPhases.length > 0) detailKeys.push('phases')
+  if (visibleProperties.length > 0) detailKeys.push('props')
+  const sepCls = (key: string) =>
+    (!showMilestones && detailKeys[0] === key) ? '' : 'mt-6 pt-4 border-t border-gray-100'
+  const allEmpty = detailKeys.length === 0
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[15px] font-semibold text-gray-900">案件タイムライン</h3>
-        <Legend />
+        <h3 className="text-[15px] font-semibold text-gray-900">{cardTitle}</h3>
+        {showDetail && <Legend />}
       </div>
 
       {/* ① マイルストーン軸（実際に通過したステータスのみ） */}
+      {showMilestones && (
       <div className="overflow-x-auto pb-2">
         <div className="flex items-start min-w-[640px]">
           {/* START */}
@@ -192,15 +208,17 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
           </div>
         </div>
       </div>
+      )}
 
+      {showDetail && (<>
       {/* ② 受注後の初期対応（系統タスク） */}
       {sortedSystem.length > 0 && (
-        <TaskLane title="受注後の初期対応" tasks={sortedSystem} todayYmd={todayYmd} />
+        <TaskLane title="受注後の初期対応" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} />
       )}
 
       {/* ③ 書類到着（実績ベース） */}
       {receipts.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-gray-100">
+        <div className={sepCls('receipts')}>
           <h4 className="text-[13px] font-bold text-gray-800 mb-3">書類到着（実績）</h4>
           <div className="overflow-x-auto pb-1">
             <div className="inline-flex items-start gap-0">
@@ -233,7 +251,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
       {/* ④ フェーズ別タスク */}
       {orderedPhases.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-gray-100 space-y-4">
+        <div className={`${sepCls('phases')} space-y-4`}>
           <h4 className="text-[13px] font-bold text-gray-800">対応中の作業（フェーズ別）</h4>
           {orderedPhases.map(p => {
             const total = p.tasks.length
@@ -259,7 +277,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
       {/* ⑤ 不動産査定 */}
       {visibleProperties.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-gray-100">
+        <div className={sepCls('props')}>
           <h4 className="text-[13px] font-bold text-gray-800 mb-3">不動産査定</h4>
           <div className="space-y-3">
             {visibleProperties.map((p, i) => <PropertyRow key={p.id} property={p} index={i + 1} />)}
@@ -267,19 +285,20 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         </div>
       )}
 
-      {orderedPhases.length === 0 && sortedSystem.length === 0 && receipts.length === 0 && visibleProperties.length === 0 && (
-        <div className="mt-5 bg-gray-50 border border-gray-200 rounded-lg p-5 text-center text-[13px] text-gray-500">
+      {allEmpty && (
+        <div className={`${showMilestones ? 'mt-5' : ''} bg-gray-50 border border-gray-200 rounded-lg p-5 text-center text-[13px] text-gray-500`}>
           タスク・書類がまだありません。タスク一括生成や書類受信簿への登録で、ここに実績が表示されます。
         </div>
       )}
+      </>)}
     </div>
   )
 }
 
 // ───────── タスクレーン（横並び） ─────────
-function TaskLane({ title, tasks, todayYmd }: { title: string; tasks: TaskRow[]; todayYmd: string }) {
+function TaskLane({ title, tasks, todayYmd, sepCls }: { title: string; tasks: TaskRow[]; todayYmd: string; sepCls: string }) {
   return (
-    <div className="mt-6 pt-4 border-t border-gray-100">
+    <div className={sepCls}>
       <h4 className="text-[13px] font-bold text-gray-800 mb-3">{title}</h4>
       <div className="overflow-x-auto pb-1">
         <div className="inline-flex items-start gap-0">

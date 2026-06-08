@@ -1,8 +1,8 @@
 'use client'
 
 // 「案件進捗」タブ（旧「基本情報」タブ）。
-// 構成: 進行状態サマリー → 基本情報アコーディオン → 進捗報告・メモ
-// 案件タイムラインはヘッダー直下（タブ上部）へ移設したためここには持たない。
+// 構成: 進行状態サマリー → 基本情報アコーディオン → 作業の進捗（タスク・書類の線表）→ 進捗報告・メモ
+// マイルストーン軸はヘッダー直下（タブ上部）に常時表示。ここには作業の細かい線表のみ持つ。
 // 面談内容・相談情報・担当者・受注内容・受注ルート・収益等は「面談情報」タブへ移動済み。
 
 import { useState, useRef, useEffect } from 'react'
@@ -14,20 +14,23 @@ import {
 import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
-import type { CaseRow, TaskRow, MemberRow } from '@/types'
+import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
+import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
 
 type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
+  properties: RealEstatePropertyRow[]
   allMembers: MemberRow[]
   currentMemberId: string | null
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  documentReceipts?: TimelineReceipt[]
 }
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, allMembers, currentMemberId, patchCase }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts }: Props) {
   const [basicOpen, setBasicOpen] = useState(false)
 
   const saveCaseField = async (field: string, value: unknown) => {
@@ -145,7 +148,16 @@ export default function BasicInfoTab({ caseData, tasks, allMembers, currentMembe
         )}
       </div>
 
-      {/* ③ 進捗報告・メモ（活動履歴はタイムラインに統合済み。タイムライン自体はタブ上部へ移設） */}
+      {/* ③ 作業の進捗（タスク・書類の線表）。マイルストーン軸はタブ上部に常時表示 */}
+      <CaseTimeline
+        caseData={caseData}
+        tasks={tasks}
+        properties={properties}
+        documentReceipts={documentReceipts}
+        variant="detail"
+      />
+
+      {/* ④ 進捗報告・メモ（活動履歴はタイムラインに統合済み） */}
       <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
     </div>
   )
