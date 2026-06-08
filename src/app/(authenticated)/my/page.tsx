@@ -38,7 +38,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
 type SearchParams = Promise<{ tab?: string; period?: string }>
 type TabKey = 'meetings' | 'cases' | 'referrals' | 'progress' | 'reviews' | 'tasks'
 
-const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期'])
+const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'])
 const MGMT_ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
 const pad = (n: number) => String(n).padStart(2, '0')
 

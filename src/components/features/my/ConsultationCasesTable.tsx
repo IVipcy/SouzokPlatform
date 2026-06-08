@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { MessageSquare, AlertTriangle, ArrowUpDown } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
-import { CASE_STATUSES } from '@/lib/constants'
+import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
 export type ConsultCase = {
   id: string
@@ -36,7 +36,7 @@ type Props = {
 }
 
 // 相談案件のステータス（受注担当が責任をもって管理するステータス）
-const CONSULT_STATUS_FILTERS = ['面談設定済', '検討中', '受注', '失注', '保留・長期'] as const
+const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'] as const
 
 type SortKey = 'response_due' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
 type SortOrder = 'asc' | 'desc'
@@ -123,7 +123,7 @@ export default function ConsultationCasesTable({ cases }: Props) {
           {CONSULT_STATUS_FILTERS.map(s => (
             <FilterChip
               key={s}
-              label={s}
+              label={getCaseStatusLabel(s)}
               active={statusFilter === s}
               onClick={() => setStatusFilter(s)}
               count={cases.filter(c => c.status === s).length}
