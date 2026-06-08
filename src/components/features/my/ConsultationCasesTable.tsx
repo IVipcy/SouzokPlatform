@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { MessageSquare, AlertTriangle, ArrowUpDown } from 'lucide-react'
+import { MessageSquare, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
@@ -284,11 +284,17 @@ function SortableTh({
       <button
         type="button"
         onClick={() => onClick(sortKey)}
+        title={isActive ? (order === 'asc' ? '昇順（小さい順）で並び替え中。クリックで降順' : '降順（大きい順）で並び替え中。クリックで昇順') : 'クリックで並び替え'}
         className={`inline-flex items-center gap-1 hover:text-brand-600 transition-colors ${isActive ? 'text-brand-700' : ''}`}
       >
         {label}
-        <ArrowUpDown className={`w-3 h-3 ${isActive ? 'opacity-100' : 'opacity-40'}`} />
-        {isActive && <span className="text-[10px]">{order === 'asc' ? '↑' : '↓'}</span>}
+        {isActive ? (
+          order === 'asc'
+            ? <ArrowUp className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />
+            : <ArrowDown className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />
+        ) : (
+          <ArrowUpDown className="w-3 h-3 opacity-30" />
+        )}
       </button>
     </th>
   )

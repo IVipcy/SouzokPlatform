@@ -123,20 +123,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 
   return (
     <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
-      <table className="w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
-        <colgroup>
-          <col style={{ width: 50 }} />
-          <col style={{ width: 104 }} />
-          <col style={{ width: 200 }} />
-          <col style={{ width: 90 }} />
-          <col style={{ width: 90 }} />
-          <col style={{ width: 150 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 190 }} />
-          <col style={{ width: 112 }} />
-          <col style={{ width: 132 }} />
-          <col />
-        </colgroup>
+      <table className="w-full text-[13px] table-auto">
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
@@ -165,9 +152,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   {FLAG_LABEL[c.flag!]}
                 </span>
               </td>
-              <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600">{c.case_number}</td>
-              <td className="px-3 py-2.5">
-                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">
+              <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600 whitespace-nowrap">{c.case_number}</td>
+              <td className="px-3 py-2.5 min-w-[160px]">
+                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[280px]">
                   {c.deal_name}
                 </Link>
                 {(c.weeklyReportMissing || c.taskOverdue) && (
@@ -185,9 +172,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   </div>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 管理担当 */}
-              <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.manager_name || <span className="text-gray-300">—</span>}</td>
               {/* 受注内容（手続区分） */}
               <td className="px-3 py-2.5">
                 {c.procedure_type && c.procedure_type.filter(Boolean).length > 0 ? (
@@ -199,7 +186,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 ) : <span className="text-gray-300">—</span>}
               </td>
               {/* 完了予定日 */}
-              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
               {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
               <td className="px-3 py-2.5">
                 {total > 0 ? (
@@ -227,9 +214,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${WEEKLY_BADGE[weekly]}`}>{weekly}</span>
               </td>
               {/* 直近お客様報告日 */}
-              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.lastCommDate ?? <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.lastCommDate ?? <span className="text-gray-300">—</span>}</td>
               {/* やり取り詳細 */}
-              <td className="px-3 py-2.5 text-[12px] text-gray-600">
+              <td className="px-3 py-2.5 text-[12px] text-gray-600 min-w-[200px] max-w-[320px]">
                 {c.lastCommDetail ? (
                   <span className="line-clamp-2 whitespace-pre-line" title={c.lastCommDetail}>{c.lastCommDetail}</span>
                 ) : (

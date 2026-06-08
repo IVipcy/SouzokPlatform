@@ -76,19 +76,9 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-      <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
-        <colgroup>
-          {!hideFlagColumn && <col style={{ width: 70 }} />}
-          <col style={{ width: 120 }} />
-          <col style={{ width: 240 }} />
-          <col style={{ width: 130 }} />
-          <col style={{ width: 130 }} />
-          <col style={{ width: 150 }} />
-          <col style={{ width: 110 }} />
-          <col style={{ width: 140 }} />
-        </colgroup>
+      <table className="text-[13px] border-collapse w-full table-auto">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+          <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
             {!hideFlagColumn && <th className="px-2 py-2 text-center font-semibold">フラグ</th>}
             <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
             <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
@@ -113,14 +103,14 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     )}
                   </td>
                 )}
-                <td className="px-2.5 py-2 font-mono">
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap">
                   <Link href={`/cases/${r.id}`} className="text-brand-700 hover:underline font-semibold">
                     {r.caseNumber}
                   </Link>
                 </td>
-                <td className="px-2.5 py-2 text-gray-900">
+                <td className="px-2.5 py-2 text-gray-900 min-w-[160px]">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate">{r.dealName}</span>
+                    <span className="truncate max-w-[280px]">{r.dealName}</span>
                     {showRoleBadge && r.myRolesOnCase && r.myRolesOnCase.length > 0 && (
                       <span className="flex gap-1 flex-shrink-0">
                         {r.myRolesOnCase.includes('sales') && (
@@ -134,7 +124,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                   </div>
                 </td>
                 {/* 受注担当 */}
-                <td className="px-2.5 py-2 text-gray-700">
+                <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
                   {r.salesName && r.salesId ? (
                     <Link
                       href={`/profile/${r.salesId}`}
@@ -148,7 +138,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                   )}
                 </td>
                 {/* 管理担当 */}
-                <td className="px-2.5 py-2 text-gray-700">
+                <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
                   {r.managerName && r.managerId ? (
                     <Link
                       href={`/profile/${r.managerId}`}
@@ -176,11 +166,11 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     </div>
                   ) : <span className="text-gray-400">-</span>}
                 </td>
-                <td className="px-2.5 py-2 font-mono text-gray-700">
+                <td className="px-2.5 py-2 font-mono text-gray-700 whitespace-nowrap">
                   {r.expectedCompletionDate ?? <span className="text-gray-400">未設定</span>}
                 </td>
-                <td className="px-2.5 py-2 text-gray-700 truncate">
-                  {r.clientName ?? <span className="text-gray-400">-</span>}
+                <td className="px-2.5 py-2 text-gray-700">
+                  <span className="truncate block max-w-[200px]">{r.clientName ?? <span className="text-gray-400">-</span>}</span>
                 </td>
               </tr>
             )
