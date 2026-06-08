@@ -11,14 +11,14 @@ export default function ProgressKpis({ scopeLabel, metrics }: Props) {
     : `${metrics.monthCompleted}/-`
 
   const KPIS = [
-    { label: '担当件数', value: String(metrics.totalAssigned), unit: '件', desc: 'このチームに割り当てられた当月の案件数の合計', tone: 'neutral' },
+    { label: '担当件数', value: String(metrics.totalAssigned), unit: '件', desc: '担当として割り当てられている案件数の合計（期間で絞り込みません）', tone: 'neutral' },
     { label: '青色件数', value: String(metrics.blueCount), unit: '件', desc: '最終接触（案件を最後に開いた日）から3日以内。直近で対応できている順調な案件', tone: 'blue' },
     { label: '黄色件数', value: String(metrics.yellowCount), unit: '件', desc: '最終接触から4〜7日が経過。事態が深刻化する前にフォローが必要な案件', tone: 'yellow' },
     { label: '赤色件数', value: String(metrics.redCount), unit: '件', desc: '最終接触から8日以上が経過。早急にフォロー・リカバリが必要な案件', tone: 'red' },
     { label: '紫色件数', value: String(metrics.purpleCount), unit: '件', desc: '依頼者からクレームが発生している案件（赤よりさらに緊急度の高い最優先案件）', tone: 'purple' },
     { label: '完了割合', value: completionRatio, unit: '件', desc: '当月業務完了予定の案件数に対して、本日時点でどれくらい完了しているかの割合', tone: 'neutral' },
     { label: 'サイクル', value: metrics.cycleMonths === null ? '-' : metrics.cycleMonths.toFixed(1), unit: 'カ月/件', desc: '今月業務完了した案件が受注してから業務完了するまでにかかった期間の平均', tone: 'neutral' },
-    { label: '請求件数', value: String(metrics.invoiceCount), unit: '件', desc: '当月にこのチームが発行した請求書の件数', tone: 'amber' },
+    { label: '請求件数', value: String(metrics.invoiceCount), unit: '件', desc: '当月に発行された請求書の件数', tone: 'amber' },
   ] as const
 
   return (
