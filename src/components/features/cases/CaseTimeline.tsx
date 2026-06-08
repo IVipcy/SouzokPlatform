@@ -34,18 +34,23 @@ function classifyTask(t: TaskRow, todayYmd: string): TaskState {
   return overdue ? 'overdue' : 'pending'
 }
 
+// ノードの状態色（ブランド基調＋赤=要対応のみ。リングは「対応中」だけ控えめに）
 const NODE_CLS: Record<TaskState, string> = {
   done:    'bg-brand-600 border-brand-600',
-  active:  'bg-sky-500 border-sky-500 ring-2 ring-sky-100',
-  overdue: 'bg-red-500 border-red-500 ring-2 ring-red-100',
+  active:  'bg-brand-500 border-brand-500 ring-4 ring-brand-100',
+  overdue: 'bg-red-500 border-red-500',
   pending: 'bg-white border-gray-300',
 }
-const CONNECTOR_CLS: Record<TaskState, string> = {
-  done: 'bg-brand-600', active: 'bg-sky-500', overdue: 'bg-red-300', pending: 'bg-gray-200',
+// 連結線は淡いグレーで統一（情報過多を避ける）
+const CONNECTOR = 'bg-gray-200'
+// タスク名の色: 既定はニュートラル、超過のみ赤、対応中は強調、完了は淡く
+function titleCls(state: TaskState): string {
+  if (state === 'overdue') return 'text-red-600 font-semibold'
+  if (state === 'active') return 'text-gray-900 font-semibold'
+  if (state === 'done') return 'text-gray-400'
+  return 'text-gray-700'
 }
-const LABEL_CLS: Record<TaskState, string> = {
-  done: 'text-brand-700', active: 'text-sky-700 font-semibold', overdue: 'text-red-600 font-semibold', pending: 'text-gray-600',
-}
+const NODE_COL_W = 152
 
 function ymd(d: string | null | undefined): string | null {
   return d ? d.slice(0, 10) : null
@@ -143,10 +148,10 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         <div className="flex items-start min-w-[640px]">
           {/* START */}
           <div className="flex flex-col items-center justify-start pt-1 pr-1 flex-shrink-0">
-            <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-full bg-brand-700 text-white flex items-center justify-center shadow-sm">
               <Flag className="w-4 h-4" strokeWidth={2.25} />
             </div>
-            <span className="mt-1.5 text-[11px] font-bold text-gray-500 tracking-wider">START</span>
+            <span className="mt-1.5 text-[11px] font-bold text-gray-400 tracking-wider">START</span>
           </div>
 
           {milestones.map((m, i) => {
@@ -182,7 +187,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
               <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${caseData.status === '完了' ? 'bg-amber-400 text-white' : 'bg-gray-200 text-gray-400'}`}>
                 <Trophy className="w-4 h-4" strokeWidth={2.25} />
               </div>
-              <span className="mt-1.5 text-[11px] font-bold text-gray-500 tracking-wider">GOAL</span>
+              <span className="mt-1.5 text-[11px] font-bold text-gray-400 tracking-wider">GOAL</span>
             </div>
           </div>
         </div>
@@ -203,17 +208,20 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
                 const names = (r.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order).map(it => it.item_name)
                 const title = names.length > 0 ? names.join('・') : '書類一式'
                 return (
-                  <div key={r.id} className="flex items-start" style={{ minWidth: 140 }}>
-                    <div className="flex flex-col items-center" style={{ width: 140 }}>
-                      <div className="flex items-center w-full">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-50 border-2 border-emerald-500 flex items-center justify-center text-emerald-600">
-                          <FileText className="w-3 h-3" strokeWidth={2.25} />
-                        </span>
-                        {idx < receipts.length - 1 && <span className="flex-1 h-[2px] bg-emerald-200" />}
+                  <div key={r.id} className="flex flex-col items-center flex-shrink-0" style={{ width: NODE_COL_W }}>
+                    <div className="flex items-center w-full">
+                      <span className={`flex-1 h-[2px] ${idx === 0 ? 'opacity-0' : CONNECTOR}`} />
+                      <span className="w-6 h-6 rounded-full bg-brand-50 border-2 border-brand-300 flex items-center justify-center text-brand-600 flex-shrink-0">
+                        <FileText className="w-3 h-3" strokeWidth={2.25} />
+                      </span>
+                      <span className={`flex-1 h-[2px] ${idx === receipts.length - 1 ? 'opacity-0' : CONNECTOR}`} />
+                    </div>
+                    <div className="mt-2.5 px-2 text-center w-full">
+                      <div className="text-[12px] leading-snug text-gray-700" style={{ wordBreak: 'break-word' }} title={title}>{title}</div>
+                      <div className="mt-1 flex flex-col items-center gap-0.5">
+                        <span className="text-[11px] text-gray-400">{r.received_date}</span>
+                        {r.started_by_member?.name && <span className="text-[11px] text-gray-500 truncate max-w-[140px]">{r.started_by_member.name}</span>}
                       </div>
-                      <span className="mt-2 text-[12px] text-center leading-snug text-gray-800 px-1.5" style={{ wordBreak: 'break-word' }} title={title}>{title}</span>
-                      <span className="text-[11px] font-mono text-gray-400 mt-0.5">{r.received_date}</span>
-                      {r.started_by_member?.name && <span className="text-[11px] text-gray-500 mt-0.5 truncate max-w-[130px]">{r.started_by_member.name}</span>}
                     </div>
                   </div>
                 )
@@ -239,7 +247,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
                 <div className="flex-1 overflow-x-auto pb-1">
                   <div className="inline-flex items-start gap-0 min-w-full">
                     {p.tasks.map((t, idx) => (
-                      <TaskNode key={t.id} task={t} todayYmd={todayYmd} isLast={idx === p.tasks.length - 1} />
+                      <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === p.tasks.length - 1} />
                     ))}
                   </div>
                 </div>
@@ -275,45 +283,50 @@ function TaskLane({ title, tasks, todayYmd }: { title: string; tasks: TaskRow[];
       <h4 className="text-[13px] font-bold text-gray-800 mb-3">{title}</h4>
       <div className="overflow-x-auto pb-1">
         <div className="inline-flex items-start gap-0">
-          {tasks.map((t, idx) => <TaskNode key={t.id} task={t} todayYmd={todayYmd} isLast={idx === tasks.length - 1} />)}
+          {tasks.map((t, idx) => <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === tasks.length - 1} />)}
         </div>
       </div>
     </div>
   )
 }
 
-// ───────── タスクノード（名前・着手日・着手者・完了日・超過日数） ─────────
-function TaskNode({ task, todayYmd, isLast }: { task: TaskRow; todayYmd: string; isLast: boolean }) {
+// ───────── タスクノード（ドット中央・中央下にタスク名/日付/担当/超過） ─────────
+function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd: string; isFirst: boolean; isLast: boolean }) {
   const state = classifyTask(task, todayYmd)
   const started = ymd(task.started_at)
   const completed = ymd(task.completed_at)
   const assignee = taskAssignee(task)
   const od = overdueDays(task, todayYmd)
   return (
-    <div className="flex items-start" style={{ minWidth: 144 }}>
-      <div className="flex flex-col items-center" style={{ width: 144 }}>
-        <div className="flex items-center w-full">
-          <span className={`flex-shrink-0 w-4 h-4 rounded-full border-2 ${NODE_CLS[state]}`} title={`${task.title}（${task.status}）`} />
-          {!isLast && <span className={`flex-1 h-[2px] ${CONNECTOR_CLS[state]}`} />}
-        </div>
+    <div className="flex flex-col items-center flex-shrink-0" style={{ width: NODE_COL_W }}>
+      {/* ノード行: ドットを中央に、左右へ連結線 */}
+      <div className="flex items-center w-full">
+        <span className={`flex-1 h-[2px] ${isFirst ? 'opacity-0' : CONNECTOR}`} />
+        <span className={`w-[14px] h-[14px] rounded-full border-2 flex-shrink-0 ${NODE_CLS[state]}`} title={`${task.title}（${task.status}）`} />
+        <span className={`flex-1 h-[2px] ${isLast ? 'opacity-0' : CONNECTOR}`} />
+      </div>
+      {/* ラベル: ドット中央下に配置 */}
+      <div className="mt-2.5 px-2 text-center w-full">
         <Link
           href={`/tasks/${task.id}`}
-          className={`mt-2 text-[12px] text-center leading-snug w-full px-1.5 hover:underline ${LABEL_CLS[state]}`}
+          className={`block text-[12px] leading-snug hover:underline ${titleCls(state)}`}
           style={{ wordBreak: 'break-word' }}
           title={`「${task.title}」を開く`}
         >
           {task.title}
         </Link>
-        <div className="mt-0.5 flex flex-col items-center gap-0">
+        <div className="mt-1 flex flex-col items-center gap-0.5">
           {state === 'done' && completed
-            ? <span className="text-[11px] font-mono text-brand-600">完了 {completed}</span>
+            ? <span className="text-[11px] text-gray-400">完了 {completed}</span>
             : started
-              ? <span className="text-[11px] font-mono text-gray-400">着手 {started}</span>
+              ? <span className="text-[11px] text-gray-400">着手 {started}</span>
               : task.due_date
-                ? <span className="text-[11px] font-mono text-gray-400">期限 {task.due_date}</span>
+                ? <span className="text-[11px] text-gray-400">期限 {task.due_date}</span>
                 : null}
-          {assignee && <span className="text-[11px] text-gray-500 truncate max-w-[132px]">{assignee}</span>}
-          {od !== null && <span className="text-[11px] font-bold text-red-600">{od}日超過</span>}
+          {assignee && <span className="text-[11px] text-gray-500 truncate max-w-[140px]">{assignee}</span>}
+          {od !== null && (
+            <span className="inline-block text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{od}日超過</span>
+          )}
         </div>
       </div>
     </div>
@@ -354,12 +367,12 @@ function PropertyRow({ property, index }: { property: RealEstatePropertyRow; ind
 function Legend() {
   const items: { cls: string; label: string }[] = [
     { cls: 'bg-brand-600', label: '完了' },
-    { cls: 'bg-sky-500 ring-2 ring-sky-100', label: '対応中' },
-    { cls: 'bg-red-500 ring-2 ring-red-100', label: '期限超過' },
+    { cls: 'bg-brand-500 ring-2 ring-brand-100', label: '対応中' },
+    { cls: 'bg-red-500', label: '期限超過' },
     { cls: 'bg-white border border-gray-300', label: '未着手' },
   ]
   return (
-    <span className="text-[12px] text-gray-500 ml-auto flex items-center gap-3 flex-wrap">
+    <span className="text-[11px] text-gray-400 ml-auto flex items-center gap-3 flex-wrap">
       {items.map(it => (
         <span key={it.label} className="inline-flex items-center gap-1">
           <span className={`inline-block w-2.5 h-2.5 rounded-full ${it.cls}`} />{it.label}
