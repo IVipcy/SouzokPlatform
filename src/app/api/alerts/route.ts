@@ -38,7 +38,7 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: receiptRaw }] = await Promise.all([
     supabase.from('cases')
       .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date')
       .in('id', myCaseIds),
@@ -49,6 +49,8 @@ export async function GET() {
       .eq('task_assignees.member_id', memberId).neq('status', '完了'),
     supabase.from('invoices').select('case_id,invoice_type,status').in('case_id', myCaseIds).eq('invoice_type', '前受金'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date').in('case_id', myCaseIds),
+    // 書類受信簿：ダブルチェック済みで未着手＝着手待ち
+    supabase.from('document_receipts').select('case_id,dual_checked_at,started_by_member_id').in('case_id', myCaseIds),
   ])
 
   type CaseRow = {
@@ -62,6 +64,10 @@ export async function GET() {
   const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string }>
   const invoices = (invRaw ?? []) as Array<{ case_id: string; status: string }>
   const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null }>
+
+  const receipts2 = (receiptRaw ?? []) as Array<{ case_id: string; dual_checked_at: string | null; started_by_member_id: string | null }>
+  // ダブルチェック済み（着手可能）かつ未着手の書類がある案件
+  const docArrivedCaseIds = new Set(receipts2.filter(r => r.dual_checked_at && !r.started_by_member_id).map(r => r.case_id))
 
   const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
@@ -81,6 +87,9 @@ export async function GET() {
 
     if (c.has_complaint && active) {
       push({ id: `claim-${c.id}`, severity: 'claim', category: 'クレーム案件', title: name, body: '依頼者からのクレーム。最優先で対応', href: caseHref })
+    }
+    if (active && docArrivedCaseIds.has(c.id)) {
+      push({ id: `docarrive-${c.id}`, severity: 'high', category: '書類到着（着手待ち）', title: name, body: 'ダブルチェック済みの原本が届いています。タスクに着手できます', href: `/documents?case=${c.id}` })
     }
     if (isMySales && c.status === '受注' && !managerExists.has(c.id) && c.order_received_date && c.order_received_date <= assignCutoffStr) {
       push({ id: `assign-${c.id}`, severity: 'high', category: 'アサイン未完了', title: name, body: '受注から3日経過・管理担当が未アサイン', href: `${caseHref}?tab=basicInfo` })

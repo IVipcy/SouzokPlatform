@@ -14,7 +14,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -74,6 +74,7 @@ export default async function CaseDetailPage({ params }: Props) {
       .order('communicated_at', { ascending: false }),
     supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
     supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
+    supabase.from('document_receipts').select('dual_checked_at,started_by_member_id').eq('case_id', id),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -94,6 +95,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const advInvRows = (invoicesResult.data ?? []) as Array<{ status: string }>
   const repRows = (reportsResult.data ?? []) as Array<{ status: string; confirmed_date: string | null }>
   const tasksForAlert = (tasksResult.data ?? []) as TaskRow[]
+  const receiptRows = (receiptsResult.data ?? []) as Array<{ dual_checked_at: string | null; started_by_member_id: string | null }>
   const now = new Date()
   const nowStr = now.toISOString().slice(0, 10)
   const weekAgoStr = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
@@ -104,6 +106,7 @@ export default async function CaseDetailPage({ params }: Props) {
       advanceInvoiceStatus: advInvRows[0]?.status ?? null,
       recentWeeklyConfirmed: repRows.some(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr),
       overdueTaskCount: tasksForAlert.filter(t => t.due_date && t.due_date < nowStr && t.status !== '完了' && t.status !== 'キャンセル').length,
+      docArrivedUnstarted: receiptRows.some(r => r.dual_checked_at && !r.started_by_member_id),
     },
     now,
   )

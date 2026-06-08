@@ -243,6 +243,10 @@ function ReceiptRow({
                       {receipt.started_by_member.name}
                     </span>
                   </button>
+                ) : !receipt.dual_check_member_id ? (
+                  <span className="text-[11px] text-gray-400" title="ダブルチェック完了後に着手できます">
+                    W-Check待ち
+                  </span>
                 ) : (
                   <button
                     type="button"

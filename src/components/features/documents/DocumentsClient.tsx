@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
@@ -23,8 +23,9 @@ export default function DocumentsClient({ receipts, cases, currentMemberId, curr
   const [, startTransition] = useTransition()
   const refresh = () => startTransition(() => router.refresh())
 
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
-  const [caseFilter, setCaseFilter] = useState<string>('')
+  const [caseFilter, setCaseFilter] = useState<string>(searchParams.get('case') ?? '')
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
 
   // ── 書類受信簿の絞り込み ──
