@@ -357,3 +357,11 @@ export const EXPENSE_CATEGORIES = [
   '郵送費（レターパック）', '残高証明取得費', '登記情報取得費', '公図取得費',
   '評価証明取得費', '交通費', 'その他',
 ] as const
+
+// 立替実費の課税区分の既定推定（官公署手数料・印紙は非課税、それ以外は課税）。
+// あくまで初期値で、請求時に1件ずつ上書き可能。
+export const NON_TAXABLE_EXPENSE_CATEGORIES = [
+  '戸籍取得費', '登記印紙代', '登記情報取得費', '公図取得費', '評価証明取得費',
+] as const
+export const inferExpenseTaxable = (category: string | null | undefined): boolean =>
+  !(NON_TAXABLE_EXPENSE_CATEGORIES as readonly string[]).includes(category ?? '')

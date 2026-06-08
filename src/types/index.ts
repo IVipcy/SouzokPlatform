@@ -373,9 +373,10 @@ export type InvoiceRow = {
   invoice_number: string | null
   invoice_type: '前受金' | '確定請求'
   firm_type: 'gyosei' | 'shiho' | null   // migration 059: 発行法人（行政書士/司法書士）
-  amount: number             // 請求総額（fee_amount + expenses_amount）
+  amount: number             // 請求総額（fee_amount + expenses_amount − advance_deduction）
   fee_amount: number         // 報酬部分
   expenses_amount: number    // 立替実費部分
+  advance_deduction: number  // 前受金控除額（確定請求のみ）。migration 060
   status: InvoiceStatus
   issued_date: string | null
   due_date: string | null
@@ -493,6 +494,8 @@ export type ExpenseRow = {
   notes: string | null
   category: string | null
   related_task_id: string | null
+  /** 課税区分（true=課税 / false=非課税 / null=未設定）。migration 060 */
+  taxable: boolean | null
   /** どの請求書で請求済みか（null = 未請求） */
   billed_invoice_id: string | null
   created_at: string

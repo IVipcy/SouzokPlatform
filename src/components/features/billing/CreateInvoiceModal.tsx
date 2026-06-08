@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { EXPENSE_CATEGORIES } from '@/lib/constants'
+import { EXPENSE_CATEGORIES, inferExpenseTaxable } from '@/lib/constants'
 import { officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
 import type { ExpenseRow } from '@/types'
 
@@ -52,6 +52,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
   const [unbilledExpenses, setUnbilledExpenses] = useState<ExpenseRow[]>([])
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set())
   const [caseFees, setCaseFees] = useState<CaseFees | null>(null)
+  // 前受金控除額（確定請求のみ）。案件の前受金請求書から自動セット
+  const [advanceDeduction, setAdvanceDeduction] = useState('0')
   const [loadingCase, setLoadingCase] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -65,6 +67,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     amount: '',
     expense_date: new Date().toISOString().slice(0, 10),
     notes: '',
+    taxable: true,
   })
 
   // モーダル開時にリセット
@@ -84,7 +87,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setSelectedExpenseIds(new Set())
       setCaseFees(null)
       setShowExpenseForm(false)
-      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '' })
+      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '', taxable: true })
     }
   }, [isOpen, defaultCaseId])
 
@@ -102,13 +105,18 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     const run = async () => {
       setLoadingCase(true)
       const supabase = createClient()
-      const [{ data: caseRow }, { data: expRows }] = await Promise.all([
+      const [{ data: caseRow }, { data: expRows }, { data: advInvoices }] = await Promise.all([
         supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,contract_type').eq('id', form.case_id).single(),
         supabase.from('expenses').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('expense_date', { nullsFirst: false }),
+        supabase.from('invoices').select('amount,status').eq('case_id', form.case_id).eq('invoice_type', '前受金'),
       ])
       if (cancelled) return
       const fees = caseRow as CaseFees | null
       setCaseFees(fees)
+      // 前受金控除の既定値: 発行済の前受金請求書合計（無ければ案件の前受金額）
+      const advRows = (advInvoices ?? []) as Array<{ amount: number; status: string }>
+      const advTotal = advRows.filter(i => i.status !== '未請求').reduce((s, i) => s + (i.amount ?? 0), 0)
+      setAdvanceDeduction(String(advTotal > 0 ? advTotal : (fees?.advance_payment ?? 0)))
       // 発行法人の既定値を契約形態から決定（単独はその法人、連名は行をデフォルト）
       const defaultFirm = officesForContractType(fees?.contract_type)[0]
       if (defaultFirm === 'gyosei' || defaultFirm === 'shiho') {
@@ -134,7 +142,9 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
   const selectedExpensesTotal = unbilledExpenses
     .filter(e => selectedExpenseIds.has(e.id))
     .reduce((s, e) => s + (e.amount ?? 0), 0)
-  const totalAmount = feeAmountNum + selectedExpensesTotal
+  // 前受金控除は確定請求のみ
+  const advanceDeductionNum = form.invoice_type === '確定請求' ? (Number(advanceDeduction) || 0) : 0
+  const totalAmount = feeAmountNum + selectedExpensesTotal - advanceDeductionNum
 
   const toggleExpense = (id: string) => {
     setSelectedExpenseIds(prev => {
@@ -167,6 +177,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           amount: amountNum,
           expense_date: newExpense.expense_date || null,
           notes: newExpense.notes.trim() || null,
+          taxable: newExpense.taxable,
         })
         .select('*')
         .single()
@@ -180,7 +191,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
         return next
       })
       // フォームリセット
-      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '' })
+      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '', taxable: true })
       setShowExpenseForm(false)
       showToast('立替実費を追加しました', 'success')
     } catch (e) {
@@ -214,6 +225,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           amount: totalAmount,
           fee_amount: feeAmountNum,
           expenses_amount: selectedExpensesTotal,
+          advance_deduction: advanceDeductionNum,
           status,
           issued_date: form.issued_date || null,
           due_date: form.due_date || null,
@@ -238,6 +250,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           amount: totalAmount,
           fee_amount: feeAmountNum,
           expenses_amount: selectedExpensesTotal,
+          advance_deduction: advanceDeductionNum,
           status,
           issued_date: form.issued_date || null,
           due_date: form.due_date || null,
@@ -459,7 +472,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                           <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">費目</label>
                           <select
                             value={newExpense.category}
-                            onChange={e => setNewExpense(p => ({ ...p, category: e.target.value, item_name: p.item_name || e.target.value }))}
+                            onChange={e => setNewExpense(p => ({ ...p, category: e.target.value, item_name: p.item_name || e.target.value, taxable: inferExpenseTaxable(e.target.value) }))}
                             disabled={addingExpense}
                             className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none bg-white"
                           >
@@ -503,7 +516,19 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                             className="w-full px-1.5 py-1 text-[11px] font-mono border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
                           />
                         </div>
-                        <div className="col-span-12">
+                        <div className="col-span-4">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">課税区分</label>
+                          <select
+                            value={newExpense.taxable ? '課税' : '非課税'}
+                            onChange={e => setNewExpense(p => ({ ...p, taxable: e.target.value === '課税' }))}
+                            disabled={addingExpense}
+                            className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none bg-white"
+                          >
+                            <option value="課税">課税</option>
+                            <option value="非課税">非課税</option>
+                          </select>
+                        </div>
+                        <div className="col-span-8">
                           <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">備考（任意）</label>
                           <input
                             type="text"
@@ -545,10 +570,32 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                   )}
                 </div>
 
+                {/* 前受金控除（確定請求のみ） */}
+                {form.invoice_type === '確定請求' && (
+                  <div className="px-3 py-2.5 flex items-center gap-2 bg-white border-t border-gray-100">
+                    <span className="text-[13px] font-medium text-gray-700 flex-1">
+                      前受金控除（▲）
+                      <span className="ml-1.5 text-[11px] text-gray-400 font-normal">受領済の前受金を差し引きます</span>
+                    </span>
+                    <div className="relative w-36">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={advanceDeduction}
+                        onChange={e => setAdvanceDeduction(e.target.value)}
+                        disabled={saving}
+                        placeholder="0"
+                        className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* 総額 */}
                 <div className="px-3 py-3 bg-brand-50 flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-brand-600" />
-                  <span className="text-[14px] font-bold text-brand-800 flex-1">請求総額</span>
+                  <span className="text-[14px] font-bold text-brand-800 flex-1">請求総額{advanceDeductionNum > 0 ? '（前受金控除後）' : ''}</span>
                   <span className="text-[18px] font-extrabold font-mono text-brand-700 w-40 text-right">
                     ¥{totalAmount.toLocaleString()}
                   </span>

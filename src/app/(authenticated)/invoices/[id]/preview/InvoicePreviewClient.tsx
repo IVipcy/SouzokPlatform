@@ -30,7 +30,14 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
   const firmKind: OfficeKind = (invoice.firm_type as OfficeKind | null) ?? officesForContractType(invoice.cases?.contract_type)[0]
   const office = OFFICE_PROFILES[firmKind] ?? OFFICE_PROFILES.gyosei
   const isAdvance = invoice.invoice_type === '前受金'
+  const isConfirmed = invoice.invoice_type === '確定請求'
   const expensesTotal = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
+  // インボイス用: 立替実費の課税/非課税、前受金控除、内消費税
+  const taxableExpensesTotal = expenses.filter(e => e.taxable !== false).reduce((s, e) => s + (e.amount ?? 0), 0)
+  const nonTaxableExpensesTotal = expensesTotal - taxableExpensesTotal
+  const advanceDeduction = invoice.advance_deduction ?? 0
+  const taxBaseInclusive = (invoice.fee_amount ?? 0) + taxableExpensesTotal // 10%対象額（税込）
+  const innerTax = Math.round(taxBaseInclusive * 10 / 110)                  // 内消費税（10%）
   const issuedDate = invoice.issued_date
     ? new Date(invoice.issued_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
     : '—'
@@ -218,40 +225,61 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
                 <td className="py-2 px-3 text-right font-mono text-gray-900">¥ {invoice.fee_amount.toLocaleString()}</td>
               </tr>
 
-              {/* 立替実費（明細） */}
-              {expenses.length > 0 && (
+              {/* 前受金控除（確定請求で前受金がある場合） */}
+              {isConfirmed && advanceDeduction > 0 && (
+                <tr className="border-b border-gray-200">
+                  <td className="py-2 px-3 text-gray-800">前受金控除</td>
+                  <td className="py-2 px-3 text-right font-mono text-gray-900">▲ ¥ {advanceDeduction.toLocaleString()}</td>
+                </tr>
+              )}
+
+              {/* 立替実費（課税/非課税） */}
+              {isConfirmed ? (
                 <>
-                  <tr className="bg-gray-50">
-                    <td className="py-1.5 px-3 text-gray-700 text-[11px] font-semibold uppercase tracking-wider" colSpan={2}>
-                      立替実費 内訳
-                    </td>
-                  </tr>
-                  {expenses.map(e => (
-                    <tr key={e.id} className="border-b border-gray-100">
-                      <td className="py-1.5 px-3 pl-6 text-gray-700 text-[12px]">
-                        {e.expense_date && (
-                          <span className="text-gray-400 font-mono text-[11px] mr-2">{e.expense_date}</span>
-                        )}
-                        {e.category && <span className="text-gray-500 mr-1">[{e.category}]</span>}
-                        {e.item_name}
-                        {e.notes && <span className="text-gray-400 ml-1 text-[11px]">({e.notes})</span>}
-                      </td>
-                      <td className="py-1.5 px-3 text-right font-mono text-gray-700 text-[12px]">
-                        ¥ {e.amount.toLocaleString()}
-                      </td>
+                  {taxableExpensesTotal > 0 && (
+                    <tr className="border-b border-gray-200">
+                      <td className="py-2 px-3 text-gray-800">立替実費（課税分）</td>
+                      <td className="py-2 px-3 text-right font-mono text-gray-900">¥ {taxableExpensesTotal.toLocaleString()}</td>
                     </tr>
-                  ))}
+                  )}
+                  {nonTaxableExpensesTotal > 0 && (
+                    <tr className="border-b border-gray-200">
+                      <td className="py-2 px-3 text-gray-800">立替実費（非課税分）</td>
+                      <td className="py-2 px-3 text-right font-mono text-gray-900">¥ {nonTaxableExpensesTotal.toLocaleString()}</td>
+                    </tr>
+                  )}
                   <tr className="border-b border-gray-200">
-                    <td className="py-1.5 px-3 text-right text-gray-500 text-[11px]" colSpan={2}>
-                      立替実費 小計: <span className="font-mono font-semibold text-gray-700">¥ {expensesTotal.toLocaleString()}</span>
-                    </td>
+                    <td className="py-1.5 px-3 text-right text-gray-500 text-[11px]">10% 対象額（税込）</td>
+                    <td className="py-1.5 px-3 text-right font-mono text-gray-700 text-[12px]">¥ {taxBaseInclusive.toLocaleString()}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-1.5 px-3 text-right text-gray-500 text-[11px]">内 消費税（10%）</td>
+                    <td className="py-1.5 px-3 text-right font-mono text-gray-700 text-[12px]">¥ {innerTax.toLocaleString()}</td>
                   </tr>
                 </>
+              ) : (
+                expenses.length > 0 && (
+                  <>
+                    <tr className="bg-gray-50">
+                      <td className="py-1.5 px-3 text-gray-700 text-[11px] font-semibold" colSpan={2}>立替実費 内訳</td>
+                    </tr>
+                    {expenses.map(e => (
+                      <tr key={e.id} className="border-b border-gray-100">
+                        <td className="py-1.5 px-3 pl-6 text-gray-700 text-[12px]">
+                          {e.expense_date && <span className="text-gray-400 font-mono text-[11px] mr-2">{e.expense_date}</span>}
+                          {e.category && <span className="text-gray-500 mr-1">[{e.category}]</span>}
+                          {e.item_name}
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-gray-700 text-[12px]">¥ {e.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </>
+                )
               )}
 
               {/* 合計 */}
               <tr className="bg-gray-50 border-t-2 border-gray-700">
-                <td className="py-2 px-3 text-right font-bold text-gray-900">{isReceipt ? '領収額' : '合計'}</td>
+                <td className="py-2 px-3 text-right font-bold text-gray-900">{isReceipt ? '領収額' : '請求額'}</td>
                 <td className="py-2 px-3 text-right font-mono font-extrabold text-gray-900 text-[14px]">
                   ¥ {invoice.amount.toLocaleString()}
                 </td>
