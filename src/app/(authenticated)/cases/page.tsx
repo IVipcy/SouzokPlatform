@@ -5,9 +5,12 @@ import CaseViewsClient from '@/components/features/cases/CaseViewsClient'
 import type { MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import type { ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
+import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
 
 const MANAGEMENT_ACTIVE = new Set(['対応中'])
 const CONSULT = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期'])
+// LP案件 = 受注ルートが「LP直」または「その他」
+const LP_ROUTES = new Set(['LP直', 'その他'])
 
 type CaseRowRaw = {
   id: string
@@ -18,15 +21,36 @@ type CaseRowRaw = {
   has_complaint: boolean | null
   last_opened_at: string | null
   created_at: string | null
+  order_route: string | null
   order_route_detail: string | null
+  order_route_lp_name: string | null
+  referral_name: string | null
+  contract_type: string | null
+  lost_reason: string | null
   procedure_type: string[] | null
   expected_completion_date: string | null
   fee_administrative: number | null
   fee_judicial: number | null
+  fee_total: number | null
+  advance_payment: number | null
+  tax_advisor_name: string | null
+  real_estate_appraisal_status: string | null
   meeting_executed_date: string | null
   client_response_due_date: string | null
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string } | null }>
+}
+
+// 確定売上金額: 契約形態に応じて 行政単独=行政報酬 / 司法単独=司法報酬 / 連名=合計
+function confirmedRevenue(c: CaseRowRaw): number | null {
+  switch (c.contract_type) {
+    case '行政書士法人単独': return c.fee_administrative
+    case '司法書士法人単独': return c.fee_judicial
+    case '行・司連名':
+      return c.fee_total ?? (((c.fee_administrative ?? 0) + (c.fee_judicial ?? 0)) || null)
+    default:
+      return c.fee_total ?? null
+  }
 }
 type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null }
@@ -143,6 +167,26 @@ export default async function CasesPage() {
     order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
   }))
 
+  // LP案件一覧（受注ルート = LP直 / その他）
+  const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => ({
+    id: c.id,
+    case_number: c.case_number,
+    deal_name: c.deal_name,
+    status: c.status,
+    contract_type: c.contract_type,
+    referral_source: c.order_route_detail || c.order_route_lp_name || c.referral_name || null,
+    client_name: c.clients?.name ?? null,
+    lost_reason: c.lost_reason,
+    client_response_due_date: c.client_response_due_date,
+    sales_name: salesByCase.get(c.id) ?? null,
+    manager_name: managerByCase.get(c.id) ?? null,
+    advance_payment: c.advance_payment,
+    confirmed_revenue: confirmedRevenue(c),
+    expected_completion_date: c.expected_completion_date,
+    tax_advisor_name: c.tax_advisor_name,
+    real_estate_status: c.real_estate_appraisal_status,
+  }))
+
   // 個別管理案件（紹介のみ）
   const referralRows: ReferralRow[] = cases.filter(c => c.status === '紹介のみ').map(c => ({
     id: c.id,
@@ -161,9 +205,9 @@ export default async function CasesPage() {
         eyebrow="Cases"
         title="案件一覧"
         icon={Briefcase}
-        description="管理案件一覧・相談案件一覧・個別管理案件を切り替えて表示"
+        description="管理案件一覧・相談案件一覧・個別管理案件・LP案件一覧を切り替えて表示"
       />
-      <CaseViewsClient managerRows={managerRows} consultRows={consultRows} referralRows={referralRows} />
+      <CaseViewsClient managerRows={managerRows} consultRows={consultRows} referralRows={referralRows} lpRows={lpRows} />
     </div>
   )
 }

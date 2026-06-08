@@ -1,18 +1,20 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ClipboardList, MessageSquare, Sparkles, Search } from 'lucide-react'
+import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search } from 'lucide-react'
 import MyPageCasesTab, { type MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable, { type ReferralRow } from '@/components/features/my/ReferralCasesTable'
+import LpCasesTable, { type LpCaseRow } from '@/components/features/cases/LpCasesTable'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
-type View = 'manage' | 'consult' | 'referral'
+type View = 'manage' | 'consult' | 'referral' | 'lp'
 
 type Props = {
   managerRows: MyCaseRow[]
   consultRows: ConsultCase[]
   referralRows: ReferralRow[]
+  lpRows: LpCaseRow[]
 }
 
 // 検索（案件名・案件管理番号）の共通フィルタ
@@ -33,7 +35,7 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * マイページ定義の3一覧（管理案件一覧 / 相談案件一覧 / 個別管理案件）を流用し、
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
-export default function CaseViewsClient({ managerRows, consultRows, referralRows }: Props) {
+export default function CaseViewsClient({ managerRows, consultRows, referralRows, lpRows }: Props) {
   const [view, setView] = useState<View>('manage')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -42,15 +44,17 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
     { key: 'manage', label: '管理案件一覧', Icon: ClipboardList, count: managerRows.length },
     { key: 'consult', label: '相談案件一覧', Icon: MessageSquare, count: consultRows.length },
     { key: 'referral', label: '個別管理案件', Icon: Sparkles, count: referralRows.length },
+    { key: 'lp', label: 'LP案件一覧', Icon: Megaphone, count: lpRows.length },
   ]
 
   // 検索＋ステータスで絞り込み
   const filteredManager = useMemo(() => applyStatus(applySearch(managerRows, search), statusFilter), [managerRows, search, statusFilter])
   const filteredConsult = useMemo(() => applyStatus(applySearch(consultRows, search), statusFilter), [consultRows, search, statusFilter])
   const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), statusFilter), [referralRows, search, statusFilter])
+  const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), statusFilter), [lpRows, search, statusFilter])
 
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
-  const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : referralRows
+  const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'referral' ? referralRows : lpRows
   const statusOptions = useMemo(() => {
     const present = new Set(activeRows.map(r => r.status))
     return CASE_STATUSES.filter(s => present.has(s.key)).map(s => s.key)
@@ -120,6 +124,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
       {view === 'manage' && <MyPageCasesTab memberId="" cases={filteredManager} />}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
+      {view === 'lp' && <LpCasesTable cases={filteredLp} />}
     </div>
   )
 }
