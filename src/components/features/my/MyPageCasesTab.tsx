@@ -1,7 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Briefcase, AlertTriangle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Briefcase, AlertTriangle, Trash2 } from 'lucide-react'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
+import { cascadeDeleteCase } from '@/lib/caseDelete'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -52,6 +58,8 @@ type Props = {
   cases: MyCaseRow[]
   /** ヘッダーや「↗ 全件見る」など最小表示にする */
   compact?: boolean
+  /** 案件管理ページ用。チェックボックス選択・一括削除を有効化 */
+  selectable?: boolean
 }
 
 const FLAG_LABEL: Record<NonNullable<CaseFlag>, string> = {
@@ -95,8 +103,11 @@ function computeFlagSimple(c: MyCaseRow): CaseFlag {
  * 進捗管理ダッシュボードと同じテーブル形式:
  *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
-export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false }: Props) {
+export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false }: Props) {
   void _memberId
+  const router = useRouter()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const rows = cases.map(c => ({
     ...c,
@@ -115,6 +126,29 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
     return ad.localeCompare(bd)
   })
 
+  const visibleIds = visibleRows.map(r => r.id)
+  const selectedVisible = visibleIds.filter(id => selected.has(id))
+  const allSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length
+  const someSelected = selectedVisible.length > 0 && !allSelected
+  const toggleOne = (id: string) => setSelected(prev => {
+    const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next
+  })
+  const toggleAll = () => setSelected(prev => {
+    const next = new Set(prev)
+    if (allSelected) visibleIds.forEach(id => next.delete(id)); else visibleIds.forEach(id => next.add(id))
+    return next
+  })
+  // 削除は DeleteConfirmModal が削除中状態・エラー表示・クローズを管理。成功時のみトースト＋解除＋更新。
+  const handleDeleteSelected = async () => {
+    if (selected.size === 0) return
+    const supabase = createClient()
+    const count = selected.size
+    for (const id of selected) await cascadeDeleteCase(supabase, id)
+    showToast(`${count}件の案件を削除しました`, 'success')
+    setSelected(new Set())
+    router.refresh()
+  }
+
   if (visibleRows.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
@@ -124,10 +158,37 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   }
 
   return (
-    <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
+    <div>
+      {selectable && selected.size > 0 && (
+        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-brand-50 border border-brand-200 rounded-lg">
+          <span className="text-[12px] font-semibold text-gray-700">{selected.size}件選択中</span>
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+            選択を削除
+          </button>
+          <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
+        </div>
+      )}
+      <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
       <table className="w-full text-[13px] table-auto">
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
+            {selectable && (
+              <th className="px-3 py-2 text-center font-bold w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={el => { if (el) el.indeterminate = someSelected }}
+                  onChange={toggleAll}
+                  className="w-4 h-4 accent-brand-600 cursor-pointer align-middle"
+                  title="表示中をすべて選択"
+                />
+              </th>
+            )}
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
@@ -147,8 +208,19 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             const done = c.progressDone ?? 0
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
             const weekly = c.weeklyStatus ?? '未対応'
+            const isSelected = selected.has(c.id)
             return (
-            <tr key={c.id} className="hover:bg-gray-50/60">
+            <tr key={c.id} className={`hover:bg-gray-50/60 ${isSelected ? 'bg-brand-50/50' : ''}`}>
+              {selectable && (
+                <td className="px-3 py-2.5 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleOne(c.id)}
+                    className="w-4 h-4 accent-brand-600 cursor-pointer align-middle"
+                  />
+                </td>
+              )}
               <td className="px-3 py-2.5 text-center">
                 <span className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag!]}`}>
                   {FLAG_LABEL[c.flag!]}
@@ -235,6 +307,17 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
           <Briefcase className="w-3 h-3 inline-block mr-1 text-gray-400" />
           <span className="text-[11px] text-gray-500">担当案件 {visibleRows.length} 件</span>
         </div>
+      )}
+      </div>
+
+      {selectable && (
+        <DeleteConfirmModal
+          isOpen={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          title="案件の一括削除"
+          message={`選択した ${selected.size} 件の案件を削除します。関連するタスク・担当者・書類・請求書・入金も全て削除され、取り消せません。本当に削除しますか？`}
+          onConfirm={handleDeleteSelected}
+        />
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
 export type ConsultCase = {
@@ -43,25 +44,6 @@ type Props = {
   cases: ConsultCase[]
   /** 案件管理ページ用。チーム・受注担当列の表示＋チェックボックス選択・一括削除を有効化 */
   manageMode?: boolean
-}
-
-// 案件1件分の関連レコードをカスケード削除（CaseListClient と同じ手順）
-async function cascadeDeleteCase(supabase: ReturnType<typeof createClient>, caseId: string) {
-  const { data: tasks } = await supabase.from('tasks').select('id').eq('case_id', caseId)
-  for (const t of tasks ?? []) {
-    await supabase.from('task_assignees').delete().eq('task_id', t.id)
-  }
-  await supabase.from('tasks').delete().eq('case_id', caseId)
-  await supabase.from('case_members').delete().eq('case_id', caseId)
-  await supabase.from('documents').delete().eq('case_id', caseId)
-  await supabase.from('events').delete().eq('case_id', caseId)
-  const { data: invoices } = await supabase.from('invoices').select('id').eq('case_id', caseId)
-  for (const inv of invoices ?? []) {
-    await supabase.from('payments').delete().eq('invoice_id', inv.id)
-  }
-  await supabase.from('invoices').delete().eq('case_id', caseId)
-  const { error } = await supabase.from('cases').delete().eq('id', caseId)
-  if (error) throw new Error(error.message)
 }
 
 // 相談案件のステータス（受注担当が責任をもって管理するステータス）

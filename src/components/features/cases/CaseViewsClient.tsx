@@ -106,9 +106,9 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
         </button>
       </div>
 
-      {/* ステータス絞り込み ＋ 検索 */}
+      {/* ステータス絞り込み ＋ 検索（管理案件一覧はステータス絞り込み非表示） */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {statusOptions.length > 0 && (
+        {view !== 'manage' && statusOptions.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[12px] font-semibold text-gray-500 mr-0.5">ステータス</span>
             <button
@@ -146,7 +146,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
         </div>
       </div>
 
-      {view === 'manage' && <MyPageCasesTab memberId="" cases={filteredManager} />}
+      {view === 'manage' && <MyPageCasesTab memberId="" cases={filteredManager} selectable />}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} />}
