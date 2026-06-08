@@ -65,9 +65,12 @@ const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '検討
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
 // マイルストーン定義（実際に通過したステータスのみ表示）
-const MILESTONE_DEFS: { statuses: string[]; label: string; dateOf: (c: CaseRow, firstStarted: string | null) => string | null }[] = [
+// historyOnly=true のものは「ステータス遷移の実履歴に該当ステータスがある場合のみ」表示する
+// （= 推測フォールバックでは出さない）。スキップされ得る「検討中」は実履歴必須にして、
+//   面談設定済→受託 のように検討中を踏まなかった案件で誤って出ないようにする。
+const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean; dateOf: (c: CaseRow, firstStarted: string | null) => string | null }[] = [
   { statuses: ['面談設定済'], label: '面談',         dateOf: c => ymd(c.meeting_executed_date) ?? ymd(c.meeting_date) },
-  { statuses: ['検討中', '検討中（契約書待ち）'], label: '検討結果回答', dateOf: c => ymd(c.client_response_due_date) },
+  { statuses: ['検討中', '検討中（契約書待ち）'], label: '検討結果回答', historyOnly: true, dateOf: c => ymd(c.client_response_due_date) },
   { statuses: ['受注'],       label: '受注',         dateOf: c => ymd(c.order_received_date) ?? ymd(c.order_date) },
   { statuses: ['対応中'],     label: '対応開始',     dateOf: (_c, fs) => fs },
   { statuses: ['完了'],       label: '完了',         dateOf: c => ymd(c.completion_date) },
@@ -92,14 +95,17 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     if (h.new_value && !histDate.has(h.new_value)) histDate.set(h.new_value, ymd(h.created_at) ?? '')
   }
   const hasHistory = statusHistory.length > 0
+  // 標準フロー（面談/受注/対応開始/完了）: 履歴があれば履歴、無ければ現ステータスまでの順序で推測
   const reached = (status: string) =>
     hasHistory
       ? histDate.has(status)
       : STATUS_ORDER.indexOf(status) !== -1 && STATUS_ORDER.indexOf(status) <= currentIdx
+  // 実履歴必須（検討結果回答など）: 遷移ログに該当ステータスが記録されている場合のみ
+  const reachedStrict = (status: string) => histDate.has(status)
 
   // 実際に通過したマイルストーンのみ
   const milestones = MILESTONE_DEFS
-    .filter(d => d.statuses.some(s => reached(s)))
+    .filter(d => d.statuses.some(s => (d.historyOnly ? reachedStrict(s) : reached(s))))
     .map(d => {
       const fromHist = d.statuses.map(s => histDate.get(s)).find(Boolean) ?? null
       return { label: d.label, date: d.dateOf(caseData, firstStarted) ?? fromHist }
