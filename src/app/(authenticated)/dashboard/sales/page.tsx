@@ -74,7 +74,7 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
   ] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required'),
+      .select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,tax_filing_required,meeting_executed_date'),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase
       .from('members')

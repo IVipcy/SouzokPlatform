@@ -371,9 +371,6 @@ export function computeProgressKpis(
   }
 }
 
-// 「面談設定済 → どこか」 の遷移先として 当月面談数 / 受注 を判定するための集合
-const POST_MEETING_STATUSES = new Set(['検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'])
-
 // 当日の YYYY-MM-DD 文字列を返す（Asia/Tokyo タイムゾーン）
 export function todayJstYmd(today: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -477,13 +474,8 @@ export function computeSalesDailyMetrics(
     sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
   )
 
-  // 本日 面談数: 面談設定済 → 検討中/受注/失注/保留・長期 への遷移
-  const meetingCaseIds = new Set(
-    todayChanges
-      .filter(sc => sc.old_value === '面談設定済' && sc.new_value && POST_MEETING_STATUSES.has(sc.new_value))
-      .map(sc => sc.entity_id),
-  )
-  const meetingsCount = meetingCaseIds.size
+  // 本日 面談数: 面談実施日が本日の案件数（実際に面談した件数）
+  const meetingsCount = cases.filter(c => c.meeting_executed_date === ymd).length
 
   // 本日 新規受注: 「→受注」遷移（遷移元は問わない）
   const newOrderCaseIds = new Set(
@@ -562,13 +554,10 @@ export function computeSalesMetricsForRange(
     sc => sc.created_at >= startTs && sc.created_at <= endTs,
   )
 
-  // 面談数: 面談設定済 → 検討中/受注/失注/保留・長期 への遷移（同案件複数遷移は1カウント）
-  const meetingCaseIds = new Set(
-    inMonthChanges
-      .filter(sc => sc.old_value === '面談設定済' && sc.new_value && POST_MEETING_STATUSES.has(sc.new_value))
-      .map(sc => sc.entity_id),
-  )
-  const meetingsCount = meetingCaseIds.size
+  // 面談数: 面談実施日(meeting_executed_date)が期間内の案件数（実際に面談した件数）
+  const meetingsCount = cases.filter(c =>
+    c.meeting_executed_date && c.meeting_executed_date >= start && c.meeting_executed_date <= end,
+  ).length
 
   // 新規受注: 「→受注」遷移（検討中/検討中（契約書待ち）等どこからでも受注になればカウント）
   const newOrderCaseIds = new Set(

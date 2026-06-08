@@ -61,7 +61,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   ] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate,procedure_type'),
+      .select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate,procedure_type,meeting_executed_date'),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase
       .from('members')

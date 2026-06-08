@@ -322,6 +322,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       fee_total: c.fee_total,
       total_revenue_estimate: c.total_revenue_estimate,
       tax_filing_required: c.tax_filing_required,
+      meeting_executed_date: c.meeting_executed_date,
     }))
 
   const salesMetrics = selectedPeriod === 'all'
