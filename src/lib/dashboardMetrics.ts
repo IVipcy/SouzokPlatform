@@ -527,6 +527,28 @@ export function computeSalesMetrics(
   properties: DashProperty[] = [],
 ): SalesMetricsBundle {
   const { start, end } = monthRange(ym)
+  return computeSalesMetricsForRange(cases, statusChanges, start, end, properties)
+}
+
+// 本日（単日）スコープで SalesMetricsBundle を計算（チーム別/個人別 月次成績テーブルの本日版に使う）
+export function computeSalesMetricsForDay(
+  cases: DashCase[],
+  statusChanges: DashStatusChange[],
+  today: Date = new Date(),
+  properties: DashProperty[] = [],
+): SalesMetricsBundle {
+  const ymd = todayJstYmd(today)
+  return computeSalesMetricsForRange(cases, statusChanges, ymd, ymd, properties)
+}
+
+// 指定期間（start..end の日付文字列 YYYY-MM-DD）で SalesMetricsBundle を計算する共通実装。
+export function computeSalesMetricsForRange(
+  cases: DashCase[],
+  statusChanges: DashStatusChange[],
+  start: string,
+  end: string,
+  properties: DashProperty[] = [],
+): SalesMetricsBundle {
   const startTs = `${start}T00:00:00`
   const endTs = `${end}T23:59:59.999`
 

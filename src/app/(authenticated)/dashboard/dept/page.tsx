@@ -3,6 +3,7 @@ import { Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import DeptDashboardTabs from '@/components/features/dashboard/DeptDashboardTabs'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
+import SalesTeamTable, { type SalesTeamGroup, type SalesMemberRow } from '@/components/features/dashboard/SalesTeamTable'
 import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import { parsePeriod } from '@/lib/dashboardPeriod'
@@ -11,6 +12,7 @@ import {
   computeDailyMetrics,
   computeProcedureBreakdown,
   computeSalesMetrics,
+  computeSalesMetricsForDay,
   formatMan,
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
@@ -168,6 +170,60 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
   }
 
+  // 本日ビュー用: 受注担当の「チーム別／個人別」テーブル（当月と同じ項目で本日分の数字）
+  const salesCaseIdsByMember = new Map<string, Set<string>>()
+  for (const cm of caseMembers) {
+    if (cm.role !== 'sales') continue
+    if (!salesCaseIdsByMember.has(cm.member_id)) salesCaseIdsByMember.set(cm.member_id, new Set())
+    salesCaseIdsByMember.get(cm.member_id)!.add(cm.case_id)
+  }
+  const salesMembersForTable = members.filter(m => m.primary_role === 'sales')
+  const byTeamSales = new Map<string, MemberRow[]>()
+  for (const m of salesMembersForTable) {
+    const key = m.team_id ?? '__unassigned__'
+    if (!byTeamSales.has(key)) byTeamSales.set(key, [])
+    byTeamSales.get(key)!.push(m)
+  }
+  const salesGroupKeys = [...byTeamSales.keys()].sort((a, b) => {
+    if (a === '__unassigned__') return 1
+    if (b === '__unassigned__') return -1
+    return (teamMap[a] ?? '').localeCompare(teamMap[b] ?? '', 'ja')
+  })
+  const dailySalesGroups: SalesTeamGroup[] = salesGroupKeys.map(key => {
+    const mem = byTeamSales.get(key)!
+    const teamCaseIds = new Set<string>()
+    for (const m of mem) {
+      const s = salesCaseIdsByMember.get(m.id)
+      if (s) for (const id of s) teamCaseIds.add(id)
+    }
+    const teamCases = cases.filter(c => teamCaseIds.has(c.id))
+    const teamChanges = statusChanges.filter(sc => teamCaseIds.has(sc.entity_id))
+    const teamMetrics = computeSalesMetricsForDay(teamCases, teamChanges, today)
+    const memberRows: SalesMemberRow[] = mem
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      .map(m => {
+        const ids = salesCaseIdsByMember.get(m.id) ?? new Set<string>()
+        const myCases = cases.filter(c => ids.has(c.id))
+        const myChanges = statusChanges.filter(sc => ids.has(sc.entity_id))
+        return {
+          id: m.id,
+          name: m.name,
+          avatarColor: m.avatar_color ?? '#6B7280',
+          avatarUrl: m.avatar_url,
+          jobType: m.job_type,
+          joinedAt: m.joined_at,
+          metrics: computeSalesMetricsForDay(myCases, myChanges, today),
+          newOrdersTarget: memberTargetByMember.get(m.id) ?? 0,
+          achieved: achievedMemberIds.has(m.id),
+        }
+      })
+    return {
+      teamName: key === '__unassigned__' ? '未所属' : (teamMap[key] ?? '不明'),
+      teamMetrics,
+      members: memberRows,
+    }
+  })
+
   // 達成判定（目標が1つでも設定されていればポップアップ表示）
   const achievement = isDeptAchieved(summary, initialTarget)
 
@@ -208,16 +264,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             />
           </>
         ) : currentPeriod === 'today' ? (
-          <DeptSummaryCards
-            title="本日のサマリー"
-            items={[
-              { label: '新規受注', value: String(dailyMetrics.newOrders), unit: '件' },
-              { label: '管理着手', value: String(dailyMetrics.startedManaging), unit: '件' },
-              { label: '完了', value: String(dailyMetrics.completed), unit: '件' },
-              { label: '完了金額', value: formatMan(dailyMetrics.completedAmount), unit: '万円' },
-              { label: 'サイクル', value: dailyMetrics.cycleMonths === null ? '-' : dailyMetrics.cycleMonths.toFixed(1), unit: 'カ月/件' },
-            ]}
-          />
+          <>
+            <DeptSummaryCards
+              title="本日のサマリー"
+              items={[
+                { label: '新規受注', value: String(dailyMetrics.newOrders), unit: '件' },
+                { label: '管理着手', value: String(dailyMetrics.startedManaging), unit: '件' },
+                { label: '完了', value: String(dailyMetrics.completed), unit: '件' },
+                { label: '完了金額', value: formatMan(dailyMetrics.completedAmount), unit: '万円' },
+                { label: 'サイクル', value: dailyMetrics.cycleMonths === null ? '-' : dailyMetrics.cycleMonths.toFixed(1), unit: 'カ月/件' },
+              ]}
+            />
+            <SalesTeamTable groups={dailySalesGroups} today={today} ym={thisYm} title="チーム別／個人別 本日成績" />
+          </>
         ) : (
           <>
             <DeptSummaryCards

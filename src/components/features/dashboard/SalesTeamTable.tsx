@@ -28,15 +28,17 @@ type Props = {
   today: Date
   // 当月（target upsert に渡す）
   ym: string
+  // 見出し（既定: 月次成績。本日ビューでは「本日成績」を渡す）
+  title?: string
 }
 
-export default function SalesTeamTable({ groups, today, ym }: Props) {
+export default function SalesTeamTable({ groups, today, ym, title = 'チーム別／個人別 月次成績' }: Props) {
   const totalMembers = groups.reduce((s, g) => s + g.members.length, 0)
 
   if (totalMembers === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">チーム別／個人別 月次成績</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           受注担当のメンバーが登録されていません
         </div>
@@ -47,7 +49,7 @@ export default function SalesTeamTable({ groups, today, ym }: Props) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">チーム別／個人別 月次成績</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         <p className="text-[12px] text-gray-400">
           「目標(新規受注)」列をクリックで個人目標を編集できます。達成すると氏名アイコンにレインボーリング 🌈
         </p>
