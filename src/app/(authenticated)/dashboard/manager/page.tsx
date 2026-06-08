@@ -123,7 +123,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   const caseIdArray = Array.from(scopeCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at').in('id', caseIdArray),
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase.from('invoices').select('id,case_id,invoice_number,amount,status,issued_date,invoice_type').in('case_id', caseIdArray),
   ])
@@ -154,13 +154,15 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
 
-  // 案件→管理担当
+  // 案件→管理担当 / 受注担当
   const managerByCase = new Map<string, MemberRow>()
+  const salesByCase = new Map<string, MemberRow>()
   for (const cm of caseMembers) {
-    if (cm.role !== 'manager' || !scopeCaseIds.has(cm.case_id)) continue
-    if (managerByCase.has(cm.case_id)) continue
+    if (!scopeCaseIds.has(cm.case_id)) continue
     const m = memberById.get(cm.member_id)
-    if (m) managerByCase.set(cm.case_id, m)
+    if (!m) continue
+    if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, m)
+    if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) salesByCase.set(cm.case_id, m)
   }
 
   const tasksByCase = new Map<string, DashTask[]>()
@@ -178,16 +180,21 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const baseCases = statusFilter ? cases.filter(c => c.status === statusFilter) : cases.filter(c => ACTIVE.has(c.status))
   const allRows: ProgressCaseRow[] = baseCases.map(c => {
     const mgr = managerByCase.get(c.id) ?? null
+    const sales = salesByCase.get(c.id) ?? null
     const flag = (c.has_complaint || c.expected_completion_date) ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today) : null
     return {
       id: c.id,
       caseNumber: c.case_number,
       dealName: c.deal_name,
+      salesId: sales?.id ?? null,
+      salesName: sales?.name ?? null,
+      salesAvatarUrl: sales?.avatar_url ?? null,
       managerId: mgr?.id ?? null,
       managerName: mgr?.name ?? null,
       managerAvatarColor: mgr?.avatar_color ?? null,
       managerAvatarUrl: mgr?.avatar_url ?? null,
       managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
+      procedureType: c.procedure_type ?? null,
       expectedCompletionDate: c.expected_completion_date ?? null,
       clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
       flag,

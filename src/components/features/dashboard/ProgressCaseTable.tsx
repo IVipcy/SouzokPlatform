@@ -7,12 +7,19 @@ export type ProgressCaseRow = {
   id: string
   caseNumber: string
   dealName: string
+  // 受注担当
+  salesId?: string | null
+  salesName?: string | null
+  salesAvatarUrl?: string | null
+  // 管理担当
   managerId: string | null
   managerName: string | null
   managerAvatarColor: string | null
   managerAvatarUrl?: string | null
   // 担当者列で表示する人の主たるロール（色決定用）
   managerPrimaryRole?: 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null
+  // 受注内容（手続区分）
+  procedureType?: string[] | null
   expectedCompletionDate: string | null
   clientName: string | null
   flag: CaseFlag | null  // null = 完了予定日未設定（フラグ判定対象外）
@@ -36,10 +43,10 @@ export default function ProgressCaseTable({ rowsWithFlag, rowsUnset, showRoleBad
   return (
     <div className="space-y-5">
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">案件一覧（フラグ順）</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">案件一覧</h3>
         {rowsWithFlag.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
-            選択月に該当する案件はありません
+            該当する案件はありません
           </div>
         ) : (
           <CasesTable rows={rowsWithFlag} showRoleBadge={showRoleBadge} />
@@ -73,17 +80,21 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
         <colgroup>
           {!hideFlagColumn && <col style={{ width: 70 }} />}
           <col style={{ width: 120 }} />
-          <col style={{ width: 320 }} />
+          <col style={{ width: 240 }} />
+          <col style={{ width: 130 }} />
+          <col style={{ width: 130 }} />
           <col style={{ width: 150 }} />
           <col style={{ width: 110 }} />
-          <col style={{ width: 160 }} />
+          <col style={{ width: 140 }} />
         </colgroup>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
             {!hideFlagColumn && <th className="px-2 py-2 text-center font-semibold">フラグ</th>}
             <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
             <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
-            <th className="px-2.5 py-2 text-left font-semibold">担当者</th>
+            <th className="px-2.5 py-2 text-left font-semibold">受注担当</th>
+            <th className="px-2.5 py-2 text-left font-semibold">管理担当</th>
+            <th className="px-2.5 py-2 text-left font-semibold">受注内容</th>
             <th className="px-2.5 py-2 text-left font-semibold">完了予定日</th>
             <th className="px-2.5 py-2 text-left font-semibold">依頼者名</th>
           </tr>
@@ -122,6 +133,21 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                     )}
                   </div>
                 </td>
+                {/* 受注担当 */}
+                <td className="px-2.5 py-2 text-gray-700">
+                  {r.salesName && r.salesId ? (
+                    <Link
+                      href={`/profile/${r.salesId}`}
+                      className="flex items-center gap-1.5 hover:text-brand-700 hover:underline"
+                    >
+                      <UserAvatar name={r.salesName} role="sales" url={r.salesAvatarUrl} size="sm" />
+                      <span className="truncate">{r.salesName}</span>
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
+                {/* 管理担当 */}
                 <td className="px-2.5 py-2 text-gray-700">
                   {r.managerName && r.managerId ? (
                     <Link
@@ -139,6 +165,16 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
                   ) : (
                     <span className="text-gray-400">-</span>
                   )}
+                </td>
+                {/* 受注内容（手続区分） */}
+                <td className="px-2.5 py-2">
+                  {r.procedureType && r.procedureType.filter(Boolean).length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {r.procedureType.filter(Boolean).map(p => (
+                        <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                      ))}
+                    </div>
+                  ) : <span className="text-gray-400">-</span>}
                 </td>
                 <td className="px-2.5 py-2 font-mono text-gray-700">
                   {r.expectedCompletionDate ?? <span className="text-gray-400">未設定</span>}

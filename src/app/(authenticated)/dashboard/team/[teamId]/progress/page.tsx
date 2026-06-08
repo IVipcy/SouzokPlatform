@@ -178,7 +178,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at')
+      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type')
       .in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase
@@ -196,12 +196,13 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
 
   // 案件IDごとに manager を引く（進捗テーブル表示用）
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
+  const salesByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
   for (const cm of caseMembers) {
-    if (cm.role !== 'manager') continue
     if (!scopeCaseIds.has(cm.case_id)) continue
-    if (managerByCase.has(cm.case_id)) continue
     const m = memberById.get(cm.member_id)
-    if (m) managerByCase.set(cm.case_id, m)
+    if (!m) continue
+    if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, m)
+    if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) salesByCase.set(cm.case_id, m)
   }
 
   // 請求状況ビュー用の「チーム視点」担当者マップ。
@@ -236,6 +237,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const allRows: ProgressCaseRow[] = baseCases
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null
+      const sales = salesByCase.get(c.id) ?? null
       // クレームありは紫を最優先で返す（expected_completion_date 未設定でも紫扱い）
       const flag = (c.has_complaint || c.expected_completion_date)
         ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
@@ -244,11 +246,15 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         id: c.id,
         caseNumber: c.case_number,
         dealName: c.deal_name,
+        salesId: sales?.id ?? null,
+        salesName: sales?.name ?? null,
+        salesAvatarUrl: sales?.avatar_url ?? null,
         managerId: mgr?.id ?? null,
         managerName: mgr?.name ?? null,
         managerAvatarColor: mgr?.avatar_color ?? null,
         managerAvatarUrl: mgr?.avatar_url ?? null,
         managerPrimaryRole: (mgr?.primary_role ?? 'manager') as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null,
+        procedureType: c.procedure_type ?? null,
         expectedCompletionDate: c.expected_completion_date ?? null,
         clientName: c.client_id ? clientById.get(c.client_id) ?? null : null,
         flag,

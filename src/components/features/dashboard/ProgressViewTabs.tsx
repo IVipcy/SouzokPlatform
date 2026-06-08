@@ -10,7 +10,7 @@ type Props = {
 }
 
 const TABS: { key: ProgressView; label: string }[] = [
-  { key: 'progress', label: '進捗' },
+  { key: 'progress', label: '管理案件一覧' },
   { key: 'billing',  label: '請求状況' },
 ]
 
