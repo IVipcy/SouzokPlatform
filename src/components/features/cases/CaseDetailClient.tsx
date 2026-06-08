@@ -46,7 +46,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts }: Props) {
   const router = useRouter()
@@ -156,7 +156,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {activeTab === 'division' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
+      )}
+      {activeTab === 'will' && (
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
+      )}
+      {activeTab === 'registration' && (
+        <TabPlaceholder title="相続登記" note="項目は今後ヒアリングのうえ追加予定です。" />
+      )}
+      {activeTab === 'cancellation' && (
+        <TabPlaceholder title="解約等（銀行・証券・自動車）" note="項目は今後ヒアリングのうえ追加予定です。" />
       )}
       {activeTab === 'referral' && (
         <ReferralTab caseData={caseState} patchCase={patchCase} />
@@ -184,6 +193,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         allMembers={allMembers}
         onSaved={handleSaved}
       />
+    </div>
+  )
+}
+
+// 中身未定のタブ用プレースホルダー（相続登記 / 解約等）
+function TabPlaceholder({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+      </div>
+      <div className="px-4 py-12 text-center text-[13px] text-gray-400">{note}</div>
     </div>
   )
 }

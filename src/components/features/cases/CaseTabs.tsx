@@ -1,6 +1,6 @@
 'use client'
 
-export type TabKey = 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -13,11 +13,14 @@ const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[
   { key: 'basicInfo', label: '案件進捗' },
   { key: 'meeting', label: '面談情報' },
   { key: 'clientInfo', label: '依頼者情報・やり取り' },
-  { key: 'deceased', label: '被相続人・相続人' },
-  { key: 'assets', label: '財産情報' },
-  { key: 'division', label: '遺産分割・遺言' },
+  { key: 'deceased', label: '相続人調査' },
+  { key: 'assets', label: '財産調査' },
+  { key: 'referral', label: '他士業等連携' },
+  { key: 'division', label: '遺産分割' },
+  { key: 'will', label: '遺言' },
+  { key: 'registration', label: '相続登記' },
+  { key: 'cancellation', label: '解約等（銀行・証券・自動車）' },
   { key: 'contract', label: '契約・報酬・請求' },
-  { key: 'referral', label: '紹介' },
   { key: 'docs', label: '書類', countKey: 'docCount' },
   { key: 'documentCreate', label: '書類作成' },
   { key: 'tasks', label: 'タスク', countKey: 'taskCount' },

@@ -24,15 +24,11 @@ type Props = {
   divisionDetails: DivisionDetailRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  /** 'division' = 遺産分割＋分割内容 / 'will' = 遺言＋信託 */
+  mode?: 'division' | 'will'
 }
 
-const riskColorMap: Record<string, string> = {
-  '高': 'bg-red-50 text-red-700 border-red-200',
-  '中': 'bg-amber-50 text-amber-700 border-amber-200',
-  '低': 'bg-green-50 text-green-700 border-green-200',
-}
-
-export default function DivisionTab({ caseData, divisionDetails, onRefresh, patchCase }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, onRefresh, patchCase, mode = 'division' }: Props) {
   const [showAddDetail, setShowAddDetail] = useState(false)
   const [detailForm, setDetailForm] = useState({
     asset_category: '',
@@ -95,6 +91,7 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
 
   return (
     <div className="space-y-3.5">
+      {mode === 'division' && (<>
       {/* 遺産分割 */}
       <Section title="遺産分割" icon="⚖️">
         <FieldGrid>
@@ -163,7 +160,9 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
           </div>
         )}
       </Section>
+      </>)}
 
+      {mode === 'will' && (<>
       {/* 遺言 */}
         <Section title="遺言" icon="📜">
           <FieldGrid>
@@ -227,6 +226,7 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
             </div>
           </div>
         </Section>
+      </>)}
     </div>
   )
 }
