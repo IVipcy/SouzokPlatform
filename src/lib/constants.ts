@@ -202,7 +202,9 @@ export const PROPERTY_TYPES = [
 ] as const
 
 // === 契約形態 ===
-export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名', 'いきいきライフ協会'] as const
+// 契約形態（相続案件の受任法人）。いきいきライフ協会は終活サービスの別法人で
+// 相続案件の契約形態には含めない（officeProfiles の ikiiki は戸籍/固定資産の遺言執行用途で別途利用）。
+export const CONTRACT_TYPES = ['行政書士法人単独', '司法書士法人単独', '行・司連名'] as const
 
 // === 入金ステータス（migration 045 で4種類に統一） ===
 export const PAYMENT_STATUSES = [
