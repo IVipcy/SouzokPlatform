@@ -97,18 +97,9 @@ export default function BillingStatusView({ summary, rows }: Props) {
           </div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-            <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: 130 }} />
-                <col style={{ width: 280 }} />
-                <col style={{ width: 150 }} />
-                <col style={{ width: 130 }} />
-                <col style={{ width: 130 }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 130 }} />
-              </colgroup>
+            <table className="text-[13px] border-collapse w-full table-auto">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
                   <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
                   <th className="px-2.5 py-2 text-left font-semibold">担当者</th>
@@ -124,13 +115,13 @@ export default function BillingStatusView({ summary, rows }: Props) {
                   const statusCls = STATUS_COLOR[r.status] ?? 'bg-gray-100 text-gray-700 border-gray-200'
                   return (
                     <tr key={r.invoiceId} className={`border-b border-gray-100 hover:bg-brand-50/30 ${rowBg}`}>
-                      <td className="px-2.5 py-2 font-mono">
+                      <td className="px-2.5 py-2 font-mono whitespace-nowrap">
                         <Link href={`/cases/${r.caseId}`} className="text-brand-700 hover:underline font-semibold">
                           {r.caseNumber}
                         </Link>
                       </td>
-                      <td className="px-2.5 py-2 text-gray-900 truncate">
-                        <Link href={`/cases/${r.caseId}`} className="hover:text-brand-700 hover:underline">
+                      <td className="px-2.5 py-2 text-gray-900 min-w-[180px]">
+                        <Link href={`/cases/${r.caseId}`} className="hover:text-brand-700 hover:underline truncate block max-w-[320px]">
                           {r.dealName}
                         </Link>
                       </td>
@@ -146,7 +137,7 @@ export default function BillingStatusView({ summary, rows }: Props) {
                               url={r.managerAvatarUrl}
                               size="sm"
                             />
-                            <span className="truncate">{r.managerName}</span>
+                            <span className="truncate max-w-[120px]">{r.managerName}</span>
                           </Link>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -157,10 +148,10 @@ export default function BillingStatusView({ summary, rows }: Props) {
                           {r.status}
                         </span>
                       </td>
-                      <td className="px-2.5 py-2 font-mono text-right text-gray-900">
+                      <td className="px-2.5 py-2 font-mono text-right text-gray-900 whitespace-nowrap">
                         {fmtYen(r.amount)}
                       </td>
-                      <td className="px-2.5 py-2 font-mono text-gray-700">
+                      <td className="px-2.5 py-2 font-mono text-gray-700 whitespace-nowrap">
                         {r.issuedDate ?? <span className="text-gray-400">未発行</span>}
                       </td>
                       <td className="px-2.5 py-2 text-center">

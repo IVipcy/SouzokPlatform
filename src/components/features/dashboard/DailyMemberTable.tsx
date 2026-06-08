@@ -44,23 +44,9 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
   return (
     <section>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: 160 }} />
-            {showTeamColumn && <col style={{ width: 120 }} />}
-            <col style={{ width: 80 }} />
-            <col style={{ width: 100 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 70 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 70 }} />
-          </colgroup>
+        <table className="text-[13px] border-collapse w-full table-auto">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
               <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>氏名</th>
               {showTeamColumn && <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>所属チーム</th>}
               <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>職種</th>
@@ -85,18 +71,18 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
                       title={`${r.name} のプロフィール`}
                     >
                       <UserAvatar name={r.name} role={r.primaryRole} url={r.avatarUrl} size="sm" />
-                      <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate">{r.name}</span>
+                      <span className="font-medium text-gray-900 group-hover/name:text-brand-700 group-hover/name:underline truncate max-w-[160px]">{r.name}</span>
                     </Link>
                   </td>
                   {showTeamColumn && (
-                    <td className="px-2.5 py-2 text-gray-700">
+                    <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
                       {r.teamName ?? <span className="text-gray-400">-</span>}
                     </td>
                   )}
-                  <td className="px-2.5 py-2 text-gray-700">
+                  <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
                     {r.jobType ?? <span className="text-gray-400">-</span>}
                   </td>
-                  <td className="px-2.5 py-2 text-gray-700">{tenureLabel(r.joinedAt, today)}</td>
+                  <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{tenureLabel(r.joinedAt, today)}</td>
 
                   {/* 当月累計 */}
                   <td className="px-2 py-2 text-right tabular-nums font-mono text-gray-700 border-l-2 border-gray-300">{numCol(r.monthly.newOrders)}</td>

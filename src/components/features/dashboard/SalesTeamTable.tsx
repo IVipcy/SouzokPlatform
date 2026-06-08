@@ -56,24 +56,9 @@ export default function SalesTeamTable({ groups, today, ym, title = 'チーム�
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="text-[13px] border-collapse w-full" style={{ tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: 110 }} />
-            <col style={{ width: 150 }} />
-            <col style={{ width: 70 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 70 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 70 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 70 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 80 }} />
-          </colgroup>
+        <table className="text-[13px] border-collapse w-full table-auto">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
               <th className="px-2.5 py-2 text-left font-semibold">所属チーム</th>
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
               <th className="px-2.5 py-2 text-left font-semibold">職種</th>
@@ -136,13 +121,13 @@ function TeamGroupRows({ group, today, ym }: { group: SalesTeamGroup; today: Dat
                 size="sm"
                 achievedFrame={m.achieved}
               />
-              <span className="text-gray-700 group-hover/name:text-brand-700 group-hover/name:underline truncate">{m.name}</span>
+              <span className="text-gray-700 group-hover/name:text-brand-700 group-hover/name:underline truncate max-w-[150px]">{m.name}</span>
             </Link>
           </td>
-          <td className="px-2.5 py-2 text-gray-700">
+          <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">
             {m.jobType ?? <span className="text-gray-400">-</span>}
           </td>
-          <td className="px-2.5 py-2 text-gray-700">{tenureLabel(m.joinedAt, today)}</td>
+          <td className="px-2.5 py-2 text-gray-700 whitespace-nowrap">{tenureLabel(m.joinedAt, today)}</td>
           <MemberMetricCells metrics={m.metrics} target={m.newOrdersTarget} achieved={m.achieved} memberId={m.id} ym={ym} />
         </tr>
       ))}
