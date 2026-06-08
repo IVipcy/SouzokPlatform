@@ -149,6 +149,7 @@ export default async function CasesPage() {
       created_at: c.created_at,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      team_name: salesTeamByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,
@@ -188,6 +189,7 @@ export default async function CasesPage() {
     lost_reason: c.lost_reason,
     client_response_due_date: c.client_response_due_date,
     sales_name: salesByCase.get(c.id) ?? null,
+    team_name: salesTeamByCase.get(c.id) ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
     advance_payment: c.advance_payment,
     confirmed_revenue: confirmedRevenue(c),
@@ -206,6 +208,8 @@ export default async function CasesPage() {
     procedure_type: c.procedure_type,
     client_name: c.clients?.name ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
+    sales_name: salesByCase.get(c.id) ?? null,
+    team_name: salesTeamByCase.get(c.id) ?? null,
   }))
 
   return (

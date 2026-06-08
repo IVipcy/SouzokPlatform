@@ -1,11 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search, Plus } from 'lucide-react'
 import MyPageCasesTab, { type MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable, { type ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import LpCasesTable, { type LpCaseRow } from '@/components/features/cases/LpCasesTable'
+import CreateCaseModal from '@/components/features/cases/CreateCaseModal'
+import { useModal } from '@/hooks/useModal'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
 type View = 'manage' | 'consult' | 'referral' | 'lp'
@@ -17,11 +20,23 @@ type Props = {
   lpRows: LpCaseRow[]
 }
 
-// 検索（案件名・案件管理番号）の共通フィルタ
-function applySearch<T extends { case_number: string; deal_name: string }>(rows: T[], q: string): T[] {
+// 検索の共通フィルタ。案件名・管理番号に加え、受注/管理担当者名・担当チーム・受注内容（手続区分）も対象。
+type SearchableRow = {
+  case_number: string
+  deal_name: string
+  sales_name?: string | null
+  manager_name?: string | null
+  team_name?: string | null
+  procedure_type?: string[] | null
+}
+function applySearch<T extends SearchableRow>(rows: T[], q: string): T[] {
   const qq = q.trim().toLowerCase()
   if (!qq) return rows
-  return rows.filter(r => r.deal_name.toLowerCase().includes(qq) || r.case_number.toLowerCase().includes(qq))
+  return rows.filter(r => {
+    const hay = [r.case_number, r.deal_name, r.sales_name, r.manager_name, r.team_name, ...(r.procedure_type ?? [])]
+      .filter(Boolean).join(' ').toLowerCase()
+    return hay.includes(qq)
+  })
 }
 
 // ステータス絞り込み
@@ -36,6 +51,8 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
 export default function CaseViewsClient({ managerRows, consultRows, referralRows, lpRows }: Props) {
+  const router = useRouter()
+  const createModal = useModal()
   const [view, setView] = useState<View>('manage')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -64,7 +81,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
 
   return (
     <div>
-      <div className="flex gap-1 mb-3 border-b border-gray-200 flex-wrap">
+      <div className="flex items-center gap-1 mb-3 border-b border-gray-200 flex-wrap">
         {tabs.map(t => (
           <button
             key={t.key}
@@ -79,6 +96,14 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
             <span className={`text-[12px] font-mono ml-0.5 ${view === t.key ? 'opacity-80' : 'opacity-50'}`}>{t.count}</span>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={createModal.open}
+          className="ml-auto mb-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.25} />
+          新規案件作成
+        </button>
       </div>
 
       {/* ステータス絞り込み ＋ 検索 */}
@@ -115,7 +140,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="案件名・案件管理番号で検索"
+            placeholder="案件名・番号・担当者・チーム・受注内容で検索"
             className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
           />
         </div>
@@ -125,6 +150,12 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} />}
+
+      <CreateCaseModal
+        isOpen={createModal.isOpen}
+        onClose={createModal.close}
+        onSaved={() => { router.refresh(); createModal.close() }}
+      />
     </div>
   )
 }

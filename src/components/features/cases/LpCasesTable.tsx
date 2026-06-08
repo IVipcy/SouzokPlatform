@@ -22,6 +22,8 @@ export type LpCaseRow = {
   client_response_due_date: string | null
   /** 受注担当者名 */
   sales_name: string | null
+  /** 担当チーム名（受注担当の所属チーム。検索用） */
+  team_name?: string | null
   /** 管理担当者名 */
   manager_name: string | null
   /** 前受金額（円） */

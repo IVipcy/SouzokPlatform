@@ -14,6 +14,9 @@ export type ReferralRow = {
   procedure_type: string[] | null
   client_name: string | null
   manager_name: string | null
+  /** 受注担当名・担当チーム名（検索用。表示はしない） */
+  sales_name?: string | null
+  team_name?: string | null
 }
 
 /** 個別管理案件（紹介のみ）一覧 */

@@ -19,6 +19,8 @@ export type MyCaseRow = {
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
+  /** 担当チーム名（受注担当の所属チーム。検索用） */
+  team_name?: string | null
   /** 受注内容（手続区分） */
   procedure_type?: string[] | null
   /** 進捗: 次の未完了タスク + 完了/総数 */
