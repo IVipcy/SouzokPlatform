@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, Hand } from 'lucide-react'
+import { Check, Hand, Loader2, Play } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
 
 type Props = {
@@ -24,6 +26,8 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
 }
 
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
+  const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
+
   if (receipts.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
@@ -65,11 +69,117 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               currentMemberId={currentMemberId}
               currentMember={currentMember}
               onChanged={onChanged}
+              onStartRequest={setStartingReceipt}
             />
           ))}
         </tbody>
       </table>
+
+      {startingReceipt && (
+        <ReceiptStartModal
+          receipt={startingReceipt}
+          currentMemberId={currentMemberId}
+          onClose={() => setStartingReceipt(null)}
+          onDone={() => { setStartingReceipt(null); onChanged() }}
+        />
+      )}
     </div>
+  )
+}
+
+// 着手＝書類到着でタスク開始のトリガー。受信簿に着手記録を付け、選択した案件タスクを「対応中」にする。
+function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
+  receipt: DocumentReceiptRow
+  currentMemberId: string | null
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string }>>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    ;(async () => {
+      const { data } = await supabase
+        .from('tasks')
+        .select('id,title,status')
+        .eq('case_id', receipt.case_id)
+        .neq('status', '完了')
+        .order('sort_order')
+      setTasks((data ?? []) as Array<{ id: string; title: string; status: string }>)
+      setLoading(false)
+    })()
+  }, [receipt.case_id])
+
+  const toggle = (id: string) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  const confirm = async () => {
+    if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
+    setSaving(true)
+    const supabase = createClient()
+    const nowIso = new Date().toISOString()
+    // 受信簿に着手記録
+    const { error: e1 } = await supabase.from('document_receipts')
+      .update({ started_by_member_id: currentMemberId, started_at: nowIso }).eq('id', receipt.id)
+    // 選択タスクを「対応中」に（着手者も記録）
+    let e2: { message: string } | null = null
+    if (selected.size > 0) {
+      const { error } = await supabase.from('tasks')
+        .update({ status: '対応中', started_by: currentMemberId, started_at: nowIso })
+        .in('id', [...selected])
+      e2 = error
+    }
+    setSaving(false)
+    if (e1 || e2) { showToast(`保存に失敗しました: ${(e1 ?? e2)?.message}`, 'error'); return }
+    showToast(selected.size > 0 ? `着手し、${selected.size}件のタスクを開始しました` : '着手しました', 'success')
+    onDone()
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="書類到着 → 着手・タスク開始"
+      maxWidth="max-w-lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
+          <Button variant="primary" onClick={confirm} loading={saving}>
+            {selected.size > 0 ? `着手してタスク開始 (${selected.size})` : '着手だけ記録'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-[13px] text-gray-600">
+          届いた原本をもとに開始するタスクを選択してください（選ばずに着手記録だけでもOK）。
+        </p>
+        {loading ? (
+          <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
+        ) : tasks.length === 0 ? (
+          <div className="py-6 text-center text-[12px] text-gray-400">未完了のタスクはありません</div>
+        ) : (
+          <ul className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
+            {tasks.map(t => (
+              <li key={t.id}>
+                <label className="flex items-center gap-2 px-3 py-2 text-[13px] hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <span className="flex-1 text-gray-800">{t.title}</span>
+                  <span className="text-[11px] text-gray-400">{t.status}</span>
+                  {selected.has(t.id) && <Play className="w-3 h-3 text-emerald-600" strokeWidth={2.5} />}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Modal>
   )
 }
 
@@ -79,12 +189,14 @@ function ReceiptRow({
   currentMemberId,
   currentMember,
   onChanged,
+  onStartRequest,
 }: {
   receipt: DocumentReceiptRow
   rowBg: string
   currentMemberId: string | null
   currentMember: MemberRow | null
   onChanged: () => void
+  onStartRequest: (r: DocumentReceiptRow) => void
 }) {
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
@@ -250,10 +362,10 @@ function ReceiptRow({
                 ) : (
                   <button
                     type="button"
-                    onClick={handleStart}
-                    disabled={busyKind === 'start' || !currentMemberId}
+                    onClick={() => onStartRequest(receipt)}
+                    disabled={!currentMemberId}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50 text-[11px] font-semibold"
-                    title={currentMember ? `${currentMember.name} として着手` : '着手'}
+                    title={currentMember ? `${currentMember.name} として着手・タスク開始` : '着手'}
                   >
                     <Hand className="w-3.5 h-3.5" />
                     着手する
