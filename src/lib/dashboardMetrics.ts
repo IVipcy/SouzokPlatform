@@ -242,13 +242,12 @@ export function fiscalYearMonthsToDate(today: Date = new Date()): string[] {
 }
 
 // 月ヘッダー表示: 当月/先月 の2つは言葉、それ以前は YYYY-MM
-export function monthHeaderLabel(ym: string, today: Date = new Date()): string {
-  const tym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  if (ym === tym) return '今月'
-  const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const pym = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`
-  if (ym === pym) return '先月'
-  return ym
+// 月見出しは「YYYY/M」形式に統一（例: 2026/5）。今月/先月などの相対表記は使わない。
+// 第2引数 today は呼び出し側互換のため残置（未使用）。
+export function monthHeaderLabel(ym: string, _today: Date = new Date()): string {
+  const [y, m] = ym.split('-')
+  if (!y || !m) return ym
+  return `${y}/${Number(m)}`
 }
 
 export function tenureLabel(joinedAt: string | null, today: Date = new Date()): string {
