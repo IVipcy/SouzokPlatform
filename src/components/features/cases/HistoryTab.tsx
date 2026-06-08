@@ -75,9 +75,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
 
   return (
-    <div style={{ maxWidth: 700 }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {/* 進捗報告履歴 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] mb-4">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
           <h3 className="text-[13px] font-semibold text-gray-900">進捗報告履歴</h3>

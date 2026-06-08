@@ -58,9 +58,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   return (
     <div className="space-y-4">
-      {/* ① 進行状態サマリー（一目でわかる） */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-4 py-3.5">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      {/* ① 進行状態サマリー（一目でわかる・セグメント型ステータスバー） */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-gray-100">
           {/* ステータス（編集可能・ブランド単色でヘッダーのフローと統一） */}
           <SummaryItem label="ステータス">
             <StatusChipDropdown status={caseData.status} onChange={s => saveCaseField('status', s)} />
@@ -71,9 +71,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           </SummaryItem>
           {/* タスク進捗 */}
           <SummaryItem label="タスク進捗">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full">
               <span className="text-[14px] font-bold text-gray-900 tabular-nums">{completedTasks}/{totalTasks}</span>
-              <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="flex-1 min-w-[40px] h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-brand-600 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
               </div>
               <span className="text-[13px] font-semibold text-gray-600 tabular-nums">{progressPct}%</span>
@@ -165,9 +165,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
 function SummaryItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold text-gray-400 tracking-wide uppercase">{label}</span>
-      <div className="flex items-center min-h-[24px]">{children}</div>
+    <div className="bg-white px-4 py-3">
+      <div className="text-[11px] font-semibold text-gray-400 tracking-wide mb-1.5">{label}</div>
+      <div className="flex items-center min-h-[26px]">{children}</div>
     </div>
   )
 }
