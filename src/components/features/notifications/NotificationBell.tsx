@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Bell, CheckCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { ALERT_SEVERITY_STYLE, type AlertItem } from '@/lib/alerts'
 
 type Notification = {
   id: string
@@ -37,6 +38,7 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
   const memberId = user?.memberId ?? null
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
+  const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -45,13 +47,12 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
     setLoading(true)
     try {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('member_id', memberId)
-        .order('created_at', { ascending: false })
-        .limit(FETCH_LIMIT)
+      const [{ data }, alertRes] = await Promise.all([
+        supabase.from('notifications').select('*').eq('member_id', memberId).order('created_at', { ascending: false }).limit(FETCH_LIMIT),
+        fetch('/api/alerts').then(r => r.ok ? r.json() : { alerts: [] }).catch(() => ({ alerts: [] })),
+      ])
       setItems((data ?? []) as Notification[])
+      setAlerts((alertRes?.alerts ?? []) as AlertItem[])
     } finally {
       setLoading(false)
     }
@@ -77,6 +78,7 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
   }, [open])
 
   const unreadCount = items.filter(n => !n.is_read).length
+  const totalCount = alerts.length + unreadCount
 
   const markRead = async (id: string) => {
     setItems(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
@@ -108,7 +110,7 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        title={collapsed ? `通知${unreadCount > 0 ? ` (${unreadCount}件未読)` : ''}` : undefined}
+        title={collapsed ? `アラート${totalCount > 0 ? ` (${totalCount}件)` : ''}` : undefined}
         className={`relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'} w-full py-2 rounded-lg text-sm font-medium transition-colors ${
           open
             ? 'bg-brand-50 text-brand-700'
@@ -121,16 +123,16 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
             className={`w-[18px] h-[18px] flex-shrink-0 ${open ? 'text-brand-600' : 'text-gray-400'}`}
             strokeWidth={open ? 2.25 : 1.75}
           />
-          {unreadCount > 0 && (
+          {totalCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {totalCount > 99 ? '99+' : totalCount}
             </span>
           )}
         </span>
-        {!collapsed && '通知'}
-        {!collapsed && unreadCount > 0 && (
+        {!collapsed && 'アラート'}
+        {!collapsed && totalCount > 0 && (
           <span className="ml-auto text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5">
-            {unreadCount}
+            {totalCount}
           </span>
         )}
       </button>
@@ -139,7 +141,7 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
         <div className="absolute left-full bottom-0 ml-2 w-[340px] bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
           {/* ヘッダー */}
           <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-            <h4 className="text-[13px] font-bold text-gray-800">通知 {unreadCount > 0 && <span className="text-red-500">({unreadCount})</span>}</h4>
+            <h4 className="text-[13px] font-bold text-gray-800">アラート {totalCount > 0 && <span className="text-red-500">({totalCount})</span>}</h4>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
@@ -148,19 +150,47 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
                   className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1"
                 >
                   <CheckCheck className="w-3 h-3" />
-                  すべて既読
+                  通知を既読
                 </button>
               )}
             </div>
           </div>
 
           {/* リスト */}
-          <div className="max-h-[420px] overflow-y-auto">
-            {loading && items.length === 0 ? (
+          <div className="max-h-[460px] overflow-y-auto">
+            {/* ライブアラート（優先度順・クリックで該当へ） */}
+            {alerts.length > 0 && (
+              <ul className="divide-y divide-gray-100 border-b border-gray-100">
+                {alerts.map(a => {
+                  const sv = ALERT_SEVERITY_STYLE[a.severity]
+                  const body = (
+                    <div className="flex items-start gap-2 px-3 py-2.5 hover:bg-gray-50">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${sv.dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sv.chip}`}>{a.category}</span>
+                        </div>
+                        <div className="text-[13px] font-semibold text-gray-900 truncate">{a.title}</div>
+                        {a.body && <div className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{a.body}</div>}
+                      </div>
+                    </div>
+                  )
+                  return (
+                    <li key={a.id}>
+                      {a.href ? (
+                        <Link href={a.href} className="block" onClick={() => setOpen(false)}>{body}</Link>
+                      ) : <div>{body}</div>}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {loading && items.length === 0 && alerts.length === 0 ? (
               <div className="px-3 py-8 text-center text-[12px] text-gray-400">読み込み中...</div>
-            ) : items.length === 0 ? (
-              <div className="px-3 py-8 text-center text-[12px] text-gray-400">通知はありません</div>
-            ) : (
+            ) : items.length === 0 && alerts.length === 0 ? (
+              <div className="px-3 py-8 text-center text-[12px] text-gray-400">対応すべきアラートはありません</div>
+            ) : items.length === 0 ? null : (
               <ul className="divide-y divide-gray-100">
                 {items.map(n => {
                   const href = n.task_id
