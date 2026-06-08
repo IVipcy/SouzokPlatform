@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck } from 'lucide-react'
+import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
@@ -9,6 +9,8 @@ import ConsultationCasesTable, { type ConsultCase } from '@/components/features/
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
+import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
+import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -37,7 +39,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string }>
-type TabKey = 'meetings' | 'cases' | 'referrals' | 'progress' | 'reviews' | 'tasks'
+type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'reviews' | 'tasks'
 
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'])
 const MGMT_ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
@@ -83,7 +85,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const [{ data: myCaseRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
     supabase.from('case_members').select('case_id, role, cases(*)').eq('member_id', memberId),
     supabase.from('case_members').select('case_id, member_id, role'),
-    supabase.from('members').select('id, name').eq('is_active', true),
+    supabase.from('members').select('id, name, avatar_url').eq('is_active', true),
     supabase.from('clients').select('id, name'),
   ])
 
@@ -100,6 +102,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     client_response_due_date: string | null
     order_route_detail: string | null
     procedure_type: string[] | null
+    contract_type: string | null
+    advance_payment: number | null
     fee_administrative: number | null
     fee_judicial: number | null
     fee_total: number | null
@@ -127,7 +131,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }
 
   // 受注担当・管理担当・依頼者名を解決
-  const memberById = new Map<string, string>(((allMembersRaw ?? []) as Array<{ id: string; name: string }>).map(m => [m.id, m.name]))
+  const allMembersArr = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_url: string | null }>
+  const memberById = new Map<string, string>(allMembersArr.map(m => [m.id, m.name]))
+  const memberObjById = new Map(allMembersArr.map(m => [m.id, m]))
   const clientById = new Map<string, string>(((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]))
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const salesByCase = new Map<string, string>()
@@ -155,7 +161,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
   let boardTasks: BoardTask[] = []
-  let invoices: Array<{ case_id: string; issued_date: string | null }> = []
+  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; issued_date: string | null; created_at: string | null }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
   let roleTaskRows: TaskRow[] = []
@@ -169,7 +175,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     try {
       const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
-        supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
+        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,issued_date,created_at').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
         // started_by_member は「対応中（名前）」表示に使う
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*), task_assignees!inner(member_id, role)').eq('task_assignees.member_id', memberId).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
@@ -190,7 +196,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
-      invoices = (invoicesRes.data ?? []) as Array<{ case_id: string; issued_date: string | null }>
+      invoices = (invoicesRes.data ?? []) as typeof invoices
       roleTaskRows = (roleTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
@@ -461,12 +467,18 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }))
   const reviewPendingCount = reviewRows.filter(r => r.status === '依頼中').length
 
+  // 請求タブ（管理担当）: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件
+  const billingCaseRows = isManager
+    ? buildBillingCaseRows(myCases.filter(c => managerCaseIds.has(c.id)), allCaseMembers, memberObjById, invoices, today)
+    : []
+
   // === タブ構成（役割 + 確認依頼の有無で決定） ===
   const showProgress = isManager
   const showReviews = isSales || reviewRows.length > 0
   const validTabs: TabKey[] = []
   if (isSales) validTabs.push('meetings')
   validTabs.push('cases')
+  if (isManager) validTabs.push('billing')
   if (isSales) validTabs.push('referrals')
   if (showProgress) validTabs.push('progress')
   validTabs.push('tasks')
@@ -489,6 +501,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href="/my?tab=meetings" label={`相談案件一覧 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
         )}
         <TabLink href="/my?tab=cases" label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
+        {isManager && (
+          <TabLink href="/my?tab=billing" label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
+        )}
         {isSales && (
           <TabLink href="/my?tab=referrals" label={`個別管理案件 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
@@ -541,6 +556,11 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
           <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
         </div>
+      )}
+
+      {/* 請求（管理担当）: サマリ等は出さず、案件ベースの請求一覧のみ */}
+      {activeTab === 'billing' && isManager && (
+        <BillingCaseTable rows={billingCaseRows} />
       )}
 
       {/* 進捗報告（管理担当） */}
