@@ -8,6 +8,8 @@ import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import CaseProgressPanel from './CaseProgressPanel'
+import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
+import { AlertTriangle } from 'lucide-react'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
 type Props = {
@@ -18,6 +20,8 @@ type Props = {
   // 「対応中」展開パネル用のデータ
   tasks: TaskRow[]
   properties: RealEstatePropertyRow[]
+  // 案件の有効アラート（案件名の下に表示）
+  caseAlerts?: import('@/lib/alerts').CaseAlertChip[]
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -39,7 +43,7 @@ const STATUS_ACTIVE_COLOR = '#0f487e'    // brand-600
 const STATUS_PASSED_COLOR = '#7daac8'    // brand-300 — 経過済みは薄めで
 const STATUS_FUTURE_COLOR = '#CBD5E1'    // gray-300
 
-export default function CaseHeader({ caseData, latestCommunicationDate, tasks, properties }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, tasks, properties, caseAlerts }: Props) {
   const router = useRouter()
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   // 相続税バッジ: '要' / '不要' のみ表示。'確認中' は未確定なので非表示。
@@ -119,6 +123,21 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
                   被相続人：{caseData.deceased_name}
                   {caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
                 </p>
+              )}
+              {/* 案件アラート（要対応） */}
+              {caseAlerts && caseAlerts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" strokeWidth={2.25} />
+                  {caseAlerts.map((a, i) => {
+                    const sv = ALERT_SEVERITY_STYLE[a.severity]
+                    return (
+                      <span key={i} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${sv.chip}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${sv.dot}`} />
+                        {a.category}
+                      </span>
+                    )
+                  })}
+                </div>
               )}
             </div>
 

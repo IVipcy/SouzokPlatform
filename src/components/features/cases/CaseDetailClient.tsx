@@ -37,6 +37,7 @@ type Props = {
   documents: CaseDocumentRow[]
   clientCommunications: ClientCommunicationRow[]
   currentMemberId: string | null
+  caseAlerts?: import('@/lib/alerts').CaseAlertChip[]
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -44,7 +45,7 @@ const TRIGGER_FIELDS = new Set(['status'])
 
 const VALID_TABS: TabKey[] = ['basicInfo', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'referral', 'docs', 'documentCreate', 'history']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -122,6 +123,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         latestCommunicationDate={latestCommunicationDate}
         tasks={tasks}
         properties={properties}
+        caseAlerts={caseAlerts}
       />
 
       <CaseTabs

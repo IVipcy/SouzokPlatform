@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
+import { computeCaseAlerts } from '@/lib/alerts'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow } from '@/types'
 
 type Props = {
@@ -13,7 +14,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -71,6 +72,8 @@ export default async function CaseDetailPage({ params }: Props) {
       .select('*')
       .eq('case_id', id)
       .order('communicated_at', { ascending: false }),
+    supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
+    supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -86,8 +89,28 @@ export default async function CaseDetailPage({ params }: Props) {
     }
   } catch { /* migration 未適用環境では無視 */ }
 
+  // 案件ヘッダー用のアラート算出
+  const cmRows = (membersResult.data ?? []) as CaseMemberRow[]
+  const advInvRows = (invoicesResult.data ?? []) as Array<{ status: string }>
+  const repRows = (reportsResult.data ?? []) as Array<{ status: string; confirmed_date: string | null }>
+  const tasksForAlert = (tasksResult.data ?? []) as TaskRow[]
+  const now = new Date()
+  const nowStr = now.toISOString().slice(0, 10)
+  const weekAgoStr = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
+  const caseAlerts = computeCaseAlerts(
+    caseResult.data as CaseRow,
+    {
+      managerExists: cmRows.some(m => m.role === 'manager'),
+      advanceInvoiceStatus: advInvRows[0]?.status ?? null,
+      recentWeeklyConfirmed: repRows.some(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr),
+      overdueTaskCount: tasksForAlert.filter(t => t.due_date && t.due_date < nowStr && t.status !== '完了' && t.status !== 'キャンセル').length,
+    },
+    now,
+  )
+
   return (
     <CaseDetailClient
+      caseAlerts={caseAlerts}
       caseData={caseResult.data as CaseRow}
       caseMembers={(membersResult.data ?? []) as CaseMemberRow[]}
       tasks={(tasksResult.data ?? []) as TaskRow[]}
