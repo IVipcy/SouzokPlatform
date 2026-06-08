@@ -7,6 +7,7 @@ import { Printer, Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { OFFICE_PROFILES, officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
 import type { InvoiceRow, CaseRow, ClientRow, ExpenseRow } from '@/types'
 
 type Props = {
@@ -22,6 +23,10 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
   const isFirstView = searchParams.get('firstView') === '1'
 
   const client = invoice.cases?.clients
+  // 発行法人（行政書士/司法書士）。firm_type 優先、無ければ契約形態から決定
+  const firmKind: OfficeKind = (invoice.firm_type as OfficeKind | null) ?? officesForContractType(invoice.cases?.contract_type)[0]
+  const office = OFFICE_PROFILES[firmKind] ?? OFFICE_PROFILES.gyosei
+  const isAdvance = invoice.invoice_type === '前受金'
   const expensesTotal = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
   const issuedDate = invoice.issued_date
     ? new Date(invoice.issued_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -124,30 +129,42 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
           className="bg-white shadow-md print:shadow-none mx-auto px-12 py-10"
           style={{ width: '210mm', minHeight: '297mm' }}
         >
-          {/* タイトル */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-[0.4em] text-gray-900 inline-block border-b-4 border-gray-900 pb-1 px-6">
-              請　求　書
-            </h1>
+          {/* タイトル + 登録番号 */}
+          <div className="relative mb-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold tracking-[0.4em] text-gray-900 inline-block border-b-4 border-gray-900 pb-1 px-6">
+                御　請　求　書
+              </h1>
+            </div>
+            {office.invoiceRegistrationNumber && (
+              <div className="absolute right-0 bottom-0 text-[11px] text-gray-600">登録番号：{office.invoiceRegistrationNumber}</div>
+            )}
           </div>
 
-          {/* 宛先 & 日付 */}
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <div className="text-[15px] text-gray-900 font-semibold">
+          {/* 宛先（左） & 発行元（右） */}
+          <div className="flex justify-between items-start mb-6 gap-6">
+            <div className="min-w-0">
+              <div className="text-[16px] text-gray-900 font-semibold border-b border-gray-400 pb-1 inline-block pr-8">
                 {client?.name ?? invoice.cases?.deal_name ?? '—'} 様
               </div>
-              {client?.address && (
-                <div className="text-[12px] text-gray-600 mt-1">〒 {client.postal_code ?? ''}</div>
+              {client?.postal_code && (
+                <div className="text-[12px] text-gray-600 mt-1">〒 {client.postal_code}</div>
               )}
               {client?.address && (
                 <div className="text-[12px] text-gray-600">{client.address}</div>
               )}
+              <div className="text-[12px] text-gray-600 mt-3">
+                <div>請求書番号: <span className="font-mono text-gray-900">{invoiceNumber}</span></div>
+                <div className="mt-0.5">発行年月日: {issuedDate}</div>
+                {invoice.due_date && <div className="mt-0.5">お支払期限: {dueDate}</div>}
+              </div>
             </div>
-            <div className="text-right text-[12px] text-gray-600">
-              <div>請求書番号: <span className="font-mono text-gray-900">{invoiceNumber}</span></div>
-              <div className="mt-1">発行日: {issuedDate}</div>
-              {invoice.due_date && <div className="mt-1">お支払期限: {dueDate}</div>}
+            {/* 発行元（行政書士法人 / 司法書士法人） */}
+            <div className="text-[12px] text-gray-800 leading-relaxed flex-shrink-0 text-right">
+              <div className="text-[14px] font-bold text-gray-900">{office.legalName}</div>
+              <div className="mt-0.5">{office.mainOfficeAddress}</div>
+              <div className="mt-0.5">{office.representativeTitle}　{office.representativeName}</div>
+              <div className="mt-0.5">TEL: {office.telMain}{office.fax ? `　FAX: ${office.fax}` : ''}</div>
             </div>
           </div>
 
@@ -239,27 +256,45 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
             </tbody>
           </table>
 
-          {/* 備考 */}
+          {/* 注意書き */}
+          <div className="text-[11px] text-gray-600 leading-relaxed mb-4">
+            {isAdvance && <div>※前受金は消費税対象外となります。</div>}
+            <div>備考：お振込手数料はお客様ご負担にてお願い申し上げます。</div>
+            {isAdvance && (
+              <div className="mt-1 text-gray-500">
+                前受金の領収書につきましては、特段のお申出がない限りは発行致しませんので、振込票の控えを大切に保管ください。
+              </div>
+            )}
+          </div>
+
+          {/* 備考（個別） */}
           {invoice.notes && (
-            <div className="mb-6">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">備考</div>
+            <div className="mb-5">
+              <div className="text-[11px] font-semibold text-gray-500 mb-1">備考</div>
               <div className="text-[12px] text-gray-700 whitespace-pre-wrap border-l-2 border-gray-300 pl-3 py-1">
                 {invoice.notes}
               </div>
             </div>
           )}
 
-          {/* 振込先 */}
-          <div className="mt-10 pt-6 border-t border-gray-200">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">お振込先</div>
-            <div className="text-[12px] text-gray-700 leading-relaxed">
-              （振込先情報をここに記載してください。Settings から設定可能にする予定）
-            </div>
+          {/* お振込先・お支払条件（発行法人の口座） */}
+          <div className="mt-6 pt-4 border-t border-gray-300">
+            <div className="text-[12px] font-bold text-gray-800 mb-1.5">お支払口座</div>
+            {office.bankName ? (
+              <div className="text-[12px] text-gray-700 leading-relaxed">
+                <div>{office.bankName}　{office.bankBranch}　{office.accountType}　{office.accountNumber}</div>
+                <div>口座名義: {office.accountHolder}</div>
+                {office.accountHolderKana && <div className="text-[11px] text-gray-500">（{office.accountHolderKana}）</div>}
+              </div>
+            ) : (
+              <div className="text-[12px] text-gray-400">（口座情報未設定）</div>
+            )}
+            <div className="text-[12px] text-gray-700 mt-2">お支払条件: ご請求日より5営業日以内にお支払下さい。</div>
           </div>
 
           {/* フッター */}
-          <div className="mt-10 text-right text-[11px] text-gray-400">
-            相続プラットフォーム
+          <div className="mt-8 text-right text-[11px] text-gray-400">
+            {office.legalName}
           </div>
         </div>
       </div>
