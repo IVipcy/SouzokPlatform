@@ -111,6 +111,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
               onSave={v => saveCaseField('procedure_type', v)}
               fullWidth
               required
+              exclusiveValue="手続一式"
             />
             <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => saveCaseField('other_procedure', v)} />
             <InlineMultiSelect
@@ -482,20 +483,34 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
 }
 
 // ─── InlineMultiSelect ───
-function InlineMultiSelect({ label, value, options, onSave, fullWidth, required }: {
+function InlineMultiSelect({ label, value, options, onSave, fullWidth, required, exclusiveValue }: {
   label: string
   value?: string[] | null
   options: string[]
   onSave: (value: string[]) => Promise<void>
   fullWidth?: boolean
   required?: boolean
+  /** この値を選ぶと他は選べない（逆も同様）。例: 手続一式 */
+  exclusiveValue?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string[]>(value ?? [])
   const [saving, setSaving] = useState(false)
 
   const toggle = (opt: string) => {
-    setDraft(prev => prev.includes(opt) ? prev.filter(v => v !== opt) : [...prev, opt])
+    setDraft(prev => {
+      if (prev.includes(opt)) return prev.filter(v => v !== opt)
+      if (exclusiveValue && opt === exclusiveValue) return [exclusiveValue]               // 一式を選択 → 一式のみ
+      if (exclusiveValue) return [...prev.filter(v => v !== exclusiveValue), opt]          // 他を選択 → 一式を外す
+      return [...prev, opt]
+    })
+  }
+
+  // 排他制御: 一式選択中は他を無効化 / 他を選択中は一式を無効化
+  const optionDisabled = (opt: string): boolean => {
+    if (!exclusiveValue) return false
+    if (opt === exclusiveValue) return draft.some(v => v !== exclusiveValue)
+    return draft.includes(exclusiveValue)
   }
 
   const handleSave = async () => {
@@ -513,21 +528,26 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required 
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {options.map(opt => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => toggle(opt)}
-                disabled={saving}
-                className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
-                  draft.includes(opt)
-                    ? 'bg-brand-100 text-brand-700 border-brand-300'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {draft.includes(opt) && '✓ '}{opt}
-              </button>
-            ))}
+            {options.map(opt => {
+              const disabled = saving || optionDisabled(opt)
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => toggle(opt)}
+                  disabled={disabled}
+                  className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
+                    draft.includes(opt)
+                      ? 'bg-brand-100 text-brand-700 border-brand-300'
+                      : disabled
+                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {draft.includes(opt) && '✓ '}{opt}
+                </button>
+              )
+            })}
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setEditing(false)} className="text-[12px] text-gray-400 hover:text-gray-600">キャンセル</button>
