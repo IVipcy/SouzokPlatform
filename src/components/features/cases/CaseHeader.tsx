@@ -86,7 +86,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, tasks, p
         </Link>
         <span className="text-gray-300">|</span>
         <div className="text-xs text-gray-400 flex items-center gap-1">
-          <span>案件管理</span>
+          <span>案件一覧</span>
           <span className="text-gray-300">›</span>
           <span className="text-gray-600 font-medium">{caseData.case_number} · {caseData.deal_name}</span>
         </div>

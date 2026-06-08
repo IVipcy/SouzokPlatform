@@ -159,7 +159,7 @@ export default async function CasesPage() {
     <div>
       <PageHeader
         eyebrow="Cases"
-        title="案件管理"
+        title="案件一覧"
         icon={Briefcase}
         description="管理案件一覧・相談案件一覧・個別管理案件を切り替えて表示"
       />
