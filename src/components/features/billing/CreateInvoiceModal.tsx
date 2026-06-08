@@ -7,9 +7,16 @@ import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { EXPENSE_CATEGORIES } from '@/lib/constants'
+import { officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
 import type { ExpenseRow } from '@/types'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
+
+const FIRM_LABEL: Record<OfficeKind, string> = {
+  gyosei: '行政書士法人',
+  shiho: '司法書士法人',
+  ikiiki: 'いきいきライフ協会',
+}
 
 type Props = {
   isOpen: boolean
@@ -28,12 +35,14 @@ type CaseFees = {
   fee_judicial: number | null
   fee_total: number | null
   advance_payment: number | null
+  contract_type: string | null
 }
 
 export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId, existingInvoiceId }: Props) {
   const [form, setForm] = useState({
     case_id: defaultCaseId ?? '',
     invoice_type: '確定請求' as '前受金' | '確定請求',
+    firm_type: 'gyosei' as OfficeKind,
     fee_amount: '',
     issued_date: new Date().toISOString().split('T')[0],
     due_date: '',
@@ -64,6 +73,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setForm({
         case_id: defaultCaseId ?? '',
         invoice_type: '確定請求',
+        firm_type: 'gyosei',
         fee_amount: '',
         issued_date: new Date().toISOString().split('T')[0],
         due_date: '',
@@ -93,12 +103,17 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setLoadingCase(true)
       const supabase = createClient()
       const [{ data: caseRow }, { data: expRows }] = await Promise.all([
-        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment').eq('id', form.case_id).single(),
+        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,contract_type').eq('id', form.case_id).single(),
         supabase.from('expenses').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('expense_date', { nullsFirst: false }),
       ])
       if (cancelled) return
       const fees = caseRow as CaseFees | null
       setCaseFees(fees)
+      // 発行法人の既定値を契約形態から決定（単独はその法人、連名は行をデフォルト）
+      const defaultFirm = officesForContractType(fees?.contract_type)[0]
+      if (defaultFirm === 'gyosei' || defaultFirm === 'shiho') {
+        setForm(prev => ({ ...prev, firm_type: defaultFirm }))
+      }
       // 案件の報酬を fee_amount に自動セット（fee_total 優先、無ければ 行政+司法）
       const defaultFee = fees?.fee_total ?? ((fees?.fee_administrative ?? 0) + (fees?.fee_judicial ?? 0))
       // 既存値が空 or '0' なら上書き、それ以外（ユーザーが手入力した値）は尊重
@@ -195,6 +210,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
         .update({
           case_id: form.case_id,
           invoice_type: form.invoice_type,
+          firm_type: form.firm_type,
           amount: totalAmount,
           fee_amount: feeAmountNum,
           expenses_amount: selectedExpensesTotal,
@@ -218,6 +234,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
         .insert({
           case_id: form.case_id,
           invoice_type: form.invoice_type,
+          firm_type: form.firm_type,
           amount: totalAmount,
           fee_amount: feeAmountNum,
           expenses_amount: selectedExpensesTotal,
@@ -304,6 +321,34 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                 }`}
               >
                 {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 発行法人（行政書士 / 司法書士）— 請求書フォーマット・振込先が法人で異なる */}
+        <div>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">
+            発行法人
+            {caseFees?.contract_type === '行・司連名' && (
+              <span className="ml-1.5 text-[11px] font-normal text-amber-600">連名案件: 行・司それぞれで発行してください</span>
+            )}
+          </label>
+          <div className="flex gap-2">
+            {(['gyosei', 'shiho'] as const).map(k => (
+              <button
+                key={k}
+                onClick={() => setForm(p => ({ ...p, firm_type: k }))}
+                disabled={saving}
+                className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
+                  form.firm_type === k
+                    ? (k === 'gyosei'
+                        ? 'ring-2 ring-blue-400 ring-offset-1 border-blue-200 bg-blue-50 text-blue-700'
+                        : 'ring-2 ring-purple-400 ring-offset-1 border-purple-200 bg-purple-50 text-purple-700')
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {FIRM_LABEL[k]}
               </button>
             ))}
           </div>
