@@ -474,7 +474,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {/* タブ */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
         {isSales && (
-          <TabLink href="/my?tab=meetings" label={`当月面談 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
+          <TabLink href="/my?tab=meetings" label={`相談案件一覧 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
         )}
         <TabLink href="/my?tab=cases" label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
         {isSales && (
