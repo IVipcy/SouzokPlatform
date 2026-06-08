@@ -15,13 +15,10 @@ import {
   computeProgressKpis,
   computeCaseFlag,
   monthRange,
-  type CaseFlag,
   type DashCase,
   type DashInvoice,
   type DashTask,
 } from '@/lib/dashboardMetrics'
-import { CASE_STATUSES } from '@/lib/constants'
-
 type CaseFull = DashCase & {
   case_number: string
   deal_name: string
@@ -47,8 +44,6 @@ type InvoiceFull = DashInvoice & {
 }
 type PaymentRow = { invoice_id: string; amount: number }
 
-const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
-
 type Props = {
   params: Promise<{ teamId: string }>
   searchParams: Promise<{ month?: string; view?: string; member?: string; status?: string; pstatus?: string }>
@@ -58,9 +53,7 @@ const INVOICE_PSTATUS = ['未請求', '作成済', '入金待ち', '入金済'] 
 
 export default async function TeamProgressPage({ params, searchParams }: Props) {
   const { teamId } = await params
-  const { month, view: viewParam, member: memberParam, status: statusParam, pstatus: pstatusParam } = await searchParams
-  // 案件ステータスフィルタ（進捗タブ）。有効なステータスのみ採用
-  const statusFilter = statusParam && CASE_STATUSES.some(s => s.key === statusParam) ? statusParam : null
+  const { month, view: viewParam, member: memberParam, pstatus: pstatusParam } = await searchParams
   // 入金ステータスフィルタ（請求タブ）
   const pstatusFilter = pstatusParam && (INVOICE_PSTATUS as readonly string[]).includes(pstatusParam) ? pstatusParam : null
   const supabase = await createClient()
@@ -124,19 +117,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const extraParams: Record<string, string | undefined> = {}
   if (currentView !== 'progress') extraParams.view = currentView
   if (memberParam) extraParams.member = memberParam
-  if (statusFilter) extraParams.status = statusFilter
   if (pstatusFilter) extraParams.pstatus = pstatusFilter
 
-  // 案件ステータスフィルタのリンク生成（month/view/member を維持）
-  const buildStatusHref = (st: string | null) => {
-    const p = new URLSearchParams()
-    if (st) p.set('status', st)
-    if (currentView !== 'progress') p.set('view', currentView)
-    if (memberParam) p.set('member', memberParam)
-    if (selectedMonth !== ymToday) p.set('month', selectedMonth)
-    const qs = p.toString()
-    return qs ? `${basePath}?${qs}` : basePath
-  }
   // 入金ステータスフィルタのリンク生成（請求タブ）
   const buildPStatusHref = (st: string | null) => {
     const p = new URLSearchParams()
@@ -181,7 +163,6 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         }}
       />
       <ProgressViewTabs basePath={basePath} currentView={currentView} extraParams={{ ...extraParams, month: selectedMonth !== ymToday ? selectedMonth : undefined }} />
-      <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={extraParams} />
       <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
         {focusMember ? `${focusMember.name} に紐づく案件がありません` : 'このチームに紐づく案件がありません'}
       </div>
@@ -250,16 +231,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     tasksByCase.get(t.case_id)!.push(t)
   }
 
-  // テーブル行を生成（選択月でフィルタ）
-  const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
-  const inSelectedMonth = (d: string | null | undefined): boolean => {
-    if (!d) return false
-    if (selectedMonth === 'all') return true
-    return d.startsWith(selectedMonth)
-  }
-
-  // ステータスフィルタ指定時はそのステータスの案件、未指定時は稼働中（受注/対応中/保留・長期）
-  const baseCases = statusFilter ? cases.filter(c => c.status === statusFilter) : cases.filter(c => ACTIVE.has(c.status))
+  // 管理案件はすべて「対応中」。対応中の案件のみを表示する（期間・ステータスの絞り込みはしない）。
+  const baseCases = cases.filter(c => c.status === '対応中')
   const allRows: ProgressCaseRow[] = baseCases
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null
@@ -282,13 +255,10 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       }
     })
 
-  // 紫はクレームに紐づくので月フィルタの対象外（常に表示）。ステータス絞り込み時は月フィルタを外す
+  // 完了予定日が早い順に並べる（未設定は末尾）
   const rowsWithFlag = allRows
-    .filter(r => r.flag !== null && (statusFilter !== null || r.flag === 'purple' || inSelectedMonth(r.expectedCompletionDate)))
+    .filter(r => r.flag !== null)
     .sort((a, b) => {
-      const fa = FLAG_RANK[a.flag!]
-      const fb = FLAG_RANK[b.flag!]
-      if (fa !== fb) return fa - fb
       const ad = a.expectedCompletionDate ?? '9999-12-31'
       const bd = b.expectedCompletionDate ?? '9999-12-31'
       return ad.localeCompare(bd)
@@ -425,37 +395,14 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
           member: memberParam,
         }}
       />
-      <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={extraParams} />
-
       {currentView === 'progress' ? (
         <>
-          {/* 案件ステータスフィルタ */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-3">
-            <span className="text-[12px] font-semibold text-gray-500 mr-1">ステータス</span>
-            <a
-              href={buildStatusHref(null)}
-              className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === null ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-            >
-              すべて
-            </a>
-            {CASE_STATUSES.map(s => {
-              const count = cases.filter(c => c.status === s.key).length
-              return (
-                <a
-                  key={s.key}
-                  href={buildStatusHref(s.key)}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === s.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  {s.label}
-                  {count > 0 && <span className={`ml-1 text-[10px] font-mono ${statusFilter === s.key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>}
-                </a>
-              )
-            })}
-          </div>
           <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
         </>
       ) : (
         <>
+          {/* 請求タブのみ月切替を表示 */}
+          <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={extraParams} />
           {/* 入金ステータスフィルタ */}
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
             <span className="text-[12px] font-semibold text-gray-500 mr-1">入金ステータス</span>
