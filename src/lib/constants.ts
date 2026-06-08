@@ -10,7 +10,7 @@ export const PHASES = [
 
 // === 案件ステータス ===
 // key = 内部キー（DB値・既存ロジックの比較に使用。絶対に変更しない）
-// label = 表示名（改称はここだけ。受注→受託 / 失注→不受注 / 架電案件化→新規）
+// label = 表示名（改称はここだけ。受注→受託 / 失注→不受託 / 架電案件化→新規）
 // 表示は getCaseStatusLabel(key) を使い、key を直接画面に出さない。
 export const CASE_STATUSES = [
   { key: '架電案件化', label: '新規', color: '#6B7280' },
@@ -21,7 +21,7 @@ export const CASE_STATUSES = [
   { key: '対応中', label: '対応中', color: '#7C3AED' },
   { key: '保留・長期', label: '保留・長期', color: '#EA580C' },
   { key: '完了', label: '完了', color: '#059669' },
-  { key: '失注', label: '不受注', color: '#DC2626' },
+  { key: '失注', label: '不受託', color: '#DC2626' },
   { key: '紹介のみ', label: '紹介のみ', color: '#0891B2' },
 ] as const
 

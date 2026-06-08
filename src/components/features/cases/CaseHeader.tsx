@@ -32,7 +32,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注']
+const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注', '紹介のみ']
 
 // ステータス系の表示色をブランド単色に統一（per-status カラーは廃止）
 const STATUS_ACTIVE_COLOR = '#0f487e'    // brand-600
