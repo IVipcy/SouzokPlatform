@@ -719,6 +719,13 @@ export default function BillingClient({ invoices, cases }: Props) {
                     <FileText className="w-3.5 h-3.5" />
                     請求書を表示 / DL
                   </Link>
+                  <Link
+                    href={`/invoices/${selected.id}/preview?doc=receipt`}
+                    className="px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-center inline-flex items-center justify-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    領収書を表示 / DL
+                  </Link>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditInvoice(selected)}

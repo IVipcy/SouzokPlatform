@@ -21,6 +21,9 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const isFirstView = searchParams.get('firstView') === '1'
+  // ドキュメント種別: 領収書 or 請求書（既定）
+  const isReceipt = searchParams.get('doc') === 'receipt'
+  const docLabel = isReceipt ? '領収書' : '請求書'
 
   const client = invoice.cases?.clients
   // 発行法人（行政書士/司法書士）。firm_type 優先、無ければ契約形態から決定
@@ -52,13 +55,13 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
       const blob = await (await fetch(dataUrl)).blob()
       const ts = new Date()
       const ymd = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, '0')}${String(ts.getDate()).padStart(2, '0')}`
-      const path = `${invoice.case_id}/invoice-${invoiceNumber}-${ymd}.png`
+      const path = `${invoice.case_id}/${isReceipt ? 'receipt' : 'invoice'}-${invoiceNumber}-${ymd}.png`
       const supabase = createClient()
       const { error: upErr } = await supabase.storage
         .from('documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true })
       if (upErr) throw upErr
-      const docName = `請求書_${invoiceNumber}`
+      const docName = `${docLabel}_${invoiceNumber}`
       const { error: dbErr } = await supabase.from('case_documents').insert({
         case_id: invoice.case_id,
         document_name: docName,
@@ -133,7 +136,7 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
           <div className="relative mb-6">
             <div className="text-center">
               <h1 className="text-3xl font-bold tracking-[0.4em] text-gray-900 inline-block border-b-4 border-gray-900 pb-1 px-6">
-                御　請　求　書
+                {isReceipt ? '領　収　書' : '御　請　求　書'}
               </h1>
             </div>
             {office.invoiceRegistrationNumber && (
@@ -155,7 +158,7 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
               )}
               <div className="text-[12px] text-gray-600 mt-3">
                 <div>請求書番号: <span className="font-mono text-gray-900">{invoiceNumber}</span></div>
-                <div className="mt-0.5">発行年月日: {issuedDate}</div>
+                <div className="mt-0.5">{isReceipt ? '領収日' : '発行年月日'}: {issuedDate}</div>
                 {invoice.due_date && <div className="mt-0.5">お支払期限: {dueDate}</div>}
               </div>
             </div>
@@ -185,12 +188,12 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
           {/* リード文 */}
           <div className="text-[13px] text-gray-700 leading-relaxed mb-6">
             毎度格別のお引立てを賜り、誠にありがとうございます。<br />
-            下記の通りご請求申し上げます。
+            {isReceipt ? '下記のとおり領収致しました。' : '下記の通りご請求申し上げます。'}
           </div>
 
           {/* 合計（強調） */}
           <div className="bg-gray-50 border border-gray-300 rounded p-4 mb-6 flex items-center justify-between">
-            <div className="text-[12px] font-semibold text-gray-500 tracking-wider">ご請求金額（税込）</div>
+            <div className="text-[12px] font-semibold text-gray-500 tracking-wider">{isReceipt ? 'ご領収金額（税込）' : 'ご請求金額（税込）'}</div>
             <div className="text-[28px] font-extrabold font-mono text-gray-900">
               ¥ {invoice.amount.toLocaleString()}
             </div>
@@ -248,7 +251,7 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
 
               {/* 合計 */}
               <tr className="bg-gray-50 border-t-2 border-gray-700">
-                <td className="py-2 px-3 text-right font-bold text-gray-900">合計</td>
+                <td className="py-2 px-3 text-right font-bold text-gray-900">{isReceipt ? '領収額' : '合計'}</td>
                 <td className="py-2 px-3 text-right font-mono font-extrabold text-gray-900 text-[14px]">
                   ¥ {invoice.amount.toLocaleString()}
                 </td>
@@ -259,8 +262,8 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
           {/* 注意書き */}
           <div className="text-[11px] text-gray-600 leading-relaxed mb-4">
             {isAdvance && <div>※前受金は消費税対象外となります。</div>}
-            <div>備考：お振込手数料はお客様ご負担にてお願い申し上げます。</div>
-            {isAdvance && (
+            {!isReceipt && <div>備考：お振込手数料はお客様ご負担にてお願い申し上げます。</div>}
+            {!isReceipt && isAdvance && (
               <div className="mt-1 text-gray-500">
                 前受金の領収書につきましては、特段のお申出がない限りは発行致しませんので、振込票の控えを大切に保管ください。
               </div>
@@ -277,20 +280,27 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
             </div>
           )}
 
-          {/* お振込先・お支払条件（発行法人の口座） */}
-          <div className="mt-6 pt-4 border-t border-gray-300">
-            <div className="text-[12px] font-bold text-gray-800 mb-1.5">お支払口座</div>
-            {office.bankName ? (
-              <div className="text-[12px] text-gray-700 leading-relaxed">
-                <div>{office.bankName}　{office.bankBranch}　{office.accountType}　{office.accountNumber}</div>
-                <div>口座名義: {office.accountHolder}</div>
-                {office.accountHolderKana && <div className="text-[11px] text-gray-500">（{office.accountHolderKana}）</div>}
-              </div>
-            ) : (
-              <div className="text-[12px] text-gray-400">（口座情報未設定）</div>
-            )}
-            <div className="text-[12px] text-gray-700 mt-2">お支払条件: ご請求日より5営業日以内にお支払下さい。</div>
-          </div>
+          {/* お振込先・お支払条件（請求書のみ・発行法人の口座） */}
+          {!isReceipt && (
+            <div className="mt-6 pt-4 border-t border-gray-300">
+              <div className="text-[12px] font-bold text-gray-800 mb-1.5">お支払口座</div>
+              {office.bankName ? (
+                <div className="text-[12px] text-gray-700 leading-relaxed">
+                  <div>{office.bankName}　{office.bankBranch}　{office.accountType}　{office.accountNumber}</div>
+                  <div>口座名義: {office.accountHolder}</div>
+                  {office.accountHolderKana && <div className="text-[11px] text-gray-500">（{office.accountHolderKana}）</div>}
+                </div>
+              ) : (
+                <div className="text-[12px] text-gray-400">（口座情報未設定）</div>
+              )}
+              <div className="text-[12px] text-gray-700 mt-2">お支払条件: ご請求日より5営業日以内にお支払下さい。</div>
+            </div>
+          )}
+          {isReceipt && (
+            <div className="mt-6 pt-4 border-t border-gray-300 text-[12px] text-gray-700">
+              上記正に領収いたしました。
+            </div>
+          )}
 
           {/* フッター */}
           <div className="mt-8 text-right text-[11px] text-gray-400">
@@ -298,6 +308,68 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
           </div>
         </div>
       </div>
+
+      {/* 立替実費明細書（確定請求書とセット・立替実費がある場合のみ） */}
+      {!isReceipt && invoice.invoice_type === '確定請求' && expenses.length > 0 && (
+        <div className="max-w-[210mm] mx-auto my-6 print:my-0 print:break-before-page">
+          <div className="bg-white shadow-md print:shadow-none mx-auto px-12 py-10" style={{ width: '210mm', minHeight: '297mm' }}>
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold tracking-[0.3em] text-gray-900 inline-block border-b-2 border-gray-900 pb-1 px-6">
+                立替実費明細書
+              </h1>
+            </div>
+            <div className="flex justify-between items-start mb-6 gap-6">
+              <div className="min-w-0">
+                <div className="text-[16px] text-gray-900 font-semibold border-b border-gray-400 pb-1 inline-block pr-8">
+                  {client?.name ?? invoice.cases?.deal_name ?? '—'} 様
+                </div>
+                <div className="text-[12px] text-gray-600 mt-3">
+                  <div className="font-mono">{invoice.cases?.case_number}　{invoice.cases?.deal_name}</div>
+                  <div className="mt-0.5">発行日: {issuedDate}</div>
+                </div>
+              </div>
+              <div className="text-[12px] text-gray-800 leading-relaxed flex-shrink-0 text-right">
+                <div className="text-[14px] font-bold text-gray-900">{office.legalName}</div>
+                <div className="mt-0.5">{office.mainOfficeAddress}</div>
+                <div className="mt-0.5">{office.representativeTitle}　{office.representativeName}</div>
+              </div>
+            </div>
+            <div className="text-[13px] text-gray-700 mb-4">下記の通りご請求申し上げます。</div>
+            <table className="w-full text-[12px] border-collapse">
+              <thead>
+                <tr className="bg-gray-100 border-y border-gray-300 text-gray-700">
+                  <th className="text-left py-2 px-3 font-semibold">立替実費名目</th>
+                  <th className="text-left py-2 px-3 font-semibold w-24">費目</th>
+                  <th className="text-right py-2 px-3 font-semibold w-28">金額</th>
+                  <th className="text-left py-2 px-3 font-semibold w-32">備考</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map(e => (
+                  <tr key={e.id} className="border-b border-gray-200">
+                    <td className="py-1.5 px-3 text-gray-800">
+                      {e.expense_date && <span className="text-gray-400 font-mono text-[11px] mr-2">{e.expense_date}</span>}
+                      {e.item_name}
+                    </td>
+                    <td className="py-1.5 px-3 text-gray-600">{e.category ?? '—'}</td>
+                    <td className="py-1.5 px-3 text-right font-mono text-gray-800">¥ {e.amount.toLocaleString()}</td>
+                    <td className="py-1.5 px-3 text-gray-500 text-[11px]">{e.notes ?? ''}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 border-t-2 border-gray-700">
+                  <td className="py-2 px-3 text-right font-bold text-gray-900" colSpan={2}>合計</td>
+                  <td className="py-2 px-3 text-right font-mono font-extrabold text-gray-900 text-[14px]">¥ {expensesTotal.toLocaleString()}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="text-[11px] text-gray-500 mt-3">
+              ※ 国・地方公共団体等の手数料については消費税非課税となります。
+            </div>
+            <div className="mt-8 text-right text-[11px] text-gray-400">{office.legalName}</div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {
