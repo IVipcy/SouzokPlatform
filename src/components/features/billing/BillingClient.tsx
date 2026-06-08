@@ -181,6 +181,26 @@ export default function BillingClient({ invoices, cases }: Props) {
     ]
   }, [monthFilteredInvoices])
 
+  // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける
+  const firmSummary = useMemo(() => {
+    const issued = monthFilteredInvoices.filter(inv => inv.status !== '未請求')
+    const calc = (pred: (inv: InvoiceWithRelations) => boolean) => {
+      const rows = issued.filter(pred)
+      return {
+        count: rows.length,
+        total: rows.reduce((s, inv) => s + inv.amount, 0),
+        advance: rows.filter(inv => inv.invoice_type === '前受金').reduce((s, inv) => s + inv.amount, 0),
+        confirmed: rows.filter(inv => inv.invoice_type === '確定請求').reduce((s, inv) => s + inv.amount, 0),
+        paid: rows.reduce((s, inv) => s + getPaidAmount(inv.payments), 0),
+      }
+    }
+    return {
+      gyosei: calc(inv => inv.firm_type === 'gyosei'),
+      shiho: calc(inv => inv.firm_type === 'shiho'),
+      unset: calc(inv => inv.firm_type !== 'gyosei' && inv.firm_type !== 'shiho'),
+    }
+  }, [monthFilteredInvoices])
+
   const selected = selectedId ? invoices.find(inv => inv.id === selectedId) ?? null : null
 
   const handleDeleteInvoice = async () => {
@@ -403,6 +423,44 @@ export default function BillingClient({ invoices, cases }: Props) {
         ))}
       </div>
 
+      {/* 行/司 別の集計（発行法人ごと） */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        {([
+          { key: 'gyosei', label: '行政書士法人', sum: firmSummary.gyosei, ring: 'border-blue-200', head: 'bg-blue-50 text-blue-800', accent: 'text-blue-700' },
+          { key: 'shiho',  label: '司法書士法人', sum: firmSummary.shiho,  ring: 'border-purple-200', head: 'bg-purple-50 text-purple-800', accent: 'text-purple-700' },
+        ] as const).map(f => (
+          <div key={f.key} className={`bg-white border rounded-xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${f.ring}`}>
+            <div className={`px-4 py-2 flex items-center justify-between ${f.head}`}>
+              <span className="text-[13px] font-bold">{f.label}</span>
+              <span className="text-[11px] font-mono opacity-70">{f.sum.count}件発行済</span>
+            </div>
+            <div className="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2">
+              <div>
+                <div className="text-[11px] text-gray-400">請求合計</div>
+                <div className={`text-[18px] font-extrabold font-mono leading-none ${f.accent}`}>{fmt(f.sum.total)}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-gray-400">入金済</div>
+                <div className="text-[18px] font-extrabold font-mono leading-none text-green-600">{fmt(f.sum.paid)}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-gray-400">前受金</div>
+                <div className="text-[14px] font-bold font-mono text-gray-700">{fmt(f.sum.advance)}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-gray-400">確定売上</div>
+                <div className="text-[14px] font-bold font-mono text-gray-700">{fmt(f.sum.confirmed)}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {firmSummary.unset.count > 0 && (
+        <div className="mb-5 text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          発行法人が未設定の請求書が {firmSummary.unset.count} 件（{fmt(firmSummary.unset.total)}）あります。集計を正確にするには各請求書の発行法人を設定してください。
+        </div>
+      )}
+
       <div className="flex gap-4">
         {/* Table */}
         <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -523,11 +581,19 @@ export default function BillingClient({ invoices, cases }: Props) {
                           </>
                         )}
                       </td>
-                      {/* 請求分類（前受金 / 確定売上） */}
+                      {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
                       <td className="px-3.5 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
-                          {typeLabel}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+                            {typeLabel}
+                          </span>
+                          {inv.firm_type === 'gyosei' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">行政書士</span>
+                          )}
+                          {inv.firm_type === 'shiho' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-purple-50 text-purple-700 border-purple-200">司法書士</span>
+                          )}
+                        </div>
                       </td>
                       {/* ステータス（個別ドロップダウン編集可能） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>

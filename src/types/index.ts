@@ -372,6 +372,7 @@ export type InvoiceRow = {
   case_id: string
   invoice_number: string | null
   invoice_type: '前受金' | '確定請求'
+  firm_type: 'gyosei' | 'shiho' | null   // migration 059: 発行法人（行政書士/司法書士）
   amount: number             // 請求総額（fee_amount + expenses_amount）
   fee_amount: number         // 報酬部分
   expenses_amount: number    // 立替実費部分
