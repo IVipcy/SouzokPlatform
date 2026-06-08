@@ -284,6 +284,10 @@ export function computeProgressKpis(
   selectedMonth: string | null,
   today: Date = new Date(),
   scopedInvoices: DashInvoice[] = [],
+  // 担当件数・フラグ件数・完了予定件数の対象とするステータス集合。
+  // 既定はアクティブ全体（受注/対応中/保留・長期）。一覧を「対応中のみ」に揃えたい
+  // 画面では new Set(['対応中']) を渡す。完了割合・サイクルは scopedCases 全体を使うので影響しない。
+  activeStatuses: Set<string> = ACTIVE_STATUSES,
 ): ProgressKpiBundle {
   const tasksByCase = new Map<string, DashTask[]>()
   for (const t of scopedTasks) {
@@ -291,8 +295,8 @@ export function computeProgressKpis(
     tasksByCase.get(t.case_id)!.push(t)
   }
 
-  // 担当件数 = アクティブ案件全部（月フィルタなし）
-  const activeCases = scopedCases.filter(c => ACTIVE_STATUSES.has(c.status))
+  // 担当件数 = 対象ステータスの案件全部（月フィルタなし）
+  const activeCases = scopedCases.filter(c => activeStatuses.has(c.status))
   const totalAssigned = activeCases.length
 
   // 月フィルタ対象 = 完了予定日が選択月に入っているアクティブ案件

@@ -215,7 +215,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     last_opened_at: c.last_opened_at,
     created_at: c.created_at,
   }))
-  const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices)
+  // 一覧（MyPageCasesTab）は対応中のみ表示するため、サマリも対応中のみで集計して件数を揃える。
+  // 完了割合・サイクルは scopedCases 全体（完了案件含む）で計算されるので影響しない。
+  const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices, new Set(['対応中']))
 
   // タスクを案件ごとにグルーピング（進捗・次タスク算出用）
   const tasksByCase = new Map<string, BoardTask[]>()
