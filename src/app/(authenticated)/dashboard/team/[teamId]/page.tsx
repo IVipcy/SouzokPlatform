@@ -13,7 +13,7 @@ import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import { parsePeriod } from '@/lib/dashboardPeriod'
 import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
-import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import TeamTaskButton from '@/components/features/tasks/TeamTaskButton'
 import type { TaskRow } from '@/types'
 import {
   computeSalesDailyMetrics,
@@ -285,6 +285,29 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
 
   const scopeLabel = focusedMember ? focusedMember.name : `${team.name}`
 
+  // ── チームタスク（要対応）をヘッダーのボタンから開くために事前計算 ──
+  const memberNameById = new Map(allActiveMembers.map(m => [m.id, m.name]))
+  const teamSalesByCase = new Map<string, string>()
+  const teamManagerByCase = new Map<string, string>()
+  for (const cm of caseMembers) {
+    if (cm.role === 'sales' && !teamSalesByCase.has(cm.case_id)) teamSalesByCase.set(cm.case_id, memberNameById.get(cm.member_id) ?? '')
+    if (cm.role === 'manager' && !teamManagerByCase.has(cm.case_id)) teamManagerByCase.set(cm.case_id, memberNameById.get(cm.member_id) ?? '')
+  }
+  const teamTaskById = new Map<string, TaskRow>()
+  for (const t of (systemTasksRaw ?? []) as TaskRow[]) { if (teamCaseIds.has(t.case_id)) teamTaskById.set(t.id, t) }
+  for (const t of (teamTaggedTasksRaw ?? []) as TaskRow[]) teamTaskById.set(t.id, t)
+  const taskHorizon = new Date(today)
+  taskHorizon.setDate(taskHorizon.getDate() + 2)
+  const taskHorizonStr = todayJstYmd(taskHorizon)
+  const urgentTeamTasks = [...teamTaskById.values()].filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
+  const teamTaskAssignees: Record<string, { salesName: string | null; managerName: string | null }> = {}
+  for (const t of urgentTeamTasks) {
+    teamTaskAssignees[t.case_id] = {
+      salesName: teamSalesByCase.get(t.case_id) ?? null,
+      managerName: teamManagerByCase.get(t.case_id) ?? null,
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -292,6 +315,13 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         title={`${team.name}・受注担当 ${periodLabel}`}
         icon={Users}
         description={`${dateLabel}・受注担当の${periodLabel}の動きとチーム成績`}
+        right={
+          <TeamTaskButton
+            tasks={urgentTeamTasks}
+            currentMemberId={currentMemberId ?? undefined}
+            caseAssignees={teamTaskAssignees}
+          />
+        }
       />
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -348,42 +378,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
             </>
           )
         })()}
-
-        {/* チームタスク欄（チーム全員が気づける統合表示）
-            チーム案件の未完了システムタスク + 担当チーム指定タスクのうち、
-            「期限超過 or あと1〜2日で期限」のものだけを表示（順調なものは出さない）。
-            担当区分ラベルで「誰が拾うべきか」を誘導するソフト制御。引き取りは全員可。 */}
-        {(() => {
-          const allSystemTasks = (systemTasksRaw ?? []) as TaskRow[]
-          const teamTagged = (teamTaggedTasksRaw ?? []) as TaskRow[]
-
-          // チーム案件のシステムタスク + 担当チーム指定タスクを統合（id 重複排除）
-          const byId = new Map<string, TaskRow>()
-          for (const t of allSystemTasks) {
-            if (teamCaseIds.has(t.case_id)) byId.set(t.id, t)
-          }
-          for (const t of teamTagged) byId.set(t.id, t)
-
-          // 期限が「あと2日以内（=超過含む）」のものに絞る
-          const horizon = new Date(today)
-          horizon.setDate(horizon.getDate() + 2)
-          const horizonStr = todayJstYmd(horizon)
-          const urgent = [...byId.values()].filter(t => !!t.due_date && t.due_date <= horizonStr)
-
-          if (urgent.length === 0) return null
-          return (
-            <SystemTaskList
-              tasks={urgent}
-              title={`${team.name}チームのチームタスク（要対応）`}
-              emptyText="要対応のチームタスクはありません"
-              showCase={true}
-              includeCompleted={false}
-              showAssignRole={true}
-              currentMemberId={currentMemberId ?? undefined}
-              seeAllHref="/tasks?kind=system"
-            />
-          )
-        })()}
+        {/* チームタスクは見出し右の「チームタスク」ボタンから開く（ページ下部の常時表示は廃止） */}
       </div>
     </div>
   )

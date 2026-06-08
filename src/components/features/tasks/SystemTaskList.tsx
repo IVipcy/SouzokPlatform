@@ -28,6 +28,8 @@ type Props = {
   currentMemberId?: string
   /** 担当区分ラベル（受注担当/管理担当/両担当）を表示するか（チームタスク欄で使用） */
   showAssignRole?: boolean
+  /** 案件の受注担当・管理担当名（case_id → 名前）。指定時は受注担当/管理担当の列を表示 */
+  caseAssignees?: Record<string, { salesName: string | null; managerName: string | null }>
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -66,6 +68,7 @@ export default function SystemTaskList({
   seeAllHref,
   currentMemberId,
   showAssignRole = false,
+  caseAssignees,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -142,6 +145,8 @@ export default function SystemTaskList({
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作業内容</th>
+                {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>}
+                {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>}
                 <th className="px-3 py-2 text-center font-bold whitespace-nowrap">ステータス</th>
                 <th className="px-3 py-2 text-center font-bold whitespace-nowrap"></th>
               </tr>
@@ -211,6 +216,17 @@ export default function SystemTaskList({
                         </p>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
+                    {/* 受注担当・管理担当（案件の担当者） */}
+                    {caseAssignees && (
+                      <td className="px-3 py-2.5 align-top text-[12px] text-gray-700 whitespace-nowrap">
+                        {caseAssignees[task.case_id]?.salesName || <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
+                    {caseAssignees && (
+                      <td className="px-3 py-2.5 align-top text-[12px] text-gray-700 whitespace-nowrap">
+                        {caseAssignees[task.case_id]?.managerName || <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
                     {/* ステータス（対応中は引き取り者名を併記） */}
                     <td className="px-3 py-2.5 align-top text-center whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
