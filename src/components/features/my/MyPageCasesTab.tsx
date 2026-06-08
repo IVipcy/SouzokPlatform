@@ -62,7 +62,7 @@ const FLAG_BG: Record<NonNullable<CaseFlag>, string> = {
   purple: 'bg-purple-600 text-white',
   red:    'bg-red-500 text-white',
   yellow: 'bg-yellow-400 text-gray-900',
-  blue:   'bg-sky-500 text-white',
+  blue:   'bg-blue-600 text-white',
 }
 
 const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
