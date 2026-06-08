@@ -2,8 +2,6 @@
 
 import Link from 'next/link'
 import { Briefcase, AlertTriangle } from 'lucide-react'
-import Badge from '@/components/ui/Badge'
-import { CASE_STATUSES } from '@/lib/constants'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -126,26 +124,24 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
       <table className="w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
         <colgroup>
           <col style={{ width: 50 }} />
-          <col style={{ width: 100 }} />
+          <col style={{ width: 104 }} />
           <col style={{ width: 200 }} />
-          <col style={{ width: 84 }} />
-          <col style={{ width: 96 }} />
+          <col style={{ width: 90 }} />
           <col style={{ width: 190 }} />
-          <col style={{ width: 96 }} />
-          <col style={{ width: 110 }} />
+          <col style={{ width: 112 }} />
+          <col style={{ width: 132 }} />
           <col />
         </colgroup>
         <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
           <tr>
-            <th className="px-3 py-2 text-center font-bold">フラグ</th>
-            <th className="px-3 py-2 text-left font-bold">案件管理番号</th>
-            <th className="px-3 py-2 text-left font-bold">案件名</th>
-            <th className="px-3 py-2 text-left font-bold">ステータス</th>
-            <th className="px-3 py-2 text-left font-bold">受注担当</th>
-            <th className="px-3 py-2 text-left font-bold">進捗</th>
-            <th className="px-3 py-2 text-center font-bold">週次報告状況</th>
-            <th className="px-3 py-2 text-left font-bold">直近お客様報告日</th>
-            <th className="px-3 py-2 text-left font-bold">やり取り詳細</th>
+            <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>
+            <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -154,7 +150,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             const done = c.progressDone ?? 0
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
             const weekly = c.weeklyStatus ?? '未対応'
-            const statusDef = CASE_STATUSES.find(s => s.key === c.status)
             return (
             <tr key={c.id} className="hover:bg-gray-50/60">
               <td className="px-3 py-2.5 text-center">
@@ -181,9 +176,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                     )}
                   </div>
                 )}
-              </td>
-              <td className="px-3 py-2.5">
-                {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
