@@ -372,7 +372,7 @@ export function computeProgressKpis(
 }
 
 // 「面談設定済 → どこか」 の遷移先として 当月面談数 / 受注 を判定するための集合
-const POST_MEETING_STATUSES = new Set(['検討中', '受注', '失注', '保留・長期'])
+const POST_MEETING_STATUSES = new Set(['検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'])
 
 // 当日の YYYY-MM-DD 文字列を返す（Asia/Tokyo タイムゾーン）
 export function todayJstYmd(today: Date = new Date()): string {
@@ -402,10 +402,10 @@ export function computeDailyMetrics(
     sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
   )
 
-  // 本日 面談設定済→受注 遷移
+  // 本日「→受注」遷移（検討中/検討中（契約書待ち）/面談設定済 等どこからでも受注になれば新規受注）
   const newOrderIds = new Set(
     todayChanges
-      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注')
       .map(sc => sc.entity_id),
   )
 
@@ -485,10 +485,10 @@ export function computeSalesDailyMetrics(
   )
   const meetingsCount = meetingCaseIds.size
 
-  // 本日 新規受注: 面談設定済 → 受注
+  // 本日 新規受注: 「→受注」遷移（遷移元は問わない）
   const newOrderCaseIds = new Set(
     todayChanges
-      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注')
       .map(sc => sc.entity_id),
   )
   const newOrdersCount = newOrderCaseIds.size
@@ -570,10 +570,10 @@ export function computeSalesMetricsForRange(
   )
   const meetingsCount = meetingCaseIds.size
 
-  // 新規受注: 面談設定済 → 受注
+  // 新規受注: 「→受注」遷移（検討中/検討中（契約書待ち）等どこからでも受注になればカウント）
   const newOrderCaseIds = new Set(
     inMonthChanges
-      .filter(sc => sc.old_value === '面談設定済' && sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注')
       .map(sc => sc.entity_id),
   )
   const newOrdersCount = newOrderCaseIds.size

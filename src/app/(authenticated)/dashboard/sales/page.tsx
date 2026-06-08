@@ -18,6 +18,7 @@ import { parsePeriod } from '@/lib/dashboardPeriod'
 import {
   computeSalesMetrics,
   computeSalesDailyMetrics,
+  computeSalesMetricsForDay,
   sumSalesMetrics,
   monthHeaderLabel,
   fiscalYearMonthsToDate,
@@ -201,6 +202,43 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
     }
   })
 
+  // 本日ビュー用: チーム別／個人別 本日成績（当月テーブルと同項目・本日スコープ）
+  const dailyGroups: SalesTeamGroup[] = groupKeys.map(key => {
+    const members = byTeam[key]
+    const teamCaseIds = new Set<string>()
+    for (const m of members) {
+      const ids = caseIdsByMember.get(m.id)
+      if (ids) for (const id of ids) teamCaseIds.add(id)
+    }
+    const teamFiltered = filterByIds(teamCaseIds)
+    const teamMetrics = computeSalesMetricsForDay(teamFiltered.cases, teamFiltered.changes, today, teamFiltered.properties)
+    const memberRows: SalesMemberRow[] = members
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      .map(m => {
+        const myIds = caseIdsByMember.get(m.id) ?? new Set<string>()
+        const my = filterByIds(myIds)
+        const myTarget = memberTargetByMember.get(m.id) ?? 0
+        // 達成リングは当月の月間目標達成で表示（本日成績の表でも当月達成を示す）
+        const achieved = myTarget > 0 && computeSalesMetrics(my.cases, my.changes, ym, my.properties).newOrdersCount >= myTarget
+        return {
+          id: m.id,
+          name: m.name,
+          avatarColor: m.avatar_color ?? '#6B7280',
+          avatarUrl: m.avatar_url,
+          jobType: m.job_type,
+          joinedAt: m.joined_at,
+          metrics: computeSalesMetricsForDay(my.cases, my.changes, today, my.properties),
+          newOrdersTarget: myTarget,
+          achieved,
+        }
+      })
+    return {
+      teamName: key === '__unassigned__' ? UNASSIGNED_TEAM : (teamNameById.get(key) ?? '不明'),
+      teamMetrics,
+      members: memberRows,
+    }
+  })
+
   // 年度累計ビュー用: チーム別／個人別 月次マトリクス（左=当期累計、右=各月降順）
   const matrixColumns: MatrixColumn[] = [
     { key: 'cum', label: '当期累計', isCumulative: true },
@@ -305,7 +343,10 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
           <SalesTeamTable groups={groups} today={today} ym={ym} />
         </div>
       ) : currentPeriod === 'today' ? (
-        <SalesDailyKpis scopeLabel="部全体" periodLabel={periodLabel} metrics={overallToday} />
+        <div className="space-y-3">
+          <SalesDailyKpis scopeLabel="部全体" periodLabel={periodLabel} metrics={overallToday} />
+          <SalesTeamTable groups={dailyGroups} today={today} ym={ym} title="チーム別／個人別 本日成績" />
+        </div>
       ) : (
         <div className="space-y-3">
           <SalesDailyKpis scopeLabel="部全体" periodLabel={periodLabel} metrics={overallYtd} />
