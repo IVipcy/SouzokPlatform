@@ -83,25 +83,25 @@ export async function GET() {
       push({ id: `claim-${c.id}`, severity: 'claim', category: 'クレーム案件', title: name, body: '依頼者からのクレーム。最優先で対応', href: caseHref })
     }
     if (isMySales && c.status === '受注' && !managerExists.has(c.id) && c.order_received_date && c.order_received_date <= assignCutoffStr) {
-      push({ id: `assign-${c.id}`, severity: 'high', category: 'アサイン未完了', title: name, body: '受注から3日経過・管理担当が未アサイン', href: caseHref })
+      push({ id: `assign-${c.id}`, severity: 'high', category: 'アサイン未完了', title: name, body: '受注から3日経過・管理担当が未アサイン', href: `${caseHref}?tab=basicInfo` })
     }
     const advStatus = advanceStatusByCase.get(c.id)
     if (active && (advStatus === '作成済' || advStatus === '入金待ち')) {
-      push({ id: `advance-${c.id}`, severity: 'high', category: '前受金 未入金', title: name, body: '前受金の入金が未確認です', href: caseHref })
+      push({ id: `advance-${c.id}`, severity: 'high', category: '前受金 未入金', title: name, body: '前受金の入金が未確認です', href: `/billing?case=${c.id}` })
     }
     if (isMyManager && c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') {
-      push({ id: `overdue-comp-${c.id}`, severity: 'high', category: '完了予定日 超過', title: name, body: `完了予定日 ${c.expected_completion_date} を超過`, href: caseHref })
+      push({ id: `overdue-comp-${c.id}`, severity: 'high', category: '完了予定日 超過', title: name, body: `完了予定日 ${c.expected_completion_date} を超過`, href: `${caseHref}?tab=tasks` })
     }
     if (isMyManager && active && !recentConfirmed.has(c.id)) {
       // 進捗報告の発行は自分のマイページ進捗報告タブで行うため、そこへ誘導
       push({ id: `weekly-${c.id}`, severity: 'mid', category: '週次報告の漏れ', title: name, body: '直近7日に確認済の進捗報告がありません', href: '/my?tab=progress' })
     }
     if (isMySales && c.meeting_date && c.meeting_date < todayStr && !c.meeting_executed_date && PENDING_ANSWER.has(c.status)) {
-      push({ id: `memo-${c.id}`, severity: 'mid', category: '面談メモ未記載', title: name, body: '面談予定日を超過・面談メモ未記載', href: caseHref })
+      push({ id: `memo-${c.id}`, severity: 'mid', category: '面談メモ未記載', title: name, body: '面談予定日を超過・面談メモ未記載', href: `${caseHref}?tab=basicInfo` })
     }
     if (isMySales && PENDING_ANSWER.has(c.status) && c.client_response_due_date && c.client_response_due_date <= horizonStr) {
       const over = c.client_response_due_date < todayStr
-      push({ id: `due-${c.id}`, severity: 'mid', category: over ? 'お客様回答予定日 超過' : 'お客様回答予定日 間近', title: name, body: `回答予定日 ${c.client_response_due_date}`, href: caseHref })
+      push({ id: `due-${c.id}`, severity: 'mid', category: over ? 'お客様回答予定日 超過' : 'お客様回答予定日 間近', title: name, body: `回答予定日 ${c.client_response_due_date}`, href: `${caseHref}?tab=clientInfo` })
     }
   }
 
