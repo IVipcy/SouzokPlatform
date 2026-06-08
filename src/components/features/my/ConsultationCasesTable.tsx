@@ -159,9 +159,12 @@ export default function ConsultationCasesTable({ cases }: Props) {
             <tbody className="divide-y divide-gray-100">
               {sorted.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
-                const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && (c.status === '検討中' || c.status === '検討中（契約書待ち）' || c.status === '面談設定済'))
-                // 残り日数（お客様回答予定日 − 本日）。マイナス＝超過。
-                const daysRemaining = c.client_response_due_date
+                // お客様の回答待ち（検討中／検討中（契約書待ち）／面談設定済）のときだけ残り日数・超過を出す。
+                // 受託・不受託・紹介のみ等の決着済みステータスでは回答待ちではないのでカウントしない。
+                const awaitingAnswer = c.status === '検討中' || c.status === '検討中（契約書待ち）' || c.status === '面談設定済'
+                const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && awaitingAnswer)
+                // 残り日数（お客様回答予定日 − 本日）。マイナス＝超過。回答待ちのときのみ。
+                const daysRemaining = (awaitingAnswer && c.client_response_due_date)
                   ? Math.round((new Date(c.client_response_due_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
                   : null
                 const procedures = (c.procedure_type ?? []).filter(Boolean)
