@@ -170,10 +170,13 @@ export type CaseRow = {
   // 相続ステーション連携：伺い先（訪問面談時の訪問先情報）
   visit_address: string | null
   visit_notes: string | null
-  // 相続ステーション連携：相談情報（LP担当ヒアリングで取得）
+  // 相続ステーション連携：相談事前情報（LP担当が面談前にヒアリングで取得）
   hearing_content: string | null
   special_notes: string | null
   other_needs: string | null
+  // 面談内容（面談で聞き取った内容のメモ・備考。事前情報とは別）
+  meeting_hearing_memo: string | null
+  meeting_other_notes: string | null
   // 不動産査定
   real_estate_appraisal_status: string | null
   // 財産目録・財産調査
