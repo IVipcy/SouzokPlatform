@@ -12,6 +12,7 @@ import {
   FileText,
   Receipt,
   BarChart3,
+  Gauge,
   LogOut,
   Building2,
   ChevronsLeft,
@@ -53,6 +54,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/documents', label: '書類受信簿', Icon: FileText },
       { href: '/billing',   label: '請求・入金',   Icon: Receipt },
+      { href: '/workload',  label: '稼働状況一覧', Icon: Gauge },
       { href: '/reports',   label: 'レポート',     Icon: BarChart3 },
     ],
   },
@@ -72,6 +74,7 @@ export default function Sidebar() {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved === '1') setCollapsed(true)
     } catch {/* noop */}
   }, [])
