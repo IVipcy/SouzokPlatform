@@ -1,6 +1,6 @@
 'use client'
 
-export type TabKey = 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey

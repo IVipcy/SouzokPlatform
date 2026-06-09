@@ -193,9 +193,28 @@ export type CaseRow = {
   client_trait_detail: string | null
   has_complaint: boolean
   complaint_detail: string | null
+  // オーダーシート完成日時（NULL=未作成）。実務タブ解禁・対応中遷移の条件。
+  order_sheet_completed_at: string | null
   created_at: string
   updated_at: string
   clients?: ClientRow | null
+}
+
+// 他事業者紹介（業者別の紹介情報）— 「他事業者紹介」タブの業者サブタブ1件
+export const CASE_REFERRAL_PARTNERS = ['税理士', '弁護士', '不動産', '遺品整理'] as const
+export type CaseReferralPartner = typeof CASE_REFERRAL_PARTNERS[number]
+
+export type CaseReferralRow = {
+  id: string
+  case_id: string
+  partner_type: CaseReferralPartner | string
+  firm_name: string | null        // 紹介先法人名
+  referred_date: string | null    // 紹介日付（YYYY-MM-DD）
+  content: string | null          // 紹介内容
+  estimated_fee: number | null    // 見込み報酬
+  billing_status: string | null   // 報酬請求状態
+  created_at: string
+  updated_at: string
 }
 
 // 依頼者とのやり取り履歴
