@@ -18,8 +18,9 @@
 //   ・相談案件（受託以外）: 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
 //   ・個別管理案件        : 案件進捗 / 面談情報 / 依頼者情報・やり取り / 他事業者紹介 / タスク
 //   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
-//   ・受託・OS作成済      : オーダーシート（最左）＋実務フルセット（面談情報は残す）
+//   ・受託・OS作成済      : オーダーシート（最左）＋依頼者情報・やり取り＋実務フルセット（面談情報は残す）
 //   ・管理案件            : 実務フルセット。面談情報は折りたたみ（末尾・既定非表示）
+//   ※ OS作成後は「依頼者情報・やり取り」タブが復活（やり取り履歴はオーダーシートに含めないため）
 
 import type { TabKey } from '@/components/features/cases/CaseTabs'
 import { getCaseCategory } from './constants'
@@ -27,7 +28,7 @@ import { getCaseCategory } from './constants'
 export type CaseTabState = {
   status: string | null | undefined
   orderSheetCompleted: boolean
-  /** 他事業者紹介の登録業者数（>0 で「他事業者紹介」タブを表示） */
+  /** 他事業者紹介の登録業者数（将来の表示判定用に保持。現状は個別管理案件で常に表示） */
   referralPartnerCount: number
 }
 
@@ -40,13 +41,13 @@ export type TabVisibility = {
 
 // 受託OS作成済／管理案件で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
   'docs', 'documentCreate', 'tasks', 'meeting',
 ]
 
 export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
-  const { status, orderSheetCompleted, referralPartnerCount } = state
+  const { status, orderSheetCompleted } = state
   const category = getCaseCategory(status)
 
   // 受託（オーダーシート段階）

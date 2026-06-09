@@ -17,6 +17,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   patchClient: (patch: Record<string, unknown>) => Promise<void>
   onRefresh?: () => void
+  // オーダーシート埋め込み時: やり取り履歴を隠し、各セクションを展開表示する
+  orderSheetMode?: boolean
 }
 
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
@@ -27,7 +29,7 @@ const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label:
 
 const COMMUNICATION_TYPE_OPTIONS = ['進捗連絡', '書類依頼', '質問対応', 'クレーム対応', 'その他']
 
-export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh }: Props) {
+export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false }: Props) {
   const client = caseData.clients
 
   const saveCaseField = async (field: string, value: unknown) => {
@@ -40,8 +42,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 
   return (
     <div className="space-y-3.5">
-      {/* 1. 依頼者情報（アコーディオン・既定で折りたたみ） */}
-      <Section title="依頼者情報" collapsible defaultOpen={false}>
+      {/* 1. 依頼者情報（アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
+      <Section title="依頼者情報" collapsible defaultOpen={orderSheetMode}>
         {caseData.client_id && client ? (
           <FieldGrid>
             <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
@@ -64,16 +66,16 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         )}
       </Section>
 
-      {/* 2. 郵送・書類設定（アコーディオン・既定で折りたたみ） */}
-      <Section title="郵送・書類設定" collapsible defaultOpen={false}>
+      {/* 2. 郵送・書類設定（アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
+      <Section title="郵送・書類設定" collapsible defaultOpen={orderSheetMode}>
         <FieldGrid>
           <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
           <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
         </FieldGrid>
       </Section>
 
-      {/* 3. 依頼者特徴（アコーディオン・既定で折りたたみ） */}
-      <Section title="依頼者特徴" collapsible defaultOpen={false}>
+      {/* 3. 依頼者特徴（アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
+      <Section title="依頼者特徴" collapsible defaultOpen={orderSheetMode}>
         <div className="space-y-3">
           <div>
             <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴</div>
@@ -117,12 +119,14 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         </div>
       </Section>
 
-      {/* 4. やり取り履歴 */}
-      <CommunicationsSection
-        caseId={caseData.id}
-        rows={clientCommunications}
-        onRefresh={onRefresh}
-      />
+      {/* 4. やり取り履歴（オーダーシート埋め込み時は非表示） */}
+      {!orderSheetMode && (
+        <CommunicationsSection
+          caseId={caseData.id}
+          rows={clientCommunications}
+          onRefresh={onRefresh}
+        />
+      )}
 
       {/* 5. クレーム */}
       <Section title="クレーム">

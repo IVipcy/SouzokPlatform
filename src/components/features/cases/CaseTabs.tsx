@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 export type TabKey = 'orderSheet' | 'basicInfo' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
@@ -7,55 +9,94 @@ type Props = {
   onTabChange: (tab: TabKey) => void
   taskCount: number
   docCount: number
+  // 表示するタブ（左→右の順）。未指定なら全タブ。
+  visibleTabs?: TabKey[]
+  // 折りたたみ対象（末尾「その他 ▾」に格納し既定で非表示）。
+  collapsedTabs?: TabKey[]
 }
 
-const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[] = [
-  { key: 'basicInfo', label: '案件進捗' },
-  { key: 'meeting', label: '面談情報' },
-  { key: 'clientInfo', label: '依頼者情報・やり取り' },
-  { key: 'deceased', label: '相続人調査' },
-  { key: 'assets', label: '財産調査' },
-  { key: 'referral', label: '他事業者紹介' },
-  { key: 'division', label: '遺産分割' },
-  { key: 'will', label: '遺言' },
-  { key: 'registration', label: '相続登記' },
-  { key: 'cancellation', label: '解約等（銀行・証券・自動車）' },
-  { key: 'contract', label: '契約・報酬・請求' },
-  { key: 'docs', label: '書類', countKey: 'docCount' },
-  { key: 'documentCreate', label: '書類作成' },
-  { key: 'tasks', label: 'タスク', countKey: 'taskCount' },
+const TAB_LABELS: Record<TabKey, string> = {
+  orderSheet: 'オーダーシート',
+  basicInfo: '案件進捗',
+  meeting: '面談情報',
+  clientInfo: '依頼者情報・やり取り',
+  deceased: '相続人調査',
+  assets: '財産調査',
+  referral: '他事業者紹介',
+  division: '遺産分割',
+  will: '遺言',
+  registration: '相続登記',
+  cancellation: '解約等（銀行・証券・自動車）',
+  contract: '契約・報酬・請求',
+  docs: '書類',
+  documentCreate: '書類作成',
+  tasks: 'タスク',
+  history: '履歴',
+}
+
+const COUNT_KEY: Partial<Record<TabKey, 'taskCount' | 'docCount'>> = {
+  docs: 'docCount',
+  tasks: 'taskCount',
+}
+
+const DEFAULT_TABS: TabKey[] = [
+  'basicInfo', 'meeting', 'clientInfo', 'deceased', 'assets', 'referral',
+  'division', 'will', 'registration', 'cancellation', 'contract',
+  'docs', 'documentCreate', 'tasks',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, visibleTabs, collapsedTabs }: Props) {
+  const [showOther, setShowOther] = useState(false)
   const counts: Record<string, number> = { taskCount, docCount }
 
+  const all = visibleTabs ?? DEFAULT_TABS
+  const collapsed = new Set(collapsedTabs ?? [])
+  const mainTabs = all.filter(t => !collapsed.has(t))
+  const hiddenTabs = all.filter(t => collapsed.has(t))
+
+  const renderTab = (key: TabKey) => {
+    const countKey = COUNT_KEY[key]
+    const count = countKey ? counts[countKey] : undefined
+    return (
+      <button
+        key={key}
+        onClick={() => onTabChange(key)}
+        className={`px-4 py-2.5 text-[13px] font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+          activeTab === key
+            ? 'text-brand-600 border-brand-600 font-semibold'
+            : 'text-gray-500 border-transparent hover:text-gray-700'
+        }`}
+      >
+        {TAB_LABELS[key]}
+        {count !== undefined && (
+          <span className={`ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
+            activeTab === key ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-500'
+          }`}>
+            {count}
+          </span>
+        )}
+      </button>
+    )
+  }
+
   return (
-    <div className="flex border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-      {tabs.map(tab => {
-        const count = tab.countKey ? counts[tab.countKey] : undefined
-        return (
+    <div className="flex items-center border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      {mainTabs.map(renderTab)}
+
+      {hiddenTabs.length > 0 && (
+        <>
           <button
-            key={tab.key}
-            onClick={() => onTabChange(tab.key)}
-            className={`px-4 py-2.5 text-[13px] font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
-              activeTab === tab.key
-                ? 'text-brand-600 border-brand-600 font-semibold'
-                : 'text-gray-500 border-transparent hover:text-gray-700'
+            onClick={() => setShowOther(v => !v)}
+            className={`px-3 py-2.5 text-[13px] font-medium border-b-2 border-transparent -mb-px whitespace-nowrap transition-colors ${
+              showOther ? 'text-gray-700' : 'text-gray-400 hover:text-gray-600'
             }`}
+            title="その他のタブ"
           >
-            {tab.label}
-            {count !== undefined && (
-              <span className={`ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
-                activeTab === tab.key
-                  ? 'bg-brand-50 text-brand-600'
-                  : 'bg-gray-100 text-gray-500'
-              }`}>
-                {count}
-              </span>
-            )}
+            その他 {showOther ? '▴' : '▾'}
           </button>
-        )
-      })}
+          {showOther && hiddenTabs.map(renderTab)}
+        </>
+      )}
     </div>
   )
 }

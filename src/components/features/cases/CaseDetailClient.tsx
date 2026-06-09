@@ -18,9 +18,11 @@ import DivisionTab from './DivisionTab'
 import DocsTab from './DocsTab'
 import DocumentCreateTab from './DocumentCreateTab'
 import ReferralTab from './ReferralTab'
+import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
+import { getCaseTabVisibility } from '@/lib/caseTabs'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow } from '@/types'
 
@@ -47,7 +49,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals }: Props) {
   const router = useRouter()
@@ -120,6 +122,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? clientCommunications.reduce((max, c) => (c.communicated_at > max ? c.communicated_at : max), clientCommunications[0].communicated_at)
     : null
 
+  // ステータス連動のタブ表示制御
+  const tabVis = getCaseTabVisibility({
+    status: caseState.status,
+    orderSheetCompleted: !!caseState.order_sheet_completed_at,
+    referralPartnerCount: caseReferrals?.length ?? 0,
+  })
+  // 現在のタブが表示対象外なら先頭タブにフォールバック
+  const effectiveTab: TabKey = tabVis.visible.includes(activeTab) ? activeTab : tabVis.visible[0]
+
   return (
     <div>
       <CaseHeader
@@ -131,52 +142,70 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
       <CaseTabs
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onTabChange={setActiveTab}
         taskCount={tasks.length}
         docCount={documents.length}
+        visibleTabs={tabVis.visible}
+        collapsedTabs={tabVis.collapsed}
       />
 
-      {activeTab === 'basicInfo' && (
+      {effectiveTab === 'orderSheet' && (
+        <OrderSheet
+          caseData={caseState}
+          patchCase={patchCase}
+          patchClient={patchClient}
+          onRefresh={handleSaved}
+          heirs={heirs}
+          properties={properties}
+          financialAssets={financialAssets}
+          divisionDetails={divisionDetails}
+          expenses={expenses}
+          tasks={tasks}
+          clientCommunications={clientCommunications}
+          referrals={caseReferrals ?? []}
+        />
+      )}
+      {effectiveTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} />
       )}
-      {activeTab === 'meeting' && (
+      {effectiveTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} />
       )}
-      {activeTab === 'clientInfo' && (
+      {effectiveTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} />
       )}
-      {activeTab === 'tasks' && (
+      {effectiveTab === 'tasks' && (
         <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
       )}
-      {activeTab === 'deceased' && (
+      {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} />
       )}
-      {activeTab === 'contract' && (
+      {effectiveTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} />
       )}
-      {activeTab === 'assets' && (
+      {effectiveTab === 'assets' && (
         <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />
       )}
-      {activeTab === 'division' && (
+      {effectiveTab === 'division' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
       )}
-      {activeTab === 'will' && (
+      {effectiveTab === 'will' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
       )}
-      {activeTab === 'registration' && (
+      {effectiveTab === 'registration' && (
         <TabPlaceholder title="相続登記" note="項目は今後ヒアリングのうえ追加予定です。" />
       )}
-      {activeTab === 'cancellation' && (
+      {effectiveTab === 'cancellation' && (
         <TabPlaceholder title="解約等（銀行・証券・自動車）" note="項目は今後ヒアリングのうえ追加予定です。" />
       )}
-      {activeTab === 'referral' && (
+      {effectiveTab === 'referral' && (
         <ReferralTab caseData={caseState} patchCase={patchCase} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
-      {activeTab === 'docs' && (
+      {effectiveTab === 'docs' && (
         <DocsTab caseData={caseState} documents={documents} />
       )}
-      {activeTab === 'documentCreate' && (
+      {effectiveTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
       )}
 
