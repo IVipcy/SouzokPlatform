@@ -1,95 +1,166 @@
 'use client'
 
-import type { CaseRow } from '@/types'
+import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
+import type { CaseRow, CaseReferralRow } from '@/types'
 import {
-  Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineEdit,
+  Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineEdit, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { TAX_FILING_OPTIONS, TAX_ADVISOR_REFERRAL_OPTIONS } from '@/lib/constants'
+import {
+  TAX_FILING_OPTIONS, TAX_ADVISOR_REFERRAL_OPTIONS,
+  REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES,
+} from '@/lib/constants'
 
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  referrals: CaseReferralRow[]
+  onRefresh?: () => void
 }
 
-export default function ReferralTab({ caseData, patchCase }: Props) {
-  const save = async (field: string, value: unknown) => {
+/**
+ * 他事業者紹介タブ
+ * 業者別（税理士/弁護士/不動産/遺品整理）の紹介情報を内部サブタブで管理する。
+ * サブタブは「紹介あり（case_referrals 行が存在する）業者」だけ表示し、「＋業者追加」で増やせる（B-1）。
+ * 各業者: 紹介先法人名 / 紹介日付 / 紹介内容 / 見込み報酬 / 報酬請求状態。
+ *
+ * ※ 旧「他士業等連携」タブの項目は当面「（旧）他士業連携情報」として残置（後で精査）。
+ */
+export default function ReferralTab({ caseData, patchCase, referrals, onRefresh }: Props) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
+  const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
+  const [busy, setBusy] = useState(false)
+
+  const types = rows.map(r => r.partner_type)
+  const active = activeType && types.includes(activeType) ? activeType : (types[0] ?? null)
+  const activeRow = rows.find(r => r.partner_type === active) ?? null
+  const remaining = REFERRAL_PARTNER_TYPES.filter(t => !types.includes(t))
+
+  const addPartner = async (partnerType: string) => {
+    setBusy(true)
+    const { data, error } = await supabase
+      .from('case_referrals')
+      .insert({ case_id: caseData.id, partner_type: partnerType })
+      .select('*')
+      .single()
+    setBusy(false)
+    if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    setRows(prev => [...prev, data as CaseReferralRow])
+    setActiveType(partnerType)
+    onRefresh?.()
+  }
+
+  const deletePartner = async (row: CaseReferralRow) => {
+    if (!confirm(`「${row.partner_type}」の紹介情報を削除しますか？`)) return
+    const { error } = await supabase.from('case_referrals').delete().eq('id', row.id)
+    if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+    setRows(prev => prev.filter(r => r.id !== row.id))
+    setActiveType(null)
+    onRefresh?.()
+  }
+
+  // case_referrals の1フィールドを更新（楽観的反映）
+  const saveReferralField = (id: string, field: keyof CaseReferralRow) => async (value: unknown) => {
+    const v = value === '' ? null : value
+    setRows(prev => prev.map(r => (r.id === id ? ({ ...r, [field]: v } as CaseReferralRow) : r)))
+    const { error } = await supabase.from('case_referrals').update({ [field]: v }).eq('id', id)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); throw new Error(error.message) }
+  }
+
+  const saveCase = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   return (
     <div className="max-w-3xl space-y-3.5">
+      <Section title="他事業者紹介">
+        {/* サブタブ：登録済み業者＋追加 */}
+        <div className="flex items-center gap-1 border-b border-gray-200 mb-3 flex-wrap">
+          {rows.map(r => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setActiveType(r.partner_type)}
+              className={`px-3 py-1.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+                active === r.partner_type ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {r.partner_type}
+            </button>
+          ))}
+          {remaining.map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => addPartner(t)}
+              disabled={busy}
+              className="px-2.5 py-1.5 text-[12px] text-gray-400 hover:text-brand-600 border-b-2 border-transparent -mb-px disabled:opacity-50"
+              title={`${t}の紹介を追加`}
+            >
+              ＋{t}
+            </button>
+          ))}
+        </div>
 
-      {/* 相続税申告（財産情報タブから移動） */}
-      <Section title="相続税申告" icon="💰">
-        <FieldGrid>
-          <InlineSelect
-            label="相続税申告要否"
-            value={caseData.tax_filing_required}
-            options={[...TAX_FILING_OPTIONS]}
-            onSave={v => save('tax_filing_required', v)}
-          />
-          <InlineDate
-            label="申告期限"
-            value={caseData.tax_filing_deadline}
-            onSave={v => save('tax_filing_deadline', v || null)}
-          />
-          <InlineCurrency
-            label="資産合計額（概算）"
-            value={caseData.total_asset_estimate}
-            onSave={v => save('total_asset_estimate', v)}
-          />
-          <InlineSelect
-            label="税理士紹介有無"
-            value={caseData.tax_advisor_referral}
-            options={[...TAX_ADVISOR_REFERRAL_OPTIONS]}
-            onSave={v => save('tax_advisor_referral', v)}
-          />
-          <InlineEdit
-            label="税理士名・事務所名"
-            value={caseData.tax_advisor_name}
-            onSave={v => save('tax_advisor_name', v)}
-            fullWidth
-          />
-        </FieldGrid>
+        {activeRow ? (
+          <div>
+            <div className="flex justify-end mb-1">
+              <button
+                type="button"
+                onClick={() => deletePartner(activeRow)}
+                className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> この業者を削除
+              </button>
+            </div>
+            <FieldGrid>
+              <InlineEdit label="紹介先法人名" value={activeRow.firm_name} onSave={saveReferralField(activeRow.id, 'firm_name')} fullWidth />
+              <InlineDate label="紹介日付" value={activeRow.referred_date} onSave={saveReferralField(activeRow.id, 'referred_date')} />
+              <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
+              <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
+              <InlineTextarea label="紹介内容" value={activeRow.content} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+            </FieldGrid>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-[13px] text-gray-400">
+            紹介した業者がありません。上の「＋」から業者を追加してください。
+          </div>
+        )}
       </Section>
 
-      {/* 弁護士紹介 */}
-      <Section title="弁護士紹介" icon="⚖️">
-        <FieldGrid>
-          <InlineEdit
-            label="弁護士名"
-            value={caseData.lawyer_name}
-            onSave={v => save('lawyer_name', v)}
-          />
-          <InlineEdit
-            label="事務所名"
-            value={caseData.lawyer_office}
-            onSave={v => save('lawyer_office', v)}
-          />
-          <InlineCurrency
-            label="紹介金額"
-            value={caseData.lawyer_referral_fee}
-            onSave={v => save('lawyer_referral_fee', v)}
-          />
-        </FieldGrid>
+      {/* （旧）他士業連携情報：当面残置（後で精査）。既定で折りたたみ */}
+      <Section title="（旧）他士業連携情報" collapsible defaultOpen={false}>
+        <div className="space-y-4">
+          <div>
+            <div className="text-[12px] font-bold text-gray-500 mb-1">相続税申告</div>
+            <FieldGrid>
+              <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={v => saveCase('tax_filing_required', v)} />
+              <InlineDate label="申告期限" value={caseData.tax_filing_deadline} onSave={v => saveCase('tax_filing_deadline', v || null)} />
+              <InlineCurrency label="資産合計額（概算）" value={caseData.total_asset_estimate} onSave={v => saveCase('total_asset_estimate', v)} />
+              <InlineSelect label="税理士紹介有無" value={caseData.tax_advisor_referral} options={[...TAX_ADVISOR_REFERRAL_OPTIONS]} onSave={v => saveCase('tax_advisor_referral', v)} />
+              <InlineEdit label="税理士名・事務所名" value={caseData.tax_advisor_name} onSave={v => saveCase('tax_advisor_name', v)} fullWidth />
+            </FieldGrid>
+          </div>
+          <div>
+            <div className="text-[12px] font-bold text-gray-500 mb-1">弁護士紹介</div>
+            <FieldGrid>
+              <InlineEdit label="弁護士名" value={caseData.lawyer_name} onSave={v => saveCase('lawyer_name', v)} />
+              <InlineEdit label="事務所名" value={caseData.lawyer_office} onSave={v => saveCase('lawyer_office', v)} />
+              <InlineCurrency label="紹介金額" value={caseData.lawyer_referral_fee} onSave={v => saveCase('lawyer_referral_fee', v)} />
+            </FieldGrid>
+          </div>
+          <div>
+            <div className="text-[12px] font-bold text-gray-500 mb-1">遺品整理</div>
+            <FieldGrid>
+              <InlineEdit label="業者名" value={caseData.estate_clearance_company} onSave={v => saveCase('estate_clearance_company', v)} />
+              <InlineCurrency label="紹介金額" value={caseData.estate_clearance_fee} onSave={v => saveCase('estate_clearance_fee', v)} />
+            </FieldGrid>
+          </div>
+        </div>
       </Section>
-
-      {/* 遺品整理 */}
-      <Section title="遺品整理" icon="📦">
-        <FieldGrid>
-          <InlineEdit
-            label="業者名"
-            value={caseData.estate_clearance_company}
-            onSave={v => save('estate_clearance_company', v)}
-          />
-          <InlineCurrency
-            label="紹介金額"
-            value={caseData.estate_clearance_fee}
-            onSave={v => save('estate_clearance_fee', v)}
-          />
-        </FieldGrid>
-      </Section>
-
     </div>
   )
 }

@@ -45,6 +45,12 @@ export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
 export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
 
+// === 他事業者紹介 ===
+// 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
+export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理'] as const
+// 報酬請求状態の選択肢。
+export const REFERRAL_BILLING_STATUSES = ['未請求', '請求済', '入金済'] as const
+
 export type CaseCategory = 'consult' | 'referral' | 'management'
 
 /** ステータスkeyから案件分類を判定（未知/該当なしは null） */

@@ -15,7 +15,7 @@ const tabs: { key: TabKey; label: string; countKey?: 'taskCount' | 'docCount' }[
   { key: 'clientInfo', label: '依頼者情報・やり取り' },
   { key: 'deceased', label: '相続人調査' },
   { key: 'assets', label: '財産調査' },
-  { key: 'referral', label: '他士業等連携' },
+  { key: 'referral', label: '他事業者紹介' },
   { key: 'division', label: '遺産分割' },
   { key: 'will', label: '遺言' },
   { key: 'registration', label: '相続登記' },
