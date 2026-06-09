@@ -12,10 +12,12 @@
 //   個別管理案件  = 紹介のみ / 長期保留
 //   管理案件      = 対応中 / 完了
 //
+// ※「依頼者情報」タブ = 既存の「依頼者情報・やり取り」タブ（clientInfo）に統一。
+//
 // ルール:
-//   ・相談案件（受託以外）: 案件進捗 / 面談情報 / 依頼者情報 の3つだけ
-//   ・個別管理案件        : 案件進捗 / 面談情報 / 依頼者・やり取り / 他事業者紹介
-//   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 面談情報 / 依頼者情報
+//   ・相談案件（受託以外）: 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
+//   ・個別管理案件        : 案件進捗 / 面談情報 / 依頼者情報・やり取り / 他事業者紹介 / タスク
+//   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
 //   ・受託・OS作成済      : オーダーシート（最左）＋実務フルセット（面談情報は残す）
 //   ・管理案件            : 実務フルセット。面談情報は折りたたみ（末尾・既定非表示）
 
@@ -51,7 +53,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   if (status === '受注') {
     if (!orderSheetCompleted) {
       // オーダーシート作成前: 概要把握用の最小構成＋作成導線（オーダーシート最左）
-      return { visible: ['orderSheet', 'basicInfo', 'meeting', 'clientInfo'], collapsed: [] }
+      return { visible: ['orderSheet', 'basicInfo', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
     }
     // オーダーシート完成後: 実務タブ解禁。面談情報はまだ表示（管理案件化までは折りたたまない）
     return { visible: FULL_PRACTICE_TABS, collapsed: [] }
@@ -64,9 +66,9 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
 
   // 個別管理案件（紹介のみ / 長期保留）
   if (category === 'referral') {
-    return { visible: ['basicInfo', 'meeting', 'clientInfo', 'referral'], collapsed: [] }
+    return { visible: ['basicInfo', 'meeting', 'clientInfo', 'referral', 'tasks'], collapsed: [] }
   }
 
   // 相談案件（面談設定済 / 検討中 / 検討中（契約書待ち） / 不受託）
-  return { visible: ['basicInfo', 'meeting', 'clientInfo'], collapsed: [] }
+  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
 }
