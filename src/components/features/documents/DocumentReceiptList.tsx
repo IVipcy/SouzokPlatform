@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Check, Hand, Loader2, Play } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { todayJstYmd } from '@/lib/dashboardMetrics'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -27,6 +28,20 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
 
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
+  const [tab, setTab] = useState<'today' | 'past'>('today')
+
+  const today = todayJstYmd(new Date())
+  // 当日分 = 受信日が本日以降（基本は当日に届いたもの）
+  const todayReceipts = receipts.filter(r => (r.received_date ?? '') >= today)
+  // 過去日分 = 受信日が本日より前。未着手（着手者未設定）を上部に、その中は新しい順。
+  const pastReceipts = receipts
+    .filter(r => (r.received_date ?? '') < today)
+    .sort((a, b) => {
+      const aUn = !a.started_by_member_id, bUn = !b.started_by_member_id
+      if (aUn !== bUn) return aUn ? -1 : 1
+      return (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no)
+    })
+  const pastUnstarted = pastReceipts.filter(r => !r.started_by_member_id).length
 
   if (receipts.length === 0) {
     return (
@@ -37,43 +52,60 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
     )
   }
 
+  const list = tab === 'today' ? todayReceipts : pastReceipts
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1100 }}>
-        <colgroup>
-          <col style={{ width: 100 }} />
-          <col style={{ width: 140 }} />
-          <col />
-          <col style={{ width: 70 }} />
-          <col style={{ width: 180 }} />
-          <col style={{ width: 130 }} />
-          <col style={{ width: 130 }} />
-        </colgroup>
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-            <th className="px-2.5 py-2 text-left font-semibold">番号</th>
-            <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
-            <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
-            <th className="px-2.5 py-2 text-center font-semibold">通数</th>
-            <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
-            <th className="px-2.5 py-2 text-center font-semibold">W-Check</th>
-            <th className="px-2.5 py-2 text-center font-semibold">着手</th>
-          </tr>
-        </thead>
-        <tbody>
-          {receipts.map((r, i) => (
-            <ReceiptRow
-              key={r.id}
-              receipt={r}
-              rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
-              currentMemberId={currentMemberId}
-              currentMember={currentMember}
-              onChanged={onChanged}
-              onStartRequest={setStartingReceipt}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      {/* タブ: 当日分 / 過去日分 */}
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
+        <TabButton active={tab === 'today'} onClick={() => setTab('today')} label="当日分" count={todayReceipts.length} />
+        <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} badge={pastUnstarted > 0 ? `未着手 ${pastUnstarted}` : undefined} />
+      </div>
+
+      {list.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-[13px] text-gray-400">
+          {tab === 'today' ? '本日到着の書類はありません。' : '過去日分の未処理書類はありません。'}
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1100 }}>
+            <colgroup>
+              <col style={{ width: 100 }} />
+              <col style={{ width: 140 }} />
+              <col />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 180 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 130 }} />
+            </colgroup>
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                <th className="px-2.5 py-2 text-left font-semibold">番号</th>
+                <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
+                <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
+                <th className="px-2.5 py-2 text-center font-semibold">通数</th>
+                <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
+                <th className="px-2.5 py-2 text-center font-semibold">W-Check</th>
+                <th className="px-2.5 py-2 text-center font-semibold">着手</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((r, i) => (
+                <ReceiptRow
+                  key={r.id}
+                  receipt={r}
+                  rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
+                  unstartedPast={tab === 'past' && !r.started_by_member_id}
+                  currentMemberId={currentMemberId}
+                  currentMember={currentMember}
+                  onChanged={onChanged}
+                  onStartRequest={setStartingReceipt}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {startingReceipt && (
         <ReceiptStartModal
@@ -84,6 +116,22 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         />
       )}
     </div>
+  )
+}
+
+function TabButton({ active, onClick, label, count, badge }: { active: boolean; onClick: () => void; label: string; count: number; badge?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+        active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+      }`}
+    >
+      {label}
+      <span className={`text-[12px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+      {badge && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{badge}</span>}
+    </button>
   )
 }
 
@@ -186,6 +234,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 function ReceiptRow({
   receipt,
   rowBg,
+  unstartedPast = false,
   currentMemberId,
   currentMember,
   onChanged,
@@ -193,6 +242,7 @@ function ReceiptRow({
 }: {
   receipt: DocumentReceiptRow
   rowBg: string
+  unstartedPast?: boolean
   currentMemberId: string | null
   currentMember: MemberRow | null
   onChanged: () => void
@@ -201,6 +251,8 @@ function ReceiptRow({
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
   const numberText = formatReceiptNumber(receipt.received_date, receipt.sequence_no)
+  // 過去日分の未着手は薄いアンバーで強調（一覧上部に集まる）
+  const rowClass = unstartedPast ? 'bg-amber-50/60' : rowBg
 
   const [, startTransition] = useTransition()
   const [busyKind, setBusyKind] = useState<null | 'check' | 'start'>(null)
@@ -260,15 +312,16 @@ function ReceiptRow({
         return (
           <tr
             key={it?.id ?? `placeholder-${receipt.id}`}
-            className={`border-b border-gray-100 ${rowBg} hover:bg-brand-50/30`}
+            className={`border-b border-gray-100 ${rowClass} hover:bg-brand-50/30`}
           >
             {/* 番号（行統合） */}
             {isFirst && (
               <td
                 rowSpan={rowCount}
-                className="px-2.5 py-2 font-mono text-[12px] text-gray-700 align-middle border-r border-gray-100"
+                className={`px-2.5 py-2 font-mono text-[12px] text-gray-700 align-middle border-r border-gray-100 ${unstartedPast ? 'border-l-2 border-l-amber-400' : ''}`}
               >
                 {numberText}
+                {unstartedPast && <div className="text-[10px] font-bold text-amber-600 mt-0.5">未着手</div>}
               </td>
             )}
             {/* 案件管理番号（行統合） */}
