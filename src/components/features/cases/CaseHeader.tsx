@@ -60,28 +60,32 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
         <div className="flex items-start gap-5">
           {/* 左: 案件の識別情報 */}
           <div className="flex-shrink-0 min-w-0" style={{ maxWidth: 300 }}>
-            <span className="text-[12px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-              {caseData.case_number}
-            </span>
-            <h1 className="text-[19px] font-extrabold text-gray-900 tracking-tight mt-1 mb-1 inline-flex items-center gap-2 flex-wrap leading-tight">
-              {caseData.deal_name}
+            {/* 案件番号（独立行・控えめ） */}
+            <div className="mb-1.5">
+              <span className="inline-block text-[11px] font-mono tracking-wide text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                {caseData.case_number}
+              </span>
+            </div>
+            {/* 案件名 + クレームフラグ */}
+            <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">
+              <span className="truncate">{caseData.deal_name}</span>
               {caseData.has_complaint && (
-                <span className="inline-flex w-4 h-4 rounded-full bg-purple-600 items-center justify-center shadow-[0_0_0_2px_rgba(147,51,234,0.2)]" title="クレーム案件（紫フラグ）">
+                <span className="flex-shrink-0 inline-flex w-4 h-4 rounded-full bg-purple-600 items-center justify-center shadow-[0_0_0_2px_rgba(147,51,234,0.2)]" title="クレーム案件（紫フラグ）">
                   <span className="w-1.5 h-1.5 rounded-full bg-white" />
                 </span>
               )}
             </h1>
             {/* 手続き区分 */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[11px] text-gray-400">手続き区分</span>
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              <span className="text-[10px] font-medium text-gray-400 tracking-wide">手続き区分</span>
               {procedures.length > 0 ? (
                 procedures.map(p => (
-                  <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                  <span key={p} className="inline-block text-[11px] leading-none px-2 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-100 font-medium">{p}</span>
                 ))
               ) : <span className="text-[11px] text-gray-300">未設定</span>}
             </div>
             {caseData.deceased_name && (
-              <p className="text-[12px] text-gray-500 mt-1">
+              <p className="text-[12px] text-gray-500 mt-2">
                 被相続人：{caseData.deceased_name}{caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
               </p>
             )}
