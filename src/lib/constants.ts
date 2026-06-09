@@ -45,6 +45,19 @@ export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
 export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
 
+// 案件ステータスとして選択可能なkey一覧を返す（対応中ガード）。
+// ・通常: 相談案件＋個別管理案件のステータスのみ（対応中/完了は不可＝実質ガード）
+// ・オーダーシート完成済 or 既に管理ステータスの案件: 対応中/完了も選択可
+// ・現在のステータスは常に選択肢に含める（表示崩れ防止）
+export const getSelectableCaseStatuses = (orderSheetCompleted: boolean, currentStatus?: string | null): string[] => {
+  const isManagementNow = !!currentStatus && (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
+  const base: string[] = (orderSheetCompleted || isManagementNow)
+    ? [...MEETING_SELECTABLE_STATUSES, ...MANAGEMENT_STATUSES]
+    : [...MEETING_SELECTABLE_STATUSES]
+  if (currentStatus && !base.includes(currentStatus)) return [currentStatus, ...base]
+  return base
+}
+
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
 export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理'] as const

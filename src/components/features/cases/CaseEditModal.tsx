@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { CASE_STATUSES } from '@/lib/constants'
+import { CASE_STATUSES, getSelectableCaseStatuses } from '@/lib/constants'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -131,9 +131,12 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
               onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
-              {CASE_STATUSES.map(s => (
-                <option key={s.key} value={s.key}>{s.label}</option>
-              ))}
+              {(() => {
+                const allowed = new Set(getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status))
+                return CASE_STATUSES.filter(s => allowed.has(s.key)).map(s => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))
+              })()}
             </select>
           </FormField>
 

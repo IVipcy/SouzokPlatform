@@ -11,7 +11,7 @@ import Badge from '@/components/ui/Badge'
 import {
   FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
-import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS } from '@/lib/constants'
+import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS, getSelectableCaseStatuses } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
@@ -63,7 +63,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-gray-100">
           {/* ステータス（編集可能・ブランド単色でヘッダーのフローと統一） */}
           <SummaryItem label="ステータス">
-            <StatusChipDropdown status={caseData.status} onChange={s => saveCaseField('status', s)} />
+            <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} onChange={s => saveCaseField('status', s)} />
           </SummaryItem>
           {/* 現在フェーズ */}
           <SummaryItem label="現在フェーズ">
@@ -173,9 +173,11 @@ function SummaryItem({ label, children }: { label: string; children: React.React
 }
 
 // 案件ステータスの編集チップ（ブランド単色。ヘッダーのステータスフローと色を統一）
-function StatusChipDropdown({ status, onChange }: { status: string; onChange: (s: string) => void }) {
+// 対応中/完了はオーダーシート完成後のみ選択可（getSelectableCaseStatuses）。
+function StatusChipDropdown({ status, orderSheetCompleted, onChange }: { status: string; orderSheetCompleted: boolean; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status))
 
   useEffect(() => {
     if (!open) return
@@ -199,7 +201,7 @@ function StatusChipDropdown({ status, onChange }: { status: string; onChange: (s
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] z-50 overflow-hidden">
-          {CASE_STATUSES.map(s => (
+          {CASE_STATUSES.filter(s => allowed.has(s.key)).map(s => (
             <button
               key={s.key}
               type="button"
@@ -211,6 +213,11 @@ function StatusChipDropdown({ status, onChange }: { status: string; onChange: (s
               {s.label}
             </button>
           ))}
+          {!orderSheetCompleted && (
+            <div className="px-3.5 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+              「対応中」「完了」はオーダーシート完成後に選択できます
+            </div>
+          )}
         </div>
       )}
     </div>
