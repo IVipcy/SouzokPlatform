@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
-import CaseTimeline from './CaseTimeline'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
 import MeetingInfoTab from './MeetingInfoTab'
@@ -126,17 +125,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
         caseAlerts={caseAlerts}
+        tasks={tasks}
+        statusHistory={statusHistory}
       />
-
-      {/* 画面上部の進捗表示: 旧ステータスフローに替えてマイルストーン軸を常時表示 */}
-      <div className="mb-5">
-        <CaseTimeline
-          caseData={caseState}
-          tasks={tasks}
-          statusHistory={statusHistory}
-          variant="milestones"
-        />
-      </div>
 
       <CaseTabs
         activeTab={activeTab}

@@ -83,37 +83,26 @@ const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean
   { statuses: ['完了'],       label: '完了',         Icon: Trophy, dateOf: c => ymd(c.completion_date) },
 ]
 
-export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full' }: Props) {
-  const showMilestones = variant !== 'detail'
-  const showDetail = variant !== 'milestones'
-  const cardTitle = variant === 'detail' ? '作業の進捗（タスク・書類）' : '案件タイムライン'
-  const todayYmd = todayJstYmd(new Date())
+// ───────── マイルストーン軸（独立コンポーネント。ヘッダーに compact で埋め込み可能） ─────────
+export function MilestoneAxis({ caseData, tasks, statusHistory = [], compact = false }: {
+  caseData: CaseRow
+  tasks: TaskRow[]
+  statusHistory?: TimelineStatusEvent[]
+  compact?: boolean
+}) {
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
-
   const caseTasks = tasks.filter(t => t.task_kind !== 'system')
-  const systemTasks = tasks.filter(t => t.task_kind === 'system')
-  const visibleProperties = properties.filter(p => p.appraisal_status !== '不要')
+  const firstStarted = caseTasks.map(t => ymd(t.started_at)).filter((d): d is string => !!d).sort()[0] ?? null
 
-  const firstStarted = caseTasks
-    .map(t => ymd(t.started_at))
-    .filter((d): d is string => !!d)
-    .sort()[0] ?? null
-
-  // ステータス履歴 → 到達ステータス集合 + 各ステータスの実遷移日
   const histDate = new Map<string, string>()
   for (const h of statusHistory) {
     if (h.new_value && !histDate.has(h.new_value)) histDate.set(h.new_value, ymd(h.created_at) ?? '')
   }
   const hasHistory = statusHistory.length > 0
-  // 標準フロー（面談/受注/対応開始/完了）: 履歴があれば履歴、無ければ現ステータスまでの順序で推測
   const reached = (status: string) =>
-    hasHistory
-      ? histDate.has(status)
-      : STATUS_ORDER.indexOf(status) !== -1 && STATUS_ORDER.indexOf(status) <= currentIdx
-  // 実履歴必須（検討結果回答など）: 遷移ログに該当ステータスが記録されている場合のみ
+    hasHistory ? histDate.has(status) : (STATUS_ORDER.indexOf(status) !== -1 && STATUS_ORDER.indexOf(status) <= currentIdx)
   const reachedStrict = (status: string) => histDate.has(status)
 
-  // 実際に通過したマイルストーンのみ
   const milestones = MILESTONE_DEFS
     .filter(d => d.statuses.some(s => (d.historyOnly ? reachedStrict(s) : reached(s))))
     .map(d => {
@@ -121,17 +110,60 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       return { label: d.label, date: d.dateOf(caseData, firstStarted) ?? fromHist, Icon: d.Icon }
     })
   const showGoalTarget = caseData.status !== '完了'
-
-  // マイルストーン軸ノード（START/GOAL は廃止し、先頭=面談実施日 / 末尾=完了予定 を端点に）
   const axisNodes: { label: string; date: string | null; state: 'reached' | 'current' | 'future'; Icon: LucideIcon }[] = [
     ...milestones.map((m, i) => ({
-      label: m.label,
-      date: m.date,
-      Icon: m.Icon,
+      label: m.label, date: m.date, Icon: m.Icon,
       state: (i === milestones.length - 1 && caseData.status !== '完了' ? 'current' : 'reached') as 'reached' | 'current',
     })),
     ...(showGoalTarget ? [{ label: '完了予定', date: ymd(caseData.expected_completion_date), state: 'future' as const, Icon: Flag }] : []),
   ]
+
+  // サイズ（compact=ヘッダー埋め込み用に小さく）
+  const circle = compact ? 'w-8 h-8' : 'w-12 h-12'
+  const iconSz = compact ? 'w-[15px] h-[15px]' : 'w-[22px] h-[22px]'
+  const ring = compact ? 'ring-2 ring-brand-100' : 'ring-4 ring-brand-100'
+  const labelCls = compact ? 'mt-1 text-[11px]' : 'mt-2 text-[13px]'
+  const dateCls = compact ? 'text-[10px]' : 'text-[11px] mt-0.5'
+  const colMin = compact ? 'min-w-[84px]' : 'min-w-[110px]'
+  const minW = compact ? 'min-w-[260px]' : 'min-w-[520px]'
+
+  return (
+    <div className="overflow-x-auto">
+      <div className={`flex items-start ${minW}`}>
+        {axisNodes.map((n, i) => {
+          const isFirst = i === 0
+          const isLast = i === axisNodes.length - 1
+          const leftReached = i > 0 && axisNodes[i - 1].state !== 'future'
+          const rightReached = n.state !== 'future'
+          const circleCls = n.state === 'future' ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'
+          return (
+            <div key={n.label + i} className={`flex flex-col items-center flex-1 ${colMin}`}>
+              <div className="flex items-center w-full">
+                <span className={`flex-1 h-[2px] rounded-full ${isFirst ? 'opacity-0' : leftReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
+                <span className={`${circle} rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${circleCls} ${n.state === 'current' ? ring : ''}`}>
+                  <n.Icon className={iconSz} strokeWidth={2} />
+                </span>
+                <span className={`flex-1 h-[2px] rounded-full ${isLast ? 'opacity-0' : rightReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
+              </div>
+              <span className={`${labelCls} text-center font-semibold leading-tight ${n.state === 'future' ? 'text-gray-400' : 'text-gray-900'}`}>{n.label}</span>
+              <span className={`${dateCls} font-mono text-gray-400`}>{n.date ?? '—'}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full' }: Props) {
+  const showMilestones = variant !== 'detail'
+  const showDetail = variant !== 'milestones'
+  const cardTitle = variant === 'detail' ? '作業の進捗（タスク・書類）' : '案件タイムライン'
+  const todayYmd = todayJstYmd(new Date())
+
+  const caseTasks = tasks.filter(t => t.task_kind !== 'system')
+  const systemTasks = tasks.filter(t => t.task_kind === 'system')
+  const visibleProperties = properties.filter(p => p.appraisal_status !== '不要')
 
   // フェーズ別タスク
   const tasksByPhase = new Map<string, TaskRow[]>()
@@ -169,36 +201,11 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         {showDetail && <Legend />}
       </div>
 
-      {/* ① マイルストーン軸（大きめアイコン円。先頭=面談実施日 / 末尾=完了予定） */}
+      {/* ① マイルストーン軸 */}
       {showMilestones && (
-      <div className="overflow-x-auto pb-2">
-        <div className="flex items-start min-w-[520px] px-1">
-          {axisNodes.map((n, i) => {
-            const isFirst = i === 0
-            const isLast = i === axisNodes.length - 1
-            const leftReached = i > 0 && axisNodes[i - 1].state !== 'future'
-            const rightReached = n.state !== 'future'
-            const circleCls = n.state === 'future'
-              ? 'bg-white text-gray-400 border-2 border-gray-300'
-              : 'bg-brand-700 text-white'
-            const ring = n.state === 'current' ? 'ring-4 ring-brand-100' : ''
-            return (
-              <div key={n.label + i} className="flex flex-col items-center flex-1 min-w-[110px]">
-                {/* アイコン円 ＋ 左右の連結線（円の中心で接続） */}
-                <div className="flex items-center w-full">
-                  <span className={`flex-1 h-[3px] rounded-full ${isFirst ? 'opacity-0' : leftReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
-                  <span className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${circleCls} ${ring}`}>
-                    <n.Icon className="w-[22px] h-[22px]" strokeWidth={2} />
-                  </span>
-                  <span className={`flex-1 h-[3px] rounded-full ${isLast ? 'opacity-0' : rightReached ? 'bg-brand-500' : 'bg-gray-200'}`} />
-                </div>
-                <span className={`mt-2 text-[13px] text-center font-semibold ${n.state === 'future' ? 'text-gray-400' : 'text-gray-900'}`}>{n.label}</span>
-                <span className="text-[11px] font-mono text-gray-400 mt-0.5">{n.date ?? '—'}</span>
-              </div>
-            )
-          })}
+        <div className="pb-2">
+          <MilestoneAxis caseData={caseData} tasks={tasks} statusHistory={statusHistory} />
         </div>
-      </div>
       )}
 
       {showDetail && (<>
