@@ -46,8 +46,9 @@ type Props = {
   manageMode?: boolean
 }
 
-// 相談案件のステータス（受注担当が責任をもって管理するステータス）
-const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'] as const
+// 相談案件のステータス絞り込み候補（受注担当が受託に至るまでのステータス）
+// ※ 長期保留・紹介のみは「個別管理案件」へ分類変更したため除外
+const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '失注'] as const
 
 type SortKey = 'response_due' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
 type SortOrder = 'asc' | 'desc'

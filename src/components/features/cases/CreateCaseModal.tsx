@@ -73,7 +73,8 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
         date_of_death: form.date_of_death || null,
         difficulty: form.difficulty,
         client_id: clientId,
-        status: '架電案件化',
+        // 新規作成時は必ず「面談設定済」（相談案件）から開始。「新規（架電案件化）」は廃止。
+        status: '面談設定済',
       })
 
     setSaving(false)

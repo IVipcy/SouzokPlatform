@@ -31,9 +31,9 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  * マイページ — 認証ユーザー本人のみ閲覧可能。
  *
  * 受注担当 (sales):
- *   - 当月面談（相談案件一覧）: 面談設定済/検討中/受注/失注/保留・長期 の案件。期間切替・KPIサマリ付き
- *   - 管理案件一覧            : 受注後の進捗（対応中/完了）。進捗管理ダッシュボードと同じ見た目
- *   - 個別管理案件            : 「紹介のみ」ステータスの案件
+ *   - 当月面談（相談案件一覧）: 面談設定済/検討中/検討中（契約書待ち）/受託/不受託 の案件。期間切替・KPIサマリ付き
+ *   - 管理案件一覧            : 受託後の進捗（対応中/完了）。進捗管理ダッシュボードと同じ見た目
+ *   - 個別管理案件            : 紹介のみ/長期保留 の案件（戻り受注の可能性あり）
  *   - タスク                  : 自分宛のタスク
  * 管理担当 (manager) / その他: 管理案件一覧 + タスク
  */
@@ -41,7 +41,11 @@ import type { TaskRow, ProgressReportRow } from '@/types'
 type SearchParams = Promise<{ tab?: string; period?: string }>
 type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'reviews' | 'tasks'
 
-const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注', '保留・長期', '紹介のみ'])
+// 相談案件 = 受注担当が受託に至るまで（長期保留・紹介のみは個別管理案件へ移管）
+const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注'])
+// 個別管理案件 = 紹介のみ・長期保留（戻り受注の可能性あり）
+const REFERRAL_STATUSES = new Set(['紹介のみ', '保留・長期'])
+// 管理担当のアラート対象スコープ（KPI/アラート用。一覧分類とは別概念）
 const MGMT_ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -398,8 +402,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     }
   })
 
-  // === 個別管理案件（紹介のみ） ===
-  const referralCases = myCases.filter(c => c.status === '紹介のみ')
+  // === 個別管理案件（紹介のみ・長期保留） ===
+  const referralCases = myCases.filter(c => REFERRAL_STATUSES.has(c.status))
 
   // === 自分宛タスク（担当者ベース） ===
   // task_assignees で自分に紐付く未完了タスク（roleTaskRows は既にDB側で絞り込み済み）。
@@ -434,7 +438,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (open) return open
     return [...list].sort((a, b) => (b.requested_date ?? '').localeCompare(a.requested_date ?? ''))[0]
   }
-  const MANAGEMENT_ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+  // 管理案件 = 対応中・完了（受託後に管理担当が引き継いだ案件）
+  const MANAGEMENT_ACTIVE = new Set(['対応中', '完了'])
   const managerProgressRows: ManagerProgressRow[] = myCases
     .filter(c => managerCaseIds.has(c.id) && MANAGEMENT_ACTIVE.has(c.status))
     .map(c => {
@@ -581,7 +586,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         <ProgressReviewTab rows={reviewRows} currentMemberId={memberId} />
       )}
 
-      {/* 個別管理案件（紹介のみ） */}
+      {/* 個別管理案件（紹介のみ・長期保留） */}
       {activeTab === 'referrals' && isSales && (
         <ReferralCasesTable
           cases={referralCases.map(c => ({

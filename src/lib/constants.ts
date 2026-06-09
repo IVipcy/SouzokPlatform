@@ -10,24 +10,47 @@ export const PHASES = [
 
 // === 案件ステータス ===
 // key = 内部キー（DB値・既存ロジックの比較に使用。絶対に変更しない）
-// label = 表示名（改称はここだけ。受注→受託 / 失注→不受託 / 架電案件化→新規）
+// label = 表示名（改称はここだけ。受注→受託 / 失注→不受託 / 保留・長期→長期保留）
 // 表示は getCaseStatusLabel(key) を使い、key を直接画面に出さない。
+// 「新規（架電案件化）」は廃止。案件は必ず「面談設定済」から開始する。
+// 並び順は案件ライフサイクル＝相談案件→個別管理案件→管理案件の順。
 export const CASE_STATUSES = [
-  { key: '架電案件化', label: '新規', color: '#6B7280' },
+  // 相談案件（受注担当が受託に至るまで）
   { key: '面談設定済', label: '面談設定済', color: '#3B82F6' },
   { key: '検討中', label: '検討中', color: '#D97706' },
   { key: '検討中（契約書待ち）', label: '検討中（契約書待ち）', color: '#F59E0B' },
   { key: '受注', label: '受託', color: '#16A34A' },
-  { key: '対応中', label: '対応中', color: '#7C3AED' },
-  { key: '保留・長期', label: '保留・長期', color: '#EA580C' },
-  { key: '完了', label: '完了', color: '#059669' },
   { key: '失注', label: '不受託', color: '#DC2626' },
+  // 個別管理案件（受託せず紹介のみ／長期保留。戻り受注の可能性あり）
   { key: '紹介のみ', label: '紹介のみ', color: '#0891B2' },
+  { key: '保留・長期', label: '長期保留', color: '#EA580C' },
+  // 管理案件（受託後、管理担当が引き継ぎ対応）
+  { key: '対応中', label: '対応中', color: '#7C3AED' },
+  { key: '完了', label: '完了', color: '#059669' },
 ] as const
 
 // 案件ステータスの表示ラベルを取得（未知キーはそのまま返す）
 export const getCaseStatusLabel = (key: string | null | undefined): string =>
   CASE_STATUSES.find(s => s.key === key)?.label ?? key ?? ''
+
+// === 案件分類（相談案件 / 個別管理案件 / 管理案件） ===
+// 相談案件      : 受注担当が「受託」に至るまでの状態（面談〜検討〜受託/不受託）
+// 個別管理案件  : 受託に至らず紹介のみ・長期保留（裁判解決後などに「戻り受注」になり得る）
+// 管理案件      : 受託後、管理担当へ引き継がれ対応中〜完了
+export const CONSULT_STATUSES = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注'] as const
+export const REFERRAL_STATUSES = ['紹介のみ', '保留・長期'] as const
+export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
+
+export type CaseCategory = 'consult' | 'referral' | 'management'
+
+/** ステータスkeyから案件分類を判定（未知/該当なしは null） */
+export const getCaseCategory = (status: string | null | undefined): CaseCategory | null => {
+  if (!status) return null
+  if ((CONSULT_STATUSES as readonly string[]).includes(status)) return 'consult'
+  if ((REFERRAL_STATUSES as readonly string[]).includes(status)) return 'referral'
+  if ((MANAGEMENT_STATUSES as readonly string[]).includes(status)) return 'management'
+  return null
+}
 
 // === システムタスクの担当区分（assign_role） ===
 // migration 056。チームタスク欄やタスク一覧で「誰が拾うべきか」のラベルに使う。

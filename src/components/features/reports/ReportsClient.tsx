@@ -26,9 +26,9 @@ type Props = {
   invoices: InvoiceData[]
 }
 
-const PIPELINE_STATUSES = ['架電案件化', '面談設定済', '検討中', '受注', '対応中', '完了']
+const PIPELINE_STATUSES = ['面談設定済', '検討中', '受注', '対応中', '完了']
 const PIPELINE_COLORS: Record<string, string> = {
-  '架電案件化': '#9CA3AF', '面談設定済': '#3B82F6', '検討中': '#D97706',
+  '面談設定済': '#3B82F6', '検討中': '#D97706',
   '受注': '#16A34A', '対応中': '#7C3AED', '完了': '#059669',
 }
 

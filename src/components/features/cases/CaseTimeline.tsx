@@ -68,7 +68,7 @@ function taskAssignee(t: TaskRow): string | null {
   return primary?.members?.name ?? null
 }
 
-const STATUS_ORDER = ['架電案件化', '面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注', '紹介のみ']
+const STATUS_ORDER = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注', '紹介のみ']
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
 // マイルストーン定義（実際に通過したステータスのみ表示）
