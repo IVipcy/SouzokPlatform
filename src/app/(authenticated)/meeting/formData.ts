@@ -1,50 +1,14 @@
-export type Heir = {
-  name: string
-  kana: string
-  relationship: string
-  isLegalHeir: boolean
-  birthday: string
-  address: string
-  domicile: string
-  phone: string
-  email: string
-}
-
-export type PropertyDetail = {
-  address: string
-  nayoseDestination: string
-  evalCertDest: string
-  surveySources: string[]
-  registryInfo: boolean
-  mapInfo: boolean
-  landSurvey: boolean
-  roadPrice: boolean
-}
-
-export type BankAccount = {
-  bankName: string
-  branchName: string
-  cancelFlag: boolean
-  safeBox: boolean
-  notes: string
-}
-
-export type Division = {
-  assetCategory: string
-  splitMethod: string
-  acquirerRatio: string
-  confirmedDetail: string
-}
-
+// 面談入力ウィザード（相談案件の作成・面談情報入力）のフォームデータ。
+// 受託後の遺産系詳細（被相続人/相続人/不動産/金融/分割・遺言）はオーダーシートで入力するため、
+// このウィザードは「面談情報のみ」に絞っている。
 export type FormData = {
-  // Basic
-  orderDate: string
-  salesOwner: string
-  difficulty: string
-  leadSource: string
-  lpPartnerName: string
-  partnerRep: string
-  // Client
+  // 基本情報
+  caseNumber: string        // 案件管理番号（空なら自動採番）
+  caseStatus: string        // 案件ステータス（key）
+  meetingDate: string       // 面談実施日
+  meetingPlace: string      // 面談場所
+  salesOwner: string        // 受注担当（氏名テキスト）
+  // 依頼者
   clientName: string
   clientKana: string
   clientPhone: string
@@ -57,67 +21,22 @@ export type FormData = {
   contactPreference: string[]
   mailingDestination: string
   altMailingAddress: string
-  // Deceased
-  deceasedName: string
-  deceasedKana: string
-  deceasedBirthday: string
-  dateOfDeath: string
-  deceasedAddress: string
-  deceasedDomicile: string
-  // Heirs
-  heirs: Heir[]
-  // Order
-  procedureType: string[]
-  additionalServices: string[]
-  importantNotes: string
-  // Property
-  propertyType: string
-  residentStatus: string
-  residentName: string
-  areaRating: string
-  buildingAge: number
-  propertySale: string
-  saleUrgency: string
-  titleDeed: boolean
-  taxNotice: boolean
-  propertyGeneralNotes: string
-  // Property details
-  properties: PropertyDetail[]
-  // Finance
-  bankNames: string
-  passbookStatus: string
-  cancellationSupport: string
-  totalAssetEstimate: string
-  taxAdvisorReferral: string
-  taxAdvisorName: string
-  // Finance details
-  bankAccounts: BankAccount[]
-  // Division
-  clientIntention: string
-  distributionPolicy: string
-  distributionProposal: string
-  agreementSigning: string
-  inventoryItems: string[]
-  divisions: Division[]
-  // Will
-  willType: string
-  willStorage: string
-  willExecution: string
-  iryubunRisk: string
-  bequest: string
-  // Insurance
-  insuranceProposal: string
-  insuranceCompany: string
-  insuranceDetail: string
+  // 面談内容
+  hearingMemo: string       // ヒアリング内容メモ
+  procedureType: string[]   // 受注見込み手続き区分
+  referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
+  lostReason: string        // 失注理由
+  otherNotes: string        // その他備考
+  difficulty: string        // 難易度（高/中/低）
+  leadSource: string        // 受注ルート
 }
 
 export const INITIAL_DATA: FormData = {
-  orderDate: new Date().toISOString().slice(0, 10),
+  caseNumber: '',
+  caseStatus: '面談設定済',
+  meetingDate: '',
+  meetingPlace: '',
   salesOwner: '',
-  difficulty: '',
-  leadSource: '',
-  lpPartnerName: '',
-  partnerRep: '',
   clientName: '',
   clientKana: '',
   clientPhone: '',
@@ -130,58 +49,18 @@ export const INITIAL_DATA: FormData = {
   contactPreference: [],
   mailingDestination: '',
   altMailingAddress: '',
-  deceasedName: '',
-  deceasedKana: '',
-  deceasedBirthday: '',
-  dateOfDeath: '',
-  deceasedAddress: '',
-  deceasedDomicile: '',
-  heirs: [],
+  hearingMemo: '',
   procedureType: [],
-  additionalServices: [],
-  importantNotes: '',
-  propertyType: '',
-  residentStatus: '',
-  residentName: '',
-  areaRating: '',
-  buildingAge: 0,
-  propertySale: '',
-  saleUrgency: '',
-  titleDeed: false,
-  taxNotice: false,
-  propertyGeneralNotes: '',
-  properties: [],
-  bankNames: '',
-  passbookStatus: '',
-  cancellationSupport: '',
-  totalAssetEstimate: '',
-  taxAdvisorReferral: '',
-  taxAdvisorName: '',
-  bankAccounts: [],
-  clientIntention: '',
-  distributionPolicy: '',
-  distributionProposal: '',
-  agreementSigning: '',
-  inventoryItems: [],
-  divisions: [],
-  willType: '',
-  willStorage: '',
-  willExecution: '',
-  iryubunRisk: '',
-  bequest: '',
-  insuranceProposal: '',
-  insuranceCompany: '',
-  insuranceDetail: '',
+  referralPartners: [],
+  lostReason: '',
+  otherNotes: '',
+  difficulty: '',
+  leadSource: '',
 }
 
 export const STEPS = [
   { id: 'basic', label: '基本情報', icon: '📋' },
   { id: 'client', label: '依頼者', icon: '👤' },
-  { id: 'deceased', label: '被相続人', icon: '📁' },
-  { id: 'heirs', label: '相続人', icon: '👨‍👩‍👧' },
-  { id: 'order', label: '受注内容', icon: '📝' },
-  { id: 'property', label: '不動産', icon: '🏠' },
-  { id: 'finance', label: '金融・税', icon: '💴' },
-  { id: 'division', label: '分割・遺言', icon: '⚖️' },
+  { id: 'meeting', label: '面談内容', icon: '📝' },
   { id: 'confirm', label: '確認', icon: '✅' },
 ]

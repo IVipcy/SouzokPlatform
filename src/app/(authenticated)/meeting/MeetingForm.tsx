@@ -1,16 +1,22 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, User, FileText, Home, Banknote, CheckCircle2, X, Folder, Users, Scale, ScrollText, Shield, type LucideIcon } from 'lucide-react'
+import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { SelectedCase } from './MeetingPageClient'
-import { STEPS, INITIAL_DATA, type FormData, type Heir, type PropertyDetail, type BankAccount, type Division } from './formData'
+import { STEPS, INITIAL_DATA, type FormData } from './formData'
+import {
+  MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
+  MEETING_PLACES, LOST_REASONS, PROCEDURE_TYPES, REFERRAL_PARTNER_TYPES,
+} from '@/lib/constants'
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
   onBack: () => void
 }
+
+const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 
 // ── Shared UI helpers ──
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -79,6 +85,28 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
   )
 }
 
+function StatusPills({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {STATUS_OPTIONS.map(o => {
+        const selected = value === o.key
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onChange(o.key)}
+            className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${
+              selected ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
@@ -104,7 +132,6 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
     if (selectedCase.id !== 'new') {
       init.clientName = selectedCase.client
       init.clientPhone = selectedCase.phone
-      init.deceasedName = selectedCase.name.replace(' 様 相続案件', '')
     }
     return init
   })
@@ -115,28 +142,6 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
   }, [])
 
   const saveToDatabase = useCallback(async (formData: FormData) => {
-    // Compute tax status inline
-    const legalHeirCount = formData.heirs.filter(h => h.isLegalHeir).length
-    const basicDeduction = 3000 + 600 * legalHeirCount
-    const assetMan = parseFloat(formData.totalAssetEstimate) || 0
-    const taxable = assetMan - basicDeduction
-    const taxStatus = formData.totalAssetEstimate ? (taxable > 0 ? '要' : '不要') : '確認中'
-    let taxDeadline = ''
-    if (formData.dateOfDeath) {
-      const d = new Date(formData.dateOfDeath)
-      d.setMonth(d.getMonth() + 10)
-      taxDeadline = d.toISOString().split('T')[0]
-    }
-    // Compute property rank inline
-    const { areaRating, residentStatus, buildingAge } = formData
-    let propRank = '確認中'
-    if (areaRating || residentStatus || buildingAge) {
-      if (areaRating === '人気エリア' && residentStatus === '空き家' && buildingAge <= 20) propRank = 'S'
-      else if (areaRating === '人気エリア' || (residentStatus === '空き家' && buildingAge <= 30)) propRank = 'A'
-      else if (areaRating === '標準') propRank = 'B'
-      else if (areaRating === '不人気エリア' || buildingAge > 40) propRank = 'C'
-      else propRank = 'B'
-    }
     setSaving(true)
     setSaveError('')
     const supabase = createClient()
@@ -146,7 +151,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       let caseId = isNew ? '' : selectedCase.id
       let clientId = ''
 
-      // 1. Upsert client
+      // 1. 依頼者 upsert
       const clientPayload = {
         name: formData.clientName.trim(),
         furigana: formData.clientKana || null,
@@ -159,150 +164,58 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       }
 
       if (isNew) {
-        const { data: newClient, error: clientErr } = await supabase.from('clients').insert(clientPayload).select('id').single()
-        if (clientErr) throw new Error(`依頼者の保存に失敗: ${clientErr.message}`)
+        const { data: newClient, error } = await supabase.from('clients').insert(clientPayload).select('id').single()
+        if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
         clientId = newClient.id
       } else {
-        // Update existing client
         const { data: existingCase } = await supabase.from('cases').select('client_id').eq('id', caseId).single()
         if (existingCase?.client_id) {
           clientId = existingCase.client_id
           await supabase.from('clients').update(clientPayload).eq('id', clientId)
         } else {
-          const { data: newClient, error: clientErr } = await supabase.from('clients').insert(clientPayload).select('id').single()
-          if (clientErr) throw new Error(`依頼者の保存に失敗: ${clientErr.message}`)
+          const { data: newClient, error } = await supabase.from('clients').insert(clientPayload).select('id').single()
+          if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
           clientId = newClient.id
         }
       }
 
-      // 2. Difficulty mapping
+      // 2. 難易度マッピング（高/中/低 → 難/普/易）
       const diffMap: Record<string, string> = { '高': '難', '中': '普', '低': '易' }
       const difficulty = diffMap[formData.difficulty] || null
 
-      // 3. Asset estimate (万円 → 円)
-      const assetEstimate = formData.totalAssetEstimate ? parseFloat(formData.totalAssetEstimate) * 10000 : null
-
-      // 4. Upsert case (including new detail columns)
+      // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
         client_id: clientId,
-        deal_name: `${formData.deceasedName || formData.clientName} 様 相続案件`,
-        status: '受注' as string,
-        deceased_name: formData.deceasedName || null,
-        date_of_death: formData.dateOfDeath || null,
-        order_date: formData.orderDate || null,
+        deal_name: `${formData.clientName || '無題'} 様 相続案件`,
+        status: formData.caseStatus || '面談設定済',
         difficulty,
         procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
-        additional_services: formData.additionalServices.length > 0 ? formData.additionalServices : null,
-        tax_filing_required: taxStatus as '要' | '不要' | '確認中',
-        tax_filing_deadline: taxDeadline || null,
-        property_rank: (propRank || '確認中') as 'S' | 'A' | 'B' | 'C' | '確認中',
-        total_asset_estimate: assetEstimate,
-        notes: formData.importantNotes || null,
-        // 被相続人追加情報
-        deceased_furigana: formData.deceasedKana || null,
-        deceased_birth_date: formData.deceasedBirthday || null,
-        deceased_address: formData.deceasedAddress || null,
-        deceased_registered_address: formData.deceasedDomicile || null,
-        // 遺産分割
-        division_policy: formData.distributionPolicy || null,
-        division_proposal: formData.distributionProposal || null,
-        agreement_signing_method: formData.agreementSigning || null,
-        inheritance_risk: formData.iryubunRisk || null,
-        // 遺言
-        will_type: formData.willType || null,
-        will_storage: formData.willStorage || null,
-        will_execution: formData.willExecution || null,
+        order_route: formData.leadSource || null,
+        meeting_executed_date: formData.meetingDate || null,
+        meeting_place: formData.meetingPlace || null,
+        meeting_hearing_memo: formData.hearingMemo || null,
+        meeting_other_notes: formData.otherNotes || null,
+        lost_reason: formData.lostReason || null,
       }
 
       if (isNew) {
-        const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true })
-        const caseNumber = `R7-A${String((count ?? 0) + 1).padStart(5, '0')}`
-        const { data: newCase, error: caseErr } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
-        if (caseErr) throw new Error(`案件の保存に失敗: ${caseErr.message}`)
+        let caseNumber = formData.caseNumber.trim()
+        if (!caseNumber) {
+          const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true })
+          caseNumber = `R7-A${String((count ?? 0) + 1).padStart(5, '0')}`
+        }
+        const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
+        if (error) throw new Error(`案件の保存に失敗: ${error.message}`)
         caseId = newCase.id
       } else {
-        const { error: caseErr } = await supabase.from('cases').update(casePayload).eq('id', caseId)
-        if (caseErr) throw new Error(`案件の更新に失敗: ${caseErr.message}`)
+        const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
+        if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
       }
 
-      // 5. Save heirs (delete existing + re-insert)
-      await supabase.from('heirs').delete().eq('case_id', caseId)
-      if (formData.heirs.length > 0) {
-        const heirInserts = formData.heirs.map((h, i) => ({
-          case_id: caseId,
-          name: h.name,
-          furigana: h.kana || null,
-          relationship: h.relationship || null,
-          address: h.address || null,
-          registered_address: h.domicile || null,
-          phone: h.phone || null,
-          email: h.email || null,
-          is_legal_heir: h.isLegalHeir,
-          birth_date: h.birthday || null,
-          sort_order: i,
-        }))
-        const { error: heirErr } = await supabase.from('heirs').insert(heirInserts)
-        if (heirErr) throw new Error(`相続人の保存に失敗: ${heirErr.message}`)
-      }
-
-      // 6. Save real estate properties (delete existing + re-insert)
-      await supabase.from('real_estate_properties').delete().eq('case_id', caseId)
-      if (formData.propertyType || formData.properties.length > 0) {
-        // Main property from the form
-        const mainProperty = {
-          case_id: caseId,
-          property_type: formData.propertyType || null,
-          resident_status: formData.residentStatus || null,
-          area_evaluation: formData.areaRating || null,
-          building_age: formData.buildingAge || null,
-          sale_intention: formData.propertySale || null,
-          has_title_deed: formData.titleDeed,
-          has_tax_notice: formData.taxNotice,
-          notes: formData.propertyGeneralNotes || null,
-        }
-        await supabase.from('real_estate_properties').insert(mainProperty)
-
-        // Additional property details
-        if (formData.properties.length > 0) {
-          const propInserts = formData.properties.map(p => ({
-            case_id: caseId,
-            address: p.address || null,
-            name_consolidation_dest: p.nayoseDestination || null,
-            evaluation_cert_dest: p.evalCertDest || null,
-            has_registry_info: p.registryInfo,
-            has_cadastral_map: p.mapInfo,
-          }))
-          await supabase.from('real_estate_properties').insert(propInserts)
-        }
-      }
-
-      // 7. Save financial assets (delete existing + re-insert)
-      await supabase.from('financial_assets').delete().eq('case_id', caseId)
-      if (formData.bankAccounts.length > 0) {
-        const finInserts = formData.bankAccounts.map(b => ({
-          case_id: caseId,
-          asset_type: '預貯金',
-          institution_name: b.bankName,
-          branch_name: b.branchName || null,
-          safe_deposit_box: b.safeBox ? '有' : '無',
-          notes: b.notes || null,
-        }))
-        const { error: finErr } = await supabase.from('financial_assets').insert(finInserts)
-        if (finErr) throw new Error(`金融資産の保存に失敗: ${finErr.message}`)
-      }
-
-      // 8. Save division details (delete existing + re-insert)
-      await supabase.from('division_details').delete().eq('case_id', caseId)
-      if (formData.divisions.length > 0) {
-        const divInserts = formData.divisions.map(d => ({
-          case_id: caseId,
-          asset_category: d.assetCategory,
-          division_method: d.splitMethod || null,
-          recipient: d.acquirerRatio || null,
-          description: d.confirmedDetail || null,
-        }))
-        const { error: divErr } = await supabase.from('division_details').insert(divInserts)
-        if (divErr) throw new Error(`分割内容の保存に失敗: ${divErr.message}`)
+      // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
+      if (formData.referralPartners.length > 0) {
+        const rows = formData.referralPartners.map(p => ({ case_id: caseId, partner_type: p }))
+        await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type', ignoreDuplicates: true })
       }
 
       setSaving(false)
@@ -321,11 +234,8 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       setStep(step + 1)
       window.scrollTo(0, 0)
     } else {
-      // Final step: save to DB
       const success = await saveToDatabase(data)
-      if (success) {
-        setShowSuccess(true)
-      }
+      if (success) setShowSuccess(true)
     }
   }, [step, data, saveToDatabase])
 
@@ -336,40 +246,13 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
     }
   }, [step])
 
-  // Tax calculation
-  const taxCalc = useMemo(() => {
-    const legalHeirCount = data.heirs.filter(h => h.isLegalHeir).length
-    const basicDeduction = 3000 + 600 * legalHeirCount
-    const assetMan = parseFloat(data.totalAssetEstimate) || 0
-    const taxable = assetMan - basicDeduction
-    const status = data.totalAssetEstimate ? (taxable > 0 ? '要' : '不要') : '確認中'
-    let deadline = ''
-    if (data.dateOfDeath) {
-      const d = new Date(data.dateOfDeath)
-      d.setMonth(d.getMonth() + 10)
-      deadline = d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
-    }
-    return { legalHeirCount, basicDeduction, assetMan, taxable, status, deadline }
-  }, [data.heirs, data.totalAssetEstimate, data.dateOfDeath])
-
-  // Property rank
-  const propertyRank = useMemo(() => {
-    const { areaRating, residentStatus, buildingAge } = data
-    if (!areaRating && !residentStatus && !buildingAge) return '確認中'
-    if (areaRating === '人気エリア' && residentStatus === '空き家' && buildingAge <= 20) return 'S'
-    if (areaRating === '人気エリア' || (residentStatus === '空き家' && buildingAge <= 30)) return 'A'
-    if (areaRating === '標準') return 'B'
-    if (areaRating === '不人気エリア' || buildingAge > 40) return 'C'
-    return 'B'
-  }, [data.areaRating, data.residentStatus, data.buildingAge])
-
   if (showSuccess) {
     return (
       <div className="max-w-lg mx-auto text-center py-16">
         <div className="w-[72px] h-[72px] bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center text-3xl text-white mx-auto mb-6 shadow-lg">✓</div>
         <div className="text-[22px] font-bold text-gray-900 mb-2">入力完了！</div>
         <div className="text-sm text-gray-500 leading-relaxed mb-8">
-          {data.deceasedName || '—'} 様の相続案件<br />
+          {data.clientName || '—'} 様の相続案件<br />
           担当：{data.salesOwner || '—'}
         </div>
         <button
@@ -395,10 +278,11 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       case 'basic': return (
         <div className="max-w-[800px]">
           <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目" />
-          <Card label="面談日" required><Input type="date" value={data.orderDate} onChange={v => update('orderDate', v)} /></Card>
+          <Card label="案件管理番号"><Input value={data.caseNumber} onChange={v => update('caseNumber', v)} placeholder="空欄なら自動採番（例：R7-A00129）" /></Card>
           <Card label="受注担当" required><Input value={data.salesOwner} onChange={v => update('salesOwner', v)} placeholder="担当者名を入力" /></Card>
-          <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
-          <Card label="受注ルート"><Pills value={data.leadSource} options={['LP', '公益社', 'はせがわ', 'その他']} onChange={v => update('leadSource', v as string)} /></Card>
+          <Card label="案件ステータス" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          <Card label="面談実施日" required><Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} /></Card>
+          <Card label="面談場所"><Pills value={data.meetingPlace} options={[...MEETING_PLACES]} onChange={v => update('meetingPlace', v as string)} /></Card>
         </div>
       )
       case 'client': return (
@@ -432,182 +316,16 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           )}
         </div>
       )
-      case 'deceased': return (
+      case 'meeting': return (
         <div className="max-w-[800px]">
-          <SectionHeader Icon={Folder} title="被相続人情報" sub="お亡くなりになった方の情報" />
-          <Card label="氏名" required>
-            <div className="grid gap-2.5">
-              <Input value={data.deceasedName} onChange={v => update('deceasedName', v)} placeholder="田中 花子" />
-              <Input value={data.deceasedKana} onChange={v => update('deceasedKana', v)} placeholder="たなか はなこ" />
-            </div>
-          </Card>
-          <Card label="生年月日"><Input type="date" value={data.deceasedBirthday} onChange={v => update('deceasedBirthday', v)} /></Card>
-          <Card label="死亡日（相続開始日）" required><Input type="date" value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
-          <Card label="住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="〒000-0000 都道府県 市区町村 番地" /></Card>
-          <Card label="本籍"><Input value={data.deceasedDomicile} onChange={v => update('deceasedDomicile', v)} placeholder="本籍地を入力" /></Card>
-        </div>
-      )
-      case 'heirs': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={Users} title="相続人情報" sub="法定相続人数は基礎控除の計算に使用" />
-          {data.heirs.map((h, i) => (
-            <div key={i} className="border-[1.5px] border-gray-200 rounded-xl p-4 mb-3 bg-gray-50 relative">
-              <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-3">相続人 {i + 1}</div>
-              <button onClick={() => { const arr = [...data.heirs]; arr.splice(i, 1); update('heirs', arr) }} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition"><X className="w-4 h-4" strokeWidth={2.25} /></button>
-              <div className="grid gap-2.5">
-                <Input value={h.name} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], name: v }; update('heirs', arr) }} placeholder="氏名" />
-                <Input value={h.kana} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], kana: v }; update('heirs', arr) }} placeholder="ふりがな" />
-                <Pills
-                  value={h.relationship}
-                  options={['配偶者', '子', '父母', '兄弟姉妹', '代襲相続人', 'その他']}
-                  onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], relationship: v as string }; update('heirs', arr) }}
-                />
-                <button
-                  onClick={() => { const arr = [...data.heirs]; arr[i] = { ...arr[i], isLegalHeir: !arr[i].isLegalHeir }; update('heirs', arr) }}
-                  className={`self-start px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition ${h.isLegalHeir ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
-                >
-                  {h.isLegalHeir ? '✓ ' : ''}法定相続人
-                </button>
-                <Input type="date" value={h.birthday} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], birthday: v }; update('heirs', arr) }} />
-                <Input value={h.phone} onChange={v => { const arr = [...data.heirs]; arr[i] = { ...arr[i], phone: v }; update('heirs', arr) }} placeholder="電話番号" type="tel" />
-              </div>
-            </div>
-          ))}
-          <button
-            onClick={() => update('heirs', [...data.heirs, { name: '', kana: '', relationship: '', isLegalHeir: true, birthday: '', address: '', domicile: '', phone: '', email: '' } as Heir])}
-            className="w-full py-3.5 border-2 border-dashed border-gray-200 rounded-xl text-brand-600 text-sm font-semibold hover:border-brand-400 hover:bg-brand-50 transition"
-          >
-            ＋ 相続人を追加
-          </button>
-        </div>
-      )
-      case 'order': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={FileText} title="受注内容" sub="受任する業務の範囲を確認" />
-          <Card label="手続区分" required><Pills value={data.procedureType} options={['手続一式', '登記', '遺言', '放棄']} onChange={v => update('procedureType', v as string[])} multi /></Card>
-          <Card label="付帯サービス"><Pills value={data.additionalServices} options={['相続税申告', '不動産売却', '生命保険']} onChange={v => update('additionalServices', v as string[])} multi /></Card>
-          <Card label="特記事項・備考"><Textarea value={data.importantNotes} onChange={v => update('importantNotes', v)} placeholder="特別な事情・注意事項があれば記入" /></Card>
-        </div>
-      )
-      case 'property': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={Home} title="不動産" sub="不動産評価ランクが売却スピードに影響します" />
-          <Card label="物件種別"><Pills value={data.propertyType} options={['戸建', 'マンション', '土地', '収益物件', 'その他']} onChange={v => update('propertyType', v as string)} /></Card>
-          <Card label="住人有無"><Pills value={data.residentStatus} options={['空き家', '居住中（相続人）', '居住中（第三者）']} onChange={v => update('residentStatus', v as string)} /></Card>
-          <Card label="エリア評価"><Pills value={data.areaRating} options={['人気エリア', '標準', '不人気エリア']} onChange={v => update('areaRating', v as string)} /></Card>
-          <Card label="築年数">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center border-[1.5px] border-gray-200 rounded-lg overflow-hidden bg-gray-50 w-40">
-                <button onClick={() => update('buildingAge', Math.max(0, data.buildingAge - 5))} className="w-11 h-11 text-lg text-brand-600 hover:bg-brand-50 transition">−</button>
-                <input type="number" value={data.buildingAge} onChange={e => update('buildingAge', parseInt(e.target.value) || 0)} className="flex-1 text-center text-lg font-bold font-mono bg-transparent border-none outline-none w-14" />
-                <button onClick={() => update('buildingAge', data.buildingAge + 5)} className="w-11 h-11 text-lg text-brand-600 hover:bg-brand-50 transition">＋</button>
-              </div>
-              <span className="text-sm text-gray-400">年</span>
-            </div>
-          </Card>
-          <Card label="不動産評価ランク（自動判定）">
-            <div className="flex items-center gap-4 mt-1">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black font-mono flex-shrink-0 ${
-                propertyRank === 'S' ? 'bg-amber-100 text-amber-700 shadow-md' :
-                propertyRank === 'A' ? 'bg-brand-100 text-brand-700 shadow-md' :
-                propertyRank === 'B' ? 'bg-green-100 text-green-700 shadow-md' :
-                propertyRank === 'C' ? 'bg-orange-100 text-orange-700 shadow-md' :
-                'bg-gray-200 text-gray-500'
-              }`}>{propertyRank}</div>
-              <div className="text-[13px] text-gray-500">
-                {propertyRank === 'S' ? '最優先で査定・売却推進' :
-                 propertyRank === 'A' ? '早めの査定推進' :
-                 propertyRank === 'B' ? '通常対応' :
-                 propertyRank === 'C' ? '慎重に判断' : 'エリア・築年数を確認してください'}
-              </div>
-            </div>
-          </Card>
-          <Card label="売却意向"><Pills value={data.propertySale} options={['あり', 'なし', '検討中']} onChange={v => update('propertySale', v as string)} /></Card>
-          <Card label="売却緊急度"><Pills value={data.saleUrgency} options={['高（即対応）', '中', '低']} onChange={v => update('saleUrgency', v as string)} /></Card>
-          <Card label="不動産備考"><Textarea value={data.propertyGeneralNotes} onChange={v => update('propertyGeneralNotes', v)} placeholder="同居状況・特記事項など" /></Card>
-        </div>
-      )
-      case 'finance': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={Banknote} title="金融資産・相続税" sub="資産合計から相続税申告の要否を自動判定" />
-          <Card label="金融機関（判明分）"><Textarea value={data.bankNames} onChange={v => update('bankNames', v)} placeholder="例：きらぼし銀行、三菱UFJ銀行、野村証券" /></Card>
-          <Card label="通帳の状況"><Pills value={data.passbookStatus} options={['即日預かり', '送ってもらう', '紛失']} onChange={v => update('passbookStatus', v as string)} /></Card>
-          <Card label="解約サポート"><Pills value={data.cancellationSupport} options={['受注', '受注していない', '検討中', '未提案']} onChange={v => update('cancellationSupport', v as string)} /></Card>
-          <Card label="資産合計概算（万円）">
-            <input
-              type="number"
-              value={data.totalAssetEstimate}
-              onChange={e => update('totalAssetEstimate', e.target.value)}
-              placeholder="例：3500"
-              className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-3 text-[22px] font-bold font-mono text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition"
-            />
-          </Card>
-          {/* Tax calc box */}
-          <div className="bg-gradient-to-br from-[#1E3A5F] to-[#0F2440] rounded-xl p-4 text-white mb-3">
-            <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-              <span className="text-xs text-white/50">法定相続人数</span>
-              <span className="font-mono text-base text-brand-300">{taxCalc.legalHeirCount} 名</span>
-            </div>
-            <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-              <span className="text-xs text-white/50">基礎控除額</span>
-              <span className="font-mono text-base text-brand-300">{taxCalc.basicDeduction.toLocaleString()} 万円</span>
-            </div>
-            <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-              <span className="text-xs text-white/50">資産合計（概算）</span>
-              <span className="font-mono text-base text-brand-300">{taxCalc.assetMan ? taxCalc.assetMan.toLocaleString() + ' 万円' : '未入力'}</span>
-            </div>
-            <div className="flex justify-between items-center py-1.5">
-              <span className="text-xs text-white/50">課税見込額</span>
-              <span className={`font-mono text-base ${taxCalc.taxable > 0 ? 'text-red-300' : 'text-brand-300'}`}>
-                {taxCalc.assetMan ? (taxCalc.taxable > 0 ? '+' : '') + taxCalc.taxable.toLocaleString() + ' 万円' : '—'}
-              </span>
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-[13px] font-bold ${
-                taxCalc.status === '要' ? 'bg-red-400 text-white' :
-                taxCalc.status === '不要' ? 'bg-green-500 text-white' :
-                'bg-white/20 text-white/70'
-              }`}>
-                申告　{taxCalc.status}
-              </span>
-              {taxCalc.deadline && <span className="text-xs text-white/40">申告期限：{taxCalc.deadline}</span>}
-            </div>
-          </div>
-          <Card label="税理士紹介"><Pills value={data.taxAdvisorReferral} options={['有', '無', '検討中']} onChange={v => update('taxAdvisorReferral', v as string)} /></Card>
-          {data.taxAdvisorReferral === '有' && (
-            <Card label="税理士名・事務所"><Input value={data.taxAdvisorName} onChange={v => update('taxAdvisorName', v)} placeholder="税理士名・事務所名" /></Card>
-          )}
-        </div>
-      )
-      case 'division': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={Scale} title="遺産分割・遺言" sub="分割方針と遺言の有無を確認" />
-          <Card label="依頼者の意向"><Textarea value={data.clientIntention} onChange={v => update('clientIntention', v)} placeholder="例：長男が不動産を取得し、残りを3人で均等に分けたい" /></Card>
-          <Card label="分配方針"><Pills value={data.distributionPolicy} options={['法定相続', '2次相続を踏まえて', 'その他']} onChange={v => update('distributionPolicy', v as string)} /></Card>
-          <Card label="分配方針の提案"><Pills value={data.distributionProposal} options={['あり', 'なし']} onChange={v => update('distributionProposal', v as string)} /></Card>
-          <Card label="協議書の調印方法"><Pills value={data.agreementSigning} options={['依頼者から各相続人へ', 'OCから各相続人へ', 'オーシャンで調印', 'その他']} onChange={v => update('agreementSigning', v as string)} /></Card>
-          <Card label="財産目録の記載区分"><Pills value={data.inventoryItems} options={['不動産', '金融資産', '債務・負債', '諸費用・経費', '生命保険', 'その他']} onChange={v => update('inventoryItems', v as string[])} multi /></Card>
-          <div className="h-px bg-gray-200 my-4" />
-          <SectionHeader Icon={ScrollText} title="遺言" sub="遺言がある場合・遺言作成業務がある場合" />
-          <Card label="遺言種別"><Pills value={data.willType} options={['自筆', '公正証書', 'その他']} onChange={v => update('willType', v as string)} /></Card>
-          <Card label="遺言保管"><Pills value={data.willStorage} options={['お客様保管', 'ご案内していない', 'ご案内済(検討中)', 'ご依頼']} onChange={v => update('willStorage', v as string)} /></Card>
-          <Card label="遺言執行"><Pills value={data.willExecution} options={['執行不要', 'ご案内していない', 'ご案内済(検討中)', 'ご依頼']} onChange={v => update('willExecution', v as string)} /></Card>
-          <Card label="遺留分リスク / 遺贈">
-            <div className="flex flex-wrap gap-2">
-              <Pills value={data.iryubunRisk} options={['有', '無']} onChange={v => update('iryubunRisk', v as string)} />
-            </div>
-          </Card>
-          <div className="h-px bg-gray-200 my-4" />
-          <SectionHeader Icon={Shield} title="生命保険" sub="生命保険の照会・提案" />
-          <Card label="生命保険提案"><Pills value={data.insuranceProposal} options={['提案した', '提案しない']} onChange={v => update('insuranceProposal', v as string)} /></Card>
-          {data.insuranceProposal === '提案した' && (
-            <Card label="保険会社・種類">
-              <div className="grid gap-2.5">
-                <Input value={data.insuranceCompany} onChange={v => update('insuranceCompany', v)} placeholder="保険会社名" />
-                <Input value={data.insuranceDetail} onChange={v => update('insuranceDetail', v)} placeholder="保険種類・金額" />
-              </div>
-            </Card>
-          )}
+          <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
+          <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
+          <Card label="受注見込み手続き区分"><Pills value={data.procedureType} options={[...PROCEDURE_TYPES]} onChange={v => update('procedureType', v as string[])} multi /></Card>
+          <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
+          <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
+          <Card label="受注ルート"><Pills value={data.leadSource} options={['LP', '公益社', 'はせがわ', 'その他']} onChange={v => update('leadSource', v as string)} /></Card>
+          <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>
+          <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
         </div>
       )
       case 'confirm': return (
@@ -616,43 +334,23 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
           {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{saveError}</div>}
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <ConfirmSection title="基本情報">
-              <ConfirmRow label="面談日" value={data.orderDate} />
+              <ConfirmRow label="案件管理番号" value={data.caseNumber || '（自動採番）'} />
               <ConfirmRow label="受注担当" value={data.salesOwner} />
-              <ConfirmRow label="難易度" value={data.difficulty} />
-              <ConfirmRow label="受注ルート" value={data.leadSource} />
+              <ConfirmRow label="案件ステータス" value={getCaseStatusLabel(data.caseStatus)} />
+              <ConfirmRow label="面談実施日" value={data.meetingDate} />
+              <ConfirmRow label="面談場所" value={data.meetingPlace} />
             </ConfirmSection>
             <ConfirmSection title="依頼者">
               <ConfirmRow label="氏名" value={data.clientName} />
               <ConfirmRow label="TEL" value={data.clientPhone || data.clientMobile} />
               <ConfirmRow label="連絡先希望" value={data.contactPreference.join(', ')} />
             </ConfirmSection>
-            <ConfirmSection title="被相続人">
-              <ConfirmRow label="氏名" value={data.deceasedName} />
-              <ConfirmRow label="死亡日" value={data.dateOfDeath} />
-              <ConfirmRow label="住所" value={data.deceasedAddress} />
-            </ConfirmSection>
-            <ConfirmSection title="相続人">
-              {data.heirs.length === 0
-                ? <div className="text-sm text-gray-300 italic py-2">未入力</div>
-                : data.heirs.map((h, i) => <ConfirmRow key={i} label={`相続人${i + 1}`} value={`${h.name} （${h.relationship}）${h.isLegalHeir ? '　✓法定' : ''}`} />)}
-            </ConfirmSection>
-            <ConfirmSection title="受注内容">
-              <ConfirmRow label="手続区分" value={data.procedureType.join(', ')} />
-              <ConfirmRow label="付帯サービス" value={data.additionalServices.join(', ')} />
-            </ConfirmSection>
-            <ConfirmSection title="不動産">
-              <ConfirmRow label="売却意向" value={data.propertySale} />
-              <ConfirmRow label="評価ランク" value={propertyRank} />
-            </ConfirmSection>
-            <ConfirmSection title="資産・相続税">
-              <ConfirmRow label="資産合計概算" value={data.totalAssetEstimate ? data.totalAssetEstimate + '万円' : ''} />
-              <ConfirmRow label="法定相続人数" value={taxCalc.legalHeirCount + '名'} />
-              <ConfirmRow label="相続税申告" value={taxCalc.status} />
-              {taxCalc.deadline && <ConfirmRow label="申告期限" value={taxCalc.deadline} />}
-            </ConfirmSection>
-            <ConfirmSection title="遺産分割">
-              <ConfirmRow label="分配方針" value={data.distributionPolicy} />
-              <ConfirmRow label="遺言種別" value={data.willType} />
+            <ConfirmSection title="面談内容">
+              <ConfirmRow label="受注見込み手続き区分" value={data.procedureType.join(', ')} />
+              <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
+              <ConfirmRow label="難易度" value={data.difficulty} />
+              <ConfirmRow label="受注ルート" value={data.leadSource} />
+              <ConfirmRow label="失注理由" value={data.lostReason} />
             </ConfirmSection>
           </div>
         </div>
