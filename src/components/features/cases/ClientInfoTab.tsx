@@ -40,8 +40,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 
   return (
     <div className="space-y-3.5">
-      {/* 1. 依頼者情報 */}
-      <Section title="依頼者情報">
+      {/* 1. 依頼者情報（アコーディオン・既定で折りたたみ） */}
+      <Section title="依頼者情報" collapsible defaultOpen={false}>
         {caseData.client_id && client ? (
           <FieldGrid>
             <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
@@ -64,16 +64,16 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         )}
       </Section>
 
-      {/* 2. 郵送・書類設定 */}
-      <Section title="郵送・書類設定">
+      {/* 2. 郵送・書類設定（アコーディオン・既定で折りたたみ） */}
+      <Section title="郵送・書類設定" collapsible defaultOpen={false}>
         <FieldGrid>
           <InlineSelect label="顧客郵送先" value={caseData.mailing_destination} options={[...MAILING_DESTINATIONS]} onSave={v => saveCaseField('mailing_destination', v)} />
           <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
         </FieldGrid>
       </Section>
 
-      {/* 3. 依頼者特徴 */}
-      <Section title="依頼者特徴">
+      {/* 3. 依頼者特徴（アコーディオン・既定で折りたたみ） */}
+      <Section title="依頼者特徴" collapsible defaultOpen={false}>
         <div className="space-y-3">
           <div>
             <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴</div>

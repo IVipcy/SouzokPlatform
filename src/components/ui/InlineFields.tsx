@@ -21,25 +21,51 @@ async function withToast<T>(op: () => Promise<T>): Promise<T | undefined> {
 }
 
 // ─── Section ───
-export function Section({ title, icon: _icon, children, actionLabel, onAction }: {
+export function Section({ title, icon: _icon, children, actionLabel, onAction, collapsible = false, defaultOpen = true }: {
   title: string
   icon?: string  // deprecated: 旧API互換のため受け取るだけ。表示はしない
   children: React.ReactNode
   actionLabel?: string
   onAction?: () => void
+  collapsible?: boolean  // true でアコーディオン（タイトルクリックで開閉）
+  defaultOpen?: boolean
 }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const isOpen = collapsible ? open : true
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+      <div className={`px-4 py-2.5 flex items-center gap-2 ${isOpen ? 'border-b border-gray-100' : ''}`}>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="flex items-center gap-2 flex-1 min-w-0 text-left group"
+          >
+            <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+            <h3 className="text-[13px] font-semibold text-gray-900 group-hover:text-brand-700 transition-colors">{title}</h3>
+            <svg
+              className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
+            >
+              <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        ) : (
+          <>
+            <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+            <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+          </>
+        )}
         {actionLabel && onAction && (
           <button onClick={onAction} className="ml-auto text-[13px] text-brand-600 font-semibold hover:text-brand-700">+ {actionLabel}</button>
         )}
       </div>
-      <div className="px-4 py-3">
-        {children}
-      </div>
+      {isOpen && (
+        <div className="px-4 py-3">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -474,6 +500,7 @@ export function InlineCheckbox({ label, value, onSave }: {
   const shown = optimistic ?? !!value
 
   // propの値が更新されたら楽観値をクリア
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setOptimistic(null) }, [value])
 
   const handleToggle = async () => {
