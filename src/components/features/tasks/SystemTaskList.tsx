@@ -6,8 +6,16 @@ import { useRouter } from 'next/navigation'
 import { Bot, CheckCircle2, Play, Loader2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { getAssignRoleDef } from '@/lib/constants'
+import Badge from '@/components/ui/Badge'
+import { getAssignRoleDef, CASE_STATUSES } from '@/lib/constants'
 import type { TaskRow } from '@/types'
+
+// お客様回答待ちのステータス（残り日数を出す対象）
+const AWAITING_ANSWER = new Set(['検討中', '検討中（契約書待ち）', '面談設定済'])
+function remainingDays(dueDate: string | null | undefined, status: string, today: string): number | null {
+  if (!dueDate || !AWAITING_ANSWER.has(status)) return null
+  return Math.round((new Date(dueDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86_400_000)
+}
 
 type Props = {
   /** 表示対象のタスク（既に system タスクに絞られた配列） */
@@ -30,6 +38,9 @@ type Props = {
   showAssignRole?: boolean
   /** 案件の受注担当・管理担当名（case_id → 名前）。指定時は受注担当/管理担当の列を表示 */
   caseAssignees?: Record<string, { salesName: string | null; managerName: string | null }>
+  /** チームタスク表示。案件ステータス/面談実施日/受注日/お客様回答予定日/残り日数/受注内容の列を追加し、
+   *  作業内容列と担当区分ラベルは非表示にする。task.cases に該当フィールドが必要。 */
+  teamMode?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -68,6 +79,7 @@ export default function SystemTaskList({
   currentMemberId,
   showAssignRole = false,
   caseAssignees,
+  teamMode = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -143,7 +155,13 @@ export default function SystemTaskList({
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
-                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作業内容</th>
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件ステータス</th>}
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">面談実施日</th>}
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注日</th>}
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">お客様回答予定日</th>}
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>}
+                {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>}
+                {!teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作業内容</th>}
                 {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>}
                 {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>}
                 <th className="px-3 py-2 text-center font-bold whitespace-nowrap">ステータス</th>
@@ -156,7 +174,11 @@ export default function SystemTaskList({
                 const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
                 const caseData = task.cases
                 const isBusy = busyId === task.id
-                const assignDef = showAssignRole ? getAssignRoleDef(task.assign_role) : null
+                // チームタスク表示では担当区分ラベルは出さない（カテゴリと混在して見づらいため）
+                const assignDef = (showAssignRole && !teamMode) ? getAssignRoleDef(task.assign_role) : null
+                const remain = teamMode ? remainingDays(caseData?.client_response_due_date, caseData?.status ?? '', today) : null
+                const procedures = teamMode ? (caseData?.procedure_type ?? []).filter(Boolean) : []
+                const caseStatusDef = teamMode ? CASE_STATUSES.find(s => s.key === caseData?.status) : null
                 return (
                   <tr key={task.id} className={`hover:bg-gray-50/60 ${isOverdue ? 'bg-red-50/30' : ''}`}>
                     {/* 案件名 */}
@@ -203,18 +225,54 @@ export default function SystemTaskList({
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
-                    {/* 作業内容（先頭数行を省略表示・全文はホバー） */}
-                    <td className="px-3 py-2.5 align-top">
-                      {task.procedure_text ? (
-                        <p
-                          className="text-[12px] text-gray-500 leading-snug max-w-[280px] overflow-hidden"
-                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
-                          title={task.procedure_text}
-                        >
-                          {task.procedure_text}
-                        </p>
-                      ) : <span className="text-gray-300">—</span>}
-                    </td>
+                    {/* ── チームタスク用の案件コンテキスト列 ── */}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                        {caseStatusDef ? <Badge label={caseStatusDef.label} color={caseStatusDef.color} /> : <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px] text-gray-600">{caseData?.meeting_executed_date ?? <span className="text-gray-300">—</span>}</td>
+                    )}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px] text-gray-600">{caseData?.order_received_date ?? <span className="text-gray-300">—</span>}</td>
+                    )}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px] text-gray-600">{caseData?.client_response_due_date ?? <span className="text-gray-300">—</span>}</td>
+                    )}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px]">
+                        {remain === null ? <span className="text-gray-300">—</span>
+                          : remain < 0 ? <span className="text-red-600 font-bold">{Math.abs(remain)}日超過</span>
+                          : remain === 0 ? <span className="text-amber-600 font-bold">本日</span>
+                          : <span className={remain <= 3 ? 'text-amber-600 font-semibold' : 'text-gray-700'}>あと{remain}日</span>}
+                      </td>
+                    )}
+                    {teamMode && (
+                      <td className="px-3 py-2.5 align-top">
+                        {procedures.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {procedures.map(p => (
+                              <span key={p} className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                            ))}
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
+                    {/* 作業内容（チームタスクでは非表示） */}
+                    {!teamMode && (
+                      <td className="px-3 py-2.5 align-top">
+                        {task.procedure_text ? (
+                          <p
+                            className="text-[12px] text-gray-500 leading-snug max-w-[280px] overflow-hidden"
+                            style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                            title={task.procedure_text}
+                          >
+                            {task.procedure_text}
+                          </p>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                    )}
                     {/* 受注担当・管理担当（案件の担当者） */}
                     {caseAssignees && (
                       <td className="px-3 py-2.5 align-top text-[12px] text-gray-700 whitespace-nowrap">

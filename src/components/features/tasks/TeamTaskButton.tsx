@@ -48,6 +48,7 @@ export default function TeamTaskButton({ tasks, title = 'チームタスク', cu
             showCase={true}
             includeCompleted={false}
             showAssignRole={true}
+            teamMode={true}
             currentMemberId={currentMemberId}
             caseAssignees={caseAssignees}
             seeAllHref="/tasks?kind=system"

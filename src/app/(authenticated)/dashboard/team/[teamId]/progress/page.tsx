@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -7,14 +8,17 @@ import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/d
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
+import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import {
   computeProgressKpis,
   computeCaseFlag,
+  todayJstYmd,
   type DashCase,
   type DashInvoice,
   type DashTask,
 } from '@/lib/dashboardMetrics'
+import type { TaskRow } from '@/types'
 type CaseFull = DashCase & {
   case_number: string
   deal_name: string
@@ -53,6 +57,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const { teamId } = await params
   const { month, view: viewParam, member: memberParam } = await searchParams
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
+  const currentMemberId = currentUser?.memberId ?? null
   const today = new Date()
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
@@ -175,6 +181,24 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as InvoiceFull[]
+
+  // チームタスク欄用: スコープ案件の未完了システムタスク（要対応のみ表示）
+  let systemTasksRaw: unknown[] | null = null
+  try {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
+      .eq('task_kind', 'system')
+      .neq('status', '完了')
+      .in('case_id', caseIdArray)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(100)
+    systemTasksRaw = data
+  } catch { /* migration 046 未適用 → 空扱い */ }
+  const taskHorizon = new Date(today)
+  taskHorizon.setDate(taskHorizon.getDate() + 2)
+  const taskHorizonStr = todayJstYmd(taskHorizon)
+  const urgentTeamTasks = ((systemTasksRaw ?? []) as TaskRow[]).filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
 
   // 入金額（請求タブの入金済額・差額）用に payments を取得
   let billingPayments: Array<{ invoice_id: string; amount: number }> = []
@@ -304,7 +328,25 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         }}
       />
       {currentView === 'progress' ? (
-        <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+        <>
+          <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
+          {/* チームタスク欄（要対応のシステムタスク。管理担当の進捗管理でも表示） */}
+          {urgentTeamTasks.length > 0 && (
+            <div className="mt-4">
+              <SystemTaskList
+                tasks={urgentTeamTasks}
+                title="チームタスク（要対応）"
+                emptyText="要対応のチームタスクはありません"
+                showCase={true}
+                includeCompleted={false}
+                showAssignRole={true}
+                teamMode={true}
+                currentMemberId={currentMemberId ?? undefined}
+                seeAllHref="/tasks?kind=system"
+              />
+            </div>
+          )}
+        </>
       ) : (
         <BillingCaseTable rows={billingCaseRows} />
       )}

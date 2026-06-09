@@ -103,7 +103,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   try {
     const { data } = await supabase
       .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
+      .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
       .eq('task_kind', 'system')
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false })
@@ -116,7 +116,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   try {
     const { data } = await supabase
       .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
+      .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
       .eq('team_id', teamId)
       .neq('status', '完了')
       .order('due_date', { ascending: true, nullsFirst: false })

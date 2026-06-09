@@ -136,7 +136,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   try {
     const { data } = await supabase
       .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*)')
+      .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
       .eq('task_kind', 'system')
       .neq('status', '完了')
       .in('case_id', caseIdArray)
@@ -288,6 +288,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
                 showCase={true}
                 includeCompleted={false}
                 showAssignRole={true}
+                teamMode={true}
                 currentMemberId={currentMemberId ?? undefined}
                 seeAllHref="/tasks?kind=system"
               />
