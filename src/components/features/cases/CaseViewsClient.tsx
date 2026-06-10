@@ -48,13 +48,13 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
 export default function CaseViewsClient({ managerRows, consultRows, referralRows, lpRows }: Props) {
-  const [view, setView] = useState<View>('manage')
+  const [view, setView] = useState<View>('consult')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
   const tabs: { key: View; label: string; Icon: typeof ClipboardList; count: number }[] = [
-    { key: 'manage', label: '管理案件一覧', Icon: ClipboardList, count: managerRows.length },
     { key: 'consult', label: '相談案件一覧', Icon: MessageSquare, count: consultRows.length },
+    { key: 'manage', label: '管理案件一覧', Icon: ClipboardList, count: managerRows.length },
     { key: 'referral', label: '個別管理案件', Icon: Sparkles, count: referralRows.length },
     { key: 'lp', label: 'LP案件一覧', Icon: Megaphone, count: lpRows.length },
   ]
