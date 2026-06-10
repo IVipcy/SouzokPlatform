@@ -14,13 +14,13 @@ import type { RealEstatePropertyRow } from '@/types'
 const PROPERTY_TYPES = ['戸建', 'マンション', '土地', '収益物件', 'その他']
 const APPRAISAL_STATUSES = ['未対応', '対応中', '完了', '不要']
 const REQ = ['要', '不要', '確認中']
-// 取得物（要否＋取得済）: req=要否カラム / got=取得済(真偽)カラム
-const ACQ_ITEMS: { label: string; req: keyof RealEstatePropertyRow; got: keyof RealEstatePropertyRow }[] = [
-  { label: '登記情報', req: 'registry_required', got: 'has_registry_info' },
-  { label: '公図', req: 'cadastral_required', got: 'has_cadastral_map' },
-  { label: '地積測量図', req: 'survey_map_required', got: 'has_survey_map' },
-  { label: '路線価', req: 'route_price_required', got: 'has_route_price' },
-  { label: '評価証明', req: 'eval_cert_required', got: 'eval_cert_obtained' },
+// 取得物: req=要否 / reqDate=請求日 / recvDate=受領日 / got=取得済(真偽)
+const ACQ_ITEMS: { label: string; req: keyof RealEstatePropertyRow; reqDate: keyof RealEstatePropertyRow; recvDate: keyof RealEstatePropertyRow; got: keyof RealEstatePropertyRow }[] = [
+  { label: '登記情報', req: 'registry_required', reqDate: 'registry_request_date', recvDate: 'registry_receipt_date', got: 'has_registry_info' },
+  { label: '公図', req: 'cadastral_required', reqDate: 'cadastral_request_date', recvDate: 'cadastral_receipt_date', got: 'has_cadastral_map' },
+  { label: '地積測量図', req: 'survey_map_required', reqDate: 'survey_map_request_date', recvDate: 'survey_map_receipt_date', got: 'has_survey_map' },
+  { label: '路線価', req: 'route_price_required', reqDate: 'route_price_request_date', recvDate: 'route_price_receipt_date', got: 'has_route_price' },
+  { label: '評価証明', req: 'eval_cert_required', reqDate: 'eval_cert_request_date', recvDate: 'eval_cert_receipt_date', got: 'eval_cert_obtained' },
 ]
 
 type Props = {
@@ -173,15 +173,17 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
               </FieldGrid>
             </div>
 
-            {/* 取得物（要否／取得済） */}
+            {/* 取得物（要否／請求日／受領日／取得済） */}
             <div>
-              <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得物（要否／取得済）</div>
+              <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得物（どこに何をいつ請求・受領するか）</div>
               <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-                <table className="w-full text-[13px] border-collapse" style={{ minWidth: 360 }}>
+                <table className="w-full text-[13px] border-collapse" style={{ minWidth: 560 }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-                      <th className="px-2.5 py-2 text-left font-semibold">取得物</th>
-                      <th className="px-2.5 py-2 text-left font-semibold w-28">要否</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-28">取得物</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-24">要否</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-36">請求日</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-36">受領日</th>
                       <th className="px-2.5 py-2 text-center font-semibold w-20">取得済</th>
                     </tr>
                   </thead>
@@ -194,6 +196,12 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
                             <option value="">—</option>
                             {REQ.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
+                        </td>
+                        <td className="px-2.5 py-1.5">
+                          <input type="date" defaultValue={(r[item.reqDate] as string) ?? ''} onBlur={e => { if (e.target.value !== ((r[item.reqDate] as string) ?? '')) saveField(r.id, item.reqDate, e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                        </td>
+                        <td className="px-2.5 py-1.5">
+                          <input type="date" defaultValue={(r[item.recvDate] as string) ?? ''} onBlur={e => { if (e.target.value !== ((r[item.recvDate] as string) ?? '')) saveField(r.id, item.recvDate, e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                         </td>
                         <td className="px-2.5 py-1.5 text-center">
                           <input type="checkbox" checked={!!r[item.got]} onChange={e => saveField(r.id, item.got, e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />

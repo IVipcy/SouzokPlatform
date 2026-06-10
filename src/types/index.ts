@@ -505,6 +505,17 @@ export type RealEstatePropertyRow = {
   route_price_required: string | null             // 路線価 要否
   eval_cert_required: string | null               // 評価証明 要否
   eval_cert_obtained: boolean                     // 評価証明 取得済
+  // 取得物ごとの請求日・受領日（migration 072）
+  registry_request_date: string | null            // 登記情報 請求日
+  registry_receipt_date: string | null            // 登記情報 受領日
+  cadastral_request_date: string | null           // 公図 請求日
+  cadastral_receipt_date: string | null           // 公図 受領日
+  survey_map_request_date: string | null          // 地積測量図 請求日
+  survey_map_receipt_date: string | null          // 地積測量図 受領日
+  route_price_request_date: string | null         // 路線価 請求日
+  route_price_receipt_date: string | null         // 路線価 受領日
+  eval_cert_request_date: string | null           // 評価証明 請求日
+  eval_cert_receipt_date: string | null           // 評価証明 受領日
   sale_expected_date: string | null
   notes: string | null
   created_at: string
