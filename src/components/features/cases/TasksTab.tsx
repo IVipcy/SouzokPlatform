@@ -25,10 +25,6 @@ const normalizeStatus = (status: string) => {
 export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
 
-  // 受注担当/管理担当タスク = システム自動生成タスク / 事務管理担当タスク = 案件（Phase）タスク
-  const orderManageTasks = tasks.filter(t => t.task_kind === 'system')
-  const adminTasks = tasks.filter(t => t.task_kind !== 'system')
-
   // 進捗率
   const totalTasks = tasks.length
   const completedTasks = tasks.filter(t => normalizeStatus(t.status) === '完了').length
@@ -80,29 +76,16 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* 受注担当/管理担当タスク（システム自動生成） */}
-          {orderManageTasks.length > 0 && (
-            <SystemTaskList
-              tasks={orderManageTasks}
-              title="受注担当/管理担当タスク（システム自動生成）"
-              showCase={false}
-              includeCompleted
-              currentMemberId={currentMemberId ?? undefined}
-            />
-          )}
-
-          {/* 事務管理担当タスク（旧 Phase 別タスク。表示形式を上と統一） */}
-          {adminTasks.length > 0 && (
-            <SystemTaskList
-              tasks={adminTasks}
-              title="事務管理担当タスク"
-              showCase={false}
-              includeCompleted
-              currentMemberId={currentMemberId ?? undefined}
-            />
-          )}
-        </div>
+        // 受注/管理担当タスクと事務管理担当タスクを1つの表に統合。担当区分はカテゴリ列で識別。
+        <SystemTaskList
+          tasks={tasks}
+          title="タスク一覧"
+          showCase={false}
+          includeCompleted
+          selectable
+          showKindLabel
+          currentMemberId={currentMemberId ?? undefined}
+        />
       )}
     </div>
   )

@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bot, CheckCircle2, Play, Loader2, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Play, Loader2, AlertTriangle, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Badge from '@/components/ui/Badge'
@@ -41,6 +41,10 @@ type Props = {
   /** チームタスク表示。案件ステータス/面談実施日/受注日/お客様回答予定日/残り日数/受注内容の列を追加し、
    *  作業内容列と担当区分ラベルは非表示にする。task.cases に該当フィールドが必要。 */
   teamMode?: boolean
+  /** チェックボックスで選択して一括削除できるようにする（案件詳細のタスク一覧で使用） */
+  selectable?: boolean
+  /** カテゴリ列に担当区分（受注/管理担当・事務管理担当）を task_kind から表示する */
+  showKindLabel?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -80,10 +84,13 @@ export default function SystemTaskList({
   showAssignRole = false,
   caseAssignees,
   teamMode = false,
+  selectable = false,
+  showKindLabel = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const today = new Date().toISOString().split('T')[0]
 
   const visible = useMemo(() => {
@@ -129,14 +136,50 @@ export default function SystemTaskList({
     }
   }
 
+  // ── 選択・一括削除（selectable のとき） ──
+  const visibleIds = shown.map(t => t.id)
+  const allSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id))
+  const toggleOne = (id: string) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const toggleAll = () => setSelected(prev => {
+    const next = new Set(prev)
+    if (allSelected) visibleIds.forEach(id => next.delete(id))
+    else visibleIds.forEach(id => next.add(id))
+    return next
+  })
+  const deleteSelected = async () => {
+    if (selected.size === 0) return
+    if (!confirm(`${selected.size}件のタスクを削除しますか？`)) return
+    const supabase = createClient()
+    const ids = [...selected]
+    await supabase.from('task_assignees').delete().in('task_id', ids)
+    const { error } = await supabase.from('tasks').delete().in('id', ids)
+    if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+    showToast(`${ids.length}件のタスクを削除しました`, 'success')
+    setSelected(new Set())
+    startTransition(() => router.refresh())
+  }
+
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <Bot className="w-4 h-4 text-purple-600" strokeWidth={2.25} />
+        <span className="inline-block w-1 h-4 bg-brand-600 rounded-full" />
         <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
         <span className="text-[12px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
           {visible.length}
         </span>
+        {selectable && selected.size > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>
+            <button type="button" onClick={deleteSelected} className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors">
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2} /> 選択を削除
+            </button>
+            <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
+          </div>
+        )}
         {limit && visible.length > limit && seeAllHref && (
           <Link href={seeAllHref} className="ml-auto text-[12px] font-semibold text-brand-600 hover:text-brand-700">
             すべて見る →
@@ -151,6 +194,11 @@ export default function SystemTaskList({
           <table className="w-full text-[13px]">
             <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500">
               <tr>
+                {selectable && (
+                  <th className="px-3 py-2 text-center w-8">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-3.5 h-3.5 accent-brand-600 cursor-pointer" />
+                  </th>
+                )}
                 {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
@@ -180,7 +228,12 @@ export default function SystemTaskList({
                 const procedures = teamMode ? (caseData?.procedure_type ?? []).filter(Boolean) : []
                 const caseStatusDef = teamMode ? CASE_STATUSES.find(s => s.key === caseData?.status) : null
                 return (
-                  <tr key={task.id} className={`hover:bg-gray-50/60 ${isOverdue ? 'bg-red-50/30' : ''}`}>
+                  <tr key={task.id} className={`hover:bg-gray-50/60 ${selected.has(task.id) ? 'bg-brand-50/40' : isOverdue ? 'bg-red-50/30' : ''}`}>
+                    {selectable && (
+                      <td className="px-3 py-2.5 align-top text-center">
+                        <input type="checkbox" checked={selected.has(task.id)} onChange={() => toggleOne(task.id)} className="w-3.5 h-3.5 accent-brand-600 cursor-pointer" />
+                      </td>
+                    )}
                     {/* 案件名 */}
                     {showCase && (
                       <td className="px-3 py-2.5 align-top">
@@ -194,6 +247,11 @@ export default function SystemTaskList({
                     {/* カテゴリ（＋担当区分ラベル） */}
                     <td className="px-3 py-2.5 align-top whitespace-nowrap">
                       <div className="flex flex-col gap-1 items-start">
+                        {showKindLabel && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${task.task_kind === 'system' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
+                            {task.task_kind === 'system' ? '受注/管理担当' : '事務管理担当'}
+                          </span>
+                        )}
                         {task.category && (
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${CATEGORY_BADGE[task.category] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
                             {task.category}
