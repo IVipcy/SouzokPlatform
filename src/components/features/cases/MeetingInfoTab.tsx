@@ -8,7 +8,7 @@ import {
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  PROCEDURE_TYPES, LOST_REASONS, MEETING_PLACES,
+  PROCEDURE_TYPES, LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES,
 } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow } from '@/types'
@@ -91,6 +91,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
             onSave={v => saveCaseField('procedure_type', v)}
             fullWidth
           />
+          <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => saveCaseField('contract_type', v)} />
           <InlineSelect label="失注理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           <InlineTextarea label="その他備考" value={caseData.meeting_other_notes} onSave={v => saveCaseField('meeting_other_notes', v)} fullWidth />
         </FieldGrid>
