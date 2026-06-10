@@ -17,6 +17,8 @@ type Props = {
   financialAssets: FinancialAssetRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  // オーダーシート埋め込み時は金融機関表の「請求日・到着日」を出さない
+  orderSheetMode?: boolean
 }
 
 /**
@@ -24,10 +26,11 @@ type Props = {
  *   財産調査（調査条件・財産目録）／不動産（表）／金融機関（表）／生命保険提案
  *   不動産・金融機関は表形式で行追加できる（RealEstateTable / FinancialAssetsTable）。
  */
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
+  const progressMode = !orderSheetMode
 
   return (
     <div className="space-y-3.5">
@@ -47,9 +50,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
       </Section>
 
-      {/* 金融機関（預金・証券・信託。表形式・行追加） */}
-      <Section title="金融機関（預金・証券・信託）">
-        <FinancialAssetsTable caseId={caseData.id} assets={financialAssets} onRefresh={onRefresh} />
+      {/* 金融機関：預金 / 証券 / 信託 を別表で（表形式・行追加） */}
+      <Section title="金融機関（預金）">
+        <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
+      </Section>
+      <Section title="金融機関（証券）">
+        <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
+      </Section>
+      <Section title="金融機関（信託）">
+        <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
       </Section>
 
       {/* 生命保険提案（金融資産の下に配置） */}

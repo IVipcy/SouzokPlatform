@@ -515,9 +515,19 @@ export type FinancialAssetRow = {
   additional_info: Record<string, unknown> | null
   notes: string | null
   // 解約手続（migration 065）
-  cancellation_required: string | null      // 要 / 不要 / 確認中
+  cancellation_required: string | null      // 要 / 不要 / 確認中（解約有無にも流用）
   cancellation_date: string | null          // 解約日
   cancellation_restrictions: string | null  // 解約時の禁止事項
+  // 調査・進捗（migration 068）
+  all_branch_survey: string | null          // 全店調査要否（預金）
+  balance_cert_required: string | null      // 残高証明要否（預金/証券）
+  accrued_interest_required: string | null  // 経過利息要否（預金）
+  share_cert_required: string | null        // 所有株式数証明要否（信託）
+  unclaimed_dividend_required: string | null // 未受領配当金要否（信託）
+  survey_period_type: string | null         // 相続開始日 / 任意指定
+  survey_date: string | null                // 調査基準日（任意指定時）
+  request_date: string | null               // 請求日（進捗）
+  arrival_date: string | null               // 到着日（進捗）
   created_at: string
 }
 

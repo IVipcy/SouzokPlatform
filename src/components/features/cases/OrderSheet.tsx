@@ -98,7 +98,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={2} title="財産調査">
-        <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} />
+        <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
 
       <OSSection index={3} title="他事業者紹介">
