@@ -62,7 +62,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
     <div className="space-y-3.5">
       {mode === 'division' && (<>
       {/* 遺産分割 */}
-      <Section title="遺産分割" icon="⚖️">
+      <Section title="分割方針" icon="⚖️">
         <FieldGrid>
           <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
           <InlineEdit label="分割提案" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} />
@@ -79,7 +79,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
 
       {mode === 'will' && (<>
       {/* 遺言 */}
-        <Section title="遺言" icon="📜">
+        <Section title="遺言情報" icon="📜">
           <FieldGrid>
             <InlineSelect label="遺言種類" value={caseData.will_type} options={[...WILL_TYPES]} onSave={v => saveCaseField('will_type', v)} />
             <InlineSelect label="保管場所" value={caseData.will_storage} options={[...WILL_STORAGE_OPTIONS]} onSave={v => saveCaseField('will_storage', v)} />
@@ -92,18 +92,19 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
             <InlineSelect label="遺贈受贈者資料手配" value={caseData.will_bequest_handler} options={[...WILL_BEQUEST_HANDLER_OPTIONS]} onSave={v => saveCaseField('will_bequest_handler', v)} />
           </FieldGrid>
           <div className="mt-3">
-            <div className="text-[12px] font-semibold text-gray-500 mb-2 pb-1 border-b border-gray-200">◼ 遺言記載内容（カテゴリ別）</div>
-            <div className="space-y-2">
-              {WILL_CONTENT_OPTIONS.map(cat => (
-                <InlineTextarea
-                  key={cat}
-                  label={cat}
-                  value={caseData.will_content_details?.[cat] ?? ''}
-                  onSave={v => saveCaseContentDetail('will_content_details', cat, v)}
-                  fullWidth
-                />
-              ))}
-            </div>
+            <Section title="遺言記載内容（カテゴリ別）" collapsible defaultOpen={false}>
+              <div className="space-y-2">
+                {WILL_CONTENT_OPTIONS.map(cat => (
+                  <InlineTextarea
+                    key={cat}
+                    label={cat}
+                    value={caseData.will_content_details?.[cat] ?? ''}
+                    onSave={v => saveCaseContentDetail('will_content_details', cat, v)}
+                    fullWidth
+                  />
+                ))}
+              </div>
+            </Section>
           </div>
           <div className="mt-2">
             <InlineDate label="文案確認日" value={caseData.will_draft_confirmed_date} onSave={v => saveCaseDateField('will_draft_confirmed_date', v)} />
@@ -127,18 +128,19 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
             <SharedInlineEdit label="最終帰属者" value={caseData.trust_final_beneficiary} onSave={v => saveCaseField('trust_final_beneficiary', v)} fullWidth />
           </FieldGrid>
           <div className="mt-3">
-            <div className="text-[12px] font-semibold text-gray-500 mb-2 pb-1 border-b border-gray-200">◼ 記載内容（カテゴリ別）</div>
-            <div className="space-y-2">
-              {TRUST_CONTENT_OPTIONS.map(cat => (
-                <InlineTextarea
-                  key={cat}
-                  label={cat}
-                  value={caseData.trust_content_details?.[cat] ?? ''}
-                  onSave={v => saveCaseContentDetail('trust_content_details', cat, v)}
-                  fullWidth
-                />
-              ))}
-            </div>
+            <Section title="信託記載内容（カテゴリ別）" collapsible defaultOpen={false}>
+              <div className="space-y-2">
+                {TRUST_CONTENT_OPTIONS.map(cat => (
+                  <InlineTextarea
+                    key={cat}
+                    label={cat}
+                    value={caseData.trust_content_details?.[cat] ?? ''}
+                    onSave={v => saveCaseContentDetail('trust_content_details', cat, v)}
+                    fullWidth
+                  />
+                ))}
+              </div>
+            </Section>
           </div>
         </Section>
       </>)}

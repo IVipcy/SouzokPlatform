@@ -6,7 +6,7 @@ import {
   Section, FieldGrid, InlineEdit, InlineSelect, InlineMultiSelect, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
 import {
-  PROCEDURE_TYPES, ADDITIONAL_SERVICES, ORDER_ROUTES, ORDER_ROUTE_DETAILS, CONTRACT_TYPES,
+  PROCEDURE_TYPES, ORDER_ROUTES, ORDER_ROUTE_DETAILS, CONTRACT_TYPES,
 } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
 import PartnerManagerField from './PartnerManagerField'
@@ -22,7 +22,7 @@ type Props = {
 /**
  * 担当・受注内容タブ（受託・オーダーシート作成済から表示）
  *   担当者（受注担当〔案件作成者を自動セット〕/ 管理担当〔割り振りボタン付き〕）
- *   受注内容（手続区分 / その他手続 / 契約形態 / 付帯サービス）
+ *   受注内容（手続区分 / その他手続 / 契約形態）
  *   受注ルート（受注ルート / 詳細 / パートナー / 紹介先名）
  */
 export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patchCase, onRefresh }: Props) {
@@ -60,7 +60,6 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
           <InlineMultiSelect label="手続区分" value={caseData.procedure_type} options={[...PROCEDURE_TYPES]} onSave={v => save('procedure_type', v)} fullWidth required />
           <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => save('other_procedure', v)} />
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
-          <InlineMultiSelect label="付帯サービス" value={caseData.additional_services} options={[...ADDITIONAL_SERVICES]} onSave={v => save('additional_services', v)} fullWidth />
         </FieldGrid>
       </Section>
 

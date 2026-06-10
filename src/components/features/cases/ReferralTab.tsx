@@ -66,16 +66,16 @@ export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
 
   return (
     <div className="space-y-3.5">
-      <Section title="他事業者紹介">
+      <Section title="紹介業者">
         {/* サブタブ：登録済み業者＋追加 */}
-        <div className="flex items-center gap-1 border-b border-gray-200 mb-3 flex-wrap">
+        <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-3 flex-wrap">
           {rows.map(r => (
             <button
               key={r.id}
               type="button"
               onClick={() => setActiveType(r.partner_type)}
-              className={`px-3 py-1.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-                active === r.partner_type ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-md transition-colors ${
+                active === r.partner_type ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               {r.partner_type}
@@ -87,7 +87,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
               type="button"
               onClick={() => addPartner(t)}
               disabled={busy}
-              className="px-2.5 py-1.5 text-[12px] text-gray-400 hover:text-brand-600 border-b-2 border-transparent -mb-px disabled:opacity-50"
+              className="px-2.5 py-1.5 text-[12px] text-gray-400 hover:text-brand-600 rounded-md disabled:opacity-50"
               title={`${t}の紹介を追加`}
             >
               ＋{t}

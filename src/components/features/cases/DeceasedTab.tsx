@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
@@ -10,6 +10,7 @@ import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
+import { SubTabs } from '@/components/ui/SubTabs'
 import {
   Section,
   FieldGrid,
@@ -166,20 +167,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   return (
     <div>
       {/* 子タブ（相続人 / 戸籍請求） */}
-      <div className="flex items-center gap-1 border-b border-gray-200 mb-3.5 flex-wrap">
-        {SUBTABS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setSub(t.key)}
-            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-              sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
 
       {sub === 'koseki' && (
         <div className="space-y-3.5">
@@ -214,7 +202,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {/* A. 相続人一覧 */}
       <div className="mt-3.5">
         <HeirValidationBanner heirs={heirs} />
-        <Section title={`相続人一覧（${heirs.length}名）`} icon="👪" actionLabel="＋ 追加" onAction={startAdd}>
+        <Section title={`相続人一覧（${heirs.length}名）`} icon="👪">
           {heirs.length === 0 && !showAddHeir ? (
             <div className="text-sm text-gray-400 text-center py-6">
               相続人を追加してください
@@ -377,6 +365,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 </button>
               </div>
             </div>
+          )}
+          {!showAddHeir && (
+            <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+              <Plus className="w-3.5 h-3.5" /> 相続人を追加
+            </button>
           )}
         </Section>
       </div>

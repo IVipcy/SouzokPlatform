@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { SubTabs } from '@/components/ui/SubTabs'
 import type { FinancialAssetRow } from '@/types'
 
 const CANCEL = ['有', '無', '確認中']
@@ -42,13 +43,7 @@ export default function CancellationTab({ financialAssets, onRefresh }: Props) {
 
   return (
     <div>
-      <div className="flex items-center gap-1 border-b border-gray-200 mb-3 flex-wrap">
-        {SUBTABS.map(t => (
-          <button key={t.key} type="button" onClick={() => setSub(t.key)} className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center text-[13px] text-gray-400">

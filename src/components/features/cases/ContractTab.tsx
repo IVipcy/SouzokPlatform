@@ -113,7 +113,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               />
             </FieldGrid>
 
-            {/* 請求・入金 への導線 */}
+            {/* 請求・入金 への導線（オーダーシート埋め込み時は不要なので非表示） */}
+            {!orderSheetMode && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <Link
                 href={`/billing?case=${caseData.id}`}
@@ -127,6 +128,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 請求書ステータス・請求日・入金ステータス・入金確認日・入金額は <span className="font-mono">/billing</span> で一元管理しています。
               </p>
             </div>
+            )}
           </Section>
 
           {/* 3. 付帯収益 */}

@@ -8,6 +8,7 @@ import {
   LIFE_INSURANCE_PROPOSAL_OPTIONS, LIFE_INSURANCE_TYPES,
   FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, INVENTORY_CATEGORIES,
 } from '@/lib/constants'
+import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
@@ -45,7 +46,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   return (
     <div className="space-y-3.5">
       {/* 財産調査全般（固定表示） */}
-      <Section title="財産調査">
+      <Section title="調査条件・財産目録">
         <FieldGrid>
           <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
           <InlineEdit label="財産調査禁止期間" value={caseData.financial_survey_prohibited_period} onSave={v => save('financial_survey_prohibited_period', v)} />
@@ -56,20 +57,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
       </Section>
 
       {/* 子タブ（不動産 / 預金 / 証券 / 信託 / 生命保険） */}
-      <div className="flex items-center gap-1 border-b border-gray-200 flex-wrap">
-        {ASSET_SUBTABS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setSub(t.key)}
-            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-              sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
       {sub === 'realestate' && (
         <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
