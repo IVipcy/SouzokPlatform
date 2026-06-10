@@ -219,15 +219,20 @@ export const KOSEKI_PURPOSES = [
   '法定相続情報一覧図', '保険金請求', '年金手続', 'その他',
 ] as const
 
-// === 受注ルート ===
-export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', 'その他'] as const
+// === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
+export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由'] as const
 
-// === 詳細受注ルート（受注ルートごとの選択肢） ===
-export const ORDER_ROUTE_DETAILS: Record<string, readonly string[]> = {
-  '自社': ['自社Web', '過去客', '無料相談会'],
-  'LP直': ['公益社', '横浜セレモ', '伊藤典範'],
-  'オーシャン直': ['不動産会社', '生命保'],
-} as const
+// 案件番号の経路コード（YYMM + コード + 当日連番4桁）
+export const ORDER_ROUTE_CODES: Record<string, string> = {
+  'LP経由': 'LP',
+  '葬儀社経由': 'SD',
+  'HP経由': 'HP',
+  '過去客経由': 'PC',
+  '税理士経由': 'ZE',
+}
+
+// 過去客経由は紹介元マスタではなく既存依頼者を参照する
+export const PAST_CLIENT_ROUTE = '過去客経由'
 
 // === 顧客郵送先 ===
 export const MAILING_DESTINATIONS = ['依頼者住所', 'その他'] as const

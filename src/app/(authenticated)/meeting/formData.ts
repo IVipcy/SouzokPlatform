@@ -17,10 +17,12 @@ export const EMPTY_CLIENT: ClientPerson = {
 }
 
 export type FormData = {
-  // 基本情報
-  caseNumber: string        // 案件管理番号（空なら自動採番）
-  caseStatus: string        // 案件ステータス（key）
+  // 基本情報（案件番号は自動採番のため入力欄なし）
+  caseStatus: string        // 面談結果（旧・案件ステータス。key）
   meetingDate: string       // 面談実施日
+  orderRoute: string        // 面談ルート（＝受注ルート）
+  orderRouteDetail: string  // 詳細（紹介元名 or 過去客の依頼者名）
+  pastClientId: string      // 過去客経由で既存依頼者を選択した場合の client_id
   meetingPlace: string      // 面談場所
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   // 依頼者（複数人）
@@ -36,9 +38,11 @@ export type FormData = {
 }
 
 export const INITIAL_DATA: FormData = {
-  caseNumber: '',
   caseStatus: '検討中',
   meetingDate: '',
+  orderRoute: '',
+  orderRouteDetail: '',
+  pastClientId: '',
   meetingPlace: '',
   clientResponseDueDate: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '' }],

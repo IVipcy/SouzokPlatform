@@ -14,8 +14,8 @@ import { CONSULT_STATUSES, REFERRAL_STATUSES } from '@/lib/constants'
 const MANAGEMENT_ACTIVE = new Set<string>(['対応中'])
 const CONSULT = new Set<string>(CONSULT_STATUSES)
 const REFERRAL = new Set<string>(REFERRAL_STATUSES)
-// LP案件 = 受注ルートが「LP直」または「その他」
-const LP_ROUTES = new Set(['LP直', 'その他'])
+// LP案件 = 受注ルートが「LP経由」
+const LP_ROUTES = new Set(['LP経由'])
 
 type CaseRowRaw = {
   id: string

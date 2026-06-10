@@ -6,10 +6,10 @@ import {
   Section, FieldGrid, InlineEdit, InlineSelect, InlineMultiSelect, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
 import {
-  PROCEDURE_TYPES, ORDER_ROUTES, ORDER_ROUTE_DETAILS, CONTRACT_TYPES,
+  PROCEDURE_TYPES, ORDER_ROUTES, PAST_CLIENT_ROUTE, CONTRACT_TYPES,
 } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
-import PartnerManagerField from './PartnerManagerField'
+import ReferralSourceLookup from './ReferralSourceLookup'
 
 type Props = {
   caseData: CaseRow
@@ -72,21 +72,16 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
             options={[...ORDER_ROUTES]}
             onSave={async v => { await patchCase({ order_route: v, order_route_detail: null }) }}
           />
-          {caseData.order_route && ORDER_ROUTE_DETAILS[caseData.order_route] && (
-            <InlineSelect
-              label="詳細受注ルート"
+          {caseData.order_route && caseData.order_route !== PAST_CLIENT_ROUTE && (
+            <ReferralSourceLookup
+              label="詳細（紹介元）"
+              route={caseData.order_route}
               value={caseData.order_route_detail}
-              options={ORDER_ROUTE_DETAILS[caseData.order_route] as string[]}
-              onSave={v => save('order_route_detail', v)}
+              onChange={v => save('order_route_detail', v)}
             />
           )}
-          {caseData.order_route === 'その他' && (
-            <PartnerManagerField
-              caseId={caseData.id}
-              partnerId={caseData.partner_id}
-              onChange={() => onRefresh?.()}
-              label="パートナー名"
-            />
+          {caseData.order_route === PAST_CLIENT_ROUTE && (
+            <InlineEdit label="詳細（過去の依頼者）" value={caseData.order_route_detail} onSave={v => save('order_route_detail', v)} />
           )}
           <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => save('referral_name', v)} />
         </FieldGrid>

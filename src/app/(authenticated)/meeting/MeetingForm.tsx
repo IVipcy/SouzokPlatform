@@ -11,7 +11,10 @@ import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } f
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   MEETING_PLACES, LOST_REASONS, PROCEDURE_TYPES, REFERRAL_PARTNER_TYPES,
+  ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
 } from '@/lib/constants'
+import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
+import PastClientLookup from '@/components/features/cases/PastClientLookup'
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
@@ -197,9 +200,15 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       }
 
       if (isNew) {
-        const { data: newClient, error } = await supabase.from('clients').insert(clientPayload).select('id').single()
-        if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
-        clientId = newClient.id
+        if (formData.pastClientId) {
+          // 過去客経由: 既存依頼者を再利用（同一 client_id で履歴が辿れる）
+          clientId = formData.pastClientId
+          await supabase.from('clients').update(clientPayload).eq('id', clientId)
+        } else {
+          const { data: newClient, error } = await supabase.from('clients').insert(clientPayload).select('id').single()
+          if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
+          clientId = newClient.id
+        }
       } else {
         const { data: existingCase } = await supabase.from('cases').select('client_id').eq('id', caseId).single()
         if (existingCase?.client_id) {
@@ -225,6 +234,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         meeting_executed_date: formData.meetingDate || null,
+        order_route: formData.orderRoute || null,
+        order_route_detail: formData.orderRouteDetail || null,
         meeting_place: formData.meetingPlace || null,
         meeting_hearing_memo: formData.hearingMemo || null,
         meeting_other_notes: formData.otherNotes || null,
@@ -233,11 +244,14 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       }
 
       if (isNew) {
-        let caseNumber = formData.caseNumber.trim()
-        if (!caseNumber) {
-          const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true })
-          caseNumber = `R7-A${String((count ?? 0) + 1).padStart(5, '0')}`
-        }
+        // 採番: YYMM + 経路コード + 当日連番4桁（経路問わず当日作成順）。例: 2606LP0001
+        const now = new Date()
+        const yy = String(now.getFullYear()).slice(2)
+        const mm = String(now.getMonth() + 1).padStart(2, '0')
+        const routeCode = ORDER_ROUTE_CODES[formData.orderRoute] ?? 'XX'
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+        const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true }).gte('created_at', startOfDay)
+        const caseNumber = `${yy}${mm}${routeCode}${String((count ?? 0) + 1).padStart(4, '0')}`
         const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
         if (error) throw new Error(`案件の保存に失敗: ${error.message}`)
         caseId = newCase.id
@@ -318,13 +332,34 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     switch (STEPS[step].id) {
       case 'basic': return (
         <div className="max-w-[800px]">
-          <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目" />
-          <Card label="案件管理番号"><Input value={data.caseNumber} onChange={v => update('caseNumber', v)} placeholder="空欄なら自動採番（例：R7-A00129）" /></Card>
-          <Card label="案件ステータス" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目（案件番号は自動採番）" />
+          <Card label="面談実施日" required><Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} /></Card>
+          <Card label="面談ルート">
+            <Pills value={data.orderRoute} options={[...ORDER_ROUTES]} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} />
+            {data.orderRoute && (
+              <div className="mt-3">
+                {data.orderRoute === PAST_CLIENT_ROUTE ? (
+                  <PastClientLookup
+                    label="詳細（過去の依頼者）"
+                    value={data.pastClientId}
+                    displayName={data.orderRouteDetail}
+                    onSelect={(id, name) => { update('pastClientId', id); update('orderRouteDetail', name) }}
+                  />
+                ) : (
+                  <ReferralSourceLookup
+                    label="詳細（紹介元）"
+                    route={data.orderRoute}
+                    value={data.orderRouteDetail}
+                    onChange={name => update('orderRouteDetail', name)}
+                  />
+                )}
+              </div>
+            )}
+          </Card>
+          <Card label="面談結果" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <Card label="お客様回答予定日" required><Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} /></Card>
           )}
-          <Card label="面談実施日" required><Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} /></Card>
           <Card label="面談場所"><Pills value={data.meetingPlace} options={[...MEETING_PLACES]} onChange={v => update('meetingPlace', v as string)} /></Card>
         </div>
       )
@@ -402,10 +437,11 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{saveError}</div>}
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <ConfirmSection title="基本情報">
-              <ConfirmRow label="案件管理番号" value={data.caseNumber || '（自動採番）'} />
-              <ConfirmRow label="案件ステータス" value={getCaseStatusLabel(data.caseStatus)} />
-              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
+              <ConfirmRow label="案件管理番号" value="（保存時に自動採番）" />
               <ConfirmRow label="面談実施日" value={data.meetingDate} />
+              <ConfirmRow label="面談ルート" value={data.orderRoute + (data.orderRouteDetail ? `（${data.orderRouteDetail}）` : '')} />
+              <ConfirmRow label="面談結果" value={getCaseStatusLabel(data.caseStatus)} />
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
               <ConfirmRow label="面談場所" value={data.meetingPlace} />
             </ConfirmSection>
             <ConfirmSection title="依頼者">
