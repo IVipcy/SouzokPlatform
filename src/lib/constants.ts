@@ -213,6 +213,12 @@ export const KOSEKI_REQUEST_TYPES = [
   '戸籍', '除籍', '原戸籍', '謄本', '抄本', '住民票', '除票', '戸籍の附票',
 ] as const
 
+// === 戸籍の取得目的 ===
+export const KOSEKI_PURPOSES = [
+  '相続登記', '預貯金解約', '証券移管・解約', '遺産分割協議', '相続税申告',
+  '法定相続情報一覧図', '保険金請求', '年金手続', 'その他',
+] as const
+
 // === 受注ルート ===
 export const ORDER_ROUTES = ['自社', 'LP直', 'オーシャン直', 'その他'] as const
 

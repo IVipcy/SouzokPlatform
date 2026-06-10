@@ -5,7 +5,7 @@ import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_REASONS } from '@/lib/constants'
+import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES } from '@/lib/constants'
 import type { KosekiRequestRow } from '@/types'
 
 type Props = {
@@ -128,8 +128,8 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         </td>
         <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
         <Cell value={r.target_person} onChange={v => setLocal(r.id, 'target_person', v)} onCommit={v => commit(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
-        <Cell value={r.doc_types} onChange={v => setLocal(r.id, 'doc_types', v)} onCommit={v => commit(r.id, 'doc_types', v)} placeholder="戸籍/除籍/原戸籍 等" />
-        <Cell value={r.purpose} onChange={v => setLocal(r.id, 'purpose', v)} onCommit={v => commit(r.id, 'purpose', v)} placeholder="相続登記/遺産分割 等" />
+        <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
+        <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
         <td className="px-2.5 py-1.5 text-center">
@@ -148,6 +148,17 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         </tr>
       )}
     </>
+  )
+}
+
+function SelectCell({ value, options, onSave }: { value: string | null; options: readonly string[]; onSave: (v: string) => void }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <select value={value ?? ''} onChange={e => onSave(e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+        <option value="">—</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </td>
   )
 }
 
