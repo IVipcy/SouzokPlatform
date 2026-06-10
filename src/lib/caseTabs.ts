@@ -17,7 +17,7 @@
 // ルール:
 //   ・相談案件（受託以外）: 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
 //   ・個別管理案件        : 案件進捗 / 面談情報 / 依頼者情報・やり取り / 他事業者紹介 / タスク
-//   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
+//   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 担当・受注内容 / 面談情報 / 依頼者情報・やり取り / タスク
 //   ・受託・OS作成済      : オーダーシート（最左）＋依頼者情報・やり取り＋実務フルセット（面談情報は残す）
 //   ・管理案件            : 実務フルセット。面談情報は折りたたみ（末尾・既定非表示）
 //   ※ OS作成後は「依頼者情報・やり取り」タブが復活（やり取り履歴はオーダーシートに含めないため）
@@ -53,8 +53,8 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 受託（オーダーシート段階）
   if (status === '受注') {
     if (!orderSheetCompleted) {
-      // オーダーシート作成前: 概要把握用の最小構成＋作成導線（オーダーシート最左）
-      return { visible: ['orderSheet', 'basicInfo', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
+      // オーダーシート作成前: 概要把握＋担当・受注内容（管理担当割り振り導線）＋作成導線
+      return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
     }
     // オーダーシート完成後: 実務タブ解禁。面談情報はまだ表示（管理案件化までは折りたたまない）
     return { visible: FULL_PRACTICE_TABS, collapsed: [] }
