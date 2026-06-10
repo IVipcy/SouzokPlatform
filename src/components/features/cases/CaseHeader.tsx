@@ -3,8 +3,16 @@
 import Link from 'next/link'
 import Badge from '@/components/ui/Badge'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
+import { getCaseCategory } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, TaskRow } from '@/types'
+
+// 案件分類（相談案件 / 個別管理案件 / 管理案件）のラベルと色
+const CATEGORY_STYLE: Record<'consult' | 'referral' | 'management', { label: string; cls: string }> = {
+  consult:    { label: '相談案件',     cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  referral:   { label: '個別管理案件', cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  management: { label: '管理案件',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+}
 
 type Props = {
   caseData: CaseRow
@@ -34,6 +42,8 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
   const showTaxBadge = caseData.tax_filing_required === '要' || caseData.tax_filing_required === '不要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
+  const category = getCaseCategory(caseData.status)
+  const categoryStyle = category ? CATEGORY_STYLE[category] : null
 
   const alertChips: { dot: string; label: string }[] = [
     ...(caseAlerts ?? []).map(a => ({ dot: ALERT_SEVERITY_STYLE[a.severity].dot, label: a.category })),
@@ -60,11 +70,16 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
         <div className="flex items-start gap-5">
           {/* 左: 案件の識別情報 */}
           <div className="flex-shrink-0 min-w-0" style={{ maxWidth: 300 }}>
-            {/* 案件番号（独立行・控えめ） */}
-            <div className="mb-1.5">
+            {/* 案件番号＋案件分類フラグ（独立行・控えめ） */}
+            <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
               <span className="inline-block text-[11px] font-mono tracking-wide text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
                 {caseData.case_number}
               </span>
+              {categoryStyle && (
+                <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${categoryStyle.cls}`}>
+                  {categoryStyle.label}
+                </span>
+              )}
             </div>
             {/* 案件名 + クレームフラグ */}
             <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">
