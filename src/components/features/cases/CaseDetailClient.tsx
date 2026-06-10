@@ -67,6 +67,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [orderSheetPrompt, setOrderSheetPrompt] = useState(false)
+  const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
 
   // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
   // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
@@ -112,6 +113,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setOrderSheetPrompt(true)
+    }
+    // 対応中に変わったら：事務管理タスクの設定を促すポップアップ
+    if (patch.status === '対応中' && prev.status !== '対応中') {
+      setManagementTaskPrompt(true)
     }
     // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得
     const needsRefresh = Object.keys(patch).some(k => TRIGGER_FIELDS.has(k))
@@ -245,6 +250,24 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <p className="text-[14px] text-gray-700 leading-relaxed">
           続けて<strong>オーダーシートの作成</strong>を進めてください。<br />
           「オーダーシートへ」を押すとオーダーシートタブを開きます。
+        </p>
+      </Modal>
+
+      {/* 対応中になったら事務管理タスクの設定を促す */}
+      <Modal
+        isOpen={managementTaskPrompt}
+        onClose={() => setManagementTaskPrompt(false)}
+        title="対応中になりました"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setManagementTaskPrompt(false)}>あとで</Button>
+            <Button variant="primary" onClick={() => { setManagementTaskPrompt(false); setActiveTab('tasks') }}>タスクを設定する</Button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-gray-700 leading-relaxed">
+          続けて<strong>事務管理タスクを設定</strong>してください。<br />
+          「タスクを設定する」を押すとタスクタブを開きます。
         </p>
       </Modal>
 
