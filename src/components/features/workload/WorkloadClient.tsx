@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import Modal from '@/components/ui/Modal'
+
+export type UnassignedCase = { id: string; caseNumber: string; dealName: string; orderSheetReady: boolean }
 
 export type WorkloadRow = {
   memberId: string
@@ -28,6 +31,8 @@ type Props = {
   defaultTeamId: string | null
   // 案件詳細から「割り振り」で遷移してきた場合の対象案件ID
   assignCaseId: string | null
+  // 逆ルート用: 受託かつ管理担当未設定の案件
+  unassignedCases: UnassignedCase[]
 }
 
 const ROLE_TABS: { key: string; label: string }[] = [
@@ -37,12 +42,14 @@ const ROLE_TABS: { key: string; label: string }[] = [
 ]
 const ROLE_LABEL: Record<string, string> = { manager: '管理担当', sales: '受注担当', assistant: '事務管理担当' }
 
-export default function WorkloadClient({ teams, defaultTeamId, assignCaseId }: Props) {
+export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, unassignedCases }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [teamId, setTeamId] = useState<string>(defaultTeamId ?? teams[0]?.id ?? '')
   const [roleFilter, setRoleFilter] = useState<string>('manager')
   const [assigning, setAssigning] = useState<string | null>(null)
+  const [pickCaseOpen, setPickCaseOpen] = useState(false)
+  const [caseSearch, setCaseSearch] = useState('')
 
   const team = teams.find(t => t.id === teamId) ?? teams[0] ?? null
   const rows = (team?.rows ?? []).filter(r => r.primaryRole === roleFilter)
@@ -68,6 +75,21 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId }: P
         <div className="mb-3 flex items-center gap-2 bg-brand-50 border border-brand-200 text-brand-800 rounded-lg px-4 py-2.5 text-[13px]">
           <UserPlus className="w-4 h-4" strokeWidth={2} />
           選択した案件に<strong className="mx-0.5">管理担当</strong>を割り振ります。担当者の行の「割り振り」を押すと案件詳細に戻ります。
+        </div>
+      )}
+
+      {/* 逆ルート: 案件を選んで割り振る */}
+      {!assignCaseId && (
+        <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-[12px] text-gray-400">管理担当の割り振りは、案件詳細の「担当・受注内容」タブからも行えます。</p>
+          <button
+            type="button"
+            onClick={() => setPickCaseOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors"
+          >
+            <ClipboardList className="w-4 h-4" strokeWidth={2.25} />
+            担当者を割り振る（案件を選択）
+          </button>
         </div>
       )}
 
@@ -156,11 +178,42 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId }: P
         </table>
       </div>
 
-      {!assignCaseId && (
-        <p className="mt-3 text-[12px] text-gray-400">
-          ※ 管理担当の割り振りは、案件詳細の「管理担当」欄のボタンから対象案件を指定して行います。
-        </p>
-      )}
+      {/* 案件選択モーダル（逆ルート） */}
+      <Modal isOpen={pickCaseOpen} onClose={() => setPickCaseOpen(false)} title="案件を選択してください">
+        <p className="text-[13px] text-gray-500 mb-3">受託かつ管理担当が未割り振りの案件です。選択すると割り振り画面に進みます。</p>
+        <input
+          type="text"
+          value={caseSearch}
+          onChange={e => setCaseSearch(e.target.value)}
+          placeholder="案件名・管理番号で検索"
+          className="w-full mb-3 px-3 py-2 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+        />
+        <div className="max-h-[360px] overflow-y-auto -mx-1">
+          {(() => {
+            const q = caseSearch.trim().toLowerCase()
+            const list = q
+              ? unassignedCases.filter(c => `${c.caseNumber} ${c.dealName}`.toLowerCase().includes(q))
+              : unassignedCases
+            if (list.length === 0) {
+              return <div className="px-3 py-10 text-center text-[13px] text-gray-400">該当する受託・未割り振り案件はありません</div>
+            }
+            return list.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => router.push(`/workload?assignCaseId=${c.id}`)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-brand-50/60 text-left transition-colors"
+              >
+                <span className="font-mono text-[12px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{c.caseNumber}</span>
+                <span className="text-[13px] font-semibold text-gray-800 flex-1 min-w-0 truncate">{c.dealName}</span>
+                {!c.orderSheetReady && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">OS未完成</span>
+                )}
+              </button>
+            ))
+          })()}
+        </div>
+      </Modal>
     </div>
   )
 }

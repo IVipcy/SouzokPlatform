@@ -122,6 +122,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? clientCommunications.reduce((max, c) => (c.communicated_at > max ? c.communicated_at : max), clientCommunications[0].communicated_at)
     : null
 
+  // 管理担当アサイン済か（対応中ガード用）
+  const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
+
   // ステータス連動のタブ表示制御
   const tabVis = getCaseTabVisibility({
     status: caseState.status,
@@ -167,7 +170,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
       )}
       {effectiveTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} />
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />

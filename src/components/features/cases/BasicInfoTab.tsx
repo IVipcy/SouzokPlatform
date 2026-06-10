@@ -26,11 +26,13 @@ type Props = {
   currentMemberId: string | null
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   documentReceipts?: TimelineReceipt[]
+  // 管理担当アサイン済か（対応中ガード用）
+  managerAssigned?: boolean
 }
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false }: Props) {
   const [basicOpen, setBasicOpen] = useState(false)
 
   const saveCaseField = async (field: string, value: unknown) => {
@@ -63,7 +65,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-gray-100">
           {/* ステータス（編集可能・ブランド単色でヘッダーのフローと統一） */}
           <SummaryItem label="ステータス">
-            <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} onChange={s => saveCaseField('status', s)} />
+            <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
           </SummaryItem>
           {/* 現在フェーズ */}
           <SummaryItem label="現在フェーズ">
@@ -173,11 +175,11 @@ function SummaryItem({ label, children }: { label: string; children: React.React
 }
 
 // 案件ステータスの編集チップ（ブランド単色。ヘッダーのステータスフローと色を統一）
-// 対応中/完了はオーダーシート完成後のみ選択可（getSelectableCaseStatuses）。
-function StatusChipDropdown({ status, orderSheetCompleted, onChange }: { status: string; orderSheetCompleted: boolean; onChange: (s: string) => void }) {
+// 対応中/完了はオーダーシート完成＋管理担当アサイン後のみ選択可（getSelectableCaseStatuses）。
+function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, onChange }: { status: string; orderSheetCompleted: boolean; managerAssigned: boolean; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status))
+  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status, managerAssigned))
 
   useEffect(() => {
     if (!open) return
@@ -213,9 +215,9 @@ function StatusChipDropdown({ status, orderSheetCompleted, onChange }: { status:
               {s.label}
             </button>
           ))}
-          {!orderSheetCompleted && (
+          {!(orderSheetCompleted && managerAssigned) && (
             <div className="px-3.5 py-2 text-[11px] text-gray-400 border-t border-gray-100">
-              「対応中」「完了」はオーダーシート完成後に選択できます
+              「対応中」「完了」は{!orderSheetCompleted ? 'オーダーシート完成' : ''}{!orderSheetCompleted && !managerAssigned ? '＋' : ''}{!managerAssigned ? '管理担当の割り振り' : ''}後に選択できます
             </div>
           )}
         </div>

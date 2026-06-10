@@ -19,11 +19,13 @@ export default async function WorkloadPage({ searchParams }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [teamsRes, dtmRes, membersRes, cmRes] = await Promise.all([
+  const [teamsRes, dtmRes, membersRes, cmRes, jutakuRes] = await Promise.all([
     supabase.from('teams').select('id, name').eq('is_active', true).order('name'),
     supabase.from('dashboard_team_members').select('team_id, member_id'),
     supabase.from('members').select('*').eq('is_active', true).order('name'),
     supabase.from('case_members').select('member_id, role, cases(id, status, expected_completion_date)'),
+    // 逆ルート用: 受託（受注）案件
+    supabase.from('cases').select('id, case_number, deal_name, order_sheet_completed_at').eq('status', '受注'),
   ])
 
   const teams = (teamsRes.data ?? []) as { id: string; name: string }[]
@@ -42,9 +44,11 @@ export default async function WorkloadPage({ searchParams }: Props) {
   const roleOf = new Map(members.map(m => [m.id, m.primary_role ?? '']))
   const activeByMember = new Map<string, number>()
   const monthByMember = new Map<string, number>()
+  const managerCaseIds = new Set<string>()  // 管理担当が既にいる案件
   for (const cm of cms) {
     const c = Array.isArray(cm.cases) ? cm.cases[0] : cm.cases
     if (!c) continue
+    if (cm.role === 'manager') managerCaseIds.add(c.id)
     if (roleOf.get(cm.member_id) !== cm.role) continue
     if (!INACTIVE_CASE.has(c.status)) {
       activeByMember.set(cm.member_id, (activeByMember.get(cm.member_id) ?? 0) + 1)
@@ -53,6 +57,12 @@ export default async function WorkloadPage({ searchParams }: Props) {
       monthByMember.set(cm.member_id, (monthByMember.get(cm.member_id) ?? 0) + 1)
     }
   }
+
+  // 逆ルート用: 受託かつ管理担当が未設定の案件
+  const jutaku = (jutakuRes.data ?? []) as { id: string; case_number: string; deal_name: string; order_sheet_completed_at: string | null }[]
+  const unassignedCases = jutaku
+    .filter(c => !managerCaseIds.has(c.id))
+    .map(c => ({ id: c.id, caseNumber: c.case_number, dealName: c.deal_name, orderSheetReady: !!c.order_sheet_completed_at }))
 
   // チーム→メンバー（dashboard_team_members 優先、無ければ members.team_id）
   const dtmByTeam = new Map<string, Set<string>>()
@@ -109,7 +119,7 @@ export default async function WorkloadPage({ searchParams }: Props) {
         icon={Gauge}
         description="チーム・担当区分ごとの稼働状況。管理担当の割り振りに使用します。"
       />
-      <WorkloadClient teams={workloadTeams} defaultTeamId={defaultTeamId} assignCaseId={assignCaseId} />
+      <WorkloadClient teams={workloadTeams} defaultTeamId={defaultTeamId} assignCaseId={assignCaseId} unassignedCases={unassignedCases} />
     </div>
   )
 }

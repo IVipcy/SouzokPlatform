@@ -47,11 +47,18 @@ export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STA
 
 // 案件ステータスとして選択可能なkey一覧を返す（対応中ガード）。
 // ・通常: 相談案件＋個別管理案件のステータスのみ（対応中/完了は不可＝実質ガード）
-// ・オーダーシート完成済 or 既に管理ステータスの案件: 対応中/完了も選択可
+// ・対応中/完了へ進めるのは「オーダーシート完成済 ＋ 管理担当アサイン済」の両方が揃ったときのみ
+//   （管理担当の割り振り＝引継ぎ完了とみなす）
+// ・既に管理ステータスの案件はそのまま選択可
 // ・現在のステータスは常に選択肢に含める（表示崩れ防止）
-export const getSelectableCaseStatuses = (orderSheetCompleted: boolean, currentStatus?: string | null): string[] => {
+export const getSelectableCaseStatuses = (
+  orderSheetCompleted: boolean,
+  currentStatus?: string | null,
+  managerAssigned = true,
+): string[] => {
   const isManagementNow = !!currentStatus && (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
-  const base: string[] = (orderSheetCompleted || isManagementNow)
+  const canManage = (orderSheetCompleted && managerAssigned) || isManagementNow
+  const base: string[] = canManage
     ? [...MEETING_SELECTABLE_STATUSES, ...MANAGEMENT_STATUSES]
     : [...MEETING_SELECTABLE_STATUSES]
   if (currentStatus && !base.includes(currentStatus)) return [currentStatus, ...base]

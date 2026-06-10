@@ -40,6 +40,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
   }
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
+  const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
 
   return (
     <div className="max-w-3xl space-y-3.5">
@@ -59,7 +60,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineSelect
             label="案件ステータス"
             value={caseData.status}
-            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status)}
+            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned)}
             optionLabel={getCaseStatusLabel}
             onSave={v => saveCaseField('status', v)}
           />
