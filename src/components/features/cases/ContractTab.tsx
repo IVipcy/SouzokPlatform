@@ -199,7 +199,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             </div>
           </div>
 
-          {/* 立替実費明細（読み取り専用・入力は /billing の請求書発行モーダルで） */}
+          {/* 立替実費明細（読み取り専用・入力は /billing の請求書発行モーダルで）。
+              オーダーシート作成時は不要（対応結果で発生する費用のため）→ OS時は非表示 */}
+          {!orderSheetMode && (
           <Section title="立替実費明細">
             <div className="text-sm">
               {expenses.length > 0 ? (
@@ -248,6 +250,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               </p>
             </div>
           </Section>
+          )}
 
       {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示 ─── */}
       {!orderSheetMode && (

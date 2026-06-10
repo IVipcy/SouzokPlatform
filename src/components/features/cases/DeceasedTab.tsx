@@ -161,8 +161,7 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
 
   return (
     <div>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-        <div className="space-y-3.5">
+      <div className="space-y-3.5">
           {/* 4. 被相続人情報 */}
           <Section title="被相続人情報" icon="🏛️">
             <FieldGrid>
@@ -214,10 +213,6 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
               />
             </FieldGrid>
           </Section>
-        </div>
-
-        {/* Right column - empty for layout alignment */}
-        <div />
       </div>
 
       {/* A. 相続人一覧 */}
