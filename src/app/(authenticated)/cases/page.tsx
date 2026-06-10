@@ -6,11 +6,12 @@ import type { MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import type { ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
-import { CONSULT_STATUSES, REFERRAL_STATUSES, MANAGEMENT_STATUSES } from '@/lib/constants'
+import { CONSULT_STATUSES, REFERRAL_STATUSES } from '@/lib/constants'
 
 // 案件分類（constants の定義に一元化）
-// 管理案件 = 対応中・完了 / 相談案件 = 面談設定済〜受託・不受託 / 個別管理案件 = 紹介のみ・長期保留
-const MANAGEMENT_ACTIVE = new Set<string>(MANAGEMENT_STATUSES)
+// 管理案件一覧 = 対応中（稼働中）のみ。完了はこの一覧には出さない（バッジ数＝表示と一致させる）。
+// 相談案件 = 面談設定済〜受託・不受託 / 個別管理案件 = 紹介のみ・長期保留
+const MANAGEMENT_ACTIVE = new Set<string>(['対応中'])
 const CONSULT = new Set<string>(CONSULT_STATUSES)
 const REFERRAL = new Set<string>(REFERRAL_STATUSES)
 // LP案件 = 受注ルートが「LP直」または「その他」
