@@ -32,6 +32,7 @@ export type FormData = {
   lostReason: string        // 失注理由
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
+  expectedCompletionDate: string  // 完了予定日
 }
 
 export const INITIAL_DATA: FormData = {
@@ -47,6 +48,7 @@ export const INITIAL_DATA: FormData = {
   lostReason: '',
   otherNotes: '',
   difficulty: '',
+  expectedCompletionDate: '',
 }
 
 export const STEPS = [

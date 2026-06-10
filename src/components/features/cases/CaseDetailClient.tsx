@@ -103,8 +103,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
-    // 受託（受注）に変わったら、オーダーシート作成を促すポップアップを表示
+    // 受託（受注）に変わったら：受注日を自動セット＋オーダーシート作成を促すポップアップ
     if (patch.status === '受注' && prev.status !== '受注') {
+      if (!prev.order_received_date) {
+        const today = new Date().toLocaleDateString('sv-SE')  // YYYY-MM-DD（ローカル）
+        await supabase.from('cases').update({ order_received_date: today }).eq('id', caseState.id)
+        setCaseState(c => ({ ...c, order_received_date: today }))
+      }
       setOrderSheetPrompt(true)
     }
     // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得

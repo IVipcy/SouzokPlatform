@@ -228,6 +228,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         meeting_hearing_memo: formData.hearingMemo || null,
         meeting_other_notes: formData.otherNotes || null,
         lost_reason: formData.lostReason || null,
+        expected_completion_date: formData.expectedCompletionDate || null,
       }
 
       if (isNew) {
@@ -389,6 +390,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <Card label="受注見込み手続き区分"><Pills value={data.procedureType} options={[...PROCEDURE_TYPES]} onChange={v => update('procedureType', v as string[])} multi /></Card>
           <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
+          <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>
           <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
         </div>

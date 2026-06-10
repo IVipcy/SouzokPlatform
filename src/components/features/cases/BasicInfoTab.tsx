@@ -127,14 +127,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
               <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
               <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
               <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
-              <InlineSelect
-                label="確度"
-                value={caseData.probability != null ? String(caseData.probability) : null}
-                options={['0', '10', '20', '30', '40', '50', '60', '70', '80', '90', '100']}
-                onSave={v => saveCaseField('probability', v != null ? Number(v) : null)}
-                renderValue={v => v != null ? `${v}%` : ''}
-              />
-              <InlineDate label="受注日" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
+              <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
             </FieldGrid>
           </div>
         )}
