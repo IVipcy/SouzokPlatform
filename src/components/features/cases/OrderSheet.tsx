@@ -9,6 +9,7 @@ import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
+import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
 import type {
@@ -113,7 +114,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={6} title="相続登記">
-        <OSPlaceholder note="項目は今後ヒアリングのうえ追加予定です。" />
+        <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} />
       </OSSection>
 
       <OSSection index={7} title="解約等（銀行・証券・自動車）">
@@ -141,10 +142,3 @@ function OSSection({ title, index = 0, children }: { title: string; index?: numb
   )
 }
 
-function OSPlaceholder({ note }: { note: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl px-4 py-8 text-center text-[13px] text-gray-400">
-      {note}
-    </div>
-  )
-}

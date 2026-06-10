@@ -198,6 +198,8 @@ export type CaseRow = {
   complaint_detail: string | null
   // オーダーシート完成日時（NULL=未作成）。実務タブ解禁・対応中遷移の条件。
   order_sheet_completed_at: string | null
+  // 相続登記の任意項目（列名）定義（migration 066）
+  registration_columns: string[] | null
   created_at: string
   updated_at: string
   clients?: ClientRow | null
@@ -481,6 +483,9 @@ export type RealEstatePropertyRow = {
   sale_agent_name: string | null
   has_survey_map: boolean
   has_route_price: boolean
+  // 相続登記（migration 066）
+  title_change_required: string | null            // 名義変更要否（要/不要/確認中）
+  registration_data: Record<string, string> | null // 任意項目の値（{列名:値}）
   sale_expected_date: string | null
   notes: string | null
   created_at: string

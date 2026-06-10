@@ -18,6 +18,7 @@ import DivisionTab from './DivisionTab'
 import DocsBundleTab from './DocsBundleTab'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
+import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
@@ -210,7 +211,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
       )}
       {effectiveTab === 'registration' && (
-        <TabPlaceholder title="相続登記" note="項目は今後ヒアリングのうえ追加予定です。" />
+        <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {effectiveTab === 'cancellation' && (
         <CancellationTab financialAssets={financialAssets} onRefresh={handleSaved} />
@@ -256,19 +257,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         allMembers={allMembers}
         onSaved={handleSaved}
       />
-    </div>
-  )
-}
-
-// 中身未定のタブ用プレースホルダー（相続登記 / 解約等）
-function TabPlaceholder({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
-      </div>
-      <div className="px-4 py-12 text-center text-[13px] text-gray-400">{note}</div>
     </div>
   )
 }
