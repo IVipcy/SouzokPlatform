@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import DocumentsClient from '@/components/features/documents/DocumentsClient'
-import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
+import type { CaseDocumentRow, DocumentReceiptRow, DocumentReceiptItemRow, MemberRow } from '@/types'
 
 type CaseLite = {
   id: string
@@ -53,12 +53,9 @@ export default async function DocumentsPage() {
   const documents = (documentsRaw ?? []) as CaseDocumentRow[]
   const cases = (casesRaw ?? []) as CaseLite[]
   const receiptsBase = (receiptsRaw ?? []) as DocumentReceiptRow[]
-  const items = (receiptItemsRaw ?? []) as Array<{
-    id: string; receipt_id: string; item_name: string; quantity: number | null
-    received_from: string | null; sort_order: number; created_at: string
-  }>
+  const items = (receiptItemsRaw ?? []) as DocumentReceiptItemRow[]
   // 子テーブル items を親 receipt に紐付け
-  const itemsByReceipt = new Map<string, typeof items>()
+  const itemsByReceipt = new Map<string, DocumentReceiptItemRow[]>()
   for (const it of items) {
     if (!itemsByReceipt.has(it.receipt_id)) itemsByReceipt.set(it.receipt_id, [])
     itemsByReceipt.get(it.receipt_id)!.push(it)

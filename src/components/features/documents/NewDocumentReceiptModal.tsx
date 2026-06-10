@@ -6,6 +6,8 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
+import type { FinancialAssetRow, RealEstatePropertyRow } from '@/types'
 
 type CaseLite = {
   id: string
@@ -18,6 +20,7 @@ type ItemDraft = {
   item_name: string
   quantity: string  // 文字列で保持して入力柔軟性を確保
   received_from: string
+  linked: string  // 取得物リンク `${kind}:${id}:${field}`（空=リンクなし）
 }
 
 type Props = {
@@ -33,6 +36,7 @@ function newItem(): ItemDraft {
     item_name: '',
     quantity: '',
     received_from: '',
+    linked: '',
   }
 }
 
@@ -43,6 +47,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [receivedDate, setReceivedDate] = useState(todayYmd)
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
+  const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,9 +58,36 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setSelectedCaseId(null)
     setReceivedDate(todayYmd)
     setItems([newItem()])
+    setDeliverables([])
     setError('')
     onClose()
   }
+
+  // 案件を選択し、その案件の取得物（リンク候補）を取得
+  const selectCase = async (id: string) => {
+    setSelectedCaseId(id)
+    setDeliverables([])
+    const supabase = createClient()
+    const [fa, re] = await Promise.all([
+      supabase.from('financial_assets').select('*').eq('case_id', id),
+      supabase.from('real_estate_properties').select('*').eq('case_id', id),
+    ])
+    setDeliverables(buildDeliverableOptions(
+      (fa.data ?? []) as FinancialAssetRow[],
+      (re.data ?? []) as RealEstatePropertyRow[],
+    ))
+  }
+
+  // リンク候補をグループ別にまとめる（預金/証券/信託/不動産）
+  const groupedDeliverables = useMemo(() => {
+    const m = new Map<string, DeliverableOption[]>()
+    for (const o of deliverables) {
+      const arr = m.get(o.group) ?? []
+      arr.push(o)
+      m.set(o.group, arr)
+    }
+    return Array.from(m.entries())
+  }, [deliverables])
 
   // 案件検索結果
   const filteredCases = useMemo(() => {
@@ -121,12 +153,18 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     }
 
     // 2. 子レコード（受領項目）一括 INSERT
+    const parseLink = (v: string) => {
+      if (!v) return { linked_kind: null, linked_id: null, linked_field: null }
+      const [kind, id, field] = v.split(':')
+      return { linked_kind: kind, linked_id: id, linked_field: field }
+    }
     const itemRows = validItems.map((it, idx) => ({
       receipt_id: receiptInserted.id,
       item_name: it.item_name.trim(),
       quantity: it.quantity ? Number(it.quantity) : null,
       received_from: it.received_from.trim() || null,
       sort_order: idx,
+      ...parseLink(it.linked),
     }))
     const { error: itemsErr } = await supabase
       .from('document_receipt_items')
@@ -137,6 +175,22 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       setError(`項目の登録に失敗しました: ${itemsErr.message}`)
       setSaving(false)
       return
+    }
+
+    // 3. 取得物にリンクした項目は、対象の受領日カラムに到着日を反映
+    const linkUpdates = validItems
+      .map(it => it.linked)
+      .filter(Boolean)
+      .map(v => {
+        const [kind, id, field] = v.split(':')
+        const table = kind === 'financial_asset' ? 'financial_assets' : 'real_estate_properties'
+        return supabase.from(table).update({ [field]: receivedDate }).eq('id', id)
+      })
+    if (linkUpdates.length > 0) {
+      const results = await Promise.all(linkUpdates)
+      if (results.some(r => r.error)) {
+        showToast('受信は登録しましたが、一部の取得物への受領日反映に失敗しました', 'error')
+      }
     }
 
     setSaving(false)
@@ -178,7 +232,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
               </div>
               <button
                 type="button"
-                onClick={() => { setSelectedCaseId(null); setCaseQuery('') }}
+                onClick={() => { setSelectedCaseId(null); setCaseQuery(''); setDeliverables([]) }}
                 className="text-[12px] text-gray-500 hover:text-gray-700"
               >
                 変更
@@ -205,7 +259,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => setSelectedCaseId(c.id)}
+                      onClick={() => selectCase(c.id)}
                       className="w-full px-3 py-1.5 text-left text-[13px] hover:bg-brand-50 transition-colors"
                     >
                       <span className="font-mono font-semibold text-brand-700">{c.case_number}</span>
@@ -242,45 +296,68 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
               項目を追加
             </Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {items.map(it => (
-              <div key={it.key} className="grid grid-cols-[1fr_80px_1fr_28px] gap-2 items-center">
-                <input
-                  type="text"
-                  value={it.item_name}
-                  onChange={e => updateItem(it.key, { item_name: e.target.value })}
-                  placeholder="到着物（例: 戸籍）"
-                  className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={it.quantity}
-                  onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
-                  placeholder="通数"
-                  className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                />
-                <input
-                  type="text"
-                  value={it.received_from}
-                  onChange={e => updateItem(it.key, { received_from: e.target.value })}
-                  placeholder="受領先（例: 名古屋市区役所）"
-                  className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeItem(it.key)}
-                  disabled={items.length <= 1}
-                  className="text-gray-300 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed p-1"
-                  title="この行を削除"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div key={it.key} className="space-y-1.5">
+                <div className="grid grid-cols-[1fr_80px_1fr_28px] gap-2 items-center">
+                  <input
+                    type="text"
+                    value={it.item_name}
+                    onChange={e => updateItem(it.key, { item_name: e.target.value })}
+                    placeholder="到着物（例: 戸籍）"
+                    className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={it.quantity}
+                    onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                    placeholder="通数"
+                    className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={it.received_from}
+                    onChange={e => updateItem(it.key, { received_from: e.target.value })}
+                    placeholder="受領先（例: 名古屋市区役所）"
+                    className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(it.key)}
+                    disabled={items.length <= 1}
+                    className="text-gray-300 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed p-1"
+                    title="この行を削除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* 取得物リンク（任意）: 案件の財産調査で登録済みの取得物に紐づけると受領日が自動反映される */}
+                {selectedCaseId && deliverables.length > 0 && (
+                  <div className="flex items-center gap-1.5 pl-0.5">
+                    <span className="text-[11px] text-gray-400 shrink-0">取得物に紐づけ</span>
+                    <select
+                      value={it.linked}
+                      onChange={e => updateItem(it.key, { linked: e.target.value })}
+                      className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400"
+                    >
+                      <option value="">紐づけなし（戸籍・住民票など）</option>
+                      {groupedDeliverables.map(([group, opts]) => (
+                        <optgroup key={group} label={group}>
+                          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
+        <p className="text-[11px] text-gray-400">
+          取得物（残高証明・登記情報など）に紐づけて登録すると、その取得物の受領日に到着日が自動反映されます。戸籍・住民票などは「紐づけなし」のままでOKです。
+        </p>
         <p className="text-[11px] text-gray-400">
           登録後、一覧の「W-Check」「着手」ボタンから書類確認・着手記録ができます。
         </p>

@@ -630,6 +630,10 @@ export type DocumentReceiptItemRow = {
   quantity: number | null   // 通数
   received_from: string | null  // 受領先
   sort_order: number
+  // 取得物への任意リンク（migration 073）
+  linked_kind: string | null    // 'financial_asset' | 'real_estate'
+  linked_id: string | null      // 取得物テーブルの行ID
+  linked_field: string | null   // 受領日を書き込む対象カラム名
   created_at: string
 }
 
