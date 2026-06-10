@@ -60,6 +60,8 @@ type Props = {
   compact?: boolean
   /** 案件管理ページ用。チェックボックス選択・一括削除を有効化 */
   selectable?: boolean
+  /** 完了案件ビュー: 鮮度フラグの代わりに「完了」バッジを出し、フラグなし行も表示する */
+  showCompleted?: boolean
 }
 
 const FLAG_LABEL: Record<NonNullable<CaseFlag>, string> = {
@@ -104,7 +106,7 @@ function computeFlagSimple(c: MyCaseRow): CaseFlag {
  * 進捗管理ダッシュボードと同じテーブル形式:
  *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
-export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false }: Props) {
+export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false }: Props) {
   void _memberId
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -115,10 +117,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
     flag: c.flag ?? computeFlagSimple(c),
   }))
 
-  // 完了・失注は除外（フラグなし）
-  const visibleRows = rows.filter(r => r.flag !== null)
-  // ソート: フラグ優先度 → 完了予定日昇順
+  // 通常ビュー: 完了・失注（フラグなし）は除外。完了ビュー: 全件表示。
+  const visibleRows = showCompleted ? [...rows] : rows.filter(r => r.flag !== null)
+  // ソート: 完了ビューは案件番号順、通常はフラグ優先度 → 完了予定日昇順
   visibleRows.sort((a, b) => {
+    if (showCompleted) return a.case_number.localeCompare(b.case_number)
     const fa = FLAG_RANK[a.flag!]
     const fb = FLAG_RANK[b.flag!]
     if (fa !== fb) return fa - fb
@@ -153,7 +156,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   if (visibleRows.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
-        対応中の案件はありません
+        {showCompleted ? '完了案件はありません' : '対応中の案件はありません'}
       </div>
     )
   }
@@ -223,9 +226,15 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 </td>
               )}
               <td className="px-3 py-2.5 text-center">
-                <span className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag!]}`}>
-                  {FLAG_LABEL[c.flag!]}
-                </span>
+                {c.flag ? (
+                  <span className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag]}`}>
+                    {FLAG_LABEL[c.flag]}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-500 border border-gray-200">
+                    完了
+                  </span>
+                )}
               </td>
               <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600 whitespace-nowrap">{c.case_number}</td>
               <td className="px-3 py-2.5 min-w-[160px]">

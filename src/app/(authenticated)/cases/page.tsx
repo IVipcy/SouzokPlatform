@@ -137,8 +137,8 @@ export default async function CasesPage() {
     if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
   }
 
-  // 管理案件一覧
-  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status)).map(c => {
+  // 管理案件の行マッピング（対応中・完了で共通利用）
+  const toMyCaseRow = (c: CaseRowRaw): MyCaseRow => {
     const prog = progressByCase.get(c.id)
     const lc = lastCommByCase.get(c.id)
     return {
@@ -164,7 +164,11 @@ export default async function CasesPage() {
       lastCommDate: lc?.date ?? null,
       lastCommDetail: lc?.detail ?? null,
     }
-  })
+  }
+
+  // 管理案件一覧（対応中 = 稼働中）／完了案件（別サブビューで閲覧・削除）
+  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status)).map(toMyCaseRow)
+  const completedRows: MyCaseRow[] = cases.filter(c => c.status === '完了').map(toMyCaseRow)
 
   // 相談案件一覧
   const consultRows: ConsultCase[] = cases.filter(c => CONSULT.has(c.status)).map(c => ({
@@ -226,7 +230,7 @@ export default async function CasesPage() {
         icon={Briefcase}
         description="管理案件一覧・相談案件一覧・個別管理案件・LP案件一覧を切り替えて表示"
       />
-      <CaseViewsClient managerRows={managerRows} consultRows={consultRows} referralRows={referralRows} lpRows={lpRows} />
+      <CaseViewsClient managerRows={managerRows} completedRows={completedRows} consultRows={consultRows} referralRows={referralRows} lpRows={lpRows} />
     </div>
   )
 }

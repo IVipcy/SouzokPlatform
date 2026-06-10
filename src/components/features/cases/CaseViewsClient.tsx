@@ -12,6 +12,7 @@ type View = 'manage' | 'consult' | 'referral' | 'lp'
 
 type Props = {
   managerRows: MyCaseRow[]
+  completedRows: MyCaseRow[]
   consultRows: ConsultCase[]
   referralRows: ReferralRow[]
   lpRows: LpCaseRow[]
@@ -47,10 +48,12 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * マイページ定義の3一覧（管理案件一覧 / 相談案件一覧 / 個別管理案件）を流用し、
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
-export default function CaseViewsClient({ managerRows, consultRows, referralRows, lpRows }: Props) {
+export default function CaseViewsClient({ managerRows, completedRows, consultRows, referralRows, lpRows }: Props) {
   const [view, setView] = useState<View>('consult')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  // 管理案件ビュー内のサブ切替（対応中 / 完了）
+  const [manageSub, setManageSub] = useState<'active' | 'completed'>('active')
 
   const tabs: { key: View; label: string; Icon: typeof ClipboardList; count: number }[] = [
     { key: 'consult', label: '相談案件一覧', Icon: MessageSquare, count: consultRows.length },
@@ -61,6 +64,7 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
 
   // 検索＋ステータスで絞り込み
   const filteredManager = useMemo(() => applyStatus(applySearch(managerRows, search), statusFilter), [managerRows, search, statusFilter])
+  const filteredCompleted = useMemo(() => applySearch(completedRows, search), [completedRows, search])
   const filteredConsult = useMemo(() => applyStatus(applySearch(consultRows, search), statusFilter), [consultRows, search, statusFilter])
   const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), statusFilter), [referralRows, search, statusFilter])
   const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), statusFilter), [lpRows, search, statusFilter])
@@ -133,7 +137,29 @@ export default function CaseViewsClient({ managerRows, consultRows, referralRows
         </div>
       </div>
 
-      {view === 'manage' && <MyPageCasesTab memberId="" cases={filteredManager} selectable />}
+      {view === 'manage' && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setManageSub('active')}
+              className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === 'active' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+            >
+              対応中<span className="ml-1 text-[10px] font-mono opacity-70">{managerRows.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setManageSub('completed')}
+              className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === 'completed' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+            >
+              完了<span className="ml-1 text-[10px] font-mono opacity-70">{completedRows.length}</span>
+            </button>
+          </div>
+          {manageSub === 'active'
+            ? <MyPageCasesTab memberId="" cases={filteredManager} selectable />
+            : <MyPageCasesTab memberId="" cases={filteredCompleted} selectable showCompleted />}
+        </div>
+      )}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} />}
