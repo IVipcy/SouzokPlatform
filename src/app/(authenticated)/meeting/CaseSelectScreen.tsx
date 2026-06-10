@@ -37,7 +37,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
           onClick={() => onSelect({ id: 'new', name: '新規案件', client: '', phone: '' })}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition flex-shrink-0"
         >
-          ＋ 新規面談を作成
+          ＋ 新規案件作成
         </button>
       </div>
 

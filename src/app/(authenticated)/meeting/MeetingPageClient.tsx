@@ -38,7 +38,7 @@ export default function MeetingPageClient({ cases, currentMemberId }: Props) {
         eyebrow="Meeting"
         title="案件編集"
         icon={PenSquare}
-        description="面談情報の入力・AI音声入力対応"
+        description="面談情報の入力"
         right={
           selectedCase ? (
             <button
