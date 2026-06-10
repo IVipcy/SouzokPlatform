@@ -30,6 +30,24 @@ const RE_ITEMS: { label: string; req: keyof RealEstatePropertyRow; recv: keyof R
   { label: '評価証明', req: 'eval_cert_required', recv: 'eval_cert_receipt_date' },
 ]
 
+// linked_field（受領日カラム名）から取得物の種別ラベルを得る（受信簿一覧のバッジ表示用）
+const FIELD_LABELS: Record<string, string> = {
+  arrival_date: '残高証明等',
+  cancellation_arrival_date: '解約書類',
+  registry_receipt_date: '登記情報',
+  cadastral_receipt_date: '公図',
+  survey_map_receipt_date: '地積測量図',
+  route_price_receipt_date: '路線価',
+  eval_cert_receipt_date: '評価証明',
+}
+
+export function deliverableLinkLabel(linkedKind: string | null, linkedField: string | null): string | null {
+  if (!linkedKind || !linkedField) return null
+  const item = FIELD_LABELS[linkedField] ?? '取得物'
+  const cat = linkedKind === 'real_estate' ? '不動産' : '金融機関'
+  return `${cat}・${item}`
+}
+
 export function buildDeliverableOptions(
   financialAssets: FinancialAssetRow[],
   realEstate: RealEstatePropertyRow[],

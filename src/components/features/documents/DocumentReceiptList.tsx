@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play } from 'lucide-react'
+import { Check, Hand, Loader2, Play, Link2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
+import { deliverableLinkLabel } from '@/lib/deliverables'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -345,7 +346,18 @@ function ReceiptRow({
 
             {/* 到着物 / 通数 / 受領先（各項目で1行ずつ） */}
             <td className="px-2.5 py-1.5 text-gray-800">
-              {it?.item_name ?? <span className="text-gray-300">-</span>}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span>{it?.item_name ?? <span className="text-gray-300">-</span>}</span>
+                {it && deliverableLinkLabel(it.linked_kind, it.linked_field) && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-[10px] font-semibold"
+                    title="この受領で取得物の受領日が更新されています"
+                  >
+                    <Link2 className="w-3 h-3" />
+                    {deliverableLinkLabel(it.linked_kind, it.linked_field)}
+                  </span>
+                )}
+              </div>
             </td>
             <td className="px-2.5 py-1.5 text-right font-mono text-gray-700">
               {it?.quantity != null ? `${it.quantity}通` : <span className="text-gray-300">-</span>}
