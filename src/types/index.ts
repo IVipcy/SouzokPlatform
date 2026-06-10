@@ -182,6 +182,8 @@ export type CaseRow = {
   // 財産目録・財産調査
   inventory_categories: string[] | null
   financial_survey_start_condition: string | null
+  financial_survey_prohibited_period: string | null
+  financial_survey_prohibited_reason: string | null
   // 請求関連
   invoice_status: string | null
   advance_payment: number | null

@@ -106,11 +106,11 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={4} title="遺産分割">
-        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={onRefresh} patchCase={patchCase} mode="division" />
+        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="division" />
       </OSSection>
 
       <OSSection index={5} title="遺言">
-        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={onRefresh} patchCase={patchCase} mode="will" />
+        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" />
       </OSSection>
 
       <OSSection index={6} title="相続登記">

@@ -210,10 +210,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <AssetsTab caseData={caseState} properties={properties} financialAssets={financialAssets} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {effectiveTab === 'division' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
       )}
       {effectiveTab === 'will' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
       )}
       {effectiveTab === 'registration' && (
         <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} />

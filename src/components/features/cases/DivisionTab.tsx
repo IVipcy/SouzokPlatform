@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Trash2, AlertTriangle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import type { CaseRow, DivisionDetailRow } from '@/types'
+import { AlertTriangle } from 'lucide-react'
+import DivisionDetailsTable from './DivisionDetailsTable'
+import type { CaseRow, DivisionDetailRow, HeirRow } from '@/types'
 import {
   WILL_CREATION_PLACES,
   WILL_TYPES,
@@ -15,29 +15,20 @@ import {
   WILL_BEQUEST_HANDLER_OPTIONS,
   TRUST_CONTRACT_TYPES,
   TRUST_CONTENT_OPTIONS,
-  DIVISION_METHODS,
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 
 type Props = {
   caseData: CaseRow
   divisionDetails: DivisionDetailRow[]
+  heirs: HeirRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   /** 'division' = 遺産分割＋分割内容 / 'will' = 遺言＋信託 */
   mode?: 'division' | 'will'
 }
 
-export default function DivisionTab({ caseData, divisionDetails, onRefresh, patchCase, mode = 'division' }: Props) {
-  const [showAddDetail, setShowAddDetail] = useState(false)
-  const [detailForm, setDetailForm] = useState({
-    asset_category: '',
-    division_method: '',
-    recipient: '',
-    share_ratio: '',
-    description: '',
-  })
-
+export default function DivisionTab({ caseData, divisionDetails, heirs, onRefresh, patchCase, mode = 'division' }: Props) {
   const saveCaseField = async (field: string, value: string) => {
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
@@ -67,28 +58,6 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
     await patchCase({ [field]: hasAny ? next : null } as Partial<CaseRow>)
   }
 
-  const handleAddDetail = async () => {
-    if (!detailForm.asset_category.trim()) return
-    const supabase = createClient()
-    await supabase.from('division_details').insert({
-      case_id: caseData.id,
-      asset_category: detailForm.asset_category,
-      division_method: detailForm.division_method || null,
-      recipient: detailForm.recipient || null,
-      share_ratio: detailForm.share_ratio || null,
-      description: detailForm.description || null,
-    })
-    setDetailForm({ asset_category: '', division_method: '', recipient: '', share_ratio: '', description: '' })
-    setShowAddDetail(false)
-    onRefresh()
-  }
-
-  const handleDeleteDetail = async (detailId: string) => {
-    const supabase = createClient()
-    await supabase.from('division_details').delete().eq('id', detailId)
-    onRefresh()
-  }
-
   return (
     <div className="space-y-3.5">
       {mode === 'division' && (<>
@@ -102,63 +71,9 @@ export default function DivisionTab({ caseData, divisionDetails, onRefresh, patc
         </FieldGrid>
       </Section>
 
-      {/* 分割内容 — 遺産分割の結果詳細（full-width） */}
-      <Section title="分割内容" icon="📊" actionLabel="＋ 追加" onAction={() => setShowAddDetail(true)}>
-        {divisionDetails.length === 0 && !showAddDetail ? (
-          <div className="text-sm text-gray-400 text-center py-6">
-            分割内容を追加してください
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-4 -mb-3">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  {['財産区分', '分割方法', '取得者・割合', '確定内容', ''].map(h => (
-                    <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider bg-gray-50 border-b border-gray-200">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {divisionDetails.map(detail => (
-                  <tr key={detail.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF]">
-                    <td className="px-3 py-2.5 text-[13px] font-semibold text-gray-900">{detail.asset_category}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-gray-600">{detail.division_method ?? '—'}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-gray-600">
-                      {detail.recipient ?? '—'}
-                      {detail.share_ratio && <span className="ml-1 text-[12px] text-gray-400">({detail.share_ratio})</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-[13px] text-gray-600">{detail.description ?? '—'}</td>
-                    <td className="px-3 py-2.5">
-                      <button
-                        onClick={() => handleDeleteDetail(detail.id)}
-                        className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
-                        title="削除"
-                      ><Trash2 className="w-3 h-3" strokeWidth={1.75} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {showAddDetail && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-              <FormField label="財産区分 *" value={detailForm.asset_category} onChange={v => setDetailForm(f => ({ ...f, asset_category: v }))} placeholder="不動産, 預貯金, 有価証券 等" />
-              <SelectField label="分割方法" value={detailForm.division_method} onChange={v => setDetailForm(f => ({ ...f, division_method: v }))} options={[...DIVISION_METHODS]} />
-              <FormField label="取得者" value={detailForm.recipient} onChange={v => setDetailForm(f => ({ ...f, recipient: v }))} />
-              <FormField label="取得割合" value={detailForm.share_ratio} onChange={v => setDetailForm(f => ({ ...f, share_ratio: v }))} placeholder="1/2, 100% 等" />
-              <div className="md:col-span-2">
-                <FormField label="確定内容" value={detailForm.description} onChange={v => setDetailForm(f => ({ ...f, description: v }))} />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowAddDetail(false)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-              <button onClick={handleAddDetail} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">追加</button>
-            </div>
-          </div>
-        )}
+      {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
+      <Section title="分割内容">
+        <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} onRefresh={onRefresh} />
       </Section>
       </>)}
 
@@ -314,37 +229,3 @@ function InlineEdit({ label, value, onSave, mono, fullWidth }: {
   )
 }
 
-// ─── Local form fields ───
-
-function FormField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <div>
-      <label className="text-[12px] font-semibold text-gray-500 block mb-1">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-      />
-    </div>
-  )
-}
-
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[] }) {
-  return (
-    <div>
-      <label className="text-[12px] font-semibold text-gray-500 block mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition bg-white"
-      >
-        <option value="">選択してください</option>
-        {options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-    </div>
-  )
-}

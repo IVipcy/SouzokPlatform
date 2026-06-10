@@ -35,6 +35,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
       <Section title="財産調査">
         <FieldGrid>
           <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
+          <InlineEdit label="財産調査禁止期間" value={caseData.financial_survey_prohibited_period} onSave={v => save('financial_survey_prohibited_period', v)} />
+          <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
           <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
           <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
         </FieldGrid>
