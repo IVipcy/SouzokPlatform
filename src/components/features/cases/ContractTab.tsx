@@ -8,7 +8,7 @@ import {
   Section, FieldGrid, Field,
   InlineCurrency, InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
+import type { CaseRow, ExpenseRow, TaskRow, PartnerRow, CaseReferralRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -18,12 +18,14 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時: 請求サマリーを非表示
   orderSheetMode?: boolean
+  // 他事業者紹介（紹介料を付帯収益に合算）
+  referrals?: CaseReferralRow[]
 }
 
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false }: Props) {
+export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
   const [partner, setPartner] = useState<PartnerRow | null>(null)
 
   // パートナー取得
@@ -50,8 +52,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
   const feeRealEstate = caseData.fee_real_estate ?? 0
-  const feeTaxReferral = caseData.fee_tax_referral ?? 0
-  const totalRevenue = feeSubtotal + feeRealEstate + feeTaxReferral
+  // 案A: 他事業者紹介の見込み報酬（紹介料）を付帯収益に合算
+  const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
+  const totalRevenue = feeSubtotal + feeRealEstate + referralFeeTotal
 
   const getRelatedTaskName = (expense: ExpenseRow) => {
     if (expense.related_task_id) {
@@ -132,19 +135,34 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
           {/* 3. 付帯収益 */}
           <Section title="付帯収益" icon="💹">
-            <FieldGrid>
+            <FieldGrid cols={1}>
               <InlineCurrency
                 label="不動産売却手数料見込"
                 value={caseData.fee_real_estate}
                 onSave={v => save('fee_real_estate', v)}
               />
-              <InlineCurrency
-                label="税理士紹介手数料"
-                value={caseData.fee_tax_referral}
-                onSave={v => save('fee_tax_referral', v)}
-              />
             </FieldGrid>
-            <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
+            {/* 他事業者紹介の紹介料（見込み報酬）を自動集計（「他事業者紹介」タブで入力） */}
+            <div className="border-t border-gray-100 pt-2 mt-2">
+              <div className="text-[12px] font-semibold text-gray-400 mb-1">他事業者紹介 紹介料（見込み）</div>
+              {referrals.length === 0 ? (
+                <div className="text-[12px] text-gray-300">他事業者紹介はありません（「他事業者紹介」タブで登録）</div>
+              ) : (
+                <div className="space-y-0.5">
+                  {referrals.map(r => (
+                    <div key={r.id} className="flex justify-between text-[13px]">
+                      <span className="text-gray-500">{r.partner_type}{r.firm_name ? `（${r.firm_name}）` : ''}</span>
+                      <span className="font-mono text-gray-700">{yen(r.estimated_fee)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-[13px] border-t border-gray-50 pt-1 mt-1">
+                    <span className="text-gray-500 font-medium">紹介料合計</span>
+                    <span className="font-mono font-semibold text-gray-800">{yen(referralFeeTotal || null)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-2">
               <span className="text-gray-500 font-medium text-sm">案件トータル収益見込</span>
               <span className="text-brand-600 font-bold text-base">{yen(totalRevenue || null)}</span>
             </div>
@@ -187,8 +205,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 <span className="font-mono">{feeRealEstate > 0 ? `¥${feeRealEstate.toLocaleString()}` : '—'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="opacity-70">税理士紹介手数料</span>
-                <span className="font-mono">{feeTaxReferral > 0 ? `¥${feeTaxReferral.toLocaleString()}` : '—'}</span>
+                <span className="opacity-70">他事業者紹介 紹介料</span>
+                <span className="font-mono">{referralFeeTotal > 0 ? `¥${referralFeeTotal.toLocaleString()}` : '—'}</span>
               </div>
             </div>
           </div>

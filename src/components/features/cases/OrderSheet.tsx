@@ -122,7 +122,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={8} title="契約・報酬・請求">
-        <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
+        <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} />
       </OSSection>
     </div>
   )
