@@ -5,9 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { FinancialAssetRow } from '@/types'
 
-// asset_type → カテゴリ表示
-const CAT_LABEL: Record<string, string> = { '預貯金': '預金', '証券': '証券', '信託銀行': '信託' }
-const REQUIRED_OPTIONS = ['要', '不要', '確認中']
+const CANCEL = ['有', '無', '確認中']
+
+const SUBTABS: { key: string; kind: string; label: string }[] = [
+  { key: 'deposit', kind: '預貯金', label: '預金' },
+  { key: 'securities', kind: '証券', label: '証券' },
+  { key: 'trust', kind: '信託銀行', label: '信託' },
+]
 
 type Props = {
   financialAssets: FinancialAssetRow[]
@@ -16,86 +20,90 @@ type Props = {
 
 /**
  * 解約手続タブ
- * 財産調査で登録した金融機関を表形式で表示し、機関ごとに解約要否・解約日・禁止事項を入力する。
- * （金融機関の追加・削除は財産調査タブで行う）
+ * 財産調査で登録した金融機関を 預金/証券/信託 の子タブで表示し、機関ごとに
+ * 解約有無・解約予定日・解約書類請求日・到着日・解約完了 を管理する。
  */
 export default function CancellationTab({ financialAssets, onRefresh }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
+  const [sub, setSub] = useState('deposit')
+  const kind = SUBTABS.find(t => t.key === sub)?.kind ?? '預貯金'
+  const list = rows.filter(r => r.asset_type === kind)
 
-  const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
+  const save = async (id: string, field: keyof FinancialAssetRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
-
-  const commit = async (id: string, field: keyof FinancialAssetRow, value: string) => {
     const { error } = await supabase.from('financial_assets').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
 
-  if (rows.length === 0) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg px-4 py-10 text-center text-[13px] text-gray-400">
-        財産調査タブで金融機関（預金・証券・信託）を登録すると、ここで解約要否を入力できます。
-      </div>
-    )
-  }
-
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-            <th className="px-2.5 py-2 text-left font-semibold w-20">カテゴリ</th>
-            <th className="px-2.5 py-2 text-left font-semibold">金融機関名</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-28">支店</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-28">解約要否</th>
-            <th className="px-2.5 py-2 text-left font-semibold w-36">解約日</th>
-            <th className="px-2.5 py-2 text-left font-semibold">解約時の禁止事項</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-              <td className="px-2.5 py-2">
-                <span className="inline-block text-[11px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
-                  {CAT_LABEL[r.asset_type] ?? r.asset_type}
-                </span>
-              </td>
-              <td className="px-2.5 py-2 font-semibold text-gray-800">{r.institution_name || <span className="text-gray-300">—</span>}</td>
-              <td className="px-2.5 py-2 text-gray-600">{r.branch_name || <span className="text-gray-300">—</span>}</td>
-              <td className="px-2.5 py-2">
-                <select
-                  value={r.cancellation_required ?? ''}
-                  onChange={e => { setLocal(r.id, 'cancellation_required', e.target.value); commit(r.id, 'cancellation_required', e.target.value) }}
-                  className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
-                >
-                  <option value="">—</option>
-                  {REQUIRED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </td>
-              <td className="px-2.5 py-2">
-                <input
-                  type="date"
-                  value={r.cancellation_date ?? ''}
-                  onChange={e => setLocal(r.id, 'cancellation_date', e.target.value)}
-                  onBlur={e => commit(r.id, 'cancellation_date', e.target.value)}
-                  className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
-                />
-              </td>
-              <td className="px-2.5 py-2">
-                <input
-                  type="text"
-                  value={r.cancellation_restrictions ?? ''}
-                  onChange={e => setLocal(r.id, 'cancellation_restrictions', e.target.value)}
-                  onBlur={e => commit(r.id, 'cancellation_restrictions', e.target.value)}
-                  placeholder="例：相続人全員の同意が必要 等"
-                  className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-3 flex-wrap">
+        {SUBTABS.map(t => (
+          <button key={t.key} type="button" onClick={() => setSub(t.key)} className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center text-[13px] text-gray-400">
+          財産調査タブで{SUBTABS.find(t => t.key === sub)?.label}を登録すると、ここで解約手続を管理できます。
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1000 }}>
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+                <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-32">書類請求日</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
+                <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
+                <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((r, i) => (
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  <td className="px-2.5 py-2 font-semibold text-gray-800">{r.institution_name || <span className="text-gray-300">—</span>}</td>
+                  <td className="px-2.5 py-1.5">
+                    <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                      <option value="">—</option>
+                      {CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </td>
+                  <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
+                  <DateCell value={r.cancellation_request_date} onSave={v => save(r.id, 'cancellation_request_date', v || null)} />
+                  <DateCell value={r.cancellation_arrival_date} onSave={v => save(r.id, 'cancellation_arrival_date', v || null)} />
+                  <td className="px-2.5 py-1.5 text-center">
+                    <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                  </td>
+                  <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
+  )
+}
+
+function DateCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <input type="date" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+    </td>
+  )
+}
+
+function TextCell({ value, onSave, placeholder }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <input type="text" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }} placeholder={placeholder} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+    </td>
   )
 }

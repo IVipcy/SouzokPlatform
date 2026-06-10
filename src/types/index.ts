@@ -485,8 +485,12 @@ export type RealEstatePropertyRow = {
   sale_agent_name: string | null
   has_survey_map: boolean
   has_route_price: boolean
-  // 相続登記（migration 066）
+  // 相続登記（migration 066 / 071）
   title_change_required: string | null            // 名義変更要否（要/不要/確認中）
+  title_change_date: string | null                // 名義変更実施日
+  title_change_request_date: string | null        // 必要情報の請求日
+  title_change_arrival_date: string | null        // 必要情報の到着日
+  title_change_done: boolean                      // 名義変更完了
   registration_data: Record<string, string> | null // 任意項目の値（{列名:値}）
   // 名寄せ・取得物（migration 069）
   name_consolidation_arrival_date: string | null  // 名寄せ到着日
@@ -528,9 +532,12 @@ export type FinancialAssetRow = {
   additional_info: Record<string, unknown> | null
   notes: string | null
   // 解約手続（migration 065）
-  cancellation_required: string | null      // 要 / 不要 / 確認中（解約有無にも流用）
-  cancellation_date: string | null          // 解約日
+  cancellation_required: string | null      // 解約有無（有/無/確認中）
+  cancellation_date: string | null          // 解約予定日
   cancellation_restrictions: string | null  // 解約時の禁止事項
+  cancellation_request_date: string | null  // 解約書類の請求日（migration 070）
+  cancellation_arrival_date: string | null  // 解約書類の到着日（migration 070）
+  cancellation_done: boolean                // 解約完了（migration 070）
   // 調査・進捗（migration 068）
   all_branch_survey: string | null          // 全店調査要否（預金）
   balance_cert_required: string | null      // 残高証明要否（預金/証券）
