@@ -1,4 +1,4 @@
-import type { FinancialAssetRow, RealEstatePropertyRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow } from '@/types'
 
 /**
  * 取得物（deliverable）= 「何を・どこに請求し・いつ受領するか」の進捗単位。
@@ -9,8 +9,8 @@ import type { FinancialAssetRow, RealEstatePropertyRow } from '@/types'
 export type DeliverableOption = {
   value: string          // `${kind}:${id}:${field}`
   label: string          // 表示名（例: ○○銀行 残高証明）
-  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産）
-  kind: 'financial_asset' | 'real_estate'
+  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍）
+  kind: 'financial_asset' | 'real_estate' | 'koseki'
   id: string
   field: string          // 受領日カラム名
 }
@@ -43,6 +43,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 export function deliverableLinkLabel(linkedKind: string | null, linkedField: string | null): string | null {
   if (!linkedKind || !linkedField) return null
+  if (linkedKind === 'koseki') return '戸籍'
   const item = FIELD_LABELS[linkedField] ?? '取得物'
   const cat = linkedKind === 'real_estate' ? '不動産' : '金融機関'
   return `${cat}・${item}`
@@ -51,6 +52,7 @@ export function deliverableLinkLabel(linkedKind: string | null, linkedField: str
 export function buildDeliverableOptions(
   financialAssets: FinancialAssetRow[],
   realEstate: RealEstatePropertyRow[],
+  kosekiRequests: KosekiRequestRow[] = [],
 ): DeliverableOption[] {
   const opts: DeliverableOption[] = []
 
@@ -93,6 +95,19 @@ export function buildDeliverableOptions(
         field: it.recv as string,
       })
     }
+  }
+
+  for (const k of kosekiRequests) {
+    const parts = [k.request_to, k.target_person, k.doc_types].filter(Boolean)
+    const label = parts.length > 0 ? parts.join(' / ') : '戸籍請求'
+    opts.push({
+      value: `koseki:${k.id}:arrival_date`,
+      label,
+      group: '戸籍',
+      kind: 'koseki',
+      id: k.id,
+      field: 'arrival_date',
+    })
   }
 
   return opts
