@@ -16,6 +16,7 @@ export type ConsultCase = {
   case_number: string
   deal_name: string
   status: string
+  created_at?: string | null
   meeting_executed_date: string | null
   client_response_due_date: string | null
   /** 送客元 = 案件詳細の「詳細受注ルート」 */
@@ -50,7 +51,7 @@ type Props = {
 // ※ 長期保留・紹介のみは「個別管理案件」へ分類変更したため除外
 const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '失注'] as const
 
-type SortKey = 'response_due' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
+type SortKey = 'created' | 'response_due' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
 type SortOrder = 'asc' | 'desc'
 
 const STATUS_ORDER: Record<string, number> = Object.fromEntries(
@@ -69,8 +70,9 @@ const formatMan = (yen: number): string => {
  */
 export default function ConsultationCasesTable({ cases, manageMode = false }: Props) {
   const router = useRouter()
-  const [sortKey, setSortKey] = useState<SortKey>('response_due')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  // 案件管理（manageMode）は案件作成日の降順を既定に。マイページは従来どおり回答予定日順。
+  const [sortKey, setSortKey] = useState<SortKey>(manageMode ? 'created' : 'response_due')
+  const [sortOrder, setSortOrder] = useState<SortOrder>(manageMode ? 'desc' : 'asc')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -86,6 +88,10 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
     arr.sort((a, b) => {
       let av: string | number = '', bv: string | number = ''
       switch (sortKey) {
+        case 'created':
+          av = a.created_at ?? ''
+          bv = b.created_at ?? ''
+          break
         case 'response_due':
           av = a.client_response_due_date ?? '9999-12-31'
           bv = b.client_response_due_date ?? '9999-12-31'
@@ -169,18 +175,21 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
         <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
           {sorted.length}件
         </span>
-        <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-          <FilterChip label="すべて" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
-          {CONSULT_STATUS_FILTERS.map(s => (
-            <FilterChip
-              key={s}
-              label={getCaseStatusLabel(s)}
-              active={statusFilter === s}
-              onClick={() => setStatusFilter(s)}
-              count={cases.filter(c => c.status === s).length}
-            />
-          ))}
-        </div>
+        {/* 案件管理ページではページ上部のステータス絞り込みを使うため、ここでは非表示 */}
+        {!manageMode && (
+          <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
+            <FilterChip label="すべて" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
+            {CONSULT_STATUS_FILTERS.map(s => (
+              <FilterChip
+                key={s}
+                label={getCaseStatusLabel(s)}
+                active={statusFilter === s}
+                onClick={() => setStatusFilter(s)}
+                count={cases.filter(c => c.status === s).length}
+              />
+            ))}
+          </div>
+        )}
         {manageMode && selected.size > 0 ? (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>

@@ -171,6 +171,7 @@ export default async function CasesPage() {
     case_number: c.case_number,
     deal_name: c.deal_name,
     status: c.status,
+    created_at: c.created_at,
     meeting_executed_date: c.meeting_executed_date,
     client_response_due_date: c.client_response_due_date,
     order_route_detail: c.order_route_detail,
