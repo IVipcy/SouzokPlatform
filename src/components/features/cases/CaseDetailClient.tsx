@@ -17,6 +17,7 @@ import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
 import DocsBundleTab from './DocsBundleTab'
 import ReferralTab from './ReferralTab'
+import CancellationTab from './CancellationTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
@@ -212,7 +213,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <TabPlaceholder title="相続登記" note="項目は今後ヒアリングのうえ追加予定です。" />
       )}
       {effectiveTab === 'cancellation' && (
-        <TabPlaceholder title="解約等（銀行・証券・自動車）" note="項目は今後ヒアリングのうえ追加予定です。" />
+        <CancellationTab financialAssets={financialAssets} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'referral' && (
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />

@@ -507,6 +507,10 @@ export type FinancialAssetRow = {
   stock_name: string | null
   additional_info: Record<string, unknown> | null
   notes: string | null
+  // 解約手続（migration 065）
+  cancellation_required: string | null      // 要 / 不要 / 確認中
+  cancellation_date: string | null          // 解約日
+  cancellation_restrictions: string | null  // 解約時の禁止事項
   created_at: string
 }
 

@@ -8,6 +8,7 @@ import ClientInfoTab from './ClientInfoTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
 import ReferralTab from './ReferralTab'
+import CancellationTab from './CancellationTab'
 import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
 import type {
@@ -116,7 +117,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={7} title="解約等（銀行・証券・自動車）">
-        <OSPlaceholder note="項目は今後ヒアリングのうえ追加予定です。" />
+        <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} />
       </OSSection>
 
       <OSSection index={8} title="契約・報酬・請求">
