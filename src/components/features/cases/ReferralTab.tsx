@@ -65,7 +65,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
   }
 
   return (
-    <div className="max-w-3xl space-y-3.5">
+    <div className="space-y-3.5">
       <Section title="他事業者紹介">
         {/* サブタブ：登録済み業者＋追加 */}
         <div className="flex items-center gap-1 border-b border-gray-200 mb-3 flex-wrap">

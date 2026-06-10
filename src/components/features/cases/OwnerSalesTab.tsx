@@ -34,7 +34,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
   const managerMembers = caseMembers.filter(cm => cm.role === 'manager')
 
   return (
-    <div className="max-w-3xl space-y-3.5">
+    <div className="space-y-3.5">
       {/* 担当者 */}
       <Section title="担当者">
         <FieldGrid>

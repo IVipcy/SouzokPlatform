@@ -71,8 +71,16 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
 }
 
 // ─── FieldGrid ───
+// 2項目/行を基本にした、テーブル風の見た目で統一（白セル＋薄いグリッド線）。
+// 各タブで共通利用するため、ここを変えると全タブのフィールド表示が揃う。
 export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: number }) {
-  return <div className={`grid ${cols === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-0`}>{children}</div>
+  return (
+    <div
+      className={`grid ${cols === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
+    >
+      {children}
+    </div>
+  )
 }
 
 // ─── Field (read-only) ───

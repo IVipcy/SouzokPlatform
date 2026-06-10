@@ -43,7 +43,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
 
   return (
-    <div className="max-w-3xl space-y-3.5">
+    <div className="space-y-3.5">
       {/* ① 案件情報 */}
       <Section title="案件情報">
         <FieldGrid>

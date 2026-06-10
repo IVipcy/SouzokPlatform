@@ -87,50 +87,51 @@ export default function OrderSheet({
         )}
       </div>
 
-      <OSSection title="依頼者情報">
+      <OSSection index={0} title="依頼者情報">
         <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} />
       </OSSection>
 
-      <OSSection title="相続人調査">
+      <OSSection index={1} title="相続人調査">
         <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} />
       </OSSection>
 
-      <OSSection title="財産調査">
+      <OSSection index={2} title="財産調査">
         <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} />
       </OSSection>
 
-      <OSSection title="他事業者紹介">
+      <OSSection index={3} title="他事業者紹介">
         <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} />
       </OSSection>
 
-      <OSSection title="遺産分割">
+      <OSSection index={4} title="遺産分割">
         <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={onRefresh} patchCase={patchCase} mode="division" />
       </OSSection>
 
-      <OSSection title="遺言">
+      <OSSection index={5} title="遺言">
         <DivisionTab caseData={caseData} divisionDetails={divisionDetails} onRefresh={onRefresh} patchCase={patchCase} mode="will" />
       </OSSection>
 
-      <OSSection title="相続登記">
+      <OSSection index={6} title="相続登記">
         <OSPlaceholder note="項目は今後ヒアリングのうえ追加予定です。" />
       </OSSection>
 
-      <OSSection title="解約等（銀行・証券・自動車）">
+      <OSSection index={7} title="解約等（銀行・証券・自動車）">
         <OSPlaceholder note="項目は今後ヒアリングのうえ追加予定です。" />
       </OSSection>
 
-      <OSSection title="契約・報酬・請求">
+      <OSSection index={8} title="契約・報酬・請求">
         <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
     </div>
   )
 }
 
-// セクション見出し（縦積みの区切り）
-function OSSection({ title, children }: { title: string; children: React.ReactNode }) {
+// セクション見出し（縦積みの区切り）。index で背景色を2色交互にして境目を明確化。
+function OSSection({ title, index = 0, children }: { title: string; index?: number; children: React.ReactNode }) {
+  const bandCls = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
   return (
-    <section>
-      <div className="flex items-center gap-2 mb-2">
+    <section className={`rounded-xl border border-gray-200 ${bandCls} px-4 py-4`}>
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
         <span className="inline-block w-1 h-5 bg-brand-600 rounded-full" />
         <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
       </div>
