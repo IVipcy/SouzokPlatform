@@ -65,11 +65,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-
-        {/* ─── Left column ─── */}
-        <div className="space-y-3.5">
+    <div className="space-y-3.5">
 
           {/* 1. 契約情報（契約形態は「担当・受注内容」タブへ移設） */}
           <Section title="契約情報" icon="📄">
@@ -162,10 +158,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-2">
-              <span className="text-gray-500 font-medium text-sm">案件トータル収益見込</span>
-              <span className="text-brand-600 font-bold text-base">{yen(totalRevenue || null)}</span>
-            </div>
           </Section>
 
           {/* 4. パートナー報酬 */}
@@ -184,12 +176,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               報酬金額は「確定金額（行政）× 還元率」で自動計算されます。
             </div>
           </Section>
-        </div>
 
-        {/* ─── Right column ─── */}
-        <div className="space-y-3.5">
-
-          {/* 収益サマリーカード */}
+          {/* 収益サマリーカード（パートナー報酬の下に配置） */}
           <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
             <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件トータル収益見込</div>
             <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
@@ -260,8 +248,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               </p>
             </div>
           </Section>
-        </div>
-      </div>
 
       {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示 ─── */}
       {!orderSheetMode && (
