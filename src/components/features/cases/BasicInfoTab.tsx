@@ -123,7 +123,6 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
             <FieldGrid>
               <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
               <Field label="管理番号" value={caseData.case_number} mono />
-              <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
               <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
               <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
               <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />

@@ -33,17 +33,18 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = collapsible ? open : true
 
+  // フラットな見出し（角丸の箱で囲まない）。見出し＋細い区切り線でセクションを表現。
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-      <div className={`px-4 py-2.5 flex items-center gap-2 ${isOpen ? 'border-b border-gray-100' : ''}`}>
+    <section>
+      <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-gray-200">
         {collapsible ? (
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
             className="flex items-center gap-2 flex-1 min-w-0 text-left group"
           >
-            <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-            <h3 className="text-[13px] font-semibold text-gray-900 group-hover:text-brand-700 transition-colors">{title}</h3>
+            <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
+            <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em] group-hover:text-brand-700 transition-colors">{title}</h3>
             <svg
               className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
@@ -53,20 +54,20 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
           </button>
         ) : (
           <>
-            <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-            <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+            <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
+            <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">{title}</h3>
           </>
         )}
         {actionLabel && onAction && (
-          <button onClick={onAction} className="ml-auto text-[13px] text-brand-600 font-semibold hover:text-brand-700">+ {actionLabel}</button>
+          <button onClick={onAction} className="ml-auto text-[13px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
         )}
       </div>
       {isOpen && (
-        <div className="px-4 py-3">
+        <div>
           {children}
         </div>
       )}
-    </div>
+    </section>
   )
 }
 

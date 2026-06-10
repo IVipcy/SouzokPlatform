@@ -4,13 +4,15 @@
    タイポグラフィ・カラー基盤
    ──────────────────────────────────────── */
 @theme inline {
-  /* フォントスタック: 英数字は Inter、日本語は Noto Sans JP */
+  /* フォントスタック: ヒラギノ角ゴ優先（無い環境は Noto Sans JP / 游ゴシック にフォールバック） */
   --font-sans:
-    var(--font-inter), var(--font-noto-sans-jp),
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo",
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "ヒラギノ角ゴ ProN W3",
+    var(--font-noto-sans-jp), "Yu Gothic Medium", "Yu Gothic", "YuGothic", "Meiryo",
     system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* 数字・日付も同じヒラギノ角ゴに統一（等幅をやめる） */
   --font-mono:
-    var(--font-jetbrains-mono), "SF Mono", Menlo, Consolas, monospace;
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+    var(--font-noto-sans-jp), "Yu Gothic", system-ui, sans-serif;
 
   /* ─── ブランドカラー（OCEAN GROUP ネイビー基調）─── */
   /* メインの広い面は白／グレー、アクセントとしてこのブランド色を10〜15%使用 */
