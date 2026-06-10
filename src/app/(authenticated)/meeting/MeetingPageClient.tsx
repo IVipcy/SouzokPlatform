@@ -14,13 +14,14 @@ export type SelectedCase = {
   phone: string
 } | null
 
-type CaseData = CaseRow & { clients?: ClientRow | null }
+export type CaseData = CaseRow & { clients?: ClientRow | null }
 
 type Props = {
   cases: CaseData[]
+  currentMemberId: string | null
 }
 
-export default function MeetingPageClient({ cases }: Props) {
+export default function MeetingPageClient({ cases, currentMemberId }: Props) {
   const [selectedCase, setSelectedCase] = useState<SelectedCase>(null)
 
   const handleSelectCase = useCallback((c: SelectedCase) => {
@@ -53,7 +54,7 @@ export default function MeetingPageClient({ cases }: Props) {
       {!selectedCase ? (
         <CaseSelectScreen cases={cases} onSelect={handleSelectCase} />
       ) : (
-        <MeetingForm selectedCase={selectedCase} onBack={handleBack} />
+        <MeetingForm selectedCase={selectedCase} onBack={handleBack} currentMemberId={currentMemberId} />
       )}
     </div>
   )

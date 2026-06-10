@@ -21,7 +21,7 @@ type Props = {
 
 /**
  * 担当・受注内容タブ（受託・オーダーシート作成済から表示）
- *   担当者（受注担当 / 管理担当〔割り振りボタン付き〕/ サブ管理担当）
+ *   担当者（受注担当〔案件作成者を自動セット〕/ 管理担当〔割り振りボタン付き〕）
  *   受注内容（手続区分 / その他手続 / 契約形態 / 付帯サービス）
  *   受注ルート（受注ルート / 詳細 / パートナー / 紹介先名）
  */
@@ -32,7 +32,6 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
   const managerMembers = caseMembers.filter(cm => cm.role === 'manager')
-  const subManagerMembers = caseMembers.filter(cm => cm.role === 'sub_manager')
 
   return (
     <div className="max-w-3xl space-y-3.5">
@@ -41,7 +40,6 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
         <FieldGrid>
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
-          <InlineMemberSelect label="サブ管理担当" roleKey="sub_manager" assigned={subManagerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
         </FieldGrid>
         {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る） */}
         <div className="mt-2.5 pt-2.5 border-t border-gray-100">

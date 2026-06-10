@@ -14,6 +14,8 @@ import {
 type Props = {
   selectedCase: NonNullable<SelectedCase>
   onBack: () => void
+  // 案件作成者（受注担当として自動セット）
+  currentMemberId: string | null
 }
 
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.map(k => ({ key: k, label: getCaseStatusLabel(k) }))
@@ -121,7 +123,7 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, onBack }: Props) {
+export default function MeetingForm({ selectedCase, onBack, currentMemberId }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
@@ -207,6 +209,10 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
         const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
         if (error) throw new Error(`案件の保存に失敗: ${error.message}`)
         caseId = newCase.id
+        // 受注担当＝案件作成者を自動セット
+        if (currentMemberId) {
+          await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
+        }
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
@@ -226,7 +232,7 @@ export default function MeetingForm({ selectedCase, onBack }: Props) {
       setSaving(false)
       return false
     }
-  }, [selectedCase, router])
+  }, [selectedCase, router, currentMemberId])
 
   const nextStep = useCallback(async () => {
     setCompletedSteps(prev => new Set(prev).add(step))

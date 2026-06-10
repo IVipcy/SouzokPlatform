@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import MeetingPageClient from './MeetingPageClient'
+import { getCurrentUser } from '@/lib/auth'
+import MeetingPageClient, { type CaseData } from './MeetingPageClient'
 
 export default async function MeetingPage() {
   const supabase = await createClient()
+  const currentUser = await getCurrentUser()
 
   const { data: cases } = await supabase
     .from('cases')
@@ -10,5 +12,5 @@ export default async function MeetingPage() {
     .eq('status', '面談設定済')
     .order('created_at', { ascending: false })
 
-  return <MeetingPageClient cases={(cases ?? []) as any} />
+  return <MeetingPageClient cases={(cases ?? []) as unknown as CaseData[]} currentMemberId={currentUser?.memberId ?? null} />
 }
