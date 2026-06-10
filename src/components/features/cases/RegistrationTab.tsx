@@ -25,9 +25,9 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const columns = caseData.registration_columns ?? []
 
-  const saveTitleChange = async (id: string, value: string) => {
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, title_change_required: value || null } : r)))
-    const { error } = await supabase.from('real_estate_properties').update({ title_change_required: value || null }).eq('id', id)
+  const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
+    const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
@@ -64,12 +64,16 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 700 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1100 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-              <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-28">名義変更要否</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">名義変更要否</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-32">実施日</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-32">必要情報請求日</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
+              <th className="px-2.5 py-2 text-center font-semibold w-16">完了</th>
               {columns.map(col => (
                 <th key={col} className="px-2.5 py-2 text-left font-semibold w-40">
                   <span className="inline-flex items-center gap-1">
@@ -91,11 +95,15 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                 <td className="px-2.5 py-2 text-gray-700">{r.property_type || <span className="text-gray-300">—</span>}</td>
                 <td className="px-2.5 py-2 font-medium text-gray-800">{r.address || <span className="text-gray-300">—</span>}</td>
                 <td className="px-2.5 py-1.5">
-                  <select value={r.title_change_required ?? ''} onChange={e => saveTitleChange(r.id, e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                  <select value={r.title_change_required ?? ''} onChange={e => saveField(r.id, 'title_change_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                     <option value="">—</option>
                     {TITLE_CHANGE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </td>
+                <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.title_change_date ?? ''} onBlur={e => { if (e.target.value !== (r.title_change_date ?? '')) saveField(r.id, 'title_change_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>
+                <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.title_change_request_date ?? ''} onBlur={e => { if (e.target.value !== (r.title_change_request_date ?? '')) saveField(r.id, 'title_change_request_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>
+                <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.title_change_arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.title_change_arrival_date ?? '')) saveField(r.id, 'title_change_arrival_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>
+                <td className="px-2.5 py-1.5 text-center"><input type="checkbox" checked={!!r.title_change_done} onChange={e => saveField(r.id, 'title_change_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" /></td>
                 {columns.map(col => (
                   <td key={col} className="px-2.5 py-1.5">
                     <CustomCell value={r.registration_data?.[col] ?? ''} onCommit={v => saveCustom(r, col, v)} />
