@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, HeirRow } from '@/types'
+import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import {
@@ -167,7 +168,10 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
             <FieldGrid>
               <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
               <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
-              <InlineDate label="被相続人生年月日" value={caseData.deceased_birth_date} onSave={v => saveCaseField('deceased_birth_date', v)} />
+              <div className="py-1.5">
+                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人生年月日</div>
+                <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => saveCaseField('deceased_birth_date', v)} />
+              </div>
               <InlineEdit label="被相続人年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => patchCase({ deceased_age: v.trim() === '' ? null : Number(v) })} />
               <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} required />
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />

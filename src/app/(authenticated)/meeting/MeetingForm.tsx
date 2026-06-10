@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
@@ -358,7 +359,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                       </td>
                       <td className="px-2 py-1.5"><CellInput value={c.name} onChange={v => updateClient(i, { name: v })} placeholder="山田 太郎" /></td>
                       <td className="px-2 py-1.5"><CellInput value={c.kana} onChange={v => updateClient(i, { kana: v })} placeholder="やまだ たろう" /></td>
-                      <td className="px-2 py-1.5"><CellInput type="date" value={c.birthday} onChange={v => updateClient(i, { birthday: v })} /></td>
+                      <td className="px-2 py-1.5"><BirthdayPicker value={c.birthday} onChange={v => updateClient(i, { birthday: v })} /></td>
                       <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? `${age}` : <span className="text-gray-300">—</span>}</td>
                       <td className="px-2 py-1.5"><CellInput value={c.relationship} onChange={v => updateClient(i, { relationship: v })} placeholder="長男 等" /></td>
                       <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="090-..." /></td>

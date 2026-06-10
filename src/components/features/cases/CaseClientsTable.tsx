@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import type { CaseClientRow } from '@/types'
 
 // 生年月日から年齢を算出
@@ -96,7 +97,9 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
                     </td>
                     <Cell value={r.name} onChange={v => setLocal(r.id, 'name', v)} onCommit={v => commit(r.id, 'name', v)} placeholder="山田 太郎" />
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
-                    <Cell value={r.birth_date} type="date" onChange={v => setLocal(r.id, 'birth_date', v)} onCommit={v => commit(r.id, 'birth_date', v)} />
+                    <td className="px-2 py-1.5">
+                      <BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} />
+                    </td>
                     <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? age : <span className="text-gray-300">—</span>}</td>
                     <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
                     <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="090-..." />
