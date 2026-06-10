@@ -41,7 +41,7 @@ export type TabVisibility = {
 
 // 受託OS作成済／管理案件で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'clientInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'ownerSales', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
   'docs', 'documentCreate', 'tasks', 'meeting',
 ]

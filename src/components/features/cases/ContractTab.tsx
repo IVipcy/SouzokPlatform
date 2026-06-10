@@ -6,9 +6,8 @@ import { ExternalLink, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Section, FieldGrid, Field,
-  InlineSelect, InlineCurrency, InlineDate, InlineTextarea,
+  InlineCurrency, InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { CONTRACT_TYPES } from '@/lib/constants'
 import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
 
 type Props = {
@@ -27,6 +26,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
   // パートナー取得
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!caseData.partner_id) { setPartner(null); return }
     const fetchPartner = async () => {
       const supabase = createClient()
@@ -66,16 +66,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         {/* ─── Left column ─── */}
         <div className="space-y-3.5">
 
-          {/* 1. 契約情報 */}
+          {/* 1. 契約情報（契約形態は「担当・受注内容」タブへ移設） */}
           <Section title="契約情報" icon="📄">
             <FieldGrid>
-              <InlineSelect
-                label="契約形態"
-                value={caseData.contract_type}
-                options={[...CONTRACT_TYPES]}
-                onSave={v => save('contract_type', v)}
-                required
-              />
               <InlineDate
                 label="契約日"
                 value={caseData.contract_date}
