@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { FinancialAssetRow } from '@/types'
@@ -26,6 +26,9 @@ type Props = {
 export default function CancellationTab({ financialAssets, onRefresh }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
+  // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
+  // オーダーシート等で常時マウントされる場合に初期 props のまま固まるのを防ぐ。
+  useEffect(() => { setRows(financialAssets) }, [financialAssets])
   const [sub, setSub] = useState('deposit')
   const kind = SUBTABS.find(t => t.key === sub)?.kind ?? '預貯金'
   const list = rows.filter(r => r.asset_type === kind)
