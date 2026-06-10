@@ -13,7 +13,7 @@ import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
 import type {
-  CaseRow, CaseReferralRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow,
+  CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow,
   DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow,
 } from '@/types'
 
@@ -23,6 +23,7 @@ type Props = {
   patchClient: (patch: Record<string, unknown>) => Promise<void>
   onRefresh: () => void
   heirs: HeirRow[]
+  kosekiRequests: KosekiRequestRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
@@ -42,7 +43,7 @@ type Props = {
  */
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
-  heirs, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients,
+  heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients,
 }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
@@ -94,7 +95,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={1} title="相続人調査">
-        <DeceasedTab caseData={caseData} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} />
+        <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
 
       <OSSection index={2} title="財産調査">

@@ -1,31 +1,43 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
+import { KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import type { KosekiRequestRow } from '@/types'
 
 type Props = {
   caseId: string
   requests: KosekiRequestRow[]
   onRefresh?: () => void
+  // オーダーシート埋め込み時は進捗列（請求日・到着日）を出さない
+  orderSheetMode?: boolean
 }
 
 /**
  * 戸籍請求を「請求単位」でインライン編集・行追加する表。
- * どこに(request_to)・誰の(target_person)・何を(doc_types)・何のために(purpose)
- * いつ請求したか(request_date)・いつ届いたか(arrival_date) を管理する。
+ * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
+ * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const progressMode = !orderSheetMode
 
   const setLocal = (id: string, field: keyof KosekiRequestRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as KosekiRequestRow : r)))
 
   const commit = async (id: string, field: keyof KosekiRequestRow, value: string) => {
+    const { error } = await supabase.from('koseki_requests').update({ [field]: value === '' ? null : value }).eq('id', id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+  }
+
+  const saveField = async (id: string, field: keyof KosekiRequestRow, value: unknown) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as KosekiRequestRow : r)))
     const { error } = await supabase.from('koseki_requests').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
@@ -51,37 +63,34 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh }: Pro
     onRefresh?.()
   }
 
+  const colCount = progressMode ? 8 : 6
+
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1000 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1000 : 720 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+              <th className="px-1 py-2 w-7" />
               <th className="px-2.5 py-2 text-left font-semibold w-44">請求先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">対象者</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
             ) : (
               rows.map((r, i) => (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
-                  <Cell value={r.target_person} onChange={v => setLocal(r.id, 'target_person', v)} onCommit={v => commit(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
-                  <Cell value={r.doc_types} onChange={v => setLocal(r.id, 'doc_types', v)} onCommit={v => commit(r.id, 'doc_types', v)} placeholder="戸籍/除籍/原戸籍 等" />
-                  <Cell value={r.purpose} onChange={v => setLocal(r.id, 'purpose', v)} onCommit={v => commit(r.id, 'purpose', v)} placeholder="相続登記/遺産分割 等" />
-                  <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />
-                  <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />
-                  <td className="px-2.5 py-1.5 text-center">
-                    <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </td>
-                </tr>
+                <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode}
+                  open={expanded === r.id}
+                  onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
+                  setLocal={setLocal} commit={commit} saveField={saveField}
+                  onDelete={() => delRow(r)} colCount={colCount} />
               ))
             )}
           </tbody>
@@ -91,9 +100,54 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh }: Pro
         <Plus className="w-3.5 h-3.5" /> 戸籍請求を追加
       </button>
       <p className="mt-2 text-[11px] text-gray-400">
-        書類が届いたら「書類受信簿」から各行に紐づけて登録すると、到着日が自動反映されます。
+        行を開くと請求理由・特記事項を編集できます。{progressMode ? '書類が届いたら「書類受信簿」から各行に紐づけて登録すると到着日が自動反映されます。' : ''}
       </p>
     </div>
+  )
+}
+
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount }: {
+  r: KosekiRequestRow
+  odd: boolean
+  progressMode: boolean
+  open: boolean
+  onToggle: () => void
+  setLocal: (id: string, field: keyof KosekiRequestRow, value: string) => void
+  commit: (id: string, field: keyof KosekiRequestRow, value: string) => void
+  saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
+  onDelete: () => void
+  colCount: number
+}) {
+  return (
+    <>
+      <tr className={`border-b border-gray-100 ${odd ? 'bg-gray-50/40' : ''}`}>
+        <td className="px-1 py-1.5 text-center">
+          <button type="button" onClick={onToggle} className="text-gray-400 hover:text-brand-600" title="請求理由・特記">
+            {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+        </td>
+        <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
+        <Cell value={r.target_person} onChange={v => setLocal(r.id, 'target_person', v)} onCommit={v => commit(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
+        <Cell value={r.doc_types} onChange={v => setLocal(r.id, 'doc_types', v)} onCommit={v => commit(r.id, 'doc_types', v)} placeholder="戸籍/除籍/原戸籍 等" />
+        <Cell value={r.purpose} onChange={v => setLocal(r.id, 'purpose', v)} onCommit={v => commit(r.id, 'purpose', v)} placeholder="相続登記/遺産分割 等" />
+        {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
+        {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
+        <td className="px-2.5 py-1.5 text-center">
+          <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-b border-gray-100 bg-gray-50/40">
+          <td colSpan={colCount} className="px-4 py-3">
+            <FieldGrid>
+              <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} fullWidth />
+              <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} fullWidth />
+              <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />
+            </FieldGrid>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 

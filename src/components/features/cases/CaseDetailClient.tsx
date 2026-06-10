@@ -176,6 +176,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           patchClient={patchClient}
           onRefresh={handleSaved}
           heirs={heirs}
+          kosekiRequests={kosekiRequests}
           properties={properties}
           financialAssets={financialAssets}
           divisionDetails={divisionDetails}

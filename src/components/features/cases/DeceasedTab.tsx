@@ -14,17 +14,10 @@ import {
   Section,
   FieldGrid,
   InlineEdit,
-  InlineSelect,
-  InlineMultiSelect,
   InlineDate,
   InlineCheckbox,
-  InlineTextarea,
   FormField,
 } from '@/components/ui/InlineFields'
-import {
-  KOSEKI_REQUEST_REASONS,
-  KOSEKI_REQUEST_TYPES,
-} from '@/lib/constants'
 
 type Props = {
   caseData: CaseRow
@@ -32,6 +25,8 @@ type Props = {
   kosekiRequests?: KosekiRequestRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  // オーダーシート埋め込み時は戸籍請求の進捗列（請求日・到着日）を出さない
+  orderSheetMode?: boolean
 }
 
 const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
@@ -55,7 +50,7 @@ const emptyHeirForm = () => ({
   is_applicant: false,
 })
 
-export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false }: Props) {
   const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
@@ -188,47 +183,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
       {sub === 'koseki' && (
         <div className="space-y-3.5">
-          {/* 戸籍請求の全体設定（理由・目的など） */}
-          <Section title="戸籍請求関連（全体設定）" icon="📜">
-            <FieldGrid>
-              <InlineSelect
-                label="戸籍請求理由"
-                value={caseData.koseki_request_reason}
-                options={[...KOSEKI_REQUEST_REASONS]}
-                onSave={v => saveCaseField('koseki_request_reason', v)}
-                fullWidth
-              />
-              <InlineEdit
-                label="戸籍請求理由（その他）"
-                value={caseData.koseki_request_reason_other}
-                onSave={v => saveCaseField('koseki_request_reason_other', v)}
-                fullWidth
-              />
-              <InlineMultiSelect
-                label="請求の種別"
-                value={caseData.koseki_request_type}
-                options={[...KOSEKI_REQUEST_TYPES]}
-                onSave={v => saveCaseField('koseki_request_type', v)}
-                fullWidth
-              />
-              <InlineEdit
-                label="使用目的"
-                value={caseData.koseki_purpose}
-                onSave={v => saveCaseField('koseki_purpose', v)}
-                fullWidth
-              />
-              <InlineTextarea
-                label="戸籍特記事項"
-                value={caseData.koseki_notes}
-                onSave={v => saveCaseField('koseki_notes', v)}
-                fullWidth
-              />
-            </FieldGrid>
-          </Section>
-
-          {/* 戸籍請求（請求単位の管理表） */}
+          {/* 戸籍請求（請求単位の管理表）。理由・目的・特記は各行で個別設定 */}
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} />
           </Section>
         </div>
       )}

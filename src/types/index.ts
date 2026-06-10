@@ -469,6 +469,8 @@ export type KosekiRequestRow = {
   target_person: string | null    // 対象者（誰の戸籍か）
   doc_types: string | null        // 種別（戸籍/除籍/原戸籍/附票 など）
   purpose: string | null          // 取得目的
+  request_reason: string | null       // 戸籍請求理由
+  request_reason_other: string | null // 戸籍請求理由（その他）
   request_date: string | null     // 請求日
   arrival_date: string | null     // 到着日（受領日）
   notes: string | null
