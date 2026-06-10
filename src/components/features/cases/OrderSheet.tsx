@@ -100,7 +100,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection title="他事業者紹介">
-        <ReferralTab caseData={caseData} patchCase={patchCase} referrals={referrals} onRefresh={onRefresh} />
+        <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} />
       </OSSection>
 
       <OSSection title="遺産分割">
@@ -120,7 +120,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection title="契約・報酬・請求">
-        <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} />
+        <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
     </div>
   )

@@ -16,12 +16,14 @@ type Props = {
   tasks: TaskRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  // オーダーシート埋め込み時: 請求サマリーを非表示
+  orderSheetMode?: boolean
 }
 
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase }: Props) {
+export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false }: Props) {
   const [partner, setPartner] = useState<PartnerRow | null>(null)
 
   // パートナー取得
@@ -243,7 +245,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         </div>
       </div>
 
-      {/* ─── 請求サマリー（下部） ─── */}
+      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示 ─── */}
+      {!orderSheetMode && (
       <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
         <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-2.5">請求サマリー</div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -267,6 +270,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

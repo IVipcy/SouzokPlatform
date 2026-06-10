@@ -215,7 +215,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <TabPlaceholder title="解約等（銀行・証券・自動車）" note="項目は今後ヒアリングのうえ追加予定です。" />
       )}
       {effectiveTab === 'referral' && (
-        <ReferralTab caseData={caseState} patchCase={patchCase} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
+        <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'docs' && (
         <DocsBundleTab caseData={caseState} documents={documents} tasks={tasks} heirs={heirs} properties={properties} />

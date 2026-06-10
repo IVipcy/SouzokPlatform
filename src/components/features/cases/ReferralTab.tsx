@@ -8,14 +8,10 @@ import type { CaseRow, CaseReferralRow } from '@/types'
 import {
   Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineEdit, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import {
-  TAX_FILING_OPTIONS, TAX_ADVISOR_REFERRAL_OPTIONS,
-  REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES,
-} from '@/lib/constants'
+import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES } from '@/lib/constants'
 
 type Props = {
   caseData: CaseRow
-  patchCase: (patch: Partial<CaseRow>) => Promise<void>
   referrals: CaseReferralRow[]
   onRefresh?: () => void
 }
@@ -25,10 +21,8 @@ type Props = {
  * 業者別（税理士/弁護士/不動産/遺品整理）の紹介情報を内部サブタブで管理する。
  * サブタブは「紹介あり（case_referrals 行が存在する）業者」だけ表示し、「＋業者追加」で増やせる（B-1）。
  * 各業者: 紹介先法人名 / 紹介日付 / 紹介内容 / 見込み報酬 / 報酬請求状態。
- *
- * ※ 旧「他士業等連携」タブの項目は当面「（旧）他士業連携情報」として残置（後で精査）。
  */
-export default function ReferralTab({ caseData, patchCase, referrals, onRefresh }: Props) {
+export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
   const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
@@ -68,10 +62,6 @@ export default function ReferralTab({ caseData, patchCase, referrals, onRefresh 
     setRows(prev => prev.map(r => (r.id === id ? ({ ...r, [field]: v } as CaseReferralRow) : r)))
     const { error } = await supabase.from('case_referrals').update({ [field]: v }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); throw new Error(error.message) }
-  }
-
-  const saveCase = async (field: string, value: unknown) => {
-    await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   return (
@@ -129,37 +119,6 @@ export default function ReferralTab({ caseData, patchCase, referrals, onRefresh 
             紹介した業者がありません。上の「＋」から業者を追加してください。
           </div>
         )}
-      </Section>
-
-      {/* （旧）他士業連携情報：当面残置（後で精査）。既定で折りたたみ */}
-      <Section title="（旧）他士業連携情報" collapsible defaultOpen={false}>
-        <div className="space-y-4">
-          <div>
-            <div className="text-[12px] font-bold text-gray-500 mb-1">相続税申告</div>
-            <FieldGrid>
-              <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={v => saveCase('tax_filing_required', v)} />
-              <InlineDate label="申告期限" value={caseData.tax_filing_deadline} onSave={v => saveCase('tax_filing_deadline', v || null)} />
-              <InlineCurrency label="資産合計額（概算）" value={caseData.total_asset_estimate} onSave={v => saveCase('total_asset_estimate', v)} />
-              <InlineSelect label="税理士紹介有無" value={caseData.tax_advisor_referral} options={[...TAX_ADVISOR_REFERRAL_OPTIONS]} onSave={v => saveCase('tax_advisor_referral', v)} />
-              <InlineEdit label="税理士名・事務所名" value={caseData.tax_advisor_name} onSave={v => saveCase('tax_advisor_name', v)} fullWidth />
-            </FieldGrid>
-          </div>
-          <div>
-            <div className="text-[12px] font-bold text-gray-500 mb-1">弁護士紹介</div>
-            <FieldGrid>
-              <InlineEdit label="弁護士名" value={caseData.lawyer_name} onSave={v => saveCase('lawyer_name', v)} />
-              <InlineEdit label="事務所名" value={caseData.lawyer_office} onSave={v => saveCase('lawyer_office', v)} />
-              <InlineCurrency label="紹介金額" value={caseData.lawyer_referral_fee} onSave={v => saveCase('lawyer_referral_fee', v)} />
-            </FieldGrid>
-          </div>
-          <div>
-            <div className="text-[12px] font-bold text-gray-500 mb-1">遺品整理</div>
-            <FieldGrid>
-              <InlineEdit label="業者名" value={caseData.estate_clearance_company} onSave={v => saveCase('estate_clearance_company', v)} />
-              <InlineCurrency label="紹介金額" value={caseData.estate_clearance_fee} onSave={v => saveCase('estate_clearance_fee', v)} />
-            </FieldGrid>
-          </div>
-        </div>
       </Section>
     </div>
   )

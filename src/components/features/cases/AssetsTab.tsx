@@ -266,8 +266,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-      <div className="space-y-3.5">
+    <div className="space-y-3.5">
         {/* 相続税申告は「紹介」タブに移動 */}
 
         {/* 財産調査全般 */}
@@ -297,47 +296,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
               fullWidth
             />
           </div>
-        </SharedSection>
-
-        {/* 生命保険提案 */}
-        <SharedSection title="生命保険提案" icon="🛡️">
-          <SharedFieldGrid>
-            <InlineSelect
-              label="生命保険提案有無"
-              value={caseData.life_insurance_proposal}
-              options={[...LIFE_INSURANCE_PROPOSAL_OPTIONS]}
-              onSave={v => saveCaseFieldStr('life_insurance_proposal', v)}
-            />
-            <SharedInlineEdit
-              label="保険会社名"
-              value={caseData.life_insurance_company}
-              onSave={v => saveCaseFieldStr('life_insurance_company', v)}
-            />
-            <InlineSelect
-              label="保険種類"
-              value={caseData.life_insurance_type}
-              options={[...LIFE_INSURANCE_TYPES]}
-              onSave={v => saveCaseFieldStr('life_insurance_type', v)}
-            />
-            <InlineCurrency
-              label="生命保険金額"
-              value={caseData.life_insurance_amount}
-              onSave={v => saveCaseFieldNum('life_insurance_amount', v)}
-            />
-            <InlineCheckbox
-              label="生命保険協会照会"
-              value={caseData.life_insurance_inquiry}
-              onSave={v => saveCaseFieldBool('life_insurance_inquiry', v)}
-            />
-          </SharedFieldGrid>
-          <SharedFieldGrid cols={1}>
-            <InlineTextarea
-              label="照会結果備考"
-              value={caseData.life_insurance_inquiry_notes}
-              onSave={v => saveCaseFieldStr('life_insurance_inquiry_notes', v)}
-              fullWidth
-            />
-          </SharedFieldGrid>
         </SharedSection>
 
         {/* Real estate */}
@@ -1031,64 +989,47 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             />
           )}
         </Section>
-      </div>
 
-      {/* Sidebar: asset summary */}
-      <div className="space-y-3.5">
-        <Section title="資産サマリー" icon="💰">
-          <QIRow label="資産合計概算">
-            <InlineEdit
-              value={caseData.total_asset_estimate}
-              displayValue={
-                <span className="font-mono font-medium text-gray-700">
-                  {caseData.total_asset_estimate ? `¥${caseData.total_asset_estimate.toLocaleString()}` : '未設定'}
-                </span>
-              }
-              type="number"
-              onSave={async (val) => { await updateCase('total_asset_estimate', val ? Number(val) : null) }}
+        {/* 生命保険提案（金融資産の下に配置） */}
+        <SharedSection title="生命保険提案" icon="🛡️">
+          <SharedFieldGrid>
+            <InlineSelect
+              label="生命保険提案有無"
+              value={caseData.life_insurance_proposal}
+              options={[...LIFE_INSURANCE_PROPOSAL_OPTIONS]}
+              onSave={v => saveCaseFieldStr('life_insurance_proposal', v)}
             />
-          </QIRow>
-          <QIRow label="相続税申告">
-            <InlineEdit
-              value={caseData.tax_filing_required}
-              displayValue={
-                caseData.tax_filing_required ? (
-                  <span className={`px-2 py-0.5 rounded text-[13px] font-semibold border ${
-                    caseData.tax_filing_required === '要'
-                      ? 'bg-red-50 text-red-700 border-red-200'
-                      : caseData.tax_filing_required === '不要'
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}>
-                    {caseData.tax_filing_required}
-                  </span>
-                ) : (
-                  <span className="text-gray-400">未設定</span>
-                )
-              }
-              type="select"
-              options={[
-                { value: '要', label: '要' },
-                { value: '不要', label: '不要' },
-                { value: '確認中', label: '確認中' },
-              ]}
-              onSave={async (val) => { await updateCase('tax_filing_required', val || '確認中') }}
+            <SharedInlineEdit
+              label="保険会社名"
+              value={caseData.life_insurance_company}
+              onSave={v => saveCaseFieldStr('life_insurance_company', v)}
             />
-          </QIRow>
-          <QIRow label="申告期限">
-            <InlineEdit
-              value={caseData.tax_filing_deadline}
-              displayValue={
-                <span className={`font-mono ${caseData.tax_filing_deadline ? 'text-amber-600' : 'text-gray-400'}`}>
-                  {caseData.tax_filing_deadline ?? '未設定'}
-                </span>
-              }
-              type="date"
-              onSave={async (val) => { await updateCase('tax_filing_deadline', val || null) }}
+            <InlineSelect
+              label="保険種類"
+              value={caseData.life_insurance_type}
+              options={[...LIFE_INSURANCE_TYPES]}
+              onSave={v => saveCaseFieldStr('life_insurance_type', v)}
             />
-          </QIRow>
-        </Section>
-      </div>
+            <InlineCurrency
+              label="生命保険金額"
+              value={caseData.life_insurance_amount}
+              onSave={v => saveCaseFieldNum('life_insurance_amount', v)}
+            />
+            <InlineCheckbox
+              label="生命保険協会照会"
+              value={caseData.life_insurance_inquiry}
+              onSave={v => saveCaseFieldBool('life_insurance_inquiry', v)}
+            />
+          </SharedFieldGrid>
+          <SharedFieldGrid cols={1}>
+            <InlineTextarea
+              label="照会結果備考"
+              value={caseData.life_insurance_inquiry_notes}
+              onSave={v => saveCaseFieldStr('life_insurance_inquiry_notes', v)}
+              fullWidth
+            />
+          </SharedFieldGrid>
+        </SharedSection>
     </div>
   )
 }

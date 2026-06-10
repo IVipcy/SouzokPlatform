@@ -136,7 +136,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         />
       )}
 
-      {/* 5. クレーム */}
+      {/* 5. クレーム（オーダーシート埋め込み時は非表示） */}
+      {!orderSheetMode && (
       <Section title="クレーム">
         <div className="space-y-3">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -163,6 +164,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
           />
         </div>
       </Section>
+      )}
     </div>
   )
 }
