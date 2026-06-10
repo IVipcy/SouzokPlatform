@@ -22,6 +22,8 @@ import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
@@ -61,6 +63,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })()
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
+  const [orderSheetPrompt, setOrderSheetPrompt] = useState(false)
 
   // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
   // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
@@ -97,6 +100,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       setCaseState(prev)
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
+    }
+    // 受託（受注）に変わったら、オーダーシート作成を促すポップアップを表示
+    if (patch.status === '受注' && prev.status !== '受注') {
+      setOrderSheetPrompt(true)
     }
     // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得
     const needsRefresh = Object.keys(patch).some(k => TRIGGER_FIELDS.has(k))
@@ -213,6 +220,24 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'docs' && (
         <DocsBundleTab caseData={caseState} documents={documents} tasks={tasks} heirs={heirs} properties={properties} />
       )}
+
+      {/* 受託になったらオーダーシート作成を促す */}
+      <Modal
+        isOpen={orderSheetPrompt}
+        onClose={() => setOrderSheetPrompt(false)}
+        title="受託になりました"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOrderSheetPrompt(false)}>あとで</Button>
+            <Button variant="primary" onClick={() => { setOrderSheetPrompt(false); setActiveTab('orderSheet') }}>オーダーシートへ</Button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-gray-700 leading-relaxed">
+          続けて<strong>オーダーシートの作成</strong>を進めてください。<br />
+          「オーダーシートへ」を押すとオーダーシートタブを開きます。
+        </p>
+      </Modal>
 
       <BulkTaskGenerateModal
         isOpen={bulkTaskModal.isOpen}

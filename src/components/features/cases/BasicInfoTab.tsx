@@ -7,7 +7,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
-import Badge from '@/components/ui/Badge'
 import {
   FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
@@ -60,13 +59,15 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   return (
     <div className="space-y-4">
+      {/* 案件ステータス（変更はここ1か所に集約・大きめ表示。overflow に隠れないよう独立配置） */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-4 py-3 flex items-center gap-3 flex-wrap">
+        <span className="text-[12px] font-semibold text-gray-400 tracking-wide">案件ステータス</span>
+        <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
+      </div>
+
       {/* ① 進行状態サマリー（一目でわかる・セグメント型ステータスバー） */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-gray-100">
-          {/* ステータス（編集可能・ブランド単色でヘッダーのフローと統一） */}
-          <SummaryItem label="ステータス">
-            <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
-          </SummaryItem>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
           {/* 現在フェーズ */}
           <SummaryItem label="現在フェーズ">
             <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
@@ -122,17 +123,6 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
             <FieldGrid>
               <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
               <Field label="管理番号" value={caseData.case_number} mono />
-              <InlineSelect
-                label="案件ステータス"
-                value={caseData.status}
-                options={CASE_STATUSES.map(s => s.key)}
-                optionLabel={getCaseStatusLabel}
-                onSave={v => saveCaseField('status', v)}
-                renderValue={v => {
-                  const s = CASE_STATUSES.find(cs => cs.key === v)
-                  return s ? <Badge label={s.label} color={s.color} /> : v
-                }}
-              />
               <InlineDate label="依頼日" value={caseData.order_date} onSave={v => saveCaseField('order_date', v || null)} required />
               <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
               <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
@@ -195,11 +185,11 @@ function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, onCh
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-colors bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[15px] font-bold border cursor-pointer transition-colors bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
+        <span className="w-2 h-2 rounded-full bg-brand-600" />
         {getCaseStatusLabel(status)}
-        <span className="text-[12px] opacity-70">▾</span>
+        <span className="text-[13px] opacity-70">▾</span>
       </button>
       {open && (
         <div className="absolute top-full left-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[160px] z-50 overflow-hidden">
