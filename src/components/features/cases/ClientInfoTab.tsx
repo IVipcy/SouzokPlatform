@@ -9,7 +9,8 @@ import {
 import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
-import type { CaseRow, ClientCommunicationRow } from '@/types'
+import CaseClientsTable from './CaseClientsTable'
+import type { CaseRow, ClientCommunicationRow, CaseClientRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -19,6 +20,8 @@ type Props = {
   onRefresh?: () => void
   // オーダーシート埋め込み時: やり取り履歴を隠し、各セクションを展開表示する
   orderSheetMode?: boolean
+  // 依頼者（同行者含む・複数人）
+  caseClients?: CaseClientRow[]
 }
 
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
@@ -29,7 +32,7 @@ const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label:
 
 const COMMUNICATION_TYPE_OPTIONS = ['進捗連絡', '書類依頼', '質問対応', 'クレーム対応', 'その他']
 
-export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false }: Props) {
+export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false, caseClients = [] }: Props) {
   const client = caseData.clients
 
   const saveCaseField = async (field: string, value: unknown) => {
@@ -42,8 +45,13 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 
   return (
     <div className="space-y-3.5">
-      {/* 1. 依頼者情報（アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
-      <Section title="依頼者情報" collapsible defaultOpen={orderSheetMode}>
+      {/* 0. 依頼者一覧（同行者含む・表形式） */}
+      <Section title="依頼者一覧（同行者含む）">
+        <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} />
+      </Section>
+
+      {/* 1. 依頼者情報（メイン依頼者の詳細。アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
+      <Section title="依頼者情報（メイン依頼者の詳細）" collapsible defaultOpen={orderSheetMode}>
         {caseData.client_id && client ? (
           <FieldGrid>
             <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
