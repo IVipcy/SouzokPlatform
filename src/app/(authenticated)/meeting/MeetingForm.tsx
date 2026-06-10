@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, type FormData } from './formData'
 import {
@@ -13,12 +14,14 @@ import {
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
-  onBack: () => void
   // 案件作成者（受注担当として自動セット）
   currentMemberId: string | null
 }
 
-const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.map(k => ({ key: k, label: getCaseStatusLabel(k) }))
+// 案件作成は面談完了後のため「面談設定済」は選択肢から除外
+const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
+// お客様回答予定日が必須になるステータス
+const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
 
 // ── Shared UI helpers ──
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -123,7 +126,7 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, onBack, currentMemberId }: Props) {
+export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
@@ -137,7 +140,6 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
     }
     return init
   })
-  const [showSuccess, setShowSuccess] = useState(false)
 
   const update = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setData(prev => ({ ...prev, [key]: value }))
@@ -189,10 +191,10 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
       const casePayload = {
         client_id: clientId,
         deal_name: `${formData.clientName || '無題'} 様 相続案件`,
-        status: formData.caseStatus || '面談設定済',
+        status: formData.caseStatus || '検討中',
         difficulty,
         procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
-        order_route: formData.leadSource || null,
+        client_response_due_date: formData.clientResponseDueDate || null,
         meeting_executed_date: formData.meetingDate || null,
         meeting_place: formData.meetingPlace || null,
         meeting_hearing_memo: formData.hearingMemo || null,
@@ -225,25 +227,33 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
       }
 
       setSaving(false)
-      router.refresh()
-      return true
+      return caseId
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : '保存に失敗しました')
       setSaving(false)
-      return false
+      return null
     }
-  }, [selectedCase, router, currentMemberId])
+  }, [selectedCase, currentMemberId])
 
   const nextStep = useCallback(async () => {
+    // 基本情報: 検討中／検討中（契約書待ち）はお客様回答予定日が必須
+    if (STEPS[step].id === 'basic' && RESPONSE_DUE_REQUIRED.has(data.caseStatus) && !data.clientResponseDueDate) {
+      setSaveError('お客様回答予定日を入力してください')
+      return
+    }
+    setSaveError('')
     setCompletedSteps(prev => new Set(prev).add(step))
     if (step < STEPS.length - 1) {
       setStep(step + 1)
       window.scrollTo(0, 0)
     } else {
-      const success = await saveToDatabase(data)
-      if (success) setShowSuccess(true)
+      const caseId = await saveToDatabase(data)
+      if (caseId) {
+        showToast('案件を保存しました', 'success')
+        router.push(`/cases/${caseId}`)
+      }
     }
-  }, [step, data, saveToDatabase])
+  }, [step, data, saveToDatabase, router])
 
   const prevStep = useCallback(() => {
     if (step > 0) {
@@ -251,31 +261,6 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
       window.scrollTo(0, 0)
     }
   }, [step])
-
-  if (showSuccess) {
-    return (
-      <div className="max-w-lg mx-auto text-center py-16">
-        <div className="w-[72px] h-[72px] bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center text-3xl text-white mx-auto mb-6 shadow-lg">✓</div>
-        <div className="text-[22px] font-bold text-gray-900 mb-2">入力完了！</div>
-        <div className="text-sm text-gray-500 leading-relaxed mb-8">
-          {data.clientName || '—'} 様の相続案件<br />
-          担当：{data.salesOwner || '—'}
-        </div>
-        <button
-          onClick={onBack}
-          className="w-full py-3.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition shadow-md mb-3"
-        >
-          案件選択に戻る
-        </button>
-        <button
-          onClick={() => { setShowSuccess(false); setStep(0); setCompletedSteps(new Set()) }}
-          className="w-full py-3.5 rounded-xl border-[1.5px] border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition"
-        >
-          🔄 編集を続ける
-        </button>
-      </div>
-    )
-  }
 
   const progressPct = ((step + 1) / STEPS.length) * 100
 
@@ -285,8 +270,10 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
         <div className="max-w-[800px]">
           <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目" />
           <Card label="案件管理番号"><Input value={data.caseNumber} onChange={v => update('caseNumber', v)} placeholder="空欄なら自動採番（例：R7-A00129）" /></Card>
-          <Card label="受注担当" required><Input value={data.salesOwner} onChange={v => update('salesOwner', v)} placeholder="担当者名を入力" /></Card>
           <Card label="案件ステータス" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
+            <Card label="お客様回答予定日" required><Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} /></Card>
+          )}
           <Card label="面談実施日" required><Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} /></Card>
           <Card label="面談場所"><Pills value={data.meetingPlace} options={[...MEETING_PLACES]} onChange={v => update('meetingPlace', v as string)} /></Card>
         </div>
@@ -329,20 +316,19 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
           <Card label="受注見込み手続き区分"><Pills value={data.procedureType} options={[...PROCEDURE_TYPES]} onChange={v => update('procedureType', v as string[])} multi /></Card>
           <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
-          <Card label="受注ルート"><Pills value={data.leadSource} options={['LP', '公益社', 'はせがわ', 'その他']} onChange={v => update('leadSource', v as string)} /></Card>
           <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>
           <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
         </div>
       )
       case 'confirm': return (
         <div className="max-w-[800px]">
-          <SectionHeader Icon={CheckCircle2} title="入力内容の確認" sub="内容を確認して「送信・確定」してください" />
+          <SectionHeader Icon={CheckCircle2} title="入力内容の確認" sub="内容を確認して「完了」してください" />
           {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{saveError}</div>}
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <ConfirmSection title="基本情報">
               <ConfirmRow label="案件管理番号" value={data.caseNumber || '（自動採番）'} />
-              <ConfirmRow label="受注担当" value={data.salesOwner} />
               <ConfirmRow label="案件ステータス" value={getCaseStatusLabel(data.caseStatus)} />
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
               <ConfirmRow label="面談実施日" value={data.meetingDate} />
               <ConfirmRow label="面談場所" value={data.meetingPlace} />
             </ConfirmSection>
@@ -355,7 +341,6 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
               <ConfirmRow label="受注見込み手続き区分" value={data.procedureType.join(', ')} />
               <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
               <ConfirmRow label="難易度" value={data.difficulty} />
-              <ConfirmRow label="受注ルート" value={data.leadSource} />
               <ConfirmRow label="失注理由" value={data.lostReason} />
             </ConfirmSection>
           </div>
@@ -407,7 +392,7 @@ export default function MeetingForm({ selectedCase, onBack, currentMemberId }: P
               : 'bg-brand-600 hover:bg-brand-700 shadow-brand-500/25'
           }`}
         >
-          {step === STEPS.length - 1 ? (saving ? '保存中...' : '✓ 送信・確定') : '次へ →'}
+          {step === STEPS.length - 1 ? (saving ? '保存中...' : '完了') : '次へ →'}
         </button>
       </div>
     </div>

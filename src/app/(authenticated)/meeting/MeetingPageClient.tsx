@@ -54,7 +54,7 @@ export default function MeetingPageClient({ cases, currentMemberId }: Props) {
       {!selectedCase ? (
         <CaseSelectScreen cases={cases} onSelect={handleSelectCase} />
       ) : (
-        <MeetingForm selectedCase={selectedCase} onBack={handleBack} currentMemberId={currentMemberId} />
+        <MeetingForm selectedCase={selectedCase} currentMemberId={currentMemberId} />
       )}
     </div>
   )

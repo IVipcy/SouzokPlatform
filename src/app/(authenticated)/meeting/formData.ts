@@ -7,7 +7,7 @@ export type FormData = {
   caseStatus: string        // 案件ステータス（key）
   meetingDate: string       // 面談実施日
   meetingPlace: string      // 面談場所
-  salesOwner: string        // 受注担当（氏名テキスト）
+  clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   // 依頼者
   clientName: string
   clientKana: string
@@ -28,15 +28,14 @@ export type FormData = {
   lostReason: string        // 失注理由
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
-  leadSource: string        // 受注ルート
 }
 
 export const INITIAL_DATA: FormData = {
   caseNumber: '',
-  caseStatus: '面談設定済',
+  caseStatus: '検討中',
   meetingDate: '',
   meetingPlace: '',
-  salesOwner: '',
+  clientResponseDueDate: '',
   clientName: '',
   clientKana: '',
   clientPhone: '',
@@ -55,7 +54,6 @@ export const INITIAL_DATA: FormData = {
   lostReason: '',
   otherNotes: '',
   difficulty: '',
-  leadSource: '',
 }
 
 export const STEPS = [
