@@ -31,6 +31,14 @@
   --color-accent-400: #2eb1d6;
   --color-accent-500: #0092c7;  /* Ocean アクセント */
   --color-accent-600: #007aa8;
+
+  /* ─── 角丸（角張りすぎず丸すぎず・全体的に控えめに）─── */
+  /* 既定より一回り小さくして、大きい角丸（カード等）を引き締める */
+  --radius-md:  0.3125rem;  /* 5px  (既定 6px) */
+  --radius-lg:  0.375rem;   /* 6px  (既定 8px) */
+  --radius-xl:  0.5rem;     /* 8px  (既定 12px) */
+  --radius-2xl: 0.625rem;   /* 10px (既定 16px) */
+  --radius-3xl: 0.75rem;    /* 12px (既定 24px) */
 }
 
 /* ─── Body ベース ─── */
