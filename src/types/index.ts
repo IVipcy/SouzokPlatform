@@ -488,6 +488,19 @@ export type RealEstatePropertyRow = {
   // 相続登記（migration 066）
   title_change_required: string | null            // 名義変更要否（要/不要/確認中）
   registration_data: Record<string, string> | null // 任意項目の値（{列名:値}）
+  // 名寄せ・取得物（migration 069）
+  name_consolidation_arrival_date: string | null  // 名寄せ到着日
+  admin_sq_required: string | null                // 行政SQ要否
+  judicial_sq_required: string | null             // 司法SQ要否
+  ref_nayose: boolean                             // 名寄せ参照
+  ref_title_deed: boolean                         // 権利書参照
+  ref_tax_notice: boolean                         // 納税通知書参照
+  registry_required: string | null                // 登記情報 要否
+  cadastral_required: string | null               // 公図 要否
+  survey_map_required: string | null              // 地積測量図 要否
+  route_price_required: string | null             // 路線価 要否
+  eval_cert_required: string | null               // 評価証明 要否
+  eval_cert_obtained: boolean                     // 評価証明 取得済
   sale_expected_date: string | null
   notes: string | null
   created_at: string
