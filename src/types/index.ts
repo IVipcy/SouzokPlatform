@@ -232,6 +232,22 @@ export type ClientCommunicationRow = {
   updated_at: string
 }
 
+// 案件の依頼者（同行者含む・複数人）
+export type CaseClientRow = {
+  id: string
+  case_id: string
+  name: string
+  furigana: string | null
+  priority: 'main' | 'companion' | string  // メイン依頼人 / 同行者
+  birth_date: string | null                // 生年月日（YYYY-MM-DD）。年齢は算出。
+  relationship: string | null              // 被相続人との続柄
+  phone: string | null
+  email: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export type ClientRow = {
   id: string
   name: string

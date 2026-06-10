@@ -6,7 +6,7 @@ import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lu
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { SelectedCase } from './MeetingPageClient'
-import { STEPS, INITIAL_DATA, type FormData } from './formData'
+import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   MEETING_PLACES, LOST_REASONS, PROCEDURE_TYPES, REFERRAL_PARTNER_TYPES,
@@ -22,6 +22,18 @@ type Props = {
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
+
+// 生年月日から年齢を算出
+function calcAge(birthday: string): number | null {
+  if (!birthday) return null
+  const b = new Date(birthday)
+  if (Number.isNaN(b.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - b.getFullYear()
+  const m = now.getMonth() - b.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+  return age >= 0 ? age : null
+}
 
 // ── Shared UI helpers ──
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -112,6 +124,18 @@ function StatusPills({ value, onChange }: { value: string; onChange: (key: strin
   )
 }
 
+function CellInput({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
+    />
+  )
+}
+
 function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
@@ -133,10 +157,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [data, setData] = useState<FormData>(() => {
-    const init = { ...INITIAL_DATA }
+    const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
     if (selectedCase.id !== 'new') {
-      init.clientName = selectedCase.client
-      init.clientPhone = selectedCase.phone
+      init.clients[0] = { ...init.clients[0], name: selectedCase.client, phone: selectedCase.phone }
     }
     return init
   })
@@ -144,6 +167,12 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   const update = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setData(prev => ({ ...prev, [key]: value }))
   }, [])
+
+  // 依頼者（複数人）操作
+  const updateClient = (i: number, patch: Partial<ClientPerson>) =>
+    update('clients', data.clients.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
+  const addClient = () => update('clients', [...data.clients, { ...EMPTY_CLIENT }])
+  const removeClient = (i: number) => update('clients', data.clients.filter((_, idx) => idx !== i))
 
   const saveToDatabase = useCallback(async (formData: FormData) => {
     setSaving(true)
@@ -155,16 +184,15 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       let caseId = isNew ? '' : selectedCase.id
       let clientId = ''
 
-      // 1. 依頼者 upsert
+      // 1. メイン依頼者を clients に upsert（互換のため cases.client_id 維持）
+      const mainClient = formData.clients.find(c => c.priority === 'main') ?? formData.clients[0]
+      const mainName = (mainClient?.name ?? '').trim()
       const clientPayload = {
-        name: formData.clientName.trim(),
-        furigana: formData.clientKana || null,
-        phone: formData.clientPhone || formData.clientMobile || null,
-        email: formData.clientEmail || null,
-        postal_code: formData.clientZip || null,
-        address: formData.clientAddress || null,
-        relationship_to_deceased: null as string | null,
-        notes: formData.contactPreference.length > 0 ? `連絡先希望: ${formData.contactPreference.join(', ')}` : null,
+        name: mainName || '無題',
+        furigana: mainClient?.kana || null,
+        phone: mainClient?.phone || null,
+        email: mainClient?.email || null,
+        relationship_to_deceased: mainClient?.relationship || null,
       }
 
       if (isNew) {
@@ -190,7 +218,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
         client_id: clientId,
-        deal_name: `${formData.clientName || '無題'} 様 相続案件`,
+        deal_name: `${mainName || '無題'} 様 相続案件`,
         status: formData.caseStatus || '検討中',
         difficulty,
         procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
@@ -218,6 +246,26 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
+      }
+
+      // 3-b. 依頼者（同行者含む）を case_clients に保存（全置換）
+      await supabase.from('case_clients').delete().eq('case_id', caseId)
+      const clientRows = formData.clients
+        .filter(c => c.name.trim())
+        .map((c, i) => ({
+          case_id: caseId,
+          name: c.name.trim(),
+          furigana: c.kana || null,
+          priority: c.priority,
+          birth_date: c.birthday || null,
+          relationship: c.relationship || null,
+          phone: c.phone || null,
+          email: c.email || null,
+          sort_order: i,
+        }))
+      if (clientRows.length > 0) {
+        const { error } = await supabase.from('case_clients').insert(clientRows)
+        if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
       }
 
       // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
@@ -279,34 +327,59 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         </div>
       )
       case 'client': return (
-        <div className="max-w-[800px]">
-          <SectionHeader Icon={User} title="依頼者情報" sub="面談にご来所された方の情報" />
-          <Card label="氏名" required>
-            <div className="grid gap-2.5">
-              <Input value={data.clientName} onChange={v => update('clientName', v)} placeholder="山田 太郎" />
-              <Input value={data.clientKana} onChange={v => update('clientKana', v)} placeholder="やまだ たろう" />
-            </div>
-          </Card>
-          <Card label="生年月日"><Input type="date" value={data.clientBirthday} onChange={v => update('clientBirthday', v)} /></Card>
-          <Card label="連絡先">
-            <div className="grid gap-2.5">
-              <Input value={data.clientPhone} onChange={v => update('clientPhone', v)} placeholder="03-0000-0000" type="tel" />
-              <Input value={data.clientMobile} onChange={v => update('clientMobile', v)} placeholder="090-0000-0000" type="tel" />
-              <Input value={data.clientEmail} onChange={v => update('clientEmail', v)} placeholder="example@email.com" type="email" />
-            </div>
-          </Card>
-          <Card label="連絡先希望"><Pills value={data.contactPreference} options={['自宅TEL', '携帯', 'メール']} onChange={v => update('contactPreference', v as string[])} multi /></Card>
-          <Card label="住所">
-            <div className="grid gap-2.5">
-              <Input value={data.clientZip} onChange={v => update('clientZip', v)} placeholder="〒000-0000" />
-              <Input value={data.clientAddress} onChange={v => update('clientAddress', v)} placeholder="都道府県 市区町村 番地" />
-            </div>
-          </Card>
-          <Card label="外字有無"><Pills value={data.clientGaiji} options={['あり', 'なし']} onChange={v => update('clientGaiji', v as string)} /></Card>
-          <Card label="郵送先"><Pills value={data.mailingDestination} options={['依頼者住所', 'その他']} onChange={v => update('mailingDestination', v as string)} /></Card>
-          {data.mailingDestination === 'その他' && (
-            <Card label="郵送先住所"><Input value={data.altMailingAddress} onChange={v => update('altMailingAddress', v)} placeholder="郵送先住所を入力" /></Card>
-          )}
+        <div className="max-w-[1000px]">
+          <SectionHeader Icon={User} title="依頼者情報" sub="面談に来られた方を入力（同行者も追加できます）" />
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+                  <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
+                  <th className="px-2 py-2 text-left font-semibold">氏名</th>
+                  <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
+                  <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
+                  <th className="px-2 py-2 text-center font-semibold w-14">年齢</th>
+                  <th className="px-2 py-2 text-left font-semibold w-28">続柄</th>
+                  <th className="px-2 py-2 text-left font-semibold">TEL</th>
+                  <th className="px-2 py-2 text-left font-semibold">メール</th>
+                  <th className="px-2 py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {data.clients.map((c, i) => {
+                  const age = calcAge(c.birthday)
+                  return (
+                    <tr key={i} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-2 py-1.5">
+                        <select value={c.priority} onChange={e => updateClient(i, { priority: e.target.value as ClientPerson['priority'] })} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400">
+                          <option value="main">メイン依頼人</option>
+                          <option value="companion">同行者</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5"><CellInput value={c.name} onChange={v => updateClient(i, { name: v })} placeholder="山田 太郎" /></td>
+                      <td className="px-2 py-1.5"><CellInput value={c.kana} onChange={v => updateClient(i, { kana: v })} placeholder="やまだ たろう" /></td>
+                      <td className="px-2 py-1.5"><CellInput type="date" value={c.birthday} onChange={v => updateClient(i, { birthday: v })} /></td>
+                      <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? `${age}` : <span className="text-gray-300">—</span>}</td>
+                      <td className="px-2 py-1.5"><CellInput value={c.relationship} onChange={v => updateClient(i, { relationship: v })} placeholder="長男 等" /></td>
+                      <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="090-..." /></td>
+                      <td className="px-2 py-1.5"><CellInput type="email" value={c.email} onChange={v => updateClient(i, { email: v })} placeholder="mail@..." /></td>
+                      <td className="px-2 py-1.5 text-center">
+                        {data.clients.length > 1 && (
+                          <button type="button" onClick={() => removeClient(i)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除">✕</button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button
+            type="button"
+            onClick={addClient}
+            className="mt-3 w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-brand-600 text-sm font-semibold hover:border-brand-400 hover:bg-brand-50 transition"
+          >
+            ＋ 依頼者を追加
+          </button>
         </div>
       )
       case 'meeting': return (
@@ -333,9 +406,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               <ConfirmRow label="面談場所" value={data.meetingPlace} />
             </ConfirmSection>
             <ConfirmSection title="依頼者">
-              <ConfirmRow label="氏名" value={data.clientName} />
-              <ConfirmRow label="TEL" value={data.clientPhone || data.clientMobile} />
-              <ConfirmRow label="連絡先希望" value={data.contactPreference.join(', ')} />
+              <ConfirmRow label="メイン依頼人" value={(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.name ?? ''} />
+              <ConfirmRow label="人数" value={`${data.clients.filter(c => c.name.trim()).length}名`} />
             </ConfirmSection>
             <ConfirmSection title="面談内容">
               <ConfirmRow label="受注見込み手続き区分" value={data.procedureType.join(', ')} />
