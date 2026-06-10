@@ -21,6 +21,7 @@ type Props = {
 // 検索の共通フィルタ。案件名・管理番号に加え、受注/管理担当者名・担当チーム・受注内容（手続区分）も対象。
 type SearchableRow = {
   case_number: string
+  lp_case_number?: string | null
   deal_name: string
   sales_name?: string | null
   manager_name?: string | null
@@ -31,7 +32,7 @@ function applySearch<T extends SearchableRow>(rows: T[], q: string): T[] {
   const qq = q.trim().toLowerCase()
   if (!qq) return rows
   return rows.filter(r => {
-    const hay = [r.case_number, r.deal_name, r.sales_name, r.manager_name, r.team_name, ...(r.procedure_type ?? [])]
+    const hay = [r.case_number, r.lp_case_number, r.deal_name, r.sales_name, r.manager_name, r.team_name, ...(r.procedure_type ?? [])]
       .filter(Boolean).join(' ').toLowerCase()
     return hay.includes(qq)
   })

@@ -57,6 +57,7 @@ export type Member = {
 export type CaseRow = {
   id: string
   case_number: string
+  lp_case_number: string | null   // LP案件管理番号（相続ステーション側の元番号）
   deal_name: string
   status: string
   client_id: string | null

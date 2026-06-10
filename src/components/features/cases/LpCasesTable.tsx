@@ -8,6 +8,8 @@ import { CASE_STATUSES } from '@/lib/constants'
 export type LpCaseRow = {
   id: string
   case_number: string
+  /** LP案件管理番号（相続ステーション側の元番号。検索用） */
+  lp_case_number: string | null
   deal_name: string
   status: string
   /** 契約形態（行政書士法人単独 / 司法書士法人単独 / 行・司連名）→ 行/司/連 フラグ */
@@ -75,7 +77,7 @@ export default function LpCasesTable({ cases }: Props) {
           {cases.length}件
         </span>
         <span className="ml-auto text-[11px] text-gray-400">
-          受注ルートが「LP直」または「その他」の案件
+          受注ルートが「LP経由」の案件
         </span>
       </div>
 
@@ -88,6 +90,7 @@ export default function LpCasesTable({ cases }: Props) {
               <tr>
                 <th className="px-3 py-2 text-center font-bold">行・司・連名<br />フラグ</th>
                 <th className="px-3 py-2 text-left font-bold">案件管理番号</th>
+                <th className="px-3 py-2 text-left font-bold">LP案件管理番号</th>
                 <th className="px-3 py-2 text-left font-bold">送客元</th>
                 <th className="px-3 py-2 text-left font-bold">依頼者氏名</th>
                 <th className="px-3 py-2 text-left font-bold">案件ステータス</th>
@@ -127,6 +130,8 @@ export default function LpCasesTable({ cases }: Props) {
                     </td>
                     {/* 案件管理番号 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
+                    {/* LP案件管理番号（相続ステーション元番号） */}
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.lp_case_number || <span className="text-gray-300">—</span>}</td>
                     {/* 送客元 */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.referral_source || <span className="text-gray-300">—</span>}</td>
                     {/* 依頼者氏名 */}

@@ -20,6 +20,7 @@ const LP_ROUTES = new Set(['LP経由'])
 type CaseRowRaw = {
   id: string
   case_number: string
+  lp_case_number: string | null
   deal_name: string
   status: string
   client_id: string | null
@@ -191,6 +192,7 @@ export default async function CasesPage() {
   const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => ({
     id: c.id,
     case_number: c.case_number,
+    lp_case_number: c.lp_case_number,
     deal_name: c.deal_name,
     status: c.status,
     contract_type: c.contract_type,
