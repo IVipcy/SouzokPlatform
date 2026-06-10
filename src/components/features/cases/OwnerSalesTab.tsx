@@ -50,7 +50,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
             <UserPlus className="w-3.5 h-3.5" strokeWidth={2.25} />
             管理担当を割り振る（稼働状況一覧へ）
           </Link>
-          <p className="text-[11px] text-gray-400 mt-1">稼働状況・経験年数を見て管理担当を選び、割り振ると対応中にできます。</p>
+          <p className="text-[11px] text-gray-400 mt-1">稼働状況・経験年数を見て管理担当を割り振ります。</p>
         </div>
       </Section>
 

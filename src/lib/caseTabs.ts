@@ -17,10 +17,10 @@
 // ルール:
 //   ・相談案件（受託以外）: 案件進捗 / 面談情報 / 依頼者情報・やり取り / タスク
 //   ・個別管理案件        : 案件進捗 / 面談情報 / 依頼者情報・やり取り / 他事業者紹介 / タスク
-//   ・受託・OS未作成      : オーダーシート（作成導線）/ 案件進捗 / 担当・受注内容 / 面談情報 / 依頼者情報・やり取り / タスク
-//   ・受託・OS作成済      : オーダーシート（最左）＋依頼者情報・やり取り＋実務フルセット（面談情報は残す）
-//   ・管理案件            : 実務フルセット。面談情報は折りたたみ（末尾・既定非表示）
-//   ※ OS作成後は「依頼者情報・やり取り」タブが復活（やり取り履歴はオーダーシートに含めないため）
+//   ・受託                : オーダーシート / 案件進捗 / 担当・受注内容 / 面談情報 / 依頼者情報・やり取り / タスク
+//        （実務タブはまだ出さない。オーダーシート完成・管理担当アサイン等は対応中への移行条件）
+//   ・管理案件（対応中/完了）: 実務フルセットを解禁。面談情報は折りたたみ（末尾・既定非表示）
+//        ※ 実務タブは「対応中」になったタイミングで出る（オーダーシート完成では出さない）
 
 import type { TabKey } from '@/components/features/cases/CaseTabs'
 import { getCaseCategory } from './constants'
@@ -39,7 +39,7 @@ export type TabVisibility = {
   collapsed: TabKey[]
 }
 
-// 受託OS作成済／管理案件で使う実務フルセット（オーダーシート最左、面談情報は末尾）
+// 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
   'orderSheet', 'basicInfo', 'ownerSales', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
@@ -47,17 +47,12 @@ const FULL_PRACTICE_TABS: TabKey[] = [
 ]
 
 export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
-  const { status, orderSheetCompleted } = state
+  const { status } = state
   const category = getCaseCategory(status)
 
-  // 受託（オーダーシート段階）
+  // 受託: オーダーシート作成・担当受注内容まで。実務タブは出さない（対応中で解禁）
   if (status === '受注') {
-    if (!orderSheetCompleted) {
-      // オーダーシート作成前: 概要把握＋担当・受注内容（管理担当割り振り導線）＋作成導線
-      return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
-    }
-    // オーダーシート完成後: 実務タブ解禁。面談情報はまだ表示（管理案件化までは折りたたまない）
-    return { visible: FULL_PRACTICE_TABS, collapsed: [] }
+    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報は折りたたみ

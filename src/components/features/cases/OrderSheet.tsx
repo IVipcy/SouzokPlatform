@@ -65,7 +65,7 @@ export default function OrderSheet({
         <div className="flex-1 min-w-0">
           <h2 className="text-[15px] font-bold text-gray-900">オーダーシート</h2>
           <p className="text-[12px] text-gray-500">
-            受託案件の概要を1枚で把握・入力します。完成すると実務タブが解禁され、ステータスを「対応中」にできます。
+            受託案件の概要を1枚で把握・入力します。
           </p>
         </div>
         {completed ? (
