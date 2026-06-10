@@ -15,8 +15,7 @@ import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
-import DocsTab from './DocsTab'
-import DocumentCreateTab from './DocumentCreateTab'
+import DocsBundleTab from './DocsBundleTab'
 import ReferralTab from './ReferralTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import OrderSheet from './OrderSheet'
@@ -50,7 +49,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals }: Props) {
   const router = useRouter()
@@ -207,10 +206,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ReferralTab caseData={caseState} patchCase={patchCase} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'docs' && (
-        <DocsTab caseData={caseState} documents={documents} />
-      )}
-      {effectiveTab === 'documentCreate' && (
-        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
+        <DocsBundleTab caseData={caseState} documents={documents} tasks={tasks} heirs={heirs} properties={properties} />
       )}
 
       <BulkTaskGenerateModal

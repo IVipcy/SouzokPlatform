@@ -20,15 +20,15 @@ const TAB_LABELS: Record<TabKey, string> = {
   basicInfo: '案件進捗',
   ownerSales: '担当・受注内容',
   meeting: '面談情報',
-  clientInfo: '依頼者情報・やり取り',
+  clientInfo: '依頼者',
   deceased: '相続人調査',
   assets: '財産調査',
   referral: '他事業者紹介',
   division: '遺産分割',
   will: '遺言',
   registration: '相続登記',
-  cancellation: '解約等（銀行・証券・自動車）',
-  contract: '契約・報酬・請求',
+  cancellation: '解約手続',
+  contract: '報酬・請求',
   docs: '書類',
   documentCreate: '書類作成',
   tasks: 'タスク',
@@ -43,7 +43,7 @@ const COUNT_KEY: Partial<Record<TabKey, 'taskCount' | 'docCount'>> = {
 const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'meeting', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
-  'docs', 'documentCreate', 'tasks',
+  'docs', 'tasks',
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, visibleTabs, collapsedTabs }: Props) {

@@ -43,7 +43,7 @@ export type TabVisibility = {
 const FULL_PRACTICE_TABS: TabKey[] = [
   'orderSheet', 'basicInfo', 'ownerSales', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
-  'docs', 'documentCreate', 'tasks', 'meeting',
+  'docs', 'tasks', 'meeting',
 ]
 
 export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
