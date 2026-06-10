@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Section, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineCurrency, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
@@ -26,15 +27,24 @@ type Props = {
  *   財産調査（調査条件・財産目録）／不動産（表）／金融機関（表）／生命保険提案
  *   不動産・金融機関は表形式で行追加できる（RealEstateTable / FinancialAssetsTable）。
  */
+const ASSET_SUBTABS: { key: string; label: string }[] = [
+  { key: 'realestate', label: '不動産' },
+  { key: 'deposit', label: '預金' },
+  { key: 'securities', label: '証券' },
+  { key: 'trust', label: '信託' },
+  { key: 'insurance', label: '生命保険' },
+]
+
 export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
   const progressMode = !orderSheetMode
+  const [sub, setSub] = useState('realestate')
 
   return (
     <div className="space-y-3.5">
-      {/* 財産調査全般 */}
+      {/* 財産調査全般（固定表示） */}
       <Section title="財産調査">
         <FieldGrid>
           <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
@@ -45,24 +55,35 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         </FieldGrid>
       </Section>
 
-      {/* 不動産（表形式・行追加） */}
-      <Section title="不動産">
+      {/* 子タブ（不動産 / 預金 / 証券 / 信託 / 生命保険） */}
+      <div className="flex items-center gap-1 border-b border-gray-200 flex-wrap">
+        {ASSET_SUBTABS.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSub(t.key)}
+            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+              sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {sub === 'realestate' && (
         <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
-      </Section>
-
-      {/* 金融機関：預金 / 証券 / 信託 を別表で（表形式・行追加） */}
-      <Section title="金融機関（預金）">
+      )}
+      {sub === 'deposit' && (
         <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
-      </Section>
-      <Section title="金融機関（証券）">
+      )}
+      {sub === 'securities' && (
         <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
-      </Section>
-      <Section title="金融機関（信託）">
+      )}
+      {sub === 'trust' && (
         <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
-      </Section>
-
-      {/* 生命保険提案（金融資産の下に配置） */}
-      <Section title="生命保険提案">
+      )}
+      {sub === 'insurance' && (
         <FieldGrid>
           <InlineSelect label="生命保険提案有無" value={caseData.life_insurance_proposal} options={[...LIFE_INSURANCE_PROPOSAL_OPTIONS]} onSave={v => save('life_insurance_proposal', v)} />
           <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
@@ -71,7 +92,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />
           <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
         </FieldGrid>
-      </Section>
+      )}
     </div>
   )
 }

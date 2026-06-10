@@ -7,10 +7,9 @@ import { showToast } from '@/components/ui/Toast'
 import type { FinancialAssetRow } from '@/types'
 
 const REQ = ['要', '不要', '確認中']
-const CANCEL = ['有', '無', '確認中']
 
 type Kind = '預貯金' | '証券' | '信託銀行'
-type ColType = 'text' | 'req' | 'cancel'
+type ColType = 'text' | 'req'
 type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?: string }
 
 // 種別ごとの列定義（調査期間・備考・進捗列は共通で末尾に付与）
@@ -26,13 +25,11 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'institution_name', label: '証券会社', type: 'text' },
     { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
-    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
   ],
   '信託銀行': [
     { key: 'institution_name', label: '信託銀行名', type: 'text' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
-    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
   ],
@@ -107,7 +104,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
-                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />
+                        <SmallSelect value={(r[c.key] as string) ?? ''} options={REQ} onChange={v => save(r.id, c.key, v)} />
                       )}
                     </td>
                   ))}
