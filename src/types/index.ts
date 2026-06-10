@@ -461,6 +461,22 @@ export type HeirRow = {
   updated_at: string
 }
 
+// === 戸籍請求（請求単位） ===
+export type KosekiRequestRow = {
+  id: string
+  case_id: string
+  request_to: string | null       // 請求先（市区町村/本籍地役所）
+  target_person: string | null    // 対象者（誰の戸籍か）
+  doc_types: string | null        // 種別（戸籍/除籍/原戸籍/附票 など）
+  purpose: string | null          // 取得目的
+  request_date: string | null     // 請求日
+  arrival_date: string | null     // 到着日（受領日）
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // === 不動産 ===
 export type RealEstatePropertyRow = {
   id: string

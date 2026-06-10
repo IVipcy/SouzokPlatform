@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import { computeCaseAlerts } from '@/lib/alerts'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -15,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -42,6 +42,12 @@ export default async function CaseDetailPage({ params }: Props) {
       .order('sort_order'),
     supabase
       .from('heirs')
+      .select('*')
+      .eq('case_id', id)
+      .order('sort_order'),
+    // 戸籍請求（請求単位）。migration 074 未適用環境では error → 空配列で degrade。
+    supabase
+      .from('koseki_requests')
       .select('*')
       .eq('case_id', id)
       .order('sort_order'),
@@ -134,6 +140,7 @@ export default async function CaseDetailPage({ params }: Props) {
       allMembers={(allMembersResult.data ?? []) as MemberRow[]}
       taskTemplates={(templatesResult.data ?? []) as TaskTemplateRow[]}
       heirs={(heirsResult.data ?? []) as HeirRow[]}
+      kosekiRequests={(kosekiRequestsResult.data ?? []) as KosekiRequestRow[]}
       properties={(propertiesResult.data ?? []) as RealEstatePropertyRow[]}
       financialAssets={(financialAssetsResult.data ?? []) as FinancialAssetRow[]}
       divisionDetails={(divisionDetailsResult.data ?? []) as DivisionDetailRow[]}

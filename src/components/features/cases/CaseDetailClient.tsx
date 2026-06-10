@@ -28,7 +28,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -37,6 +37,7 @@ type Props = {
   allMembers: MemberRow[]
   taskTemplates: TaskTemplateRow[]
   heirs: HeirRow[]
+  kosekiRequests: KosekiRequestRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
@@ -56,7 +57,7 @@ const TRIGGER_FIELDS = new Set(['status'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -201,7 +202,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} />
       )}
       {effectiveTab === 'deceased' && (
-        <DeceasedTab caseData={caseState} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} />
+        <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} />
       )}
       {effectiveTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />

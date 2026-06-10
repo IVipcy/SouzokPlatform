@@ -5,10 +5,11 @@ import { Trash2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, HeirRow } from '@/types'
+import type { CaseRow, HeirRow, KosekiRequestRow } from '@/types'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
+import KosekiRequestsTable from './KosekiRequestsTable'
 import {
   Section,
   FieldGrid,
@@ -28,9 +29,15 @@ import {
 type Props = {
   caseData: CaseRow
   heirs: HeirRow[]
+  kosekiRequests?: KosekiRequestRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
+
+const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
+  { key: 'heirs', label: '相続人' },
+  { key: 'koseki', label: '戸籍請求' },
+]
 
 const RELATIONSHIP_OPTIONS = ['配偶者', '子', '父', '母', '兄弟姉妹', 'その他'] as const
 type RelType = typeof RELATIONSHIP_OPTIONS[number]
@@ -48,7 +55,8 @@ const emptyHeirForm = () => ({
   is_applicant: false,
 })
 
-export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase }: Props) {
+  const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
@@ -162,26 +170,26 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
 
   return (
     <div>
-      <div className="space-y-3.5">
-          {/* 4. 被相続人情報 */}
-          <Section title="被相続人情報" icon="🏛️">
-            <FieldGrid>
-              <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
-              <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
-              <div className="py-1.5">
-                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人生年月日</div>
-                <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => saveCaseField('deceased_birth_date', v)} />
-              </div>
-              <InlineEdit label="被相続人年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => patchCase({ deceased_age: v.trim() === '' ? null : Number(v) })} />
-              <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} required />
-              <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
-              <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
-              <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
-            </FieldGrid>
-          </Section>
+      {/* 子タブ（相続人 / 戸籍請求） */}
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-3.5 flex-wrap">
+        {SUBTABS.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSub(t.key)}
+            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
+              sub === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-          {/* 6. 戸籍請求関連 */}
-          <Section title="戸籍請求関連" icon="📜">
+      {sub === 'koseki' && (
+        <div className="space-y-3.5">
+          {/* 戸籍請求の全体設定（理由・目的など） */}
+          <Section title="戸籍請求関連（全体設定）" icon="📜">
             <FieldGrid>
               <InlineSelect
                 label="戸籍請求理由"
@@ -215,6 +223,33 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
                 onSave={v => saveCaseField('koseki_notes', v)}
                 fullWidth
               />
+            </FieldGrid>
+          </Section>
+
+          {/* 戸籍請求（請求単位の管理表） */}
+          <Section title="戸籍請求一覧" icon="🗂️">
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} />
+          </Section>
+        </div>
+      )}
+
+      {sub === 'heirs' && (
+      <div>
+      <div className="space-y-3.5">
+          {/* 4. 被相続人情報 */}
+          <Section title="被相続人情報" icon="🏛️">
+            <FieldGrid>
+              <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
+              <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
+              <div className="py-1.5">
+                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人生年月日</div>
+                <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => saveCaseField('deceased_birth_date', v)} />
+              </div>
+              <InlineEdit label="被相続人年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => patchCase({ deceased_age: v.trim() === '' ? null : Number(v) })} />
+              <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} required />
+              <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
+              <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
+              <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
             </FieldGrid>
           </Section>
       </div>
@@ -408,6 +443,8 @@ export default function DeceasedTab({ caseData, heirs, onRefresh, patchCase }: P
           )}
         </Section>
       </div>
+      </div>
+      )}
     </div>
   )
 }
