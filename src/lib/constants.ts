@@ -45,24 +45,44 @@ export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
 export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
 
-// 案件ステータスとして選択可能なkey一覧を返す（対応中ガード）。
-// ・通常: 相談案件＋個別管理案件のステータスのみ（対応中/完了は不可＝実質ガード）
-// ・対応中/完了へ進めるのは「オーダーシート完成済 ＋ 管理担当アサイン済」の両方が揃ったときのみ
-//   （管理担当の割り振り＝引継ぎ完了とみなす）
-// ・既に管理ステータスの案件はそのまま選択可
-// ・現在のステータスは常に選択肢に含める（表示崩れ防止）
+// 案件ステータスの遷移ルール（現在ステータス → 変更できる先）。
+// 前進を基本に、運用上ありえない「戻り」を抑止する。基本ルール:
+//   ・面談設定済へは戻さない（受託/検討中/対応中 などから）
+//   ・対応中→面談設定済/受託/検討中 へは戻さない（ただし保留・長期は可）
+//   ・紹介のみ/長期保留/不受託 からの復活（→受託）は可
+//   ・対応中⇄完了（完了の再開）は可
+// ※「対応中・完了」へ遷移できるのは別途ゲート（OS完成＋管理担当アサイン）を満たす時のみ。
+export const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+  '面談設定済': ['検討中', '検討中（契約書待ち）', '受注', '失注', '紹介のみ', '保留・長期'],
+  '検討中': ['検討中（契約書待ち）', '受注', '失注', '紹介のみ', '保留・長期'],
+  '検討中（契約書待ち）': ['検討中', '受注', '失注', '紹介のみ', '保留・長期'],
+  '受注': ['対応中', '失注'],
+  '失注': ['紹介のみ', '受注'],
+  '紹介のみ': ['受注', '保留・長期', '失注'],
+  '保留・長期': ['受注', '紹介のみ'],
+  '対応中': ['完了', '保留・長期'],
+  '完了': ['対応中'],
+}
+
+// 案件ステータスとして選択可能なkey一覧を返す（遷移ルール＋対応中ガード）。
+// ・現在ステータスから ALLOWED_STATUS_TRANSITIONS で許可された先のみ
+// ・対応中/完了へ進めるのは「オーダーシート完成済 ＋ 管理担当アサイン済」両方が揃った時のみ
+//   （既に管理ステータスの案件はゲート通過済み扱い）
+// ・現在のステータスは常に先頭に含める（表示崩れ防止）
+// ・現在ステータス不明（新規作成等）は相談＋個別管理ステータスを返す
 export const getSelectableCaseStatuses = (
   orderSheetCompleted: boolean,
   currentStatus?: string | null,
   managerAssigned = true,
 ): string[] => {
-  const isManagementNow = !!currentStatus && (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
+  if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
+  const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
   const canManage = (orderSheetCompleted && managerAssigned) || isManagementNow
-  const base: string[] = canManage
-    ? [...MEETING_SELECTABLE_STATUSES, ...MANAGEMENT_STATUSES]
-    : [...MEETING_SELECTABLE_STATUSES]
-  if (currentStatus && !base.includes(currentStatus)) return [currentStatus, ...base]
-  return base
+  const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
+  const filtered = targets.filter(t =>
+    (MANAGEMENT_STATUSES as readonly string[]).includes(t) ? canManage : true,
+  )
+  return [currentStatus, ...filtered.filter(t => t !== currentStatus)]
 }
 
 // === 他事業者紹介 ===
