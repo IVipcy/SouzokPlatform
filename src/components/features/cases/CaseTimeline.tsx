@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, type LucideIcon } from 'lucide-react'
 import { getPhaseDefinition } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
 // 書類受信簿（タイムライン差し込み用の最小形）
@@ -195,10 +196,8 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm">
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[13px] font-semibold text-gray-900">{cardTitle}</h3>
-        {showDetail && <Legend />}
+      <div className="mb-5">
+        <SectionHeading title={cardTitle} right={showDetail ? <Legend /> : undefined} />
       </div>
 
       {/* ① マイルストーン軸 */}

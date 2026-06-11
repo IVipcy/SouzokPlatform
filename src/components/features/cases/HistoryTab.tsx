@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { SubTabs } from '@/components/ui/SubTabs'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
@@ -85,10 +86,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* 進捗報告履歴 */}
       {sub === 'report' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">進捗報告履歴</h3>
-          <span className="text-[12px] font-mono text-gray-400 ml-auto">{progressReports.length}件</span>
+        <div className="px-4 py-2.5 border-b border-gray-100">
+          <SectionHeading title="進捗報告履歴" right={<span className="text-[12px] font-mono text-gray-400">{progressReports.length}件</span>} />
         </div>
         {progressReports.length === 0 ? (
           <div className="px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
@@ -126,10 +125,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* 進捗メモ（入力＋一覧） */}
       {sub === 'memo' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">進捗メモ</h3>
-          <span className="text-[12px] font-mono text-gray-400 ml-auto">{notes.length}件</span>
+        <div className="px-4 py-2.5 border-b border-gray-100">
+          <SectionHeading title="進捗メモ" right={<span className="text-[12px] font-mono text-gray-400">{notes.length}件</span>} />
         </div>
         <div className="px-4 py-3 flex gap-2 border-b border-gray-50">
           <input

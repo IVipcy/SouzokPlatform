@@ -71,6 +71,19 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   )
 }
 
+// ─── SectionHeading ───
+// Section と同じ見出しスタイル（縦棒＋12.5px bold gray-700）。
+// カードヘッダー等、Section コンポーネントを使えない場所で見出しを揃えたいとき用。
+export function SectionHeading({ title, right, className = '' }: { title: string; right?: React.ReactNode; className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
+      <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">{title}</h3>
+      {right && <div className="ml-auto flex items-center">{right}</div>}
+    </div>
+  )
+}
+
 // ─── FieldGrid ───
 // 2項目/行を基本にした、テーブル風の見た目で統一（白セル＋薄いグリッド線）。
 // 各タブで共通利用するため、ここを変えると全タブのフィールド表示が揃う。

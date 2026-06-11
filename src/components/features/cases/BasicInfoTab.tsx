@@ -109,8 +109,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           {basicOpen
             ? <ChevronDown className="w-4 h-4 text-gray-500" strokeWidth={2.25} />
             : <ChevronRight className="w-4 h-4 text-gray-500" strokeWidth={2.25} />}
-          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">基本情報</h3>
+          <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
+          <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">基本情報</h3>
           {!basicOpen && (
             <span className="text-[12px] text-gray-400 ml-1 truncate">
               {caseData.deal_name} · {getCaseStatusLabel(caseData.status)}
