@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, type LucideIcon } from 'lucide-react'
+import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, type LucideIcon } from 'lucide-react'
 import { getPhaseDefinition } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
@@ -39,12 +39,12 @@ function classifyTask(t: TaskRow, todayYmd: string): TaskState {
   return overdue ? 'overdue' : 'pending'
 }
 
-// ノードの状態色（ブランド基調＋赤=要対応のみ。リングは「対応中」だけ控えめに）
-const NODE_CLS: Record<TaskState, string> = {
-  done:    'bg-brand-600 border-brand-600',
-  active:  'bg-brand-500 border-brand-500 ring-4 ring-brand-100',
-  overdue: 'bg-red-500 border-red-500',
-  pending: 'bg-white border-gray-300',
+// ノード丸（書類到着と統一）の状態色。text-* は中のアイコン/ドット色。
+const NODE_CIRCLE: Record<TaskState, string> = {
+  done:    'bg-brand-600 border-brand-600 text-white',
+  active:  'bg-white border-brand-500 text-brand-500 ring-4 ring-brand-100',
+  overdue: 'bg-white border-red-500 text-red-500',
+  pending: 'bg-white border-gray-300 text-gray-300',
 }
 // 連結線は淡いグレーで統一（情報過多を避ける）
 const CONNECTOR = 'bg-gray-200'
@@ -256,13 +256,14 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
             const total = p.tasks.length
             const done = p.tasks.filter(t => t.status === '完了').length
             return (
-              <div key={p.key} className="flex gap-3 items-start">
-                <div className="w-32 flex-shrink-0 pt-1">
-                  <div className="text-[13px] font-bold text-gray-800 leading-tight">{p.label}</div>
-                  <span className="inline-flex items-center mt-1 text-[11px] font-mono px-2 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
+              <div key={p.key}>
+                {/* フェーズ見出し（ノードは他セクションと左端を揃えるため、見出しは上に置く） */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[12.5px] font-bold text-gray-700 leading-tight">{p.label}</span>
+                  <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
                 </div>
-                <div className="flex-1 overflow-x-auto pb-1">
-                  <div className="inline-flex items-start gap-0 min-w-full">
+                <div className="overflow-x-auto pb-1">
+                  <div className="inline-flex items-start gap-0">
                     {p.tasks.map((t, idx) => (
                       <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === p.tasks.length - 1} />
                     ))}
@@ -322,10 +323,14 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
     : ''
   return (
     <div className="flex flex-col items-center flex-shrink-0" style={{ width: NODE_COL_W }}>
-      {/* ノード行: ドットを中央に、左右へ連結線 */}
+      {/* ノード行: アイコン丸を中央に、左右へ連結線（書類到着と統一） */}
       <div className="flex items-center w-full">
         <span className={`flex-1 h-[2px] ${isFirst ? 'opacity-0' : CONNECTOR}`} />
-        <span className={`w-[14px] h-[14px] rounded-full border-2 flex-shrink-0 ${NODE_CLS[state]}`} title={`${task.title}（${task.status}）`} />
+        <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${NODE_CIRCLE[state]}`} title={`${task.title}（${task.status}）`}>
+          {state === 'done'
+            ? <Check className="w-3.5 h-3.5" strokeWidth={2.75} />
+            : <span className="w-2 h-2 rounded-full" style={{ background: 'currentColor' }} />}
+        </span>
         <span className={`flex-1 h-[2px] ${isLast ? 'opacity-0' : CONNECTOR}`} />
       </div>
       {/* ラベル: ドット中央下。タイトル/日付/担当は固定高さで横一直線に揃える */}
