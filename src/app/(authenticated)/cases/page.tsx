@@ -35,6 +35,7 @@ type CaseRowRaw = {
   lost_reason: string | null
   procedure_type: string[] | null
   expected_completion_date: string | null
+  order_sheet_completed_at: string | null
   fee_administrative: number | null
   fee_judicial: number | null
   fee_total: number | null
@@ -157,6 +158,7 @@ export default async function CasesPage() {
       manager_name: managerByCase.get(c.id) ?? null,
       team_name: salesTeamByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
+      order_sheet_completed_at: c.order_sheet_completed_at,
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
@@ -186,6 +188,7 @@ export default async function CasesPage() {
     manager_name: managerByCase.get(c.id) ?? null,
     procedure_type: c.procedure_type,
     order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
+    order_sheet_completed_at: c.order_sheet_completed_at,
   }))
 
   // LP案件一覧（受注ルート = LP直 / その他）

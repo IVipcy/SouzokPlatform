@@ -29,6 +29,8 @@ export type MyCaseRow = {
   team_name?: string | null
   /** 受注内容（手続区分） */
   procedure_type?: string[] | null
+  /** オーダーシート完成日時（作成済判定） */
+  order_sheet_completed_at?: string | null
   /** 進捗: 次の未完了タスク + 完了/総数 */
   nextTaskId?: string | null
   nextTaskTitle?: string | null
@@ -198,6 +200,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>
@@ -259,6 +262,14 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 管理担当 */}
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+              {/* オーダーシート作成（未作成=— / 作成済=タブへのリンク） */}
+              <td className="px-3 py-2.5">
+                {c.order_sheet_completed_at ? (
+                  <Link href={`/cases/${c.id}?tab=orderSheet`} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">作成済</Link>
+                ) : (
+                  <span className="text-gray-300">—</span>
+                )}
+              </td>
               {/* 受注内容（手続区分） */}
               <td className="px-3 py-2.5">
                 {c.procedure_type && c.procedure_type.filter(Boolean).length > 0 ? (

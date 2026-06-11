@@ -106,6 +106,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     client_response_due_date: string | null
     order_route_detail: string | null
     procedure_type: string[] | null
+    order_sheet_completed_at: string | null
     contract_type: string | null
     advance_payment: number | null
     fee_administrative: number | null
@@ -311,6 +312,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
+      order_sheet_completed_at: c.order_sheet_completed_at,
       // 進捗（次の未完了タスク + 完了/総数）
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,
@@ -395,6 +397,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       manager_name: managerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
+      order_sheet_completed_at: c.order_sheet_completed_at,
       newOrderUnassigned,
       assigneeChanged,
       assignOverdue: newOrderUnassigned && daysSinceWon !== null && daysSinceWon >= ASSIGN_DEADLINE_DAYS,

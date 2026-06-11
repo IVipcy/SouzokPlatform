@@ -31,7 +31,9 @@ export type ConsultCase = {
   procedure_type: string[] | null
   /** 受注金額 = 報酬金額（行政 or 司法の入っている方） */
   order_amount: number | null
-  /** 新規受注だが管理担当が未アサイン → 青NEW */
+  /** オーダーシート完成日時（作成済判定） */
+  order_sheet_completed_at?: string | null
+  /** 新規受注だが管理担当が未アサイン（assignOverdue 算出に利用） */
   newOrderUnassigned?: boolean
   /** 受注から3日超過で管理担当未アサイン → アサイン未完了アラート */
   assignOverdue?: boolean
@@ -247,6 +249,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
                 {manageMode && <th className="px-3 py-2 text-left font-bold">チーム</th>}
                 {manageMode && <th className="px-3 py-2 text-left font-bold">受注担当</th>}
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
+                <th className="px-3 py-2 text-left font-bold">オーダーシート</th>
                 <th className="px-3 py-2 text-left font-bold">受注内容</th>
                 <th className="px-3 py-2 text-right font-bold">受注金額</th>
               </tr>
@@ -279,12 +282,6 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {c.newOrderUnassigned && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-600 text-white flex-shrink-0" title="新規受注・管理担当未アサイン">NEW</span>
-                        )}
-                        {c.assigneeChanged && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white flex-shrink-0" title="担当者変更・管理担当未設定">NEW</span>
-                        )}
                         <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[200px]">
                           {c.deal_name}
                         </Link>
@@ -335,6 +332,13 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
                     )}
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5">
+                      {c.order_sheet_completed_at ? (
+                        <Link href={`/cases/${c.id}?tab=orderSheet`} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">作成済</Link>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5">
                       {procedures.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
