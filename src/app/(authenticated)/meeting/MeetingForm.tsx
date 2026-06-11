@@ -228,7 +228,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
         client_id: clientId,
-        deal_name: `${mainName || '無題'} 様 相続案件`,
+        deal_name: mainName || '無題',
         status: formData.caseStatus || '検討中',
         difficulty,
         procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
