@@ -80,10 +80,17 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
       .filter((t): t is TaskRow => !!t)
   }, [existingDeps, linkedIds, candidates, isPrev])
 
-  // 候補（紐づいてない、完了済みでない、自分以外）
-  const unlinkedCandidates = useMemo(
-    () => candidates.filter(t => t.status !== '完了' && !linkedIds.has(t.id)),
-    [candidates, linkedIds]
+  // 候補（紐づいてない、完了済みでない、自分以外）。同じフェーズを先頭に。
+  const unlinkedCandidates = useMemo(() => {
+    const cp = currentTask.phase ?? ''
+    return candidates
+      .filter(t => t.status !== '完了' && !linkedIds.has(t.id))
+      .sort((a, b) => (((b.phase ?? '') === cp ? 1 : 0) - ((a.phase ?? '') === cp ? 1 : 0)))
+  }, [candidates, linkedIds, currentTask.phase])
+  // 同じフェーズの候補（未設定時のサジェスト用）
+  const samePhaseCandidates = useMemo(
+    () => unlinkedCandidates.filter(t => (t.phase ?? '') === (currentTask.phase ?? '')),
+    [unlinkedCandidates, currentTask.phase]
   )
 
   const handleLink = async (taskId: string) => {
@@ -165,6 +172,29 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
               <div className="text-[10px] text-gray-400 mt-2 leading-tight">
                 {isPrev ? '前に' : '次に'}紐づけたい場合は下のボタンから追加
               </div>
+              {/* 同じフェーズの候補をサジェスト（クリックでその場で紐づけ） */}
+              {samePhaseCandidates.length > 0 && (
+                <div className="mt-3 text-left">
+                  <div className="text-[10px] font-semibold text-gray-400 mb-1">
+                    同じフェーズの候補（クリックで{isPrev ? '前に' : '次に'}紐づけ）
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {samePhaseCandidates.slice(0, 6).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => handleLink(t.id)}
+                        disabled={busyId === t.id}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full border border-brand-200 bg-white text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                        title={t.title}
+                      >
+                        {busyId === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                        <span className="truncate max-w-[150px]">{t.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
