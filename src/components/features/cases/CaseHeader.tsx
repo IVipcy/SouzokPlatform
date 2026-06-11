@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Badge from '@/components/ui/Badge'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseCategory } from '@/lib/constants'
+import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, TaskRow } from '@/types'
 
@@ -23,6 +23,9 @@ type Props = {
   // マイルストーン軸用
   tasks: TaskRow[]
   statusHistory?: TimelineStatusEvent[]
+  // どのタブからでもステータス変更できるよう、ヘッダーに常時表示する
+  selectableStatuses?: string[]
+  onStatusChange?: (status: string) => void
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -36,7 +39,8 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange }: Props) {
+  const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669' }
   const showTaxBadge = caseData.tax_filing_required === '要' || caseData.tax_filing_required === '不要'
@@ -79,6 +83,21 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                 <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${categoryStyle.cls}`}>
                   {categoryStyle.label}
                 </span>
+              )}
+              {/* 案件ステータス（どのタブからでも変更可能） */}
+              {selectableStatuses && onStatusChange && (
+                <div className="relative inline-flex items-center">
+                  <span className="absolute left-2 w-1.5 h-1.5 rounded-full pointer-events-none" style={{ background: statusColor }} />
+                  <select
+                    value={caseData.status}
+                    onChange={e => onStatusChange(e.target.value)}
+                    title="案件ステータスを変更"
+                    className="appearance-none text-[11px] font-bold pl-4 pr-6 py-0.5 rounded border border-gray-200 bg-white text-gray-700 cursor-pointer outline-none hover:border-brand-400 focus:border-brand-500"
+                  >
+                    {selectableStatuses.map(s => <option key={s} value={s}>{getCaseStatusLabel(s)}</option>)}
+                  </select>
+                  <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
+                </div>
               )}
             </div>
             {/* 案件名 + クレームフラグ */}

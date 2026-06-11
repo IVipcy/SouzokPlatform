@@ -27,6 +27,7 @@ import AddTaskModal from './AddTaskModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
+import { getSelectableCaseStatuses } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
 
@@ -163,6 +164,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned)}
+        onStatusChange={s => patchCase({ status: s })}
       />
 
       <CaseTabs
