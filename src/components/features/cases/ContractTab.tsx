@@ -8,7 +8,7 @@ import {
   Section, FieldGrid, Field,
   InlineCurrency, InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import type { CaseRow, ExpenseRow, TaskRow, PartnerRow, CaseReferralRow } from '@/types'
+import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -26,19 +26,20 @@ const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
 export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
-  const [partner, setPartner] = useState<PartnerRow | null>(null)
-
-  // パートナー取得
+  // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
+  const [referralRate, setReferralRate] = useState<number | null>(null)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!caseData.partner_id) { setPartner(null); return }
-    const fetchPartner = async () => {
+    const route = caseData.order_route
+    const name = caseData.order_route_detail
+    let alive = true
+    ;(async () => {
+      if (!route || !name) { if (alive) setReferralRate(null); return }
       const supabase = createClient()
-      const { data } = await supabase.from('partners').select('*').eq('id', caseData.partner_id!).single()
-      setPartner(data as PartnerRow | null)
-    }
-    fetchPartner()
-  }, [caseData.partner_id])
+      const { data } = await supabase.from('referral_sources').select('referral_rate').eq('route', route).eq('name', name).maybeSingle()
+      if (alive) setReferralRate((data?.referral_rate ?? null) as number | null)
+    })()
+    return () => { alive = false }
+  }, [caseData.order_route, caseData.order_route_detail])
 
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
@@ -47,8 +48,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = feeSubtotal - (caseData.advance_payment ?? 0)
-  const partnerCompensation = partner
-    ? (caseData.fee_administrative ?? 0) * (partner.kickback_rate ?? 0) / 100
+  const partnerName = caseData.order_route_detail
+  const partnerCompensation = referralRate != null
+    ? (caseData.fee_administrative ?? 0) * referralRate / 100
     : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
   const feeRealEstate = caseData.fee_real_estate ?? 0
@@ -162,20 +164,19 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             </div>
           </Section>
 
-          {/* 4. パートナー報酬 */}
+          {/* 4. パートナー報酬（紹介元の紹介料率で自動計算） */}
           <Section title="パートナー報酬" icon="🤝">
             <FieldGrid cols={1}>
-              <Field label="紹介元パートナー" value={partner ? partner.name : '未設定'} />
-              <Field label="パートナー報酬割合" value={partner ? `${partner.kickback_rate}%` : '—'} mono />
+              <Field label="紹介元パートナー" value={partnerName || '未設定'} />
+              <Field label="パートナー報酬割合" value={referralRate != null ? `${referralRate}%` : '—'} mono />
               <Field
                 label="パートナー報酬金額"
-                value={partner && partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
+                value={partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
                 mono
               />
             </FieldGrid>
             <div className="text-[12px] text-gray-400 mt-2">
-              ※ 紹介元パートナーは「基本情報 → 受注ルート・紹介 → 紹介パートナー」で選択します。
-              報酬金額は「確定金額（行政）× 還元率」で自動計算されます。
+              ※ 紹介元は「面談ルート → 詳細（紹介元）」で選択します。報酬金額は「確定金額（行政）× 紹介料率」で自動計算（紹介料率は紹介元マスタで管理）。
             </div>
           </Section>
 
