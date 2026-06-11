@@ -233,7 +233,7 @@ export default async function CasesPage() {
         eyebrow="Cases"
         title="案件一覧"
         icon={Briefcase}
-        description="管理案件一覧・相談案件一覧・個別管理案件・LP案件一覧を切り替えて表示"
+        description="左メニューの「案件一覧」のサブメニュー（相談案件 / 管理案件 / 個別管理 / LP案件）で切り替え"
       />
       <CaseViewsClient managerRows={managerRows} completedRows={completedRows} consultRows={consultRows} referralRows={referralRows} lpRows={lpRows} />
     </div>

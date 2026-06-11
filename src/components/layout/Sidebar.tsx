@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard,
   UserCircle,
@@ -32,10 +32,12 @@ const ROLE_LABEL: Record<string, string> = {
   accounting: '経理担当',
 }
 
+type NavChild = { href: string; label: string; view: string }
 type NavItem = {
   href: string
   label: string
   Icon: LucideIcon
+  children?: NavChild[]
 }
 
 const navSections: { label: string; items: NavItem[] }[] = [
@@ -44,8 +46,13 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/my',       label: 'マイページ',     Icon: UserCircle },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
-      { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
-      { href: '/meeting',  label: '案件編集',       Icon: PenSquare },
+      { href: '/cases',    label: '案件一覧',       Icon: Briefcase, children: [
+        { href: '/cases?view=consult',  label: '相談案件一覧',   view: 'consult' },
+        { href: '/cases?view=manage',   label: '管理案件一覧',   view: 'manage' },
+        { href: '/cases?view=referral', label: '個別管理案件',   view: 'referral' },
+        { href: '/cases?view=lp',       label: 'LP案件一覧',     view: 'lp' },
+      ] },
+      { href: '/meeting',  label: '新規案件登録', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
     ],
   },
@@ -64,6 +71,7 @@ const STORAGE_KEY = 'sidebar:collapsed'
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const supabase = createClient()
   const user = useAuth()
@@ -141,28 +149,49 @@ export default function Sidebar() {
               {section.items.map((item) => {
                 const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
                 const Icon = item.Icon
+                const currentView = searchParams.get('view') ?? 'consult'
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    title={collapsed ? item.label : undefined}
-                    className={`group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-brand-50 text-brand-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />
-                    )}
-                    <Icon
-                      className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${
-                        isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'
+                  <div key={item.href}>
+                    <Link
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      className={`group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'bg-brand-50 text-brand-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }`}
-                      strokeWidth={isActive ? 2.25 : 1.75}
-                    />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />
+                      )}
+                      <Icon
+                        className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${
+                          isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'
+                        }`}
+                        strokeWidth={isActive ? 2.25 : 1.75}
+                      />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </Link>
+                    {/* サブメニュー（案件一覧 → 相談/管理/個別管理/LP） */}
+                    {item.children && !collapsed && (
+                      <div className="mt-0.5 ml-7 pl-2 border-l border-gray-100 space-y-0.5">
+                        {item.children.map(ch => {
+                          const chActive = pathname.startsWith('/cases') && currentView === ch.view
+                          return (
+                            <Link
+                              key={ch.view}
+                              href={ch.href}
+                              className={`block px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
+                                chActive ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                              }`}
+                            >
+                              {ch.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>

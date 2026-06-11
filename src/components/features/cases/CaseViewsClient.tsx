@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search, type LucideIcon } from 'lucide-react'
 import MyPageCasesTab, { type MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable, { type ReferralRow } from '@/components/features/my/ReferralCasesTable'
@@ -9,6 +10,15 @@ import LpCasesTable, { type LpCaseRow } from '@/components/features/cases/LpCase
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
 type View = 'manage' | 'consult' | 'referral' | 'lp'
+
+// サイドバーのサブメニュー（/cases?view=xxx）と対応
+const VIEWS: View[] = ['consult', 'manage', 'referral', 'lp']
+const VIEW_META: Record<View, { label: string; Icon: LucideIcon }> = {
+  consult: { label: '相談案件一覧', Icon: MessageSquare },
+  manage: { label: '管理案件一覧', Icon: ClipboardList },
+  referral: { label: '個別管理案件', Icon: Sparkles },
+  lp: { label: 'LP案件一覧', Icon: Megaphone },
+}
 
 type Props = {
   managerRows: MyCaseRow[]
@@ -50,25 +60,13 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
 export default function CaseViewsClient({ managerRows, completedRows, consultRows, referralRows, lpRows }: Props) {
-  const [view, setView] = useState<View>('consult')
+  const searchParams = useSearchParams()
+  const viewParam = searchParams.get('view') as View | null
+  const view: View = viewParam && VIEWS.includes(viewParam) ? viewParam : 'consult'
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   // 管理案件ビュー内のサブ切替（対応中 / 完了）
   const [manageSub, setManageSub] = useState<'active' | 'completed'>('active')
-
-  const tabs: { key: View; label: string; Icon: typeof ClipboardList; count: number }[] = [
-    { key: 'consult', label: '相談案件一覧', Icon: MessageSquare, count: consultRows.length },
-    { key: 'manage', label: '管理案件一覧', Icon: ClipboardList, count: managerRows.length },
-    { key: 'referral', label: '個別管理案件', Icon: Sparkles, count: referralRows.length },
-    { key: 'lp', label: 'LP案件一覧', Icon: Megaphone, count: lpRows.length },
-  ]
-
-  // 検索＋ステータスで絞り込み
-  const filteredManager = useMemo(() => applyStatus(applySearch(managerRows, search), statusFilter), [managerRows, search, statusFilter])
-  const filteredCompleted = useMemo(() => applySearch(completedRows, search), [completedRows, search])
-  const filteredConsult = useMemo(() => applyStatus(applySearch(consultRows, search), statusFilter), [consultRows, search, statusFilter])
-  const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), statusFilter), [referralRows, search, statusFilter])
-  const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), statusFilter), [lpRows, search, statusFilter])
 
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
   const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'referral' ? referralRows : lpRows
@@ -76,26 +74,26 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
     const present = new Set(activeRows.map(r => r.status))
     return CASE_STATUSES.filter(s => present.has(s.key)).map(s => s.key)
   }, [activeRows])
+  // ビュー切替で前ビューのステータス絞り込みが残るのを無効化（候補に無ければ「すべて」扱い）
+  const effStatus = statusFilter === 'all' || (statusOptions as string[]).includes(statusFilter) ? statusFilter : 'all'
 
-  const switchView = (v: View) => { setView(v); setStatusFilter('all') }
+  // 検索＋ステータスで絞り込み
+  const filteredManager = useMemo(() => applyStatus(applySearch(managerRows, search), effStatus), [managerRows, search, effStatus])
+  const filteredCompleted = useMemo(() => applySearch(completedRows, search), [completedRows, search])
+  const filteredConsult = useMemo(() => applyStatus(applySearch(consultRows, search), effStatus), [consultRows, search, effStatus])
+  const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), effStatus), [referralRows, search, effStatus])
+  const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), effStatus), [lpRows, search, effStatus])
+
+  const meta = VIEW_META[view]
+  const viewCount = activeRows.length
 
   return (
     <div>
-      <div className="flex items-center gap-1 mb-3 border-b border-gray-200 flex-wrap">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => switchView(t.key)}
-            className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-semibold border-b-2 transition-colors ${
-              view === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200'
-            }`}
-          >
-            <t.Icon className="w-4 h-4" strokeWidth={view === t.key ? 2.25 : 1.75} />
-            {t.label}
-            <span className={`text-[12px] font-mono ml-0.5 ${view === t.key ? 'opacity-80' : 'opacity-50'}`}>{t.count}</span>
-          </button>
-        ))}
+      {/* 現在のサブメニュー名（サイドバーの「案件一覧 → ○○」と対応） */}
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+        <meta.Icon className="w-5 h-5 text-brand-600" strokeWidth={2.25} />
+        <h2 className="text-[15px] font-bold text-gray-900">{meta.label}</h2>
+        <span className="text-[12px] font-mono text-gray-400">{viewCount}</span>
       </div>
 
       {/* ステータス絞り込み ＋ 検索（管理案件一覧はステータス絞り込み非表示） */}
@@ -106,7 +104,7 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === 'all' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${effStatus === 'all' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
             >
               すべて
             </button>
@@ -117,10 +115,10 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
                   key={key}
                   type="button"
                   onClick={() => setStatusFilter(key)}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${statusFilter === key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${effStatus === key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                 >
                   {getCaseStatusLabel(key)}
-                  <span className={`ml-1 text-[10px] font-mono ${statusFilter === key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+                  <span className={`ml-1 text-[10px] font-mono ${effStatus === key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
                 </button>
               )
             })}
