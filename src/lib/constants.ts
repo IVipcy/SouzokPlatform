@@ -240,7 +240,7 @@ export const KOSEKI_PURPOSES = [
 ] as const
 
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
-export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由'] as const
+export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 
 // 案件番号の経路コード（YYMM + コード + 当日連番4桁）
 export const ORDER_ROUTE_CODES: Record<string, string> = {
@@ -249,6 +249,7 @@ export const ORDER_ROUTE_CODES: Record<string, string> = {
   'HP経由': 'HP',
   '過去客経由': 'PC',
   '税理士経由': 'ZE',
+  'その他': 'OT',
 }
 
 // 過去客経由は紹介元マスタではなく既存依頼者を参照する
