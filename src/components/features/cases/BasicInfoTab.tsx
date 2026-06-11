@@ -57,14 +57,13 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   return (
     <div className="space-y-3.5">
-      {/* 案件進捗（ステータス＋進行サマリーを1セクションに集約） */}
+      {/* 案件進捗（ステータス＋進行サマリーを1セクションに集約。ステータスは先頭セル） */}
       <Section title="案件進捗">
-        <div className="flex items-center gap-3 flex-wrap mb-3">
-          <span className="text-[12px] font-semibold text-gray-400 tracking-wide">案件ステータス</span>
-          <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
-        </div>
-        <div className="rounded-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
+        <div className="rounded-lg border border-gray-200">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-px bg-gray-100">
+            <SummaryItem label="案件ステータス">
+              <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
+            </SummaryItem>
             <SummaryItem label="現在フェーズ">
               <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
             </SummaryItem>
