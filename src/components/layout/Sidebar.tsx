@@ -17,6 +17,8 @@ import {
   Building2,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -77,6 +79,8 @@ export default function Sidebar() {
   const user = useAuth()
   // 初期値は false。マウント後 localStorage から復元 + body の data 属性を同期。
   const [collapsed, setCollapsed] = useState(false)
+  // 「案件一覧」サブメニューの開閉（案件一覧ページにいるときは初期で開く）
+  const [casesOpen, setCasesOpen] = useState(() => pathname.startsWith('/cases'))
 
   // 初回マウントで localStorage を読む
   useEffect(() => {
@@ -150,32 +154,38 @@ export default function Sidebar() {
                 const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
                 const Icon = item.Icon
                 const currentView = searchParams.get('view') ?? 'consult'
+                // 子メニューを持つ項目（案件一覧）は、展開時はアコーディオンのトグルにする
+                const asAccordion = !!item.children && !collapsed
+                const itemClass = `group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`
                 return (
                   <div key={item.href}>
-                    <Link
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={`group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive
-                          ? 'bg-brand-50 text-brand-700'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      {isActive && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />
-                      )}
-                      <Icon
-                        className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${
-                          isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'
-                        }`}
-                        strokeWidth={isActive ? 2.25 : 1.75}
-                      />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
-                    {/* サブメニュー（案件一覧 → 相談/管理/個別管理/LP） */}
-                    {item.children && !collapsed && (
+                    {asAccordion ? (
+                      <button
+                        type="button"
+                        onClick={() => setCasesOpen(o => !o)}
+                        className={`${itemClass} w-full`}
+                        aria-expanded={casesOpen}
+                      >
+                        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />}
+                        <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'}`} strokeWidth={isActive ? 2.25 : 1.75} />
+                        <span className="truncate flex-1 text-left">{item.label}</span>
+                        {casesOpen
+                          ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" strokeWidth={2} />
+                          : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" strokeWidth={2} />}
+                      </button>
+                    ) : (
+                      <Link href={item.href} title={collapsed ? item.label : undefined} className={itemClass}>
+                        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />}
+                        <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'}`} strokeWidth={isActive ? 2.25 : 1.75} />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </Link>
+                    )}
+                    {/* サブメニュー（案件一覧 → 相談/管理/個別管理/LP）。▽で開閉 */}
+                    {asAccordion && casesOpen && (
                       <div className="mt-0.5 ml-7 pl-2 border-l border-gray-100 space-y-0.5">
-                        {item.children.map(ch => {
+                        {item.children!.map(ch => {
                           const chActive = pathname.startsWith('/cases') && currentView === ch.view
                           return (
                             <Link
