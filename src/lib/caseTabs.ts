@@ -51,9 +51,9 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   const category = getCaseCategory(status)
 
   // 受託: オーダーシート作成・担当受注内容まで。実務タブは出さないが、
-  // 受託段階で前受金等を請求するため「契約・報酬・請求」タブは表示する（タスクの左隣）。
+  // 受託段階で前受金等を請求するため「契約・報酬・請求」、契約書等の授受のため「書類」を表示する。
   if (status === '受注') {
-    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'contract', 'tasks'], collapsed: [] }
+    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'contract', 'docs', 'tasks'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報は折りたたみ
@@ -67,5 +67,6 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   }
 
   // 相談案件（面談設定済 / 検討中 / 検討中（契約書待ち） / 不受託）
-  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'tasks'], collapsed: [] }
+  // 契約書の授受・受信簿連携のため「書類」タブを早い段階から表示する。
+  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'docs', 'tasks'], collapsed: [] }
 }
