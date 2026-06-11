@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Check, Hand, Loader2, Play, Link2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
+import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -143,9 +145,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   onClose: () => void
   onDone: () => void
 }) {
+  const router = useRouter()
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string }>>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [newTaskPhase, setNewTaskPhase] = useState('phase1')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -187,21 +191,31 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     }
     // 受信をきっかけに新規タスクを作成して開始
     let e3: { message: string } | null = null
+    let newTaskId: string | null = null
     const newTitle = newTaskTitle.trim()
     if (newTitle) {
       const { data: nt, error } = await supabase.from('tasks')
-        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: 'phase1', category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
+        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: newTaskPhase, category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
         .select('id').single()
       e3 = error
-      if (!error && nt && currentMemberId) {
-        await supabase.from('task_assignees').insert({ task_id: (nt as { id: string }).id, member_id: currentMemberId, role: 'primary' })
+      if (!error && nt) {
+        newTaskId = (nt as { id: string }).id
+        if (currentMemberId) {
+          await supabase.from('task_assignees').insert({ task_id: newTaskId, member_id: currentMemberId, role: 'primary' })
+        }
       }
     }
     setSaving(false)
     if (e1 || e2 || e3) { showToast(`保存に失敗しました: ${(e1 ?? e2 ?? e3)?.message}`, 'error'); return }
     const startedCount = selected.size + (newTitle ? 1 : 0)
     showToast(startedCount > 0 ? `着手し、${startedCount}件のタスクを開始しました` : '着手しました', 'success')
-    onDone()
+    // 開始したタスクが1つに定まるなら、そのタスク詳細へ遷移
+    const targetTaskId = newTaskId ?? (selected.size === 1 ? [...selected][0] : null)
+    if (targetTaskId) {
+      router.push(`/tasks/${targetTaskId}`)
+    } else {
+      onDone()
+    }
   }
 
   return (
@@ -245,14 +259,24 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         {/* 受信をきっかけに新規タスクを作成して開始 */}
         <div className="pt-2 border-t border-gray-100">
           <label className="block text-[12px] font-semibold text-gray-500 mb-1">新規タスクを作成して開始（任意）</label>
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={e => setNewTaskTitle(e.target.value)}
-            placeholder="例：契約書の確認"
-            className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-          />
-          <p className="text-[11px] text-gray-400 mt-1">この受信をきっかけに新しいタスクを作成し、すぐ「対応中」にします。</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newTaskTitle}
+              onChange={e => setNewTaskTitle(e.target.value)}
+              placeholder="例：契約書の確認"
+              className="flex-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+            />
+            <select
+              value={newTaskPhase}
+              onChange={e => setNewTaskPhase(e.target.value)}
+              title="フェーズ"
+              className="w-40 px-2 py-2 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
+            >
+              {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
+            </select>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">この受信をきっかけに新しいタスクを作成し、すぐ「対応中」にします。作成後はそのタスクへ移動します。</p>
         </div>
       </div>
     </Modal>
