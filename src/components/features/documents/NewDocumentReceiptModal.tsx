@@ -154,7 +154,26 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       return
     }
 
-    // 2. 子レコード（受領項目）一括 INSERT
+    // 2. 受領した物はすべて書類タブ(case_documents)に「受領書類」として作成（PDF保管を一本化）
+    const docRows = validItems.map(it => ({
+      case_id: selectedCaseId,
+      document_name: it.item_name.trim(),
+      received_date: receivedDate,
+      quantity: it.quantity ? Number(it.quantity) : 1,
+      generated_by: 'receipt',
+      notes: it.received_from.trim() ? `受領先: ${it.received_from.trim()}` : null,
+    }))
+    const { data: createdDocs, error: docErr } = await supabase
+      .from('case_documents')
+      .insert(docRows)
+      .select('id')
+    if (docErr || !createdDocs || createdDocs.length !== validItems.length) {
+      setError(`書類（受領書類）の作成に失敗しました: ${docErr?.message ?? ''}`)
+      setSaving(false)
+      return
+    }
+
+    // 3. 子レコード（受領項目）一括 INSERT。書類ID・取得物リンクを紐づけ
     const parseLink = (v: string) => {
       if (!v) return { linked_kind: null, linked_id: null, linked_field: null }
       const [kind, id, field] = v.split(':')
@@ -166,6 +185,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       quantity: it.quantity ? Number(it.quantity) : null,
       received_from: it.received_from.trim() || null,
       sort_order: idx,
+      case_document_id: (createdDocs[idx] as { id: string }).id,
       ...parseLink(it.linked),
     }))
     const { error: itemsErr } = await supabase
@@ -345,7 +365,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                       onChange={e => updateItem(it.key, { linked: e.target.value })}
                       className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400"
                     >
-                      <option value="">紐づけなし（戸籍・住民票など）</option>
+                      <option value="">書類として残すのみ（契約書・お客様送付物 等）</option>
                       {groupedDeliverables.map(([group, opts]) => (
                         <optgroup key={group} label={group}>
                           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -360,7 +380,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         </div>
 
         <p className="text-[11px] text-gray-400">
-          取得物（残高証明・登記情報など）に紐づけて登録すると、その取得物の受領日に到着日が自動反映されます。戸籍・住民票などは「紐づけなし」のままでOKです。
+          受領した物はすべて案件の「書類」タブに受領書類として保存されます（PDFは書類タブで添付）。取得物（残高証明・登記情報など）に紐づけると、各タブの受領日にも到着日が自動反映されます。
         </p>
         <p className="text-[11px] text-gray-400">
           登録後、一覧の「W-Check」「着手」ボタンから書類確認・着手記録ができます。

@@ -650,9 +650,11 @@ export type DocumentReceiptItemRow = {
   received_from: string | null  // 受領先
   sort_order: number
   // 取得物への任意リンク（migration 073）
-  linked_kind: string | null    // 'financial_asset' | 'real_estate'
+  linked_kind: string | null    // 'financial_asset' | 'real_estate' | 'koseki'
   linked_id: string | null      // 取得物テーブルの行ID
   linked_field: string | null   // 受領日を書き込む対象カラム名
+  // 書類タブ(case_documents)の受領書類レコードへの紐づけ（migration 082）
+  case_document_id: string | null
   created_at: string
 }
 

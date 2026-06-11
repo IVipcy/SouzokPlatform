@@ -145,6 +145,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 }) {
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string }>>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [newTaskTitle, setNewTaskTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -184,9 +185,22 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         .in('id', [...selected])
       e2 = error
     }
+    // 受信をきっかけに新規タスクを作成して開始
+    let e3: { message: string } | null = null
+    const newTitle = newTaskTitle.trim()
+    if (newTitle) {
+      const { data: nt, error } = await supabase.from('tasks')
+        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', status: '対応中', started_by: currentMemberId, started_at: nowIso })
+        .select('id').single()
+      e3 = error
+      if (!error && nt && currentMemberId) {
+        await supabase.from('task_assignees').insert({ task_id: (nt as { id: string }).id, member_id: currentMemberId, role: 'primary' })
+      }
+    }
     setSaving(false)
-    if (e1 || e2) { showToast(`保存に失敗しました: ${(e1 ?? e2)?.message}`, 'error'); return }
-    showToast(selected.size > 0 ? `着手し、${selected.size}件のタスクを開始しました` : '着手しました', 'success')
+    if (e1 || e2 || e3) { showToast(`保存に失敗しました: ${(e1 ?? e2 ?? e3)?.message}`, 'error'); return }
+    const startedCount = selected.size + (newTitle ? 1 : 0)
+    showToast(startedCount > 0 ? `着手し、${startedCount}件のタスクを開始しました` : '着手しました', 'success')
     onDone()
   }
 
@@ -200,7 +214,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {selected.size > 0 ? `着手してタスク開始 (${selected.size})` : '着手だけ記録'}
+            {(selected.size > 0 || newTaskTitle.trim()) ? `着手してタスク開始 (${selected.size + (newTaskTitle.trim() ? 1 : 0)})` : '着手だけ記録'}
           </Button>
         </>
       }
@@ -227,6 +241,19 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
             ))}
           </ul>
         )}
+
+        {/* 受信をきっかけに新規タスクを作成して開始 */}
+        <div className="pt-2 border-t border-gray-100">
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">新規タスクを作成して開始（任意）</label>
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={e => setNewTaskTitle(e.target.value)}
+            placeholder="例：契約書の確認"
+            className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+          />
+          <p className="text-[11px] text-gray-400 mt-1">この受信をきっかけに新しいタスクを作成し、すぐ「対応中」にします。</p>
+        </div>
       </div>
     </Modal>
   )
