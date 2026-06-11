@@ -217,6 +217,24 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       }
     }
 
+    // 4. 受注担当へ通知（書類が届いた → クリックで案件の書類タブへ）
+    const { data: salesMembers } = await supabase
+      .from('case_members')
+      .select('member_id')
+      .eq('case_id', selectedCaseId)
+      .eq('role', 'sales')
+    if (salesMembers && salesMembers.length > 0) {
+      const itemNames = validItems.map(i => i.item_name.trim()).join('・')
+      const notifRows = (salesMembers as { member_id: string }[]).map(m => ({
+        member_id: m.member_id,
+        type: 'doc_received',
+        case_id: selectedCaseId,
+        title: '書類が届きました',
+        body: `${itemNames}${selectedCase ? `（${selectedCase.deal_name}）` : ''}`,
+      }))
+      await supabase.from('notifications').insert(notifRows)
+    }
+
     setSaving(false)
     showToast('書類受信を登録しました', 'success')
     onSaved()

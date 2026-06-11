@@ -190,7 +190,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     const newTitle = newTaskTitle.trim()
     if (newTitle) {
       const { data: nt, error } = await supabase.from('tasks')
-        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', status: '対応中', started_by: currentMemberId, started_at: nowIso })
+        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: 'phase1', category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
         .select('id').single()
       e3 = error
       if (!error && nt && currentMemberId) {
