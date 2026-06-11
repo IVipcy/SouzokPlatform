@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { SubTabs } from '@/components/ui/SubTabs'
-import { SectionHeading } from '@/components/ui/InlineFields'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
@@ -83,16 +82,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     <div>
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'report' | 'memo')} className="mb-3" />
 
-      {/* 進捗報告履歴 */}
+      {/* 進捗報告（表は白枠・見出しは子タブ） */}
       {sub === 'report' && (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <SectionHeading title="進捗報告履歴" right={<span className="text-[12px] font-mono text-gray-400">{progressReports.length}件</span>} />
-        </div>
-        {progressReports.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
+        progressReports.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
                 <tr>
@@ -118,55 +113,51 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        )
       )}
 
       {/* 進捗メモ（入力＋一覧） */}
       {sub === 'memo' && (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <SectionHeading title="進捗メモ" right={<span className="text-[12px] font-mono text-gray-400">{notes.length}件</span>} />
-        </div>
-        <div className="px-4 py-3 flex gap-2 border-b border-gray-50">
-          <input
-            type="text"
-            value={newNote}
-            onChange={e => setNewNote(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-            placeholder="例：Aさんが戸籍請求中（□□市）"
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-          />
-          <button
-            onClick={handleAddNote}
-            disabled={saving || !newNote.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? '追加中...' : '追加'}
-          </button>
-        </div>
-        <div className="px-4 py-3">
-          {loading ? (
-            <div className="text-center text-sm text-gray-400 py-4">読み込み中...</div>
-          ) : notes.length === 0 ? (
-            <div className="text-center text-sm text-gray-400 py-4">メモはまだありません</div>
-          ) : (
-            <div className="space-y-2.5">
-              {notes.map(n => (
-                <div key={n.id} className="flex gap-2.5">
-                  <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                  <div className="flex-1">
-                    <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
-                    <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                      {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newNote}
+              onChange={e => setNewNote(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+              placeholder="例：Aさんが戸籍請求中（□□市）"
+              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+            />
+            <button
+              onClick={handleAddNote}
+              disabled={saving || !newNote.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? '追加中...' : '追加'}
+            </button>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+            {loading ? (
+              <div className="text-center text-sm text-gray-400 py-4">読み込み中...</div>
+            ) : notes.length === 0 ? (
+              <div className="text-center text-sm text-gray-400 py-4">メモはまだありません</div>
+            ) : (
+              <div className="space-y-2.5">
+                {notes.map(n => (
+                  <div key={n.id} className="flex gap-2.5">
+                    <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                    <div className="flex-1">
+                      <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
+                      <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                        {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       )}
     </div>
   )

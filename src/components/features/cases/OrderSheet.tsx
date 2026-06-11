@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import ClientInfoTab from './ClientInfoTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
@@ -129,15 +130,11 @@ export default function OrderSheet({
   )
 }
 
-// セクション見出し（縦積みの区切り）。index で背景色を2色交互にして境目を明確化。
-function OSSection({ title, index = 0, children }: { title: string; index?: number; children: React.ReactNode }) {
-  const bandCls = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
+// セクション見出し（フラット。他タブの Section と統一＝白枠で囲まず見出し＋下線）。
+function OSSection({ title, children }: { title: string; index?: number; children: React.ReactNode }) {
   return (
-    <section className={`rounded-xl border border-gray-200 ${bandCls} px-4 py-4`}>
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-        <span className="inline-block w-1 h-5 bg-brand-600 rounded-full" />
-        <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
-      </div>
+    <section>
+      <SectionHeading title={title} className="mb-2.5 pb-1.5 border-b border-gray-200" />
       {children}
     </section>
   )

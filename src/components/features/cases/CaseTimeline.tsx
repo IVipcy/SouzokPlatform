@@ -25,6 +25,8 @@ type Props = {
   documentReceipts?: TimelineReceipt[]
   /** full=全部 / milestones=マイルストーン軸のみ（タブ上部用） / detail=作業の線表のみ（案件進捗タブ用） */
   variant?: 'full' | 'milestones' | 'detail'
+  /** 親側でフラットなセクションに埋め込むとき（白カード枠を外し、見出しを下線スタイルに） */
+  embedded?: boolean
 }
 
 // ───────── タスクの状態正規化（差戻しは廃止） ─────────
@@ -156,7 +158,7 @@ export function MilestoneAxis({ caseData, tasks, statusHistory = [], compact = f
   )
 }
 
-export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full' }: Props) {
+export default function CaseTimeline({ caseData, tasks, properties = [], statusHistory = [], documentReceipts = [], variant = 'full', embedded = false }: Props) {
   const showMilestones = variant !== 'detail'
   const showDetail = variant !== 'milestones'
   const cardTitle = variant === 'detail' ? '作業の進捗（タスク・書類）' : '案件タイムライン'
@@ -195,8 +197,8 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
   const allEmpty = detailKeys.length === 0
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm">
-      <div className="mb-5">
+    <div className={embedded ? '' : 'bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm'}>
+      <div className={embedded ? 'flex items-center gap-2 mb-2.5 pb-1.5 border-b border-gray-200 flex-wrap' : 'mb-5'}>
         <SectionHeading title={cardTitle} right={showDetail ? <Legend /> : undefined} />
       </div>
 

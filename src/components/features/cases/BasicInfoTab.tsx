@@ -6,9 +6,9 @@
 // 面談内容・相談情報・担当者・受注内容・受注ルート・収益等は「面談情報」タブへ移動済み。
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import {
-  FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
+  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
 import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS, getSelectableCaseStatuses } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
@@ -32,8 +32,6 @@ type Props = {
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
 export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false }: Props) {
-  const [basicOpen, setBasicOpen] = useState(false)
-
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -58,91 +56,67 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
   })()
 
   return (
-    <div className="space-y-4">
-      {/* 案件ステータス（変更はここ1か所に集約・大きめ表示。overflow に隠れないよう独立配置） */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-4 py-3 flex items-center gap-3 flex-wrap">
-        <span className="text-[12px] font-semibold text-gray-400 tracking-wide">案件ステータス</span>
-        <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
-      </div>
-
-      {/* ① 進行状態サマリー（一目でわかる・セグメント型ステータスバー） */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
-          {/* 現在フェーズ */}
-          <SummaryItem label="現在フェーズ">
-            <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
-          </SummaryItem>
-          {/* タスク進捗 */}
-          <SummaryItem label="タスク進捗">
-            <div className="flex items-center gap-2 w-full">
-              <span className="text-[14px] font-bold text-gray-900 tabular-nums">{completedTasks}/{totalTasks}</span>
-              <div className="flex-1 min-w-[40px] h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-brand-600 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
-              </div>
-              <span className="text-[13px] font-semibold text-gray-600 tabular-nums">{progressPct}%</span>
-            </div>
-          </SummaryItem>
-          {/* 遅延 */}
-          <SummaryItem label="遅延タスク">
-            {overdueCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-[14px] font-bold text-red-600">
-                <AlertTriangle className="w-4 h-4" strokeWidth={2.25} />{overdueCount}件
-              </span>
-            ) : (
-              <span className="text-[14px] font-semibold text-emerald-600">なし</span>
-            )}
-          </SummaryItem>
-          {/* 完了予定日 */}
-          <SummaryItem label="完了予定日">
-            <span className="text-[13px] font-mono text-gray-700">{caseData.expected_completion_date ?? '未設定'}</span>
-          </SummaryItem>
+    <div className="space-y-3.5">
+      {/* 案件進捗（ステータス＋進行サマリーを1セクションに集約） */}
+      <Section title="案件進捗">
+        <div className="flex items-center gap-3 flex-wrap mb-3">
+          <span className="text-[12px] font-semibold text-gray-400 tracking-wide">案件ステータス</span>
+          <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} onChange={s => saveCaseField('status', s)} />
         </div>
-      </div>
-
-      {/* ② 基本情報（アコーディオン） */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setBasicOpen(o => !o)}
-          className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-gray-50 transition-colors"
-        >
-          {basicOpen
-            ? <ChevronDown className="w-4 h-4 text-gray-500" strokeWidth={2.25} />
-            : <ChevronRight className="w-4 h-4 text-gray-500" strokeWidth={2.25} />}
-          <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
-          <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">基本情報</h3>
-          {!basicOpen && (
-            <span className="text-[12px] text-gray-400 ml-1 truncate">
-              {caseData.deal_name} · {getCaseStatusLabel(caseData.status)}
-            </span>
-          )}
-          <span className="ml-auto text-[12px] text-gray-400">{basicOpen ? '閉じる' : '開く'}</span>
-        </button>
-        {basicOpen && (
-          <div className="px-4 py-3 border-t border-gray-100">
-            <FieldGrid>
-              <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
-              <Field label="管理番号" value={caseData.case_number} mono />
-              <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
-              <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
-              <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
-              <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
-              <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-            </FieldGrid>
+        <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-gray-100">
+            <SummaryItem label="現在フェーズ">
+              <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
+            </SummaryItem>
+            <SummaryItem label="タスク進捗">
+              <div className="flex items-center gap-2 w-full">
+                <span className="text-[14px] font-bold text-gray-900 tabular-nums">{completedTasks}/{totalTasks}</span>
+                <div className="flex-1 min-w-[40px] h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-brand-600 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+                <span className="text-[13px] font-semibold text-gray-600 tabular-nums">{progressPct}%</span>
+              </div>
+            </SummaryItem>
+            <SummaryItem label="遅延タスク">
+              {overdueCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-[14px] font-bold text-red-600">
+                  <AlertTriangle className="w-4 h-4" strokeWidth={2.25} />{overdueCount}件
+                </span>
+              ) : (
+                <span className="text-[14px] font-semibold text-emerald-600">なし</span>
+              )}
+            </SummaryItem>
+            <SummaryItem label="完了予定日">
+              <span className="text-[13px] font-mono text-gray-700">{caseData.expected_completion_date ?? '未設定'}</span>
+            </SummaryItem>
           </div>
-        )}
-      </div>
+        </div>
+      </Section>
 
-      {/* ③ 作業の進捗（タスク・書類の線表）。マイルストーン軸はタブ上部に常時表示 */}
+      {/* 基本情報（アコーディオン・既定で閉じる） */}
+      <Section title="基本情報" collapsible defaultOpen={false}>
+        <FieldGrid>
+          <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
+          <Field label="管理番号" value={caseData.case_number} mono />
+          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
+          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+          <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
+          <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
+          <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
+        </FieldGrid>
+      </Section>
+
+      {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
       <CaseTimeline
         caseData={caseData}
         tasks={tasks}
         properties={properties}
         documentReceipts={documentReceipts}
         variant="detail"
+        embedded
       />
 
-      {/* ④ 進捗報告・メモ（活動履歴はタイムラインに統合済み） */}
+      {/* 進捗報告・メモ（活動履歴はタイムラインに統合済み） */}
       <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
     </div>
   )
