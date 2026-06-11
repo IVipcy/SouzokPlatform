@@ -71,9 +71,11 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
   const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'referral' ? referralRows : lpRows
   const statusOptions = useMemo(() => {
+    // LP案件はライフサイクル全段階を取りうるため、全ステータスで絞り込み可能にする
+    if (view === 'lp') return CASE_STATUSES.map(s => s.key)
     const present = new Set(activeRows.map(r => r.status))
     return CASE_STATUSES.filter(s => present.has(s.key)).map(s => s.key)
-  }, [activeRows])
+  }, [activeRows, view])
   // ビュー切替で前ビューのステータス絞り込みが残るのを無効化（候補に無ければ「すべて」扱い）
   const effStatus = statusFilter === 'all' || (statusOptions as string[]).includes(statusFilter) ? statusFilter : 'all'
 
