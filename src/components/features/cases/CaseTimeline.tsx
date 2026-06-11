@@ -175,9 +175,19 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     if (!tasksByPhase.has(k)) tasksByPhase.set(k, [])
     tasksByPhase.get(k)!.push(t)
   }
+  // 依存チェーン前提を緩め、フェーズ内は「完了 → 対応中/超過 → 未着手」でまとめる。
+  // これにより途中で追加・完了したタスクが末尾に浮かず、自然に見える。
+  const statusRank = (t: TaskRow): number => {
+    const s = classifyTask(t, todayYmd)
+    return s === 'done' ? 0 : s === 'pending' ? 2 : 1
+  }
   const orderedPhases = PHASE_ORDER
     .filter(p => (tasksByPhase.get(p)?.length ?? 0) > 0)
-    .map(p => ({ key: p, label: getPhaseDefinition(p)?.label ?? p, tasks: [...tasksByPhase.get(p)!].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) }))
+    .map(p => ({
+      key: p,
+      label: getPhaseDefinition(p)?.label ?? p,
+      tasks: [...tasksByPhase.get(p)!].sort((a, b) => statusRank(a) - statusRank(b) || (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    }))
 
   // 書類到着（実績）
   const receipts = documentReceipts
