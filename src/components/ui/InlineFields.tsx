@@ -561,7 +561,13 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (editing && textareaRef.current) textareaRef.current.focus()
+    if (editing && textareaRef.current) {
+      const el = textareaRef.current
+      el.focus()
+      // 既存内容に合わせて高さを自動調整
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }
   }, [editing])
 
   const handleSave = async () => {
@@ -594,12 +600,11 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
           <textarea
             ref={textareaRef}
             value={draft}
-            onChange={e => setDraft(e.target.value)}
+            onChange={e => { setDraft(e.target.value); const el = e.currentTarget; el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }}
             onCompositionStart={() => { composingRef.current = true }}
             onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
-            rows={3}
-            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
           />
           <div className="text-[12px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
         </div>

@@ -99,9 +99,9 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
   return (
     <textarea
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => { onChange(e.target.value); const el = e.currentTarget; el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }}
       placeholder={placeholder}
-      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition resize-y min-h-[80px] leading-relaxed"
+      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition resize-y min-h-[160px] max-h-[60vh] overflow-y-auto leading-relaxed"
     />
   )
 }
