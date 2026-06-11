@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { StickyNote, ClipboardCheck } from 'lucide-react'
+import { StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { SubTabs } from '@/components/ui/SubTabs'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
@@ -20,6 +21,7 @@ type Props = {
 
 export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
+  const [sub, setSub] = useState<'report' | 'memo'>('report')
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
@@ -74,12 +76,17 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     .filter(a => a.activity_type === 'note')
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
 
+  const SUBTABS = [{ key: 'report', label: '進捗報告' }, { key: 'memo', label: '進捗メモ' }]
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+    <div>
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'report' | 'memo')} className="mb-3" />
+
       {/* 進捗報告履歴 */}
+      {sub === 'report' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
           <h3 className="text-[13px] font-semibold text-gray-900">進捗報告履歴</h3>
           <span className="text-[12px] font-mono text-gray-400 ml-auto">{progressReports.length}件</span>
         </div>
@@ -114,12 +121,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
       </div>
+      )}
 
-      {/* メモ（入力＋一覧） */}
+      {/* 進捗メモ（入力＋一覧） */}
+      {sub === 'memo' && (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
           <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">メモ</h3>
+          <h3 className="text-[13px] font-semibold text-gray-900">進捗メモ</h3>
           <span className="text-[12px] font-mono text-gray-400 ml-auto">{notes.length}件</span>
         </div>
         <div className="px-4 py-3 flex gap-2 border-b border-gray-50">
@@ -161,6 +170,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

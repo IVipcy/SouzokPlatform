@@ -197,7 +197,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[15px] font-semibold text-gray-900">{cardTitle}</h3>
+        <h3 className="text-[13px] font-semibold text-gray-900">{cardTitle}</h3>
         {showDetail && <Legend />}
       </div>
 
