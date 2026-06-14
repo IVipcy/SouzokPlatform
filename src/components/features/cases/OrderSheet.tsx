@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { SectionHeading } from '@/components/ui/InlineFields'
 import ClientInfoTab from './ClientInfoTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
@@ -130,11 +129,18 @@ export default function OrderSheet({
   )
 }
 
-// セクション見出し（フラット。他タブの Section と統一＝白枠で囲まず見出し＋下線）。
-function OSSection({ title, children }: { title: string; index?: number; children: React.ReactNode }) {
+// 大セクション見出し（オーダーシートの親）。
+// 子の Section（縦棒＋12.5px）と区別するため、番号バッジ＋ブランド背景帯にして一段上位に見せる。
+function OSSection({ title, index, children }: { title: string; index?: number; children: React.ReactNode }) {
+  const num = typeof index === 'number' ? String(index + 1).padStart(2, '0') : null
   return (
     <section>
-      <SectionHeading title={title} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+      <div className="flex items-center gap-2.5 mb-3 bg-brand-50 border border-brand-100 border-l-[3px] border-l-brand-600 rounded-lg px-3 py-2">
+        {num && (
+          <span className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-brand-600 text-white text-[11px] font-bold tabular-nums">{num}</span>
+        )}
+        <h2 className="text-[14px] font-bold text-brand-800 tracking-[0.02em]">{title}</h2>
+      </div>
       {children}
     </section>
   )
