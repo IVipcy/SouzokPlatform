@@ -45,6 +45,8 @@ type Props = {
   selectable?: boolean
   /** カテゴリ列に担当区分（受注/管理担当・事務管理担当）を task_kind から表示する */
   showKindLabel?: boolean
+  /** カテゴリ列自体を非表示にする（区分はタブで切り替える場合など） */
+  hideCategory?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -86,6 +88,7 @@ export default function SystemTaskList({
   teamMode = false,
   selectable = false,
   showKindLabel = false,
+  hideCategory = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -200,7 +203,7 @@ export default function SystemTaskList({
                   </th>
                 )}
                 {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
-                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>
+                {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件ステータス</th>}
@@ -245,6 +248,7 @@ export default function SystemTaskList({
                       </td>
                     )}
                     {/* カテゴリ（＋担当区分ラベル） */}
+                    {!hideCategory && (
                     <td className="px-3 py-2.5 align-top whitespace-nowrap">
                       <div className="flex flex-col gap-1 items-start">
                         {showKindLabel && (
@@ -264,6 +268,7 @@ export default function SystemTaskList({
                         )}
                       </div>
                     </td>
+                    )}
                     {/* タスク名 */}
                     <td className="px-3 py-2.5 align-top">
                       <Link

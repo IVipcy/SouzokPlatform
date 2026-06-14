@@ -1,7 +1,9 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import { ClipboardList, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { SubTabs } from '@/components/ui/SubTabs'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { TaskRow, MemberRow } from '@/types'
@@ -22,8 +24,14 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
+const STATUS_PILLS = ['all', '着手前', '対応中', '完了'] as const
+const STATUS_LABEL: Record<string, string> = { all: 'すべて', '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
+
 export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
+  // 区分タブ（初期対応＝system / 事務管理＝case）とステータス絞り込み
+  const [kind, setKind] = useState<'all' | 'system' | 'case'>('all')
+  const [status, setStatus] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
 
   // 進捗率
   const totalTasks = tasks.length
@@ -31,6 +39,20 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const doingTasks = tasks.filter(t => normalizeStatus(t.status) === '対応中').length
   const todoTasks = tasks.filter(t => normalizeStatus(t.status) === '着手前').length
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  const systemCount = tasks.filter(t => t.task_kind === 'system').length
+  const caseCount = tasks.filter(t => t.task_kind === 'case').length
+  const KIND_TABS = [
+    { key: 'all', label: `すべて ${totalTasks}` },
+    { key: 'system', label: `初期対応タスク ${systemCount}` },
+    { key: 'case', label: `事務管理タスク ${caseCount}` },
+  ]
+
+  const filtered = useMemo(() => tasks.filter(t => {
+    if (kind !== 'all' && t.task_kind !== kind) return false
+    if (status !== 'all' && normalizeStatus(t.status) !== status) return false
+    return true
+  }), [tasks, kind, status])
 
   return (
     <div>
@@ -76,16 +98,35 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
           </button>
         </div>
       ) : (
-        // 受注/管理担当タスクと事務管理担当タスクを1つの表に統合。担当区分はカテゴリ列で識別。
-        <SystemTaskList
-          tasks={tasks}
-          title="タスク一覧"
-          showCase={false}
-          includeCompleted
-          selectable
-          showKindLabel
-          currentMemberId={currentMemberId ?? undefined}
-        />
+        <div className="space-y-3">
+          {/* 区分タブ＋ステータス絞り込み */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'all' | 'system' | 'case')} />
+            <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+              <span className="text-[12px] font-semibold text-gray-500">ステータス</span>
+              {STATUS_PILLS.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatus(s)}
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${status === s ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  {STATUS_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <SystemTaskList
+            tasks={filtered}
+            title="タスク一覧"
+            showCase={false}
+            includeCompleted
+            selectable
+            hideCategory
+            currentMemberId={currentMemberId ?? undefined}
+          />
+        </div>
       )}
     </div>
   )

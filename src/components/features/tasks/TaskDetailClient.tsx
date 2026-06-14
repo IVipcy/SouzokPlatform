@@ -336,11 +336,6 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
               <InlineDate label="タスク期限" value={task.due_date} onSave={v => saveField('due_date', v)} />
               <Field label="ステータス" value={currentStatus} mono />
               <Field label="起票日" value={task.issued_date ?? task.created_at?.slice(0, 10)} mono />
-              <InlineDate
-                label="作業完了予定日"
-                value={task.expected_completion_date}
-                onSave={v => saveField('expected_completion_date', v)}
-              />
               <Field label="作業完了日" value={task.completed_at ?? '—'} mono />
               <InlineSelect
                 label="優先度"
