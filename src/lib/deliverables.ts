@@ -1,4 +1,4 @@
-import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow } from '@/types'
 
 /**
  * 取得物（deliverable）= 「何を・どこに請求し・いつ受領するか」の進捗単位。
@@ -9,8 +9,8 @@ import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow } from 
 export type DeliverableOption = {
   value: string          // `${kind}:${id}:${field}`
   label: string          // 表示名（例: ○○銀行 残高証明）
-  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍）
-  kind: 'financial_asset' | 'real_estate' | 'koseki'
+  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍 / 契約書類）
+  kind: 'financial_asset' | 'real_estate' | 'koseki' | 'contract_doc'
   id: string
   field: string          // 受領日カラム名
 }
@@ -44,6 +44,7 @@ const FIELD_LABELS: Record<string, string> = {
 export function deliverableLinkLabel(linkedKind: string | null, linkedField: string | null): string | null {
   if (!linkedKind || !linkedField) return null
   if (linkedKind === 'koseki') return '戸籍'
+  if (linkedKind === 'contract_doc') return '契約書類'
   const item = FIELD_LABELS[linkedField] ?? '取得物'
   const cat = linkedKind === 'real_estate' ? '不動産' : '金融機関'
   return `${cat}・${item}`
@@ -53,8 +54,22 @@ export function buildDeliverableOptions(
   financialAssets: FinancialAssetRow[],
   realEstate: RealEstatePropertyRow[],
   kosekiRequests: KosekiRequestRow[] = [],
+  contractDocuments: ContractDocumentRow[] = [],
 ): DeliverableOption[] {
   const opts: DeliverableOption[] = []
+
+  // 契約書類（後日来る＝未受信のもの。受信簿で受信すると arrival_date が入り受信済になる）
+  for (const d of contractDocuments) {
+    if (d.arrival_date || d.status === '不要' || d.status === 'その場で受領') continue
+    opts.push({
+      value: `contract_doc:${d.id}:arrival_date`,
+      label: d.name || '契約関連書類',
+      group: '契約書類',
+      kind: 'contract_doc',
+      id: d.id,
+      field: 'arrival_date',
+    })
+  }
 
   for (const a of financialAssets) {
     const group = FA_GROUP[a.asset_type] ?? a.asset_type

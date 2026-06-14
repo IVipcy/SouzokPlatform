@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
-import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow } from '@/types'
 
 type CaseLite = {
   id: string
@@ -68,15 +68,17 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setSelectedCaseId(id)
     setDeliverables([])
     const supabase = createClient()
-    const [fa, re, ko] = await Promise.all([
+    const [fa, re, ko, cd] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
       supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
+      supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order'),
     ])
     setDeliverables(buildDeliverableOptions(
       (fa.data ?? []) as FinancialAssetRow[],
       (re.data ?? []) as RealEstatePropertyRow[],
       (ko.data ?? []) as KosekiRequestRow[],
+      (cd.data ?? []) as ContractDocumentRow[],
     ))
   }
 
@@ -207,6 +209,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         const [kind, id, field] = v.split(':')
         const table = kind === 'financial_asset' ? 'financial_assets'
           : kind === 'koseki' ? 'koseki_requests'
+          : kind === 'contract_doc' ? 'contract_documents'
           : 'real_estate_properties'
         return supabase.from(table).update({ [field]: receivedDate }).eq('id', id)
       })
