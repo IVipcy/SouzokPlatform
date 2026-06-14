@@ -99,7 +99,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
       {/* 基本情報（アコーディオン・既定で閉じる） */}
       <Section title="基本情報" collapsible defaultOpen={false}>
         <FieldGrid>
-          <InlineEdit label="案件名" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} fullWidth />
+          <Field label="案件名（メイン依頼者の氏名に連動）" value={caseData.deal_name} />
           <Field label="管理番号" value={caseData.case_number} mono />
           <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
