@@ -72,8 +72,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
-  // 初期対応タスク確認ポップアップ（契機となったステータス）
-  const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(null)
+  // 初期対応タスク確認ポップアップ（契機となったステータス）。
+  // 新規登録直後（?created=1）に検討中/受注で作成された場合も初回マウントで開く。
+  const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(() => {
+    const st = caseDataProp.status
+    const created = searchParams.get('created') === '1'
+    return created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注') ? st : null
+  })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
 
@@ -82,6 +87,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   useEffect(() => {
     setActiveTabState(prev => (prev === tabFromUrl ? prev : tabFromUrl))
   }, [tabFromUrl])
+
+  // 新規登録直後の ?created=1 は初回マウントでポップアップ判定に使った後、URLから除去
+  // （リロードで再度開かないように）。setState せず replace のみなので副作用は安全。
+  useEffect(() => {
+    if (searchParams.get('created') == null) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('created')
+    const qs = params.toString()
+    router.replace(qs ? `?${qs}` : '?', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // タブ切替時は URL を書き換えてリフレッシュ等で消えないようにする
   const setActiveTab = (tab: TabKey) => {

@@ -345,7 +345,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       const caseId = await saveToDatabase(data)
       if (caseId) {
         showToast('案件を保存しました', 'success')
-        router.push(`/cases/${caseId}`)
+        // created=1 で案件詳細を開くと、初期タスク確認ポップアップが表示される
+        router.push(`/cases/${caseId}?created=1`)
       }
     }
   }, [step, data, saveToDatabase, router])
