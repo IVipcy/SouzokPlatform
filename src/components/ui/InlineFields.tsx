@@ -41,16 +41,17 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            className="flex items-center gap-2 flex-1 min-w-0 text-left group"
+            className="inline-flex items-center gap-1.5 text-left group"
           >
             <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
             <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em] group-hover:text-brand-700 transition-colors">{title}</h3>
             <svg
-              className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-gray-400 transition-transform group-hover:text-brand-600 ${isOpen ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
             >
               <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            <span className="text-[11px] text-gray-400 group-hover:text-brand-600">{isOpen ? '閉じる' : '開く'}</span>
           </button>
         ) : (
           <>
