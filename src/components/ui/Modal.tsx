@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
 type ModalProps = {
   isOpen: boolean
   onClose: () => void
-  title: string
+  title: React.ReactNode
   children: React.ReactNode
   footer?: React.ReactNode
   maxWidth?: string

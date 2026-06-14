@@ -9,9 +9,9 @@ import {
 } from '@/components/ui/InlineFields'
 import {
   PROCEDURE_TYPES, LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
-  getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES,
+  getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
 } from '@/lib/constants'
-import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow } from '@/types'
+import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow } from '@/types'
 import ProcedureIntakeSection from './ProcedureIntakeSection'
 
 type Props = {
@@ -22,6 +22,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // 他事業者紹介要否チェック用（チェック＝case_referrals行を作成）
   referrals?: CaseReferralRow[]
+  // 受託→対応中ゲート（初期対応タスク完了）の判定用
+  tasks?: TaskRow[]
 }
 
 /**
@@ -35,13 +37,14 @@ type Props = {
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
  * ※ 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）は「他事業者紹介」タブで管理。
  */
-export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [] }: Props) {
+export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [] }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
+  const initialTasksDone = isInitialTasksDone(tasks)
 
   return (
     <div className="space-y-3.5">
@@ -61,7 +64,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineSelect
             label="案件ステータス"
             value={caseData.status}
-            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned)}
+            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone)}
             optionLabel={getCaseStatusLabel}
             onSave={v => saveCaseField('status', v)}
           />

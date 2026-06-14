@@ -74,16 +74,24 @@ export const getSelectableCaseStatuses = (
   orderSheetCompleted: boolean,
   currentStatus?: string | null,
   managerAssigned = true,
+  initialTasksDone = true,
 ): string[] => {
   if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
-  const canManage = (orderSheetCompleted && managerAssigned) || isManagementNow
+  const canManage = (orderSheetCompleted && managerAssigned && initialTasksDone) || isManagementNow
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
   const filtered = targets.filter(t =>
     (MANAGEMENT_STATUSES as readonly string[]).includes(t) ? canManage : true,
   )
   return [currentStatus, ...filtered.filter(t => t !== currentStatus)]
 }
+
+// 初期対応タスク（受託時に生成される system かつ category=初期対応）が全完了か。
+// 受託→対応中の移行ゲート（getSelectableCaseStatuses の initialTasksDone）に使う。
+export const isInitialTasksDone = (
+  tasks: { task_kind?: string | null; category?: string | null; status: string }[],
+): boolean =>
+  !tasks.some(t => t.task_kind === 'system' && t.category === '初期対応' && t.status !== '完了' && t.status !== 'キャンセル')
 
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。

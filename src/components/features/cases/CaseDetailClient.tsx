@@ -24,10 +24,11 @@ import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
+import InitialTaskReviewModal from './InitialTaskReviewModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
-import { getSelectableCaseStatuses } from '@/lib/constants'
+import { getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
 
@@ -69,6 +70,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [orderSheetPrompt, setOrderSheetPrompt] = useState(false)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
+  // 初期対応タスク確認ポップアップ（契機となったステータス）
+  const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(null)
 
   // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
   // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
@@ -106,14 +109,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
-    // 受託（受注）に変わったら：受注日を自動セット＋オーダーシート作成を促すポップアップ
+    // 受託（受注）に変わったら：受注日を自動セット＋初期対応タスクの確認ポップアップ
+    // （確定/このまま生成 を閉じた後にオーダーシート作成を促す）
     if (patch.status === '受注' && prev.status !== '受注') {
       if (!prev.order_received_date) {
         const today = new Date().toLocaleDateString('sv-SE')  // YYYY-MM-DD（ローカル）
         await supabase.from('cases').update({ order_received_date: today }).eq('id', caseState.id)
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
-      setOrderSheetPrompt(true)
+      setTaskReviewStatus('受注')
+    }
+    // 検討中 / 検討中（契約書待ち）に変わったら：検討状況リマインド等の初期タスク確認ポップアップ
+    if ((patch.status === '検討中' || patch.status === '検討中（契約書待ち）') && prev.status !== patch.status) {
+      setTaskReviewStatus(patch.status)
     }
     // 対応中に変わったら：事務管理タスクの設定を促すポップアップ
     if (patch.status === '対応中' && prev.status !== '対応中') {
@@ -146,6 +154,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // 管理担当アサイン済か（対応中ガード用）
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
+  // 初期対応タスク（受託時に生成される system / category=初期対応）が全完了か（対応中ガード用）
+  const initialTasksDone = isInitialTasksDone(tasks)
+
+  // 初期対応タスク確認ポップアップを閉じる。受注契機なら閉じた後にオーダーシート作成を促す。
+  const closeTaskReview = (refresh: boolean) => {
+    const wasOrder = taskReviewStatus === '受注'
+    setTaskReviewStatus(null)
+    if (refresh) router.refresh()
+    if (wasOrder) setOrderSheetPrompt(true)
+  }
 
   // ステータス連動のタブ表示制御
   const tabVis = getCaseTabVisibility({
@@ -164,7 +182,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
-        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned)}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone)}
         onStatusChange={s => patchCase({ status: s })}
       />
 
@@ -202,7 +220,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'meeting' && (
-        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />
+        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} />
       )}
       {effectiveTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />
@@ -237,6 +255,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'docs' && (
         <DocsBundleTab caseData={caseState} documents={documents} tasks={tasks} heirs={heirs} properties={properties} />
       )}
+
+      {/* 受託/検討中になったら初期対応タスクを確認（不要を外す・必要を追加） */}
+      <InitialTaskReviewModal
+        key={taskReviewStatus ?? 'none'}
+        isOpen={!!taskReviewStatus}
+        status={taskReviewStatus}
+        caseId={caseState.id}
+        onApplied={() => closeTaskReview(true)}
+        onClose={() => closeTaskReview(false)}
+      />
 
       {/* 受託になったらオーダーシート作成を促す */}
       <Modal
