@@ -15,6 +15,7 @@ import {
 } from '@/lib/constants'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
+import { IntakeRolesEditor, IntakeDocsEditor } from '@/components/features/cases/ProcedureIntakeSection'
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
@@ -241,6 +242,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         meeting_other_notes: formData.otherNotes || null,
         lost_reason: formData.lostReason || null,
         expected_completion_date: formData.expectedCompletionDate || null,
+        intake_roles: formData.intakeRoles,
+        intake_documents: formData.intakeDocuments,
       }
 
       if (isNew) {
@@ -424,6 +427,12 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
           <Card label="受注見込み手続き区分"><Pills value={data.procedureType} options={[...PROCEDURE_TYPES]} onChange={v => update('procedureType', v as string[])} multi /></Card>
+          <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
+            <IntakeRolesEditor roles={data.intakeRoles} onSave={v => update('intakeRoles', v)} />
+          </Card>
+          <Card label="契約手続き（契約関連書類の受け取り）">
+            <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
+          </Card>
           <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>

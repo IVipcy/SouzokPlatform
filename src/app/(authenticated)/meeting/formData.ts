@@ -1,6 +1,8 @@
 // 面談入力ウィザード（相談案件の作成・面談情報入力）のフォームデータ。
 // 受託後の遺産系詳細（被相続人/相続人/不動産/金融/分割・遺言）はオーダーシートで入力するため、
 // このウィザードは「面談情報のみ」に絞っている。
+import { DEFAULT_DOCS, DEFAULT_ROLES, type DocRow, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
+
 // 依頼者（同行者含む）1人分
 export type ClientPerson = {
   priority: 'main' | 'companion'  // メイン依頼人 / 同行者
@@ -35,6 +37,9 @@ export type FormData = {
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
   expectedCompletionDate: string  // 完了予定日
+  // 手続き詳細（受注見込み手続き区分の次に入力）
+  intakeRoles: RoleRow[]        // ②役割分担（自社/依頼者）
+  intakeDocuments: DocRow[]     // ①契約関連書類の受け取り
 }
 
 export const INITIAL_DATA: FormData = {
@@ -53,6 +58,8 @@ export const INITIAL_DATA: FormData = {
   otherNotes: '',
   difficulty: '',
   expectedCompletionDate: '',
+  intakeRoles: DEFAULT_ROLES.map(r => ({ ...r })),
+  intakeDocuments: DEFAULT_DOCS.map(d => ({ ...d })),
 }
 
 export const STEPS = [
