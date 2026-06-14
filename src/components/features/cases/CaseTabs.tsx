@@ -13,6 +13,8 @@ type Props = {
   visibleTabs?: TabKey[]
   // 折りたたみ対象（末尾「その他 ▾」に格納し既定で非表示）。
   collapsedTabs?: TabKey[]
+  // フロー・ナビゲーターが指し示すタブ（四角で囲み点滅）。
+  highlightTab?: TabKey | null
 }
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -46,7 +48,7 @@ const DEFAULT_TABS: TabKey[] = [
   'docs', 'tasks',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, visibleTabs, collapsedTabs }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, visibleTabs, collapsedTabs, highlightTab }: Props) {
   const [showOther, setShowOther] = useState(false)
   const counts: Record<string, number> = { taskCount, docCount }
 
@@ -58,19 +60,28 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, 
   const renderTab = (key: TabKey) => {
     const countKey = COUNT_KEY[key]
     const count = countKey ? counts[countKey] : undefined
+    const highlighted = key === highlightTab
     return (
       <button
         key={key}
         onClick={() => onTabChange(key)}
-        className={`px-4 py-2.5 text-[13px] font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+        className={`relative px-4 py-2.5 text-[13px] font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
           activeTab === key
             ? 'text-brand-600 border-brand-600 font-semibold'
-            : 'text-gray-500 border-transparent hover:text-gray-700'
+            : highlighted
+              ? 'text-brand-600 border-transparent font-semibold'
+              : 'text-gray-500 border-transparent hover:text-gray-700'
         }`}
       >
-        {TAB_LABELS[key]}
+        {highlighted && (
+          <>
+            <span className="pointer-events-none absolute inset-x-1.5 inset-y-1 rounded-md ring-2 ring-brand-400 animate-ping" aria-hidden="true" />
+            <span className="pointer-events-none absolute inset-x-1.5 inset-y-1 rounded-md ring-2 ring-brand-500 bg-brand-50/60" aria-hidden="true" />
+          </>
+        )}
+        <span className="relative">{TAB_LABELS[key]}</span>
         {count !== undefined && (
-          <span className={`ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
+          <span className={`relative ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
             activeTab === key ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-500'
           }`}>
             {count}

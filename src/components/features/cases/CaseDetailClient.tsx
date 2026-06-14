@@ -25,6 +25,7 @@ import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
 import InitialTaskReviewModal from './InitialTaskReviewModal'
+import StatusFlowNavigator, { getJutakuFlowSteps } from './StatusFlowNavigator'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
@@ -68,10 +69,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })()
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
-  const [orderSheetPrompt, setOrderSheetPrompt] = useState(false)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
   // 初期対応タスク確認ポップアップ（契機となったステータス）
   const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(null)
+  // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
+  const [navDismissed, setNavDismissed] = useState(false)
 
   // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
   // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
@@ -110,13 +112,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       return
     }
     // 受託（受注）に変わったら：受注日を自動セット＋初期対応タスクの確認ポップアップ
-    // （確定/このまま生成 を閉じた後にオーダーシート作成を促す）
+    // （閉じた後は常設の受託フロー・ナビゲーターがオーダーシート作成以降を順に案内する）
     if (patch.status === '受注' && prev.status !== '受注') {
       if (!prev.order_received_date) {
         const today = new Date().toLocaleDateString('sv-SE')  // YYYY-MM-DD（ローカル）
         await supabase.from('cases').update({ order_received_date: today }).eq('id', caseState.id)
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
+      setNavDismissed(false)
       setTaskReviewStatus('受注')
     }
     // 検討中 / 検討中（契約書待ち）に変わったら：検討状況リマインド等の初期タスク確認ポップアップ
@@ -157,13 +160,20 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 初期対応タスク（受託時に生成される system / category=初期対応）が全完了か（対応中ガード用）
   const initialTasksDone = isInitialTasksDone(tasks)
 
-  // 初期対応タスク確認ポップアップを閉じる。受注契機なら閉じた後にオーダーシート作成を促す。
+  // 初期対応タスク確認ポップアップを閉じる。閉じた後は受託フロー・ナビゲーターが案内を引き継ぐ。
   const closeTaskReview = (refresh: boolean) => {
-    const wasOrder = taskReviewStatus === '受注'
     setTaskReviewStatus(null)
     if (refresh) router.refresh()
-    if (wasOrder) setOrderSheetPrompt(true)
   }
+
+  // 受託フロー・ナビゲーター（受注時のみ）。3ステップの完了状態を算出。
+  const flowSteps = getJutakuFlowSteps({
+    orderSheetCompleted: !!caseState.order_sheet_completed_at,
+    managerAssigned,
+    initialTasksDone,
+  })
+  const navVisible = caseState.status === '受注' && !navDismissed
+  const navHighlightTab = navVisible ? (flowSteps.find(s => !s.done)?.tab ?? null) : null
 
   // ステータス連動のタブ表示制御
   const tabVis = getCaseTabVisibility({
@@ -193,7 +203,18 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         docCount={documents.length}
         visibleTabs={tabVis.visible}
         collapsedTabs={tabVis.collapsed}
+        highlightTab={navHighlightTab}
       />
+
+      {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を順に案内 */}
+      {navVisible && (
+        <StatusFlowNavigator
+          steps={flowSteps}
+          onGoToTab={setActiveTab}
+          onAdvance={() => patchCase({ status: '対応中' })}
+          onDismiss={() => setNavDismissed(true)}
+        />
+      )}
 
       {effectiveTab === 'orderSheet' && (
         <OrderSheet
@@ -265,24 +286,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onApplied={() => closeTaskReview(true)}
         onClose={() => closeTaskReview(false)}
       />
-
-      {/* 受託になったらオーダーシート作成を促す */}
-      <Modal
-        isOpen={orderSheetPrompt}
-        onClose={() => setOrderSheetPrompt(false)}
-        title="受託になりました"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setOrderSheetPrompt(false)}>あとで</Button>
-            <Button variant="primary" onClick={() => { setOrderSheetPrompt(false); setActiveTab('orderSheet') }}>オーダーシートへ</Button>
-          </>
-        }
-      >
-        <p className="text-[14px] text-gray-700 leading-relaxed">
-          続けて<strong>オーダーシートの作成</strong>を進めてください。<br />
-          「オーダーシートへ」を押すとオーダーシートタブを開きます。
-        </p>
-      </Modal>
 
       {/* 対応中になったら事務管理タスクの設定を促す */}
       <Modal
