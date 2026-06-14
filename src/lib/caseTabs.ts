@@ -41,7 +41,7 @@ export type TabVisibility = {
 
 // 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'clientInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
   'docs', 'tasks', 'meeting',
 ]
@@ -54,12 +54,14 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 受託段階で前受金等を請求するため「契約・報酬・請求」、契約書等の授受のため「書類」を表示する。
   if (status === '受注') {
     // 面談情報は受託後はオーダーシート・受注内容等に展開済みのため、対応中と同様に「その他」へ畳む。
-    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'meeting', 'clientInfo', 'contract', 'docs', 'tasks'], collapsed: ['meeting'] }
+    // 契約残手続きは受託中に完了させるべき重要タブのため表示（対応中になったら畳む）。
+    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'contract', 'docs', 'tasks'], collapsed: ['meeting'] }
   }
 
-  // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報は折りたたみ
+  // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約残手続きは折りたたみ
+  // （契約残手続きは対応中までに完了している前提のため「その他」へ畳む）
   if (category === 'management') {
-    return { visible: FULL_PRACTICE_TABS, collapsed: ['meeting'] }
+    return { visible: FULL_PRACTICE_TABS, collapsed: ['meeting', 'contractProc'] }
   }
 
   // 個別管理案件（紹介のみ / 長期保留）

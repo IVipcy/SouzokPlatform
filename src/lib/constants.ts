@@ -75,10 +75,11 @@ export const getSelectableCaseStatuses = (
   currentStatus?: string | null,
   managerAssigned = true,
   initialTasksDone = true,
+  contractProcDone = true,
 ): string[] => {
   if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
-  const canManage = (orderSheetCompleted && managerAssigned && initialTasksDone) || isManagementNow
+  const canManage = (orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) || isManagementNow
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
   const filtered = targets.filter(t =>
     (MANAGEMENT_STATUSES as readonly string[]).includes(t) ? canManage : true,
@@ -92,6 +93,15 @@ export const isInitialTasksDone = (
   tasks: { task_kind?: string | null; category?: string | null; status: string }[],
 ): boolean =>
   !tasks.some(t => t.task_kind === 'system' && t.category === '初期対応' && t.status !== '完了' && t.status !== 'キャンセル')
+
+// 契約残手続き（契約関連書類の受け取り）が完了か。
+// 受領状況が「後日郵送 / 依頼者が取得」で未受信（到着日なし）の書類が無ければ完了。
+// 受託→対応中の移行ゲート（getSelectableCaseStatuses の contractProcDone）に使う。
+export const CONTRACT_PENDING_STATUSES = ['後日郵送', '依頼者が取得']
+export const isContractProcDone = (
+  docs: { status?: string | null; arrival_date?: string | null }[],
+): boolean =>
+  !docs.some(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date)
 
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。

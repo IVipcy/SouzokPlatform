@@ -21,6 +21,7 @@ import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import OrderContentTab from './OrderContentTab'
+import ContractProcTab from './ContractProcTab'
 import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
@@ -30,7 +31,7 @@ import StatusFlowNavigator, { getJutakuFlowSteps } from './StatusFlowNavigator'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
-import { getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
+import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow } from '@/types'
 
@@ -60,7 +61,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [] }: Props) {
   const router = useRouter()
@@ -179,6 +180,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
   // 初期対応タスク（受託時に生成される system / category=初期対応）が全完了か（対応中ガード用）
   const initialTasksDone = isInitialTasksDone(tasks)
+  // 契約残手続き（契約関連書類）が全受信済か（対応中ガード用）
+  const contractProcDone = isContractProcDone(contractDocuments)
 
   // 初期対応タスク確認ポップアップを閉じる。閉じた後は受託フロー・ナビゲーターが案内を引き継ぐ。
   const closeTaskReview = (refresh: boolean) => {
@@ -186,11 +189,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     if (refresh) router.refresh()
   }
 
-  // 受託フロー・ナビゲーター（受注時のみ）。3ステップの完了状態を算出。
+  // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   const flowSteps = getJutakuFlowSteps({
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
     managerAssigned,
     initialTasksDone,
+    contractProcDone,
   })
   const navVisible = caseState.status === '受注' && !navDismissed
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
@@ -213,7 +217,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
-        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone)}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone)}
         onStatusChange={s => patchCase({ status: s })}
       />
 
@@ -261,16 +265,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
       )}
       {effectiveTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} contractProcDone={contractProcDone} />
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'orderContent' && (
-        <OrderContentTab caseData={caseState} patchCase={patchCase} contractDocuments={contractDocuments} onRefresh={handleSaved} />
+        <OrderContentTab caseData={caseState} patchCase={patchCase} />
+      )}
+      {effectiveTab === 'contractProc' && (
+        <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'meeting' && (
-        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} />
+        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />
       )}
       {effectiveTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />

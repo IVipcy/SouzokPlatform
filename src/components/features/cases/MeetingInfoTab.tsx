@@ -26,6 +26,8 @@ type Props = {
   tasks?: TaskRow[]
   // 契約手続きの受領書類（受信簿連動）
   contractDocuments?: ContractDocumentRow[]
+  // 契約残手続き完了か（対応中ガード用）
+  contractProcDone?: boolean
 }
 
 /**
@@ -39,7 +41,7 @@ type Props = {
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
  * ※ 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）は「他事業者紹介」タブで管理。
  */
-export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [] }: Props) {
+export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [], contractProcDone = true }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -66,7 +68,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineSelect
             label="案件ステータス"
             value={caseData.status}
-            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone)}
+            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)}
             optionLabel={getCaseStatusLabel}
             onSave={v => saveCaseField('status', v)}
           />

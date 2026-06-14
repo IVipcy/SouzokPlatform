@@ -20,11 +20,13 @@ export function getJutakuFlowSteps(args: {
   orderSheetCompleted: boolean
   managerAssigned: boolean
   initialTasksDone: boolean
+  contractProcDone: boolean
 }): FlowStep[] {
   return [
     { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
-    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当・受注内容', done: args.managerAssigned },
+    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当・受注ルート', done: args.managerAssigned },
     { key: 'initialTasks', label: '初期対応タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.initialTasksDone },
+    { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
   ]
 }
 
