@@ -6,8 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
-import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import { getCaseStatusLabel } from '@/lib/constants'
+
+// 受注担当/管理担当タスクのサブ分類（Phaseは事務管理タスク専用なのでここでは使わない）
+const ADD_CATEGORIES = ['初期対応', '契約手続き残']
 
 // ステータス別に「初期対応タスク」として確認対象にするシステムタスク（template_key）。
 // 056/076 の generate_system_tasks_on_status_change が生成するものに対応。
@@ -26,7 +28,7 @@ const INITIAL_TASK_KEYS: Record<string, string[]> = {
 }
 
 type GenRow = { id: string; title: string; keep: boolean }
-type AddRow = { title: string; phase: string }
+type AddRow = { title: string; category: string }
 
 type Props = {
   isOpen: boolean
@@ -86,14 +88,16 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
       if (error) { setSaving(false); showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
     }
 
-    // ② 追加タスク（タイトル入力済みのみ）を事務管理タスクとして作成
+    // ② 追加タスク（タイトル入力済みのみ）を受注担当/管理担当タスク（system）として作成。
+    //    Phaseは使わず、サブ分類(初期対応/契約手続き残)を category に持たせる。
     const newTasks = adds
       .filter(a => a.title.trim())
       .map(a => ({
         case_id: caseId,
         title: a.title.trim(),
-        phase: a.phase,
-        category: '',
+        task_kind: 'system',
+        phase: 'system',
+        category: a.category,
         status: '着手前',
         priority: '通常',
         sort_order: 99,
@@ -184,12 +188,12 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
                     className="flex-1 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg outline-none focus:border-brand-500"
                   />
                   <select
-                    value={a.phase}
-                    onChange={e => setAdds(prev => prev.map((x, idx) => (idx === i ? { ...x, phase: e.target.value } : x)))}
+                    value={a.category}
+                    onChange={e => setAdds(prev => prev.map((x, idx) => (idx === i ? { ...x, category: e.target.value } : x)))}
                     className="px-2 py-1.5 text-[12px] border border-gray-300 rounded-lg bg-white outline-none focus:border-brand-500"
                   >
-                    {DB_PHASES.map(p => (
-                      <option key={p} value={p}>{getPhaseLabel(p)}</option>
+                    {ADD_CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                   <button
@@ -206,7 +210,7 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
           )}
           <button
             type="button"
-            onClick={() => setAdds(prev => [...prev, { title: '', phase: 'phase0' }])}
+            onClick={() => setAdds(prev => [...prev, { title: '', category: '初期対応' }])}
             className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"
           >
             <Plus className="w-3.5 h-3.5" /> タスクを追加

@@ -44,7 +44,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
   const KIND_TABS = [
     { key: 'all', label: `すべて ${totalTasks}` },
-    { key: 'system', label: `初期対応タスク ${systemCount}` },
+    { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` },
     { key: 'case', label: `事務管理タスク ${caseCount}` },
   ]
 
