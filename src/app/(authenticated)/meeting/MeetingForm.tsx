@@ -247,16 +247,31 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
 
       if (isNew) {
         // 採番: YYMM + 経路コード + 当日連番4桁（経路問わず当日作成順）。例: 2606LP0001
+        // 連番は「当日の既存番号の最大+1」で算出（件数+1だと削除で番号が再利用され重複するため）。
         const now = new Date()
         const yy = String(now.getFullYear()).slice(2)
         const mm = String(now.getMonth() + 1).padStart(2, '0')
         const routeCode = ORDER_ROUTE_CODES[formData.orderRoute] ?? 'XX'
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-        const { count } = await supabase.from('cases').select('*', { count: 'exact', head: true }).gte('created_at', startOfDay)
-        const caseNumber = `${yy}${mm}${routeCode}${String((count ?? 0) + 1).padStart(4, '0')}`
-        const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
-        if (error) throw new Error(`案件の保存に失敗: ${error.message}`)
-        caseId = newCase.id
+        const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', startOfDay)
+        let seq = (todayCases ?? []).reduce((max, c) => {
+          const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
+          return Number.isFinite(n) && n > max ? n : max
+        }, 0) + 1
+
+        // 一意制約(case_number)に当たったら連番を上げて自動リトライ（同時作成・削除ギャップ対策）
+        let newCaseId: string | null = null
+        let lastErrMsg = '不明なエラー'
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const caseNumber = `${yy}${mm}${routeCode}${String(seq).padStart(4, '0')}`
+          const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
+          if (!error && newCase) { newCaseId = newCase.id; break }
+          lastErrMsg = error?.message ?? lastErrMsg
+          if (error?.code === '23505') { seq += 1; continue }  // 番号重複 → 次の連番で再試行
+          break  // それ以外のエラーは中断
+        }
+        if (!newCaseId) throw new Error(`案件の保存に失敗: ${lastErrMsg}`)
+        caseId = newCaseId
         // 受注担当＝案件作成者を自動セット
         if (currentMemberId) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
