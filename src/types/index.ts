@@ -129,7 +129,7 @@ export type CaseRow = {
   referral_name: string | null
   // 手続き詳細（面談時の受領書類状況・役割分担。migration 083）
   intake_documents: { name: string; status: string; arrival_date: string | null; note: string }[] | null
-  intake_roles: { item: string; owner: string; note: string }[] | null
+  intake_roles: { gyomu: string; sagyou: string; owner: string; note: string }[] | null
   meeting_place: string | null
   lawyer_name: string | null
   lawyer_office: string | null
