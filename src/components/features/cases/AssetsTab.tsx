@@ -56,22 +56,24 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         </FieldGrid>
       </Section>
 
-      {/* 子タブ（不動産 / 預金 / 証券 / 信託 / 生命保険） */}
+      {/* 子タブ（不動産 / 預金 / 証券 / 信託 / 生命保険）。
+          切替時にアンマウントすると入力中の表が古いpropsで作り直され消えて見えるため、
+          各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
       <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
-      {sub === 'realestate' && (
+      <div className={sub === 'realestate' ? '' : 'hidden'}>
         <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
-      )}
-      {sub === 'deposit' && (
+      </div>
+      <div className={sub === 'deposit' ? '' : 'hidden'}>
         <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
-      )}
-      {sub === 'securities' && (
+      </div>
+      <div className={sub === 'securities' ? '' : 'hidden'}>
         <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
-      )}
-      {sub === 'trust' && (
+      </div>
+      <div className={sub === 'trust' ? '' : 'hidden'}>
         <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
-      )}
-      {sub === 'insurance' && (
+      </div>
+      <div className={sub === 'insurance' ? '' : 'hidden'}>
         <FieldGrid>
           <InlineSelect label="生命保険提案有無" value={caseData.life_insurance_proposal} options={[...LIFE_INSURANCE_PROPOSAL_OPTIONS]} onSave={v => save('life_insurance_proposal', v)} />
           <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
@@ -80,7 +82,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />
           <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
         </FieldGrid>
-      )}
+      </div>
     </div>
   )
 }
