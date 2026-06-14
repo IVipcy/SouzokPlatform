@@ -63,7 +63,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1180 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 880 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
               <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
@@ -72,8 +72,6 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
               <th className="px-2 py-2 text-left font-semibold w-24">続柄</th>
               <th className="px-2 py-2 text-left font-semibold">TEL</th>
               <th className="px-2 py-2 text-left font-semibold">メール</th>
-              <th className="px-2 py-2 text-left font-semibold w-24">郵便番号</th>
-              <th className="px-2 py-2 text-left font-semibold">住所</th>
               <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
               <th className="px-2 py-2 text-center font-semibold w-12">年齢</th>
               <th className="px-2 py-2 w-8" />
@@ -81,7 +79,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={11} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
+              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
             ) : (
               rows.map(r => {
                 const age = calcAge(r.birth_date)
@@ -102,8 +100,6 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
                     <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
                     <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="090-..." />
                     <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
-                    <Cell value={r.postal_code} onChange={v => setLocal(r.id, 'postal_code', v)} onCommit={v => commit(r.id, 'postal_code', v)} placeholder="123-4567" />
-                    <Cell value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="○○県○○市…" />
                     <td className="px-2 py-1.5">
                       <BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} />
                     </td>
