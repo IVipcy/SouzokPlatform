@@ -173,7 +173,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     initialTasksDone,
   })
   const navVisible = caseState.status === '受注' && !navDismissed
-  const navHighlightTab = navVisible ? (flowSteps.find(s => !s.done)?.tab ?? null) : null
+  // 順不同のため、未完了ステップのタブをすべて同時ハイライト
+  const navHighlightTabs = navVisible ? flowSteps.filter(s => !s.done).map(s => s.tab) : []
 
   // ステータス連動のタブ表示制御
   const tabVis = getCaseTabVisibility({
@@ -203,14 +204,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         docCount={documents.length}
         visibleTabs={tabVis.visible}
         collapsedTabs={tabVis.collapsed}
-        highlightTab={navHighlightTab}
+        highlightTabs={navHighlightTabs}
       />
 
-      {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を順に案内 */}
+      {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
       {navVisible && (
         <StatusFlowNavigator
           steps={flowSteps}
-          onGoToTab={setActiveTab}
           onAdvance={() => patchCase({ status: '対応中' })}
           onDismiss={() => setNavDismissed(true)}
         />
