@@ -71,6 +71,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss }: Pro
         {steps.map(s => (
           <span
             key={s.key}
+            data-nav-step={s.tab}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] ${
               s.done
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'

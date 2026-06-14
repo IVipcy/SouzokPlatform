@@ -152,22 +152,24 @@ body[data-sidebar-collapsed="1"] .ml-60 {
   }
 }
 
-/* ─── 受託フロー・ナビゲーターのタブ点滅（枠内で完結＝見切れなし） ─── */
-/* 背景色を brand-100↔50 で振りつつ不透明度を深く・速く明滅させ、しっかり目立たせる。 */
-@keyframes nav-spotlight-anim {
-  0%, 100% { opacity: 1;    background-color: var(--color-brand-100); }
-  50%      { opacity: 0.3;  background-color: var(--color-brand-50);  }
-}
+/* ─── 受託フロー・ナビゲーターの対象タブ ハイライト（上品にゆっくり） ─── */
+/* 安っぽい明滅をやめ、淡いブランド背景＋リングがゆっくり呼吸するように。 */
 .nav-spotlight {
-  animation: nav-spotlight-anim 0.85s ease-in-out infinite;
+  background-color: var(--color-brand-50);
+  box-shadow: 0 0 0 1.5px var(--color-brand-300);
+  animation: nav-breathe 2.6s ease-in-out infinite;
 }
-/* ラベル横のドットは拡大脈動で生き生きと（tiny＝枠内に収まる） */
-@keyframes nav-dot-anim {
-  0%, 100% { transform: scale(1);   opacity: 1;   }
-  50%      { transform: scale(1.7); opacity: 0.4; }
+@keyframes nav-breathe {
+  0%, 100% { box-shadow: 0 0 0 1.5px var(--color-brand-300); }
+  50%      { box-shadow: 0 0 0 2.5px var(--color-brand-400); }
 }
+/* ラベル横のドットはゆっくり明滅（落ち着いた印象） */
 .nav-dot {
-  animation: nav-dot-anim 0.85s ease-in-out infinite;
+  animation: nav-dot-soft 2.6s ease-in-out infinite;
+}
+@keyframes nav-dot-soft {
+  0%, 100% { opacity: 1;   }
+  50%      { opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-spotlight, .nav-dot { animation: none; }

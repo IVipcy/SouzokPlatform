@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type RefObject } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -81,6 +81,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
+  // タブ↔ナビのリードライン描画用ラッパ
+  const navWrapRef = useRef<HTMLDivElement>(null)
 
   // URL → state 双方向同期: URL の tab パラメータが変わったら state も追随
   // （戻る/進む や リフレッシュ後にタブ位置を維持するため）
@@ -215,24 +217,29 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onStatusChange={s => patchCase({ status: s })}
       />
 
-      <CaseTabs
-        activeTab={effectiveTab}
-        onTabChange={setActiveTab}
-        taskCount={tasks.length}
-        docCount={documents.length}
-        visibleTabs={tabVis.visible}
-        collapsedTabs={tabVis.collapsed}
-        highlightTabs={navHighlightTabs}
-      />
-
-      {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
-      {navVisible && (
-        <StatusFlowNavigator
-          steps={flowSteps}
-          onAdvance={() => patchCase({ status: '対応中' })}
-          onDismiss={() => setNavDismissed(true)}
+      <div ref={navWrapRef} className="relative">
+        <CaseTabs
+          activeTab={effectiveTab}
+          onTabChange={setActiveTab}
+          taskCount={tasks.length}
+          docCount={documents.length}
+          visibleTabs={tabVis.visible}
+          collapsedTabs={tabVis.collapsed}
+          highlightTabs={navHighlightTabs}
         />
-      )}
+
+        {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
+        {navVisible && (
+          <StatusFlowNavigator
+            steps={flowSteps}
+            onAdvance={() => patchCase({ status: '対応中' })}
+            onDismiss={() => setNavDismissed(true)}
+          />
+        )}
+
+        {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
+        {navVisible && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
+      </div>
 
       {effectiveTab === 'orderSheet' && (
         <OrderSheet
@@ -344,5 +351,70 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onSaved={handleSaved}
       />
     </div>
+  )
+}
+
+// タブ↔ナビゲーターの各ステップ箱を曲線リードラインで結ぶオーバーレイ。
+// data-nav-tab（点滅タブ）と data-nav-step（同じタブを指すステップ箱）を突き合わせて描画。
+function NavConnectors({ wrapRef, deps }: { wrapRef: RefObject<HTMLDivElement | null>; deps: string }) {
+  const [lines, setLines] = useState<{ x1: number; y1: number; x2: number; y2: number }[]>([])
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    let raf = 0
+    const compute = () => {
+      const base = el.getBoundingClientRect()
+      const next: { x1: number; y1: number; x2: number; y2: number }[] = []
+      el.querySelectorAll<HTMLElement>('[data-nav-step]').forEach(stepEl => {
+        const tab = stepEl.getAttribute('data-nav-step')
+        const tabEl = el.querySelector<HTMLElement>(`[data-nav-tab="${tab}"]`)
+        if (!tabEl) return
+        const s = stepEl.getBoundingClientRect()
+        const t = tabEl.getBoundingClientRect()
+        next.push({
+          x1: t.left + t.width / 2 - base.left,
+          y1: t.bottom - base.top,
+          x2: s.left + s.width / 2 - base.left,
+          y2: s.top - base.top,
+        })
+      })
+      setLines(next)
+    }
+    const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(compute) }
+    schedule()
+    const ro = new ResizeObserver(schedule)
+    ro.observe(el)
+    window.addEventListener('resize', schedule)
+    const tabbar = el.querySelector('[data-tabbar]')
+    tabbar?.addEventListener('scroll', schedule)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener('resize', schedule)
+      tabbar?.removeEventListener('scroll', schedule)
+    }
+  }, [wrapRef, deps])
+
+  if (lines.length === 0) return null
+  return (
+    <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" aria-hidden="true">
+      {lines.map((l, i) => {
+        const midY = (l.y1 + l.y2) / 2
+        return (
+          <g key={i}>
+            <path
+              d={`M ${l.x1} ${l.y1} C ${l.x1} ${midY}, ${l.x2} ${midY}, ${l.x2} ${l.y2}`}
+              fill="none"
+              stroke="var(--color-brand-400)"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              opacity={0.75}
+            />
+            <circle cx={l.x1} cy={l.y1} r={2.5} fill="var(--color-brand-500)" />
+            <circle cx={l.x2} cy={l.y2} r={2.5} fill="var(--color-brand-500)" />
+          </g>
+        )
+      })}
+    </svg>
   )
 }

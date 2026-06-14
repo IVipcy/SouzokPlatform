@@ -67,20 +67,21 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, 
       <button
         key={key}
         onClick={() => onTabChange(key)}
+        data-nav-tab={highlighted ? key : undefined}
         className={`relative px-4 py-2.5 text-[13px] font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
           activeTab === key
             ? 'text-brand-600 border-brand-600 font-semibold'
             : highlighted
-              ? 'text-brand-700 border-transparent font-semibold'
+              ? 'text-brand-700 border-brand-500 font-semibold'
               : 'text-gray-500 border-transparent hover:text-gray-700'
         }`}
       >
         {highlighted && (
-          <span className="nav-spotlight pointer-events-none absolute inset-x-1 inset-y-1 rounded-md ring-2 ring-brand-500" aria-hidden="true" />
+          <span className="nav-spotlight pointer-events-none absolute inset-x-1 inset-y-1 rounded-md" aria-hidden="true" />
         )}
         <span className="relative inline-flex items-center gap-1.5">
           {TAB_LABELS[key]}
-          {highlighted && <span className="nav-dot w-1.5 h-1.5 rounded-full bg-brand-600" aria-hidden="true" />}
+          {highlighted && <span className="nav-dot w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true" />}
         </span>
         {count !== undefined && (
           <span className={`relative ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
@@ -94,7 +95,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, 
   }
 
   return (
-    <div className="flex items-center border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+    <div data-tabbar className="flex items-center border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
       {mainTabs.map(renderTab)}
 
       {hiddenTabs.length > 0 && (
