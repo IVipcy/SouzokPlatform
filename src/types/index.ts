@@ -477,6 +477,8 @@ export type KosekiRequestRow = {
   request_reason_other: string | null // 戸籍請求理由（その他）
   request_date: string | null     // 請求日
   arrival_date: string | null     // 到着日（受領日）
+  acquirer: string | null         // 取得区分（自社/依頼者。migration 085）
+  expected_arrival_date: string | null // 到着予定日（見込み。migration 085）
   notes: string | null
   sort_order: number
   created_at: string
@@ -538,6 +540,8 @@ export type RealEstatePropertyRow = {
   route_price_receipt_date: string | null         // 路線価 受領日
   eval_cert_request_date: string | null           // 評価証明 請求日
   eval_cert_receipt_date: string | null           // 評価証明 受領日
+  acquirer: string | null                          // 取得区分（自社/依頼者。migration 085）
+  expected_arrival_date: string | null             // 到着予定日（見込み。migration 085）
   sale_expected_date: string | null
   notes: string | null
   created_at: string
@@ -581,6 +585,8 @@ export type FinancialAssetRow = {
   survey_date: string | null                // 調査基準日（任意指定時）
   request_date: string | null               // 請求日（進捗）
   arrival_date: string | null               // 到着日（進捗）
+  acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
+  expected_arrival_date: string | null       // 到着予定日（見込み。migration 085）
   created_at: string
 }
 
