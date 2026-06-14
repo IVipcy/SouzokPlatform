@@ -5,6 +5,7 @@ import { CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import ClientInfoTab from './ClientInfoTab'
+import OrderContentTab from './OrderContentTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
 import ReferralTab from './ReferralTab'
@@ -94,35 +95,39 @@ export default function OrderSheet({
         <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} />
       </OSSection>
 
-      <OSSection index={1} title="相続人調査">
+      <OSSection index={1} title="受注内容・契約手続き">
+        <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode />
+      </OSSection>
+
+      <OSSection index={2} title="相続人調査">
         <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
 
-      <OSSection index={2} title="財産調査">
+      <OSSection index={3} title="財産調査">
         <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
       </OSSection>
 
-      <OSSection index={3} title="他事業者紹介">
+      <OSSection index={4} title="他事業者紹介">
         <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode />
       </OSSection>
 
-      <OSSection index={4} title="遺産分割">
+      <OSSection index={5} title="遺産分割">
         <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="division" />
       </OSSection>
 
-      <OSSection index={5} title="遺言">
+      <OSSection index={6} title="遺言">
         <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" />
       </OSSection>
 
-      <OSSection index={6} title="相続登記">
+      <OSSection index={7} title="相続登記">
         <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} />
       </OSSection>
 
-      <OSSection index={7} title="解約等（銀行・証券・自動車）">
+      <OSSection index={8} title="解約等（銀行・証券・自動車）">
         <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} />
       </OSSection>
 
-      <OSSection index={8} title="契約・報酬・請求">
+      <OSSection index={9} title="契約・報酬・請求">
         <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} />
       </OSSection>
     </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -20,7 +20,8 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
-  ownerSales: '担当・受注内容',
+  ownerSales: '担当・受注ルート',
+  orderContent: '受注内容・契約手続き',
   meeting: '面談情報',
   clientInfo: '依頼者',
   deceased: '相続人調査',

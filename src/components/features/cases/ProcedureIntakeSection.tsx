@@ -5,13 +5,13 @@ import { Trash2, Plus } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import type { CaseRow } from '@/types'
 
-type DocRow = { name: string; status: string; arrival_date: string | null; note: string }
-type RoleRow = { item: string; owner: string; note: string }
+export type DocRow = { name: string; status: string; arrival_date: string | null; note: string }
+export type RoleRow = { item: string; owner: string; note: string }
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
 const ROLE_OWNER = ['自社', '依頼者', '不要']
 
-const DEFAULT_DOCS: DocRow[] = [
+export const DEFAULT_DOCS: DocRow[] = [
   { name: '契約書', status: '', arrival_date: null, note: '' },
   { name: '委任状（戸籍用・認印）', status: '', arrival_date: null, note: '' },
   { name: '委任状（財産調査用・実印）', status: '', arrival_date: null, note: '' },
@@ -20,7 +20,7 @@ const DEFAULT_DOCS: DocRow[] = [
   { name: '印鑑証明書', status: '', arrival_date: null, note: '' },
   { name: '本人確認書類', status: '', arrival_date: null, note: '' },
 ]
-const DEFAULT_ROLES: RoleRow[] = [
+export const DEFAULT_ROLES: RoleRow[] = [
   { item: '戸籍収集', owner: '', note: '' },
   { item: '残高証明（財産調査）', owner: '', note: '' },
   { item: '解約手続', owner: '', note: '' },
@@ -30,32 +30,12 @@ const DEFAULT_ROLES: RoleRow[] = [
   { item: '相続登記', owner: '', note: '' },
 ]
 
-type Props = {
-  caseData: CaseRow
-  patchCase: (patch: Partial<CaseRow>) => Promise<void>
-}
-
-/**
- * 手続き詳細（面談時のヒアリング）
- *   ① 受領書類: その場で何を受領し、何が後日来るか（到着予定日）
- *   ② 役割分担: 戸籍収集・財産調査・解約・名寄帳請求 等を自社/依頼者どちらが行うか
- * 受託（契約処理の残）→対応中（請求・自社作業）の整理の起点となる構造化データ。
- */
-export default function ProcedureIntakeSection({ caseData, patchCase }: Props) {
-  const [docs, setDocs] = useState<DocRow[]>(caseData.intake_documents ?? DEFAULT_DOCS)
-  const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
-
-  const saveDocs = (next: DocRow[]) => { setDocs(next); patchCase({ intake_documents: next }) }
-  const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
-
-  const setDoc = (i: number, patch: Partial<DocRow>) => saveDocs(docs.map((d, idx) => idx === i ? { ...d, ...patch } : d))
-  const setRole = (i: number, patch: Partial<RoleRow>) => saveRoles(roles.map((r, idx) => idx === i ? { ...r, ...patch } : r))
-
+// ─── ① 受領書類エディタ（再利用可能） ───
+export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (next: DocRow[]) => void }) {
+  const setDoc = (i: number, patch: Partial<DocRow>) => onSave(docs.map((d, idx) => idx === i ? { ...d, ...patch } : d))
   return (
-    <Section title="手続き詳細">
-      {/* ① 受領書類 */}
-      <div className="mb-2 text-[12px] font-bold text-gray-500">受領書類（その場で何をもらい、何が後日来るか）</div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto mb-4">
+    <>
+      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
@@ -74,19 +54,25 @@ export default function ProcedureIntakeSection({ caseData, patchCase }: Props) {
                 <DateCell value={d.arrival_date} onCommit={v => setDoc(i, { arrival_date: v || null })} />
                 <Cell value={d.note} onCommit={v => setDoc(i, { note: v })} placeholder="例：実印分は後日、料金 等" />
                 <td className="px-2.5 py-1.5 text-center">
-                  <button type="button" onClick={() => saveDocs(docs.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button type="button" onClick={() => onSave(docs.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button type="button" onClick={() => saveDocs([...docs, { name: '', status: '', arrival_date: null, note: '' }])} className="mb-5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+      <button type="button" onClick={() => onSave([...docs, { name: '', status: '', arrival_date: null, note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
         <Plus className="w-3.5 h-3.5" /> 書類を追加
       </button>
+    </>
+  )
+}
 
-      {/* ② 役割分担 */}
-      <div className="mb-2 text-[12px] font-bold text-gray-500">役割分担（自社 / 依頼者 どちらが行うか）</div>
+// ─── ② 役割分担エディタ（再利用可能） ───
+export function IntakeRolesEditor({ roles, onSave }: { roles: RoleRow[]; onSave: (next: RoleRow[]) => void }) {
+  const setRole = (i: number, patch: Partial<RoleRow>) => onSave(roles.map((r, idx) => idx === i ? { ...r, ...patch } : r))
+  return (
+    <>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 620 }}>
           <thead>
@@ -104,16 +90,46 @@ export default function ProcedureIntakeSection({ caseData, patchCase }: Props) {
                 <SelectCell value={r.owner} options={ROLE_OWNER} onChange={v => setRole(i, { owner: v })} />
                 <Cell value={r.note} onCommit={v => setRole(i, { note: v })} placeholder="例：名寄せは別料金 等" />
                 <td className="px-2.5 py-1.5 text-center">
-                  <button type="button" onClick={() => saveRoles(roles.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button type="button" onClick={() => onSave(roles.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button type="button" onClick={() => saveRoles([...roles, { item: '', owner: '', note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+      <button type="button" onClick={() => onSave([...roles, { item: '', owner: '', note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
         <Plus className="w-3.5 h-3.5" /> 項目を追加
       </button>
+    </>
+  )
+}
+
+type Props = {
+  caseData: CaseRow
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
+}
+
+/**
+ * 手続き詳細（面談時のヒアリング）。新規案件登録（面談情報）時に入力する。
+ *   ① 受領書類: その場で何を受領し、何が後日来るか（到着予定日）
+ *   ② 役割分担: 戸籍収集・財産調査・解約・名寄帳請求 等を自社/依頼者どちらが行うか
+ * 同じデータ（intake_documents / intake_roles）は「受注内容・契約手続き」タブでも編集できる。
+ */
+export default function ProcedureIntakeSection({ caseData, patchCase }: Props) {
+  const [docs, setDocs] = useState<DocRow[]>(caseData.intake_documents ?? DEFAULT_DOCS)
+  const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
+
+  const saveDocs = (next: DocRow[]) => { setDocs(next); patchCase({ intake_documents: next }) }
+  const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
+
+  return (
+    <Section title="手続き詳細">
+      <div className="mb-2 text-[12px] font-bold text-gray-500">① 受領書類（その場で何をもらい、何が後日来るか）</div>
+      <div className="mb-5">
+        <IntakeDocsEditor docs={docs} onSave={saveDocs} />
+      </div>
+      <div className="mb-2 text-[12px] font-bold text-gray-500">② 役割分担（自社 / 依頼者 どちらが行うか）</div>
+      <IntakeRolesEditor roles={roles} onSave={saveRoles} />
     </Section>
   )
 }

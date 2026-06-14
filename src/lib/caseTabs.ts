@@ -41,7 +41,7 @@ export type TabVisibility = {
 
 // 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'ownerSales', 'clientInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'contract',
   'docs', 'tasks', 'meeting',
 ]
@@ -53,7 +53,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 受託: オーダーシート作成・担当受注内容まで。実務タブは出さないが、
   // 受託段階で前受金等を請求するため「契約・報酬・請求」、契約書等の授受のため「書類」を表示する。
   if (status === '受注') {
-    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'contract', 'docs', 'tasks'], collapsed: [] }
+    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'meeting', 'clientInfo', 'contract', 'docs', 'tasks'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報は折りたたみ

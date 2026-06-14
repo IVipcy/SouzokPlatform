@@ -3,11 +3,9 @@
 import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
 import {
-  Section, FieldGrid, InlineEdit, InlineSelect, InlineMultiSelect, InlineMemberSelect,
+  Section, FieldGrid, InlineEdit, InlineSelect, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
-import {
-  PROCEDURE_TYPES, ORDER_ROUTES, PAST_CLIENT_ROUTE, CONTRACT_TYPES,
-} from '@/lib/constants'
+import { ORDER_ROUTES, PAST_CLIENT_ROUTE } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
 import ReferralSourceLookup from './ReferralSourceLookup'
 
@@ -20,10 +18,10 @@ type Props = {
 }
 
 /**
- * 担当・受注内容タブ（受託・オーダーシート作成済から表示）
+ * 担当・受注ルートタブ（受託・オーダーシート作成済から表示）
  *   担当者（受注担当〔案件作成者を自動セット〕/ 管理担当〔割り振りボタン付き〕）
- *   受注内容（手続区分 / その他手続 / 契約形態）
  *   受注ルート（受注ルート / 詳細 / パートナー / 紹介先名）
+ * ※ 受注内容（手続区分 等）と役割分担は「受注内容・契約手続き」タブへ移設。
  */
 export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patchCase, onRefresh }: Props) {
   const save = async (field: string, value: unknown) => {
@@ -52,15 +50,6 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
           </Link>
           <p className="text-[11px] text-gray-400 mt-1">稼働状況・経験年数を見て管理担当を割り振ります。</p>
         </div>
-      </Section>
-
-      {/* 受注内容 */}
-      <Section title="受注内容">
-        <FieldGrid>
-          <InlineMultiSelect label="手続区分" value={caseData.procedure_type} options={[...PROCEDURE_TYPES]} onSave={v => save('procedure_type', v)} fullWidth required />
-          <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => save('other_procedure', v)} />
-          <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
-        </FieldGrid>
       </Section>
 
       {/* 受注ルート */}

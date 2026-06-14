@@ -20,6 +20,7 @@ import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
+import OrderContentTab from './OrderContentTab'
 import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
@@ -58,7 +59,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients }: Props) {
   const router = useRouter()
@@ -239,6 +240,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />
+      )}
+      {effectiveTab === 'orderContent' && (
+        <OrderContentTab caseData={caseState} patchCase={patchCase} />
       )}
       {effectiveTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} />
