@@ -251,6 +251,8 @@ export type CaseClientRow = {
   relationship: string | null              // 被相続人との続柄
   phone: string | null
   email: string | null
+  postal_code: string | null               // 郵便番号（migration 088。郵送先に使用）
+  address: string | null                   // 住所（migration 088。郵送先に使用）
   sort_order: number
   created_at: string
   updated_at: string
