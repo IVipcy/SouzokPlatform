@@ -63,13 +63,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
       )}
       {sub === 'deposit' && (
-        <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
+        <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
       )}
       {sub === 'securities' && (
-        <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
+        <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
       )}
       {sub === 'trust' && (
-        <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} />
+        <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
       )}
       {sub === 'insurance' && (
         <FieldGrid>

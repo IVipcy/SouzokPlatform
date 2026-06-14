@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { FinancialAssetRow } from '@/types'
+import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
+import type { FinancialAssetRow, CaseRow } from '@/types'
 
 const REQ = ['要', '不要', '確認中']
 
@@ -42,14 +43,27 @@ type Props = {
   onRefresh?: () => void
   /** 対応中タブ（進捗管理）で「請求日・到着日」列を表示。オーダーシートでは false */
   progressMode?: boolean
+  // 役割分担（取得区分の一括反映用）
+  roles?: CaseRow['intake_roles']
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
+
+  const applyRolesAcquirer = async () => {
+    if (rows.length === 0) { showToast('対象の金融機関がありません', 'error'); return }
+    const target = acquirerFromRoles(roles, ACQUIRER_GYOMU.financial)
+    if (!confirm(`${kind} 全${rows.length}件の取得区分を「${acquirerLabel(target)}」に上書きします。よろしいですか？`)) return
+    const ids = rows.map(r => r.id)
+    const { error } = await supabase.from('financial_assets').update({ acquirer: target }).in('id', ids)
+    if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
+    setRows(prev => prev.map(r => ({ ...r, acquirer: target })))
+    showToast(`取得区分を「${acquirerLabel(target)}」に反映しました`, 'success')
+  }
 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -77,18 +91,22 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  const colCount = cols.length + 2 + (progressMode ? 2 : 0) + 1 // +調査期間 +備考 (+請求/到着) +削除
+  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信) +削除
+  const colCount = cols.length + 3 + (progressMode ? 4 : 0) + 1
 
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1100 : 880 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1340 : 980 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
+              <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-44">調査期間</th>
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-32">請求日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-32">到着日</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着予定日</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
               <th className="px-2 py-2 text-left font-semibold">備考</th>
               <th className="px-2 py-2 w-8" />
             </tr>
@@ -108,6 +126,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       )}
                     </td>
                   ))}
+                  {/* 取得区分 */}
+                  <td className="px-2 py-1.5">
+                    <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                      {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+                    </select>
+                  </td>
                   {/* 調査期間 */}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1">
@@ -121,7 +145,17 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     <td className="px-2 py-1.5"><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
                   {progressMode && (
+                    <td className="px-2 py-1.5"><input type="date" value={r.expected_arrival_date ?? ''} onChange={e => setLocal(r.id, 'expected_arrival_date', e.target.value)} onBlur={e => commit(r.id, 'expected_arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                  )}
+                  {progressMode && (
                     <td className="px-2 py-1.5"><input type="date" value={r.arrival_date ?? ''} onChange={e => setLocal(r.id, 'arrival_date', e.target.value)} onBlur={e => commit(r.id, 'arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                  )}
+                  {progressMode && (
+                    <td className="px-2 py-1.5">
+                      {r.arrival_date
+                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
+                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
+                    </td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
                   <td className="px-2 py-1.5 text-center">
@@ -133,9 +167,14 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           </tbody>
         </table>
       </div>
-      <button type="button" onClick={addRow} disabled={busy} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
-        <Plus className="w-3.5 h-3.5" /> 追加
-      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
+          <Plus className="w-3.5 h-3.5" /> 追加
+        </button>
+        <button type="button" onClick={applyRolesAcquirer} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
+          役割分担から取得区分を反映
+        </button>
+      </div>
     </div>
   )
 }
