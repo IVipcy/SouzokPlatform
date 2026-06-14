@@ -13,7 +13,7 @@ import {
 import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
-import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
+import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
 import ProcedureIntakeSummary from './ProcedureIntakeSummary'
@@ -28,11 +28,13 @@ type Props = {
   documentReceipts?: TimelineReceipt[]
   // 管理担当アサイン済か（対応中ガード用）
   managerAssigned?: boolean
+  // 契約手続きの受領書類（受託の「契約処理の残」表示用）
+  contractDocuments?: ContractDocumentRow[]
 }
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractDocuments = [] }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -94,7 +96,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
       </Section>
 
       {/* 手続き詳細の連動表示（受託=受領待ち書類 / 対応中=請求・自社作業） */}
-      <ProcedureIntakeSummary caseData={caseData} />
+      <ProcedureIntakeSummary caseData={caseData} contractDocuments={contractDocuments} />
 
       {/* 基本情報（アコーディオン・既定で閉じる） */}
       <Section title="基本情報" collapsible defaultOpen={false}>

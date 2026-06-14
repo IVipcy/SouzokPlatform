@@ -4,7 +4,7 @@ import { FileClock, Wrench } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { getCaseCategory } from '@/lib/constants'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
-import type { CaseRow } from '@/types'
+import type { CaseRow, ContractDocumentRow } from '@/types'
 
 // 面談時に入力した「手続き詳細」(intake_documents / intake_roles) を、
 // ステータスに応じて読み取り専用で連動表示する。
@@ -19,19 +19,20 @@ const BILLABLE_HINT = /別料金|請求/
 
 type Props = {
   caseData: CaseRow
+  contractDocuments?: ContractDocumentRow[]
 }
 
-export default function ProcedureIntakeSummary({ caseData }: Props) {
+export default function ProcedureIntakeSummary({ caseData, contractDocuments = [] }: Props) {
   const category = getCaseCategory(caseData.status)
   const today = todayJstYmd(new Date())
 
-  // ── 受託: 契約処理の残（受領待ち書類） ──
+  // ── 受託: 契約処理の残（受領待ち＝未受信の書類） ──
   if (caseData.status === '受注') {
-    const pending = (caseData.intake_documents ?? []).filter(d => PENDING_DOC_STATUSES.includes(d.status))
+    const pending = contractDocuments.filter(d => PENDING_DOC_STATUSES.includes(d.status ?? '') && !d.arrival_date)
     if (pending.length === 0) return null
     return (
       <Section title="契約処理の残（受領待ち書類）">
-        <p className="text-[12px] text-gray-400 mb-2">面談情報タブ「手続き詳細」と連動。受領状況が「後日郵送 / 依頼者が取得」の書類です。</p>
+        <p className="text-[12px] text-gray-400 mb-2">受注内容・契約手続きタブと連動。受領状況「後日郵送 / 依頼者が取得」で未受信の書類です（受信簿で受信すると消えます）。</p>
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 620 }}>
             <thead>
@@ -44,7 +45,7 @@ export default function ProcedureIntakeSummary({ caseData }: Props) {
             </thead>
             <tbody>
               {pending.map((d, i) => {
-                const overdue = !!d.arrival_date && d.arrival_date < today
+                const overdue = !!d.expected_arrival_date && d.expected_arrival_date < today
                 return (
                   <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                     <td className="px-2.5 py-2 text-gray-800">
@@ -57,9 +58,9 @@ export default function ProcedureIntakeSummary({ caseData }: Props) {
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">{d.status}</span>
                     </td>
                     <td className={`px-2.5 py-2 font-mono text-[12px] ${overdue ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
-                      {d.arrival_date ?? '未定'}{overdue ? '（超過）' : ''}
+                      {d.expected_arrival_date ?? '未定'}{overdue ? '（超過）' : ''}
                     </td>
-                    <td className="px-2.5 py-2 text-gray-500">{d.note || '—'}</td>
+                    <td className="px-2.5 py-2 text-gray-500">{d.notes || '—'}</td>
                   </tr>
                 )
               })}

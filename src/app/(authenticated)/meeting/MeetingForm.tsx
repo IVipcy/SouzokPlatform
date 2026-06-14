@@ -243,7 +243,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         lost_reason: formData.lostReason || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
-        intake_documents: formData.intakeDocuments,
       }
 
       if (isNew) {
@@ -261,6 +260,20 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         // 受注担当＝案件作成者を自動セット
         if (currentMemberId) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
+        }
+        // 契約手続きの受領書類（①）を contract_documents へ。入力済み（書類名 or 受領状況あり）のみ。
+        const docRows = formData.intakeDocuments
+          .filter(d => d.name.trim() || d.status)
+          .map((d, i) => ({
+            case_id: caseId,
+            name: d.name.trim() || null,
+            status: d.status || null,
+            expected_arrival_date: d.arrival_date || null,
+            notes: d.note || null,
+            sort_order: i,
+          }))
+        if (docRows.length > 0) {
+          await supabase.from('contract_documents').insert(docRows)
         }
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)

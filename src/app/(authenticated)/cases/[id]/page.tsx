@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import { computeCaseAlerts } from '@/lib/alerts'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -15,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -94,6 +94,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('case_referrals').select('*').eq('case_id', id).order('created_at', { ascending: true }),
     // 依頼者（同行者含む）。migration 064 未適用環境では error → 空配列で degrade。
     supabase.from('case_clients').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    // 契約手続きの受領書類。migration 086 未適用環境では error → 空配列で degrade。
+    supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -152,6 +154,7 @@ export default async function CaseDetailPage({ params }: Props) {
       documentReceipts={(receiptsResult.data ?? []) as unknown as TimelineReceipt[]}
       caseReferrals={(referralsResult.data ?? []) as CaseReferralRow[]}
       caseClients={(caseClientsResult.data ?? []) as CaseClientRow[]}
+      contractDocuments={(contractDocumentsResult.data ?? []) as ContractDocumentRow[]}
     />
   )
 }

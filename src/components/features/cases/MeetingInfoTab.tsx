@@ -11,7 +11,7 @@ import {
   PROCEDURE_TYPES, LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
 } from '@/lib/constants'
-import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow } from '@/types'
+import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
 import ProcedureIntakeSection from './ProcedureIntakeSection'
 
 type Props = {
@@ -24,6 +24,8 @@ type Props = {
   referrals?: CaseReferralRow[]
   // 受託→対応中ゲート（初期対応タスク完了）の判定用
   tasks?: TaskRow[]
+  // 契約手続きの受領書類（受信簿連動）
+  contractDocuments?: ContractDocumentRow[]
 }
 
 /**
@@ -37,7 +39,7 @@ type Props = {
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
  * ※ 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）は「他事業者紹介」タブで管理。
  */
-export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [] }: Props) {
+export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [] }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -107,7 +109,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
       </Section>
 
       {/* 手続き詳細（受領書類・役割分担） */}
-      <ProcedureIntakeSection caseData={caseData} patchCase={patchCase} />
+      <ProcedureIntakeSection caseData={caseData} patchCase={patchCase} contractDocuments={contractDocuments} onRefresh={onRefresh} />
 
       {/* ④ 相談事前情報（LP連携の面談前ヒアリング。LP経由でない案件は空のため既定で閉じる） */}
       <Section title="相談事前情報" collapsible defaultOpen={false}>

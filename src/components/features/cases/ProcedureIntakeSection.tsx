@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Trash2, Plus, Check } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
-import type { CaseRow } from '@/types'
+import ContractDocumentsTable from './ContractDocumentsTable'
+import type { CaseRow, ContractDocumentRow } from '@/types'
 
 export type DocRow = { name: string; status: string; arrival_date: string | null; note: string }
 // 役割分担: 業務（例:登記）→ 紐づく作業（複数）→ 各作業を 自社/依頼者/不要 ＋ 備考
@@ -178,26 +179,25 @@ export function IntakeRolesEditor({ roles, onSave }: { roles: RoleRow[]; onSave:
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  contractDocuments: ContractDocumentRow[]
+  onRefresh?: () => void
 }
 
 /**
  * 手続き詳細（面談時のヒアリング）。新規案件登録（面談情報）時に入力する。
- *   ① 受領書類: その場で何を受領し、何が後日来るか（到着予定日）
- *   ② 役割分担: 戸籍収集・財産調査・解約・名寄帳請求 等を自社/依頼者どちらが行うか
- * 同じデータ（intake_documents / intake_roles）は「受注内容・契約手続き」タブでも編集できる。
+ *   ① 受領書類: 契約関連書類の受け取り（contract_documents・受信簿と連動）
+ *   ② 役割分担: 業務→作業を自社/依頼者どちらが行うか（intake_roles JSONB）
+ * 同じデータは「受注内容・契約手続き」タブでも編集できる。
  */
-export default function ProcedureIntakeSection({ caseData, patchCase }: Props) {
-  const [docs, setDocs] = useState<DocRow[]>(caseData.intake_documents ?? DEFAULT_DOCS)
+export default function ProcedureIntakeSection({ caseData, patchCase, contractDocuments, onRefresh }: Props) {
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
-
-  const saveDocs = (next: DocRow[]) => { setDocs(next); patchCase({ intake_documents: next }) }
   const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
 
   return (
     <Section title="手続き詳細">
       <div className="mb-2 text-[12px] font-bold text-gray-500">① 受領書類（その場で何をもらい、何が後日来るか）</div>
       <div className="mb-5">
-        <IntakeDocsEditor docs={docs} onSave={saveDocs} />
+        <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
       </div>
       <div className="mb-2 text-[12px] font-bold text-gray-500">② 役割分担（自社 / 依頼者 どちらが行うか）</div>
       <IntakeRolesEditor roles={roles} onSave={saveRoles} />

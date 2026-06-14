@@ -485,6 +485,21 @@ export type KosekiRequestRow = {
   updated_at: string
 }
 
+// === 契約手続き 受領書類（migration 086。受信簿と連動） ===
+export type ContractDocumentRow = {
+  id: string
+  case_id: string
+  name: string | null
+  status: string | null                 // その場で受領/後日郵送/依頼者が取得/不要
+  expected_arrival_date: string | null   // 到着予定日（見込み）
+  arrival_date: string | null            // 到着日（受信簿で受信＝受信済）
+  case_document_id: string | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // === 不動産 ===
 export type RealEstatePropertyRow = {
   id: string

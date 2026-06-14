@@ -32,7 +32,7 @@ import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -54,6 +54,7 @@ type Props = {
   documentReceipts?: TimelineReceipt[]
   caseReferrals?: CaseReferralRow[]
   caseClients?: CaseClientRow[]
+  contractDocuments?: ContractDocumentRow[]
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -61,7 +62,7 @@ const TRIGGER_FIELDS = new Set(['status'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -233,19 +234,20 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           clientCommunications={clientCommunications}
           referrals={caseReferrals ?? []}
           caseClients={caseClients ?? []}
+          contractDocuments={contractDocuments}
         />
       )}
       {effectiveTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} contractDocuments={contractDocuments} />
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'orderContent' && (
-        <OrderContentTab caseData={caseState} patchCase={patchCase} />
+        <OrderContentTab caseData={caseState} patchCase={patchCase} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'meeting' && (
-        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} />
+        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} />
       )}
       {effectiveTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />

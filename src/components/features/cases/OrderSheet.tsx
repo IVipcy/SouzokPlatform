@@ -15,7 +15,7 @@ import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
 import type {
   CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow,
-  DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow,
+  DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow,
 } from '@/types'
 
 type Props = {
@@ -33,6 +33,7 @@ type Props = {
   clientCommunications: ClientCommunicationRow[]
   referrals: CaseReferralRow[]
   caseClients: CaseClientRow[]
+  contractDocuments: ContractDocumentRow[]
 }
 
 /**
@@ -44,7 +45,7 @@ type Props = {
  */
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
-  heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients,
+  heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients, contractDocuments,
 }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
@@ -96,7 +97,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={1} title="受注内容・契約手続き">
-        <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode />
+        <OrderContentTab caseData={caseData} patchCase={patchCase} contractDocuments={contractDocuments} onRefresh={onRefresh} orderSheetMode />
       </OSSection>
 
       <OSSection index={2} title="相続人調査">

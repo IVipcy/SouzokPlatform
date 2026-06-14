@@ -4,10 +4,9 @@ import { useState } from 'react'
 import { Section, FieldGrid, InlineEdit, InlineSelect, InlineMultiSelect } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { PROCEDURE_TYPES, CONTRACT_TYPES } from '@/lib/constants'
-import {
-  IntakeDocsEditor, IntakeRolesEditor, DEFAULT_DOCS, DEFAULT_ROLES, type DocRow, type RoleRow,
-} from './ProcedureIntakeSection'
-import type { CaseRow } from '@/types'
+import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
+import ContractDocumentsTable from './ContractDocumentsTable'
+import type { CaseRow, ContractDocumentRow } from '@/types'
 
 const SUBTABS = [
   { key: 'content', label: '受注内容' },
@@ -17,23 +16,23 @@ const SUBTABS = [
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  contractDocuments: ContractDocumentRow[]
+  onRefresh?: () => void
   // オーダーシート埋め込み時（子タブを出さず両方を縦に並べる）
   orderSheetMode?: boolean
 }
 
 /**
  * 受注内容・契約手続きタブ。
- *   子タブ「受注内容」: 手続区分 / その他手続 / 契約形態 ＋ ②役割分担（自社/依頼者）
- *   子タブ「契約手続き」: ①契約関連書類をいつ受け取るか（Phase B で書類タブの受信簿と連動予定）
- * いずれも面談情報の「手続き詳細」と同じ intake_documents / intake_roles を編集する。
+ *   子タブ「受注内容」: 手続区分 / その他手続 / 契約形態 ＋ ②役割分担（intake_roles）
+ *   子タブ「契約手続き」: ①契約関連書類の受け取り（contract_documents・受信簿と連動）
+ * いずれも面談情報の「手続き詳細」と同じデータを編集する。
  */
-export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false }: Props) {
+export default function OrderContentTab({ caseData, patchCase, contractDocuments, onRefresh, orderSheetMode = false }: Props) {
   const [sub, setSub] = useState<'content' | 'contract'>('content')
-  const [docs, setDocs] = useState<DocRow[]>(caseData.intake_documents ?? DEFAULT_DOCS)
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
 
   const save = async (field: string, value: unknown) => { await patchCase({ [field]: value ?? null } as Partial<CaseRow>) }
-  const saveDocs = (next: DocRow[]) => { setDocs(next); patchCase({ intake_documents: next }) }
   const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
 
   const ContentBlock = (
@@ -53,8 +52,8 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
   const ContractBlock = (
     <Section title="契約手続き（契約関連書類の受け取り）">
-      <p className="text-[12px] text-gray-400 mb-2">どの契約関連書類を、いつお客様から受け取るかを管理します。受領状況「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示されます。</p>
-      <IntakeDocsEditor docs={docs} onSave={saveDocs} />
+      <p className="text-[12px] text-gray-400 mb-2">どの契約関連書類を、いつお客様から受け取るかを管理します。書類受信簿で受信すると到着日が入り「受信済」になります。</p>
+      <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
     </Section>
   )
 
