@@ -206,7 +206,7 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
           )}
           <button
             type="button"
-            onClick={() => setAdds(prev => [...prev, { title: '', phase: 'phase1' }])}
+            onClick={() => setAdds(prev => [...prev, { title: '', phase: 'phase0' }])}
             className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"
           >
             <Plus className="w-3.5 h-3.5" /> タスクを追加
