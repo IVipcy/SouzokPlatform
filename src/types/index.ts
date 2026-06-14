@@ -249,8 +249,11 @@ export type CaseClientRow = {
   priority: 'main' | 'companion' | string  // メイン依頼人 / 同行者
   birth_date: string | null                // 生年月日（YYYY-MM-DD）。年齢は算出。
   relationship: string | null              // 被相続人との続柄
-  phone: string | null
+  phone: string | null                     // TEL①
   email: string | null
+  mobile_phone: string | null              // TEL②（携帯。migration 089）
+  preferred_contact: string[] | null       // 連絡先希望（migration 089）
+  has_special_chars: boolean               // 外字有無（migration 089）
   sort_order: number
   created_at: string
   updated_at: string

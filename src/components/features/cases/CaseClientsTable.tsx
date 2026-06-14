@@ -39,6 +39,13 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
+  // 配列・真偽値など文字列以外の即時保存（連絡先希望 / 外字有無）
+  const commitVal = async (id: string, field: keyof CaseClientRow, value: unknown) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as CaseClientRow : r)))
+    const { error } = await supabase.from('case_clients').update({ [field]: value }).eq('id', id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+  }
+
   const addRow = async () => {
     setBusy(true)
     const { data, error } = await supabase
@@ -63,15 +70,18 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 880 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1320 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
               <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
               <th className="px-2 py-2 text-left font-semibold">氏名</th>
               <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
               <th className="px-2 py-2 text-left font-semibold w-24">続柄</th>
-              <th className="px-2 py-2 text-left font-semibold">TEL</th>
+              <th className="px-2 py-2 text-left font-semibold">TEL①</th>
+              <th className="px-2 py-2 text-left font-semibold">TEL②（携帯）</th>
               <th className="px-2 py-2 text-left font-semibold">メール</th>
+              <th className="px-2 py-2 text-left font-semibold w-44">連絡先希望</th>
+              <th className="px-2 py-2 text-center font-semibold w-12">外字</th>
               <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
               <th className="px-2 py-2 text-center font-semibold w-12">年齢</th>
               <th className="px-2 py-2 w-8" />
@@ -79,7 +89,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
+              <tr><td colSpan={12} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
             ) : (
               rows.map(r => {
                 const age = calcAge(r.birth_date)
@@ -98,8 +108,13 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
                     <Cell value={r.name} onChange={v => setLocal(r.id, 'name', v)} onCommit={v => commit(r.id, 'name', v)} placeholder="山田 太郎" />
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
                     <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
-                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="090-..." />
+                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="自宅 03-..." />
+                    <Cell value={r.mobile_phone} type="tel" onChange={v => setLocal(r.id, 'mobile_phone', v)} onCommit={v => commit(r.id, 'mobile_phone', v)} placeholder="携帯 090-..." />
                     <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
+                    <PrefContactCell value={r.preferred_contact} onChange={v => commitVal(r.id, 'preferred_contact', v.length > 0 ? v : null)} />
+                    <td className="px-2 py-1.5 text-center">
+                      <input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                    </td>
                     <td className="px-2 py-1.5">
                       <BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} />
                     </td>
@@ -125,6 +140,39 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
         <Plus className="w-3.5 h-3.5" /> 依頼者を追加
       </button>
     </div>
+  )
+}
+
+// 連絡先希望（自宅TEL/携帯TEL/メール）を小さなトグルで複数選択
+const PREF_CONTACTS: { key: string; label: string }[] = [
+  { key: '自宅TEL', label: '自宅' },
+  { key: '携帯TEL', label: '携帯' },
+  { key: 'メール', label: 'メール' },
+]
+function PrefContactCell({ value, onChange }: { value: string[] | null; onChange: (v: string[]) => void }) {
+  const selected = value ?? []
+  const toggle = (key: string) =>
+    onChange(selected.includes(key) ? selected.filter(k => k !== key) : [...selected, key])
+  return (
+    <td className="px-2 py-1.5">
+      <div className="flex items-center gap-1">
+        {PREF_CONTACTS.map(p => {
+          const on = selected.includes(p.key)
+          return (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => toggle(p.key)}
+              className={`px-1.5 py-1 rounded text-[11px] font-medium border transition-colors ${
+                on ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+              }`}
+            >
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
+    </td>
   )
 }
 

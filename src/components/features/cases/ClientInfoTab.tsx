@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineMultiSelect, InlineCheckbox,
+  Section, FieldGrid, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
@@ -54,20 +54,12 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} />
       </Section>
 
-      {/* 1. メイン依頼者の住所・連絡先（氏名/ふりがな/TEL/メールは上の表で管理するため重複は持たない） */}
-      <Section title="メイン依頼者の住所・連絡先" collapsible defaultOpen={orderSheetMode}>
+      {/* 1. メイン依頼者の住所（書類・請求で使う正本。氏名/TEL/メール/連絡先希望/外字は上の表で管理） */}
+      <Section title="メイン依頼者の住所" collapsible defaultOpen={orderSheetMode}>
         {caseData.client_id && client ? (
           <FieldGrid>
             <InlineEdit label="郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))} />
             <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
-            <InlineEdit label="携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v.replace(/[^0-9]/g, ''))} />
-            <InlineMultiSelect
-              label="連絡先希望"
-              value={client.preferred_contact}
-              options={['自宅TEL', '携帯TEL', 'メール']}
-              onSave={v => saveClientField('preferred_contact', v)}
-            />
-            <InlineCheckbox label="依頼者外字有無" value={client.has_special_chars} onSave={v => saveClientField('has_special_chars', v)} />
           </FieldGrid>
         ) : (
           <p className="text-sm text-gray-400 italic py-2">依頼者未登録</p>
