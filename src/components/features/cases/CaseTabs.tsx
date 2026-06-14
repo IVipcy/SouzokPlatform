@@ -75,11 +75,11 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, docCount, 
         }`}
       >
         {highlighted && (
-          <span className="pointer-events-none absolute inset-x-1 inset-y-1 rounded-md ring-2 ring-brand-500 bg-brand-50 animate-pulse" aria-hidden="true" />
+          <span className="nav-spotlight pointer-events-none absolute inset-x-1 inset-y-1 rounded-md ring-2 ring-brand-500" aria-hidden="true" />
         )}
         <span className="relative inline-flex items-center gap-1.5">
           {TAB_LABELS[key]}
-          {highlighted && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />}
+          {highlighted && <span className="nav-dot w-1.5 h-1.5 rounded-full bg-brand-600" aria-hidden="true" />}
         </span>
         {count !== undefined && (
           <span className={`relative ml-1 text-[12px] font-mono px-1.5 py-0.5 rounded ${
