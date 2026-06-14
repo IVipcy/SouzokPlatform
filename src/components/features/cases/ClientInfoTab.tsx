@@ -51,7 +51,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
     <div className="space-y-3.5">
       {/* 0. 依頼者一覧（同行者含む・表形式） */}
       <Section title="依頼者一覧（同行者含む）">
-        <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} />
+        <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} />
       </Section>
 
       {/* 1. メイン依頼者の住所（書類・請求で使う正本。氏名/TEL/メール/連絡先希望/外字は上の表で管理） */}

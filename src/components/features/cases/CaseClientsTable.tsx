@@ -23,10 +23,12 @@ type Props = {
   caseId: string
   clients: CaseClientRow[]
   onRefresh?: () => void
+  // メイン依頼者の氏名→案件名(deal_name)・clients.name 同期用
+  clientId?: string | null
 }
 
 /** 依頼者一覧（同行者含む）。表形式で複数人をインライン編集・追加・削除する。 */
-export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) {
+export default function CaseClientsTable({ caseId, clients, onRefresh, clientId }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseClientRow[]>(clients)
   const [busy, setBusy] = useState(false)
@@ -34,9 +36,25 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
   const setLocal = (id: string, field: keyof CaseClientRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as CaseClientRow : r)))
 
+  // メイン依頼者の氏名を、案件名(cases.deal_name)と clients.name(書類で使う正本)へ反映
+  const syncMainName = async (name: string) => {
+    const dealName = name.trim() || '無題'
+    await supabase.from('cases').update({ deal_name: dealName }).eq('id', caseId)
+    if (clientId) await supabase.from('clients').update({ name: dealName }).eq('id', clientId)
+    onRefresh?.()
+  }
+
   const commit = async (id: string, field: keyof CaseClientRow, value: string) => {
     const { error } = await supabase.from('case_clients').update({ [field]: value === '' ? null : value }).eq('id', id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // メイン依頼者の氏名編集 → 案件名へ反映
+    if (field === 'name' && rows.find(r => r.id === id)?.priority === 'main') {
+      await syncMainName(value)
+    }
+    // 優先度をメインに変更 → その行の氏名を案件名へ反映
+    if (field === 'priority' && value === 'main') {
+      await syncMainName(rows.find(r => r.id === id)?.name ?? '')
+    }
   }
 
   // 配列・真偽値など文字列以外の即時保存（連絡先希望 / 外字有無）
