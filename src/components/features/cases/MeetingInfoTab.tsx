@@ -12,6 +12,7 @@ import {
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES,
 } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow } from '@/types'
+import ProcedureIntakeSection from './ProcedureIntakeSection'
 
 type Props = {
   caseData: CaseRow
@@ -101,6 +102,9 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <ReferralToggles caseId={caseData.id} referrals={referrals} onRefresh={onRefresh} />
         </div>
       </Section>
+
+      {/* 手続き詳細（受領書類・役割分担） */}
+      <ProcedureIntakeSection caseData={caseData} patchCase={patchCase} />
 
       {/* ④ 相談事前情報（LP連携の面談前ヒアリング。LP経由でない案件は空のため既定で閉じる） */}
       <Section title="相談事前情報" collapsible defaultOpen={false}>
