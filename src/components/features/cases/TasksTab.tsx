@@ -102,7 +102,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
           {/* 区分タブ＋ステータス絞り込み */}
           <div className="flex items-center gap-3 flex-wrap">
             <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'all' | 'system' | 'case')} />
-            <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[12px] font-semibold text-gray-500">ステータス</span>
               {STATUS_PILLS.map(s => (
                 <button
