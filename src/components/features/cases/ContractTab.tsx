@@ -53,10 +53,10 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     ? (caseData.fee_administrative ?? 0) * referralRate / 100
     : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
-  const feeRealEstate = caseData.fee_real_estate ?? 0
-  // 案A: 他事業者紹介の見込み報酬（紹介料）を付帯収益に合算
+  // 他事業者紹介の見込み報酬（紹介料）を付帯収益として集計。
+  // ※ 旧「不動産売却手数料見込(fee_real_estate)」は他事業者紹介 紹介料(不動産)と重複のため廃止。
   const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
-  const totalRevenue = feeSubtotal + feeRealEstate + referralFeeTotal
+  const totalRevenue = feeSubtotal + referralFeeTotal
 
   const getRelatedTaskName = (expense: ExpenseRow) => {
     if (expense.related_task_id) {
@@ -133,35 +133,24 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             )}
           </Section>
 
-          {/* 3. 付帯収益 */}
-          <Section title="付帯収益" icon="💹">
-            <FieldGrid cols={1}>
-              <InlineCurrency
-                label="不動産売却手数料見込"
-                value={caseData.fee_real_estate}
-                onSave={v => save('fee_real_estate', v)}
-              />
-            </FieldGrid>
-            {/* 他事業者紹介の紹介料（見込み報酬）を自動集計（「他事業者紹介」タブで入力） */}
-            <div className="border-t border-gray-100 pt-2 mt-2">
-              <div className="text-[12px] font-semibold text-gray-400 mb-1">他事業者紹介 紹介料（見込み）</div>
-              {referrals.length === 0 ? (
-                <div className="text-[12px] text-gray-300">他事業者紹介はありません（「他事業者紹介」タブで登録）</div>
-              ) : (
-                <div className="space-y-0.5">
-                  {referrals.map(r => (
-                    <div key={r.id} className="flex justify-between text-[13px]">
-                      <span className="text-gray-500">{r.partner_type}{r.firm_name ? `（${r.firm_name}）` : ''}</span>
-                      <span className="font-mono text-gray-700">{yen(r.estimated_fee)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-[13px] border-t border-gray-50 pt-1 mt-1">
-                    <span className="text-gray-500 font-medium">紹介料合計</span>
-                    <span className="font-mono font-semibold text-gray-800">{yen(referralFeeTotal || null)}</span>
+          {/* 3. 付帯収益（他事業者紹介の紹介料・見込み。入力は「他事業者紹介」タブ） */}
+          <Section title="付帯収益（他事業者紹介 紹介料・見込み）" icon="💹">
+            {referrals.length === 0 ? (
+              <div className="text-[12px] text-gray-300">他事業者紹介はありません（「他事業者紹介」タブで登録）</div>
+            ) : (
+              <div className="max-w-md space-y-1">
+                {referrals.map(r => (
+                  <div key={r.id} className="flex justify-between gap-4 text-[13px]">
+                    <span className="text-gray-500">{r.partner_type}{r.firm_name ? `（${r.firm_name}）` : ''}</span>
+                    <span className="font-mono text-gray-700">{yen(r.estimated_fee)}</span>
                   </div>
+                ))}
+                <div className="flex justify-between gap-4 text-[13px] border-t border-gray-100 pt-1 mt-1">
+                  <span className="text-gray-500 font-medium">紹介料合計</span>
+                  <span className="font-mono font-semibold text-gray-800">{yen(referralFeeTotal || null)}</span>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </Section>
 
           {/* 4. パートナー報酬（紹介元の紹介料率で自動計算） */}
@@ -180,24 +169,20 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             </div>
           </Section>
 
-          {/* 収益サマリーカード（パートナー報酬の下に配置） */}
-          <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-            <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-1.5">案件トータル収益見込</div>
-            <div className="text-[26px] font-extrabold tracking-tight mb-2.5">
+          {/* 収益サマリーカード（パートナー報酬の下に配置。フラット＝ブランド淡色＋枠線） */}
+          <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
+            <div className="text-[12px] font-semibold text-brand-700 mb-1.5">案件トータル収益見込</div>
+            <div className="text-[26px] font-bold tracking-tight text-brand-800 mb-2.5">
               {totalRevenue > 0 ? `¥${totalRevenue.toLocaleString()}` : '—'}
             </div>
-            <div className="space-y-1 text-[13px]">
-              <div className="flex justify-between">
-                <span className="opacity-70">確定金額合計（行政＋司法）</span>
-                <span className="font-mono">{feeSubtotal > 0 ? `¥${feeSubtotal.toLocaleString()}` : '—'}</span>
+            <div className="max-w-md space-y-1 text-[13px]">
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">確定金額合計（行政＋司法）</span>
+                <span className="font-mono text-gray-700">{feeSubtotal > 0 ? `¥${feeSubtotal.toLocaleString()}` : '—'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">不動産手数料見込</span>
-                <span className="font-mono">{feeRealEstate > 0 ? `¥${feeRealEstate.toLocaleString()}` : '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">他事業者紹介 紹介料</span>
-                <span className="font-mono">{referralFeeTotal > 0 ? `¥${referralFeeTotal.toLocaleString()}` : '—'}</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">他事業者紹介 紹介料</span>
+                <span className="font-mono text-gray-700">{referralFeeTotal > 0 ? `¥${referralFeeTotal.toLocaleString()}` : '—'}</span>
               </div>
             </div>
           </div>
@@ -255,26 +240,26 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
           </Section>
           )}
 
-      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示 ─── */}
+      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示。フラット＝ブランド淡色＋枠線 ─── */}
       {!orderSheetMode && (
-      <div className="rounded-xl p-4 text-white" style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-        <div className="text-[12px] font-semibold opacity-70 tracking-wider uppercase mb-2.5">請求サマリー</div>
+      <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
+        <div className="text-[12px] font-semibold text-brand-700 mb-2.5">請求サマリー</div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <div className="text-[13px] opacity-80 mb-0.5">報酬小計</div>
-            <div className="text-lg font-bold tracking-tight">{yen(feeSubtotal)}</div>
+            <div className="text-[12px] text-gray-500 mb-0.5">報酬小計</div>
+            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(feeSubtotal)}</div>
           </div>
           <div>
-            <div className="text-[13px] opacity-80 mb-0.5">立替実費合計</div>
-            <div className="text-lg font-bold tracking-tight">{yen(expenseTotal)}</div>
+            <div className="text-[12px] text-gray-500 mb-0.5">立替実費合計</div>
+            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(expenseTotal)}</div>
           </div>
           <div>
-            <div className="text-[13px] opacity-80 mb-0.5">請求金額（確定）</div>
-            <div className="text-lg font-bold tracking-tight">{yen(confirmedAmount)}</div>
+            <div className="text-[12px] text-gray-500 mb-0.5">請求金額（確定）</div>
+            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(confirmedAmount)}</div>
           </div>
           <div>
-            <div className="text-[13px] opacity-80 mb-0.5">パートナー報酬額</div>
-            <div className="text-lg font-bold tracking-tight">
+            <div className="text-[12px] text-gray-500 mb-0.5">パートナー報酬額</div>
+            <div className="text-lg font-bold tracking-tight text-brand-800">
               {partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
             </div>
           </div>

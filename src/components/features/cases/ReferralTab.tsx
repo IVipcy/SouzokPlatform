@@ -14,6 +14,8 @@ type Props = {
   caseData: CaseRow
   referrals: CaseReferralRow[]
   onRefresh?: () => void
+  // オーダーシート埋め込み時は報酬請求状態を出さない（請求は個別タブ/請求機能で管理）
+  orderSheetMode?: boolean
 }
 
 /**
@@ -22,7 +24,7 @@ type Props = {
  * サブタブは「紹介あり（case_referrals 行が存在する）業者」だけ表示し、「＋業者追加」で増やせる（B-1）。
  * 各業者: 紹介先法人名 / 紹介日付 / 紹介内容 / 見込み報酬 / 報酬請求状態。
  */
-export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
+export default function ReferralTab({ caseData, referrals, onRefresh, orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
   const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
@@ -109,7 +111,9 @@ export default function ReferralTab({ caseData, referrals, onRefresh }: Props) {
             <FieldGrid>
               <InlineEdit label="紹介先法人名" value={activeRow.firm_name} onSave={saveReferralField(activeRow.id, 'firm_name')} fullWidth />
               <InlineDate label="紹介日付" value={activeRow.referred_date} onSave={saveReferralField(activeRow.id, 'referred_date')} />
-              <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
+              {!orderSheetMode && (
+                <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
+              )}
               <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
               <InlineTextarea label="紹介内容" value={activeRow.content} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
             </FieldGrid>

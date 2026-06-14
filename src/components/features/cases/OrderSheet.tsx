@@ -103,7 +103,7 @@ export default function OrderSheet({
       </OSSection>
 
       <OSSection index={3} title="他事業者紹介">
-        <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} />
+        <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode />
       </OSSection>
 
       <OSSection index={4} title="遺産分割">
