@@ -50,17 +50,13 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} />
       </Section>
 
-      {/* 1. 依頼者情報（メイン依頼者の詳細。アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
-      <Section title="依頼者情報（メイン依頼者の詳細）" collapsible defaultOpen={orderSheetMode}>
+      {/* 1. メイン依頼者の住所・連絡先（氏名/ふりがな/TEL/メールは上の表で管理するため重複は持たない） */}
+      <Section title="メイン依頼者の住所・連絡先" collapsible defaultOpen={orderSheetMode}>
         {caseData.client_id && client ? (
           <FieldGrid>
-            <InlineEdit label="依頼者氏名" value={client.name} onSave={v => saveClientField('name', v)} required />
-            <InlineEdit label="依頼者ふりがな" value={client.furigana} onSave={v => saveClientField('furigana', v)} />
             <InlineEdit label="郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))} />
             <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
-            <InlineEdit label="依頼者TEL" value={client.phone} onSave={v => saveClientField('phone', v.replace(/[^0-9]/g, ''))} />
-            <InlineEdit label="依頼者携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v.replace(/[^0-9]/g, ''))} />
-            <InlineEdit label="依頼者メール" value={client.email} onSave={v => saveClientField('email', v)} />
+            <InlineEdit label="携帯TEL" value={client.mobile_phone} onSave={v => saveClientField('mobile_phone', v.replace(/[^0-9]/g, ''))} />
             <InlineMultiSelect
               label="連絡先希望"
               value={client.preferred_contact}

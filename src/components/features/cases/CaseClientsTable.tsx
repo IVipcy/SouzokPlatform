@@ -69,11 +69,11 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
               <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
               <th className="px-2 py-2 text-left font-semibold">氏名</th>
               <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
-              <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
-              <th className="px-2 py-2 text-center font-semibold w-12">年齢</th>
               <th className="px-2 py-2 text-left font-semibold w-24">続柄</th>
               <th className="px-2 py-2 text-left font-semibold">TEL</th>
               <th className="px-2 py-2 text-left font-semibold">メール</th>
+              <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
+              <th className="px-2 py-2 text-center font-semibold w-12">年齢</th>
               <th className="px-2 py-2 w-8" />
             </tr>
           </thead>
@@ -97,13 +97,13 @@ export default function CaseClientsTable({ caseId, clients, onRefresh }: Props) 
                     </td>
                     <Cell value={r.name} onChange={v => setLocal(r.id, 'name', v)} onCommit={v => commit(r.id, 'name', v)} placeholder="山田 太郎" />
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
+                    <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
+                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="090-..." />
+                    <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
                     <td className="px-2 py-1.5">
                       <BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} />
                     </td>
                     <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? age : <span className="text-gray-300">—</span>}</td>
-                    <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
-                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="090-..." />
-                    <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
                     <td className="px-2 py-1.5 text-center">
                       <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除">
                         <Trash2 className="w-3.5 h-3.5" />
