@@ -61,7 +61,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: '書類・経理',
     items: [
-      { href: '/documents', label: '書類受信簿', Icon: FileText },
+      { href: '/documents', label: '到着物受信簿', Icon: FileText },
       { href: '/billing',   label: '請求・入金',   Icon: Receipt },
       { href: '/workload',  label: '稼働状況一覧', Icon: Gauge },
       { href: '/reports',   label: 'レポート',     Icon: BarChart3 },

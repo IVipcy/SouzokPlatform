@@ -50,9 +50,9 @@ export default function DocumentsClient({ receipts, cases, currentMemberId, curr
     <div className="pb-8">
       <PageHeader
         eyebrow="Documents"
-        title="書類受信簿"
+        title="到着物受信簿"
         icon={Inbox}
-        description={`案件に必要な原本書類の到着を管理（全 ${receipts.length} 件）`}
+        description={`案件に届く到着物（原本書類等）の受信を管理（全 ${receipts.length} 件）`}
         right={
           <>
             <div className="relative">

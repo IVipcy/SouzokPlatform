@@ -325,11 +325,32 @@ function ReceiptRow({
       .from('document_receipts')
       .update(patch)
       .eq('id', receipt.id)
-    setBusyKind(null)
     if (error) {
+      setBusyKind(null)
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
+
+    // W-Check 完了（受信確定）に連動して、紐づけ先の受領日を反映する。
+    // 確認前にマークが付かないよう、ここで初めて書き戻す（解除時は null に戻す）。
+    const linkVal = isChecked ? null : (receipt.received_date ?? null)
+    const linkUpdates = (receipt.items ?? [])
+      .filter(i => i.linked_kind && i.linked_id && i.linked_field)
+      .map(i => {
+        const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
+          : i.linked_kind === 'koseki' ? 'koseki_requests'
+          : i.linked_kind === 'contract_doc' ? 'contract_documents'
+          : 'real_estate_properties'
+        return supabase.from(table).update({ [i.linked_field as string]: linkVal }).eq('id', i.linked_id as string)
+      })
+    if (linkUpdates.length > 0) {
+      const results = await Promise.all(linkUpdates)
+      if (results.some(r => r.error)) {
+        showToast('W-Checkは保存しましたが、一部の受領日反映に失敗しました', 'error')
+      }
+    }
+
+    setBusyKind(null)
     startTransition(onChanged)
   }
 

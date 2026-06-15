@@ -201,24 +201,9 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       return
     }
 
-    // 3. 取得物にリンクした項目は、対象の受領日カラムに到着日を反映
-    const linkUpdates = validItems
-      .map(it => it.linked)
-      .filter(Boolean)
-      .map(v => {
-        const [kind, id, field] = v.split(':')
-        const table = kind === 'financial_asset' ? 'financial_assets'
-          : kind === 'koseki' ? 'koseki_requests'
-          : kind === 'contract_doc' ? 'contract_documents'
-          : 'real_estate_properties'
-        return supabase.from(table).update({ [field]: receivedDate }).eq('id', id)
-      })
-    if (linkUpdates.length > 0) {
-      const results = await Promise.all(linkUpdates)
-      if (results.some(r => r.error)) {
-        showToast('受信は登録しましたが、一部の取得物への受領日反映に失敗しました', 'error')
-      }
-    }
+    // 取得物への受領日反映は「W-Check完了（受信確定）」時に行う（DocumentReceiptList）。
+    // ここでは紐づけ情報（linked_kind/linked_id/linked_field）を document_receipt_items に
+    // 記録するのみ。確認前に各タブへ受信マークが付くのを防ぐ。
 
     // 4. 受注担当へ通知（書類が届いた → クリックで案件の書類タブへ）
     const { data: salesMembers } = await supabase
@@ -377,16 +362,16 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                {/* 取得物リンク（任意）: 案件の財産調査で登録済みの取得物に紐づけると受領日が自動反映される */}
+                {/* 反映先（任意）: 案件の受領待ち項目に紐づけると、受信確定時に受領日が反映される */}
                 {selectedCaseId && deliverables.length > 0 && (
                   <div className="flex items-center gap-1.5 pl-0.5">
-                    <span className="text-[11px] text-gray-400 shrink-0">取得物に紐づけ</span>
+                    <span className="text-[11px] text-gray-400 shrink-0">反映先（どの受領待ち項目か）</span>
                     <select
                       value={it.linked}
                       onChange={e => updateItem(it.key, { linked: e.target.value })}
                       className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400"
                     >
-                      <option value="">書類として残すのみ（契約書・お客様送付物 等）</option>
+                      <option value="">紐づけなし（書類として保存のみ）</option>
                       {groupedDeliverables.map(([group, opts]) => (
                         <optgroup key={group} label={group}>
                           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -401,7 +386,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         </div>
 
         <p className="text-[11px] text-gray-400">
-          受領した物はすべて案件の「書類」タブに受領書類として保存されます（PDFは書類タブで添付）。取得物（残高証明・登記情報など）に紐づけると、各タブの受領日にも到着日が自動反映されます。
+          受領した物はすべて案件の「書類」タブに受領書類として保存されます（PDFは書類タブで添付）。受領待ち項目（戸籍・残高証明・契約書類など）に紐づけると、W-Check完了（受信確定）時に各タブの受領日へ反映されます。
         </p>
         <p className="text-[11px] text-gray-400">
           登録後、一覧の「W-Check」「着手」ボタンから書類確認・着手記録ができます。

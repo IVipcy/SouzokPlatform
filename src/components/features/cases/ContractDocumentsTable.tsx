@@ -29,8 +29,13 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
   const supabase = createClient()
   const [rows, setRows] = useState<ContractDocumentRow[]>(documents)
   const [busy, setBusy] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   // 受信簿で受領→到着日が入った等、props 更新を反映（常時マウントされる画面対策）
   useEffect(() => { setRows(documents) }, [documents])
+
+  // 「不要」（受け取らない書類）は既定で非表示。トグルで表示できる。
+  const hiddenCount = rows.filter(r => r.status === '不要').length
+  const visibleRows = showHidden ? rows : rows.filter(r => r.status !== '不要')
 
   const setLocal = (id: string, field: keyof ContractDocumentRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as ContractDocumentRow : r)))
@@ -77,7 +82,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 880 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-              <th className="px-2.5 py-2 text-left font-semibold w-56">書類</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
@@ -87,10 +92,10 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連書類が登録されていません</td></tr>
             ) : (
-              rows.map((r, i) => (
+              visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <Cell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} placeholder="書類名" />
                   <td className="px-2.5 py-1.5">
@@ -118,16 +123,21 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
-          <Plus className="w-3.5 h-3.5" /> 書類を追加
+          <Plus className="w-3.5 h-3.5" /> 到着物を追加
         </button>
         {rows.length === 0 && (
           <button type="button" onClick={addDefaults} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700 disabled:opacity-50">
             既定の書類をまとめて追加
           </button>
         )}
+        {hiddenCount > 0 && (
+          <button type="button" onClick={() => setShowHidden(v => !v)} className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-400 hover:text-gray-600">
+            {showHidden ? `不要 ${hiddenCount}件を隠す` : `不要 ${hiddenCount}件を表示`}
+          </button>
+        )}
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        受領状況「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。書類が届いたら「書類受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。
+        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。
       </p>
     </div>
   )
