@@ -30,6 +30,15 @@ export type CaseTabState = {
   orderSheetCompleted: boolean
   /** 他事業者紹介の登録業者数（将来の表示判定用に保持。現状は個別管理案件で常に表示） */
   referralPartnerCount: number
+  /** 受注区分→業務で許可される実務タブ（serviceMaster由来）。未指定なら全実務タブ表示（従来動作）。 */
+  allowedPracticeTabs?: TabKey[]
+}
+
+// 業務（受注区分）で出し分ける実務タブ。これら以外（コア）は常に表示。
+const GYOMU_GATED_TABS: TabKey[] = ['deceased', 'assets', 'division', 'will', 'registration', 'cancellation']
+function filterByGyomu(tabs: TabKey[], allowed?: TabKey[]): TabKey[] {
+  if (!allowed) return tabs
+  return tabs.filter(t => !GYOMU_GATED_TABS.includes(t) || allowed.includes(t))
 }
 
 export type TabVisibility = {
@@ -47,7 +56,7 @@ const FULL_PRACTICE_TABS: TabKey[] = [
 ]
 
 export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
-  const { status } = state
+  const { status, allowedPracticeTabs } = state
   const category = getCaseCategory(status)
 
   // 受託: オーダーシート作成・担当受注内容まで。実務タブは出さないが、
@@ -61,7 +70,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約残手続きは折りたたみ
   // （契約残手続きは対応中までに完了している前提のため「その他」へ畳む）
   if (category === 'management') {
-    return { visible: FULL_PRACTICE_TABS, collapsed: ['meeting', 'contractProc'] }
+    return { visible: filterByGyomu(FULL_PRACTICE_TABS, allowedPracticeTabs), collapsed: ['meeting', 'contractProc'] }
   }
 
   // 個別管理案件（紹介のみ / 長期保留）

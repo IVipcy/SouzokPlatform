@@ -31,6 +31,7 @@ import StatusFlowNavigator, { getJutakuFlowSteps } from './StatusFlowNavigator'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
+import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow } from '@/types'
@@ -200,11 +201,18 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const navHighlightTabs = navVisible ? flowSteps.filter(s => !s.done).map(s => s.tab) : []
 
-  // ステータス連動のタブ表示制御
+  // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）
+  const selectedGyomu = [...new Set((caseState.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
+  const allowedPracticeTabs = caseState.service_category
+    ? ([...new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean))] as TabKey[])
+    : undefined
+
+  // ステータス連動＋業務連動のタブ表示制御
   const tabVis = getCaseTabVisibility({
     status: caseState.status,
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
     referralPartnerCount: caseReferrals?.length ?? 0,
+    allowedPracticeTabs,
   })
   // 現在のタブが表示対象外なら先頭タブにフォールバック
   const effectiveTab: TabKey = tabVis.visible.includes(activeTab) ? activeTab : tabVis.visible[0]
