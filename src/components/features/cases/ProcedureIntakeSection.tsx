@@ -8,7 +8,8 @@ import type { CaseRow, ContractDocumentRow } from '@/types'
 
 export type DocRow = { name: string; status: string; arrival_date: string | null; note: string }
 // 役割分担: 業務（例:登記）→ 紐づく作業（複数）→ 各作業を 自社/依頼者/不要 ＋ 備考
-export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string }
+// status/due は手続き系業務タブ（放棄/信託/調停/検認/後見）での進捗管理用（任意・JSONB）。
+export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null }
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
 const ROLE_OWNER = ['自社', '依頼者', '不要']

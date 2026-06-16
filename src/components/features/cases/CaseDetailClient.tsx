@@ -22,6 +22,8 @@ import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import OrderContentTab from './OrderContentTab'
 import ContractProcTab from './ContractProcTab'
+import PracticeProcedureTab from './PracticeProcedureTab'
+import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
@@ -62,7 +64,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'referral', 'docs']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [] }: Props) {
   const router = useRouter()
@@ -314,6 +316,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'cancellation' && (
         <CancellationTab financialAssets={financialAssets} onRefresh={handleSaved} />
       )}
+      {PROCEDURE_TABS.map(p => effectiveTab === p.tab && (
+        <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} />
+      ))}
       {effectiveTab === 'referral' && (
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}

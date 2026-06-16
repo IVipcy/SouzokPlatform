@@ -14,6 +14,8 @@ import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
+import PracticeProcedureTab from './PracticeProcedureTab'
+import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
 import type { ReactNode } from 'react'
@@ -85,6 +87,11 @@ export default function OrderSheet({
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" /> },
     { title: '相続登記', gate: 'registration', node: <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} /> },
     { title: '解約等（銀行・証券・自動車）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} /> },
+    ...PROCEDURE_TABS.map(p => ({
+      title: p.title,
+      gate: p.tab,
+      node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} embedded />,
+    })),
     { title: '契約・報酬・請求', node: <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} /> },
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))

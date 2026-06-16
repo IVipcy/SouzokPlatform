@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -32,6 +32,11 @@ const TAB_LABELS: Record<TabKey, string> = {
   will: '遺言',
   registration: '相続登記',
   cancellation: '解約手続',
+  trust: '信託契約',
+  renunciation: '相続放棄',
+  mediation: '調停',
+  probate: '遺言検認',
+  guardianship: '成年後見',
   contract: '報酬・請求',
   docs: '書類',
   documentCreate: '書類作成',
