@@ -14,6 +14,9 @@ import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import ContractTab from './ContractTab'
+import { GYOMU_TAB } from '@/lib/serviceMaster'
+import type { TabKey } from './CaseTabs'
+import type { ReactNode } from 'react'
 import type {
   CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow,
   DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow,
@@ -64,6 +67,28 @@ export default function OrderSheet({
     onRefresh()
   }
 
+  // 受注区分→選択業務 で実務セクションを出し分け（service_category 未設定の旧案件は全表示）
+  const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
+  const allowedTabs = caseData.service_category
+    ? new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean) as TabKey[])
+    : null
+  const showSec = (gate?: TabKey) => !gate || !allowedTabs || allowedTabs.has(gate)
+
+  const allOsSections: { title: string; gate?: TabKey; node: ReactNode }[] = [
+    { title: '依頼者情報', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
+    { title: '受注内容', node: <OrderContentTab caseData={caseData} patchCase={patchCase} /> },
+    { title: '契約残手続き', node: <ContractProcTab caseId={caseData.id} contractDocuments={contractDocuments} onRefresh={onRefresh} /> },
+    { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode /> },
+    { title: '財産調査', gate: 'assets', node: <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode /> },
+    { title: '他事業者紹介', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
+    { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="division" /> },
+    { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" /> },
+    { title: '相続登記', gate: 'registration', node: <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} /> },
+    { title: '解約等（銀行・証券・自動車）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} /> },
+    { title: '契約・報酬・請求', node: <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} /> },
+  ]
+  const osSections = allOsSections.filter(s => showSec(s.gate))
+
   return (
     <div className="space-y-5">
       {/* ヘッダー＋完成アクション */}
@@ -93,49 +118,9 @@ export default function OrderSheet({
         )}
       </div>
 
-      <OSSection index={0} title="依頼者情報">
-        <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} />
-      </OSSection>
-
-      <OSSection index={1} title="受注内容">
-        <OrderContentTab caseData={caseData} patchCase={patchCase} />
-      </OSSection>
-
-      <OSSection index={2} title="契約残手続き">
-        <ContractProcTab caseId={caseData.id} contractDocuments={contractDocuments} onRefresh={onRefresh} />
-      </OSSection>
-
-      <OSSection index={3} title="相続人調査">
-        <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
-      </OSSection>
-
-      <OSSection index={4} title="財産調査">
-        <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode />
-      </OSSection>
-
-      <OSSection index={5} title="他事業者紹介">
-        <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode />
-      </OSSection>
-
-      <OSSection index={6} title="遺産分割">
-        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="division" />
-      </OSSection>
-
-      <OSSection index={7} title="遺言">
-        <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" />
-      </OSSection>
-
-      <OSSection index={8} title="相続登記">
-        <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} />
-      </OSSection>
-
-      <OSSection index={9} title="解約等（銀行・証券・自動車）">
-        <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} />
-      </OSSection>
-
-      <OSSection index={10} title="契約・報酬・請求">
-        <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} />
-      </OSSection>
+      {osSections.map((s, i) => (
+        <OSSection key={s.title} index={i} title={s.title}>{s.node}</OSSection>
+      ))}
     </div>
   )
 }
