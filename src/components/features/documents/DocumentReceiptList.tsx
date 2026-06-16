@@ -88,8 +88,8 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
-                <th className="px-2.5 py-2 text-center font-semibold">W-Check</th>
-                <th className="px-2.5 py-2 text-center font-semibold">着手</th>
+                <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
+                <th className="px-2.5 py-2 text-center font-semibold">タスク着手</th>
               </tr>
             </thead>
             <tbody>
@@ -222,20 +222,20 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     <Modal
       isOpen
       onClose={onClose}
-      title="書類到着 → 着手・タスク開始"
+      title="タスクに着手（任意）"
       maxWidth="max-w-lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {(selected.size > 0 || newTaskTitle.trim()) ? `着手してタスク開始 (${selected.size + (newTaskTitle.trim() ? 1 : 0)})` : '着手だけ記録'}
+            {(selected.size > 0 || newTaskTitle.trim()) ? `タスクを開始 (${selected.size + (newTaskTitle.trim() ? 1 : 0)})` : '着手のみ記録'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          届いた原本をもとに開始するタスクを選択してください（選ばずに着手記録だけでもOK）。
+          この受信に関連するタスクを開始します。契約書類などタスク不要な受信は、W-Check（受信確定）だけで完了——押す必要はありません（選ばずに着手記録だけでもOK）。
         </p>
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
@@ -493,7 +493,7 @@ function ReceiptRow({
                     </span>
                   </button>
                 ) : !receipt.dual_check_member_id ? (
-                  <span className="text-[11px] text-gray-400" title="ダブルチェック完了後に着手できます">
+                  <span className="text-[11px] text-gray-400" title="W-Check（受信確定）後にタスク着手できます">
                     W-Check待ち
                   </span>
                 ) : (
@@ -502,10 +502,10 @@ function ReceiptRow({
                     onClick={() => onStartRequest(receipt)}
                     disabled={!currentMemberId}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50 text-[11px] font-semibold"
-                    title={currentMember ? `${currentMember.name} として着手・タスク開始` : '着手'}
+                    title={currentMember ? `${currentMember.name} としてタスクに着手` : 'タスクに着手'}
                   >
                     <Hand className="w-3.5 h-3.5" />
-                    着手する
+                    タスクに着手
                   </button>
                 )}
               </td>

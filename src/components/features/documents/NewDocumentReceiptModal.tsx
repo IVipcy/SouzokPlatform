@@ -389,7 +389,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
           受領した物はすべて案件の「書類」タブに受領書類として保存されます（PDFは書類タブで添付）。受領待ち項目（戸籍・残高証明・契約書類など）に紐づけると、W-Check完了（受信確定）時に各タブの受領日へ反映されます。
         </p>
         <p className="text-[11px] text-gray-400">
-          登録後、一覧の「W-Check」「着手」ボタンから書類確認・着手記録ができます。
+          登録後、一覧で「W-Check（受信確定）」→ 必要なら「タスクに着手」の順に進めます。タスク不要な受信はW-Checkだけで完了です。
         </p>
       </div>
     </Modal>
