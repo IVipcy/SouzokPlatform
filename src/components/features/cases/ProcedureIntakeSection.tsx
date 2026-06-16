@@ -89,22 +89,30 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
 // ─── ② 役割分担エディタ（業務→作業。再利用可能） ───
 // 業務をチップで選ぶ → その業務の定型作業が展開され、各作業を 自社/依頼者/不要 で分担。
 // 作業は定型＋任意追加。同じデータ（intake_roles）を面談フォーム・各タブ・OSで共有。
-export function IntakeRolesEditor({ roles, onSave }: { roles: RoleRow[]; onSave: (next: RoleRow[]) => void }) {
+export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, presetFor }: {
+  roles: RoleRow[]
+  onSave: (next: RoleRow[]) => void
+  // 受注区分マスタ駆動で業務候補・作業プリセットを差し替えるための任意引数
+  gyomuOptions?: readonly string[]
+  presetFor?: (gyomu: string) => string[]
+}) {
   const setRole = (i: number, patch: Partial<RoleRow>) => onSave(roles.map((r, idx) => idx === i ? { ...r, ...patch } : r))
+  const presetTasks = (g: string) => (presetFor ? presetFor(g) : (GYOMU_PRESET[g] ?? ['']))
 
-  // 表示する業務グループ（定型の並び順 + 定型外のカスタム業務）
-  const selected = GYOMU_LIST.filter(g => roles.some(r => r.gyomu === g))
-  const custom = [...new Set(roles.map(r => r.gyomu).filter(g => g && !GYOMU_LIST.includes(g)))]
+  // 表示する業務グループ（候補の並び順 + 候補外のカスタム業務）
+  const selected = gyomuOptions.filter(g => roles.some(r => r.gyomu === g))
+  const custom = [...new Set(roles.map(r => r.gyomu).filter(g => g && !gyomuOptions.includes(g)))]
   const groups = [...selected, ...custom]
 
   const toggleGyomu = (g: string) => {
     const has = roles.some(r => r.gyomu === g)
     if (has) {
-      const hasData = roles.some(r => r.gyomu === g && (r.owner || r.note))
-      if (hasData && !confirm(`「${g}」の役割分担を外しますか？入力済みの内容も消えます。`)) return
+      const hasData = roles.some(r => r.gyomu === g && (r.owner !== '自社' || r.note))
+      if (hasData && !confirm(`「${g}」を外しますか？担当の変更内容も消えます。`)) return
       onSave(roles.filter(r => r.gyomu !== g))
     } else {
-      const add = (GYOMU_PRESET[g] ?? ['']).map(s => ({ gyomu: g, sagyou: s, owner: '', note: '' }))
+      const tasks = presetTasks(g)
+      const add = (tasks.length > 0 ? tasks : ['']).map(s => ({ gyomu: g, sagyou: s, owner: '自社', note: '' }))
       onSave([...roles, ...add])
     }
   }
@@ -113,7 +121,7 @@ export function IntakeRolesEditor({ roles, onSave }: { roles: RoleRow[]; onSave:
     <div>
       {/* 業務チップ（選択で作業が展開） */}
       <div className="flex flex-wrap gap-2 mb-3">
-        {GYOMU_LIST.map(g => {
+        {gyomuOptions.map(g => {
           const on = roles.some(r => r.gyomu === g)
           return (
             <button
@@ -165,7 +173,7 @@ export function IntakeRolesEditor({ roles, onSave }: { roles: RoleRow[]; onSave:
                   </tbody>
                 </table>
               </div>
-              <button type="button" onClick={() => onSave([...roles, { gyomu: g, sagyou: '', owner: '', note: '' }])} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+              <button type="button" onClick={() => onSave([...roles, { gyomu: g, sagyou: '', owner: '自社', note: '' }])} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
                 <Plus className="w-3.5 h-3.5" /> 作業を追加
               </button>
             </div>
