@@ -504,6 +504,24 @@ export type ContractDocumentRow = {
   updated_at: string
 }
 
+// === 作業に紐づく必要書類（請求・受領・受信簿連動） migration 091 ===
+export type SagyoDocumentRow = {
+  id: string
+  case_id: string
+  gyomu: string                  // 業務（intake_roles[].gyomu と一致）
+  sagyou: string                 // 作業（intake_roles[].sagyou と一致）
+  name: string | null            // 書類名
+  requested_to: string | null    // 請求先
+  requested_date: string | null  // 請求日
+  received_date: string | null   // 受領日（受信簿連動 or 手入力）
+  receipt_id: string | null      // 受信簿(document_receipts)へのFK
+  status: string | null          // 未請求/請求済/受領/不要 等
+  note: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // === 不動産 ===
 export type RealEstatePropertyRow = {
   id: string

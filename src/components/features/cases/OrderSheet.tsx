@@ -19,9 +19,10 @@ import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
 import type { ReactNode } from 'react'
+import type { TimelineReceipt } from './CaseTimeline'
 import type {
   CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow,
-  DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow,
+  DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow, SagyoDocumentRow,
 } from '@/types'
 
 type Props = {
@@ -40,6 +41,8 @@ type Props = {
   referrals: CaseReferralRow[]
   caseClients: CaseClientRow[]
   contractDocuments: ContractDocumentRow[]
+  sagyoDocuments?: SagyoDocumentRow[]
+  receipts?: TimelineReceipt[]
 }
 
 /**
@@ -52,6 +55,7 @@ type Props = {
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
   heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients, contractDocuments,
+  sagyoDocuments = [], receipts = [],
 }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
@@ -90,7 +94,7 @@ export default function OrderSheet({
     ...PROCEDURE_TABS.map(p => ({
       title: p.title,
       gate: p.tab,
-      node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} embedded />,
+      node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
     })),
     { title: '契約・報酬・請求', node: <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} /> },
   ]

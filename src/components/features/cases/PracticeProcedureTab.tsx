@@ -1,10 +1,13 @@
 'use client'
 
-import { Trash2, Plus } from 'lucide-react'
+import { useState, Fragment } from 'react'
+import { Trash2, Plus, ChevronRight, ChevronDown, FileText } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { tasksFor } from '@/lib/serviceMaster'
+import SagyoDocumentsTable from './SagyoDocumentsTable'
 import type { RoleRow } from './ProcedureIntakeSection'
-import type { CaseRow } from '@/types'
+import type { CaseRow, SagyoDocumentRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 
 const OWNER = ['自社', '依頼者', '不要']
 const STATUS = ['未着手', '着手', '完了', '保留']
@@ -18,6 +21,11 @@ type Props = {
   description?: string
   /** オーダーシートに埋め込む場合は true（外側の見出し Section を省く。OSSection が見出しを描く）。 */
   embedded?: boolean
+  /** 作業に紐づく必要書類（sagyo_documents）。 */
+  sagyoDocuments?: SagyoDocumentRow[]
+  /** 受信簿（受領連動の選択肢）。 */
+  receipts?: TimelineReceipt[]
+  onRefresh?: () => void
 }
 
 /**
@@ -29,9 +37,16 @@ type Props = {
  * ※ props 駆動（ローカル state を持たない）。オーダーシートで他セクションと同時表示されても
  *    intake_roles の取り合い（last-writer-wins の上書き）を起こさないようにするため。
  */
-export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, embedded }: Props) {
+export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, embedded, sagyoDocuments = [], receipts = [], onRefresh }: Props) {
   const roles: RoleRow[] = caseData.intake_roles ?? []
   const save = (next: RoleRow[]) => patchCase({ intake_roles: next })
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const toggleExpand = (i: number) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(i)) next.delete(i); else next.add(i)
+    return next
+  })
+  const docsFor = (sagyou: string) => sagyoDocuments.filter(d => d.gyomu === gyomu && d.sagyou === sagyou)
 
   const rowsWithIdx = roles.map((r, i) => ({ r, i })).filter(x => x.r.gyomu === gyomu)
   const setRow = (i: number, patch: Partial<RoleRow>) => save(roles.map((r, idx) => idx === i ? { ...r, ...patch } : r))
@@ -65,22 +80,49 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
                     <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-28">状況</th>
                     <th className="px-2.5 py-2 text-left font-semibold">備考</th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-24">書類</th>
                     <th className="px-2.5 py-2 w-8" />
                   </tr>
                 </thead>
                 <tbody>
-                  {rowsWithIdx.map(({ r, i }, n) => (
-                    <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${n % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  {rowsWithIdx.map(({ r, i }, n) => {
+                    const docs = docsFor(r.sagyou)
+                    const received = docs.filter(d => d.received_date || d.status === '受領').length
+                    const isOpen = expanded.has(i)
+                    return (
+                    <Fragment key={i}>
+                    <tr className={`border-b border-gray-100 last:border-b-0 ${n % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                       <TextCell value={r.sagyou} onCommit={v => setRow(i, { sagyou: v })} placeholder="作業内容" />
                       <SelectCell value={r.owner} options={OWNER} onChange={v => setRow(i, { owner: v })} />
                       <DateCell value={r.due ?? null} onCommit={v => setRow(i, { due: v || null })} />
                       <SelectCell value={r.status ?? ''} options={STATUS} onChange={v => setRow(i, { status: v })} />
                       <TextCell value={r.note} onCommit={v => setRow(i, { note: v })} placeholder="メモ" />
+                      <td className="px-2.5 py-1.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(i)}
+                          disabled={!r.sagyou}
+                          className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-500 hover:text-brand-700 disabled:opacity-40"
+                          title="必要書類・請求・受領"
+                        >
+                          {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                          <FileText className="w-3.5 h-3.5" />
+                          {docs.length > 0 && <span className="tabular-nums">{received}/{docs.length}</span>}
+                        </button>
+                      </td>
                       <td className="px-2.5 py-1.5 text-center">
                         <button type="button" onClick={() => save(roles.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
-                  ))}
+                    {isOpen && r.sagyou && (
+                      <tr className="bg-brand-50/30">
+                        <td colSpan={7} className="px-3 py-2.5">
+                          <SagyoDocumentsTable caseId={caseData.id} gyomu={gyomu} sagyou={r.sagyou} documents={docs} receipts={receipts} onRefresh={onRefresh} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  )})}
                 </tbody>
               </table>
             </div>
