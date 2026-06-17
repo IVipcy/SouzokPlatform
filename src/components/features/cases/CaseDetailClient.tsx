@@ -361,6 +361,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         taskTemplates={taskTemplates}
         existingTasks={tasks}
         onSaved={handleSaved}
+        allowedGyomu={caseState.service_category ? selectedGyomu : undefined}
       />
 
       <AddTaskModal

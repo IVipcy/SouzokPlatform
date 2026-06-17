@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
-import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import { gyomuOfTemplate, ALWAYS_GYOMU } from '@/lib/taskGyomu'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { TEMPLATE_FLOW_RULES } from '@/lib/taskFlowRules'
 import type { TaskRow, TaskTemplateRow } from '@/types'
 
@@ -14,22 +15,30 @@ type Props = {
   taskTemplates: TaskTemplateRow[]
   existingTasks: TaskRow[]
   onSaved: () => void
+  /** 受注区分→選択業務に応じて表示する業務を絞る（経理/相続税は常に追加）。未指定なら全業務表示（旧案件）。 */
+  allowedGyomu?: string[]
 }
 
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTemplates, existingTasks, onSaved }: Props) {
+// 業務グループの表示順（serviceMaster の業務 ＋ 区分非依存の税務・精算 ＋ 未分類）
+const GYOMU_ORDER = [...GYOMU_ALL, ...ALWAYS_GYOMU, 'その他']
+
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTemplates, existingTasks, onSaved, allowedGyomu }: Props) {
   const existingKeys = new Set(existingTasks.map(t => t.template_key).filter(Boolean))
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const templatesByPhase = DB_PHASES.map(phase => ({
-    phase,
-    label: getPhaseLabel(phase),
-    color: getPhaseColor(phase),
-    templates: taskTemplates.filter(t => t.phase === phase),
-  })).filter(g => g.templates.length > 0)
+  // 受注区分が設定済みなら、選択業務＋経理/相続税ぶんだけ表示。未設定（旧案件）は全業務。
+  const allowedSet = allowedGyomu ? new Set([...allowedGyomu, ...ALWAYS_GYOMU]) : null
+  const visibleTemplates = allowedSet
+    ? taskTemplates.filter(t => allowedSet.has(gyomuOfTemplate(t.key)))
+    : taskTemplates
 
-  const selectableTemplates = taskTemplates.filter(t => !existingKeys.has(t.key))
+  const templatesByGyomu = GYOMU_ORDER
+    .map(gyomu => ({ gyomu, templates: visibleTemplates.filter(t => gyomuOfTemplate(t.key) === gyomu) }))
+    .filter(g => g.templates.length > 0)
+
+  const selectableTemplates = visibleTemplates.filter(t => !existingKeys.has(t.key))
 
   const toggleTemplate = (key: string) => {
     setSelected(prev => {
@@ -48,12 +57,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
     }
   }
 
-  const togglePhase = (phase: string) => {
-    const phaseTemplates = selectableTemplates.filter(t => t.phase === phase)
-    const allSelected = phaseTemplates.every(t => selected.has(t.key))
+  const toggleGyomu = (gyomu: string) => {
+    const gyomuTemplates = selectableTemplates.filter(t => gyomuOfTemplate(t.key) === gyomu)
+    const allSelected = gyomuTemplates.every(t => selected.has(t.key))
     setSelected(prev => {
       const next = new Set(prev)
-      phaseTemplates.forEach(t => {
+      gyomuTemplates.forEach(t => {
         if (allSelected) next.delete(t.key)
         else next.add(t.key)
       })
@@ -210,25 +219,27 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, taskTem
       </div>
 
       <div className="space-y-3">
-        {templatesByPhase.map(group => {
+        {templatesByGyomu.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-6">
+            この受注区分・業務に対応する事務管理タスクのテンプレートはありません。
+          </p>
+        )}
+        {templatesByGyomu.map(group => {
           const selectable = group.templates.filter(t => !existingKeys.has(t.key))
-          const selectedInPhase = selectable.filter(t => selected.has(t.key)).length
+          const selectedInGyomu = selectable.filter(t => selected.has(t.key)).length
 
           return (
-            <div key={group.phase} className="border border-gray-200 rounded-lg overflow-hidden">
+            <div key={group.gyomu} className="border border-gray-200 rounded-lg overflow-hidden">
               <button
-                onClick={() => togglePhase(group.phase)}
+                onClick={() => toggleGyomu(group.gyomu)}
                 className="w-full px-4 py-2.5 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors"
               >
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: group.color }}
-                />
+                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand-500" />
                 <span className="text-sm font-semibold text-gray-900 flex-1 text-left">
-                  {group.label}
+                  {group.gyomu}
                 </span>
                 <span className="text-xs text-gray-400">
-                  {selectedInPhase}/{selectable.length}
+                  {selectedInGyomu}/{selectable.length}
                 </span>
               </button>
               <div className="divide-y divide-gray-50">
