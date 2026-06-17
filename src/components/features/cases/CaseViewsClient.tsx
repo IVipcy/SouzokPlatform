@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search, type LucideIcon } from 'lucide-react'
 import MyPageCasesTab, { type MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
@@ -61,8 +61,12 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  */
 export default function CaseViewsClient({ managerRows, completedRows, consultRows, referralRows, lpRows }: Props) {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const viewParam = searchParams.get('view') as View | null
+  // タブで切替。URL(?view=)を真実として保持し、ディープリンク・リロードでも維持。
   const view: View = viewParam && VIEWS.includes(viewParam) ? viewParam : 'consult'
+  const changeView = (v: View) => router.replace(`${pathname}?view=${v}`, { scroll: false })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   // 管理案件ビュー内のサブ切替（対応中 / 完了）
@@ -86,16 +90,33 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), effStatus), [referralRows, search, effStatus])
   const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), effStatus), [lpRows, search, effStatus])
 
-  const meta = VIEW_META[view]
-  const viewCount = activeRows.length
+  const countByView: Record<View, number> = {
+    consult: consultRows.length,
+    manage: managerRows.length,
+    referral: referralRows.length,
+    lp: lpRows.length,
+  }
 
   return (
     <div>
-      {/* 現在のサブメニュー名（サイドバーの「案件一覧 → ○○」と対応） */}
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-        <meta.Icon className="w-5 h-5 text-brand-600" strokeWidth={2.25} />
-        <h2 className="text-[15px] font-bold text-gray-900">{meta.label}</h2>
-        <span className="text-[12px] font-mono text-gray-400">{viewCount}</span>
+      {/* 案件一覧の表示切替タブ（相談 / 管理 / 個別管理 / LP） */}
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {VIEWS.map(v => {
+          const m = VIEW_META[v]
+          const active = view === v
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => changeView(v)}
+              className={`relative flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${active ? 'text-brand-600 border-brand-600 font-semibold' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              <m.Icon className="w-4 h-4" strokeWidth={active ? 2.25 : 1.75} />
+              {m.label}
+              <span className={`ml-0.5 text-[11px] font-mono px-1.5 py-0.5 rounded ${active ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{countByView[v]}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* ステータス絞り込み ＋ 検索（管理案件一覧はステータス絞り込み非表示） */}
