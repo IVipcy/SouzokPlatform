@@ -10,7 +10,7 @@ import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
-  LOST_REASONS, REFERRAL_PARTNER_TYPES,
+  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
@@ -28,6 +28,12 @@ type Props = {
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
+// 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
+const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
+  { key: 'smile',   emoji: '😊', label: '笑顔' },
+  { key: 'neutral', emoji: '😐', label: '真顔' },
+  { key: 'angry',   emoji: '😡', label: '怖い顔' },
+]
 
 // 生年月日から年齢を算出
 function calcAge(birthday: string): number | null {
@@ -209,6 +215,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         phone: mainClient?.phone || null,
         email: mainClient?.email || null,
         relationship_to_deceased: mainClient?.relationship || null,
+        postal_code: formData.postalCode || null,
+        address: formData.address || null,
       }
 
       if (isNew) {
@@ -256,6 +264,11 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         lost_reason: formData.lostReason || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
+        // 郵送・書類設定／依頼者特徴（メイン依頼者）
+        mailing_destination: formData.mailingDestination || null,
+        mailing_address_other: formData.mailingDestination === 'その他' ? (formData.mailingAddressOther || null) : null,
+        client_trait: formData.clientTrait || null,
+        client_trait_detail: formData.clientTraitDetail || null,
       }
 
       if (isNew) {
@@ -461,6 +474,49 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           >
             ＋ 依頼者を追加
           </button>
+
+          {/* メイン依頼者の住所（書類・請求で使う正本） */}
+          <div className="mt-6 max-w-[800px]">
+            <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
+            <Card label="郵便番号"><Input value={data.postalCode} onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))} placeholder="4600008" /></Card>
+            <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
+
+            {/* 郵送・書類設定 */}
+            <Card label="顧客郵送先"><Pills value={data.mailingDestination} options={[...MAILING_DESTINATIONS]} onChange={v => update('mailingDestination', v as string)} /></Card>
+            {data.mailingDestination === '依頼者住所' ? (
+              <Card label="郵送先住所（メイン依頼者・自動）">
+                <div className="text-[13px] text-gray-600 px-1 py-1.5">{[data.postalCode, data.address].filter(Boolean).join('　') || <span className="text-gray-400">住所未登録（上のメイン依頼者の住所で入力）</span>}</div>
+              </Card>
+            ) : data.mailingDestination === 'その他' ? (
+              <Card label="郵送先住所（その他）"><Input value={data.mailingAddressOther} onChange={v => update('mailingAddressOther', v)} placeholder="送付先の住所" /></Card>
+            ) : null}
+
+            {/* 依頼者特徴 */}
+            <Card label="特徴">
+              <div className="flex items-center gap-2">
+                {TRAIT_OPTIONS.map(t => {
+                  const active = data.clientTrait === t.key
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => update('clientTrait', active ? '' : t.key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-all ${
+                        active
+                          ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
+                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                      title={active ? `${t.label}（クリックで解除）` : t.label}
+                    >
+                      <span className="text-[18px] leading-none">{t.emoji}</span>
+                      <span>{t.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </Card>
+            <Card label="依頼者特徴詳細"><Textarea value={data.clientTraitDetail} onChange={v => update('clientTraitDetail', v)} placeholder="例：この人はこういう性格だから、連絡はまめに取った方がいい。" /></Card>
+          </div>
         </div>
       )
       case 'meeting': return (
@@ -508,6 +564,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <ConfirmSection title="依頼者">
               <ConfirmRow label="メイン依頼人" value={(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.name ?? ''} />
               <ConfirmRow label="人数" value={`${data.clients.filter(c => c.name.trim()).length}名`} />
+              <ConfirmRow label="メイン依頼者の住所" value={[data.postalCode, data.address].filter(Boolean).join('　')} />
+              <ConfirmRow label="顧客郵送先" value={data.mailingDestination === 'その他' ? `その他（${data.mailingAddressOther}）` : data.mailingDestination} />
+              <ConfirmRow label="依頼者特徴" value={TRAIT_OPTIONS.find(t => t.key === data.clientTrait)?.label ?? ''} />
             </ConfirmSection>
             <ConfirmSection title="面談内容">
               <ConfirmRow label="受注区分" value={data.serviceCategory} />

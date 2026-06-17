@@ -29,6 +29,13 @@ export type FormData = {
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   // 依頼者（複数人）
   clients: ClientPerson[]
+  // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
+  postalCode: string          // メイン依頼者 郵便番号
+  address: string             // メイン依頼者 住所
+  mailingDestination: string  // 顧客郵送先（依頼者住所 / その他）
+  mailingAddressOther: string // 郵送先住所（その他）
+  clientTrait: string         // 依頼者特徴（smile / neutral / angry）
+  clientTraitDetail: string   // 依頼者特徴詳細
   // 面談内容
   hearingMemo: string       // ヒアリング内容メモ
   serviceCategory: string   // 受注区分（単一選択。serviceMaster の ORDER_CATEGORIES）
@@ -51,6 +58,12 @@ export const INITIAL_DATA: FormData = {
   meetingPlace: '',
   clientResponseDueDate: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '' }],
+  postalCode: '',
+  address: '',
+  mailingDestination: '',
+  mailingAddressOther: '',
+  clientTrait: '',
+  clientTraitDetail: '',
   hearingMemo: '',
   serviceCategory: '',
   referralPartners: [],
