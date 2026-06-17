@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, Plus, Check } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
+import { gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import type { CaseRow, ContractDocumentRow } from '@/types'
 
@@ -200,7 +201,12 @@ type Props = {
  */
 export default function ProcedureIntakeSection({ caseData, patchCase, contractDocuments, onRefresh }: Props) {
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
+  // 受注区分の変更等で intake_roles が外部から入れ直されたら同期（常時マウント画面対策）
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setRoles(caseData.intake_roles ?? DEFAULT_ROLES) }, [caseData.intake_roles])
   const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
+  // 受注区分が設定済みなら、業務候補・作業プリセットを serviceMaster 駆動にする（未設定の旧案件は従来の汎用候補）
+  const category = caseData.service_category ?? ''
 
   return (
     <Section title="手続き詳細">
@@ -209,7 +215,12 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
         <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
       </div>
       <div className="mb-2 text-[12px] font-bold text-gray-500">② 役割分担（自社 / 依頼者 どちらが行うか）</div>
-      <IntakeRolesEditor roles={roles} onSave={saveRoles} />
+      <IntakeRolesEditor
+        roles={roles}
+        onSave={saveRoles}
+        gyomuOptions={category ? gyomuFor(category) : undefined}
+        presetFor={category ? (g => tasksFor(category, g).map(t => t.task)) : undefined}
+      />
     </Section>
   )
 }

@@ -4,15 +4,16 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineMultiSelect,
+  Section, FieldGrid, Field, InlineEdit, InlineSelect,
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  PROCEDURE_TYPES, LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
+  LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
 } from '@/lib/constants'
+import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
-import ProcedureIntakeSection from './ProcedureIntakeSection'
+import ProcedureIntakeSection, { type RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
   caseData: CaseRow
@@ -35,7 +36,7 @@ type Props = {
  * 案件作成（面談）時に登録する情報を、面談に特化した4セクションで表示・編集する。
  *   ① 案件情報   : 案件管理番号 / 受注担当 / 案件ステータス / 案件作成日
  *   ② 面談概要   : 面談予定日 / 面談実施日 / 面談場所 / お客様回答予定日 / 伺い先
- *   ③ 面談内容   : ヒアリング内容メモ / 受注見込み手続き区分 / 失注理由 / その他備考
+ *   ③ 面談内容   : ヒアリング内容メモ / 受注区分（単一）→役割分担 / 失注理由 / その他備考
  *   ④ 相談事前情報: LP担当が面談前にヒアリングした事前情報（アコーディオン・既定で閉じる）
  *
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
@@ -44,6 +45,17 @@ type Props = {
 export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [], contractProcDone = true }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
+  }
+
+  // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
+  const selectCategory = async (cat: string | null) => {
+    const c = cat ?? ''
+    if (c === (caseData.service_category ?? '')) return
+    if (!c) { await patchCase({ service_category: null, procedure_type: null }); return }
+    if ((caseData.intake_roles?.length ?? 0) > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
+    const seeded: RoleRow[] = gyomuFor(c).flatMap(g => tasksFor(c, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })))
+    // 一覧表示の互換のため procedure_type(配列) にも反映
+    await patchCase({ service_category: c, procedure_type: [c], intake_roles: seeded })
   }
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
@@ -92,11 +104,11 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
       <Section title="面談内容">
         <FieldGrid>
           <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth />
-          <InlineMultiSelect
-            label="受注見込み手続き区分"
-            value={caseData.procedure_type}
-            options={[...PROCEDURE_TYPES]}
-            onSave={v => saveCaseField('procedure_type', v)}
+          <InlineSelect
+            label="受注区分"
+            value={caseData.service_category}
+            options={[...ORDER_CATEGORIES]}
+            onSave={v => selectCategory(v)}
             fullWidth
           />
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => saveCaseField('contract_type', v)} />

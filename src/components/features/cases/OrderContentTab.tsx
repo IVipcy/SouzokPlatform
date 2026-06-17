@@ -27,14 +27,15 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
   // 受注区分を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
   const selectCategory = async (cat: string) => {
     if (cat === orderCategory) return
-    if (!cat) { setOrderCategory(''); await patchCase({ service_category: null }); return }
+    if (!cat) { setOrderCategory(''); await patchCase({ service_category: null, procedure_type: null }); return }
     if (roles.length > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
     const seeded: RoleRow[] = gyomuFor(cat).flatMap(g =>
       tasksFor(cat, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })),
     )
     setOrderCategory(cat)
     setRoles(seeded)
-    await patchCase({ service_category: cat, intake_roles: seeded })
+    // 一覧表示の互換のため procedure_type(配列) にも反映
+    await patchCase({ service_category: cat, procedure_type: [cat], intake_roles: seeded })
   }
 
   return (

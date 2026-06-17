@@ -10,12 +10,13 @@ import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
-  LOST_REASONS, PROCEDURE_TYPES, REFERRAL_PARTNER_TYPES,
+  LOST_REASONS, REFERRAL_PARTNER_TYPES,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
 } from '@/lib/constants'
+import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
-import { IntakeRolesEditor, IntakeDocsEditor } from '@/components/features/cases/ProcedureIntakeSection'
+import { IntakeRolesEditor, IntakeDocsEditor, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
@@ -173,6 +174,16 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     setData(prev => ({ ...prev, [key]: value }))
   }, [])
 
+  // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
+  const selectServiceCategory = (cat: string) => {
+    if (cat === data.serviceCategory) return
+    if (data.intakeRoles.length > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
+    const seeded: RoleRow[] = cat
+      ? gyomuFor(cat).flatMap(g => tasksFor(cat, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })))
+      : []
+    setData(prev => ({ ...prev, serviceCategory: cat, intakeRoles: seeded }))
+  }
+
   // 依頼者（複数人）操作
   const updateClient = (i: number, patch: Partial<ClientPerson>) =>
     update('clients', data.clients.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
@@ -232,7 +243,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deal_name: mainName || '無題',
         status: formData.caseStatus || '検討中',
         difficulty,
-        procedure_type: formData.procedureType.length > 0 ? formData.procedureType : null,
+        service_category: formData.serviceCategory || null,
+        // 一覧表示の互換のため、受注区分を従来の手続区分(配列)にも反映
+        procedure_type: formData.serviceCategory ? [formData.serviceCategory] : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         meeting_executed_date: formData.meetingDate || null,
         order_route: formData.orderRoute || null,
@@ -454,9 +467,21 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         <div className="max-w-[800px]">
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
-          <Card label="受注見込み手続き区分"><Pills value={data.procedureType} options={[...PROCEDURE_TYPES]} onChange={v => update('procedureType', v as string[])} multi /></Card>
+          <Card label="受注区分（1つ選択）"><Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} /></Card>
           <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
-            <IntakeRolesEditor roles={data.intakeRoles} onSave={v => update('intakeRoles', v)} />
+            {data.serviceCategory ? (
+              <>
+                <p className="text-[12px] text-gray-400 mb-2">受注区分の業務が全選択で表示されます。やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
+                <IntakeRolesEditor
+                  roles={data.intakeRoles}
+                  onSave={v => update('intakeRoles', v)}
+                  gyomuOptions={gyomuFor(data.serviceCategory)}
+                  presetFor={g => tasksFor(data.serviceCategory, g).map(t => t.task)}
+                />
+              </>
+            ) : (
+              <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
+            )}
           </Card>
           <Card label="契約手続き（契約関連書類の受け取り）">
             <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
@@ -485,7 +510,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               <ConfirmRow label="人数" value={`${data.clients.filter(c => c.name.trim()).length}名`} />
             </ConfirmSection>
             <ConfirmSection title="面談内容">
-              <ConfirmRow label="受注見込み手続き区分" value={data.procedureType.join(', ')} />
+              <ConfirmRow label="受注区分" value={data.serviceCategory} />
               <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
               <ConfirmRow label="難易度" value={data.difficulty} />
               <ConfirmRow label="失注理由" value={data.lostReason} />

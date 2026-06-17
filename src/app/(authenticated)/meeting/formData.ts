@@ -31,7 +31,7 @@ export type FormData = {
   clients: ClientPerson[]
   // 面談内容
   hearingMemo: string       // ヒアリング内容メモ
-  procedureType: string[]   // 受注見込み手続き区分
+  serviceCategory: string   // 受注区分（単一選択。serviceMaster の ORDER_CATEGORIES）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   lostReason: string        // 失注理由
   otherNotes: string        // その他備考
@@ -52,7 +52,7 @@ export const INITIAL_DATA: FormData = {
   clientResponseDueDate: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '' }],
   hearingMemo: '',
-  procedureType: [],
+  serviceCategory: '',
   referralPartners: [],
   lostReason: '',
   otherNotes: '',
