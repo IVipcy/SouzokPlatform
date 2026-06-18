@@ -21,6 +21,7 @@ type ItemDraft = {
   quantity: string  // 文字列で保持して入力柔軟性を確保
   received_from: string
   linked: string  // 取得物リンク `${kind}:${id}:${field}`（空=リンクなし）
+  otherMode: boolean  // 受信待ちに無い物を自由入力するモード（true=名称入力欄を表示）
 }
 
 type Props = {
@@ -37,6 +38,7 @@ function newItem(): ItemDraft {
     quantity: '',
     received_from: '',
     linked: '',
+    otherMode: false,
   }
 }
 
@@ -323,67 +325,87 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
               leftIcon={<Plus className="w-3.5 h-3.5" />}
               onClick={addItem}
             >
-              項目を追加
+              到着物を追加
             </Button>
           </div>
-          <div className="space-y-3">
-            {items.map(it => (
-              <div key={it.key} className="space-y-1.5">
-                <div className="grid grid-cols-[1fr_80px_1fr_28px] gap-2 items-center">
-                  <input
-                    type="text"
-                    value={it.item_name}
-                    onChange={e => updateItem(it.key, { item_name: e.target.value })}
-                    placeholder="到着物（例: 戸籍）"
-                    className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                  />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={it.quantity}
-                    onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
-                    placeholder="通数"
-                    className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={it.received_from}
-                    onChange={e => updateItem(it.key, { received_from: e.target.value })}
-                    placeholder="受領先（例: 名古屋市区役所）"
-                    className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(it.key)}
-                    disabled={items.length <= 1}
-                    className="text-gray-300 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed p-1"
-                    title="この行を削除"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                {/* 契約残手続きの「受信待ち」項目への紐づけ（任意）。紐づけると受信確定時に受領日が反映される */}
-                {selectedCaseId && deliverables.length > 0 && (
-                  <div className="pl-3 border-l-2 border-gray-100 ml-0.5">
-                    <label className="block text-[12px] font-semibold text-gray-600 mb-1">
-                      ↳ この到着物は何の受信待ち？ <span className="font-normal text-gray-400">（契約残手続きと紐づけ・任意）</span>
-                    </label>
-                    <select
-                      value={it.linked}
-                      onChange={e => updateItem(it.key, { linked: e.target.value })}
-                      className="w-full px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
+          <div className="space-y-2">
+            {items.map(it => {
+              const useSelect = deliverables.length > 0
+              return (
+                <div key={it.key} className="border border-gray-200 rounded-md p-2.5">
+                  <div className="grid grid-cols-[1fr_72px_1fr_28px] gap-2 items-center">
+                    {useSelect ? (
+                      <select
+                        value={it.otherMode ? '__other__' : it.linked}
+                        onChange={e => {
+                          const v = e.target.value
+                          if (v === '__other__') updateItem(it.key, { otherMode: true, linked: '', item_name: '' })
+                          else if (v === '') updateItem(it.key, { otherMode: false, linked: '', item_name: '' })
+                          else {
+                            const opt = deliverables.find(o => o.value === v)
+                            updateItem(it.key, { otherMode: false, linked: v, item_name: opt?.label ?? '' })
+                          }
+                        }}
+                        className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
+                      >
+                        <option value="">到着物を選択（受信待ちから）</option>
+                        {groupedDeliverables.map(([group, opts]) => (
+                          <optgroup key={group} label={group}>
+                            {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </optgroup>
+                        ))}
+                        <option value="__other__">その他（自由入力）</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={it.item_name}
+                        onChange={e => updateItem(it.key, { item_name: e.target.value })}
+                        placeholder="到着物（例: 戸籍）"
+                        className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                      />
+                    )}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={it.quantity}
+                      onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                      placeholder="通数"
+                      className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={it.received_from}
+                      onChange={e => updateItem(it.key, { received_from: e.target.value })}
+                      placeholder="受領先（例: 名古屋市区役所）"
+                      className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(it.key)}
+                      disabled={items.length <= 1}
+                      className="text-gray-300 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed p-1"
+                      title="この行を削除"
                     >
-                      <option value="">紐づけない（到着物として保存するだけ）</option>
-                      {groupedDeliverables.map(([group, opts]) => (
-                        <optgroup key={group} label={group}>
-                          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </optgroup>
-                      ))}
-                    </select>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
+                  {/* 「その他」を選んだときだけ名称入力（紐づけなし） */}
+                  {useSelect && it.otherMode && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-gray-300 text-[14px] leading-none">↳</span>
+                      <input
+                        type="text"
+                        value={it.item_name}
+                        onChange={e => updateItem(it.key, { item_name: e.target.value })}
+                        placeholder="到着物の名称を入力（例: 戸籍）"
+                        className="flex-1 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
