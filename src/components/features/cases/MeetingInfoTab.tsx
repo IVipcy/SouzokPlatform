@@ -12,7 +12,7 @@ import {
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
   CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
-import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
+import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
 import ProcedureIntakeSection, { type RoleRow } from './ProcedureIntakeSection'
 
@@ -57,15 +57,26 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
     await patchCase(patch)
   }
 
-  // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
+  // 受注区分①を選ぶ → 業務・作業を初期セット（区分変更時は入れ直し）。検認以外は②をクリア。
   const selectCategory = async (cat: string | null) => {
     const c = cat ?? ''
     if (c === (caseData.service_category ?? '')) return
-    if (!c) { await patchCase({ service_category: null, procedure_type: null }); return }
+    if (!c) { await patchCase({ service_category: null, service_category_2: null, procedure_type: null, intake_roles: [] }); return }
     if ((caseData.intake_roles?.length ?? 0) > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
-    const seeded: RoleRow[] = gyomuFor(c).flatMap(g => tasksFor(c, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })))
+    const newCat2 = c === KENIN_CATEGORY ? (caseData.service_category_2 ?? '') : ''
+    const cats = categoriesOf(c, newCat2)
+    const seeded = seedRolesForCategories(cats) as RoleRow[]
     // 一覧表示の互換のため procedure_type(配列) にも反映
-    await patchCase({ service_category: c, procedure_type: [c], intake_roles: seeded })
+    await patchCase({ service_category: c, service_category_2: newCat2 || null, procedure_type: cats, intake_roles: seeded })
+  }
+
+  // 検認①→手続き一式② の追加/解除
+  const toggleFull = async (on: boolean) => {
+    if ((caseData.intake_roles?.length ?? 0) > 0 && !confirm('受注区分を変えると、業務・担当が入れ直されます。よろしいですか？')) return
+    const newCat2 = on ? KENIN_COMBO_SECONDARY : ''
+    const cats = categoriesOf(caseData.service_category, newCat2)
+    const seeded = seedRolesForCategories(cats) as RoleRow[]
+    await patchCase({ service_category_2: newCat2 || null, procedure_type: cats, intake_roles: seeded })
   }
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
@@ -122,6 +133,12 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
             onSave={v => selectCategory(v)}
             fullWidth
           />
+          {caseData.service_category === KENIN_CATEGORY && (
+            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 py-1.5">
+              <input type="checkbox" checked={caseData.service_category_2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFull(e.target.checked)} className="w-4 h-4 accent-brand-600" />
+              手続き一式へ移行する（検認① → 手続き一式②。重複する業務は表示しません）
+            </label>
+          )}
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => saveCaseField('contract_type', v)} />
           <InlineSelect label="失注理由" value={caseData.lost_reason} options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
           <InlineTextarea label="その他備考" value={caseData.meeting_other_notes} onSave={v => saveCaseField('meeting_other_notes', v)} fullWidth />

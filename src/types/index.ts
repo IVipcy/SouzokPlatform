@@ -68,7 +68,8 @@ export type CaseRow = {
   expected_completion_date: string | null
   difficulty: '易' | '普' | '難' | null
   procedure_type: string[] | null
-  service_category: string | null  // 受注区分（単一。migration 090）
+  service_category: string | null  // 受注区分①（migration 090）
+  service_category_2: string | null  // 受注区分②（検認①→手続き一式②のコンボ。migration 093）
   additional_services: string[] | null
   tax_filing_required: '要' | '不要' | '確認中'
   tax_filing_deadline: string | null

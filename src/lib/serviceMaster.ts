@@ -191,6 +191,34 @@ export function tasksFor(category: string, gyomu: string): ServiceRow[] {
   return SERVICE_ROWS.filter(r => r.category === category && r.gyomu === gyomu)
 }
 
+// === 複数受注区分（順番つき）対応 ===
+// 検認は「検認単独」または「検認①→手続き一式②」のコンボのみ複数可（業務途中で移行するケース）。
+// 検認②に手続き一式を足すと戸籍等が重複するため、重複業務は先の区分（検認）を優先し、後の区分では出さない。
+export const KENIN_CATEGORY = '検認'
+export const KENIN_COMBO_SECONDARY = '手続き一式'
+
+/** 受注区分の配列（①②…順）。primary＋任意のsecondary。null/空は除外。 */
+export function categoriesOf(primary: string | null | undefined, secondary: string | null | undefined): string[] {
+  return [primary, secondary].filter((c): c is string => !!c)
+}
+/** 複数区分の業務を①②順で結合し、重複業務は先勝ちで1回だけ。 */
+export function gyomuForCategories(categories: string[]): string[] {
+  const seen = new Set<string>(); const list: string[] = []
+  for (const c of categories) for (const g of gyomuFor(c)) if (!seen.has(g)) { seen.add(g); list.push(g) }
+  return list
+}
+/** 業務の作業を、その業務を最初に含む区分（①優先）から取る。 */
+export function tasksForCategories(categories: string[], gyomu: string): ServiceRow[] {
+  for (const c of categories) { const t = tasksFor(c, gyomu); if (t.length) return t }
+  return []
+}
+/** 複数区分から役割分担(intake_roles)の初期値を生成（全作業・担当=自社、重複業務は先勝ち）。 */
+export function seedRolesForCategories(categories: string[]): { gyomu: string; sagyou: string; owner: string; note: string }[] {
+  return gyomuForCategories(categories).flatMap(g =>
+    tasksForCategories(categories, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })),
+  )
+}
+
 // 区分非依存の業務（受注区分に関係なく使う）
 export const CROSS_GYOMU_TAB: Record<string, TabKey | undefined> = { '経理': 'contract', '相続税': undefined }
 export const KEIZAI_TASKS: string[] = ['分配金計算書作成','報酬請求書作成','入金確認','分配金送金実行','納品書類一式作成','案件クローズ処理']

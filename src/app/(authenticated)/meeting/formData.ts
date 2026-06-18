@@ -39,7 +39,8 @@ export type FormData = {
   clientTraitDetail: string   // 依頼者特徴詳細
   // 面談内容
   hearingMemo: string       // ヒアリング内容メモ
-  serviceCategory: string   // 受注区分（単一選択。serviceMaster の ORDER_CATEGORIES）
+  serviceCategory: string   // 受注区分①（serviceMaster の ORDER_CATEGORIES）
+  serviceCategory2: string  // 受注区分②（検認①→手続き一式②のコンボのみ）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   lostReason: string        // 失注理由
   otherNotes: string        // その他備考
@@ -68,6 +69,7 @@ export const INITIAL_DATA: FormData = {
   clientTraitDetail: '',
   hearingMemo: '',
   serviceCategory: '',
+  serviceCategory2: '',
   referralPartners: [],
   lostReason: '',
   otherNotes: '',

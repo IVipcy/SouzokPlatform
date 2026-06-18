@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, Check } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
-import { gyomuFor, tasksFor, REFERRAL_ONLY_CATEGORY } from '@/lib/serviceMaster'
+import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import type { CaseRow, ContractDocumentRow } from '@/types'
 
@@ -207,6 +207,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
   const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
   // 受注区分が設定済みなら、業務候補・作業プリセットを serviceMaster 駆動にする（未設定の旧案件は従来の汎用候補）
   const category = caseData.service_category ?? ''
+  const cats = categoriesOf(caseData.service_category, caseData.service_category_2)
 
   return (
     <Section title="手続き詳細">
@@ -225,8 +226,8 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
           <IntakeRolesEditor
             roles={roles}
             onSave={saveRoles}
-            gyomuOptions={category ? gyomuFor(category) : undefined}
-            presetFor={category ? (g => tasksFor(category, g).map(t => t.task)) : undefined}
+            gyomuOptions={cats.length ? gyomuForCategories(cats) : undefined}
+            presetFor={cats.length ? (g => tasksForCategories(cats, g).map(t => t.task)) : undefined}
           />
         </>
       )}

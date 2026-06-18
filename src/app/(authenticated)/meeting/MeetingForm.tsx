@@ -14,7 +14,10 @@ import {
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
-import { ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, gyomuFor, tasksFor } from '@/lib/serviceMaster'
+import {
+  ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
+  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories,
+} from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
 import { IntakeRolesEditor, IntakeDocsEditor, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
@@ -193,14 +196,21 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     }))
   }
 
-  // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
+  // 受注区分①を選ぶ → 業務・作業を初期セット（区分変更時は入れ直し）。検認以外は②をクリア。
   const selectServiceCategory = (cat: string) => {
     if (cat === data.serviceCategory) return
     if (data.intakeRoles.length > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
-    const seeded: RoleRow[] = cat
-      ? gyomuFor(cat).flatMap(g => tasksFor(cat, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })))
-      : []
-    setData(prev => ({ ...prev, serviceCategory: cat, intakeRoles: seeded }))
+    const newCat2 = cat === KENIN_CATEGORY ? data.serviceCategory2 : ''
+    const seeded = (cat ? seedRolesForCategories(categoriesOf(cat, newCat2)) : []) as RoleRow[]
+    setData(prev => ({ ...prev, serviceCategory: cat, serviceCategory2: newCat2, intakeRoles: seeded }))
+  }
+
+  // 検認①→手続き一式② の追加/解除
+  const toggleFullService = (on: boolean) => {
+    if (data.intakeRoles.length > 0 && !confirm('受注区分を変えると、業務・担当が入れ直されます。よろしいですか？')) return
+    const newCat2 = on ? KENIN_COMBO_SECONDARY : ''
+    const seeded = seedRolesForCategories(categoriesOf(data.serviceCategory, newCat2)) as RoleRow[]
+    setData(prev => ({ ...prev, serviceCategory2: newCat2, intakeRoles: seeded }))
   }
 
   // 依頼者（複数人）操作
@@ -265,8 +275,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         status: formData.caseStatus || '検討中',
         difficulty,
         service_category: formData.serviceCategory || null,
-        // 一覧表示の互換のため、受注区分を従来の手続区分(配列)にも反映
-        procedure_type: formData.serviceCategory ? [formData.serviceCategory] : null,
+        service_category_2: formData.serviceCategory2 || null,
+        // 一覧表示の互換のため、受注区分①②を従来の手続区分(配列)にも反映
+        procedure_type: formData.serviceCategory ? categoriesOf(formData.serviceCategory, formData.serviceCategory2) : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         consideration_period: formData.considerationPeriod || null,
         meeting_executed_date: formData.meetingDate || null,
@@ -548,7 +559,15 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         <div className="max-w-[800px]">
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
-          <Card label="受注区分（1つ選択）"><Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} /></Card>
+          <Card label="受注区分（1つ選択）">
+            <Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} />
+            {data.serviceCategory === KENIN_CATEGORY && (
+              <label className="mt-2.5 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">
+                <input type="checkbox" checked={data.serviceCategory2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFullService(e.target.checked)} className="w-4 h-4 accent-brand-600" />
+                手続き一式へ移行する（検認① → 手続き一式②。重複する業務は表示しません）
+              </label>
+            )}
+          </Card>
           {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
             // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
             <Card label="紹介先（自社手続きはありません）">
@@ -559,12 +578,12 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
               {data.serviceCategory ? (
                 <>
-                  <p className="text-[12px] text-gray-400 mb-2">受注区分の業務が全選択で表示されます。やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
+                  <p className="text-[12px] text-gray-400 mb-2">{data.serviceCategory2 ? '検認①→手続き一式②の業務が表示されます（重複は先の区分優先）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
                   <IntakeRolesEditor
                     roles={data.intakeRoles}
                     onSave={v => update('intakeRoles', v)}
-                    gyomuOptions={gyomuFor(data.serviceCategory)}
-                    presetFor={g => tasksFor(data.serviceCategory, g).map(t => t.task)}
+                    gyomuOptions={gyomuForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2))}
+                    presetFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).map(t => t.task)}
                   />
                 </>
               ) : (
