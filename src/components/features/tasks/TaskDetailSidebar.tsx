@@ -104,17 +104,6 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
 
   return (
     <div className="sticky top-[90px] flex flex-col gap-4">
-      {/* AI書類作成ボタン */}
-      {caseData && (
-        <Link
-          href={`/cases/${caseData.id}?tab=documentCreate`}
-          className="flex items-center justify-center gap-2 px-3 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-sm font-semibold text-sm transition-colors"
-        >
-          <FileText className="w-4 h-4" strokeWidth={2.25} />
-          AI書類作成
-        </Link>
-      )}
-
       {/* このタスクが終わったら（次タスク紐づけ）— システムタスクでは非表示 */}
       {task.task_kind !== 'system' && (
         <NextTaskSelector
