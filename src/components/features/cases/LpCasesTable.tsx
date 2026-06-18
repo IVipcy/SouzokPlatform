@@ -22,6 +22,8 @@ export type LpCaseRow = {
   lost_reason: string | null
   /** お客様回答予定日 */
   client_response_due_date: string | null
+  /** 検討期間区分（1週間/2週間/1ヶ月/見込み不明） */
+  consideration_period?: string | null
   /** 受注担当者名 */
   sales_name: string | null
   /** 担当チーム名（受注担当の所属チーム。検索用） */
@@ -97,6 +99,7 @@ export default function LpCasesTable({ cases }: Props) {
                 <th className="px-3 py-2 text-left font-bold">不受託理由</th>
                 <th className="px-3 py-2 text-left font-bold">検討理由</th>
                 <th className="px-3 py-2 text-left font-bold">お客様回答予定日</th>
+                <th className="px-3 py-2 text-left font-bold">検討期間</th>
                 <th className="px-3 py-2 text-left font-bold">残り日数</th>
                 <th className="px-3 py-2 text-left font-bold">受注担当</th>
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
@@ -159,6 +162,8 @@ export default function LpCasesTable({ cases }: Props) {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
+                    {/* 検討期間 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.consideration_period || <span className="text-gray-300">—</span>}</td>
                     {/* 残り日数 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono">
                       {daysRemaining === null ? (

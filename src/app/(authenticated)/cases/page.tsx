@@ -44,6 +44,7 @@ type CaseRowRaw = {
   real_estate_appraisal_status: string | null
   meeting_executed_date: string | null
   client_response_due_date: string | null
+  consideration_period: string | null
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
 }
@@ -182,6 +183,7 @@ export default async function CasesPage() {
     created_at: c.created_at,
     meeting_executed_date: c.meeting_executed_date,
     client_response_due_date: c.client_response_due_date,
+    consideration_period: c.consideration_period,
     order_route_detail: c.order_route_detail,
     team_name: salesTeamByCase.get(c.id) ?? null,
     sales_name: salesByCase.get(c.id) ?? null,
@@ -203,6 +205,7 @@ export default async function CasesPage() {
     client_name: c.clients?.name ?? null,
     lost_reason: c.lost_reason,
     client_response_due_date: c.client_response_due_date,
+    consideration_period: c.consideration_period,
     sales_name: salesByCase.get(c.id) ?? null,
     team_name: salesTeamByCase.get(c.id) ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
