@@ -1,0 +1,174 @@
+/**
+ * 確定請求書＋立替実費明細（Excel・1ファイル2シート）生成API
+ *
+ * public/templates/kakutei/<variant>.xlsx をロードし、1枚目=確定請求書／2枚目=立替実費明細を流し込む。
+ * 報酬・立替は税込入力、内消費税は計算して反映。前受金は消費税対象外で差し引く。
+ * テンプレは split_kakutei_templates.py で参照データ（数式・枠外マスタ・社印画像）を除去済み。
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import ExcelJS from 'exceljs'
+import { getKakuteiVariant, KAKUTEI_FIELDS, TATEKAE_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
+import { STAMP_FILES } from '@/lib/ininjoVariants'
+
+type Body = {
+  caseId: string
+  variant: string
+  kenmei: string
+  fee: number
+  advanceReceived: number
+  expenses: ExpenseItem[]
+  taskId?: string | null
+}
+
+function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
+  if (!addr || value === null || value === undefined || value === '') return
+  ws.getCell(addr).value = value
+}
+
+function splitCaseNumber(caseNumber: string | null | undefined): [string, string, string, string] {
+  const s = (caseNumber ?? '').trim()
+  if (!s) return ['', '', '', '']
+  const parts = s.split(/[-－/／\s]+/).filter(Boolean)
+  return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? '', parts[3] ?? '']
+}
+
+function cellToColRow(addr: string): { col: number; row: number } {
+  const m = /^([A-Z]+)(\d+)$/.exec(addr)
+  if (!m) return { col: 0, row: 0 }
+  let col = 0
+  for (const ch of m[1]) col = col * 26 + (ch.charCodeAt(0) - 64)
+  return { col: col - 1, row: Number(m[2]) - 1 }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = (await request.json()) as Body
+    const { caseId, variant, kenmei, fee, advanceReceived, expenses, taskId } = body
+
+    if (!caseId || !variant) {
+      return NextResponse.json({ error: 'caseId, variant は必須です' }, { status: 400 })
+    }
+    const def = getKakuteiVariant(variant)
+    if (!def) {
+      return NextResponse.json({ error: `未知のバリエーション: ${variant}` }, { status: 400 })
+    }
+    if (typeof fee !== 'number' || fee < 0) {
+      return NextResponse.json({ error: '報酬額を正しく入力してください' }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+    const { data: caseData, error: caseErr } = await supabase
+      .from('cases').select('*, clients(*)').eq('id', caseId).single()
+    if (caseErr || !caseData) {
+      return NextResponse.json({ error: '案件データの取得に失敗しました' }, { status: 404 })
+    }
+
+    let mainName: string | null = null
+    try {
+      const { data: ccs } = await supabase
+        .from('case_clients').select('name, priority, sort_order').eq('case_id', caseId)
+        .order('sort_order', { ascending: true })
+      const rows = (ccs ?? []) as Array<{ name?: string | null; priority?: string | null }>
+      if (rows.length > 0) mainName = (rows.find(c => c.priority === 'main') ?? rows[0]).name ?? null
+    } catch { /* migration 未適用環境では無視 */ }
+
+    const client = caseData.clients as { name?: string } | null
+    const clientName = mainName || client?.name || ''
+
+    const items = (expenses ?? []).filter(e => e && (e.name?.trim() || e.amount > 0))
+    const c = computeKakutei(fee, advanceReceived || 0, items)
+
+    const templatePath = path.join(process.cwd(), 'public', 'templates', 'kakutei', `${variant}.xlsx`)
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.load(new Uint8Array(await readFile(templatePath)).buffer as ArrayBuffer)
+    const kak = wb.worksheets[0]   // 確定請求書
+    const tate = wb.worksheets[1]  // 立替実費明細
+    if (!kak || !tate) {
+      return NextResponse.json({ error: 'テンプレートのシートが見つかりません' }, { status: 500 })
+    }
+
+    // --- 確定請求書 ---
+    const K = KAKUTEI_FIELDS
+    const seg = splitCaseNumber(caseData.case_number)
+    setCell(kak, K.caseNo[0], seg[0]); setCell(kak, K.caseNo[1], seg[1])
+    setCell(kak, K.caseNo[2], seg[2]); setCell(kak, K.caseNo[3], seg[3])
+    setCell(kak, K.clientName, clientName)
+    for (const cell of K.kenmei) setCell(kak, cell, kenmei || '')
+    if (fee > 0) { setCell(kak, K.fee, fee); setCell(kak, K.feeTax, c.feeTax) }
+    if (advanceReceived > 0) setCell(kak, K.advanceNeg, -advanceReceived)
+    if (c.taxSubtotal > 0) { setCell(kak, K.taxableExpense, c.taxSubtotal); setCell(kak, K.taxableExpenseTax, c.taxExpTax) }
+    if (c.nonTaxSubtotal > 0) setCell(kak, K.nonTaxExpense, c.nonTaxSubtotal)
+    setCell(kak, K.subtotal, c.subtotal)
+    setCell(kak, K.taxableBase, c.taxableBase)
+    setCell(kak, K.taxTotal, c.taxTotal)
+    setCell(kak, K.billAmount, c.billAmount)
+    setCell(kak, K.amountTop, c.billAmount)
+
+    // 社印
+    try {
+      const imgBuf = await readFile(path.join(process.cwd(), 'public', 'templates', 'stamps', STAMP_FILES[def.office]))
+      const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
+      const { col, row } = cellToColRow(K.sealCell)
+      kak.addImage(imageId, { tl: { col, row } as ExcelJS.Anchor, ext: { width: 56, height: 56 }, editAs: 'oneCell' })
+    } catch { /* 画像が無ければスキップ */ }
+
+    // --- 立替実費明細 ---
+    const T = TATEKAE_FIELDS
+    setCell(tate, T.caseNoConcat, caseData.case_number ?? '')
+    setCell(tate, T.clientName, clientName)
+    setCell(tate, T.totalTop, c.expenseGrand)
+    c.nonTaxItems.slice(0, T.nonTaxRows.length).forEach((e, i) => {
+      const r = T.nonTaxRows[i]
+      setCell(tate, `${T.nameCol}${r}`, e.name)
+      setCell(tate, `${T.amountCol}${r}`, e.amount)
+    })
+    setCell(tate, T.nonTaxSubtotal, c.nonTaxSubtotal)
+    c.taxItems.slice(0, T.taxRows.length).forEach((e, i) => {
+      const r = T.taxRows[i]
+      setCell(tate, `${T.nameCol}${r}`, e.name)
+      setCell(tate, `${T.amountCol}${r}`, e.amount)
+    })
+    setCell(tate, T.taxSubtotal, c.taxSubtotal)
+    setCell(tate, T.grandTotal, c.expenseGrand)
+
+    // 出力
+    const outBuffer = await wb.xlsx.writeBuffer()
+    const downloadFilename = `確定請求書_立替実費_${def.officeLabel}_${caseData.case_number ?? caseId}.xlsx`
+    const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
+    const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
+    const { error: uploadErr } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, uploadBuffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    if (!uploadErr) {
+      await supabase.from('documents').insert({
+        case_id: caseId,
+        task_id: taskId ?? null,
+        name: `確定請求書＋立替実費明細（${def.office === 'gyosei' ? '行政' : '司法'}）`,
+        file_path: storagePath,
+        file_type: 'Excel',
+        status: '作成済',
+        generated_by: 'ai',
+      })
+    } else {
+      console.error('[kakutei] storage upload failed:', uploadErr.message)
+    }
+
+    return new NextResponse(uploadBuffer as unknown as BodyInit, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
+      },
+    })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : '不明なエラー'
+    console.error('[kakutei] error:', e)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
