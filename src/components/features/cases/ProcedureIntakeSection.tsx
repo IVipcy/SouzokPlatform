@@ -38,14 +38,14 @@ const GYOMU_PRESET: Record<string, string[]> = {
   '不動産査定': ['査定の依頼・取得'],
 }
 
+// 契約時に必ずもらうオーソドックスな4点をデフォルトに。
+// 戸籍・財産系（通帳コピー・運用レポート・固定資産税通知書 等）はお客様ごとに違うため、
+// 自由入力で任意追加する（「到着物を追加」）。
 export const DEFAULT_DOCS: DocRow[] = [
   { name: '契約書', status: '', arrival_date: null, note: '' },
-  { name: '委任状（戸籍用・認印）', status: '', arrival_date: null, note: '' },
-  { name: '委任状（財産調査用・実印）', status: '', arrival_date: null, note: '' },
-  { name: '戸籍（依頼者持参分）', status: '', arrival_date: null, note: '' },
-  { name: '通帳・証書', status: '', arrival_date: null, note: '' },
-  { name: '印鑑証明書', status: '', arrival_date: null, note: '' },
+  { name: '委任状', status: '', arrival_date: null, note: '' },
   { name: '本人確認書類', status: '', arrival_date: null, note: '' },
+  { name: '印鑑証明書', status: '', arrival_date: null, note: '' },
 ]
 // 役割分担は業務を選択してから作業を展開するため、初期値は空。
 export const DEFAULT_ROLES: RoleRow[] = []

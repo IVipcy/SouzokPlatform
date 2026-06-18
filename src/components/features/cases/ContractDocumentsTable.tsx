@@ -9,10 +9,8 @@ import type { ContractDocumentRow } from '@/types'
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
 
 // 既定の契約関連書類（行追加・削除・編集可）
-const DEFAULT_DOCS = [
-  '契約書', '委任状（戸籍用・認印）', '委任状（財産調査用・実印）',
-  '戸籍（依頼者持参分）', '通帳・証書', '印鑑証明書', '本人確認書類',
-]
+// 契約時に必ずもらう4点をデフォルトに。戸籍・財産系は自由入力で任意追加。
+const DEFAULT_DOCS = ['契約書', '委任状', '本人確認書類', '印鑑証明書']
 
 type Props = {
   caseId: string
