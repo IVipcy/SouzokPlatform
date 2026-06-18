@@ -210,7 +210,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     const existing = new Set(data.intakeDocuments.map(d => d.name.trim()))
     const toAdd = clientProvidedDocs(data.intakeRoles)
       .filter(d => !existing.has(d.name))
-      .map(d => ({ name: d.name, status: '依頼者が取得', arrival_date: null, note: '', category: d.category }))
+      .map(d => ({ name: d.name, status: '後日郵送', arrival_date: null, note: '', category: d.category }))
     if (toAdd.length > 0) update('intakeDocuments', [...data.intakeDocuments, ...toAdd])
   }
 

@@ -237,7 +237,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
     if (toAdd.length === 0) { showToast('追加する依頼者取得分はありません（反映済み）', 'info'); return }
     setReflecting(true)
     const base = contractDocuments?.length ?? 0
-    const payload = toAdd.map((d, i) => ({ case_id: caseData.id, name: d.name, category: d.category, status: '依頼者が取得', sort_order: base + i }))
+    const payload = toAdd.map((d, i) => ({ case_id: caseData.id, name: d.name, category: d.category, status: '後日郵送', sort_order: base + i }))
     const { error } = await createClient().from('contract_documents').insert(payload)
     setReflecting(false)
     if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
