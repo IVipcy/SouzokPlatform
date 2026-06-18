@@ -27,6 +27,7 @@ export type FormData = {
   pastClientId: string      // 過去客経由で既存依頼者を選択した場合の client_id
   meetingPlace: string      // 面談場所
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
+  considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明）
   // 依頼者（複数人）
   clients: ClientPerson[]
   // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
@@ -57,6 +58,7 @@ export const INITIAL_DATA: FormData = {
   pastClientId: '',
   meetingPlace: '',
   clientResponseDueDate: '',
+  considerationPeriod: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '' }],
   postalCode: '',
   address: '',

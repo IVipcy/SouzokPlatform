@@ -45,6 +45,22 @@ export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
 export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
 
+// 検討期間区分。相続ステーションの「提案・検討中（◯）」と1:1で対応させ、LP担当の転記を正確にする。
+// 選んだ期間が「お客様回答予定日」の上限になる（その期間内に回答する前提）。
+export const CONSIDERATION_PERIODS = ['1週間', '2週間', '1ヶ月', '見込み不明'] as const
+// 期間区分 → 回答予定日の上限（YYYY-MM-DD ローカル）。見込み不明・未選択は上限なし(null)。
+export function considerationDueMax(period: string | null | undefined, from: Date = new Date()): string | null {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  switch (period) {
+    case '1週間': d.setDate(d.getDate() + 7); break
+    case '2週間': d.setDate(d.getDate() + 14); break
+    case '1ヶ月': d.setMonth(d.getMonth() + 1); break
+    default: return null
+  }
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 // 案件ステータスの遷移ルール（現在ステータス → 変更できる先）。
 // 前進を基本に、運用上ありえない「戻り」を抑止する。基本ルール:
 //   ・面談設定済へは戻さない（受託/検討中/対応中 などから）

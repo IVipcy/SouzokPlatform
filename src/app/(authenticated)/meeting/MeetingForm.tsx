@@ -12,6 +12,7 @@ import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
+  CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
@@ -91,10 +92,11 @@ function Pills({ value, options, onChange, multi }: { value: string | string[]; 
   )
 }
 
-function Input({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+function Input({ value, onChange, placeholder, type = 'text', max }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; max?: string }) {
   return (
     <input
       type={type}
+      max={max}
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
@@ -180,6 +182,17 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     setData(prev => ({ ...prev, [key]: value }))
   }, [])
 
+  // 検討期間区分を選ぶ → 回答予定日を「今日＋期間」を上限にそろえる（見込み不明は上限なし）
+  const selectPeriod = (p: string) => {
+    const max = considerationDueMax(p)
+    setData(prev => ({
+      ...prev,
+      considerationPeriod: p,
+      // 未入力 or 上限超過なら上限に補正。見込み不明(max=null)は触らない。
+      clientResponseDueDate: max && (!prev.clientResponseDueDate || prev.clientResponseDueDate > max) ? max : prev.clientResponseDueDate,
+    }))
+  }
+
   // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
   const selectServiceCategory = (cat: string) => {
     if (cat === data.serviceCategory) return
@@ -255,6 +268,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         // 一覧表示の互換のため、受注区分を従来の手続区分(配列)にも反映
         procedure_type: formData.serviceCategory ? [formData.serviceCategory] : null,
         client_response_due_date: formData.clientResponseDueDate || null,
+        consideration_period: formData.considerationPeriod || null,
         meeting_executed_date: formData.meetingDate || null,
         order_route: formData.orderRoute || null,
         order_route_detail: formData.orderRouteDetail || null,
@@ -357,10 +371,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   }, [selectedCase, currentMemberId])
 
   const nextStep = useCallback(async () => {
-    // 基本情報: 検討中／検討中（契約書待ち）はお客様回答予定日が必須
-    if (STEPS[step].id === 'basic' && RESPONSE_DUE_REQUIRED.has(data.caseStatus) && !data.clientResponseDueDate) {
-      setSaveError('お客様回答予定日を入力してください')
-      return
+    // 基本情報: 検討中／検討中（契約書待ち）は検討期間が必須。見込み不明以外は回答予定日も必須。
+    if (STEPS[step].id === 'basic' && RESPONSE_DUE_REQUIRED.has(data.caseStatus)) {
+      if (!data.considerationPeriod) { setSaveError('検討期間を選択してください'); return }
+      if (data.considerationPeriod !== '見込み不明' && !data.clientResponseDueDate) {
+        setSaveError('お客様回答予定日を入力してください')
+        return
+      }
     }
     setSaveError('')
     setCompletedSteps(prev => new Set(prev).add(step))
@@ -416,7 +433,15 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           </Card>
           <Card label="面談結果" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
-            <Card label="お客様回答予定日" required><Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} /></Card>
+            <>
+              <Card label="検討期間" required><Pills value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v as string)} /></Card>
+              {data.considerationPeriod && data.considerationPeriod !== '見込み不明' && (
+                <Card label="お客様回答予定日" required>
+                  <Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} max={considerationDueMax(data.considerationPeriod) ?? undefined} />
+                  <p className="mt-1 text-[11px] text-gray-400">「{data.considerationPeriod}」以内（〜{considerationDueMax(data.considerationPeriod)}）で選べます。</p>
+                </Card>
+              )}
+            </>
           )}
         </div>
       )
@@ -570,7 +595,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               <ConfirmRow label="面談実施日" value={data.meetingDate} />
               <ConfirmRow label="面談ルート" value={data.orderRoute + (data.orderRouteDetail ? `（${data.orderRouteDetail}）` : '')} />
               <ConfirmRow label="面談結果" value={getCaseStatusLabel(data.caseStatus)} />
-              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="検討期間" value={data.considerationPeriod} />}
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && data.considerationPeriod !== '見込み不明' && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
             </ConfirmSection>
             <ConfirmSection title="依頼者">
               <ConfirmRow label="メイン依頼人" value={(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.name ?? ''} />

@@ -341,12 +341,14 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
 }
 
 // ─── InlineDate ───
-export function InlineDate({ label, value, onSave, fullWidth, required }: {
+export function InlineDate({ label, value, onSave, fullWidth, required, max }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   fullWidth?: boolean
   required?: boolean
+  /** 選択可能な上限日（YYYY-MM-DD）。検討期間区分による回答予定日の制約等に使う。 */
+  max?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -379,6 +381,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required }: {
         <input
           ref={inputRef}
           type="date"
+          max={max}
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onClick={() => { try { inputRef.current?.showPicker?.() } catch { /* unsupported */ } }}

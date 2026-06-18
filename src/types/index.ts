@@ -110,6 +110,7 @@ export type CaseRow = {
   meeting_date: string | null
   meeting_executed_date: string | null      // migration 049: 面談実施日
   client_response_due_date: string | null   // migration 049: お客様回答予定日
+  consideration_period: string | null        // migration 092: 検討期間区分(1週間/2週間/1ヶ月/見込み不明)
   order_received_date: string | null
   lost_reason: string | null
   // 受注内容追加
@@ -179,6 +180,8 @@ export type CaseRow = {
   hearing_content: string | null
   special_notes: string | null
   other_needs: string | null
+  // 相続ステーション連携：紹介元の屋号管理番号（例：KN02）
+  referral_partner_number: string | null
   // 面談内容（面談で聞き取った内容のメモ・備考。事前情報とは別）
   meeting_hearing_memo: string | null
   meeting_other_notes: string | null

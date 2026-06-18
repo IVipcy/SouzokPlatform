@@ -10,6 +10,7 @@ import {
 import {
   LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
+  CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -45,6 +46,15 @@ type Props = {
 export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [], contractProcDone = true }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
+  }
+
+  // 検討期間区分を選ぶ → 回答予定日を「今日＋期間」を上限にそろえる（見込み不明は上限なし）
+  const selectPeriod = async (p: string | null) => {
+    const period = p || null
+    const max = considerationDueMax(period)
+    const patch: Partial<CaseRow> = { consideration_period: period }
+    if (max && (!caseData.client_response_due_date || caseData.client_response_due_date > max)) patch.client_response_due_date = max
+    await patchCase(patch)
   }
 
   // 受注区分（単一）を選ぶ → その区分の業務・作業を全て自社で初期セット（区分変更時は入れ直し）
@@ -94,7 +104,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="面談予定日"        value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
           <InlineDate label="面談実施日"        value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
           <InlineSelect label="面談場所"        value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
-          <InlineDate label="お客様回答予定日"  value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} />
+          <InlineSelect label="検討期間" value={caseData.consideration_period} options={[...CONSIDERATION_PERIODS]} onSave={v => selectPeriod(v)} />
+          <InlineDate label="お客様回答予定日"  value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
           <InlineEdit label="伺い先住所"        value={caseData.visit_address}            onSave={v => saveCaseField('visit_address', v)} fullWidth />
           <InlineEdit label="伺い先補足"        value={caseData.visit_notes}              onSave={v => saveCaseField('visit_notes', v)} fullWidth />
         </FieldGrid>
