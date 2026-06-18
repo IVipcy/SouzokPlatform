@@ -11,7 +11,8 @@ import {
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
+import ContractReceivedDocs from './ContractReceivedDocs'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -21,6 +22,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時は金融機関表の「請求日・到着日」を出さない
   orderSheetMode?: boolean
+  // 契約残手続きの書類（区分=財産 を「契約時受領」として表示）
+  contractDocuments?: ContractDocumentRow[]
 }
 
 /**
@@ -36,7 +39,7 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'insurance', label: '生命保険' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [] }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -45,6 +48,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
   return (
     <div className="space-y-3.5">
+      {/* 契約時にお客様から受領した財産関係書類（区分=財産）。自社請求分は各表で管理。 */}
+      <ContractReceivedDocs documents={contractDocuments} category="財産" title="契約時にお客様から受領した財産関係書類" />
+
       {/* 財産調査全般（固定表示） */}
       <Section title="調査条件・財産目録">
         <FieldGrid>

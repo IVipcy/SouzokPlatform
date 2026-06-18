@@ -5,11 +5,12 @@ import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, HeirRow, KosekiRequestRow } from '@/types'
+import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow } from '@/types'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
+import ContractReceivedDocs from './ContractReceivedDocs'
 import { SubTabs } from '@/components/ui/SubTabs'
 import {
   Section,
@@ -28,6 +29,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時は戸籍請求の進捗列（請求日・到着日）を出さない
   orderSheetMode?: boolean
+  // 契約残手続きの書類（区分=戸籍 を「契約時受領」として表示）
+  contractDocuments?: ContractDocumentRow[]
 }
 
 const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
@@ -51,7 +54,7 @@ const emptyHeirForm = () => ({
   is_applicant: false,
 })
 
-export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [] }: Props) {
   const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
@@ -166,6 +169,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   return (
     <div>
+      {/* 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。自社請求分は下の戸籍請求で管理。 */}
+      <ContractReceivedDocs documents={contractDocuments} category="戸籍" title="契約時にお客様から受領した戸籍関係書類" />
+
       {/* 子タブ（相続人 / 戸籍請求） */}
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
 

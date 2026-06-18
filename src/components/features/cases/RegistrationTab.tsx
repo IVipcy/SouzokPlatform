@@ -5,7 +5,8 @@ import { Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
-import type { CaseRow, RealEstatePropertyRow } from '@/types'
+import ContractReceivedDocs from './ContractReceivedDocs'
+import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 const TITLE_CHANGE_OPTIONS = ['要', '不要', '確認中']
 
@@ -14,6 +15,8 @@ type Props = {
   properties: RealEstatePropertyRow[]
   onRefresh?: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  // 契約残手続きの書類（区分=登記 を「契約時受領」として表示）
+  contractDocuments?: ContractDocumentRow[]
 }
 
 /**
@@ -21,7 +24,7 @@ type Props = {
  * 財産調査の不動産を表示し、名義変更要否＋任意の可変列（案件単位で列を追加）を管理する。
  * 不動産の追加・削除は財産調査タブで行う。
  */
-export default function RegistrationTab({ caseData, properties, onRefresh, patchCase }: Props) {
+export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   // 財産調査で不動産が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
@@ -70,14 +73,18 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg px-4 py-10 text-center text-[13px] text-gray-400">
-        財産調査タブで不動産を登録すると、ここで名義変更要否などを管理できます。
+      <div className="space-y-3.5">
+        <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
+        <div className="bg-white border border-gray-200 rounded-lg px-4 py-10 text-center text-[13px] text-gray-400">
+          財産調査タブで不動産を登録すると、ここで名義変更要否などを管理できます。
+        </div>
       </div>
     )
   }
 
   return (
-    <div>
+    <div className="space-y-3.5">
+      <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1360 }}>
           <thead>
