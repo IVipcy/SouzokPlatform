@@ -20,8 +20,9 @@ export default function DocsTab({ caseData, documents }: Props) {
       <CaseDocumentTable
         caseId={caseData.id}
         rows={documents}
-        title="書類一覧"
-        subtitle="この案件に紐づく書類のファイル管理"
+        title="到着物一覧"
+        subtitle="この案件に紐づく到着物（お客様から届く書類）のファイル管理"
+        noun="到着物"
       />
     </div>
   )

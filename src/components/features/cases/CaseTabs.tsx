@@ -33,12 +33,14 @@ const TAB_LABELS: Record<TabKey, string> = {
   registration: '相続登記',
   cancellation: '解約手続',
   trust: '信託契約',
+  // 到着物=お客様から届く書類（受信簿）。書類作成=自社で作る書類。
+  // ※ docs ラベルは「到着物」。documentCreate は「書類作成」。
   renunciation: '相続放棄',
   mediation: '調停',
   probate: '遺言検認',
   guardianship: '成年後見',
   contract: '報酬・請求',
-  docs: '書類',
+  docs: '到着物',
   documentCreate: '書類作成',
   tasks: 'タスク',
   history: '履歴',

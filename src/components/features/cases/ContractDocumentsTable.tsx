@@ -93,11 +93,11 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連書類が登録されていません</td></tr>
+              <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  <Cell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} placeholder="書類名" />
+                  <Cell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} placeholder="到着物名" />
                   <td className="px-2.5 py-1.5">
                     <select value={r.status ?? ''} onChange={e => saveNow(r.id, 'status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       <option value="">—</option>
@@ -127,7 +127,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
         </button>
         {rows.length === 0 && (
           <button type="button" onClick={addDefaults} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700 disabled:opacity-50">
-            既定の書類をまとめて追加
+            既定の到着物をまとめて追加
           </button>
         )}
         {hiddenCount > 0 && (

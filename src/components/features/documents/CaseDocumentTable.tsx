@@ -19,6 +19,8 @@ type Props = {
   /** 「+書類を追加」で挿入する行に紐づけるタスクID。
    *  タスク詳細から作成する際に渡すと、クロスタスクで参照可能になる。 */
   defaultTaskId?: string | null
+  /** 表示名詞（お客様から届くものは「到着物」、汎用は「書類」）。既定は「書類」。 */
+  noun?: string
 }
 
 // 1レコードあたりの「代表ファイル」を取得（受領 > 自社控え の優先順）
@@ -48,7 +50,7 @@ function fmtDate(iso: string | null): string {
  *   - 書類名 / ファイル更新日 / ファイル(プレビュー or DL) の3列のみ
  *   - 状態フィルタや発送/受領カラムは廃止
  */
-export default function CaseDocumentTable({ caseId, rows, title, subtitle, defaultTaskId = null }: Props) {
+export default function CaseDocumentTable({ caseId, rows, title, subtitle, defaultTaskId = null, noun = '書類' }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [adding, setAdding] = useState(false)
@@ -96,7 +98,7 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, defau
           </colgroup>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-[12px]">
-              <th className="px-3 py-2 text-left font-semibold">書類名</th>
+              <th className="px-3 py-2 text-left font-semibold">{noun}名</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル更新日</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル</th>
               <th className="px-2 py-2" />
@@ -106,7 +108,7 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, defau
             {rows.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-[13px]">
-                  まだ書類が登録されていません。下の「+ 書類を追加」から登録できます。
+                  まだ{noun}が登録されていません。下の「+ {noun}を追加」から登録できます。
                 </td>
               </tr>
             )}
@@ -125,10 +127,10 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, defau
           className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded disabled:opacity-50"
         >
           {adding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-          書類を追加
+          {noun}を追加
         </button>
         <span className="text-[11px] text-gray-400">
-          書類名はクリックで編集、ファイルは {ACCEPTED_EXT_LABEL} をアップロード可
+          {noun}名はクリックで編集、ファイルは {ACCEPTED_EXT_LABEL} をアップロード可
         </span>
       </div>
     </div>
@@ -239,7 +241,7 @@ function DocumentNameCell({ value, onSave, disabled }: {
       className="text-left w-full px-2 py-1 rounded text-[13px] text-gray-800 hover:bg-brand-50/40 transition-colors disabled:opacity-60"
       title="クリックして編集"
     >
-      {value || <span className="text-gray-300 italic">書類名未設定</span>}
+      {value || <span className="text-gray-300 italic">名称未設定</span>}
     </button>
   )
 }

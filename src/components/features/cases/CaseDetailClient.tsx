@@ -15,7 +15,8 @@ import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
-import DocsBundleTab from './DocsBundleTab'
+import DocsTab from './DocsTab'
+import DocumentCreateTab from './DocumentCreateTab'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
@@ -65,7 +66,7 @@ type Props = {
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
 const TRIGGER_FIELDS = new Set(['status'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [] }: Props) {
   const router = useRouter()
@@ -326,7 +327,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'docs' && (
-        <DocsBundleTab caseData={caseState} documents={documents} tasks={tasks} heirs={heirs} properties={properties} />
+        <DocsTab caseData={caseState} documents={documents} />
+      )}
+      {effectiveTab === 'documentCreate' && (
+        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
       )}
 
       {/* 受託/検討中になったら初期対応タスクを確認（不要を外す・必要を追加） */}

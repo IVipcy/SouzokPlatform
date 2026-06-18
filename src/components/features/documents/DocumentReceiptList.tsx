@@ -67,7 +67,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
 
       {list.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-[13px] text-gray-400">
-          {tab === 'today' ? '本日到着の書類はありません。' : '過去日分の未処理書類はありません。'}
+          {tab === 'today' ? '本日到着の到着物はありません。' : '過去日分の未処理の到着物はありません。'}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">

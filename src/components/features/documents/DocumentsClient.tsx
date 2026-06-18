@@ -61,7 +61,7 @@ export default function DocumentsClient({ receipts, cases, currentMemberId, curr
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="書類名・案件で検索"
+                placeholder="到着物名・案件で検索"
                 className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
               />
             </div>

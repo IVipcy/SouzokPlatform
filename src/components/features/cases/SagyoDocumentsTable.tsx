@@ -79,7 +79,7 @@ export default function SagyoDocumentsTable({ caseId, gyomu, sagyou, documents, 
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[11.5px] text-gray-500">
-              <th className="px-2.5 py-1.5 text-left font-semibold w-52">書類</th>
+              <th className="px-2.5 py-1.5 text-left font-semibold w-52">到着物</th>
               <th className="px-2.5 py-1.5 text-left font-semibold w-40">請求先</th>
               <th className="px-2.5 py-1.5 text-left font-semibold w-32">請求日</th>
               <th className="px-2.5 py-1.5 text-left font-semibold w-32">受領日</th>
@@ -90,11 +90,11 @@ export default function SagyoDocumentsTable({ caseId, gyomu, sagyou, documents, 
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-3 text-center text-[12px] text-gray-400">必要書類はまだありません</td></tr>
+              <tr><td colSpan={7} className="px-3 py-3 text-center text-[12px] text-gray-400">必要な到着物はまだありません</td></tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  <TextCell value={r.name} onCommit={v => saveNow(r.id, { name: v || null })} placeholder="書類名" />
+                  <TextCell value={r.name} onCommit={v => saveNow(r.id, { name: v || null })} placeholder="到着物名" />
                   <TextCell value={r.requested_to} onCommit={v => saveNow(r.id, { requested_to: v || null })} placeholder="請求先" />
                   <DateCell value={r.requested_date} onCommit={v => saveNow(r.id, { requested_date: v || null })} />
                   <DateCell value={r.received_date} onCommit={v => saveNow(r.id, { received_date: v || null })} />
@@ -124,7 +124,7 @@ export default function SagyoDocumentsTable({ caseId, gyomu, sagyou, documents, 
         </table>
       </div>
       <button type="button" onClick={addRow} disabled={busy} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
-        <Plus className="w-3.5 h-3.5" /> 書類を追加
+        <Plus className="w-3.5 h-3.5" /> 到着物を追加
       </button>
     </div>
   )

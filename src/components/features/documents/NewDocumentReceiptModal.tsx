@@ -170,7 +170,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       .insert(docRows)
       .select('id')
     if (docErr || !createdDocs || createdDocs.length !== validItems.length) {
-      setError(`書類（受領書類）の作成に失敗しました: ${docErr?.message ?? ''}`)
+      setError(`到着物の作成に失敗しました: ${docErr?.message ?? ''}`)
       setSaving(false)
       return
     }
@@ -217,14 +217,14 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         member_id: m.member_id,
         type: 'doc_received',
         case_id: selectedCaseId,
-        title: '書類が届きました',
+        title: '到着物が届きました',
         body: `${itemNames}${selectedCase ? `（${selectedCase.deal_name}）` : ''}`,
       }))
       await supabase.from('notifications').insert(notifRows)
     }
 
     setSaving(false)
-    showToast('書類受信を登録しました', 'success')
+    showToast('到着物の受信を登録しました', 'success')
     onSaved()
     handleClose()
   }
@@ -233,7 +233,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="書類受信を登録"
+      title="到着物の受信を登録"
       maxWidth="max-w-2xl"
       footer={
         <>
@@ -371,7 +371,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                       onChange={e => updateItem(it.key, { linked: e.target.value })}
                       className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400"
                     >
-                      <option value="">紐づけなし（書類として保存のみ）</option>
+                      <option value="">紐づけなし（到着物として保存のみ）</option>
                       {groupedDeliverables.map(([group, opts]) => (
                         <optgroup key={group} label={group}>
                           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -386,7 +386,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         </div>
 
         <p className="text-[11px] text-gray-400">
-          受領した物はすべて案件の「書類」タブに受領書類として保存されます（PDFは書類タブで添付）。受領待ち項目（戸籍・残高証明・契約書類など）に紐づけると、W-Check完了（受信確定）時に各タブの受領日へ反映されます。
+          受領した物はすべて案件の「到着物」タブに保存されます（PDFは到着物タブで添付）。受領待ち項目（戸籍・残高証明・契約書類など）に紐づけると、W-Check完了（受信確定）時に各タブの受領日へ反映されます。
         </p>
         <p className="text-[11px] text-gray-400">
           登録後、一覧で「W-Check（受信確定）」→ 必要なら「タスクに着手」の順に進めます。タスク不要な受信はW-Checkだけで完了です。

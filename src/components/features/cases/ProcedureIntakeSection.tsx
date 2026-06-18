@@ -59,7 +59,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-              <th className="px-2.5 py-2 text-left font-semibold w-56">書類</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
@@ -69,7 +69,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
           <tbody>
             {docs.map((d, i) => (
               <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                <Cell value={d.name} onCommit={v => setDoc(i, { name: v })} placeholder="書類名" />
+                <Cell value={d.name} onCommit={v => setDoc(i, { name: v })} placeholder="到着物名" />
                 <SelectCell value={d.status} options={DOC_STATUS} onChange={v => setDoc(i, { status: v })} />
                 <DateCell value={d.arrival_date} onCommit={v => setDoc(i, { arrival_date: v || null })} />
                 <Cell value={d.note} onCommit={v => setDoc(i, { note: v })} placeholder="例：実印分は後日、料金 等" />
@@ -82,7 +82,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
         </table>
       </div>
       <button type="button" onClick={() => onSave([...docs, { name: '', status: '', arrival_date: null, note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-        <Plus className="w-3.5 h-3.5" /> 書類を追加
+        <Plus className="w-3.5 h-3.5" /> 到着物を追加
       </button>
     </>
   )
@@ -210,7 +210,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
 
   return (
     <Section title="手続き詳細">
-      <div className="mb-2 text-[12px] font-bold text-gray-500">① 受領書類（その場で何をもらい、何が後日来るか）</div>
+      <div className="mb-2 text-[12px] font-bold text-gray-500">① 到着物（その場で何をもらい、何が後日来るか）</div>
       <div className="mb-5">
         <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
       </div>
