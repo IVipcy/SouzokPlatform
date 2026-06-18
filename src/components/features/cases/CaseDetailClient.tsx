@@ -183,6 +183,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // 管理担当アサイン済か（対応中ガード用）
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
+  // 受注担当（進捗確認依頼の確認者の既定）
+  const salesMemberId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   // 初期対応タスク（受託時に生成される system / category=初期対応）が全完了か（対応中ガード用）
   const initialTasksDone = isInitialTasksDone(tasks)
   // 契約残手続き（契約関連書類）が全受信済か（対応中ガード用）
@@ -280,7 +282,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
       )}
       {effectiveTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} contractProcDone={contractProcDone} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} />
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />

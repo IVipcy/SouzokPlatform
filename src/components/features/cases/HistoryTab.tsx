@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
@@ -16,19 +17,25 @@ type Props = {
   caseData: CaseRow
   allMembers: MemberRow[]
   currentMemberId: string | null
+  /** 確認者の既定値（受注担当）。 */
+  defaultConfirmerId?: string | null
 }
 
 /**
  * 進捗報告・メモ（案件進捗タブの子タブ）。
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
+ * 進捗確認の依頼は管理担当マイページだけでなく、ここからも出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, defaultConfirmerId }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
   const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
   const [loading, setLoading] = useState(true)
+  // 進捗確認の依頼（確認者の選択＋依頼）
+  const [confirmerId, setConfirmerId] = useState<string>(defaultConfirmerId ?? '')
+  const [requesting, setRequesting] = useState(false)
 
   const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
 
@@ -72,6 +79,35 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
+  // 進捗確認を依頼（管理担当マイページと同じ：progress_reports へ依頼中で登録＋確認者へ通知）
+  const handleRequestReview = async () => {
+    if (!confirmerId) { showToast('確認者を選択してください', 'error'); return }
+    if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
+    setRequesting(true)
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const { error } = await supabase.from('progress_reports').insert({
+      case_id: caseData.id,
+      requester_id: currentMemberId,
+      confirmer_id: confirmerId,
+      status: '依頼中',
+      requested_date: today,
+    })
+    if (!error) {
+      await supabase.from('notifications').insert({
+        member_id: confirmerId,
+        type: 'progress_review_requested',
+        case_id: caseData.id,
+        title: '進捗確認の依頼',
+        body: `${caseData.case_number} ${caseData.deal_name} の進捗確認を依頼されました`,
+      })
+    }
+    setRequesting(false)
+    if (error) { showToast('依頼に失敗しました', 'error'); return }
+    showToast('進捗確認を依頼しました', 'success')
+    fetchActivities()
+  }
+
   // メモ一覧（活動履歴のうち手入力メモのみ。タスク着手/完了・ステータス変更は
   // タイムラインに統合したため、ここでは表示しない）
   const notes = activities
@@ -82,7 +118,27 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     <div className="space-y-5">
       {/* 進捗報告 */}
       <div>
-        <div className="mb-2 text-[13px] font-bold text-gray-700">進捗報告</div>
+        <div className="mb-2 flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] font-bold text-gray-700">進捗報告</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <select
+              value={confirmerId}
+              onChange={e => setConfirmerId(e.target.value)}
+              className="px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400 max-w-[160px]"
+            >
+              <option value="">確認者を選択</option>
+              {allMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={handleRequestReview}
+              disabled={requesting || !confirmerId}
+              className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50"
+            >
+              {requesting ? '依頼中...' : '進捗確認を依頼'}
+            </button>
+          </div>
+        </div>
         {progressReports.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
         ) : (
