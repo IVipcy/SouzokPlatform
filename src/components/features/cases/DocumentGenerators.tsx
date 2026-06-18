@@ -11,6 +11,7 @@ import IninjoDocumentModal from './IninjoDocumentModal'
 import KeiyakuDocumentModal from './KeiyakuDocumentModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
 import KakuteiInvoiceModal from './KakuteiInvoiceModal'
+import EnvelopeDocumentModal from './EnvelopeDocumentModal'
 
 type Props = {
   caseData: CaseRow
@@ -42,7 +43,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）＋立替実費明細', description: '報酬＋立替実費－前受金。確定請求書と立替明細を1ファイル2シートで出力', status: 'ready' },
   { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
-  { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '宛先・差出人情報をセット', status: 'planned' },
+  { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '依頼者の郵便番号・住所・宛名を流し込み（差出人はテンプレ既設）', status: 'ready' },
 ]
 
 export default function DocumentGenerators({ caseData, tasks, heirs, properties, contractDocuments = [], defaultTaskId, onGenerated }: Props) {
@@ -55,6 +56,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
   const invoiceModal = useModal()
   const receiptModal = useModal()
   const kakuteiModal = useModal()
+  const envelopeModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
@@ -66,6 +68,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
     else if (key === 'invoice_advance') invoiceModal.open()
     else if (key === 'receipt') receiptModal.open()
     else if (key === 'invoice_final') kakuteiModal.open()
+    else if (key === 'envelope') envelopeModal.open()
   }
 
   return (
@@ -184,6 +187,14 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
       <KakuteiInvoiceModal
         isOpen={kakuteiModal.isOpen}
         onClose={() => { kakuteiModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        tasks={tasks}
+        defaultTaskId={defaultTaskId}
+        onSaved={onGenerated}
+      />
+      <EnvelopeDocumentModal
+        isOpen={envelopeModal.isOpen}
+        onClose={() => { envelopeModal.close(); setSelectedKey(null) }}
         caseData={caseData}
         tasks={tasks}
         defaultTaskId={defaultTaskId}

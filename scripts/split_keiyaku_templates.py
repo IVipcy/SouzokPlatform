@@ -27,6 +27,8 @@ VARIANTS = {
     4: ('rengo_zaicho_nashi', ['B52', 'C52', 'D52', 'E52', 'F52'], 55),
     5: ('gyosei_zaicho_ari',  ['B55', 'C55', 'D55', 'E55', 'F55'], 55),
     6: ('tanpoku_yuigon',     ['B47', 'C47', 'D47', 'E47', 'F47'], 55),
+    21: ('ichiritsu', [], 51),            # 契約書（1％）。AY以降の業務マスタ・別紙メモを除去
+    22: ('shikkou',   ['C4'], 67),        # 契約書（執行）。C4のサンプル被相続人名を除去、BO以降が枠外
 }
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -38,6 +40,7 @@ for idx, (key, strip_cells, off_col) in VARIANTS.items():
         if s is not target:
             wb.remove(s)
     ws = wb.worksheets[0]
+    ws.sheet_state = 'visible'  # 元が非表示の様式があるため可視化
 
     # 単独遺言: 受任者署名の IF を行政書士リテラルに解決
     if key == 'tanpoku_yuigon':

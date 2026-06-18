@@ -59,6 +59,20 @@ export const KEIYAKU_VARIANTS: KeiyakuVariant[] = [
     fields: { address: 'AF31', building: 'AF32', name: 'AF34', bodyClientName: 'D9' },
     stamps: [{ law: 'gyosei', cell: 'AP40' }],
   },
+  {
+    key: 'ichiritsu',
+    label: '1％（行・司連名）',
+    group: 'その他',
+    fields: { address: 'AF35', name: 'AF38' },
+    stamps: [{ law: 'gyosei', cell: 'AP42' }, { law: 'shiho', cell: 'AP46' }],
+  },
+  {
+    key: 'shikkou',
+    label: '遺言執行（行・司連名）',
+    group: 'その他',
+    fields: { address: 'BA14', name: 'BA16' },
+    stamps: [{ law: 'gyosei', cell: 'BG19' }, { law: 'shiho', cell: 'BG23' }],
+  },
 ]
 
 export function getKeiyakuVariant(key: string): KeiyakuVariant | undefined {
