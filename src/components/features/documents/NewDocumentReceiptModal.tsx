@@ -362,16 +362,18 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                {/* 反映先（任意）: 案件の受領待ち項目に紐づけると、受信確定時に受領日が反映される */}
+                {/* 契約残手続きの「受信待ち」項目への紐づけ（任意）。紐づけると受信確定時に受領日が反映される */}
                 {selectedCaseId && deliverables.length > 0 && (
-                  <div className="flex items-center gap-1.5 pl-0.5">
-                    <span className="text-[11px] text-gray-400 shrink-0">反映先（どの受領待ち項目か）</span>
+                  <div className="pl-3 border-l-2 border-gray-100 ml-0.5">
+                    <label className="block text-[12px] font-semibold text-gray-600 mb-1">
+                      ↳ この到着物は何の受信待ち？ <span className="font-normal text-gray-400">（契約残手続きと紐づけ・任意）</span>
+                    </label>
                     <select
                       value={it.linked}
                       onChange={e => updateItem(it.key, { linked: e.target.value })}
-                      className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400"
+                      className="w-full px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
                     >
-                      <option value="">紐づけなし（到着物として保存のみ）</option>
+                      <option value="">紐づけない（到着物として保存するだけ）</option>
                       {groupedDeliverables.map(([group, opts]) => (
                         <optgroup key={group} label={group}>
                           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -385,11 +387,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
           </div>
         </div>
 
-        <p className="text-[11px] text-gray-400">
-          受領した物はすべて案件の「到着物」タブに保存されます（PDFは到着物タブで添付）。受領待ち項目（戸籍・残高証明・契約書類など）に紐づけると、W-Check完了（受信確定）時に各タブの受領日へ反映されます。
-        </p>
-        <p className="text-[11px] text-gray-400">
-          登録後、一覧で「W-Check（受信確定）」→ 必要なら「タスクに着手」の順に進めます。タスク不要な受信はW-Checkだけで完了です。
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          到着物は案件の「到着物」タブに保存されます。受信待ちに紐づけると、登録後の <span className="font-semibold text-gray-500">W-Check（受信確定）</span> で各タブの受領日へ自動反映されます（タスク不要ならW-Checkだけで完了）。
         </p>
       </div>
     </Modal>
