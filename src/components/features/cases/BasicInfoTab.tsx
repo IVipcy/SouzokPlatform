@@ -29,13 +29,15 @@ type Props = {
   managerAssigned?: boolean
   // 契約残手続き（契約書類受信）完了か（対応中ガード用）
   contractProcDone?: boolean
-  // 進捗確認依頼の確認者の既定（受注担当）
+  // 進捗確認依頼の確認者＝受注担当
   salesMemberId?: string | null
+  // 進捗確認を依頼できるか（この案件の管理担当のみ）
+  canRequestReview?: boolean
 }
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractProcDone = true, salesMemberId = null }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -120,7 +122,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
       {/* 進捗報告・メモ（進捗報告＋進捗メモを縦並び。基本情報はヘッダーへ移設） */}
       {sub === 'history' && (
-        <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} defaultConfirmerId={salesMemberId} />
+        <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={canRequestReview} />
       )}
     </div>
   )
