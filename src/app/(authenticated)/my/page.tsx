@@ -559,7 +559,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             <MeetingKpi label="不動産査定" value={salesMetrics.propertyAppraisalCount} suffix="件" />
           </div>
 
-          <ConsultationCasesTable cases={consultRows} />
+          <ConsultationCasesTable cases={consultRows} selectable />
         </div>
       )}
 
@@ -567,7 +567,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {activeTab === 'cases' && (
         <div>
           <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
-          <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} />
+          <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} selectable />
         </div>
       )}
 
@@ -602,6 +602,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
             manager_name: managerByCase.get(c.id) ?? null,
           }))}
+          selectable
         />
       )}
 

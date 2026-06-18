@@ -47,8 +47,10 @@ export type ConsultCase = {
 
 type Props = {
   cases: ConsultCase[]
-  /** 案件管理ページ用。チーム・受注担当列の表示＋チェックボックス選択・一括削除を有効化 */
+  /** 案件管理ページ用。チーム・受注担当列の表示＋（既定で）選択・一括削除を有効化 */
   manageMode?: boolean
+  /** チェック選択＋一括削除を有効化（未指定なら manageMode に従う）。マイページでも選択可にするため独立。 */
+  selectable?: boolean
 }
 
 // 相談案件のステータス絞り込み候補（受注担当が受託に至るまでのステータス）
@@ -72,8 +74,10 @@ const formatMan = (yen: number): string => {
  * - お客様回答予定日が迫っている案件を上から順に表示（デフォルト）
  * - ステータスでフィルタ可能
  */
-export default function ConsultationCasesTable({ cases, manageMode = false }: Props) {
+export default function ConsultationCasesTable({ cases, manageMode = false, selectable }: Props) {
   const router = useRouter()
+  // 選択UIの有効化。未指定なら manageMode に従う（案件管理ページ）。マイページは selectable で個別に有効化。
+  const canSelect = selectable ?? manageMode
   // 案件管理（manageMode）は案件作成日の降順を既定に。マイページは従来どおり回答予定日順。
   const [sortKey, setSortKey] = useState<SortKey>(manageMode ? 'created' : 'response_due')
   const [sortOrder, setSortOrder] = useState<SortOrder>(manageMode ? 'desc' : 'asc')
@@ -194,7 +198,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
             ))}
           </div>
         )}
-        {manageMode && selected.size > 0 ? (
+        {canSelect && selected.size > 0 ? (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>
             <button
@@ -229,7 +233,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
           <table className="w-full text-[13px]">
             <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
               <tr>
-                {manageMode && (
+                {canSelect && (
                   <th className="px-3 py-2 text-center font-bold w-10">
                     <input
                       type="checkbox"
@@ -272,7 +276,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false }: Pr
                 const isSelected = selected.has(c.id)
                 return (
                   <tr key={c.id} className={`hover:bg-gray-50/60 ${isSelected ? 'bg-brand-50/50' : dueOverdue ? 'bg-red-50/40' : ''}`}>
-                    {manageMode && (
+                    {canSelect && (
                       <td className="px-3 py-2.5 text-center">
                         <input
                           type="checkbox"
