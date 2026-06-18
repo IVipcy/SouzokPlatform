@@ -3,7 +3,10 @@
 
 import type { TabKey } from '@/components/features/cases/CaseTabs'
 
-export const ORDER_CATEGORIES = ['手続き一式','登記','遺言','信託','放棄','調停','検認','後見','契約書','執行'] as const
+// 「紹介のみ」は自社手続きなしの区分（業務・作業は持たず、他事業者紹介で紹介先を埋める）。
+export const ORDER_CATEGORIES = ['手続き一式','登記','遺言','信託','放棄','調停','検認','後見','契約書','執行','紹介のみ'] as const
+// 自社で行う相続手続きが無い区分（業務・作業を出さず、紹介先入力に切り替える）
+export const REFERRAL_ONLY_CATEGORY = '紹介のみ'
 export type OrderCategory = (typeof ORDER_CATEGORIES)[number]
 
 export const GYOMU_TAB: Record<string, TabKey | undefined> = {

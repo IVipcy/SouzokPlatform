@@ -13,7 +13,7 @@ import {
   LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
 } from '@/lib/constants'
-import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
+import { ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
 import { IntakeRolesEditor, IntakeDocsEditor, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
@@ -524,25 +524,36 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
           <Card label="受注区分（1つ選択）"><Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} /></Card>
-          <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
-            {data.serviceCategory ? (
-              <>
-                <p className="text-[12px] text-gray-400 mb-2">受注区分の業務が全選択で表示されます。やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
-                <IntakeRolesEditor
-                  roles={data.intakeRoles}
-                  onSave={v => update('intakeRoles', v)}
-                  gyomuOptions={gyomuFor(data.serviceCategory)}
-                  presetFor={g => tasksFor(data.serviceCategory, g).map(t => t.task)}
-                />
-              </>
-            ) : (
-              <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
-            )}
-          </Card>
+          {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
+            // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
+            <Card label="紹介先（自社手続きはありません）">
+              <p className="text-[12px] text-gray-400 mb-2">紹介のみは自社で行う相続手続きはありません。専門家への紹介先を選んでください（法人名・紹介日・見込み報酬などの詳細は案件詳細の「他事業者紹介」タブで入力）。</p>
+              <Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi />
+            </Card>
+          ) : (
+            <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
+              {data.serviceCategory ? (
+                <>
+                  <p className="text-[12px] text-gray-400 mb-2">受注区分の業務が全選択で表示されます。やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
+                  <IntakeRolesEditor
+                    roles={data.intakeRoles}
+                    onSave={v => update('intakeRoles', v)}
+                    gyomuOptions={gyomuFor(data.serviceCategory)}
+                    presetFor={g => tasksFor(data.serviceCategory, g).map(t => t.task)}
+                  />
+                </>
+              ) : (
+                <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
+              )}
+            </Card>
+          )}
           <Card label="契約手続き（契約関連書類の受け取り）">
             <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
           </Card>
-          <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
+          {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
+          {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
+            <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
+          )}
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>

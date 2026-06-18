@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Section, FieldGrid, InlineEdit, InlineSelect } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
-import { ORDER_CATEGORIES, gyomuFor, tasksFor } from '@/lib/serviceMaster'
+import { ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, gyomuFor, tasksFor } from '@/lib/serviceMaster'
 import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow } from '@/types'
 
@@ -48,8 +48,10 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
         </FieldGrid>
       </Section>
 
-      <Section title="業務・役割分担（自社 / 依頼者 どちらが行うか）">
-        {orderCategory ? (
+      <Section title={orderCategory === REFERRAL_ONLY_CATEGORY ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
+        {orderCategory === REFERRAL_ONLY_CATEGORY ? (
+          <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は「他事業者紹介」タブで入力してください。</p>
+        ) : orderCategory ? (
           <>
             <p className="text-[12px] text-gray-400 mb-2">受注区分の業務が全選択で表示されます。やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
             <IntakeRolesEditor
