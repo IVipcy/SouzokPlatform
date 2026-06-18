@@ -238,7 +238,9 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
 function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: string) => void; placeholder?: string }) {
   return (
     <td className="px-2.5 py-1.5">
+      {/* key={value}: 非制御入力なので、削除・再シードで行がずれても値で再マウントし表示ずれ（同一作業の重複表示）を防ぐ */}
       <input
+        key={value}
         type="text"
         defaultValue={value}
         onBlur={e => { if (e.target.value !== value) onCommit(e.target.value) }}
