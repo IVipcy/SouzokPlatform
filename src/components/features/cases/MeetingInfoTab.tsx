@@ -10,7 +10,7 @@ import {
 import {
   LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax,
+  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -125,7 +125,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
       {/* ③ 面談内容 */}
       <Section title="面談内容">
         <FieldGrid>
-          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth />
+          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth placeholder={HEARING_MEMO_SAMPLE} />
           <InlineSelect
             label="受注区分"
             value={caseData.service_category}

@@ -564,11 +564,12 @@ export function InlineCheckbox({ label, value, onSave }: {
 }
 
 // ─── InlineTextarea ───
-export function InlineTextarea({ label, value, onSave, fullWidth }: {
+export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   fullWidth?: boolean
+  placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -621,6 +622,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
             onCompositionStart={() => { composingRef.current = true }}
             onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
+            placeholder={placeholder}
             className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
           />
           <div className="text-[12px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
@@ -629,6 +631,8 @@ export function InlineTextarea({ label, value, onSave, fullWidth }: {
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-start gap-1.5 min-h-[24px]">
           {value ? (
             <span className="text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed">{value}</span>
+          ) : placeholder ? (
+            <span className="text-[12px] text-gray-300 whitespace-pre-wrap leading-relaxed">{placeholder}</span>
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}

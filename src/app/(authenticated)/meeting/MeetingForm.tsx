@@ -12,7 +12,7 @@ import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
-  CONSIDERATION_PERIODS, considerationDueMax,
+  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
@@ -558,7 +558,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       case 'meeting': return (
         <div className="max-w-[800px]">
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
-          <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder="面談で聞き取った内容" /></Card>
+          <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder={HEARING_MEMO_SAMPLE} /></Card>
           <Card label="受注区分（1つ選択）">
             <Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} />
             {data.serviceCategory === KENIN_CATEGORY && (
