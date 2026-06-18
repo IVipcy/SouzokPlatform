@@ -3,15 +3,18 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
-import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow } from '@/types'
+import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
+import MailingConfirmationModal from './MailingConfirmationModal'
 
 type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   heirs: HeirRow[]
   properties: RealEstatePropertyRow[]
+  contractDocuments?: ContractDocumentRow[]
+  onRefresh?: () => void
 }
 
 type DocumentItem = {
@@ -24,6 +27,7 @@ type DocumentItem = {
 }
 
 const DOCUMENTS: DocumentItem[] = [
+  { key: 'mailing_confirmation', category: '郵送', categoryColor: 'bg-cyan-50 text-cyan-700 border-cyan-200', title: '郵送書類確認票', description: '契約書と同封し、お客様に返送してもらう書類の確認票（契約残手続きから自動表示）', status: 'ready' },
   { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-brand-50 text-brand-700 border-brand-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
   { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
   { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（標準／簡易）', description: '甲乙丙の契約。契約形態と業務種別で自動切替', status: 'planned' },
@@ -35,10 +39,11 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '宛先・差出人情報をセット', status: 'planned' },
 ]
 
-export default function DocumentCreateTab({ caseData, tasks, heirs, properties }: Props) {
+export default function DocumentCreateTab({ caseData, tasks, heirs, properties, contractDocuments = [], onRefresh }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
+  const mailingModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
@@ -46,6 +51,8 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
       kosekiModal.open()
     } else if (key === 'fixed_asset_request') {
       fixedAssetModal.open()
+    } else if (key === 'mailing_confirmation') {
+      mailingModal.open()
     }
   }
 
@@ -116,6 +123,13 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties }
         onClose={() => { fixedAssetModal.close(); setSelectedKey(null) }}
         caseData={caseData}
         properties={properties}
+      />
+      <MailingConfirmationModal
+        isOpen={mailingModal.isOpen}
+        onClose={() => { mailingModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        contractDocuments={contractDocuments}
+        onSaved={onRefresh}
       />
     </div>
   )

@@ -330,7 +330,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DocsTab caseData={caseState} documents={documents} />
       )}
       {effectiveTab === 'documentCreate' && (
-        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} />
+        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
 
       {/* 受託/検討中になったら初期対応タスクを確認（不要を外す・必要を追加） */}
