@@ -11,7 +11,11 @@ docs/作成書類一覧（契約書・委任状・請求書・領収書）.xlsx 
 法定相続情報(7)のみ 代理人住所(G10) が VLOOKUP のため、行政書士法人オーシャンの住所リテラルに解決してから数式を消す。
 """
 import openpyxl
+from openpyxl.styles import Border, PatternFill
 import os
+
+NO_BORDER = Border()
+NO_FILL = PatternFill(fill_type=None)
 
 SRC = os.path.join('docs', '作成書類一覧（契約書・委任状・請求書・領収書）.xlsx')
 OUT_DIR = os.path.join('public', 'templates', 'ininjo')
@@ -46,13 +50,19 @@ for idx, key in VARIANTS.items():
     if key == 'houtei':
         ws['G10'] = GYOSEI_ADDR
 
-    # 数式セルと枠外列(Z=26以降)を除去。コメントも除去（ExcelJSが読めるよう rel 不整合を避ける）
+    # 枠外(Z=26以降)のマージを解除してから値・罫線・塗りを消す（空枠が残らないように）。
+    for mr in list(ws.merged_cells.ranges):
+        if mr.min_col >= 26:
+            ws.unmerge_cells(str(mr))
+
+    # 数式セルと枠外列を除去。コメントも除去（ExcelJSが読めるよう rel 不整合を避ける）。
     for row in ws.iter_rows():
         for c in row:
-            v = c.value
-            if isinstance(v, str) and v.startswith('='):
+            if c.column >= 26:
                 c.value = None
-            elif c.column >= 26 and v is not None:
+                c.border = NO_BORDER
+                c.fill = NO_FILL
+            elif isinstance(c.value, str) and c.value.startswith('='):
                 c.value = None
             if c.comment is not None:
                 c.comment = None

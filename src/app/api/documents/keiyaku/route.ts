@@ -96,9 +96,10 @@ export async function POST(request: NextRequest) {
         const imgBuf = await readFile(stampPath)
         const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
         const { col, row } = cellToColRow(st.cell)
+        // 代表者名の行に角印を重ねる。小さめにして上の住所行へはみ出さないようにする。
         ws.addImage(imageId, {
-          tl: { col, row: row - 0.2 } as ExcelJS.Anchor,
-          ext: { width: 72, height: 72 },
+          tl: { col, row: row - 0.1 } as ExcelJS.Anchor,
+          ext: { width: 48, height: 48 },
           editAs: 'oneCell',
         })
       } catch { /* 画像が無ければ押印スキップ */ }
