@@ -18,13 +18,14 @@ const ADD_CATEGORIES = ['初期対応', '契約手続き残']
 const INITIAL_TASK_KEYS: Record<string, string[]> = {
   受注: [
     'sys_order_sheet',
+    'sys_contract_send',
     'sys_case_handover',
     'sys_advance_invoice',
     'sys_advance_payment_confirm',
     'sys_initial_tasks_create',
   ],
   検討中: ['sys_review_status'],
-  '検討中（契約書待ち）': ['sys_review_status'],
+  '検討中（契約書待ち）': ['sys_review_status', 'sys_contract_send'],
 }
 
 type GenRow = { id: string; title: string; keep: boolean }
