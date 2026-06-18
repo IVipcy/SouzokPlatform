@@ -6,6 +6,7 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
+import { SubTabs } from '@/components/ui/SubTabs'
 import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
@@ -47,7 +48,10 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
     await patchClient({ [field]: value ?? null })
   }
 
-  return (
+  const [sub, setSub] = useState<'info' | 'history'>('info')
+
+  // 依頼者情報（一覧・住所・郵送・特徴・クレーム）。アコーディオンをやめ常に開く。
+  const infoSections = (
     <div className="space-y-3.5">
       {/* 0. 依頼者一覧（同行者含む・表形式） */}
       <Section title="依頼者一覧（同行者含む）">
@@ -55,7 +59,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       </Section>
 
       {/* 1. メイン依頼者の住所（書類・請求で使う正本。氏名/TEL/メール/連絡先希望/外字は上の表で管理） */}
-      <Section title="メイン依頼者の住所" collapsible defaultOpen={orderSheetMode}>
+      <Section title="メイン依頼者の住所">
         {caseData.client_id && client ? (
           <FieldGrid>
             <InlineEdit label="郵便番号" value={client.postal_code} onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))} />
@@ -67,7 +71,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       </Section>
 
       {/* 2. 郵送・書類設定（顧客郵送先＝依頼者住所/その他。依頼者住所ならメイン依頼者の住所を自動表示） */}
-      <Section title="郵送・書類設定" collapsible defaultOpen={orderSheetMode}>
+      <Section title="郵送・書類設定">
         <FieldGrid>
           <InlineSelect
             label="顧客郵送先"
@@ -83,8 +87,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         </FieldGrid>
       </Section>
 
-      {/* 3. 依頼者特徴（アコーディオン・既定で折りたたみ。OS埋め込み時は展開） */}
-      <Section title="依頼者特徴" collapsible defaultOpen={orderSheetMode}>
+      {/* 3. 依頼者特徴（常に展開） */}
+      <Section title="依頼者特徴">
         <div className="space-y-3">
           <div>
             <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴</div>
@@ -128,16 +132,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         </div>
       </Section>
 
-      {/* 4. やり取り履歴（オーダーシート埋め込み時は非表示） */}
-      {!orderSheetMode && (
-        <CommunicationsSection
-          caseId={caseData.id}
-          rows={clientCommunications}
-          onRefresh={onRefresh}
-        />
-      )}
-
-      {/* 5. クレーム（オーダーシート埋め込み時は非表示） */}
+      {/* クレーム（オーダーシート埋め込み時は非表示） */}
       {!orderSheetMode && (
       <Section title="クレーム">
         <div className="space-y-3">
@@ -165,6 +160,23 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
           />
         </div>
       </Section>
+      )}
+    </div>
+  )
+
+  // オーダーシート埋め込み時はサブタブなし（やり取り履歴も非表示）
+  if (orderSheetMode) return infoSections
+
+  return (
+    <div className="space-y-3.5">
+      <SubTabs
+        tabs={[{ key: 'info', label: '依頼者情報' }, { key: 'history', label: 'やり取り履歴' }]}
+        active={sub}
+        onChange={k => setSub(k as 'info' | 'history')}
+      />
+      {sub === 'info' && infoSections}
+      {sub === 'history' && (
+        <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
       )}
     </div>
   )
