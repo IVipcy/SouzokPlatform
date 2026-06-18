@@ -185,7 +185,7 @@ export default function MyTaskCreateButton({ currentMemberId }: { currentMemberI
                 onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               >
-                <option value="">（なし＝システムタスク）</option>
+                <option value="">（なし＝受注担当/管理担当タスク）</option>
                 {DB_PHASES.map(p => (
                   <option key={p} value={p}>{getPhaseLabel(p)}</option>
                 ))}

@@ -154,8 +154,8 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
                   {task.id.slice(0, 8)}
                 </span>
                 {isSystemTask ? (
-                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
-                    🤖 システムタスク
+                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                    受注担当/管理担当タスク
                   </span>
                 ) : (
                   <span
