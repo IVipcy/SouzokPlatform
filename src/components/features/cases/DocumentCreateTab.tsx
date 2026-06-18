@@ -10,6 +10,7 @@ import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 import MailingConfirmationModal from './MailingConfirmationModal'
 import IninjoDocumentModal from './IninjoDocumentModal'
 import KeiyakuDocumentModal from './KeiyakuDocumentModal'
+import InvoiceDocumentModal from './InvoiceDocumentModal'
 import CreatedDocsList from './CreatedDocsList'
 
 type Props = {
@@ -38,10 +39,10 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
   { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（連名／単独）', description: '契約形態×財産調査有無でFMTを切替。甲・被相続人を自動流し込み＋乙丙押印', status: 'ready' },
   { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '行/司/連名×業務でFMTを切替。委任者・被相続人を自動流し込み＋押印', status: 'ready' },
-  { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）', status: 'planned' },
+  { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）', description: '確定請求（報酬＋立替実費－前受金）', status: 'planned' },
   { key: 'expense_detail', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '立替実費明細書', description: '非課税／課税の2区分で明細を作成', status: 'planned' },
-  { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金／確定）', description: '前受金・確定分の領収書', status: 'planned' },
+  { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '宛先・差出人情報をセット', status: 'planned' },
 ]
 
@@ -53,6 +54,8 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
   const mailingModal = useModal()
   const ininjoModal = useModal()
   const keiyakuModal = useModal()
+  const invoiceModal = useModal()
+  const receiptModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
@@ -66,6 +69,10 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
       ininjoModal.open()
     } else if (key === 'contract') {
       keiyakuModal.open()
+    } else if (key === 'invoice_advance') {
+      invoiceModal.open()
+    } else if (key === 'receipt') {
+      receiptModal.open()
     }
   }
 
@@ -170,6 +177,22 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
         onClose={() => { keiyakuModal.close(); setSelectedKey(null) }}
         caseData={caseData}
         tasks={tasks}
+        onSaved={onRefresh}
+      />
+      <InvoiceDocumentModal
+        isOpen={invoiceModal.isOpen}
+        onClose={() => { invoiceModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        tasks={tasks}
+        docType="請求書"
+        onSaved={onRefresh}
+      />
+      <InvoiceDocumentModal
+        isOpen={receiptModal.isOpen}
+        onClose={() => { receiptModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        tasks={tasks}
+        docType="領収書"
         onSaved={onRefresh}
       />
     </div>
