@@ -47,7 +47,7 @@ export function clientReflectCandidates(roles: RoleRow[]): ReflectCandidate[] {
 // status/due は手続き系業務タブ（放棄/信託/調停/検認/後見）での進捗管理用（任意・JSONB）。
 export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null }
 
-const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
+const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得']
 const ROLE_OWNER = ['自社', '依頼者', '不要']
 
 // 業務の一覧（添付2ベース）。業務を選ぶと、その業務の定型作業が展開される。
@@ -77,10 +77,10 @@ const GYOMU_PRESET: Record<string, string[]> = {
 // 戸籍・財産系（通帳コピー・運用レポート・固定資産税通知書 等）はお客様ごとに違うため、
 // 自由入力で任意追加する（「到着物を追加」）。
 export const DEFAULT_DOCS: DocRow[] = [
-  { name: '契約書', status: '', arrival_date: null, note: '', category: '契約' },
-  { name: '委任状', status: '', arrival_date: null, note: '', category: '契約' },
-  { name: '本人確認書類', status: '', arrival_date: null, note: '', category: '契約' },
-  { name: '印鑑証明書', status: '', arrival_date: null, note: '', category: '契約' },
+  { name: '契約書', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
+  { name: '委任状', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
+  { name: '本人確認書類', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
+  { name: '印鑑証明書', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
 ]
 // 役割分担は業務を選択してから作業を展開するため、初期値は空。
 export const DEFAULT_ROLES: RoleRow[] = []
@@ -88,8 +88,24 @@ export const DEFAULT_ROLES: RoleRow[] = []
 // ─── ① 受領書類エディタ（再利用可能） ───
 export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (next: DocRow[]) => void }) {
   const setDoc = (i: number, patch: Partial<DocRow>) => onSave(docs.map((d, idx) => idx === i ? { ...d, ...patch } : d))
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkDate, setBulkDate] = useState('')
+  const applyBulk = () => {
+    if (!bulkStatus && !bulkDate) return
+    onSave(docs.map(d => ({ ...d, status: bulkStatus || d.status, arrival_date: bulkDate || d.arrival_date })))
+  }
   return (
     <>
+      {/* 一括設定：受領状況・到着予定日をまとめて全行に適用 */}
+      <div className="mb-2 flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5">
+        <span className="text-[11px] font-semibold text-gray-500">一括設定</span>
+        <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+          <option value="">受領状況…</option>
+          {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
+        <button type="button" onClick={applyBulk} disabled={!bulkStatus && !bulkDate} className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100 disabled:opacity-50">すべてに適用</button>
+      </div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
@@ -105,7 +121,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
             {docs.map((d, i) => (
               <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 <Cell value={d.name} onCommit={v => setDoc(i, { name: v })} placeholder="到着物名" />
-                <SelectCell value={d.status} options={DOC_STATUS} onChange={v => setDoc(i, { status: v })} />
+                <SelectCell value={d.status} options={DOC_STATUS} onChange={v => setDoc(i, { status: v })} noEmpty />
                 <DateCell value={d.arrival_date} onCommit={v => setDoc(i, { arrival_date: v || null })} />
                 <Cell value={d.note} onCommit={v => setDoc(i, { note: v })} placeholder="例：実印分は後日、料金 等" />
                 <td className="px-2.5 py-1.5 text-center">
@@ -116,7 +132,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
           </tbody>
         </table>
       </div>
-      <button type="button" onClick={() => onSave([...docs, { name: '', status: '', arrival_date: null, note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+      <button type="button" onClick={() => onSave([...docs, { name: '', status: '後日郵送', arrival_date: null, note: '' }])} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
         <Plus className="w-3.5 h-3.5" /> 到着物を追加
       </button>
     </>
@@ -318,11 +334,11 @@ function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: s
   )
 }
 
-function SelectCell({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+function SelectCell({ value, options, onChange, noEmpty }: { value: string; options: string[]; onChange: (v: string) => void; noEmpty?: boolean }) {
   return (
     <td className="px-2.5 py-1.5">
       <select value={value} onChange={e => onChange(e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-        <option value="">—</option>
+        {!noEmpty && <option value="">—</option>}
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </td>
