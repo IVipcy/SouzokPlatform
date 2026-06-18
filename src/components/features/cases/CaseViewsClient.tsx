@@ -183,8 +183,8 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
         </div>
       )}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
-      {view === 'referral' && <ReferralCasesTable cases={filteredReferral} />}
-      {view === 'lp' && <LpCasesTable cases={filteredLp} />}
+      {view === 'referral' && <ReferralCasesTable cases={filteredReferral} selectable />}
+      {view === 'lp' && <LpCasesTable cases={filteredLp} selectable />}
     </div>
   )
 }
