@@ -1,13 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trash2, Plus, Check } from 'lucide-react'
+import { Trash2, Plus, Check, ArrowDownToLine } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import type { CaseRow, ContractDocumentRow } from '@/types'
 
-export type DocRow = { name: string; status: string; arrival_date: string | null; note: string }
+export type DocRow = { name: string; status: string; arrival_date: string | null; note: string; category?: string }
+
+// 調査系の業務を「依頼者」担当にしたとき、契約時にお客様からまとめてもらう書類（契約残手続きへ反映）。
+// 業務(gyomu)単位で1書類にまとめる。解約・登記等の「依頼者が手続きする」系は対象外。
+export const SURVEY_GYOMU_DOC: Record<string, { name: string; category: string }> = {
+  '戸籍': { name: '戸籍一式（出生〜死亡・相続人の現在戸籍 等）', category: '戸籍' },
+  '不動産': { name: '不動産関係書類（固定資産税通知書・権利証 等）', category: '財産' },
+  '金融資産': { name: '金融資産資料（通帳コピー・残高がわかる資料 等）', category: '財産' },
+}
+// intake_roles から「依頼者にした調査系業務」→ もらう書類リスト（業務単位で重複排除）
+export function clientProvidedDocs(roles: RoleRow[]): { name: string; category: string }[] {
+  const seen = new Set<string>(); const out: { name: string; category: string }[] = []
+  for (const r of roles) {
+    const m = SURVEY_GYOMU_DOC[r.gyomu]
+    if (r.owner === '依頼者' && m && !seen.has(r.gyomu)) { seen.add(r.gyomu); out.push(m) }
+  }
+  return out
+}
 // 役割分担: 業務（例:登記）→ 紐づく作業（複数）→ 各作業を 自社/依頼者/不要 ＋ 備考
 // status/due は手続き系業務タブ（放棄/信託/調停/検認/後見）での進捗管理用（任意・JSONB）。
 export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null }
@@ -42,10 +61,10 @@ const GYOMU_PRESET: Record<string, string[]> = {
 // 戸籍・財産系（通帳コピー・運用レポート・固定資産税通知書 等）はお客様ごとに違うため、
 // 自由入力で任意追加する（「到着物を追加」）。
 export const DEFAULT_DOCS: DocRow[] = [
-  { name: '契約書', status: '', arrival_date: null, note: '' },
-  { name: '委任状', status: '', arrival_date: null, note: '' },
-  { name: '本人確認書類', status: '', arrival_date: null, note: '' },
-  { name: '印鑑証明書', status: '', arrival_date: null, note: '' },
+  { name: '契約書', status: '', arrival_date: null, note: '', category: '契約' },
+  { name: '委任状', status: '', arrival_date: null, note: '', category: '契約' },
+  { name: '本人確認書類', status: '', arrival_date: null, note: '', category: '契約' },
+  { name: '印鑑証明書', status: '', arrival_date: null, note: '', category: '契約' },
 ]
 // 役割分担は業務を選択してから作業を展開するため、初期値は空。
 export const DEFAULT_ROLES: RoleRow[] = []
@@ -209,6 +228,23 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
   const category = caseData.service_category ?? ''
   const cats = categoriesOf(caseData.service_category, caseData.service_category_2)
 
+  // 「依頼者」にした調査系業務（戸籍/不動産/金融資産）を、契約時にもらう到着物として契約残手続きへまとめて反映
+  const [reflecting, setReflecting] = useState(false)
+  const provided = clientProvidedDocs(roles)
+  const reflectToContract = async () => {
+    const existing = new Set((contractDocuments ?? []).map(d => (d.name ?? '').trim()))
+    const toAdd = provided.filter(d => !existing.has(d.name))
+    if (toAdd.length === 0) { showToast('追加する依頼者取得分はありません（反映済み）', 'info'); return }
+    setReflecting(true)
+    const base = contractDocuments?.length ?? 0
+    const payload = toAdd.map((d, i) => ({ case_id: caseData.id, name: d.name, category: d.category, status: '依頼者が取得', sort_order: base + i }))
+    const { error } = await createClient().from('contract_documents').insert(payload)
+    setReflecting(false)
+    if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
+    showToast(`${toAdd.length}件を契約残手続き（到着物）に反映しました`, 'success')
+    onRefresh?.()
+  }
+
   return (
     <Section title="手続き詳細">
       <div className="mb-2 text-[12px] font-bold text-gray-500">① 到着物（その場で何をもらい、何が後日来るか）</div>
@@ -229,6 +265,20 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
             gyomuOptions={cats.length ? gyomuForCategories(cats) : undefined}
             presetFor={cats.length ? (g => tasksForCategories(cats, g).map(t => t.task)) : undefined}
           />
+          {provided.length > 0 && (
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={reflectToContract}
+                disabled={reflecting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 disabled:opacity-50"
+              >
+                <ArrowDownToLine className="w-3.5 h-3.5" />
+                依頼者取得分を契約残手続き（到着物）に反映
+              </button>
+              <span className="text-[11px] text-gray-400">対象: {provided.map(d => d.category).join(' / ')}（契約時にお客様からまとめて受領）</span>
+            </div>
+          )}
         </>
       )}
     </Section>
