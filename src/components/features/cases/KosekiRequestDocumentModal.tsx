@@ -18,6 +18,8 @@ type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   heirs: HeirRow[]
+  /** タスク詳細から作成する際に紐づけるタスクID */
+  defaultTaskId?: string
 }
 
 type RequestRow = {
@@ -49,7 +51,7 @@ function createRow(partial: Partial<RequestRow> = {}): RequestRow {
   }
 }
 
-export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs }: Props) {
+export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs, defaultTaskId }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [submitCourt, setSubmitCourt] = useState<string>('')  // 検認用: 家庭裁判所名
@@ -149,6 +151,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             submitCourt: submitCourt.trim() || null,
             rows: normalizedRows,
             rowIndex: i,
+            taskId: defaultTaskId ?? null,
           }),
         })
 

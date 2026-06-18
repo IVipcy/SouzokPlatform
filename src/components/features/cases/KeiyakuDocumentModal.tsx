@@ -17,13 +17,15 @@ type Props = {
   onClose: () => void
   caseData: CaseRow
   tasks: TaskRow[]
+  /** タスク詳細から作成する際に紐づけるタスクID（初期選択） */
+  defaultTaskId?: string
   onSaved?: () => void
 }
 
 const LAW_LABEL: Record<string, string> = { gyosei: '行政書士法人オーシャン（乙）', shiho: '司法書士法人オーシャン（丙）' }
 const GROUP_ORDER: KeiyakuVariant['group'][] = ['連名', '行政単独', 'その他']
 
-export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks, onSaved }: Props) {
+export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks, defaultTaskId, onSaved }: Props) {
   const recommended = useMemo(
     () => recommendKeiyakuVariant(caseData.contract_type, caseData.service_category),
     [caseData.contract_type, caseData.service_category],
@@ -35,8 +37,8 @@ export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks,
   useEffect(() => {
     if (!isOpen) return
     setVariantKey(recommended)
-    setTaskId('')
-  }, [isOpen, recommended])
+    setTaskId(defaultTaskId ?? '')
+  }, [isOpen, recommended, defaultTaskId])
 
   const variant = getKeiyakuVariant(variantKey)
 

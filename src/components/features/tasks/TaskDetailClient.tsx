@@ -14,24 +14,28 @@ import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import NextTaskSelector from './NextTaskSelector'
-import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
+import TaskCreatedDocsSection from './TaskCreatedDocsSection'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
+import type { TaskRow, MemberRow, CaseRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
   task: TaskRow
   allMembers: MemberRow[]
   /** このタスクに紐づく書類のみ（サイドバー「関連ドキュメント」用） */
   documents: CaseDocumentRow[]
-  /** 同一案件の全書類（「作成物」セクション用、他タスク作成分も含む） */
-  caseDocuments?: CaseDocumentRow[]
+  /** 同一案件で作成した書類（documents テーブル）。「作成物」セクション用。 */
+  createdDocuments?: DocumentRow[]
   activities: CaseActivityRow[]
   currentMemberId: string | null
   dependencies?: TaskDependencyRow[]
   caseTasks?: TaskRow[]
   /** タスクテンプレ（次タスク新規作成時の候補） */
   taskTemplates?: TaskTemplateRow[]
+  /** AI書類作成モーダル用の案件付随データ */
+  heirs?: HeirRow[]
+  properties?: RealEstatePropertyRow[]
+  contractDocuments?: ContractDocumentRow[]
 }
 
 const PRIORITIES = [
@@ -48,7 +52,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TaskDetailClient({ task, allMembers, documents, caseDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [] }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, createdDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [], heirs = [], properties = [], contractDocuments = [] }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
@@ -425,10 +429,15 @@ export default function TaskDetailClient({ task, allMembers, documents, caseDocu
             saveField={saveField}
           />
 
-          {/* 4. 作成物（同一案件で作成された書類はタスクを跨いで共有） */}
-          <CaseDocumentSection
+          {/* 4. 作成物（documents テーブル。AI作成・アップロードともこのタスクに紐づく） */}
+          <TaskCreatedDocsSection
             task={task}
-            caseDocuments={caseDocuments}
+            caseData={(task as unknown as { cases?: CaseRow }).cases as CaseRow}
+            documents={createdDocuments}
+            tasks={caseTasks}
+            heirs={heirs}
+            properties={properties}
+            contractDocuments={contractDocuments}
           />
         </div>
 
@@ -523,71 +532,3 @@ function TaskWorkSection({
   )
 }
 
-// =================== 作成物セクション ===================
-// 同一案件の全書類を表示し、このタスク発の書類とそれ以外を分けて見せる。
-// アップロード/追加時に task_id を埋めるため、CaseDocumentTable には絞り込み済みの2グループを渡す。
-function CaseDocumentSection({ task, caseDocuments }: {
-  task: TaskRow
-  caseDocuments: CaseDocumentRow[]
-}) {
-  const [filter, setFilter] = useState<'this_task' | 'all'>('this_task')
-
-  const thisTaskDocs = caseDocuments.filter(d => d.task_id === task.id)
-  const otherDocs = caseDocuments.filter(d => d.task_id !== task.id)
-  const shownDocs = filter === 'this_task' ? thisTaskDocs : caseDocuments
-
-  return (
-    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-        <span className="text-base">📎</span>
-        <h2 className="text-[14px] font-bold text-gray-900">作成物</h2>
-        <span className="text-[12px] text-gray-400">
-          このタスクで作成・受領した書類。同じ案件の他タスクからも参照できます
-        </span>
-        <div className="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden text-[12px]">
-          <button
-            type="button"
-            onClick={() => setFilter('this_task')}
-            className={`px-3 py-1 transition-colors ${
-              filter === 'this_task'
-                ? 'bg-brand-600 text-white font-semibold'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            このタスク（{thisTaskDocs.length}）
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1 border-l border-gray-200 transition-colors ${
-              filter === 'all'
-                ? 'bg-brand-600 text-white font-semibold'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            案件全体（{caseDocuments.length}）
-          </button>
-        </div>
-      </div>
-      <div className="p-3">
-        <CaseDocumentTable
-          caseId={task.case_id}
-          rows={shownDocs}
-          defaultTaskId={filter === 'this_task' ? task.id : null}
-        />
-        {filter === 'this_task' && otherDocs.length > 0 && (
-          <div className="mt-2 text-[12px] text-gray-500">
-            他タスクで作成された書類が {otherDocs.length} 件あります。
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className="ml-1 text-brand-600 hover:underline font-semibold"
-            >
-              すべて表示
-            </button>
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}

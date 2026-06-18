@@ -11,6 +11,8 @@ type Props = {
   onClose: () => void
   caseData: CaseRow
   contractDocuments: ContractDocumentRow[]
+  /** タスク詳細から作成する際に紐づけるタスクID */
+  defaultTaskId?: string
   onSaved?: () => void
 }
 
@@ -19,7 +21,7 @@ type Props = {
  * 「ご返送書類一覧」は契約残手続き(contract_documents)の「不要」以外を初期表示し、編集して生成する。
  * 生成は /api/documents/mailing-confirmation（テンプレ xlsx 流し込み）。
  */
-export default function MailingConfirmationModal({ isOpen, onClose, caseData, contractDocuments, onSaved }: Props) {
+export default function MailingConfirmationModal({ isOpen, onClose, caseData, contractDocuments, defaultTaskId, onSaved }: Props) {
   const [returnDocs, setReturnDocs] = useState<string[]>([])
   const [sendDocs, setSendDocs] = useState<string[]>(['契約書一式'])
   const [shipDate, setShipDate] = useState('')
@@ -55,6 +57,7 @@ export default function MailingConfirmationModal({ isOpen, onClose, caseData, co
           sendDocs: sendDocs.map(s => s.trim()).filter(Boolean),
           shipDate: shipDate || null,
           clientStaff: clientStaff || null,
+          taskId: defaultTaskId ?? null,
         }),
       })
       if (!res.ok) {

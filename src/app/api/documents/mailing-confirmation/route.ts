@@ -18,6 +18,7 @@ type Body = {
   sendDocs?: string[]         // 送付書類一覧（こちらから送る書類。任意・最大10）
   shipDate?: string | null    // 発送日（YYYY-MM-DD）。未指定なら空欄（手書き）
   clientStaff?: string | null // お客様担当
+  taskId?: string | null      // 紐づける作成タスク（タスク詳細から作成時）
 }
 
 // セル位置（mailing_confirmation.xlsx＝郵送書類確認票）
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
     if (!uploadErr) {
       await supabase.from('documents').insert({
         case_id: caseId,
+        task_id: body.taskId ?? null,
         name: `郵送書類確認票（${caseData.case_number ?? ''}）`,
         file_path: storagePath,
         file_type: 'Excel',

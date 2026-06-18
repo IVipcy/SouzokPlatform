@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import TaskDetailClient from '@/components/features/tasks/TaskDetailClient'
-import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
+import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -46,7 +46,7 @@ export default async function TaskDetailPage({ params }: Props) {
 
   // 依存関係と関連タスク情報を取得
   // 関連タスクには 前段作業の確認セクションで使う started_by/completed_at/started_by_member などを含める
-  const [depsResult, relatedTasksResult, caseDocsResult, taskTemplatesResult] = await Promise.all([
+  const [depsResult, relatedTasksResult, createdDocsResult, taskTemplatesResult, heirsResult, propertiesResult, contractDocsResult] = await Promise.all([
     supabase
       .from('task_dependencies')
       .select('*')
@@ -55,18 +55,22 @@ export default async function TaskDetailPage({ params }: Props) {
       .from('tasks')
       .select('id, title, status, phase, category, priority, due_date, ext_data, template_key, started_by, started_at, completed_at, updated_at, started_by_member:members!tasks_started_by_fkey(id, name, avatar_color, avatar_url, primary_role)')
       .eq('case_id', caseId),
-    // 案件全体の書類（作成物セクションで全タスク横断表示）
+    // 案件全体の作成書類（documents テーブル。作成物セクションで全タスク横断表示）
     supabase
-      .from('case_documents')
-      .select('*')
+      .from('documents')
+      .select('*, tasks(id, title)')
       .eq('case_id', caseId)
-      .order('updated_at', { ascending: false }),
+      .order('created_at', { ascending: false }),
     // タスクテンプレ（次タスク新規作成時の候補）
     supabase
       .from('task_templates')
       .select('*')
       .eq('is_active', true)
       .order('sort_order'),
+    // AI書類作成モーダル用の案件付随データ
+    supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order'),
+    supabase.from('real_estate_properties').select('*').eq('case_id', caseId),
+    supabase.from('contract_documents').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
   ])
 
   // 依存関係に関連タスク情報を付与
@@ -94,12 +98,15 @@ export default async function TaskDetailPage({ params }: Props) {
       task={task}
       allMembers={(allMembersResult.data ?? []) as MemberRow[]}
       documents={(documentsResult.data ?? []) as CaseDocumentRow[]}
-      caseDocuments={(caseDocsResult.data ?? []) as CaseDocumentRow[]}
+      createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
       activities={(activitiesResult.data ?? []) as CaseActivityRow[]}
       currentMemberId={currentUser?.memberId ?? null}
       dependencies={dependencies}
       caseTasks={relatedTasks}
       taskTemplates={(taskTemplatesResult.data ?? []) as TaskTemplateRow[]}
+      heirs={(heirsResult.data ?? []) as HeirRow[]}
+      properties={(propertiesResult.data ?? []) as RealEstatePropertyRow[]}
+      contractDocuments={(contractDocsResult.data ?? []) as ContractDocumentRow[]}
     />
   )
 }

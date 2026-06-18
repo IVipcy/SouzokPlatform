@@ -16,6 +16,8 @@ type Props = {
   onClose: () => void
   caseData: CaseRow
   properties: RealEstatePropertyRow[]
+  /** タスク詳細から作成する際に紐づけるタスクID */
+  defaultTaskId?: string
 }
 
 type PropertyRow = {
@@ -44,7 +46,7 @@ function toLandAddr(p: RealEstatePropertyRow): string {
   return parts
 }
 
-export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseData, properties }: Props) {
+export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseData, properties, defaultTaskId }: Props) {
   const [variant, setVariant] = useState<FixedAssetVariant>(defaultFixedAssetVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [municipality, setMunicipality] = useState('')
@@ -139,6 +141,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
           })),
           kogawaseAmount: kogawaseAmount === '' ? null : Number(kogawaseAmount),
           notes: notes.trim(),
+          taskId: defaultTaskId ?? null,
         }),
       })
 

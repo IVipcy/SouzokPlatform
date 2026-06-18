@@ -17,10 +17,12 @@ type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   docType: InvoiceVariant['docType']  // '請求書' | '領収書'
+  /** タスク詳細から作成する際に紐づけるタスクID（初期選択） */
+  defaultTaskId?: string
   onSaved?: () => void
 }
 
-export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks, docType, onSaved }: Props) {
+export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks, docType, defaultTaskId, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendInvoiceOffice(caseData.contract_type), [caseData.contract_type])
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
   const [kenmei, setKenmei] = useState('')
@@ -33,8 +35,8 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
     setOffice(recommendedOffice)
     setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き 前受金`)
     setAmount('')
-    setTaskId('')
-  }, [isOpen, recommendedOffice, caseData.deceased_name])
+    setTaskId(defaultTaskId ?? '')
+  }, [isOpen, recommendedOffice, caseData.deceased_name, defaultTaskId])
 
   const handleGenerate = async () => {
     if (amount === '' || Number(amount) <= 0) {

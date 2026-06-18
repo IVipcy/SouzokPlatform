@@ -32,6 +32,7 @@ type Body = {
   submitCourt: string | null
   rows: RequestRow[]
   rowIndex?: number  // どの請求先を出力するか（省略時は全件まとめて別xlsx化→未対応、0番で1件）
+  taskId?: string | null  // 紐づける作成タスク（タスク詳細から作成時）
 }
 
 /**
@@ -241,6 +242,7 @@ export async function POST(request: NextRequest) {
       const docName = `戸籍請求書_${cityLabel}_${requestDate}（${preset.label}）`
       await supabase.from('documents').insert({
         case_id: caseId,
+        task_id: body.taskId ?? null,
         name: docName,
         file_path: storagePath,
         file_type: 'Excel',

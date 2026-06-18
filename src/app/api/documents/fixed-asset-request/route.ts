@@ -32,6 +32,7 @@ type Body = {
   properties: PropertyRow[]    // 対象資産（最大5件）
   kogawaseAmount: number | null
   notes: string
+  taskId?: string | null  // 紐づける作成タスク（タスク詳細から作成時）
 }
 
 /**
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
       const docName = `固定資産申請書_${municipality || ''}_${requestDate}（${preset.label}）`
       await supabase.from('documents').insert({
         case_id: caseId,
+        task_id: body.taskId ?? null,
         name: docName,
         file_path: storagePath,
         file_type: 'Excel',
