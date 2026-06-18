@@ -7,6 +7,8 @@ import { showToast } from '@/components/ui/Toast'
 import type { ContractDocumentRow } from '@/types'
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
+// 区分。戸籍/財産/登記は各調査タブに「契約時受領」として受領済/未受領で表示される。
+const DOC_CATEGORIES = ['契約', '戸籍', '財産', '登記', 'その他']
 
 // 既定の契約関連書類（行追加・削除・編集可）
 // 契約時に必ずもらう4点をデフォルトに。戸籍・財産系は自由入力で任意追加。
@@ -28,12 +30,17 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
   const [rows, setRows] = useState<ContractDocumentRow[]>(documents)
   const [busy, setBusy] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
+  const [recvFilter, setRecvFilter] = useState<'all' | 'received' | 'pending'>('all')
   // 受信簿で受領→到着日が入った等、props 更新を反映（常時マウントされる画面対策）
   useEffect(() => { setRows(documents) }, [documents])
 
   // 「不要」（受け取らない書類）は既定で非表示。トグルで表示できる。
   const hiddenCount = rows.filter(r => r.status === '不要').length
-  const visibleRows = showHidden ? rows : rows.filter(r => r.status !== '不要')
+  const baseRows = showHidden ? rows : rows.filter(r => r.status !== '不要')
+  // 受領済(到着日あり) / 未受領 フィルタ
+  const visibleRows = recvFilter === 'all' ? baseRows
+    : recvFilter === 'received' ? baseRows.filter(r => r.arrival_date)
+    : baseRows.filter(r => !r.arrival_date)
 
   const setLocal = (id: string, field: keyof ContractDocumentRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as ContractDocumentRow : r)))
@@ -59,7 +66,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
 
   const addDefaults = async () => {
     setBusy(true)
-    const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, sort_order: rows.length + i }))
+    const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約', sort_order: rows.length + i }))
     const { data, error } = await supabase.from('contract_documents').insert(payload).select('*')
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
@@ -76,11 +83,26 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
 
   return (
     <div>
+      {/* 受領済 / 未受領 フィルタ */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className="text-[12px] font-semibold text-gray-500 mr-0.5">表示</span>
+        {([['all', 'すべて'], ['pending', '未受領'], ['received', '受領済']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setRecvFilter(key)}
+            className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${recvFilter === key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 880 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 960 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-28">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
@@ -91,11 +113,17 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <Cell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} placeholder="到着物名" />
+                  <td className="px-2.5 py-1.5">
+                    <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                      <option value="">—</option>
+                      {DOC_CATEGORIES.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </td>
                   <td className="px-2.5 py-1.5">
                     <select value={r.status ?? ''} onChange={e => saveNow(r.id, 'status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       <option value="">—</option>
@@ -135,7 +163,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
         )}
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。
+        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />区分「戸籍 / 財産 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した到着物」として受領済/未受領が表示されます。
       </p>
     </div>
   )
