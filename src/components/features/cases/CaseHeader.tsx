@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Badge from '@/components/ui/Badge'
+import { FieldGrid, Field, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
+import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, LOCATIONS } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, TaskRow } from '@/types'
 
@@ -26,6 +28,8 @@ type Props = {
   // どのタブからでもステータス変更できるよう、ヘッダーに常時表示する
   selectableStatuses?: string[]
   onStatusChange?: (status: string) => void
+  // 基本情報（管理メタ情報）の編集用。渡すとヘッダーに「案件情報 ▾」が出る。
+  patchCase?: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -39,7 +43,11 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, patchCase }: Props) {
+  const [detailOpen, setDetailOpen] = useState(false)
+  const saveCaseField = async (field: string, value: unknown) => {
+    if (patchCase) await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
+  }
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669' }
@@ -146,6 +154,30 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             )}
           </div>
         </div>
+
+        {/* 案件情報（基本情報＝管理メタ。既定は閉じる。クリックで展開） */}
+        {patchCase && (
+          <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setDetailOpen(o => !o)}
+              className="text-[12px] font-semibold text-gray-500 hover:text-brand-600 inline-flex items-center gap-1"
+            >
+              案件情報 <span className="text-[10px]">{detailOpen ? '▴' : '▾'}</span>
+            </button>
+            {detailOpen && (
+              <div className="mt-1.5">
+                <FieldGrid>
+                  <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
+                  <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
+                  <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
+                  <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+                  <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
+                </FieldGrid>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { SubTabs } from '@/components/ui/SubTabs'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
@@ -19,9 +18,12 @@ type Props = {
   currentMemberId: string | null
 }
 
+/**
+ * 進捗報告・メモ（案件進捗タブの子タブ）。
+ * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
+ */
 export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
-  const [sub, setSub] = useState<'report' | 'memo'>('report')
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
@@ -76,15 +78,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     .filter(a => a.activity_type === 'note')
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
 
-  const SUBTABS = [{ key: 'report', label: '進捗報告' }, { key: 'memo', label: '進捗メモ' }]
-
   return (
-    <div>
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'report' | 'memo')} className="mb-3" />
-
-      {/* 進捗報告（表は白枠・見出しは子タブ） */}
-      {sub === 'report' && (
-        progressReports.length === 0 ? (
+    <div className="space-y-5">
+      {/* 進捗報告 */}
+      <div>
+        <div className="mb-2 text-[13px] font-bold text-gray-700">進捗報告</div>
+        {progressReports.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
@@ -113,11 +112,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               </tbody>
             </table>
           </div>
-        )
-      )}
+        )}
+      </div>
 
-      {/* 進捗メモ（入力＋一覧） */}
-      {sub === 'memo' && (
+      {/* 進捗メモ */}
+      <div>
+        <div className="mb-2 text-[13px] font-bold text-gray-700">進捗メモ</div>
         <div className="space-y-3">
           <div className="flex gap-2">
             <input
@@ -158,7 +158,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

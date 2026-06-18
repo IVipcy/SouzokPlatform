@@ -231,6 +231,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         statusHistory={statusHistory}
         selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone)}
         onStatusChange={s => patchCase({ status: s })}
+        patchCase={patchCase}
       />
 
       <div ref={navWrapRef} className="relative">

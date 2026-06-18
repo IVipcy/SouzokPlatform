@@ -7,10 +7,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
-} from '@/components/ui/InlineFields'
-import { CASE_STATUSES, getCaseStatusLabel, LOCATIONS, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
+import { Section } from '@/components/ui/InlineFields'
+import { SubTabs } from '@/components/ui/SubTabs'
+import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
@@ -58,8 +57,15 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
     return '完了'
   })()
 
+  const [sub, setSub] = useState<'progress' | 'history'>('progress')
+  const SUBTABS = [{ key: 'progress', label: '進捗' }, { key: 'history', label: '進捗報告・メモ' }]
+
   return (
     <div className="space-y-3.5">
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'history')} />
+
+      {sub === 'progress' && (
+        <div className="space-y-3.5">
       {/* 案件進捗（ステータス＋進行サマリーを1セクションに集約。ステータスは先頭セル） */}
       <Section title="案件進捗">
         <div className="rounded-lg border border-gray-200">
@@ -98,31 +104,22 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
       {/* 手続き詳細の連動表示（受託=受領待ち書類 / 対応中=請求・自社作業） */}
       <ProcedureIntakeSummary caseData={caseData} />
 
-      {/* 基本情報（アコーディオン・既定で閉じる） */}
-      <Section title="基本情報" collapsible defaultOpen={false}>
-        <FieldGrid>
-          <Field label="案件名（メイン依頼者の氏名に連動）" value={caseData.deal_name} />
-          <Field label="管理番号" value={caseData.case_number} mono />
-          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
-          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
-          <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
-          <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
-          <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-        </FieldGrid>
-      </Section>
+          {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
+          <CaseTimeline
+            caseData={caseData}
+            tasks={tasks}
+            properties={properties}
+            documentReceipts={documentReceipts}
+            variant="detail"
+            embedded
+          />
+        </div>
+      )}
 
-      {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
-      <CaseTimeline
-        caseData={caseData}
-        tasks={tasks}
-        properties={properties}
-        documentReceipts={documentReceipts}
-        variant="detail"
-        embedded
-      />
-
-      {/* 進捗報告・メモ（活動履歴はタイムラインに統合済み） */}
-      <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
+      {/* 進捗報告・メモ（進捗報告＋進捗メモを縦並び。基本情報はヘッダーへ移設） */}
+      {sub === 'history' && (
+        <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} />
+      )}
     </div>
   )
 }
