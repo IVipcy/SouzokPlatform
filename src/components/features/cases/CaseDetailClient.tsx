@@ -37,7 +37,7 @@ import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -61,6 +61,7 @@ type Props = {
   caseClients?: CaseClientRow[]
   contractDocuments?: ContractDocumentRow[]
   sagyoDocuments?: SagyoDocumentRow[]
+  createdDocuments?: DocumentRow[]
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -69,7 +70,7 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [] }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -336,7 +337,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DocsTab caseData={caseState} documents={documents} />
       )}
       {effectiveTab === 'documentCreate' && (
-        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} contractDocuments={contractDocuments} onRefresh={handleSaved} />
+        <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} contractDocuments={contractDocuments} createdDocuments={createdDocuments} onRefresh={handleSaved} />
       )}
 
       {/* 受託/検討中になったら初期対応タスクを確認（不要を外す・必要を追加） */}

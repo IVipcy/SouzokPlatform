@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import { computeCaseAlerts } from '@/lib/alerts'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -15,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -98,6 +98,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
     // 作業に紐づく必要書類。migration 091 未適用環境では error → 空配列で degrade。
     supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    // 作成書類（書類作成タブで生成した書類）。作成タスク名も表示するため tasks を join。
+    supabase.from('documents').select('*, tasks(id, title)').eq('case_id', id).order('created_at', { ascending: false }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -158,6 +160,7 @@ export default async function CaseDetailPage({ params }: Props) {
       caseClients={(caseClientsResult.data ?? []) as CaseClientRow[]}
       contractDocuments={(contractDocumentsResult.data ?? []) as ContractDocumentRow[]}
       sagyoDocuments={(sagyoDocumentsResult.data ?? []) as SagyoDocumentRow[]}
+      createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
     />
   )
 }

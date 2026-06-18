@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
-import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
+import { SubTabs } from '@/components/ui/SubTabs'
+import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, DocumentRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 import MailingConfirmationModal from './MailingConfirmationModal'
+import CreatedDocsList from './CreatedDocsList'
 
 type Props = {
   caseData: CaseRow
@@ -14,6 +16,8 @@ type Props = {
   heirs: HeirRow[]
   properties: RealEstatePropertyRow[]
   contractDocuments?: ContractDocumentRow[]
+  /** この案件で作成した書類（documents テーブル）。作成書類一覧サブタブで表示。 */
+  createdDocuments?: DocumentRow[]
   onRefresh?: () => void
 }
 
@@ -39,8 +43,9 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '宛先・差出人情報をセット', status: 'planned' },
 ]
 
-export default function DocumentCreateTab({ caseData, tasks, heirs, properties, contractDocuments = [], onRefresh }: Props) {
+export default function DocumentCreateTab({ caseData, tasks, heirs, properties, contractDocuments = [], createdDocuments = [], onRefresh }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [sub, setSub] = useState<'create' | 'list'>('create')
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
   const mailingModal = useModal()
@@ -57,7 +62,15 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <SubTabs
+        tabs={[{ key: 'create', label: '書類作成' }, { key: 'list', label: `作成書類一覧 ${createdDocuments.length}` }]}
+        active={sub}
+        onChange={k => setSub(k as 'create' | 'list')}
+      />
+
+      {sub === 'create' && (
+      <div className="space-y-5">
       {/* ヘッダ */}
       <div className="bg-gradient-to-r from-indigo-50 to-brand-50 border border-indigo-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
@@ -109,6 +122,12 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
       <p className="text-[12px] text-gray-400 text-center pt-2">
         ※ 準備中の書類は今後のリリースで順次追加されます
       </p>
+      </div>
+      )}
+
+      {sub === 'list' && (
+        <CreatedDocsList documents={createdDocuments} onRefresh={onRefresh} />
+      )}
 
       {/* モーダル */}
       <KosekiRequestDocumentModal
