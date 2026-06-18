@@ -8,6 +8,7 @@ import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocument
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 import MailingConfirmationModal from './MailingConfirmationModal'
+import IninjoDocumentModal from './IninjoDocumentModal'
 import CreatedDocsList from './CreatedDocsList'
 
 type Props = {
@@ -35,7 +36,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-brand-50 text-brand-700 border-brand-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
   { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
   { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（標準／簡易）', description: '甲乙丙の契約。契約形態と業務種別で自動切替', status: 'planned' },
-  { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '権限リストを用途で切替', status: 'planned' },
+  { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '行/司/連名×業務でFMTを切替。委任者・被相続人を自動流し込み＋押印', status: 'ready' },
   { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）', status: 'planned' },
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）', description: '確定請求（報酬＋立替実費－前受金）', status: 'planned' },
   { key: 'expense_detail', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '立替実費明細書', description: '非課税／課税の2区分で明細を作成', status: 'planned' },
@@ -49,6 +50,7 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
   const mailingModal = useModal()
+  const ininjoModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
@@ -58,6 +60,8 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
       fixedAssetModal.open()
     } else if (key === 'mailing_confirmation') {
       mailingModal.open()
+    } else if (key === 'ininjo') {
+      ininjoModal.open()
     }
   }
 
@@ -148,6 +152,13 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
         onClose={() => { mailingModal.close(); setSelectedKey(null) }}
         caseData={caseData}
         contractDocuments={contractDocuments}
+        onSaved={onRefresh}
+      />
+      <IninjoDocumentModal
+        isOpen={ininjoModal.isOpen}
+        onClose={() => { ininjoModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        tasks={tasks}
         onSaved={onRefresh}
       />
     </div>
