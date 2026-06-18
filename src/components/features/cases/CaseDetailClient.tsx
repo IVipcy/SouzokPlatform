@@ -64,7 +64,8 @@ type Props = {
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
-const TRIGGER_FIELDS = new Set(['status'])
+// client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
+const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs', 'documentCreate']
 
