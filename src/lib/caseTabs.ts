@@ -78,7 +78,12 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
     return { visible: ['basicInfo', 'meeting', 'clientInfo', 'referral', 'tasks'], collapsed: [] }
   }
 
-  // 相談案件（面談設定済 / 検討中 / 検討中（契約書待ち） / 不受託）
+  // 検討中（契約書待ち）: 契約書類の授受を管理するため「契約残手続き」タブも表示する。
+  if (status === '検討中（契約書待ち）') {
+    return { visible: ['basicInfo', 'meeting', 'clientInfo', 'contractProc', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
+  }
+
+  // 相談案件（面談設定済 / 検討中 / 不受託）
   // 契約書の授受・受信簿連携のため「書類」タブを早い段階から表示する。
   return { visible: ['basicInfo', 'meeting', 'clientInfo', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
 }
