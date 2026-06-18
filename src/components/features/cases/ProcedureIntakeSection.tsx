@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
+import ClientDocsReflectModal from './ClientDocsReflectModal'
 import type { CaseRow, ContractDocumentRow } from '@/types'
 
 export type DocRow = { name: string; status: string; arrival_date: string | null; note: string; category?: string }
@@ -18,12 +19,27 @@ export const SURVEY_GYOMU_DOC: Record<string, { name: string; category: string }
   '不動産': { name: '不動産関係書類（固定資産税通知書・権利証 等）', category: '財産' },
   '金融資産': { name: '金融資産資料（通帳コピー・残高がわかる資料 等）', category: '財産' },
 }
-// intake_roles から「依頼者にした調査系業務」→ もらう書類リスト（業務単位で重複排除）
-export function clientProvidedDocs(roles: RoleRow[]): { name: string; category: string }[] {
-  const seen = new Set<string>(); const out: { name: string; category: string }[] = []
+// 業務 → 契約残手続きの区分（SURVEY以外のデフォルト）
+const GYOMU_CONTRACT_CATEGORY: Record<string, string> = {
+  '戸籍': '戸籍', '相関図': '戸籍', '法定相続情報取得': '戸籍',
+  '不動産': '財産', '金融資産': '財産', '目録': '財産',
+  '登記': '登記',
+}
+export type ReflectCandidate = { gyomu: string; name: string; category: string; defaultChecked: boolean }
+// intake_roles の「依頼者」業務すべてを、契約時にもらう書類の候補に（戸籍/金融資産に限定しない）。
+// 戸籍/不動産/金融資産は郵送が多いので既定チェック、それ以外は任意（チェックで選ぶ）。
+export function clientReflectCandidates(roles: RoleRow[]): ReflectCandidate[] {
+  const seen = new Set<string>(); const out: ReflectCandidate[] = []
   for (const r of roles) {
+    if (r.owner !== '依頼者' || seen.has(r.gyomu)) continue
+    seen.add(r.gyomu)
     const m = SURVEY_GYOMU_DOC[r.gyomu]
-    if (r.owner === '依頼者' && m && !seen.has(r.gyomu)) { seen.add(r.gyomu); out.push(m) }
+    out.push({
+      gyomu: r.gyomu,
+      name: m?.name ?? `${r.gyomu}関係書類`,
+      category: m?.category ?? GYOMU_CONTRACT_CATEGORY[r.gyomu] ?? 'その他',
+      defaultChecked: !!m,
+    })
   }
   return out
 }
@@ -228,20 +244,15 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
   const category = caseData.service_category ?? ''
   const cats = categoriesOf(caseData.service_category, caseData.service_category_2)
 
-  // 「依頼者」にした調査系業務（戸籍/不動産/金融資産）を、契約時にもらう到着物として契約残手続きへまとめて反映
-  const [reflecting, setReflecting] = useState(false)
-  const provided = clientProvidedDocs(roles)
-  const reflectToContract = async () => {
-    const existing = new Set((contractDocuments ?? []).map(d => (d.name ?? '').trim()))
-    const toAdd = provided.filter(d => !existing.has(d.name))
-    if (toAdd.length === 0) { showToast('追加する依頼者取得分はありません（反映済み）', 'info'); return }
-    setReflecting(true)
+  // 「依頼者」にした業務を、チェックリストで選んで契約時にもらう到着物として契約残手続きへ反映
+  const [reflectOpen, setReflectOpen] = useState(false)
+  const candidates = clientReflectCandidates(roles)
+  const insertReflected = async (docs: { name: string; category: string }[]) => {
     const base = contractDocuments?.length ?? 0
-    const payload = toAdd.map((d, i) => ({ case_id: caseData.id, name: d.name, category: d.category, status: '後日郵送', sort_order: base + i }))
+    const payload = docs.map((d, i) => ({ case_id: caseData.id, name: d.name, category: d.category, status: '後日郵送', sort_order: base + i }))
     const { error } = await createClient().from('contract_documents').insert(payload)
-    setReflecting(false)
     if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
-    showToast(`${toAdd.length}件を契約残手続き（到着物）に反映しました`, 'success')
+    showToast(`${docs.length}件を契約残手続き（到着物）に反映しました`, 'success')
     onRefresh?.()
   }
 
@@ -265,22 +276,28 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
             gyomuOptions={cats.length ? gyomuForCategories(cats) : undefined}
             presetFor={cats.length ? (g => tasksForCategories(cats, g).map(t => t.task)) : undefined}
           />
-          {provided.length > 0 && (
+          {candidates.length > 0 && (
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={reflectToContract}
-                disabled={reflecting}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 disabled:opacity-50"
+                onClick={() => setReflectOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100"
               >
                 <ArrowDownToLine className="w-3.5 h-3.5" />
                 依頼者取得分を契約残手続き（到着物）に反映
               </button>
-              <span className="text-[11px] text-gray-400">対象: {provided.map(d => d.category).join(' / ')}（契約時にお客様からまとめて受領）</span>
+              <span className="text-[11px] text-gray-400">郵送で受け取るものを選んで追加（後日郵送）</span>
             </div>
           )}
         </>
       )}
+      <ClientDocsReflectModal
+        isOpen={reflectOpen}
+        onClose={() => setReflectOpen(false)}
+        candidates={candidates}
+        existingNames={(contractDocuments ?? []).map(d => (d.name ?? '').trim())}
+        onConfirm={insertReflected}
+      />
     </Section>
   )
 }

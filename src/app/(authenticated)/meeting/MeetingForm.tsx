@@ -20,7 +20,8 @@ import {
 } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
-import { IntakeRolesEditor, IntakeDocsEditor, clientProvidedDocs, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
+import { IntakeRolesEditor, IntakeDocsEditor, clientReflectCandidates, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
+import ClientDocsReflectModal from '@/components/features/cases/ClientDocsReflectModal'
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
@@ -205,12 +206,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     setData(prev => ({ ...prev, serviceCategory: cat, serviceCategory2: newCat2, intakeRoles: seeded }))
   }
 
-  // 「依頼者」にした調査系業務（戸籍/不動産/金融資産）を、契約時にもらう書類として契約手続きへまとめて反映
-  const reflectClientDocs = () => {
+  // 「依頼者」にした業務を、チェックリストで選んで契約時にもらう書類として契約手続きへ反映
+  const [reflectOpen, setReflectOpen] = useState(false)
+  const addReflectedDocs = (docs: { name: string; category: string }[]) => {
     const existing = new Set(data.intakeDocuments.map(d => d.name.trim()))
-    const toAdd = clientProvidedDocs(data.intakeRoles)
+    const toAdd = docs
       .filter(d => !existing.has(d.name))
-      .map(d => ({ name: d.name, status: '後日郵送', arrival_date: null, note: '', category: d.category }))
+      .map(d => ({ name: d.name, status: '後日郵送', arrival_date: null as string | null, note: '', category: d.category }))
     if (toAdd.length > 0) update('intakeDocuments', [...data.intakeDocuments, ...toAdd])
   }
 
@@ -602,15 +604,22 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             </Card>
           )}
           <Card label="契約手続き（契約関連書類の受け取り）">
-            {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientProvidedDocs(data.intakeRoles).length > 0 && (
+            {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientReflectCandidates(data.intakeRoles).length > 0 && (
               <div className="mb-2.5">
-                <button type="button" onClick={reflectClientDocs} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
-                  ＋ 依頼者取得分（{clientProvidedDocs(data.intakeRoles).map(d => d.category).join(' / ')}）をここに反映
+                <button type="button" onClick={() => setReflectOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
+                  ＋ 依頼者取得分を契約手続きに反映
                 </button>
-                <span className="ml-2 text-[11px] text-gray-400">役割分担で依頼者にした調査系を、契約時にもらう書類として追加</span>
+                <span className="ml-2 text-[11px] text-gray-400">役割分担で依頼者にした業務を、契約時にもらう書類として選んで追加</span>
               </div>
             )}
             <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
+            <ClientDocsReflectModal
+              isOpen={reflectOpen}
+              onClose={() => setReflectOpen(false)}
+              candidates={clientReflectCandidates(data.intakeRoles)}
+              existingNames={data.intakeDocuments.map(d => d.name.trim())}
+              onConfirm={addReflectedDocs}
+            />
           </Card>
           {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
           {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
