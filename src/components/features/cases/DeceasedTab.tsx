@@ -5,7 +5,7 @@ import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow } from '@/types'
+import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow } from '@/types'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
@@ -31,6 +31,8 @@ type Props = {
   orderSheetMode?: boolean
   // 契約残手続きの書類（区分=戸籍 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
+  // 依頼者（同行者含む）。依頼者を相続人に追加する際のプリセット元
+  caseClients?: CaseClientRow[]
 }
 
 const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
@@ -65,7 +67,7 @@ const emptyHeirForm = () => ({
   is_applicant: false,
 })
 
-export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [] }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [] }: Props) {
   const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
@@ -81,6 +83,24 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   const startAdd = () => {
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
+    setShowAddHeir(true)
+  }
+
+  // メイン依頼者（面談で氏名・生年月日・住所を聴取済み）を相続人としてプリセット追加。本籍のみ空欄。
+  const mainClient = caseClients.find(c => c.priority === 'main') ?? caseClients[0]
+  const startAddFromClient = () => {
+    setEditingHeirId(null)
+    setHeirForm({
+      ...emptyHeirForm(),
+      name: mainClient?.name ?? caseData.clients?.name ?? '',
+      furigana: mainClient?.furigana ?? '',
+      relationship: '',
+      birth_date: mainClient?.birth_date ?? '',
+      address: caseData.clients?.address ?? '',
+      registered_address: '',
+      phone: mainClient?.phone ?? '',
+      email: mainClient?.email ?? '',
+    })
     setShowAddHeir(true)
   }
 
@@ -234,10 +254,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
             </div>
           ) : (
             <div className="overflow-x-auto -mx-4 -mb-3">
-              <table className="w-full border-collapse" style={{ minWidth: 900 }}>
+              <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
-                    {['氏名', 'ふりがな', '被相続人との続柄', '生年月日', '住所', '本籍', 'TEL', 'メール', '法定相続人', ''].map(h => (
+                    {['氏名', '生年月日', '住所', '本籍', ''].map(h => (
                       <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
@@ -247,14 +267,14 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] group">
                       <td className="px-3 py-2.5">
                         <div className="text-xs font-semibold text-gray-900">{heir.name}</div>
-                      </td>
-                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.furigana ?? '—'}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1 flex-wrap">
+                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
                           {(heir.relationship_type || heir.relationship) && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">
                               {heir.relationship_type ?? heir.relationship}
                             </span>
+                          )}
+                          {heir.is_legal_heir && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-600 border border-green-200">法定相続人</span>
                           )}
                           {heir.is_applicant && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
@@ -264,13 +284,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.birth_date ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.phone ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.email ?? '—'}</td>
-                      <td className="px-3 py-2.5">
-                        {heir.is_legal_heir && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-green-50 text-green-600 border border-green-200">✓</span>
-                        )}
-                      </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                           <button
@@ -392,9 +405,16 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
             </div>
           )}
           {!showAddHeir && (
-            <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-              <Plus className="w-3.5 h-3.5" /> 相続人を追加
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={startAdd} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+                <Plus className="w-3.5 h-3.5" /> 相続人を追加
+              </button>
+              {(mainClient?.name || caseData.clients?.name) && (
+                <button type="button" onClick={startAddFromClient} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700" title="氏名・生年月日・住所を面談情報からプリセット（本籍は空欄）">
+                  <Plus className="w-3.5 h-3.5" /> 依頼者を相続人に追加
+                </button>
+              )}
+            </div>
           )}
         </Section>
       </div>
