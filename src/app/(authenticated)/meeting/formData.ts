@@ -42,6 +42,7 @@ export type FormData = {
   deceasedKana: string
   deceasedBirthday: string          // 被相続人 生年月日
   dateOfDeath: string               // 相続開始日（死亡日）
+  deceasedPostalCode: string        // 被相続人 郵便番号
   deceasedAddress: string           // 被相続人 住所
   deceasedRegisteredAddress: string // 被相続人 本籍
   deceasedHasSpecialChars: boolean  // 被相続人 外字有無
@@ -79,6 +80,7 @@ export const INITIAL_DATA: FormData = {
   deceasedKana: '',
   deceasedBirthday: '',
   dateOfDeath: '',
+  deceasedPostalCode: '',
   deceasedAddress: '',
   deceasedRegisteredAddress: '',
   deceasedHasSpecialChars: false,

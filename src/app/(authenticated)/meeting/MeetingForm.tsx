@@ -310,6 +310,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deceased_furigana: formData.deceasedKana.trim() || null,
         deceased_birth_date: formData.deceasedBirthday || null,
         date_of_death: formData.dateOfDeath || null,
+        deceased_postal_code: formData.deceasedPostalCode.trim() || null,
         deceased_address: formData.deceasedAddress.trim() || null,
         deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
         deceased_has_special_chars: formData.deceasedHasSpecialChars,
@@ -582,6 +583,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <Card label="被相続人ふりがな"><Input value={data.deceasedKana} onChange={v => update('deceasedKana', v)} placeholder="やまだ はなこ" /></Card>
           <Card label="被相続人生年月日"><BirthdayPicker value={data.deceasedBirthday} onChange={v => update('deceasedBirthday', v)} /></Card>
           <Card label="相続開始日（死亡日）"><BirthdayPicker value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
+          <Card label="被相続人郵便番号"><Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="1000131" /></Card>
           <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">

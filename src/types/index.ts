@@ -82,6 +82,7 @@ export type CaseRow = {
   // 被相続人追加情報
   deceased_furigana: string | null
   deceased_birth_date: string | null
+  deceased_postal_code: string | null   // 被相続人 郵便番号（migration 101）
   deceased_address: string | null
   deceased_registered_address: string | null
   // 遺産分割

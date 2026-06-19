@@ -205,6 +205,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </div>
               <InlineEdit label="被相続人年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => patchCase({ deceased_age: v.trim() === '' ? null : Number(v) })} />
               <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} required />
+              <InlineEdit label="被相続人郵便番号" value={caseData.deceased_postal_code} onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))} />
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
               <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
               <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
