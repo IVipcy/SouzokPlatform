@@ -581,7 +581,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <Card label="被相続人氏名"><Input value={data.deceasedName} onChange={v => update('deceasedName', v)} placeholder="山田 花子" /></Card>
           <Card label="被相続人ふりがな"><Input value={data.deceasedKana} onChange={v => update('deceasedKana', v)} placeholder="やまだ はなこ" /></Card>
           <Card label="被相続人生年月日"><BirthdayPicker value={data.deceasedBirthday} onChange={v => update('deceasedBirthday', v)} /></Card>
-          <Card label="相続開始日（死亡日）"><Input type="date" value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
+          <Card label="相続開始日（死亡日）"><BirthdayPicker value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
           <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">
