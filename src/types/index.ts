@@ -590,6 +590,14 @@ export type RealEstatePropertyRow = {
   sale_expected_date: string | null
   kaoku_bango: string | null                       // 家屋番号（固定資産申請書の家屋行。migration 098）
   near_land_price: string | null                   // 近傍宅地価格の要否（要/不要。migration 098）
+  // 相続登記（migration 100）
+  registration_types: string[] | null              // 相続登記の種別（複数選択）
+  registration_cause: string | null                // 登記原因
+  registration_office: string | null               // 管轄法務局
+  registration_status: string | null               // ステータス
+  registration_apply_date: string | null           // 申請日
+  registration_complete_date: string | null        // 完了日
+  registration_notes: string | null                // 備考
   notes: string | null
   created_at: string
 }

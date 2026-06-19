@@ -293,6 +293,36 @@ export const KOSEKI_RANGES = [
   'その他',
 ] as const
 
+// 相続登記の種別（物件ごとに複数選択）
+export const REGISTRATION_TYPES = [
+  '所有権移転（相続）',
+  '所有権移転（遺贈）',
+  '相続人申告登記',
+  '登記名義人 住所・氏名変更',
+  '抵当権抹消',
+  '持分移転',
+  '数次相続',
+  'その他',
+] as const
+
+// 登記原因
+export const REGISTRATION_CAUSES = [
+  '法定相続分',
+  '遺産分割協議',
+  '特定財産承継遺言',
+  '遺贈',
+] as const
+
+// 相続登記ステータス
+export const REGISTRATION_STATUSES = [
+  '未着手',
+  '必要書類収集中',
+  '申請準備中',
+  '申請済',
+  '補正中',
+  '完了',
+] as const
+
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
 export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 
