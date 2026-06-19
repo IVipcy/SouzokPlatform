@@ -97,6 +97,7 @@ export const INITIAL_DATA: FormData = {
 export const STEPS = [
   { id: 'basic', label: '基本情報', icon: '📋' },
   { id: 'client', label: '依頼者', icon: '👤' },
+  { id: 'deceased', label: '被相続人', icon: '🏛️' },
   { id: 'meeting', label: '面談内容', icon: '📝' },
   { id: 'confirm', label: '確認', icon: '✅' },
 ]
