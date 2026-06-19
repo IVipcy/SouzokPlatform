@@ -38,7 +38,18 @@ const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
   { key: 'koseki', label: '戸籍請求' },
 ]
 
-const RELATIONSHIP_OPTIONS = ['配偶者', '子', '父', '母', '兄弟姉妹', 'その他'] as const
+// 被相続人との続柄（相続人視点）。法定相続人＋代襲相続まで網羅。
+// 第1順位=子（長男〜養子）・代襲(孫/ひ孫)、第2順位=直系尊属(父母/祖父母)、
+// 第3順位=兄弟姉妹・代襲(甥/姪)。いとこ・おじおば等は法定相続人でないため除外。
+const RELATIONSHIP_OPTIONS = [
+  '配偶者',
+  '長男', '長女', '次男', '次女', '三男', '三女', '養子',
+  '孫', 'ひ孫',
+  '父', '母', '祖父', '祖母',
+  '兄', '姉', '弟', '妹',
+  '甥', '姪',
+  'その他',
+] as const
 type RelType = typeof RELATIONSHIP_OPTIONS[number]
 
 const emptyHeirForm = () => ({
