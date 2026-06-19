@@ -77,7 +77,8 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
       setRows(properties.slice(0, 5).map(p => createPropertyRow({
         landAddress: toLandAddr(p),
         buildingAddress: toLandAddr(p),
-        kaokuBango: '',
+        kaokuBango: p.kaoku_bango ?? '',
+        needNeighborPrice: p.near_land_price === '要',
       })))
     } else {
       setRows([createPropertyRow()])

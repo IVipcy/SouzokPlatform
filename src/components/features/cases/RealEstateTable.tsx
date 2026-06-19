@@ -163,6 +163,16 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
               </FieldGrid>
             </div>
 
+            {/* 固定資産申請書 連携（名寄帳・評価証明の各物件行に自動セット） */}
+            <div>
+              <div className="text-[12px] font-bold text-gray-500 mb-1.5">固定資産申請書 連携</div>
+              <FieldGrid>
+                <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
+                <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
+                <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
+              </FieldGrid>
+            </div>
+
             {/* 参照元 */}
             <div>
               <div className="text-[12px] font-bold text-gray-500 mb-1.5">参照元</div>

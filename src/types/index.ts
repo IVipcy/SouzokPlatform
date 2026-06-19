@@ -587,6 +587,8 @@ export type RealEstatePropertyRow = {
   acquirer: string | null                          // 取得区分（自社/依頼者。migration 085）
   expected_arrival_date: string | null             // 到着予定日（見込み。migration 085）
   sale_expected_date: string | null
+  kaoku_bango: string | null                       // 家屋番号（固定資産申請書の家屋行。migration 098）
+  near_land_price: string | null                   // 近傍宅地価格の要否（要/不要。migration 098）
   notes: string | null
   created_at: string
 }
