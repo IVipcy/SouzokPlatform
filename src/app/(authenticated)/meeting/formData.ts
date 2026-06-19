@@ -51,6 +51,7 @@ export type FormData = {
   serviceCategory: string   // 受注区分①（serviceMaster の ORDER_CATEGORIES）
   serviceCategory2: string  // 受注区分②（検認①→手続き一式②のコンボのみ）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
+  contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
   lostReason: string        // 失注理由
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
@@ -88,6 +89,7 @@ export const INITIAL_DATA: FormData = {
   serviceCategory: '',
   serviceCategory2: '',
   referralPartners: [],
+  contractType: '',
   lostReason: '',
   otherNotes: '',
   difficulty: '',

@@ -10,7 +10,7 @@ import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
-  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS,
+  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
@@ -314,6 +314,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deceased_address: formData.deceasedAddress.trim() || null,
         deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
         deceased_has_special_chars: formData.deceasedHasSpecialChars,
+        // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
+        contract_type: formData.contractType || null,
       }
 
       if (isNew) {
@@ -652,6 +654,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
             <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
           )}
+          <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>
