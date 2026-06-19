@@ -126,10 +126,12 @@ export async function POST(request: NextRequest) {
     // 委任者
     setCell(ws, f.address, clientAddress)
     setCell(ws, f.name, clientName)
-    // 委任者氏名はテンプレ既定だと小さくなるため、読みやすいサイズに調整
+    // 委任者氏名はテンプレ既定だと「縮小して全体を表示」で小さく潰れるため、
+    // 読みやすいサイズ＋縮小表示OFFにする。
     if (f.name && clientName) {
       const nameCell = ws.getCell(f.name)
       nameCell.font = { ...(nameCell.font ?? {}), size: 14 }
+      nameCell.alignment = { ...(nameCell.alignment ?? {}), shrinkToFit: false, wrapText: false }
     }
     if (birth) {
       setCell(ws, f.birthEra, birth.era)

@@ -88,6 +88,12 @@ export async function POST(request: NextRequest) {
     setCell(ws, f.name, clientName)
     setCell(ws, f.deceased, deceasedName)
     setCell(ws, f.bodyClientName, clientName)
+    // 甲（依頼者）氏名はテンプレ既定の「縮小して全体を表示」で小さく潰れるため調整
+    if (f.name && clientName) {
+      const nameCell = ws.getCell(f.name)
+      nameCell.font = { ...(nameCell.font ?? {}), size: 14 }
+      nameCell.alignment = { ...(nameCell.alignment ?? {}), shrinkToFit: false, wrapText: false }
+    }
 
     // 押印画像（乙＝行政／丙＝司法）
     for (const st of def.stamps as KeiyakuStamp[]) {
