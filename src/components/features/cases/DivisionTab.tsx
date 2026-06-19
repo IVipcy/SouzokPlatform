@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import DivisionDetailsTable from './DivisionDetailsTable'
-import type { CaseRow, DivisionDetailRow, HeirRow } from '@/types'
+import AgreementDispatchTable from './AgreementDispatchTable'
+import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow } from '@/types'
 import {
   WILL_CREATION_PLACES,
   WILL_TYPES,
@@ -24,13 +25,14 @@ type Props = {
   caseData: CaseRow
   divisionDetails: DivisionDetailRow[]
   heirs: HeirRow[]
+  agreementDispatches?: AgreementDispatchRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   /** 'division' = 遺産分割＋分割内容 / 'will' = 遺言＋信託 */
   mode?: 'division' | 'will'
 }
 
-export default function DivisionTab({ caseData, divisionDetails, heirs, onRefresh, patchCase, mode = 'division' }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, heirs, agreementDispatches = [], onRefresh, patchCase, mode = 'division' }: Props) {
   const saveCaseField = async (field: string, value: string) => {
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
@@ -81,6 +83,13 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
       <Section title="分割内容">
         <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} onRefresh={onRefresh} />
       </Section>
+
+      {/* 協議書の送付・受領 — 「OCから各相続人へ」を選んだときだけ表示 */}
+      {caseData.agreement_dispatch_method === 'OCから各相続人へ' && (
+        <Section title="協議書の送付・受領" icon="📨">
+          <AgreementDispatchTable caseId={caseData.id} heirs={heirs} dispatches={agreementDispatches} onRefresh={onRefresh} />
+        </Section>
+      )}
       </>)}
 
       {mode === 'will' && (<>

@@ -680,6 +680,20 @@ export type DivisionDetailRow = {
   created_at: string
 }
 
+// === 遺産分割協議書の送付・受領（相続人単位） ===
+export type AgreementDispatchRow = {
+  id: string
+  case_id: string
+  heir_id: string | null
+  sent_date: string | null
+  received_date: string | null
+  received: boolean
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // === 立替実費 ===
 export type ExpenseRow = {
   id: string
