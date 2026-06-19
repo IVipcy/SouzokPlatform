@@ -101,16 +101,26 @@ export const getSelectableCaseStatuses = (
   managerAssigned = true,
   initialTasksDone = true,
   contractProcDone = true,
+  kentouContractReady = true,  // 検討中（契約書待ち）→受注 のゲート（契約残手続き＋全タスク完了）
 ): string[] => {
   if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
   const canManage = (orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) || isManagementNow
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
-  const filtered = targets.filter(t =>
-    (MANAGEMENT_STATUSES as readonly string[]).includes(t) ? canManage : true,
-  )
+  const filtered = targets.filter(t => {
+    if ((MANAGEMENT_STATUSES as readonly string[]).includes(t)) return canManage
+    // 検討中（契約書待ち）→受注 は、契約残手続き＋この段階の全タスク完了が条件
+    if (currentStatus === '検討中（契約書待ち）' && t === '受注') return kentouContractReady
+    return true
+  })
   return [currentStatus, ...filtered.filter(t => t !== currentStatus)]
 }
+
+// 検討中（契約書待ち）→受注 のゲート用：この段階のタスクが全て完了（タスクが1件以上あり、未完了が無い）。
+export const isAllTasksDone = (
+  tasks: { status: string }[],
+): boolean =>
+  tasks.length > 0 && !tasks.some(t => t.status !== '完了' && t.status !== 'キャンセル')
 
 // 初期対応タスク（受託時に生成される system かつ category=初期対応）が全完了か。
 // 受託→対応中の移行ゲート（getSelectableCaseStatuses の initialTasksDone）に使う。

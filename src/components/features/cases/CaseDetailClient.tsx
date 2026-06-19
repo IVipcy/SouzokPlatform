@@ -30,12 +30,12 @@ import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
 import InitialTaskReviewModal from './InitialTaskReviewModal'
-import StatusFlowNavigator, { getJutakuFlowSteps } from './StatusFlowNavigator'
+import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } from './StatusFlowNavigator'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
-import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone } from '@/lib/constants'
+import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone, isAllTasksDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, DivisionDetailRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow } from '@/types'
 
@@ -193,6 +193,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const initialTasksDone = isInitialTasksDone(tasks)
   // 契約残手続き（契約関連書類）が全受信済か（対応中ガード用）
   const contractProcDone = isContractProcDone(contractDocuments)
+  // この段階の全タスク完了か（検討中（契約書待ち）→受託ガード用）
+  const allTasksDone = isAllTasksDone(tasks)
+  // 検討中（契約書待ち）→受託 のゲート：契約残手続き＋全タスク完了
+  const kentouContractReady = contractProcDone && allTasksDone
 
   // 初期対応タスク確認ポップアップを閉じる。閉じた後は受託フロー・ナビゲーターが案内を引き継ぐ。
   const closeTaskReview = (refresh: boolean) => {
@@ -207,9 +211,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     initialTasksDone,
     contractProcDone,
   })
-  const navVisible = caseState.status === '受注' && !navDismissed
+  // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約残手続き＋タスク）
+  const kentouSteps = getKentouContractFlowSteps({ contractProcDone, allTasksDone })
+  const jutakuNavVisible = caseState.status === '受注' && !navDismissed
+  const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
-  const navHighlightTabs = navVisible ? flowSteps.filter(s => !s.done).map(s => s.tab) : []
+  const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
+  const navHighlightTabs = activeNavSteps.filter(s => !s.done).map(s => s.tab)
 
   // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）
   const selectedGyomu = [...new Set((caseState.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
@@ -235,7 +243,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
-        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone)}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone, kentouContractReady)}
         onStatusChange={s => patchCase({ status: s })}
         patchCase={patchCase}
       />
@@ -252,16 +260,27 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
-        {navVisible && (
+        {jutakuNavVisible && (
           <StatusFlowNavigator
             steps={flowSteps}
+            targetLabel="対応中"
             onAdvance={() => patchCase({ status: '対応中' })}
             onDismiss={() => setNavDismissed(true)}
           />
         )}
 
+        {/* 検討フロー・ナビゲーター：検討中（契約書待ち）で、受託への前提条件（契約残手続き＋タスク）を案内 */}
+        {kentouNavVisible && (
+          <StatusFlowNavigator
+            steps={kentouSteps}
+            targetLabel="受託"
+            onAdvance={() => patchCase({ status: '受注' })}
+            onDismiss={() => setNavDismissed(true)}
+          />
+        )}
+
         {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
-        {navVisible && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
+        {(jutakuNavVisible || kentouNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
       </div>
 
       {effectiveTab === 'orderSheet' && (

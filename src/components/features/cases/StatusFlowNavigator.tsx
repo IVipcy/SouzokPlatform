@@ -30,13 +30,25 @@ export function getJutakuFlowSteps(args: {
   ]
 }
 
-type Props = {
-  steps: FlowStep[]
-  onAdvance: () => void // 対応中へ進める
-  onDismiss: () => void // 「あとで」
+// 検討中（契約書待ち）→受託 の前提条件。契約残手続き＋この段階の全タスク完了。
+export function getKentouContractFlowSteps(args: {
+  contractProcDone: boolean
+  allTasksDone: boolean
+}): FlowStep[] {
+  return [
+    { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
+    { key: 'tasks', label: 'タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.allTasksDone },
+  ]
 }
 
-export default function StatusFlowNavigator({ steps, onAdvance, onDismiss }: Props) {
+type Props = {
+  steps: FlowStep[]
+  onAdvance: () => void // 次のステータスへ進める
+  onDismiss: () => void // 「あとで」
+  targetLabel?: string  // 進行先ステータス名（既定: 対応中）
+}
+
+export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targetLabel = '対応中' }: Props) {
   const total = steps.length
   const doneCount = steps.filter(s => s.done).length
   const remaining = total - doneCount
@@ -48,13 +60,13 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss }: Pro
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-bold text-brand-700">
-              {allDone ? '準備完了' : '「対応中」に進むための残り対応'}
+              {allDone ? '準備完了' : `「${targetLabel}」に進むための残り対応`}
             </span>
             <span className="text-[11px] text-gray-400">（{doneCount}/{total} 完了{allDone ? '' : `・残り${remaining}件`}）</span>
           </div>
           <p className="text-[12.5px] text-gray-500 leading-relaxed mt-0.5">
             {allDone
-              ? 'すべての前提条件が揃いました。「対応中」に進められます。'
+              ? `すべての前提条件が揃いました。「${targetLabel}」に進められます。`
               : '点滅しているタブを開いて対応してください。順番は問いません（どれからでもOK）。'}
           </p>
         </div>
@@ -96,7 +108,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss }: Pro
             onClick={onAdvance}
             className="ml-auto inline-flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg"
           >
-            対応中に進める <ArrowRight className="w-3.5 h-3.5" />
+            {targetLabel}に進める <ArrowRight className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
