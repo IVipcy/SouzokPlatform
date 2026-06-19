@@ -305,6 +305,14 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         mailing_address_other: formData.mailingDestination === 'その他' ? (formData.mailingAddressOther || null) : null,
         client_trait: formData.clientTrait || null,
         client_trait_detail: formData.clientTraitDetail || null,
+        // 被相続人情報（検討中段階で契約書・委任状にプリセット）
+        deceased_name: formData.deceasedName.trim() || null,
+        deceased_furigana: formData.deceasedKana.trim() || null,
+        deceased_birth_date: formData.deceasedBirthday || null,
+        date_of_death: formData.dateOfDeath || null,
+        deceased_address: formData.deceasedAddress.trim() || null,
+        deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
+        deceased_has_special_chars: formData.deceasedHasSpecialChars,
       }
 
       if (isNew) {
@@ -522,6 +530,23 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           >
             ＋ 依頼者を追加
           </button>
+
+          {/* 被相続人情報（検討中の段階で契約書・委任状にプリセットするため面談時に入力） */}
+          <div className="mt-6 max-w-[800px]">
+            <SectionHeader Icon={User} title="被相続人情報" sub="検討中の段階で契約書・委任状に氏名・住所等をプリセットするため、面談時に入力" />
+            <Card label="被相続人氏名"><Input value={data.deceasedName} onChange={v => update('deceasedName', v)} placeholder="山田 花子" /></Card>
+            <Card label="被相続人ふりがな"><Input value={data.deceasedKana} onChange={v => update('deceasedKana', v)} placeholder="やまだ はなこ" /></Card>
+            <Card label="被相続人生年月日"><BirthdayPicker value={data.deceasedBirthday} onChange={v => update('deceasedBirthday', v)} /></Card>
+            <Card label="相続開始日（死亡日）"><Input type="date" value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
+            <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
+            <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
+            <Card label="被相続人外字有無">
+              <label className="flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">
+                <input type="checkbox" checked={data.deceasedHasSpecialChars} onChange={e => update('deceasedHasSpecialChars', e.target.checked)} className="w-4 h-4 accent-brand-600" />
+                外字あり
+              </label>
+            </Card>
+          </div>
 
           {/* メイン依頼者の住所（書類・請求で使う正本） */}
           <div className="mt-6 max-w-[800px]">

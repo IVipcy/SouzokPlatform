@@ -37,6 +37,14 @@ export type FormData = {
   mailingAddressOther: string // 郵送先住所（その他）
   clientTrait: string         // 依頼者特徴（smile / neutral / angry）
   clientTraitDetail: string   // 依頼者特徴詳細
+  // 被相続人情報（検討中段階で契約書・委任状にプリセットするため面談時に入力）
+  deceasedName: string
+  deceasedKana: string
+  deceasedBirthday: string          // 被相続人 生年月日
+  dateOfDeath: string               // 相続開始日（死亡日）
+  deceasedAddress: string           // 被相続人 住所
+  deceasedRegisteredAddress: string // 被相続人 本籍
+  deceasedHasSpecialChars: boolean  // 被相続人 外字有無
   // 面談内容
   hearingMemo: string       // ヒアリング内容メモ
   serviceCategory: string   // 受注区分①（serviceMaster の ORDER_CATEGORIES）
@@ -67,6 +75,13 @@ export const INITIAL_DATA: FormData = {
   mailingAddressOther: '',
   clientTrait: '',
   clientTraitDetail: '',
+  deceasedName: '',
+  deceasedKana: '',
+  deceasedBirthday: '',
+  dateOfDeath: '',
+  deceasedAddress: '',
+  deceasedRegisteredAddress: '',
+  deceasedHasSpecialChars: false,
   hearingMemo: '',
   serviceCategory: '',
   serviceCategory2: '',
