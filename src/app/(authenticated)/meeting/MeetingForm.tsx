@@ -41,6 +41,17 @@ const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label:
 ]
 
 // 生年月日から年齢を算出
+// 被相続人の年齢（享年）＝生年月日から死亡日時点の満年齢を算出
+function ageAtDeath(birthday: string, deathDate: string): number | null {
+  if (!birthday || !deathDate) return null
+  const b = new Date(birthday), d = new Date(deathDate)
+  if (Number.isNaN(b.getTime()) || Number.isNaN(d.getTime())) return null
+  let age = d.getFullYear() - b.getFullYear()
+  const m = d.getMonth() - b.getMonth()
+  if (m < 0 || (m === 0 && d.getDate() < b.getDate())) age--
+  return age >= 0 ? age : null
+}
+
 function calcAge(birthday: string): number | null {
   if (!birthday) return null
   const b = new Date(birthday)
@@ -310,6 +321,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deceased_furigana: formData.deceasedKana.trim() || null,
         deceased_birth_date: formData.deceasedBirthday || null,
         date_of_death: formData.dateOfDeath || null,
+        deceased_age: ageAtDeath(formData.deceasedBirthday, formData.dateOfDeath),
         deceased_postal_code: formData.deceasedPostalCode.trim() || null,
         deceased_address: formData.deceasedAddress.trim() || null,
         deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
@@ -381,6 +393,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           birth_date: c.birthday || null,
           relationship: c.relationship || null,
           phone: c.phone || null,
+          mobile_phone: c.mobilePhone || null,
           email: c.email || null,
           sort_order: i,
         }))
@@ -490,7 +503,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   <th className="px-2 py-2 text-left font-semibold">氏名</th>
                   <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
                   <th className="px-2 py-2 text-left font-semibold w-28">続柄</th>
-                  <th className="px-2 py-2 text-left font-semibold">TEL</th>
+                  <th className="px-2 py-2 text-left font-semibold">固定電話</th>
+                  <th className="px-2 py-2 text-left font-semibold">携帯電話</th>
                   <th className="px-2 py-2 text-left font-semibold">メール</th>
                   <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
                   <th className="px-2 py-2 text-center font-semibold w-14">年齢</th>
@@ -511,7 +525,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                       <td className="px-2 py-1.5"><CellInput value={c.name} onChange={v => updateClient(i, { name: v })} placeholder="山田 太郎" /></td>
                       <td className="px-2 py-1.5"><CellInput value={c.kana} onChange={v => updateClient(i, { kana: v })} placeholder="やまだ たろう" /></td>
                       <td className="px-2 py-1.5"><CellInput value={c.relationship} onChange={v => updateClient(i, { relationship: v })} placeholder="長男 等" /></td>
-                      <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="090-..." /></td>
+                      <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="03-..." /></td>
+                      <td className="px-2 py-1.5"><CellInput type="tel" value={c.mobilePhone} onChange={v => updateClient(i, { mobilePhone: v })} placeholder="090-..." /></td>
                       <td className="px-2 py-1.5"><CellInput type="email" value={c.email} onChange={v => updateClient(i, { email: v })} placeholder="mail@..." /></td>
                       <td className="px-2 py-1.5"><BirthdayPicker value={c.birthday} onChange={v => updateClient(i, { birthday: v })} /></td>
                       <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? `${age}` : <span className="text-gray-300">—</span>}</td>
@@ -585,6 +600,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <Card label="被相続人ふりがな"><Input value={data.deceasedKana} onChange={v => update('deceasedKana', v)} placeholder="やまだ はなこ" /></Card>
           <Card label="被相続人生年月日"><BirthdayPicker value={data.deceasedBirthday} onChange={v => update('deceasedBirthday', v)} /></Card>
           <Card label="相続開始日（死亡日）"><BirthdayPicker value={data.dateOfDeath} onChange={v => update('dateOfDeath', v)} /></Card>
+          <Card label="被相続人年齢（享年・自動計算）">
+            <div className="text-[14px] text-gray-800 px-1 py-1.5">
+              {ageAtDeath(data.deceasedBirthday, data.dateOfDeath) != null
+                ? `${ageAtDeath(data.deceasedBirthday, data.dateOfDeath)} 歳`
+                : <span className="text-gray-400 text-[13px]">生年月日と死亡日を入力すると自動計算されます</span>}
+            </div>
+          </Card>
           <Card label="被相続人郵便番号"><Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="1000131" /></Card>
           <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>

@@ -10,12 +10,13 @@ export type ClientPerson = {
   kana: string
   birthday: string                // 生年月日（年齢は算出）
   relationship: string            // 被相続人との続柄
-  phone: string
+  phone: string                   // 固定電話
+  mobilePhone: string             // 携帯電話
   email: string
 }
 
 export const EMPTY_CLIENT: ClientPerson = {
-  priority: 'companion', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '',
+  priority: 'companion', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '',
 }
 
 export type FormData = {
@@ -70,7 +71,7 @@ export const INITIAL_DATA: FormData = {
   meetingPlace: '',
   clientResponseDueDate: '',
   considerationPeriod: '',
-  clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', email: '' }],
+  clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
   postalCode: '',
   address: '',
   mailingDestination: '',
