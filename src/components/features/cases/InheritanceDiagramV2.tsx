@@ -23,15 +23,18 @@ export default function InheritanceDiagramV2({
   deceased: CaseRow
   heirs: HeirRow[]
 }) {
-  // 続柄区分で分類（relationship_type が未設定のものは relationship フリーテキストで補完判定）
-  const typeOf = (h: HeirRow): HeirRow['relationship_type'] => {
-    if (h.relationship_type) return h.relationship_type
-    const r = h.relationship ?? ''
+  // 続柄を相関図のカテゴリ（配偶者/子/父/母/兄弟姉妹/その他）に正規化。
+  // relationship_type（長男・次男・孫 等）も relationship（フリー）も同じ判定に通す。
+  type Cat = '配偶者' | '子' | '父' | '母' | '兄弟姉妹' | 'その他'
+  const typeOf = (h: HeirRow): Cat => {
+    const r = h.relationship_type || h.relationship || ''
     if (r === '配偶者') return '配偶者'
-    if (['子', '長男', '長女', '二男', '二女', '三男', '三女', '養子', '次男', '次女'].includes(r)) return '子'
+    // 第1順位＝子（実子・養子）と代襲（孫・ひ孫）は子（直系卑属）として扱う
+    if (['子', '長男', '長女', '二男', '二女', '三男', '三女', '養子', '次男', '次女', '孫', 'ひ孫'].includes(r)) return '子'
     if (r === '父') return '父'
     if (r === '母') return '母'
-    if (['兄弟姉妹','兄','姉','弟','妹'].includes(r)) return '兄弟姉妹'
+    // 第3順位＝兄弟姉妹と代襲（甥・姪）
+    if (['兄弟姉妹', '兄', '姉', '弟', '妹', '甥', '姪'].includes(r)) return '兄弟姉妹'
     return 'その他'
   }
 
