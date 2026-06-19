@@ -192,6 +192,8 @@ export type CaseRow = {
   inventory_categories: string[] | null
   financial_survey_start_condition: string | null
   financial_survey_prohibited_period: string | null
+  financial_survey_prohibited_start: string | null  // 財産調査禁止期間 開始日（migration 097）
+  financial_survey_prohibited_end: string | null    // 財産調査禁止期間 終了日（migration 097）
   financial_survey_prohibited_reason: string | null
   // 請求関連
   invoice_status: string | null

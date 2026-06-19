@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Section, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineCurrency, InlineCheckbox, InlineTextarea,
+  Section, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCurrency, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
   LIFE_INSURANCE_PROPOSAL_OPTIONS, LIFE_INSURANCE_TYPES,
@@ -51,20 +51,26 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
       {/* 契約時にお客様から受領した財産関係書類（区分=財産）。自社請求分は各表で管理。 */}
       <ContractReceivedDocs documents={contractDocuments} category="財産" title="契約時にお客様から受領した財産関係書類" />
 
-      {/* 財産調査全般（固定表示） */}
-      <Section title="調査条件・財産目録">
+      {/* 財産調査条件（固定表示） */}
+      <Section title="財産調査条件">
         <FieldGrid>
           <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
-          <InlineEdit label="財産調査禁止期間" value={caseData.financial_survey_prohibited_period} onSave={v => save('financial_survey_prohibited_period', v)} />
+          <InlineDate label="財産調査禁止期間 開始日" value={caseData.financial_survey_prohibited_start} onSave={v => save('financial_survey_prohibited_start', v)} />
+          <InlineDate label="財産調査禁止期間 終了日" value={caseData.financial_survey_prohibited_end} onSave={v => save('financial_survey_prohibited_end', v)} />
           <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
           <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
           <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
         </FieldGrid>
       </Section>
 
-      {/* 子タブ（不動産 / 預金 / 証券 / 信託 / 生命保険）。
+      {/* 調査対象（不動産 / 預金 / 証券 / 信託 / 生命保険）。
           切替時にアンマウントすると入力中の表が古いpropsで作り直され消えて見えるため、
           各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
+      <div className="mt-5 mb-2 flex items-center gap-2">
+        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+        <h3 className="text-[13px] font-semibold text-gray-900">調査対象</h3>
+        <span className="text-[12px] text-gray-400">不動産・預金・証券・信託・生命保険ごとに調査内容を管理</span>
+      </div>
       <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
       <div className={sub === 'realestate' ? '' : 'hidden'}>

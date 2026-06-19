@@ -172,6 +172,13 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {/* 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。自社請求分は下の戸籍請求で管理。 */}
       <ContractReceivedDocs documents={contractDocuments} category="戸籍" title="契約時にお客様から受領した戸籍関係書類" />
 
+      {/* 相続人・戸籍の調査セクション（受領書類との間に余白を確保） */}
+      <div className="mt-5 mb-2 flex items-center gap-2">
+        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
+        <h3 className="text-[13px] font-semibold text-gray-900">相続人・戸籍の調査</h3>
+        <span className="text-[12px] text-gray-400">被相続人・相続人の確定と、戸籍請求の管理</span>
+      </div>
+
       {/* 子タブ（相続人 / 戸籍請求） */}
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
 
