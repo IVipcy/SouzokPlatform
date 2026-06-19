@@ -16,6 +16,38 @@ type Props = {
   onSaved?: () => void
 }
 
+type ListOps = { set: (i: number, v: string) => void; add: () => void; del: (i: number) => void }
+
+// 書類名リスト編集UI。※親コンポーネント内に定義すると毎レンダーで型が変わり
+//   入力ごとに input が再マウントされてフォーカスが外れるため、モジュールレベルに置く。
+function ListEditor({ label, hint, list, ops }: { label: string; hint?: string; list: string[]; ops: ListOps }) {
+  return (
+    <div>
+      <div className="text-[12px] font-bold text-gray-500 mb-1.5">{label}{hint && <span className="font-normal text-gray-400 ml-1">{hint}</span>}</div>
+      <div className="space-y-1.5">
+        {list.map((v, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-[12px] text-gray-400 w-5 text-right tabular-nums">{i + 1}</span>
+            <input
+              type="text"
+              value={v}
+              onChange={e => ops.set(i, e.target.value)}
+              placeholder="書類名"
+              className="flex-1 px-2.5 py-1.5 text-[13px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+            />
+            <button type="button" onClick={() => ops.del(i)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        ))}
+      </div>
+      {list.length < 10 && (
+        <button type="button" onClick={ops.add} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+          <Plus className="w-3.5 h-3.5" /> 行を追加
+        </button>
+      )}
+    </div>
+  )
+}
+
 /**
  * 郵送書類確認票の生成モーダル。
  * 「ご返送書類一覧」は契約残手続き(contract_documents)の「不要」以外を初期表示し、編集して生成する。
@@ -80,32 +112,6 @@ export default function MailingConfirmationModal({ isOpen, onClose, caseData, co
       setBusy(false)
     }
   }
-
-  const ListEditor = ({ label, hint, list, ops }: { label: string; hint?: string; list: string[]; ops: ReturnType<typeof editList> }) => (
-    <div>
-      <div className="text-[12px] font-bold text-gray-500 mb-1.5">{label}{hint && <span className="font-normal text-gray-400 ml-1">{hint}</span>}</div>
-      <div className="space-y-1.5">
-        {list.map((v, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-[12px] text-gray-400 w-5 text-right tabular-nums">{i + 1}</span>
-            <input
-              type="text"
-              value={v}
-              onChange={e => ops.set(i, e.target.value)}
-              placeholder="書類名"
-              className="flex-1 px-2.5 py-1.5 text-[13px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
-            />
-            <button type="button" onClick={() => ops.del(i)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
-          </div>
-        ))}
-      </div>
-      {list.length < 10 && (
-        <button type="button" onClick={ops.add} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-          <Plus className="w-3.5 h-3.5" /> 行を追加
-        </button>
-      )}
-    </div>
-  )
 
   return (
     <Modal
