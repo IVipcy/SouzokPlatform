@@ -39,7 +39,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'mailing_confirmation', category: '郵送', categoryColor: 'bg-cyan-50 text-cyan-700 border-cyan-200', title: '郵送書類確認票', description: '契約書と同封し、お客様に返送してもらう書類の確認票（契約残手続きから自動表示）', status: 'ready' },
   { key: 'koseki_request', category: '戸籍請求', categoryColor: 'bg-brand-50 text-brand-700 border-brand-200', title: '戸籍・住民票等請求書', description: '提出先の市区町村ごとに戸籍・住民票・附票を請求', status: 'ready' },
   { key: 'fixed_asset_request', category: '固定資産', categoryColor: 'bg-purple-50 text-purple-700 border-purple-200', title: '固定資産証明等申請書（名寄帳・評価証明）', description: '不動産の名寄帳・評価証明・非課税証明を請求', status: 'ready' },
-  { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '委任契約書（連名／単独）', description: '契約形態×財産調査有無でFMTを切替。甲・被相続人を自動流し込み＋乙丙押印', status: 'ready' },
+  { key: 'contract', category: '契約書', categoryColor: 'bg-orange-50 text-orange-700 border-orange-200', title: '契約書（連名／単独）', description: '契約形態×財産調査有無でFMTを切替。甲・被相続人を自動流し込み＋乙丙押印', status: 'ready' },
   { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '行/司/連名×業務でFMTを切替。委任者・被相続人を自動流し込み＋押印', status: 'ready' },
   { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）＋立替実費明細', description: '報酬＋立替実費－前受金。確定請求書と立替明細を1ファイル2シートで出力', status: 'ready' },

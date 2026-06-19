@@ -64,7 +64,7 @@ export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks,
         return
       }
       const blob = await res.blob()
-      const filename = `委任契約書_${variant.label}_${caseData.case_number ?? ''}.xlsx`
+      const filename = `契約書_${variant.label}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -74,7 +74,7 @@ export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks,
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      showToast('委任契約書を生成しました', 'success')
+      showToast('契約書を生成しました', 'success')
       onSaved?.()
       onClose()
     } catch (e) {
@@ -88,7 +88,7 @@ export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks,
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="委任契約書 を作成"
+      title="契約書 を作成"
       maxWidth="max-w-2xl"
       footer={
         <>

@@ -129,13 +129,9 @@ export function officesForContractType(contractType: string | null | undefined):
 export type KosekiVariant = 'gyosei' | 'shiho'
 
 /**
- * 戸籍請求書の使用目的（選択肢）。出力画面で選択して反映する。
+ * 戸籍請求書の使用目的（選択肢）。戸籍請求一覧の取得目的と共通（lib/constants）。
  */
-export const KOSEKI_PURPOSES = [
-  '正確な相続人の把握と、相続関係図の作成',
-  '遺言書作成の前段として推定相続人の調査',
-  '民事信託契約書作成の前段として推定相続人の調査',
-] as const
+export { KOSEKI_PURPOSES } from '@/lib/constants'
 
 /**
  * 戸籍請求書の用途別プリセット（請求者欄表記・代理人欄表記・使用目的文言）

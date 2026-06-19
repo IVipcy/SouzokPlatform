@@ -1,5 +1,5 @@
 /**
- * 委任契約書（Excel）生成API
+ * 契約書（Excel）生成API
  *
  * public/templates/keiyaku/<variant>.xlsx をロードし、甲（依頼者）住所・氏名・被相続人を
  * 流し込み、乙（行政）・丙（司法）の署名欄に法人ごとの押印画像を配置してバイナリで返す。
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     const outBuffer = await wb.xlsx.writeBuffer()
-    const downloadFilename = `委任契約書_${def.label}_${caseData.case_number ?? caseId}.xlsx`
+    const downloadFilename = `契約書_${def.label}_${caseData.case_number ?? caseId}.xlsx`
 
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
     const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       await supabase.from('documents').insert({
         case_id: caseId,
         task_id: taskId ?? null,
-        name: `委任契約書（${def.label}）`,
+        name: `契約書（${def.label}）`,
         file_path: storagePath,
         file_type: 'Excel',
         status: '作成済',
