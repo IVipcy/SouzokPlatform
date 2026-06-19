@@ -124,9 +124,18 @@ export function officesForContractType(contractType: string | null | undefined):
 }
 
 /**
- * 戸籍請求書の用途バリエーション
+ * 戸籍請求書の用途バリエーション（行政／司法の2通り。いきいきは廃止）
  */
-export type KosekiVariant = 'gyosei' | 'shiho' | 'ikiiki' | 'ikiiki_kennin'
+export type KosekiVariant = 'gyosei' | 'shiho'
+
+/**
+ * 戸籍請求書の使用目的（選択肢）。出力画面で選択して反映する。
+ */
+export const KOSEKI_PURPOSES = [
+  '正確な相続人の把握と、相続関係図の作成',
+  '遺言書作成の前段として推定相続人の調査',
+  '民事信託契約書作成の前段として推定相続人の調査',
+] as const
 
 /**
  * 戸籍請求書の用途別プリセット（請求者欄表記・代理人欄表記・使用目的文言）
@@ -158,24 +167,6 @@ export const KOSEKI_VARIANT_PRESETS: Record<KosekiVariant, {
     showRepresentativeDetails: true,
     excludeIninjou: false,
   },
-  ikiiki: {
-    label: 'いきいきライフ協会（遺言執行）',
-    office: 'ikiiki',
-    requesterLabel: '遺言者',
-    agentLabel: '上記遺言執行者',
-    purpose: '遺言執行業務の為',
-    showRepresentativeDetails: false,
-    excludeIninjou: false,
-  },
-  ikiiki_kennin: {
-    label: 'いきいきライフ協会（自筆遺言検認）',
-    office: 'ikiiki',
-    requesterLabel: '請求者（遺言保管者）',
-    agentLabel: null,
-    purpose: '自筆遺言検認申立ての為＿＿＿＿＿家庭裁判所に提出するため',
-    showRepresentativeDetails: false,
-    excludeIninjou: true,
-  },
 }
 
 /**
@@ -186,8 +177,6 @@ export function defaultKosekiVariant(contractType: string | null | undefined): K
   switch (contractType) {
     case '司法書士法人単独':
       return 'shiho'
-    case 'いきいきライフ協会':
-      return 'ikiiki'
     case '行政書士法人単独':
     case '行・司連名':
     default:
@@ -197,9 +186,9 @@ export function defaultKosekiVariant(contractType: string | null | undefined): K
 
 /**
  * 固定資産証明等申請書（名寄帳・評価証明）のバリエーション
- * 行政 = 相続財産調査 / 司法 = 相続登記 / いきいき = 遺言執行業務
+ * 行政 = 相続財産調査 / 司法 = 相続登記（いきいきは廃止）
  */
-export type FixedAssetVariant = 'gyosei' | 'shiho' | 'ikiiki'
+export type FixedAssetVariant = 'gyosei' | 'shiho'
 
 export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
   label: string
@@ -220,14 +209,7 @@ export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
     office: 'shiho',
     requesterLabel: '請　求　者',
     agentLabel: '上記代理人',
-    purpose: '相続登記',
-  },
-  ikiiki: {
-    label: 'いきいきライフ協会（遺言執行）',
-    office: 'ikiiki',
-    requesterLabel: '遺言者',
-    agentLabel: '遺言執行者',
-    purpose: '遺言執行業務の為',
+    purpose: '相続財産調査',
   },
 }
 
@@ -239,8 +221,6 @@ export function defaultFixedAssetVariant(contractType: string | null | undefined
   switch (contractType) {
     case '司法書士法人単独':
       return 'shiho'
-    case 'いきいきライフ協会':
-      return 'ikiiki'
     case '行政書士法人単独':
     case '行・司連名':
     default:

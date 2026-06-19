@@ -26,8 +26,6 @@ const RETURN_START_ROW = 9   // ご返送書類一覧 I9:I18（merged I:J）
 const SEND_START_ROW = 9     // 送付書類一覧   D9:D18（merged D:E）
 const MAX_ROWS = 10
 const CELL = {
-  kanriNo: 'O1',     // 管理番号
-  gaiji: 'N5',       // 外字（テンプレの外部参照式を上書きして消す）
   shipDate: 'C22',   // 発送日（令和　年　月　日）
   clientStaff: 'J26',// お客様担当：
 }
@@ -62,10 +60,6 @@ export async function POST(request: NextRequest) {
     await wb.xlsx.load(new Uint8Array(templateBuffer).buffer as ArrayBuffer)
     const ws = wb.getWorksheet('郵送書類確認票') ?? wb.worksheets[0]
     if (!ws) return NextResponse.json({ error: 'テンプレートのシートが見つかりません' }, { status: 500 })
-
-    // 管理番号・外字（外部参照式を上書き）
-    ws.getCell(CELL.kanriNo).value = caseData.case_number ?? ''
-    ws.getCell(CELL.gaiji).value = ''
 
     // 一覧をいったんクリア（テンプレの例を消す）してから流し込み
     for (let i = 0; i < MAX_ROWS; i++) {

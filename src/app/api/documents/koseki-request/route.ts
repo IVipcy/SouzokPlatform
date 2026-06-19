@@ -29,7 +29,7 @@ type Body = {
   caseId: string
   variant: KosekiVariant
   requestDate: string
-  submitCourt: string | null
+  purpose?: string   // 使用目的（出力画面で選択）
   rows: RequestRow[]
   rowIndex?: number  // どの請求先を出力するか（省略時は全件まとめて別xlsx化→未対応、0番で1件）
   taskId?: string | null  // 紐づける作成タスク（タスク詳細から作成時）
@@ -94,40 +94,6 @@ const CELL_MAP: Record<KosekiVariant, {
     kogawaseAmount: 'G34',
     notesStart: 'C28',
   },
-  ikiiki: {
-    municipality: 'A3',
-    requestDate: ['G3', 'I1'],
-    requesterAddress: 'F5',
-    requesterName: 'F6',
-    kosekiTypeLabel: null,
-    juminhyoLabel: null,
-    copyCount: 'H14',
-    honseki: 'C16',
-    hittousha: 'C17',
-    targetName: 'C19',
-    purpose: 'C23',
-    submitTo: null,
-    deceasedName: 'D24',
-    kogawaseAmount: 'G32',
-    notesStart: 'C25',
-  },
-  ikiiki_kennin: {
-    municipality: 'A3',
-    requestDate: ['G3', 'I1'],
-    requesterAddress: null,  // 検認時は遺言保管者=協会の住所がテンプレ既設
-    requesterName: null,
-    kosekiTypeLabel: null,
-    juminhyoLabel: null,
-    copyCount: 'H14',
-    honseki: 'C16',
-    hittousha: 'C17',
-    targetName: 'C19',
-    purpose: 'C23',
-    submitTo: null,
-    deceasedName: 'D24',
-    kogawaseAmount: 'G32',
-    notesStart: 'C25',
-  },
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | Date | null) {
@@ -139,7 +105,7 @@ function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | D
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
-    const { caseId, variant, requestDate, submitCourt, rows, rowIndex = 0 } = body
+    const { caseId, variant, requestDate, rows, rowIndex = 0 } = body
 
     if (!caseId || !variant || !rows || rows.length === 0) {
       return NextResponse.json({ error: 'caseId, variant, rows は必須です' }, { status: 400 })
@@ -204,12 +170,8 @@ export async function POST(request: NextRequest) {
     setCell(ws, map.hittousha, row.hittousha)
     setCell(ws, map.targetName, row.targetName)
 
-    // 使用目的: 検認時は＿＿＿を家裁名で埋める
-    let purposeText = preset.purpose
-    if (variant === 'ikiiki_kennin' && submitCourt) {
-      purposeText = purposeText.replace('＿＿＿＿＿', submitCourt)
-    }
-    setCell(ws, map.purpose, purposeText)
+    // 使用目的: 出力画面で選択された目的を優先（未指定はプリセット）
+    setCell(ws, map.purpose, body.purpose || preset.purpose)
 
     setCell(ws, map.deceasedName, deceasedName)
 

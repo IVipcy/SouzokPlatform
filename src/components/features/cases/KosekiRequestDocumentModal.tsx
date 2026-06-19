@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
 import {
   KOSEKI_VARIANT_PRESETS,
+  KOSEKI_PURPOSES,
   defaultKosekiVariant,
   type KosekiVariant,
 } from '@/lib/officeProfiles'
@@ -54,7 +55,7 @@ function createRow(partial: Partial<RequestRow> = {}): RequestRow {
 export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs, defaultTaskId }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
-  const [submitCourt, setSubmitCourt] = useState<string>('')  // 検認用: 家庭裁判所名
+  const [purpose, setPurpose] = useState<string>(KOSEKI_PURPOSES[0])  // 使用目的
   const [rows, setRows] = useState<RequestRow[]>([])
   const [generating, setGenerating] = useState(false)
 
@@ -72,7 +73,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     // モーダルを開くたびにリセット
     setVariant(defaultKosekiVariant(caseData.contract_type))
     setRequestDate(new Date().toISOString().slice(0, 10))
-    setSubmitCourt('')
+    setPurpose(KOSEKI_PURPOSES[0])
     if (prefilledCities.length > 0) {
       setRows(prefilledCities.map(city => createRow({
         municipality: city,
@@ -121,10 +122,6 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
       showToast('依頼者の氏名・住所が未入力です', 'error')
       return
     }
-    if (variant === 'ikiiki_kennin' && !submitCourt.trim()) {
-      showToast('検認の場合は提出先（家庭裁判所名）を入力してください', 'error')
-      return
-    }
 
     setGenerating(true)
     try {
@@ -148,7 +145,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             caseId: caseData.id,
             variant,
             requestDate,
-            submitCourt: submitCourt.trim() || null,
+            purpose,
             rows: normalizedRows,
             rowIndex: i,
             taskId: defaultTaskId ?? null,
@@ -235,18 +232,16 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
             />
           </div>
-          {variant === 'ikiiki_kennin' && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">提出先（家庭裁判所）</label>
-              <input
-                type="text"
-                value={submitCourt}
-                onChange={e => setSubmitCourt(e.target.value)}
-                placeholder="例: 横浜家庭裁判所"
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
-              />
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">使用目的</label>
+            <select
+              value={purpose}
+              onChange={e => setPurpose(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+            >
+              {KOSEKI_PURPOSES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
         </section>
 
         {/* プリセット内容表示 */}
@@ -261,7 +256,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           </div>
           <div className="flex gap-3">
             <span className="text-gray-500 w-24">使用目的:</span>
-            <span className="text-gray-800">{preset.purpose}</span>
+            <span className="text-gray-800">{purpose}</span>
           </div>
           <div className="flex gap-3">
             <span className="text-gray-500 w-24">依頼者:</span>
