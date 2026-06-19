@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, X, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -143,15 +144,35 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   )
 }
 
-// 相続登記の種別（複数選択）。チップ表示＋チェックリストのポップオーバー。
+// 相続登記の種別（複数選択）。表の overflow 枠でクリップされないよう、
+// チェックリストは body へポータルして固定配置で表示する。
 function MultiSelectCell({ value, options, onSave }: { value: string[]; options: readonly string[]; onSave: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const openPanel = () => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 240) })
+    setOpen(true)
+  }
+
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const onDoc = (e: MouseEvent) => {
+      if (btnRef.current?.contains(e.target as Node) || panelRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    const onMove = () => setOpen(false)  // スクロール/リサイズで閉じる（位置ズレ防止）
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+    }
   }, [open])
 
   const toggle = (o: string) => {
@@ -159,24 +180,25 @@ function MultiSelectCell({ value, options, onSave }: { value: string[]; options:
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-1 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white text-left hover:border-brand-400">
+    <>
+      <button ref={btnRef} type="button" onClick={() => (open ? setOpen(false) : openPanel())} className="w-full flex items-center gap-1 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white text-left hover:border-brand-400">
         <span className="flex-1 truncate">
           {value.length === 0 ? <span className="text-gray-300">— 選択 —</span> : value.join('、')}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
       </button>
-      {open && (
-        <div className="absolute z-20 mt-1 w-60 max-h-64 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1.5">
+      {open && pos && createPortal(
+        <div ref={panelRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 60 }} className="max-h-64 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1.5">
           {options.map(o => (
             <label key={o} className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-gray-700 hover:bg-gray-50 rounded cursor-pointer">
               <input type="checkbox" checked={value.includes(o)} onChange={() => toggle(o)} className="w-3.5 h-3.5 accent-brand-600" />
               {o}
             </label>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
 
