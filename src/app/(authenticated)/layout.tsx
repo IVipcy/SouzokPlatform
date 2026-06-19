@@ -1,9 +1,7 @@
 import Sidebar from '@/components/layout/Sidebar'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { ToastContainer } from '@/components/ui/Toast'
-import TopProgressBar from '@/components/ui/TopProgressBar'
 import { getCurrentUser } from '@/lib/auth'
-import { Suspense } from 'react'
 
 export default async function AuthenticatedLayout({
   children,
@@ -14,9 +12,6 @@ export default async function AuthenticatedLayout({
 
   return (
     <AuthProvider user={user}>
-      <Suspense fallback={null}>
-        <TopProgressBar />
-      </Suspense>
       <div className="flex min-h-screen">
         <Sidebar />
         {/* min-w-0: 幅広テーブル等を内側の overflow-x-auto でスクロールさせ、
