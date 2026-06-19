@@ -333,6 +333,19 @@ export const REGISTRATION_STATUSES = [
   '完了',
 ] as const
 
+// 不動産の取得資料（取得物）。method=請求は請求先・請求日・到着日を管理、method=参照（路線価）は取得済のみ。
+// target=物件 は物件を選択、target=市区町村 は市区町村を入力。
+export const ACQUISITION_ITEMS = [
+  { key: '登記情報', method: '請求', target: '物件', office: '法務局' },
+  { key: '公図', method: '請求', target: '物件', office: '法務局' },
+  { key: '地積測量図', method: '請求', target: '物件', office: '法務局' },
+  { key: '評価証明', method: '請求', target: '市区町村', office: '市区町村役所' },
+  { key: '名寄帳', method: '請求', target: '市区町村', office: '市区町村役所' },
+  { key: '路線価', method: '参照', target: '物件', office: '' },
+] as const
+
+export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
+
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
 export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 

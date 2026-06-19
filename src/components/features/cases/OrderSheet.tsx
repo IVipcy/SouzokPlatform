@@ -21,7 +21,7 @@ import type { TabKey } from './CaseTabs'
 import type { ReactNode } from 'react'
 import type { TimelineReceipt } from './CaseTimeline'
 import type {
-  CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow,
+  CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow, SagyoDocumentRow,
 } from '@/types'
 
@@ -33,6 +33,7 @@ type Props = {
   heirs: HeirRow[]
   kosekiRequests: KosekiRequestRow[]
   properties: RealEstatePropertyRow[]
+  acquisitions?: RealEstateAcquisitionRow[]
   financialAssets: FinancialAssetRow[]
   divisionDetails: DivisionDetailRow[]
   expenses: ExpenseRow[]
@@ -54,7 +55,7 @@ type Props = {
  */
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
-  heirs, kosekiRequests, properties, financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients, contractDocuments,
+  heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, expenses, tasks, clientCommunications, referrals, caseClients, contractDocuments,
   sagyoDocuments = [], receipts = [],
 }: Props) {
   const supabase = createClient()
@@ -85,7 +86,7 @@ export default function OrderSheet({
     { title: '受注内容', node: <OrderContentTab caseData={caseData} patchCase={patchCase} /> },
     { title: '契約残手続き', node: <ContractProcTab caseId={caseData.id} contractDocuments={contractDocuments} onRefresh={onRefresh} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
-    { title: '財産調査', gate: 'assets', node: <AssetsTab caseData={caseData} properties={properties} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} /> },
+    { title: '財産調査', gate: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} /> },
     { title: '他事業者紹介', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="division" /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" /> },

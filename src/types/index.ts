@@ -603,6 +603,25 @@ export type RealEstatePropertyRow = {
   created_at: string
 }
 
+// 不動産の取得資料管理（migration 102）。請求・参照を問わず取得物を案件単位で管理。
+export type RealEstateAcquisitionRow = {
+  id: string
+  case_id: string
+  item_type: string | null            // 登記情報/公図/地積測量図/評価証明/名寄帳/路線価
+  target_property_id: string | null   // 物件単位の対象
+  target_municipality: string | null  // 市区町村単位の対象
+  request_to: string | null
+  request_date: string | null
+  expected_arrival_date: string | null
+  arrival_date: string | null
+  received: boolean
+  amount: number | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // === 金融資産 ===
 export type FinancialAssetRow = {
   id: string

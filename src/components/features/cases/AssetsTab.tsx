@@ -10,9 +10,10 @@ import {
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
+import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import ContractReceivedDocs from './ContractReceivedDocs'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -24,6 +25,8 @@ type Props = {
   orderSheetMode?: boolean
   // 契約残手続きの書類（区分=財産 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
+  // 不動産の取得資料管理
+  acquisitions?: RealEstateAcquisitionRow[]
 }
 
 /**
@@ -44,7 +47,7 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'insurance', label: '生命保険' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [] }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -77,8 +80,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
       <div className={mainTab === 'targets' ? 'space-y-3.5' : 'hidden'}>
         <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
-        <div className={sub === 'realestate' ? '' : 'hidden'}>
-          <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+        <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
+          <div>
+            <div className="text-[12px] font-bold text-gray-500 mb-1.5">物件一覧（どういう物件があるか）</div>
+            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+          </div>
+          <div>
+            <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得資料管理（どこに何をいつ請求し、受け取れたか）</div>
+            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} />
+          </div>
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
           <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
