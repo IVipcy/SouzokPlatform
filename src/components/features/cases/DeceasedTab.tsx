@@ -186,7 +186,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         <div className="space-y-3.5">
           {/* 戸籍請求（請求単位の管理表）。理由・目的・特記は各行で個別設定 */}
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} />
           </Section>
         </div>
       )}

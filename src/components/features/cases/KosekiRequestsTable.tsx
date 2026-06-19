@@ -5,9 +5,9 @@ import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES } from '@/lib/constants'
+import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
-import type { KosekiRequestRow, CaseRow } from '@/types'
+import type { KosekiRequestRow, CaseRow, HeirRow } from '@/types'
 
 type Props = {
   caseId: string
@@ -17,6 +17,9 @@ type Props = {
   orderSheetMode?: boolean
   // 役割分担（取得区分の一括反映用）
   roles?: CaseRow['intake_roles']
+  // 対象者の選択肢（被相続人＋相続人一覧）
+  deceasedName?: string | null
+  heirs?: HeirRow[]
 }
 
 /**
@@ -24,12 +27,14 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const progressMode = !orderSheetMode
+  // 対象者の選択肢（被相続人＋相続人一覧の氏名）
+  const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
 
   // 役割分担から取得区分を一括反映（任意・上書き確認）
   const applyRolesAcquirer = async () => {
@@ -78,7 +83,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     onRefresh?.()
   }
 
-  const colCount = progressMode ? 11 : 7
+  const colCount = progressMode ? 12 : 8
 
   return (
     <div>
@@ -89,6 +94,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               <th className="px-1 py-2 w-7" />
               <th className="px-2.5 py-2 text-left font-semibold w-44">請求先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">対象者</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-36">範囲</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
@@ -108,7 +114,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField}
-                  onDelete={() => delRow(r)} colCount={colCount} />
+                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} />
               ))
             )}
           </tbody>
@@ -130,7 +136,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -141,6 +147,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   onDelete: () => void
   colCount: number
+  targetOptions: string[]
 }) {
   return (
     <>
@@ -151,7 +158,8 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
           </button>
         </td>
         <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
-        <Cell value={r.target_person} onChange={v => setLocal(r.id, 'target_person', v)} onCommit={v => commit(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
+        <TargetCell value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
+        <SelectCell value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} />
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
@@ -184,6 +192,19 @@ function SelectCell({ value, options, onSave }: { value: string | null; options:
       <select value={value ?? ''} onChange={e => onSave(e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
         <option value="">—</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </td>
+  )
+}
+
+// 対象者（誰の戸籍か）。被相続人＋相続人一覧から選択。既存の自由入力値があれば末尾に保持。
+function TargetCell({ value, options, onSave }: { value: string | null; options: string[]; onSave: (v: string) => void }) {
+  const opts = value && !options.includes(value) ? [...options, value] : options
+  return (
+    <td className="px-2.5 py-1.5">
+      <select value={value ?? ''} onChange={e => onSave(e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+        <option value="">— 選択 —</option>
+        {opts.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </td>
   )

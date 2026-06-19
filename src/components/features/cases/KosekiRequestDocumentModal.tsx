@@ -86,14 +86,18 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     const hittousha = caseData.deceased_name ?? ''
     if (kosekiRequests.length > 0) {
       // 戸籍請求一覧（誰の・どこに・どの種別）から初期行を作成。本籍・筆頭者は被相続人からプリセット。
-      setRows(kosekiRequests.map(k => createRow({
-        municipality: k.request_to ?? '',
-        honseki,
-        hittousha,
-        targetName: k.target_person ?? caseData.deceased_name ?? '',
-        requestTypes: parseRequestTypes(k.doc_types),
-        notes: [k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
-      })))
+      setRows(kosekiRequests.map(k => {
+        const who = k.target_person || caseData.deceased_name || ''
+        const rangeNote = k.range_text ? `${who}さまの${k.range_text}の一連の戸籍が必要です。` : ''
+        return createRow({
+          municipality: k.request_to ?? '',
+          honseki,
+          hittousha,
+          targetName: k.target_person ?? caseData.deceased_name ?? '',
+          requestTypes: parseRequestTypes(k.doc_types),
+          notes: [rangeNote, k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
+        })
+      }))
     } else if (prefilledCities.length > 0) {
       setRows(prefilledCities.map(city => createRow({ municipality: city, honseki, hittousha, targetName: caseData.deceased_name ?? '' })))
     } else {

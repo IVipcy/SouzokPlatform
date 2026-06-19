@@ -480,7 +480,8 @@ export type KosekiRequestRow = {
   id: string
   case_id: string
   request_to: string | null       // 請求先（市区町村/本籍地役所）
-  target_person: string | null    // 対象者（誰の戸籍か）
+  target_person: string | null    // 対象者（誰の戸籍か。被相続人/相続人から選択）
+  range_text: string | null       // 範囲（出生から死亡まで/現在戸籍 等。migration 099）
   doc_types: string | null        // 種別（戸籍/除籍/原戸籍/附票 など）
   purpose: string | null          // 取得目的
   request_reason: string | null       // 戸籍請求理由
