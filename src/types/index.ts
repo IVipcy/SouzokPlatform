@@ -88,8 +88,11 @@ export type CaseRow = {
   // 遺産分割
   division_policy: string | null
   division_proposal: string | null
+  division_proposal_presence: string | null   // 分配方針の提案 有無（migration 105）
   agreement_signing_method: string | null
+  agreement_dispatch_method: string | null     // 協議書の送付・調印（migration 105）
   inheritance_risk: string | null
+  real_estate_evaluation_method: string | null // 不動産の評価方法（migration 105）
   // 遺言
   will_type: string | null
   will_storage: string | null

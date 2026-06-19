@@ -10,6 +10,8 @@ import {
   WILL_STORAGE_OPTIONS,
   WILL_EXECUTION_OPTIONS,
   DIVISION_POLICIES,
+  PRESENCE_OPTIONS,
+  AGREEMENT_DISPATCH_METHODS,
   AGREEMENT_SIGNING_METHODS,
   WILL_CONTENT_OPTIONS,
   WILL_BEQUEST_HANDLER_OPTIONS,
@@ -65,10 +67,14 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, onRefres
       <Section title="分割方針" icon="⚖️">
         <FieldGrid>
           <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
-          <InlineEdit label="分割提案" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} />
+          <InlineSelect label="分配方針の提案" value={caseData.division_proposal_presence} options={[...PRESENCE_OPTIONS]} onSave={v => saveCaseField('division_proposal_presence', v)} />
+          <InlineSelect label="協議書の送付・調印" value={caseData.agreement_dispatch_method} options={[...AGREEMENT_DISPATCH_METHODS]} onSave={v => saveCaseField('agreement_dispatch_method', v)} />
           <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={[...AGREEMENT_SIGNING_METHODS]} onSave={v => saveCaseField('agreement_signing_method', v)} />
           <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
         </FieldGrid>
+        <div className="mt-2">
+          <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
+        </div>
       </Section>
 
       {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}

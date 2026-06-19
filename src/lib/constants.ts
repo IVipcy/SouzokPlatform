@@ -489,9 +489,20 @@ export const NAMEYOSE_TARGETS = [
 // === 不動産: 評価ランク ===
 export const PROPERTY_RANKS = ['S', 'A', 'B', 'C', '確認中'] as const
 
-// === 遺産分割方針 ===
+// === 遺産分割方針（オーダーシート準拠の3択） ===
 export const DIVISION_POLICIES = [
-  '法定相続分', '配偶者集中', '代表者集中', '2次相続考慮', '法定相続人間で協議', 'その他',
+  '法定相続分', '2次相続を踏まえて', 'その他',
+] as const
+
+// 不動産の評価方法（財産目録）
+export const REAL_ESTATE_EVAL_METHODS = ['固定資産評価額', '路線価'] as const
+
+// 有無（分配方針の提案 等）
+export const PRESENCE_OPTIONS = ['有', '無'] as const
+
+// 遺産分割協議書の送付・調印
+export const AGREEMENT_DISPATCH_METHODS = [
+  '依頼者から各相続人へ', 'OCから各相続人へ', 'オーシャンで調印', 'その他',
 ] as const
 
 // === 遺産分割協議書 署名捺印方法 ===
