@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
@@ -103,6 +103,18 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     })
     setShowAddHeir(true)
   }
+
+  // 相続人が0名のとき、依頼者（相続人の可能性が高い）を最初の1人として自動でプリセット表示する。
+  // 自動で開いた追加フォームを確認・調整して保存すればよい（不要ならキャンセル可）。
+  const autoAddedRef = useRef(false)
+  useEffect(() => {
+    if (autoAddedRef.current) return
+    if (heirs.length === 0 && !showAddHeir && (mainClient?.name || caseData.clients?.name)) {
+      autoAddedRef.current = true
+      startAddFromClient()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heirs.length])
 
   const startEdit = (heir: HeirRow) => {
     setEditingHeirId(heir.id)
@@ -320,14 +332,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
-                <FormField label="ふりがな">
-                  <input
-                    type="text"
-                    value={heirForm.furigana}
-                    onChange={e => setHeirForm(f => ({ ...f, furigana: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                  />
-                </FormField>
                 <FormField label="被相続人との続柄">
                   <select
                     value={heirForm.relationship}
@@ -345,22 +349,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     type="date"
                     value={heirForm.birth_date}
                     onChange={e => setHeirForm(f => ({ ...f, birth_date: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                  />
-                </FormField>
-                <FormField label="TEL">
-                  <input
-                    type="text"
-                    value={heirForm.phone}
-                    onChange={e => setHeirForm(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                  />
-                </FormField>
-                <FormField label="メール">
-                  <input
-                    type="text"
-                    value={heirForm.email}
-                    onChange={e => setHeirForm(f => ({ ...f, email: e.target.value }))}
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                 </FormField>
