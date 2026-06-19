@@ -468,7 +468,7 @@ export type HeirRow = {
   email: string | null
   is_legal_heir: boolean
   birth_date: string | null
-  relationship_type: '配偶者' | '子' | '父' | '母' | '兄弟姉妹' | 'その他' | null
+  relationship_type: string | null   // 被相続人との続柄（法定相続人・代襲まで網羅。migration 103でCHECK撤去）
   is_applicant: boolean
   notes: string | null
   sort_order: number

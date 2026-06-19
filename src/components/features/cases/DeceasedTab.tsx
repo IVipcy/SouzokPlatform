@@ -5,6 +5,7 @@ import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
+import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow } from '@/types'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
@@ -40,19 +41,8 @@ const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
   { key: 'koseki', label: '戸籍請求' },
 ]
 
-// 被相続人との続柄（相続人視点）。法定相続人＋代襲相続まで網羅。
-// 第1順位=子（長男〜養子）・代襲(孫/ひ孫)、第2順位=直系尊属(父母/祖父母)、
-// 第3順位=兄弟姉妹・代襲(甥/姪)。いとこ・おじおば等は法定相続人でないため除外。
-const RELATIONSHIP_OPTIONS = [
-  '配偶者',
-  '長男', '長女', '次男', '次女', '三男', '三女', '養子',
-  '孫', 'ひ孫',
-  '父', '母', '祖父', '祖母',
-  '兄', '姉', '弟', '妹',
-  '甥', '姪',
-  'その他',
-] as const
-type RelType = typeof RELATIONSHIP_OPTIONS[number]
+const RELATIONSHIP_OPTIONS = HEIR_RELATIONSHIPS
+type RelType = typeof HEIR_RELATIONSHIPS[number]
 
 const emptyHeirForm = () => ({
   name: '',

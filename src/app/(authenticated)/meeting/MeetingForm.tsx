@@ -10,7 +10,7 @@ import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
-  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES,
+  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
@@ -524,7 +524,12 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                       </td>
                       <td className="px-2 py-1.5"><CellInput value={c.name} onChange={v => updateClient(i, { name: v })} placeholder="山田 太郎" /></td>
                       <td className="px-2 py-1.5"><CellInput value={c.kana} onChange={v => updateClient(i, { kana: v })} placeholder="やまだ たろう" /></td>
-                      <td className="px-2 py-1.5"><CellInput value={c.relationship} onChange={v => updateClient(i, { relationship: v })} placeholder="長男 等" /></td>
+                      <td className="px-2 py-1.5">
+                        <select value={c.relationship} onChange={e => updateClient(i, { relationship: e.target.value })} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400">
+                          <option value="">続柄</option>
+                          {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
                       <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="03-..." /></td>
                       <td className="px-2 py-1.5"><CellInput type="tel" value={c.mobilePhone} onChange={v => updateClient(i, { mobilePhone: v })} placeholder="090-..." /></td>
                       <td className="px-2 py-1.5"><CellInput type="email" value={c.email} onChange={v => updateClient(i, { email: v })} placeholder="mail@..." /></td>
