@@ -17,6 +17,20 @@ type Body = {
   caseId: string
   variant: string
   taskId?: string | null
+  date?: string | null   // 契約日（任意。YYYY-MM-DD）
+}
+
+/** 和暦変換（契約日用）。 */
+function toWareki(dateStr: string | null | undefined): { era: string; year: number; month: number; day: number } | null {
+  if (!dateStr) return null
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(dateStr)
+  if (!m) return null
+  const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3])
+  const ymd = y * 10000 + mo * 100 + d
+  if (ymd >= 20190501) return { era: '令和', year: y - 2018, month: mo, day: d }
+  if (ymd >= 19890108) return { era: '平成', year: y - 1988, month: mo, day: d }
+  if (ymd >= 19261225) return { era: '昭和', year: y - 1925, month: mo, day: d }
+  return { era: '西暦', year: y, month: mo, day: d }
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -93,6 +107,12 @@ export async function POST(request: NextRequest) {
       const nameCell = ws.getCell(f.name)
       nameCell.font = { ...(nameCell.font ?? {}), size: 14 }
       nameCell.alignment = { ...(nameCell.alignment ?? {}), shrinkToFit: false, wrapText: false }
+    }
+
+    // 契約日（任意。和暦で「令和○年○月○日」。元号もこのセル内に書く）
+    if (body.date && f.dateCell) {
+      const wd = toWareki(body.date)
+      if (wd) setCell(ws, f.dateCell, `${wd.era}　${wd.year}　年　${wd.month}　月　${wd.day}　日`)
     }
 
     // 押印画像（乙＝行政／丙＝司法）

@@ -29,6 +29,8 @@ export type IninjoFieldMap = {
   deathYear?: string
   deathMonth?: string
   deathDay?: string
+  dateEraCell?: string  // 委任日の元号セル（令和）
+  dateCell?: string     // 委任日の「　年　月　日」セル
 }
 
 export type IninjoStamp = { law: StampLaw; cell: string }
@@ -51,6 +53,8 @@ const STD: IninjoFieldMap = {
   birthYear: 'P12',
   birthMonth: 'R12',
   birthDay: 'T12',
+  dateEraCell: 'Q5',
+  dateCell: 'S5',
 }
 // 相続系で追加される被相続人・死亡日
 const DECEASED: IninjoFieldMap = {
@@ -134,6 +138,8 @@ export const ININJO_VARIANTS: IninjoVariant[] = [
       building: 'G28',
       name: 'G30',
       deceased: 'D18',
+      dateEraCell: 'C24',
+      dateCell: 'E24',
     },
     stamps: [{ law: 'gyosei', cell: 'V11' }],
   },

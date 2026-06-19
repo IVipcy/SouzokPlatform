@@ -17,6 +17,7 @@ type Body = {
   caseId: string
   variant: string
   taskId?: string | null
+  date?: string | null   // 委任日（任意。YYYY-MM-DD）
 }
 
 /** 和暦変換（YYYY-MM-DD → 元号/年/月/日）。範囲外は西暦年を返す。 */
@@ -138,6 +139,15 @@ export async function POST(request: NextRequest) {
       setCell(ws, f.birthYear, birth.year)
       setCell(ws, f.birthMonth, birth.month)
       setCell(ws, f.birthDay, birth.day)
+    }
+
+    // 委任日（任意。和暦で「令和○年○月○日」。元号は別セル、年月日はラベルセルへ）
+    if (body.date && f.dateCell) {
+      const wd = toWareki(body.date)
+      if (wd) {
+        setCell(ws, f.dateEraCell, wd.era)
+        setCell(ws, f.dateCell, `　${wd.year}　年　${wd.month}　月　${wd.day}　日`)
+      }
     }
 
     // 被相続人・死亡日

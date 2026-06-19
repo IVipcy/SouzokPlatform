@@ -18,6 +18,7 @@ export type KeiyakuFieldMap = {
   name?: string           // 甲（依頼者）氏名
   deceased?: string       // 被相続人氏名（業務範囲の「故○○様」）
   bodyClientName?: string // 本文の依頼者氏名（遺言など単独様式）
+  dateCell?: string       // 契約日「令和　年　月　日」セル（元号もこのセル内）
 }
 
 export type KeiyakuStamp = { law: StampLaw; cell: string }
@@ -35,42 +36,42 @@ export const KEIYAKU_VARIANTS: KeiyakuVariant[] = [
     key: 'rengo_zaicho_ari',
     label: '行・司連名（財産調査あり）',
     group: '連名',
-    fields: { address: 'AF43', building: 'AF44', name: 'AF46', deceased: 'E9' },
+    fields: { address: 'AF43', building: 'AF44', name: 'AF46', deceased: 'E9', dateCell: 'AB41' },
     stamps: [{ law: 'gyosei', cell: 'AU52' }, { law: 'shiho', cell: 'AU56' }],
   },
   {
     key: 'rengo_zaicho_nashi',
     label: '行・司連名（財産調査なし）',
     group: '連名',
-    fields: { address: 'AF36', building: 'AF37', name: 'AF39', deceased: 'E10' },
+    fields: { address: 'AF36', building: 'AF37', name: 'AF39', deceased: 'E10', dateCell: 'AB35' },
     stamps: [{ law: 'gyosei', cell: 'AU44' }, { law: 'shiho', cell: 'AU48' }],
   },
   {
     key: 'gyosei_zaicho_ari',
     label: '行政単独（財産調査あり）',
     group: '行政単独',
-    fields: { address: 'AF43', building: 'AF44', name: 'AF46', deceased: 'E9' },
+    fields: { address: 'AF43', building: 'AF44', name: 'AF46', deceased: 'E9', dateCell: 'AB39' },
     stamps: [{ law: 'gyosei', cell: 'AU52' }],
   },
   {
     key: 'tanpoku_yuigon',
     label: '遺言など単独（財産調査なし）',
     group: 'その他',
-    fields: { address: 'AF31', building: 'AF32', name: 'AF34', bodyClientName: 'D9' },
+    fields: { address: 'AF31', building: 'AF32', name: 'AF34', bodyClientName: 'D9', dateCell: 'AB29' },
     stamps: [{ law: 'gyosei', cell: 'AU40' }],
   },
   {
     key: 'ichiritsu',
     label: '1％（行・司連名）',
     group: 'その他',
-    fields: { address: 'AF35', name: 'AF38' },
+    fields: { address: 'AF35', name: 'AF38', dateCell: 'AB33' },
     stamps: [{ law: 'gyosei', cell: 'AU42' }, { law: 'shiho', cell: 'AU46' }],
   },
   {
     key: 'shikkou',
     label: '遺言執行（行・司連名）',
     group: 'その他',
-    fields: { address: 'BA14', name: 'BA16' },
+    fields: { address: 'BA14', name: 'BA16', dateCell: 'AW12' },
     stamps: [{ law: 'gyosei', cell: 'BG19' }, { law: 'shiho', cell: 'BG23' }],
   },
 ]

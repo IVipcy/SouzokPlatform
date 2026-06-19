@@ -32,12 +32,14 @@ export default function IninjoDocumentModal({ isOpen, onClose, caseData, tasks, 
   )
   const [variantKey, setVariantKey] = useState<string>(recommended)
   const [taskId, setTaskId] = useState<string>('')
+  const [dateValue, setDateValue] = useState<string>('')
   const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
     setVariantKey(recommended)
     setTaskId(defaultTaskId ?? '')
+    setDateValue('')
   }, [isOpen, recommended, defaultTaskId])
 
   const variant = getIninjoVariant(variantKey)
@@ -56,7 +58,7 @@ export default function IninjoDocumentModal({ isOpen, onClose, caseData, tasks, 
       const res = await fetch('/api/documents/ininjo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: caseData.id, variant: variantKey, taskId: taskId || null }),
+        body: JSON.stringify({ caseId: caseData.id, variant: variantKey, taskId: taskId || null, date: dateValue || null }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
@@ -140,6 +142,12 @@ export default function IninjoDocumentModal({ isOpen, onClose, caseData, tasks, 
           {variantKey === recommended && (
             <p className="text-[12px] text-green-600 mt-1">✓ 契約形態・受注区分に基づく推奨様式です</p>
           )}
+        </section>
+
+        {/* 委任日（任意） */}
+        <section>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">委任日（任意）<span className="ml-2 text-[12px] font-normal text-gray-400">未入力なら空欄（手書き）。和暦で出力</span></label>
+          <input type="date" value={dateValue} onChange={e => setDateValue(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
         </section>
 
         {/* 流し込み内容のプレビュー */}
