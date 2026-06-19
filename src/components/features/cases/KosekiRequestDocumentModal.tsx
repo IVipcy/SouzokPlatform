@@ -11,7 +11,7 @@ import {
   type KosekiVariant,
 } from '@/lib/officeProfiles'
 import { KOSEKI_REQUEST_TYPES } from '@/lib/constants'
-import type { CaseRow, TaskRow, HeirRow } from '@/types'
+import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
 
 type Props = {
   isOpen: boolean
@@ -19,8 +19,16 @@ type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   heirs: HeirRow[]
+  /** 戸籍請求一覧（相続人調査タブ）。あれば出力の初期行をここからプリセット。 */
+  kosekiRequests?: KosekiRequestRow[]
   /** タスク詳細から作成する際に紐づけるタスクID */
   defaultTaskId?: string
+}
+
+/** doc_types の自由記述文字列から請求種別を抽出（マッチしなければ既定） */
+function parseRequestTypes(docTypes: string | null | undefined): string[] {
+  const found = KOSEKI_REQUEST_TYPES.filter(t => (docTypes ?? '').includes(t))
+  return found.length > 0 ? found : ['戸籍', '謄本']
 }
 
 type RequestRow = {
@@ -52,7 +60,7 @@ function createRow(partial: Partial<RequestRow> = {}): RequestRow {
   }
 }
 
-export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs, defaultTaskId }: Props) {
+export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs, kosekiRequests = [], defaultTaskId }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [purpose, setPurpose] = useState<string>(KOSEKI_PURPOSES[0])  // 使用目的
@@ -74,21 +82,24 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     setVariant(defaultKosekiVariant(caseData.contract_type))
     setRequestDate(new Date().toISOString().slice(0, 10))
     setPurpose(KOSEKI_PURPOSES[0])
-    if (prefilledCities.length > 0) {
-      setRows(prefilledCities.map(city => createRow({
-        municipality: city,
-        honseki: caseData.deceased_registered_address ?? '',
-        hittousha: caseData.deceased_name ?? '',
-        targetName: caseData.deceased_name ?? '',
+    const honseki = caseData.deceased_registered_address ?? ''
+    const hittousha = caseData.deceased_name ?? ''
+    if (kosekiRequests.length > 0) {
+      // 戸籍請求一覧（誰の・どこに・どの種別）から初期行を作成。本籍・筆頭者は被相続人からプリセット。
+      setRows(kosekiRequests.map(k => createRow({
+        municipality: k.request_to ?? '',
+        honseki,
+        hittousha,
+        targetName: k.target_person ?? caseData.deceased_name ?? '',
+        requestTypes: parseRequestTypes(k.doc_types),
+        notes: [k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
       })))
+    } else if (prefilledCities.length > 0) {
+      setRows(prefilledCities.map(city => createRow({ municipality: city, honseki, hittousha, targetName: caseData.deceased_name ?? '' })))
     } else {
-      setRows([createRow({
-        honseki: caseData.deceased_registered_address ?? '',
-        hittousha: caseData.deceased_name ?? '',
-        targetName: caseData.deceased_name ?? '',
-      })])
+      setRows([createRow({ honseki, hittousha, targetName: caseData.deceased_name ?? '' })])
     }
-  }, [isOpen, prefilledCities, caseData.contract_type, caseData.deceased_name, caseData.deceased_registered_address])
+  }, [isOpen, prefilledCities, kosekiRequests, caseData.contract_type, caseData.deceased_name, caseData.deceased_registered_address])
 
   const preset = KOSEKI_VARIANT_PRESETS[variant]
 

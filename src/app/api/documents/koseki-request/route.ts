@@ -48,8 +48,8 @@ const CELL_MAP: Record<KosekiVariant, {
   requestDate: string[]
   requesterAddress: string | null   // F5など。検認時は null（テンプレに協会情報既設）
   requesterName: string | null      // F6
-  kosekiTypeLabel: string | null    // 請求種別「戸籍・除籍・原戸籍」(そのまま残す場合はnull)
-  juminhyoLabel: string | null      // 住民票行(同上)
+  typeCell: string                  // 請求種別「戸籍・除籍・原戸籍」（選択種別を〇で囲う）
+  tohonCell: string                 // 「謄本・抄本」（同上）
   copyCount: string                 // 通数
   honseki: string                   // 本籍・住所
   hittousha: string                 // 筆頭者氏名
@@ -65,8 +65,8 @@ const CELL_MAP: Record<KosekiVariant, {
     requestDate: ['G3', 'I1'],
     requesterAddress: 'F5',
     requesterName: 'F6',
-    kosekiTypeLabel: null,
-    juminhyoLabel: null,
+    typeCell: 'C18',
+    tohonCell: 'F18',
     copyCount: 'H18',
     honseki: 'C20',
     hittousha: 'C21',
@@ -82,8 +82,8 @@ const CELL_MAP: Record<KosekiVariant, {
     requestDate: ['G3', 'I1'],
     requesterAddress: 'F5',
     requesterName: 'F6',
-    kosekiTypeLabel: null,
-    juminhyoLabel: null,
+    typeCell: 'C17',
+    tohonCell: 'F17',
     copyCount: 'H17',
     honseki: 'C19',
     hittousha: 'C20',
@@ -100,6 +100,20 @@ function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | D
   if (value === null || value === undefined || value === '') return
   const cell = ws.getCell(addr)
   cell.value = value
+}
+
+/**
+ * 「戸籍　・　除籍　・　原戸籍」のような '・' 区切りラベルのうち、
+ * 選択された種別を 〇 で囲って分かるようにする（Excel図形の□囲い相当をテキストで表現）。
+ */
+function markTypes(ws: ExcelJS.Worksheet, addr: string, selected: Set<string>) {
+  const cur = ws.getCell(addr).value
+  if (typeof cur !== 'string' || !cur.includes('・')) return
+  const marked = cur.split('・').map(tok => {
+    const t = tok.trim()
+    return selected.has(t) ? tok.replace(t, `〇${t}〇`) : tok
+  }).join('・')
+  ws.getCell(addr).value = marked
 }
 
 export async function POST(request: NextRequest) {
@@ -169,6 +183,11 @@ export async function POST(request: NextRequest) {
     setCell(ws, map.honseki, row.honseki)
     setCell(ws, map.hittousha, row.hittousha)
     setCell(ws, map.targetName, row.targetName)
+
+    // 請求種別: 選択された種別を 〇 で囲って表示
+    const selectedTypes = new Set(row.requestTypes ?? [])
+    markTypes(ws, map.typeCell, selectedTypes)
+    markTypes(ws, map.tohonCell, selectedTypes)
 
     // 使用目的: 出力画面で選択された目的を優先（未指定はプリセット）
     setCell(ws, map.purpose, body.purpose || preset.purpose)

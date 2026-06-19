@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
-import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
+import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, KosekiRequestRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 import MailingConfirmationModal from './MailingConfirmationModal'
@@ -18,6 +18,7 @@ type Props = {
   tasks: TaskRow[]
   heirs: HeirRow[]
   properties: RealEstatePropertyRow[]
+  kosekiRequests?: KosekiRequestRow[]
   contractDocuments?: ContractDocumentRow[]
   /** タスク詳細から開く際に紐づけるタスクID。指定時は各モーダルでこのタスクを初期選択。 */
   defaultTaskId?: string
@@ -46,7 +47,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '依頼者の郵便番号・住所・宛名を流し込み（差出人はテンプレ既設）', status: 'ready' },
 ]
 
-export default function DocumentGenerators({ caseData, tasks, heirs, properties, contractDocuments = [], defaultTaskId, onGenerated }: Props) {
+export default function DocumentGenerators({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], defaultTaskId, onGenerated }: Props) {
   const [, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
@@ -133,6 +134,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
         caseData={caseData}
         tasks={tasks}
         heirs={heirs}
+        kosekiRequests={kosekiRequests}
         defaultTaskId={defaultTaskId}
       />
       <FixedAssetRequestDocumentModal
