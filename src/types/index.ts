@@ -468,6 +468,8 @@ export type PaymentRow = {
   payment_date: string
   payment_method: string | null
   notes: string | null
+  matched_by: string | null   // migration 112: 'ai'（CSV自動突合）/ 'human'
+  match_note: string | null
   created_at: string
 }
 

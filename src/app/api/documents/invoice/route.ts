@@ -20,6 +20,7 @@ type Body = {
   kenmei: string
   amount: number
   taskId?: string | null
+  invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -147,8 +148,9 @@ export async function POST(request: NextRequest) {
       console.error('[invoice] storage upload failed:', uploadErr.message)
     }
 
-    // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではないので作らない）
-    if (def.docType === '請求書') {
+    // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではない。
+    // invoiceId 指定時＝メイン請求モーダル経由で既に invoices 行があるので作らない）
+    if (def.docType === '請求書' && !body.invoiceId) {
       const { error: invErr } = await supabase.from('invoices').insert({
         case_id: caseId,
         invoice_type: '前受金',

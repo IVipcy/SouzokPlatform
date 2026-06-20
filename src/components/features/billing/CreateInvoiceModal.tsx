@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { EXPENSE_CATEGORIES, inferExpenseTaxable } from '@/lib/constants'
 import { officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
+import { invoiceVariantKey } from '@/lib/invoiceVariants'
 import type { ExpenseRow } from '@/types'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
@@ -36,6 +37,7 @@ type CaseFees = {
   fee_total: number | null
   advance_payment: number | null
   contract_type: string | null
+  deceased_name: string | null
 }
 
 export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId, existingInvoiceId }: Props) {
@@ -108,7 +110,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setLoadingCase(true)
       const supabase = createClient()
       const [{ data: caseRow }, { data: expRows }, { data: advInvoices }] = await Promise.all([
-        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,contract_type').eq('id', form.case_id).single(),
+        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,contract_type,deceased_name').eq('id', form.case_id).single(),
         supabase.from('expenses').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('expense_date', { nullsFirst: false }),
         supabase.from('invoices').select('amount,status').eq('case_id', form.case_id).eq('invoice_type', '前受金'),
       ])
@@ -285,6 +287,28 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
         console.error('expenses 更新失敗:', updErr)
         setError(`請求書は発行しましたが、立替実費の請求済み更新に失敗: ${updErr.message}`)
       }
+    }
+
+    // 公式フォーマット（Excelテンプレ）を生成して作成書類へ保存。メイン請求もAIルートと同じ正式様式に統一。
+    // invoiceId を渡すことで invoices 行は二重作成しない。
+    try {
+      const firm = (form.firm_type === 'shiho' ? 'shiho' : 'gyosei') as 'gyosei' | 'shiho'
+      const kenmei = `${caseFees?.deceased_name ? caseFees.deceased_name + '様 ' : ''}相続手続き ${form.invoice_type}`
+      if (isAdvance) {
+        await fetch('/api/documents/invoice', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: form.case_id, variant: invoiceVariantKey('請求書', firm), kenmei, amount: totalAmount, invoiceId: newInvoice.id }),
+        })
+      } else {
+        const selExp = unbilledExpenses.filter(e => selectedExpenseIds.has(e.id))
+          .map(e => ({ name: e.item_name ?? '', amount: e.amount ?? 0, taxable: e.taxable !== false }))
+        await fetch('/api/documents/kakutei', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId: form.case_id, variant: `kakutei_${firm}`, kenmei, fee: feeAmountNum, advanceReceived: advanceDeductionNum, expenses: selExp, invoiceId: newInvoice.id }),
+        })
+      }
+    } catch (e) {
+      console.error('公式請求書(Excel)の生成に失敗:', e)  // invoices 行は作成済みなので致命ではない
     }
 
     setSaving(false)

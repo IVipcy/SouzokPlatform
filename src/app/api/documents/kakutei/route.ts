@@ -22,6 +22,7 @@ type Body = {
   advanceReceived: number
   expenses: ExpenseItem[]
   taskId?: string | null
+  invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -159,19 +160,21 @@ export async function POST(request: NextRequest) {
       console.error('[kakutei] storage upload failed:', uploadErr.message)
     }
 
-    // 請求一覧(invoices)にも反映
-    const { error: invErr } = await supabase.from('invoices').insert({
-      case_id: caseId,
-      invoice_type: '確定請求',
-      firm_type: def.office,
-      amount: c.billAmount,
-      fee_amount: fee,
-      expenses_amount: c.expenseGrand,
-      advance_deduction: advanceReceived || 0,
-      status: '作成済',
-      issued_date: new Date().toISOString().slice(0, 10),
-    })
-    if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
+    // 請求一覧(invoices)にも反映（invoiceId 指定時＝メイン経由は既に行があるので作らない）
+    if (!body.invoiceId) {
+      const { error: invErr } = await supabase.from('invoices').insert({
+        case_id: caseId,
+        invoice_type: '確定請求',
+        firm_type: def.office,
+        amount: c.billAmount,
+        fee_amount: fee,
+        expenses_amount: c.expenseGrand,
+        advance_deduction: advanceReceived || 0,
+        status: '作成済',
+        issued_date: new Date().toISOString().slice(0, 10),
+      })
+      if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
+    }
 
     return new NextResponse(uploadBuffer as unknown as BodyInit, {
       status: 200,

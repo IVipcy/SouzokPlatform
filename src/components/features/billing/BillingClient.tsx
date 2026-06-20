@@ -639,15 +639,20 @@ export default function BillingClient({ invoices, cases }: Props) {
                       </td>
                       {/* 入金ステータス（個別ドロップダウン編集可能） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
-                        {isUnissued ? (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />{inv.status}
-                          </span>
-                        ) : (
-                          <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`} title="クリックでステータス変更">
-                            {EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isUnissued ? (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />{inv.status}
+                            </span>
+                          ) : (
+                            <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`} title="クリックでステータス変更">
+                              {EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
                         <div>{fmt(inv.amount)}</div>
