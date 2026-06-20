@@ -565,9 +565,9 @@ export default function BillingClient({ invoices, cases }: Props) {
         </div>
       )}
 
-      <div className="flex gap-4">
+      <div>
         {/* Table */}
-        <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-x-auto">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
             <h2 className="text-[13px] font-semibold text-gray-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
@@ -823,7 +823,9 @@ export default function BillingClient({ invoices, cases }: Props) {
           const selDiff = selected.amount - selPaidAmount
           const selAssignee = getAssignees(selected.cases).sales
           return (
-            <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden flex-shrink-0">
+            <>
+              <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setSelectedId(null)} />
+              <div className="fixed top-0 right-0 h-full w-[340px] max-w-[92vw] bg-white border-l border-gray-200 shadow-2xl z-50 overflow-y-auto">
               <div className="px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[12px] text-gray-400">{selected.cases?.case_number || ''}</span>
@@ -946,7 +948,8 @@ export default function BillingClient({ invoices, cases }: Props) {
                   </button>
                 </div>
               </div>
-            </div>
+              </div>
+            </>
           )
         })()}
       </div>
