@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Trash2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { toKatakana } from '@/lib/kana'
 import type { CaseRow, HeirRow } from '@/types'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
@@ -71,6 +72,20 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
             <FieldGrid>
               <InlineEdit label="氏名" value={client?.name} onSave={v => saveClientField('name', v)} />
               <InlineEdit label="ふりがな" value={client?.furigana} onSave={v => saveClientField('furigana', v)} />
+              <InlineEdit
+                label="振込名義人（カナ）"
+                value={client?.transfer_name_kana}
+                onSave={v => saveClientField('transfer_name_kana', toKatakana(v))}
+                mono
+                fullWidth
+                action={client?.furigana ? (
+                  <button
+                    type="button"
+                    onClick={() => saveClientField('transfer_name_kana', toKatakana(client.furigana))}
+                    className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
+                  >依頼者と同じ</button>
+                ) : null}
+              />
               <InlineEdit label="郵便番号" value={client?.postal_code} onSave={v => saveClientField('postal_code', v)} mono displayPrefix="〒" />
               <InlineEdit label="続柄" value={client?.relationship_to_deceased} onSave={v => saveClientField('relationship_to_deceased', v)} />
               <InlineEdit label="住所" value={client?.address} onSave={v => saveClientField('address', v)} fullWidth />
@@ -225,13 +240,14 @@ export default function ClientTab({ caseData, heirs, onRefresh }: Props) {
 }
 
 // ─── InlineEdit component ───
-function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
+function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix, action }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   mono?: boolean
   fullWidth?: boolean
   displayPrefix?: string
+  action?: React.ReactNode
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -285,7 +301,10 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, displayPrefix }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="flex items-center gap-2">
+        <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+        {action}
+      </div>
       {editing ? (
         <input
           ref={inputRef}

@@ -296,6 +296,7 @@ export type ClientRow = {
   customer_no: string | null
   has_special_chars: boolean
   notes: string | null
+  transfer_name_kana: string | null  // 振込名義人カナ（入金CSV突合キー。migration 114）
 }
 
 export type MemberRow = {

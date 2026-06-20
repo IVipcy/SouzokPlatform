@@ -1,5 +1,8 @@
-// 銀行CSVの入金突合ロジック。案件管理番号・振込人名・金額をキーに、未入金の請求書へ突合する。
-// 銀行ごとに列が違うため、ヘッダのキーワードで列を推定する（取込時マッピング）。
+// 銀行CSVの入金突合ロジック。振込人カナ＋金額をマスターキーに、未入金の請求書へ突合する。
+// 案件番号（旧番号含む）が摘要にあれば強い手掛かりとして優先する。
+// 銀行ごとに列が違うため、みずほ／きらぼしは専用パーサ、それ以外は汎用フォールバック。
+
+import { kanaKey } from '@/lib/kana'
 
 export type BankRow = { date: string; name: string; amount: number; memo: string; raw: string }
 
@@ -11,6 +14,8 @@ export type InvoiceLite = {
   case_number: string
   client_name: string
   deal_name: string
+  // 振込名義人（依頼者セクションで登録。カナ）。突合のマスターキー。
+  payer_kana: string | null
   sales_member_id: string | null
 }
 
@@ -84,13 +89,13 @@ function parseMizuho(lines: string[]): BankRow[] {
   return rows
 }
 
-// きらぼし（普通預金CSV）：入金金額(idx5)>0 のみ入金。取引区分(idx8)、摘要(振込人)=idx12、取引日=idx2。
+// きらぼし（普通預金CSV）：取引区分(idx8)=振込 のみ突合対象。入金金額=idx5、摘要(振込人)=idx12、取引日=idx2。
 function parseKiraboshi(lines: string[]): BankRow[] {
   const rows: BankRow[] = []
   for (const line of lines) {
     const f = splitCsvLine(line)
     if (f.length < 13) continue
-    if ((f[8] ?? '') === '出金') continue
+    if ((f[8] ?? '') !== '振込') continue // 出金・利息・振替等は対象外
     const amount = toAmount(f[5])
     if (!amount || amount <= 0) continue
     const payer = (f[12] ?? '').trim()
@@ -140,41 +145,56 @@ export function parseBankCsv(text: string): BankRow[] {
   return parseGeneric(lines)
 }
 
-/** 取引行を未入金請求へ突合。案件番号(摘要/振込人)＋金額＋振込人名で判定。 */
+/**
+ * 取引行を未入金請求へ突合。
+ * マスターキー＝振込人カナ＋金額（代理振込・無記入が多いため）。
+ * 案件番号（旧番号含む）が摘要にあれば最優先の手掛かりにする。
+ * 振込人カナが一致しない金額単独ヒットは「要確認」に留め、人がカナを確認して確定する。
+ */
 export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchResult[] {
   const unpaid = invoices.filter(i => i.status !== '入金済')
   return rows.map<MatchResult>(row => {
-    const hay = norm(`${row.memo} ${row.name}`)
-    // 案件番号が摘要/振込人に含まれる請求
-    const byCaseNo = unpaid.filter(i => i.case_number && hay.includes(norm(i.case_number)))
+    const hayAlnum = norm(`${row.memo} ${row.name}`)        // 案件番号照合用（英数）
+    const hayKana = kanaKey(`${row.memo} ${row.name}`)       // 振込人カナ照合用（全角カナ）
     const amountEq = (i: InvoiceLite) => i.amount === row.amount
-    const nameHit = (i: InvoiceLite) => {
-      const n = norm(row.name)
-      if (!n) return false
-      return [i.client_name, i.deal_name].some(x => x && (norm(x).includes(n) || n.includes(norm(x))))
+    // 振込名義人カナが摘要/振込人に部分一致するか（マスターキー）
+    const payerHit = (i: InvoiceLite) => {
+      const k = kanaKey(i.payer_kana)
+      return !!k && (hayKana.includes(k) || k.includes(hayKana))
     }
+    // カナ一致を先頭に寄せた候補並び（人が選びやすいように）
+    const sortByKana = (arr: InvoiceLite[]) => [...arr].sort((a, b) => Number(payerHit(b)) - Number(payerHit(a)))
 
     // 1) 案件番号一致 ＋ 金額一致 → 確定（AI）
+    const byCaseNo = unpaid.filter(i => i.case_number && hayAlnum.includes(norm(i.case_number)))
     const caseAmt = byCaseNo.filter(amountEq)
     if (caseAmt.length === 1) {
       return { row, invoiceId: caseAmt[0].id, kind: 'matched', by: 'ai', reason: '案件番号・金額が一致', candidates: caseAmt }
     }
-    // 2) 案件番号一致だが金額不一致 → 要確認（理由）
+    // 2) 案件番号一致だが金額不一致 → 要確認
     if (byCaseNo.length > 0 && caseAmt.length === 0) {
-      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '案件番号は一致するが金額が違う', candidates: byCaseNo }
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '案件番号は一致するが金額が違う', candidates: sortByKana(byCaseNo) }
     }
-    // 3) 金額一致が1件 ＋ 振込人も一致 → 確定（AI）
+    // 3) 振込人カナ一致 ＋ 金額一致 → 確定（AI）＝マスターキー
+    const kanaCands = unpaid.filter(payerHit)
+    const kanaAmt = kanaCands.filter(amountEq)
+    if (kanaAmt.length === 1) {
+      return { row, invoiceId: kanaAmt[0].id, kind: 'matched', by: 'ai', reason: '振込人カナ・金額が一致', candidates: kanaAmt }
+    }
+    if (kanaAmt.length > 1) {
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナ・金額一致が複数。選択してください', candidates: kanaAmt }
+    }
+    // 4) 振込人カナは一致するが金額が違う → 要確認
+    if (kanaCands.length > 0) {
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナは一致するが金額が違う', candidates: sortByKana(kanaCands) }
+    }
+    // 5) 金額一致のみ（カナ未登録/不一致）→ 要確認（人がカナを確認）
     const amtMatches = unpaid.filter(amountEq)
-    if (amtMatches.length === 1 && nameHit(amtMatches[0])) {
-      return { row, invoiceId: amtMatches[0].id, kind: 'matched', by: 'ai', reason: '金額・振込人が一致', candidates: amtMatches }
-    }
-    // 4) 金額一致が1件（振込人は未確認）→ 要確認
     if (amtMatches.length === 1) {
-      return { row, invoiceId: amtMatches[0].id, kind: 'review', by: 'human', reason: '金額一致（振込人/案件番号は未確認）', candidates: amtMatches }
+      return { row, invoiceId: amtMatches[0].id, kind: 'review', by: 'human', reason: '金額は一致（振込人カナを要確認）', candidates: amtMatches }
     }
-    // 5) 同額の請求が複数 → 要確認（選択）
     if (amtMatches.length > 1) {
-      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '同額の請求が複数あります。選択してください', candidates: amtMatches }
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '同額の請求が複数あります。選択してください', candidates: sortByKana(amtMatches) }
     }
     // 6) 該当なし
     return { row, invoiceId: null, kind: 'unmatched', by: 'human', reason: '一致する未入金の請求がありません', candidates: [] }

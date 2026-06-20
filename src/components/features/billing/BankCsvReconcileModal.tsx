@@ -48,9 +48,9 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       const supabase = createClient()
       const { data: invs } = await supabase
         .from('invoices')
-        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name))')
+        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, furigana))')
         .neq('status', '入金済')
-      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null } | null } | null }>
+      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; furigana: string | null } | null } | null }>
       // 受注担当（通知先）を案件ごとに取得
       const caseIds = [...new Set(rawInv.map(i => i.case_id))]
       const salesByCase = new Map<string, string>()
@@ -61,7 +61,10 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       const lite: InvoiceLite[] = rawInv.map(i => ({
         id: i.id, case_id: i.case_id, amount: i.amount, status: i.status,
         case_number: i.cases?.case_number ?? '', deal_name: i.cases?.deal_name ?? '',
-        client_name: i.cases?.clients?.name ?? '', sales_member_id: salesByCase.get(i.case_id) ?? null,
+        client_name: i.cases?.clients?.name ?? '',
+        // 振込名義人カナ。未登録なら依頼者ふりがな（カナ化は突合側で実施）で補完。
+        payer_kana: i.cases?.clients?.transfer_name_kana || i.cases?.clients?.furigana || null,
+        sales_member_id: salesByCase.get(i.case_id) ?? null,
       }))
       const res = matchBankRows(rows, lite)
       setResults(res)
@@ -148,7 +151,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         {!results ? (
           <div>
             <p className="text-[13px] text-gray-600 mb-3">
-              銀行の入金明細CSVを取り込み、<strong>案件管理番号・振込人名・金額</strong>をキーに未入金の請求へ自動突合します（列は自動判定。Shift-JIS対応）。
+              銀行の入金明細CSVを取り込み、<strong>振込人カナ＋金額</strong>をキーに未入金の請求へ自動突合します（案件番号が摘要にあれば優先。みずほ／きらぼし対応・Shift-JIS対応）。振込人カナが一致しない金額一致は「要確認」として人が確認します。
             </p>
             <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg py-10 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30">
               {loading ? <Loader2 className="w-6 h-6 animate-spin text-brand-500" /> : <Upload className="w-6 h-6 text-gray-400" />}
