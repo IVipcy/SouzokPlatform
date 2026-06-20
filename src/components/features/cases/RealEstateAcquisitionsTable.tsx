@@ -7,6 +7,8 @@ import { showToast } from '@/components/ui/Toast'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { relatedTasksFor } from '@/lib/relatedTasks'
+import RelatedTaskChips from './RelatedTaskChips'
 
 type Props = {
   caseId: string
@@ -29,20 +31,11 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], tasks = [] }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
-
-  // 取得資料 → 関連タスク（受信簿で受信→着手したタスク）。受信簿item linked_kind='real_estate_acquisition'。
-  const taskById = new Map(tasks.map(t => [t.id, t]))
-  const taskByAcq = new Map<string, TaskRow>()
-  for (const rc of receipts) {
-    if (!rc.started_task_id || !rc.items) continue
-    const t = taskById.get(rc.started_task_id); if (!t) continue
-    for (const it of rc.items) if (it.linked_kind === 'real_estate_acquisition' && it.linked_id) taskByAcq.set(it.linked_id, t)
-  }
 
   const save = async (id: string, field: keyof RealEstateAcquisitionRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstateAcquisitionRow : r)))
@@ -125,11 +118,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.expected_arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.expected_arrival_date ?? '')) save(r.id, 'expected_arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && (
-                    <td className="px-2.5 py-1.5">
-                      {taskByAcq.get(r.id)
-                        ? <a href={`/tasks/${taskByAcq.get(r.id)!.id}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 hover:underline" title={taskByAcq.get(r.id)!.title}><span className="truncate max-w-[120px]">{taskByAcq.get(r.id)!.title}</span></a>
-                        : <span className="text-gray-300 text-[11px]">—</span>}
-                    </td>
+                    <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'real_estate_acquisition', r.id)} /></td>
                   )}
                   <td className="px-2.5 py-1.5 text-center">
                     <input type="checkbox" checked={r.received} onChange={e => save(r.id, 'received', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />

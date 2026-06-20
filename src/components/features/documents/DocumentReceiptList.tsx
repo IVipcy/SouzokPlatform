@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
-import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -141,11 +140,13 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 }) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string }>>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskPhase, setNewTaskPhase] = useState('phase1')
+  // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
+  const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
+  const [itemNew, setItemNew] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
   useEffect(() => {
     const supabase = createClient()
@@ -161,122 +162,122 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     })()
   }, [receipt.case_id])
 
-  const toggle = (id: string) => setSelected(prev => {
-    const next = new Set(prev)
-    if (next.has(id)) next.delete(id); else next.add(id)
-    return next
+  const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
+    const cur = new Set(prev[itemId] ?? [])
+    if (cur.has(taskId)) cur.delete(taskId); else cur.add(taskId)
+    return { ...prev, [itemId]: cur }
   })
+
+  const totalLinks = items.reduce((n, it) => n + (itemSel[it.id]?.size ?? 0) + ((itemNew[it.id] ?? '').trim() ? 1 : 0), 0)
 
   const confirm = async () => {
     if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
     setSaving(true)
     const supabase = createClient()
     const nowIso = new Date().toISOString()
+
     // 受信簿に着手記録
-    const { error: e1 } = await supabase.from('document_receipts')
-      .update({ started_by_member_id: currentMemberId, started_at: nowIso }).eq('id', receipt.id)
-    // 選択タスクを「対応中」に（着手者も記録）
-    let e2: { message: string } | null = null
-    if (selected.size > 0) {
-      const { error } = await supabase.from('tasks')
-        .update({ status: '対応中', started_by: currentMemberId, started_at: nowIso })
-        .in('id', [...selected])
-      e2 = error
-    }
-    // 受信をきっかけに新規タスクを作成して開始
-    let e3: { message: string } | null = null
-    let newTaskId: string | null = null
-    const newTitle = newTaskTitle.trim()
-    if (newTitle) {
-      const { data: nt, error } = await supabase.from('tasks')
-        .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: newTaskPhase, category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
-        .select('id').single()
-      e3 = error
-      if (!error && nt) {
-        newTaskId = (nt as { id: string }).id
-        if (currentMemberId) {
-          await supabase.from('task_assignees').insert({ task_id: newTaskId, member_id: currentMemberId, role: 'primary' })
+    await supabase.from('document_receipts').update({ started_by_member_id: currentMemberId, started_at: nowIso }).eq('id', receipt.id)
+
+    const joinRows: { receipt_item_id: string; task_id: string }[] = []
+    const startExistingIds = new Set<string>()
+    let firstTaskId: string | null = null
+
+    // 到着物ごとに：新規タスク作成＋既存タスク紐付け
+    for (const it of items) {
+      const newTitle = (itemNew[it.id] ?? '').trim()
+      if (newTitle) {
+        const { data: nt, error } = await supabase.from('tasks')
+          .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: 'phase1', category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
+          .select('id').single()
+        if (!error && nt) {
+          const id = (nt as { id: string }).id
+          await supabase.from('task_assignees').insert({ task_id: id, member_id: currentMemberId, role: 'primary' })
+          joinRows.push({ receipt_item_id: it.id, task_id: id })
+          firstTaskId = firstTaskId ?? id
         }
       }
+      for (const taskId of itemSel[it.id] ?? []) {
+        joinRows.push({ receipt_item_id: it.id, task_id: taskId })
+        startExistingIds.add(taskId)
+        firstTaskId = firstTaskId ?? taskId
+      }
     }
+
+    if (startExistingIds.size > 0) {
+      await supabase.from('tasks').update({ status: '対応中', started_by: currentMemberId, started_at: nowIso }).in('id', [...startExistingIds])
+    }
+    if (joinRows.length > 0) {
+      const { error } = await supabase.from('document_receipt_item_tasks').upsert(joinRows, { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
+      if (error) { setSaving(false); showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    }
+    // 後方互換：受信単位の代表タスク
+    if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
+
     setSaving(false)
-    if (e1 || e2 || e3) { showToast(`保存に失敗しました: ${(e1 ?? e2 ?? e3)?.message}`, 'error'); return }
-    const startedCount = selected.size + (newTitle ? 1 : 0)
-    showToast(startedCount > 0 ? `着手し、${startedCount}件のタスクを開始しました` : '着手しました', 'success')
-    // 受信簿に「関連タスク」を記録（新規 or 選択した先頭タスク）。各タブの一覧から飛べるように。
-    const linkTaskId = newTaskId ?? (selected.size > 0 ? [...selected][0] : null)
-    if (linkTaskId) {
-      await supabase.from('document_receipts').update({ started_task_id: linkTaskId }).eq('id', receipt.id)
-    }
-    // 開始したタスクが1つに定まるなら、そのタスク詳細へ遷移
-    const targetTaskId = newTaskId ?? (selected.size === 1 ? [...selected][0] : null)
-    if (targetTaskId) {
-      router.push(`/tasks/${targetTaskId}`)
-    } else {
-      onDone()
-    }
+    showToast(totalLinks > 0 ? `着手し、${totalLinks}件をタスクに紐付けました` : '着手しました', 'success')
+    if (totalLinks === 1 && firstTaskId) router.push(`/tasks/${firstTaskId}`)
+    else onDone()
   }
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title="タスクに着手（任意）"
+      title="タスクに着手（到着物ごと）"
       maxWidth="max-w-lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {(selected.size > 0 || newTaskTitle.trim()) ? `タスクを開始 (${selected.size + (newTaskTitle.trim() ? 1 : 0)})` : '着手のみ記録'}
+            {totalLinks > 0 ? `タスクを開始 (${totalLinks})` : '着手のみ記録'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          この受信に関連するタスクを開始します。契約書類などタスク不要な受信は、W-Check（受信確定）だけで完了——押す必要はありません（選ばずに着手記録だけでもOK）。
+          届いた到着物ごとに、進めるタスクを結びます（残高証明→財産調査、解約書類→解約 のように別々に結べます）。タスク不要な受信は選ばず「着手のみ記録」でOK。
         </p>
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
-        ) : tasks.length === 0 ? (
-          <div className="py-6 text-center text-[12px] text-gray-400">未完了のタスクはありません</div>
+        ) : items.length === 0 ? (
+          <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
-          <ul className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
-            {tasks.map(t => (
-              <li key={t.id}>
-                <label className="flex items-center gap-2 px-3 py-2 text-[13px] hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
-                  <span className="flex-1 text-gray-800">{t.title}</span>
-                  <span className="text-[11px] text-gray-400">{t.status}</span>
-                  {selected.has(t.id) && <Play className="w-3 h-3 text-emerald-600" strokeWidth={2.5} />}
-                </label>
-              </li>
+          <div className="space-y-3 max-h-[28rem] overflow-y-auto">
+            {items.map(it => (
+              <div key={it.id} className="border border-gray-200 rounded-lg p-3">
+                <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
+                {tasks.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 mb-2">未完了の既存タスクはありません</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {tasks.map(t => {
+                      const on = itemSel[it.id]?.has(t.id)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggle(it.id, t.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                        >
+                          {on && <Play className="w-3 h-3" strokeWidth={2.5} />}{t.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={itemNew[it.id] ?? ''}
+                  onChange={e => setItemNew(prev => ({ ...prev, [it.id]: e.target.value }))}
+                  placeholder="＋新規タスクを作成して結ぶ（任意）"
+                  className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+                />
+              </div>
             ))}
-          </ul>
-        )}
-
-        {/* 受信をきっかけに新規タスクを作成して開始 */}
-        <div className="pt-2 border-t border-gray-100">
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1">新規タスクを作成して開始（任意）</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTaskTitle}
-              onChange={e => setNewTaskTitle(e.target.value)}
-              placeholder="例：契約書の確認"
-              className="flex-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-            />
-            <select
-              value={newTaskPhase}
-              onChange={e => setNewTaskPhase(e.target.value)}
-              title="フェーズ"
-              className="w-40 px-2 py-2 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
-            >
-              {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
-            </select>
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">この受信をきっかけに新しいタスクを作成し、すぐ「対応中」にします。作成後はそのタスクへ移動します。</p>
-        </div>
+        )}
       </div>
     </Modal>
   )

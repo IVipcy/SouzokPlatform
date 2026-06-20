@@ -13,7 +13,15 @@ export type TimelineReceipt = {
   received_date: string | null
   started_by_member?: { name: string } | null
   started_task_id?: string | null
-  items?: { item_name: string; sort_order: number; linked_id?: string | null; linked_kind?: string | null }[] | null
+  items?: {
+    id?: string
+    item_name: string
+    sort_order: number
+    linked_id?: string | null
+    linked_kind?: string | null
+    // 到着物ごとに結ばれたタスク（多対多。migration 111）
+    item_tasks?: { task: { id: string; title: string } | null }[] | null
+  }[] | null
 }
 // ステータス遷移履歴
 export type TimelineStatusEvent = { new_value: string | null; created_at: string }

@@ -7,6 +7,8 @@ import { showToast } from '@/components/ui/Toast'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
 import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { relatedTasksFor } from '@/lib/relatedTasks'
+import RelatedTaskChips from './RelatedTaskChips'
 
 const REQ = ['要', '不要', '確認中']
 
@@ -52,20 +54,11 @@ type Props = {
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [], tasks = [] }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
-
-  // 金融機関 → 関連タスク（受信簿で受信→着手したタスク）。受信簿item linked_kind='financial_asset' で対応づけ。
-  const taskById = new Map(tasks.map(t => [t.id, t]))
-  const taskByAsset = new Map<string, TaskRow>()
-  for (const rc of receipts) {
-    if (!rc.started_task_id || !rc.items) continue
-    const t = taskById.get(rc.started_task_id); if (!t) continue
-    for (const it of rc.items) if (it.linked_kind === 'financial_asset' && it.linked_id) taskByAsset.set(it.linked_id, t)
-  }
 
   const applyRolesAcquirer = async () => {
     if (rows.length === 0) { showToast('対象の金融機関がありません', 'error'); return }
@@ -172,11 +165,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   )}
                   {progressMode && (
-                    <td className="px-2 py-1.5">
-                      {taskByAsset.get(r.id)
-                        ? <a href={`/tasks/${taskByAsset.get(r.id)!.id}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 hover:underline" title={taskByAsset.get(r.id)!.title}><span className="truncate max-w-[120px]">{taskByAsset.get(r.id)!.title}</span></a>
-                        : <span className="text-gray-300 text-[11px]">—</span>}
-                    </td>
+                    <td className="px-2 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id)} /></td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
                   <td className="px-2 py-1.5 text-center">

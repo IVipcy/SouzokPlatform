@@ -9,6 +9,8 @@ import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_R
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
 import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { relatedTasksFor, type RelatedTask } from '@/lib/relatedTasks'
+import RelatedTaskChips from './RelatedTaskChips'
 
 type Props = {
   caseId: string
@@ -31,7 +33,7 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [], tasks = [] }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
@@ -39,19 +41,6 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   const progressMode = !orderSheetMode
   // 対象者の選択肢（被相続人＋相続人一覧の氏名）
   const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
-
-  // 戸籍請求 → 関連タスク（受信簿で受信→着手したタスク）。
-  // 受信簿アイテムの linked_kind='koseki' & linked_id=請求ID から、その受信の started_task_id を引く。
-  const taskByRequest = new Map<string, TaskRow>()
-  const taskById = new Map(tasks.map(t => [t.id, t]))
-  for (const rc of receipts) {
-    if (!rc.started_task_id || !rc.items) continue
-    const t = taskById.get(rc.started_task_id)
-    if (!t) continue
-    for (const it of rc.items) {
-      if (it.linked_kind === 'koseki' && it.linked_id) taskByRequest.set(it.linked_id, t)
-    }
-  }
 
   // 役割分担から取得区分を一括反映（任意・上書き確認）
   const applyRolesAcquirer = async () => {
@@ -132,7 +121,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField}
-                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTask={taskByRequest.get(r.id)} />
+                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} />
               ))
             )}
           </tbody>
@@ -154,7 +143,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTask }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTasks }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -166,7 +155,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   onDelete: () => void
   colCount: number
   targetOptions: string[]
-  relatedTask?: TaskRow
+  relatedTasks: RelatedTask[]
 }) {
   return (
     <>
@@ -187,13 +176,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
         {progressMode && <ReceivedCell received={!!r.arrival_date} />}
         {progressMode && (
-          <td className="px-2.5 py-1.5">
-            {relatedTask ? (
-              <a href={`/tasks/${relatedTask.id}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 hover:underline" title={relatedTask.title}>
-                <span className="truncate max-w-[120px]">{relatedTask.title}</span>
-              </a>
-            ) : <span className="text-gray-300 text-[11px]">—</span>}
-          </td>
+          <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasks} /></td>
         )}
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
