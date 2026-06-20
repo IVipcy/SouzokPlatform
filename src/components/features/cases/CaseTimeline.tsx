@@ -19,6 +19,7 @@ export type TimelineReceipt = {
     sort_order: number
     linked_id?: string | null
     linked_kind?: string | null
+    linked_field?: string | null
     // 到着物ごとに結ばれたタスク（多対多。migration 111）
     item_tasks?: { task: { id: string; title: string } | null }[] | null
   }[] | null

@@ -7,11 +7,13 @@ export type RelatedTask = { id: string; title: string }
  * 受信簿の到着物(item)を linked_kind/linked_id でこの行に対応づけ、その到着物に結ばれた
  * タスク(item_tasks)を集める。同じ行に複数の到着物・複数のタスクが結ばれていても重複排除して返す。
  */
-export function relatedTasksFor(receipts: TimelineReceipt[], kind: string, rowId: string): RelatedTask[] {
+export function relatedTasksFor(receipts: TimelineReceipt[], kind: string, rowId: string, field?: string): RelatedTask[] {
   const out = new Map<string, RelatedTask>()
   for (const r of receipts) {
     for (const it of r.items ?? []) {
       if (it.linked_kind !== kind || it.linked_id !== rowId) continue
+      // field 指定時は受領カラム(linked_field)も一致する到着物だけ（例: 解約書類=cancellation_arrival_date）
+      if (field && it.linked_field !== field) continue
       for (const lt of it.item_tasks ?? []) {
         if (lt.task) out.set(lt.task.id, lt.task)
       }

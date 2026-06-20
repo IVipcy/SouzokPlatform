@@ -82,7 +82,7 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
     supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
     supabase.from('document_receipts')
-      .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, linked_id, linked_kind, item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
+      .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, linked_id, linked_kind, linked_field, item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id)
       .order('received_date', { ascending: true }),
     // 案件のステータス遷移履歴（マイルストーンを実績ベースで描くために使用）

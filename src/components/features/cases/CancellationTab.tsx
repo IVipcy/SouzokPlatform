@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
+import { relatedTasksFor } from '@/lib/relatedTasks'
+import RelatedTaskChips from './RelatedTaskChips'
 import type { FinancialAssetRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 
 const CANCEL = ['有', '無', '確認中']
 
@@ -17,6 +20,8 @@ const SUBTABS: { key: string; kind: string; label: string }[] = [
 type Props = {
   financialAssets: FinancialAssetRow[]
   onRefresh?: () => void
+  // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
+  receipts?: TimelineReceipt[]
 }
 
 /**
@@ -24,7 +29,7 @@ type Props = {
  * 財産調査で登録した金融機関を 預金/証券/信託 の子タブで表示し、機関ごとに
  * 解約有無・解約予定日・解約書類請求日・到着日・解約完了 を管理する。
  */
-export default function CancellationTab({ financialAssets, onRefresh }: Props) {
+export default function CancellationTab({ financialAssets, onRefresh, receipts = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
@@ -51,7 +56,7 @@ export default function CancellationTab({ financialAssets, onRefresh }: Props) {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1000 }}>
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1140 }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
                 <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
@@ -60,6 +65,7 @@ export default function CancellationTab({ financialAssets, onRefresh }: Props) {
                 <th className="px-2.5 py-2 text-left font-semibold w-32">書類請求日</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
                 <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                 <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
               </tr>
             </thead>
@@ -79,6 +85,8 @@ export default function CancellationTab({ financialAssets, onRefresh }: Props) {
                   <td className="px-2.5 py-1.5 text-center">
                     <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
                   </td>
+                  {/* 解約書類(cancellation_arrival_date)の受領→着手した解約タスク */}
+                  <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                   <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
                 </tr>
               ))}
