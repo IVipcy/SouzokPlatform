@@ -131,7 +131,7 @@ export default function ProcedureDocsTable({ caseId, gyomu, docRoles, documents,
           </tbody>
         </table>
       </div>
-      <p className="mt-1.5 text-[11px] text-gray-400">受領は受信簿を選ぶと受領日が自動で入ります（受信簿からタスク着手も可）。受け取る書類はオーダーシートの「作業区分＝書類受領」で増減できます。</p>
+      <p className="mt-1.5 text-[11px] text-gray-400">受領は受信簿を選ぶと受領日が自動で入ります（受信簿からタスク着手も可）。受け取る書類はオーダーシートの「作業区分＝請求・受領」で増減できます。</p>
     </div>
   )
 }

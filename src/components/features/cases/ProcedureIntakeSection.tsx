@@ -228,10 +228,10 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                             value={effKind(r)}
                             onChange={e => setRole(i, { kind: e.target.value as ServiceKind })}
                             className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
-                            title="書類受領＝受信簿で受け取りを管理する書類 / 通常作業＝進捗を管理する作業"
+                            title="請求・受領＝受信簿で受け取りを管理する書類 / 作業＝進捗を管理する作業"
                           >
-                            <option value="task">通常作業</option>
-                            <option value="doc">書類受領</option>
+                            <option value="task">作業</option>
+                            <option value="doc">請求・受領</option>
                           </select>
                         </td>
                         <SelectCell value={r.owner} options={ROLE_OWNER} onChange={v => setRole(i, { owner: v })} />
