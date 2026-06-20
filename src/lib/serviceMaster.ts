@@ -223,7 +223,31 @@ export function kindForTask(categories: string[], gyomu: string, sagyou: string)
   return row ? kindOf(row) : 'task'
 }
 
-// 区分非依存の業務（受注区分に関係なく使う）
+// === 区分非依存の業務（経理・相続税）。受注区分に関係なく使う ===
+// 旧 task_templates(DB) にしか無かった作業を作業マスタへ統合（生成元の一本化）。
+// SERVICE_ROWS は受注区分(category)キーだが、経理/相続税は区分非依存のため別配列で持つ。
+export const CROSS_GYOMU = ['経理', '相続税'] as const
+export type CrossGyomu = (typeof CROSS_GYOMU)[number]
+export type CrossServiceRow = { gyomu: CrossGyomu; task: string; owner: '自社' | '依頼者'; kind?: ServiceKind; hint?: string }
+
+export const CROSS_SERVICE_ROWS: CrossServiceRow[] = [
+  // 経理（精算・請求・入金・送金・納品・クローズ）。旧テンプレ distribution_calc 等。
+  { gyomu: '経理', task: '分配金計算書作成', owner: '自社', kind: 'task' },
+  { gyomu: '経理', task: '報酬請求書作成', owner: '自社', kind: 'task' },
+  { gyomu: '経理', task: '入金確認', owner: '自社', kind: 'task' },
+  { gyomu: '経理', task: '分配金送金実行', owner: '自社', kind: 'task' },
+  { gyomu: '経理', task: '納品書類一式作成', owner: '自社', kind: 'task' },
+  { gyomu: '経理', task: '案件クローズ処理', owner: '自社', kind: 'task' },
+  // 相続税（税理士連携）。旧テンプレ tax_required_check 等。
+  { gyomu: '相続税', task: '相続税申告要否判定', owner: '自社', kind: 'task' },
+  { gyomu: '相続税', task: '相続税申告書類準備', owner: '自社', kind: 'task' },
+  { gyomu: '相続税', task: '税理士への引継ぎ', owner: '自社', kind: 'task' },
+]
+
 export const CROSS_GYOMU_TAB: Record<string, TabKey | undefined> = { '経理': 'contract', '相続税': undefined }
-export const KEIZAI_TASKS: string[] = ['分配金計算書作成','報酬請求書作成','入金確認','分配金送金実行','納品書類一式作成','案件クローズ処理']
-export const ZEIRISHI_TASKS: string[] = ['相続税申告要否判定','相続税申告書類準備','税理士への引継ぎ']
+export function crossTasksFor(gyomu: string): CrossServiceRow[] {
+  return CROSS_SERVICE_ROWS.filter(r => r.gyomu === gyomu)
+}
+// 後方互換: 作業名の配列（CROSS_SERVICE_ROWS から導出）。
+export const KEIZAI_TASKS: string[] = crossTasksFor('経理').map(r => r.task)
+export const ZEIRISHI_TASKS: string[] = crossTasksFor('相続税').map(r => r.task)
