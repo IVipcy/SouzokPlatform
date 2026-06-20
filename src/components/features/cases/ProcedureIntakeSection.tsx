@@ -5,7 +5,7 @@ import { Trash2, Plus, Check, ArrowDownToLine } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories } from '@/lib/serviceMaster'
+import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories, kindForTask, type ServiceKind } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import ClientDocsReflectModal from './ClientDocsReflectModal'
 import type { CaseRow, ContractDocumentRow } from '@/types'
@@ -45,7 +45,8 @@ export function clientReflectCandidates(roles: RoleRow[]): ReflectCandidate[] {
 }
 // 役割分担: 業務（例:登記）→ 紐づく作業（複数）→ 各作業を 自社/依頼者/不要 ＋ 備考
 // status/due は手続き系業務タブ（放棄/信託/調停/検認/後見）での進捗管理用（任意・JSONB）。
-export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null }
+// kind は資料(doc=受領管理)/タスク(task=進捗管理)の区分。マスタ初期値をここで上書き保持。
+export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: ServiceKind }
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得']
 const ROLE_OWNER = ['自社', '依頼者', '不要']
@@ -142,15 +143,19 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
 // ─── ② 役割分担エディタ（業務→作業。再利用可能） ───
 // 業務をチップで選ぶ → その業務の定型作業が展開され、各作業を 自社/依頼者/不要 で分担。
 // 作業は定型＋任意追加。同じデータ（intake_roles）を面談フォーム・各タブ・OSで共有。
-export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, presetFor }: {
+export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, presetFor, kindFor }: {
   roles: RoleRow[]
   onSave: (next: RoleRow[]) => void
   // 受注区分マスタ駆動で業務候補・作業プリセットを差し替えるための任意引数
   gyomuOptions?: readonly string[]
   presetFor?: (gyomu: string) => string[]
+  // 作業の種別（資料/タスク）の初期値をマスタから引く。未指定なら全て task 扱い。
+  kindFor?: (gyomu: string, sagyou: string) => ServiceKind
 }) {
   const setRole = (i: number, patch: Partial<RoleRow>) => onSave(roles.map((r, idx) => idx === i ? { ...r, ...patch } : r))
   const presetTasks = (g: string) => (presetFor ? presetFor(g) : (GYOMU_PRESET[g] ?? ['']))
+  // 行の実効kind: 明示値 → マスタ初期値 → task。
+  const effKind = (r: RoleRow): ServiceKind => r.kind ?? kindFor?.(r.gyomu, r.sagyou) ?? 'task'
 
   // 表示する業務グループ（候補の並び順 + 候補外のカスタム業務）
   const selected = gyomuOptions.filter(g => roles.some(r => r.gyomu === g))
@@ -165,7 +170,7 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
       onSave(roles.filter(r => r.gyomu !== g))
     } else {
       const tasks = presetTasks(g)
-      const add = (tasks.length > 0 ? tasks : ['']).map(s => ({ gyomu: g, sagyou: s, owner: '自社', note: '' }))
+      const add = (tasks.length > 0 ? tasks : ['']).map(s => ({ gyomu: g, sagyou: s, owner: '自社', note: '', kind: kindFor?.(g, s) }))
       onSave([...roles, ...add])
     }
   }
@@ -203,10 +208,11 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                 <span className="text-[12.5px] font-bold text-gray-700">{g}</span>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-                <table className="w-full text-[13px] border-collapse" style={{ minWidth: 620 }}>
+                <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
                       <th className="px-2.5 py-2 text-left font-semibold w-64">作業</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-28">種別</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-36">担当</th>
                       <th className="px-2.5 py-2 text-left font-semibold">備考</th>
                       <th className="px-2.5 py-2 w-8" />
@@ -216,6 +222,17 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                     {rowsWithIdx.map(({ r, i }, n) => (
                       <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${n % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                         <Cell value={r.sagyou} onCommit={v => setRole(i, { sagyou: v })} placeholder="作業内容" />
+                        <td className="px-2.5 py-1.5">
+                          <select
+                            value={effKind(r)}
+                            onChange={e => setRole(i, { kind: e.target.value as ServiceKind })}
+                            className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
+                            title="資料＝受信簿で受領管理 / タスク＝進捗管理"
+                          >
+                            <option value="task">タスク</option>
+                            <option value="doc">資料</option>
+                          </select>
+                        </td>
                         <SelectCell value={r.owner} options={ROLE_OWNER} onChange={v => setRole(i, { owner: v })} />
                         <Cell value={r.note} onCommit={v => setRole(i, { note: v })} placeholder="例：名寄せは別料金 等" />
                         <td className="px-2.5 py-1.5 text-center">
@@ -291,6 +308,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
             onSave={saveRoles}
             gyomuOptions={cats.length ? gyomuForCategories(cats) : undefined}
             presetFor={cats.length ? (g => tasksForCategories(cats, g).map(t => t.task)) : undefined}
+            kindFor={cats.length ? ((g, s) => kindForTask(cats, g, s)) : undefined}
           />
           {candidates.length > 0 && (
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">

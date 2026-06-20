@@ -210,11 +210,17 @@ export function tasksForCategories(categories: string[], gyomu: string): Service
   for (const c of categories) { const t = tasksFor(c, gyomu); if (t.length) return t }
   return []
 }
-/** 複数区分から役割分担(intake_roles)の初期値を生成（全作業・担当=自社、重複業務は先勝ち）。 */
-export function seedRolesForCategories(categories: string[]): { gyomu: string; sagyou: string; owner: string; note: string }[] {
+/** 複数区分から役割分担(intake_roles)の初期値を生成（全作業・担当=自社、重複業務は先勝ち）。
+ *  kind（資料/タスク）の初期値もマスタから載せる（オーダーシートで上書き可）。 */
+export function seedRolesForCategories(categories: string[]): { gyomu: string; sagyou: string; owner: string; note: string; kind: ServiceKind }[] {
   return gyomuForCategories(categories).flatMap(g =>
-    tasksForCategories(categories, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '' })),
+    tasksForCategories(categories, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) })),
   )
+}
+/** 区分×業務×作業名 から kind（資料/タスク）の初期値を引く。未知の作業は task。 */
+export function kindForTask(categories: string[], gyomu: string, sagyou: string): ServiceKind {
+  const row = tasksForCategories(categories, gyomu).find(t => t.task === sagyou)
+  return row ? kindOf(row) : 'task'
 }
 
 // 区分非依存の業務（受注区分に関係なく使う）

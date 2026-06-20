@@ -16,7 +16,7 @@ import {
 } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
-  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories,
+  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask,
 } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
@@ -652,6 +652,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                     onSave={v => update('intakeRoles', v)}
                     gyomuOptions={gyomuForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2))}
                     presetFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).map(t => t.task)}
+                    kindFor={(g, s) => kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, s)}
                   />
                 </>
               ) : (
