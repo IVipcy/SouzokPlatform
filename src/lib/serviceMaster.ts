@@ -31,7 +31,12 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
 }
 export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知']
 
-export type ServiceRow = { category: OrderCategory; gyomu: string; task: string; owner: '自社' | '依頼者'; hint?: string }
+// kind: 作業の性質。
+//   'task'（既定）= やる作業＝タスクで進捗管理。
+//   'doc'        = 受領する資料（到着物）＝受信簿連動で受領管理（受領自体はタスクではない）。
+// オーダーシート作成時にユーザーが上書きできる前提の「初期値」。
+export type ServiceKind = 'task' | 'doc'
+export type ServiceRow = { category: OrderCategory; gyomu: string; task: string; owner: '自社' | '依頼者'; hint?: string; kind?: ServiceKind }
 
 export const SERVICE_ROWS: ServiceRow[] = [
   { category: '手続き一式', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社', hint: '2/3はお客さんが広域交付制度で取得' },
@@ -100,11 +105,11 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '放棄', gyomu: '金融資産', task: '金融資産資料の確認', owner: '自社', hint: 'オーシャン' },
   { category: '放棄', gyomu: '放棄手続き', task: '放棄の申述書類作成', owner: '自社', hint: 'オーシャン / 家庭裁判所に提出する書類作成して、署名捺印依頼者から' },
   { category: '放棄', gyomu: '放棄手続き', task: '家庭裁判所へ申述', owner: '自社', hint: 'オーシャン' },
-  { category: '放棄', gyomu: '放棄手続き', task: '申述照会書受領', owner: '自社', hint: 'オーシャン / 指定できない。どっちに届くか' },
+  { category: '放棄', gyomu: '放棄手続き', task: '申述照会書受領', owner: '自社', kind: 'doc', hint: 'オーシャン / 指定できない。どっちに届くか' },
   { category: '放棄', gyomu: '放棄手続き', task: '申述照会書記載例提案', owner: '自社', hint: 'オーシャン' },
   { category: '放棄', gyomu: '放棄手続き', task: '申述照会書提出', owner: '自社', hint: '依頼者' },
-  { category: '放棄', gyomu: '放棄手続き', task: '受理通知書の受領', owner: '自社', hint: '指定できない。どっちに届くか' },
-  { category: '放棄', gyomu: '放棄手続き', task: '受理証明書の取得', owner: '自社', hint: 'オーシャン' },
+  { category: '放棄', gyomu: '放棄手続き', task: '受理通知書の受領', owner: '自社', kind: 'doc', hint: '指定できない。どっちに届くか' },
+  { category: '放棄', gyomu: '放棄手続き', task: '受理証明書の取得', owner: '自社', kind: 'doc', hint: 'オーシャン' },
   { category: '調停', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社', hint: 'オーシャン：依頼者＝6：4、7：3 / もめちゃって紛争、ほとんどやらない' },
   { category: '調停', gyomu: '戸籍', task: '戸籍到着確認・チェック', owner: '自社', hint: 'オーシャン' },
   { category: '調停', gyomu: '戸籍', task: '追加戸籍請求', owner: '自社', hint: '既存テンプレより（細かい手順）' },
@@ -120,7 +125,7 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '検認', gyomu: '検認手続き', task: '家庭裁判所へ検認申し立て', owner: '自社', hint: 'オーシャン' },
   { category: '検認', gyomu: '検認手続き', task: '検認期日の日程調整・同行案内', owner: '自社', hint: 'オーシャン / オーシャンさんは立ち会えないけど、一緒に行ってあげることがある' },
   { category: '検認', gyomu: '検認手続き', task: '同行', owner: '自社', hint: 'オーシャン' },
-  { category: '検認', gyomu: '検認手続き', task: '検認済遺言書の受領', owner: '自社', hint: 'オーシャン' },
+  { category: '検認', gyomu: '検認手続き', task: '検認済遺言書の受領', owner: '自社', kind: 'doc', hint: 'オーシャン' },
   { category: '後見', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社', hint: 'オーシャン：依頼者＝6：4、7：3 / 後見単体はあまりない、判断能力のない認知症の相続人の代わりの後見人を立てる' },
   { category: '後見', gyomu: '戸籍', task: '戸籍到着確認・チェック', owner: '自社', hint: 'オーシャン' },
   { category: '後見', gyomu: '戸籍', task: '追加戸籍請求', owner: '自社', hint: '既存テンプレより（細かい手順）' },
@@ -128,7 +133,7 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '後見', gyomu: '不動産', task: '名寄帳請求', owner: '自社', hint: 'オーシャン' },
   { category: '後見', gyomu: '不動産', task: '固定資産評価証明の取得', owner: '自社', hint: 'オーシャン' },
   { category: '後見', gyomu: '金融資産', task: '金融資産資料の確認', owner: '自社', hint: 'オーシャン' },
-  { category: '後見', gyomu: '後見手続き', task: '後見申し立て書類の確認・取得　※診断書、親族からの同意書、状況確認書', owner: '自社' },
+  { category: '後見', gyomu: '後見手続き', task: '後見申し立て書類の確認・取得　※診断書、親族からの同意書、状況確認書', owner: '自社', kind: 'doc' },
   { category: '後見', gyomu: '後見手続き', task: '後見の申し立て書類作成', owner: '自社', hint: 'オーシャン' },
   { category: '後見', gyomu: '後見手続き', task: '家庭裁判所へ後見申し立て', owner: '自社', hint: 'オーシャン' },
   { category: '契約書', gyomu: '契約書作成', task: '関係書類取得', owner: '自社' },
@@ -169,6 +174,19 @@ export function gyomuFor(category: string): string[] {
 }
 export function tasksFor(category: string, gyomu: string): ServiceRow[] {
   return SERVICE_ROWS.filter(r => r.category === category && r.gyomu === gyomu)
+}
+
+// 作業の性質（kind未指定は 'task' 既定）。
+export function kindOf(row: Pick<ServiceRow, 'kind'>): ServiceKind {
+  return row.kind ?? 'task'
+}
+// 資料（受領管理）の行だけ抽出。
+export function docRowsFor(category: string, gyomu: string): ServiceRow[] {
+  return tasksFor(category, gyomu).filter(r => kindOf(r) === 'doc')
+}
+// タスク（進捗管理）の行だけ抽出。
+export function taskRowsFor(category: string, gyomu: string): ServiceRow[] {
+  return tasksFor(category, gyomu).filter(r => kindOf(r) === 'task')
 }
 
 // === 複数受注区分（順番つき）対応 ===
