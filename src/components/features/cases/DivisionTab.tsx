@@ -16,8 +16,6 @@ import {
   AGREEMENT_SIGNING_METHODS,
   WILL_CONTENT_OPTIONS,
   WILL_BEQUEST_HANDLER_OPTIONS,
-  TRUST_CONTRACT_TYPES,
-  TRUST_CONTENT_OPTIONS,
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 
@@ -134,30 +132,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
             </div>
           )}
         </Section>
-
-        {/* 信託 */}
-        <Section title="信託" icon="🏛️">
-          <FieldGrid>
-            <InlineSelect label="信託契約書種別" value={caseData.trust_contract_type} options={[...TRUST_CONTRACT_TYPES]} onSave={v => saveCaseField('trust_contract_type', v)} />
-            <InlineSelect label="作成場所" value={caseData.trust_creation_place} options={[...WILL_CREATION_PLACES]} onSave={v => saveCaseField('trust_creation_place', v)} />
-            <SharedInlineEdit label="最終帰属者" value={caseData.trust_final_beneficiary} onSave={v => saveCaseField('trust_final_beneficiary', v)} fullWidth />
-          </FieldGrid>
-          <div className="mt-3">
-            <Section title="信託記載内容（カテゴリ別）" collapsible defaultOpen={false}>
-              <div className="space-y-2">
-                {TRUST_CONTENT_OPTIONS.map(cat => (
-                  <InlineTextarea
-                    key={cat}
-                    label={cat}
-                    value={caseData.trust_content_details?.[cat] ?? ''}
-                    onSave={v => saveCaseContentDetail('trust_content_details', cat, v)}
-                    fullWidth
-                  />
-                ))}
-              </div>
-            </Section>
-          </div>
-        </Section>
+        {/* 信託情報は信託契約タブ（TrustInfo）へ移設しました（2026-06-20）。 */}
       </>)}
     </div>
   )

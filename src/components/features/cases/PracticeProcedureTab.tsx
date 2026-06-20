@@ -4,6 +4,7 @@ import { Trash2, Plus } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { tasksFor, categoriesOf, kindForTask, kindOf } from '@/lib/serviceMaster'
 import CourtProcedureInfo from './CourtProcedureInfo'
+import TrustInfo from './TrustInfo'
 import ProcedureDocsTable from './ProcedureDocsTable'
 import type { RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow, SagyoDocumentRow } from '@/types'
@@ -21,6 +22,8 @@ type Props = {
   description?: string
   /** 家庭裁判所手続き（放棄/調停/検認/後見）なら家裁手続き情報を表示。 */
   court?: boolean
+  /** 信託タブなら信託情報を表示。 */
+  trust?: boolean
   /** オーダーシートに埋め込む場合は true（外側の見出し Section を省く）。 */
   embedded?: boolean
   /** 作業に紐づく必要書類（sagyo_documents）。 */
@@ -38,7 +41,7 @@ type Props = {
  * 役割分担(intake_roles)を業務でフィルタし、各作業の kind（資料/タスク）で振り分ける。
  * 受領自体はタスクではない（②で管理）。タスクは受領した資料を使う作業（③）。
  */
-export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, court, embedded, sagyoDocuments = [], receipts = [], onRefresh }: Props) {
+export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, court, trust, embedded, sagyoDocuments = [], receipts = [], onRefresh }: Props) {
   const roles: RoleRow[] = (caseData.intake_roles ?? []) as RoleRow[]
   const save = (next: RoleRow[]) => patchCase({ intake_roles: next })
   const cats = categoriesOf(caseData.service_category, caseData.service_category_2)
@@ -65,6 +68,7 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
       {description && <p className="text-[12px] text-gray-400">{description}</p>}
 
       {court && <CourtProcedureInfo caseData={caseData} gyomu={gyomu} patchCase={patchCase} />}
+      {trust && <TrustInfo caseData={caseData} patchCase={patchCase} />}
 
       {/* ② 資料（受領管理）。doc-kindの作業がある場合のみ。 */}
       {docRoles.length > 0 && (

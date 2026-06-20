@@ -96,7 +96,7 @@ export default function OrderSheet({
     ...PROCEDURE_TABS.map(p => ({
       title: p.title,
       gate: p.tab,
-      node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
+      node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
     })),
     { title: '契約・報酬・請求', node: <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} /> },
   ]
