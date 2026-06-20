@@ -1,4 +1,4 @@
-import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow } from '@/types'
 
 /**
  * 取得物（deliverable）= 「何を・どこに請求し・いつ受領するか」の進捗単位。
@@ -10,7 +10,7 @@ export type DeliverableOption = {
   value: string          // `${kind}:${id}:${field}`
   label: string          // 表示名（例: ○○銀行 残高証明）
   group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍 / 契約書類）
-  kind: 'financial_asset' | 'real_estate' | 'koseki' | 'contract_doc'
+  kind: 'financial_asset' | 'real_estate' | 'real_estate_acquisition' | 'koseki' | 'contract_doc'
   id: string
   field: string          // 受領日カラム名
 }
@@ -20,15 +20,6 @@ const FA_GROUP: Record<string, string> = {
   証券: '証券',
   信託銀行: '信託',
 }
-
-// 不動産の取得物（受領日カラム）: ラベルと要否カラム・受領日カラムの対応
-const RE_ITEMS: { label: string; req: keyof RealEstatePropertyRow; recv: keyof RealEstatePropertyRow }[] = [
-  { label: '登記情報', req: 'registry_required', recv: 'registry_receipt_date' },
-  { label: '公図', req: 'cadastral_required', recv: 'cadastral_receipt_date' },
-  { label: '地積測量図', req: 'survey_map_required', recv: 'survey_map_receipt_date' },
-  { label: '路線価', req: 'route_price_required', recv: 'route_price_receipt_date' },
-  { label: '評価証明', req: 'eval_cert_required', recv: 'eval_cert_receipt_date' },
-]
 
 // linked_field（受領日カラム名）から取得物の種別ラベルを得る（受信簿一覧のバッジ表示用）
 const FIELD_LABELS: Record<string, string> = {
@@ -45,6 +36,7 @@ export function deliverableLinkLabel(linkedKind: string | null, linkedField: str
   if (!linkedKind || !linkedField) return null
   if (linkedKind === 'koseki') return '戸籍'
   if (linkedKind === 'contract_doc') return '契約書類'
+  if (linkedKind === 'real_estate_acquisition') return '不動産・取得資料'
   const item = FIELD_LABELS[linkedField] ?? '取得物'
   const cat = linkedKind === 'real_estate' ? '不動産' : '金融機関'
   return `${cat}・${item}`
@@ -52,7 +44,8 @@ export function deliverableLinkLabel(linkedKind: string | null, linkedField: str
 
 export function buildDeliverableOptions(
   financialAssets: FinancialAssetRow[],
-  realEstate: RealEstatePropertyRow[],
+  acquisitions: RealEstateAcquisitionRow[],
+  properties: RealEstatePropertyRow[],
   kosekiRequests: KosekiRequestRow[] = [],
   contractDocuments: ContractDocumentRow[] = [],
 ): DeliverableOption[] {
@@ -96,20 +89,24 @@ export function buildDeliverableOptions(
     }
   }
 
-  for (const p of realEstate) {
-    const name = p.address || p.property_type || '(所在地未入力)'
-    for (const it of RE_ITEMS) {
-      // 「不要」が明示された取得物は候補から除外（未設定・要・確認中は表示）
-      if ((p[it.req] as string | null) === '不要') continue
-      opts.push({
-        value: `real_estate:${p.id}:${it.recv}`,
-        label: `${name} ${it.label}`,
-        group: '不動産',
-        kind: 'real_estate',
-        id: p.id,
-        field: it.recv as string,
-      })
-    }
+  // 不動産は「取得資料管理(real_estate_acquisitions)」の各行を取得物にする。
+  // 名寄帳・評価証明は市区町村単位、登記情報・公図・地積測量図は物件単位（取得資料行が正しい単位を持つ）。
+  // 路線価は参照（請求・受領なし）のため候補から除外。
+  const propLabel = (id: string | null) => {
+    const p = id ? properties.find(x => x.id === id) : undefined
+    return p ? (p.address || p.lot_number || p.property_type || '物件') : '物件'
+  }
+  for (const a of acquisitions) {
+    if (!a.item_type || a.item_type === '路線価') continue
+    const where = a.target_property_id ? propLabel(a.target_property_id) : (a.target_municipality || '市区町村未入力')
+    opts.push({
+      value: `real_estate_acquisition:${a.id}:arrival_date`,
+      label: `${a.item_type}（${where}）`,
+      group: '不動産',
+      kind: 'real_estate_acquisition',
+      id: a.id,
+      field: 'arrival_date',
+    })
   }
 
   for (const k of kosekiRequests) {

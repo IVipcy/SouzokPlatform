@@ -336,6 +336,7 @@ function ReceiptRow({
         const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
           : i.linked_kind === 'koseki' ? 'koseki_requests'
           : i.linked_kind === 'contract_doc' ? 'contract_documents'
+          : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
           : 'real_estate_properties'
         return supabase.from(table).update({ [i.linked_field as string]: linkVal }).eq('id', i.linked_id as string)
       })

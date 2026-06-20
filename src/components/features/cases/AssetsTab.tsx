@@ -92,7 +92,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           </div>
           <div>
             <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得資料管理（どこに何をいつ請求し、受け取れたか）</div>
-            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} />
+            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} />
           </div>
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>

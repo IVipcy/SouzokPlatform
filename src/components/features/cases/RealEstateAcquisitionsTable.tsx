@@ -5,7 +5,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
-import type { RealEstateAcquisitionRow, RealEstatePropertyRow } from '@/types'
+import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
   caseId: string
@@ -14,6 +15,9 @@ type Props = {
   onRefresh?: () => void
   // オーダーシート埋め込み時は請求日・到着日の進捗列を出さない
   orderSheetMode?: boolean
+  // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
+  receipts?: TimelineReceipt[]
+  tasks?: TaskRow[]
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -25,11 +29,20 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], tasks = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
+
+  // 取得資料 → 関連タスク（受信簿で受信→着手したタスク）。受信簿item linked_kind='real_estate_acquisition'。
+  const taskById = new Map(tasks.map(t => [t.id, t]))
+  const taskByAcq = new Map<string, TaskRow>()
+  for (const rc of receipts) {
+    if (!rc.started_task_id || !rc.items) continue
+    const t = taskById.get(rc.started_task_id); if (!t) continue
+    for (const it of rc.items) if (it.linked_kind === 'real_estate_acquisition' && it.linked_id) taskByAcq.set(it.linked_id, t)
+  }
 
   const save = async (id: string, field: keyof RealEstateAcquisitionRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstateAcquisitionRow : r)))
@@ -73,13 +86,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
               <th className="px-2.5 py-2 text-center font-semibold w-16">取得済</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 8 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : rows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
@@ -110,6 +124,13 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) save(r.id, 'request_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.expected_arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.expected_arrival_date ?? '')) save(r.id, 'expected_arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
+                  {progressMode && (
+                    <td className="px-2.5 py-1.5">
+                      {taskByAcq.get(r.id)
+                        ? <a href={`/tasks/${taskByAcq.get(r.id)!.id}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 hover:underline" title={taskByAcq.get(r.id)!.title}><span className="truncate max-w-[120px]">{taskByAcq.get(r.id)!.title}</span></a>
+                        : <span className="text-gray-300 text-[11px]">—</span>}
+                    </td>
+                  )}
                   <td className="px-2.5 py-1.5 text-center">
                     <input type="checkbox" checked={r.received} onChange={e => save(r.id, 'received', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
                   </td>
