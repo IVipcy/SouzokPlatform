@@ -13,7 +13,8 @@ import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import ContractReceivedDocs from './ContractReceivedDocs'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
   caseData: CaseRow
@@ -27,6 +28,9 @@ type Props = {
   contractDocuments?: ContractDocumentRow[]
   // 不動産の取得資料管理
   acquisitions?: RealEstateAcquisitionRow[]
+  // 受信簿＋タスク（金融資産の「関連タスク」リンク用）
+  documentReceipts?: TimelineReceipt[]
+  tasks?: TaskRow[]
 }
 
 /**
@@ -47,7 +51,7 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'insurance', label: '生命保険' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -92,13 +96,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           </div>
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
-          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
+          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'securities' ? '' : 'hidden'}>
-          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
+          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'trust' ? '' : 'hidden'}>
-          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} />
+          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'insurance' ? '' : 'hidden'}>
           <FieldGrid>

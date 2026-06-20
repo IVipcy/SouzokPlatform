@@ -5,7 +5,8 @@ import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
-import type { FinancialAssetRow, CaseRow } from '@/types'
+import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 
 const REQ = ['要', '不要', '確認中']
 
@@ -45,14 +46,26 @@ type Props = {
   progressMode?: boolean
   // 役割分担（取得区分の一括反映用）
   roles?: CaseRow['intake_roles']
+  // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
+  receipts?: TimelineReceipt[]
+  tasks?: TaskRow[]
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [], tasks = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
+
+  // 金融機関 → 関連タスク（受信簿で受信→着手したタスク）。受信簿item linked_kind='financial_asset' で対応づけ。
+  const taskById = new Map(tasks.map(t => [t.id, t]))
+  const taskByAsset = new Map<string, TaskRow>()
+  for (const rc of receipts) {
+    if (!rc.started_task_id || !rc.items) continue
+    const t = taskById.get(rc.started_task_id); if (!t) continue
+    for (const it of rc.items) if (it.linked_kind === 'financial_asset' && it.linked_id) taskByAsset.set(it.linked_id, t)
+  }
 
   const applyRolesAcquirer = async () => {
     if (rows.length === 0) { showToast('対象の金融機関がありません', 'error'); return }
@@ -91,8 +104,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信) +削除
-  const colCount = cols.length + 3 + (progressMode ? 4 : 0) + 1
+  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = cols.length + 3 + (progressMode ? 5 : 0) + 1
 
   return (
     <div>
@@ -107,6 +120,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着予定日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">関連タスク</th>}
               <th className="px-2 py-2 text-left font-semibold">備考</th>
               <th className="px-2 py-2 w-8" />
             </tr>
@@ -155,6 +169,13 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {r.arrival_date
                         ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
                         : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
+                    </td>
+                  )}
+                  {progressMode && (
+                    <td className="px-2 py-1.5">
+                      {taskByAsset.get(r.id)
+                        ? <a href={`/tasks/${taskByAsset.get(r.id)!.id}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 hover:underline" title={taskByAsset.get(r.id)!.title}><span className="truncate max-w-[120px]">{taskByAsset.get(r.id)!.title}</span></a>
+                        : <span className="text-gray-300 text-[11px]">—</span>}
                     </td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
