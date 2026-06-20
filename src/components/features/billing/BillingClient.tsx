@@ -883,13 +883,23 @@ export default function BillingClient({ invoices, cases }: Props) {
                   </DetailSection>
                 )}
                 <div className="flex flex-col gap-2 pt-2">
-                  <Link
-                    href={`/invoices/${selected.id}/preview`}
-                    className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    請求書を表示 / DL
-                  </Link>
+                  {selected.generated_file_path ? (
+                    <button
+                      onClick={() => openInvoiceExcel(selected.generated_file_path!)}
+                      className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      請求書（Excel）を表示 / DL
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/invoices/${selected.id}/preview`}
+                      className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      請求書を表示 / DL（旧プレビュー）
+                    </Link>
+                  )}
                   <Link
                     href={`/invoices/${selected.id}/preview?doc=receipt`}
                     className="px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-center inline-flex items-center justify-center gap-1.5"
@@ -961,11 +971,19 @@ export default function BillingClient({ invoices, cases }: Props) {
         cases={cases}
         defaultCaseId={checkedInvoice?.case_id ?? caseFilter ?? undefined}
         existingInvoiceId={checkedInvoice?.status === '未請求' ? checkedInvoice.id : undefined}
-        onSaved={(newId) => {
+        onSaved={async (newId) => {
           setCreateOpen(false)
           setCheckedInvoiceId(null)
           if (newId) {
-            router.push(`/invoices/${newId}/preview?firstView=1`)
+            // 発行後は公式Excel（事務所の正式様式）を開く。生成失敗で無い場合のみ旧HTMLプレビューへ。
+            const supabase = createClient()
+            const { data } = await supabase.from('invoices').select('generated_file_path').eq('id', newId).single()
+            if (data?.generated_file_path) {
+              await openInvoiceExcel(data.generated_file_path)
+              router.refresh()
+            } else {
+              router.push(`/invoices/${newId}/preview?firstView=1`)
+            }
           } else {
             router.refresh()
           }
