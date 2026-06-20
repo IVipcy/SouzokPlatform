@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Section, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCurrency, InlineCheckbox, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCurrency, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
   LIFE_INSURANCE_PROPOSAL_OPTIONS, LIFE_INSURANCE_TYPES,
@@ -93,21 +93,24 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           <div>
-            <div className="text-[12px] font-bold text-gray-500 mb-1.5">物件一覧（どういう物件があるか）</div>
+            <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
           </div>
           <div>
-            <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得資料管理（どこに何をいつ請求し、受け取れたか）</div>
+            <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
           </div>
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
+          <SectionHeading title="預金口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
         </div>
         <div className={sub === 'securities' ? '' : 'hidden'}>
+          <SectionHeading title="証券口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'trust' ? '' : 'hidden'}>
+          <SectionHeading title="信託口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'insurance' ? '' : 'hidden'}>

@@ -107,11 +107,8 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
                 {!isOfficeSign && (
                   <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={signingOptionsFor(caseData.agreement_dispatch_method)} onSave={v => saveCaseField('agreement_signing_method', v)} />
                 )}
-                <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
-              </FieldGrid>
-              <div className="mt-2">
                 <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
-              </div>
+              </FieldGrid>
             </Section>
 
             {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}

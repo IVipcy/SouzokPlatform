@@ -6,6 +6,7 @@ import { Plus, X, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '@/lib/constants'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
@@ -72,6 +73,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 
   return (
     <div className="space-y-3.5">
+      <div>
+      <SectionHeading title="相続登記（物件ごとの手続き）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1360 }}>
           <thead>
@@ -134,6 +137,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
             ))}
           </tbody>
         </table>
+      </div>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
         物件は財産調査タブの不動産から自動表示されます。登記情報・公図等の取得進捗は財産調査タブで管理します。

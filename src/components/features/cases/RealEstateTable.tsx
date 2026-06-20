@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { FieldGrid, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
+import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
 import {
   SELLING_INTENTIONS, OCCUPANCY_STATUSES, PROPERTY_RANKS, PROPERTY_EVALUATION_METHODS,
 } from '@/lib/constants'
@@ -144,7 +144,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
           <td colSpan={9} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
             <div>
-              <div className="text-[12px] font-bold text-gray-500 mb-1.5">物件詳細（固定資産申請書にも連携）</div>
+              <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
               <FieldGrid>
                 <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
                 <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
@@ -158,7 +158,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
 
             {/* 発見元（どの資料からこの不動産が判明したか） */}
             <div>
-              <div className="text-[12px] font-bold text-gray-500 mb-1.5">発見元（どの資料から判明したか）</div>
+              <SectionHeading title="発見元（どの資料から判明したか）" className="mb-2" />
               <FieldGrid>
                 <InlineCheckbox label="名寄せ参照" value={r.ref_nayose} onSave={v => saveField(r.id, 'ref_nayose', v)} />
                 <InlineCheckbox label="権利書参照" value={r.ref_title_deed} onSave={v => saveField(r.id, 'ref_title_deed', v)} />

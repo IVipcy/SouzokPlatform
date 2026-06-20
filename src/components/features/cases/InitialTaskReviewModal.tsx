@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import { getCaseStatusLabel } from '@/lib/constants'
 
 // 受注担当/管理担当タスクのサブ分類（Phaseは事務管理タスク専用なのでここでは使わない）
@@ -141,7 +142,7 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
 
         {/* 生成済みタスク（チェックを外す＝削除） */}
         <div>
-          <div className="text-[12px] font-bold text-gray-500 mb-1.5">生成された初期タスク</div>
+          <SectionHeading title="生成された初期タスク" className="mb-2" />
           {loading ? (
             <div className="text-[13px] text-gray-400 px-1 py-3">読み込み中...</div>
           ) : rows.length === 0 ? (
@@ -174,7 +175,7 @@ export default function InitialTaskReviewModal({ isOpen, status, caseId, onAppli
 
         {/* 追加タスク */}
         <div>
-          <div className="text-[12px] font-bold text-gray-500 mb-1.5">タスクを追加</div>
+          <SectionHeading title="タスクを追加" className="mb-2" />
           {adds.length > 0 && (
             <div className="space-y-2 mb-2">
               {adds.map((a, i) => (

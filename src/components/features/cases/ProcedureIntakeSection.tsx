@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, Check, ArrowDownToLine } from 'lucide-react'
-import { Section } from '@/components/ui/InlineFields'
+import { Section, SectionHeading } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories, kindForTask, type ServiceKind } from '@/lib/serviceMaster'
@@ -292,18 +292,18 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
 
   return (
     <Section title="手続き詳細">
-      <div className="mb-2 text-[12px] font-bold text-gray-500">① 到着物（その場で何をもらい、何が後日来るか）</div>
+      <SectionHeading title="① 到着物（その場で何をもらい、何が後日来るか）" className="mb-2" />
       <div className="mb-5">
         <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
       </div>
       {category === REFERRAL_ONLY_CATEGORY ? (
         <>
-          <div className="mb-2 text-[12px] font-bold text-gray-500">② 紹介先（自社手続きはありません）</div>
+          <SectionHeading title="② 紹介先（自社手続きはありません）" className="mb-2" />
           <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は下の「他事業者紹介要否」または「他事業者紹介」タブで入力してください。</p>
         </>
       ) : (
         <>
-          <div className="mb-2 text-[12px] font-bold text-gray-500">② 役割分担（自社 / 依頼者 どちらが行うか）</div>
+          <SectionHeading title="② 役割分担（自社 / 依頼者 どちらが行うか）" className="mb-2" />
           <IntakeRolesEditor
             roles={roles}
             onSave={saveRoles}
