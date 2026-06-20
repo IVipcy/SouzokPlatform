@@ -8,10 +8,12 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
+import { categoriesOf, kindForTask } from '@/lib/serviceMaster'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
+import type { RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
 type Props = {
   receipts: DocumentReceiptRow[]
@@ -139,7 +141,9 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   onDone: () => void
 }) {
   const router = useRouter()
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string }>>([])
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null }>>([])
+  const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
+  const [cats, setCats] = useState<string[]>([])
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
   const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
   const [itemNew, setItemNew] = useState<Record<string, string>>({})
@@ -151,16 +155,21 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const { data } = await supabase
-        .from('tasks')
-        .select('id,title,status')
-        .eq('case_id', receipt.case_id)
-        .neq('status', '完了')
-        .order('sort_order')
-      setTasks((data ?? []) as Array<{ id: string; title: string; status: string }>)
+      const [tk, cs] = await Promise.all([
+        supabase.from('tasks').select('id,title,status,source_rid').eq('case_id', receipt.case_id).neq('status', '完了').order('sort_order'),
+        supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
+      ])
+      setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null }>)
+      const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
+      setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
+      setCats(categoriesOf(c?.service_category, c?.service_category_2))
       setLoading(false)
     })()
   }, [receipt.case_id])
+
+  // 実施タスク（作業区分=作業）の候補。datalistで提示し、選ぶ/一致すると source_rid で紐付ける。
+  const isTaskKind = (r: RoleRow) => (r.kind ?? kindForTask(cats, r.gyomu, r.sagyou)) === 'task'
+  const candidateNames = [...new Set(intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要' && isTaskKind(r)).map(r => r.sagyou))]
 
   const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
     const cur = new Set(prev[itemId] ?? [])
@@ -183,18 +192,42 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     const startExistingIds = new Set<string>()
     let firstTaskId: string | null = null
 
-    // 到着物ごとに：新規タスク作成＋既存タスク紐付け
+    // 実施タスク行のrid採番（作成時に更新）／既存タスクの rid→id（重複生成防止）
+    const roles = [...intakeRoles]
+    let rolesChanged = false
+    const ridToTaskId = new Map(tasks.filter(t => t.source_rid).map(t => [t.source_rid as string, t.id]))
+
+    // 到着物ごとに：新規タスク作成（実施タスク候補に一致すれば source_rid 連携）＋既存タスク紐付け
     for (const it of items) {
       const newTitle = (itemNew[it.id] ?? '').trim()
       if (newTitle) {
-        const { data: nt, error } = await supabase.from('tasks')
-          .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: 'phase1', category: '', status: '対応中', priority: '通常', started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
-          .select('id').single()
-        if (!error && nt) {
-          const id = (nt as { id: string }).id
-          await supabase.from('task_assignees').insert({ task_id: id, member_id: currentMemberId, role: 'primary' })
-          joinRows.push({ receipt_item_id: it.id, task_id: id })
-          firstTaskId = firstTaskId ?? id
+        // 実施タスク（作業）に一致したら rid を採番して紐付け
+        const idx = roles.findIndex(r => r.sagyou === newTitle && r.owner !== '不要' && isTaskKind(r))
+        let sourceRid: string | null = null
+        let gyomu = ''
+        if (idx >= 0) {
+          gyomu = roles[idx].gyomu
+          let rid = roles[idx].rid
+          if (!rid) { rid = crypto.randomUUID(); roles[idx] = { ...roles[idx], rid }; rolesChanged = true }
+          sourceRid = rid
+        }
+        const existingId = sourceRid ? ridToTaskId.get(sourceRid) : undefined
+        if (existingId) {
+          // その実施タスクのタスクが既にある → 新規作成せず結ぶ
+          joinRows.push({ receipt_item_id: it.id, task_id: existingId })
+          startExistingIds.add(existingId)
+          firstTaskId = firstTaskId ?? existingId
+        } else {
+          const { data: nt, error } = await supabase.from('tasks')
+            .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: gyomu || 'phase1', category: gyomu || '', status: '対応中', priority: '通常', source_rid: sourceRid, started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
+            .select('id').single()
+          if (!error && nt) {
+            const id = (nt as { id: string }).id
+            await supabase.from('task_assignees').insert({ task_id: id, member_id: currentMemberId, role: 'primary' })
+            if (sourceRid) ridToTaskId.set(sourceRid, id)
+            joinRows.push({ receipt_item_id: it.id, task_id: id })
+            firstTaskId = firstTaskId ?? id
+          }
         }
       }
       for (const taskId of itemSel[it.id] ?? []) {
@@ -204,6 +237,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       }
     }
 
+    if (rolesChanged) await supabase.from('cases').update({ intake_roles: roles }).eq('id', receipt.case_id)
     if (startExistingIds.size > 0) {
       await supabase.from('tasks').update({ status: '対応中', started_by: currentMemberId, started_at: nowIso }).in('id', [...startExistingIds])
     }
@@ -224,20 +258,23 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     <Modal
       isOpen
       onClose={onClose}
-      title="タスクに着手（到着物ごと）"
+      title="タスクを結ぶ（到着物ごと）"
       maxWidth="max-w-lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {totalLinks > 0 ? `タスクを開始 (${totalLinks})` : '着手のみ記録'}
+            {totalLinks > 0 ? `タスクを作成・着手 (${totalLinks})` : '着手のみ記録'}
           </Button>
         </>
       }
     >
+      <datalist id="receipt-task-candidates">
+        {candidateNames.map(n => <option key={n} value={n} />)}
+      </datalist>
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          届いた到着物ごとに、進めるタスクを結びます（残高証明→財産調査、解約書類→解約 のように別々に結べます）。タスク不要な受信は選ばず「着手のみ記録」でOK。
+          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます（対応中前でもOK。タスクタブ表示後に出てきます）。不要な受信は選ばず「着手のみ記録」で。
         </p>
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
@@ -269,9 +306,10 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                 )}
                 <input
                   type="text"
+                  list="receipt-task-candidates"
                   value={itemNew[it.id] ?? ''}
                   onChange={e => setItemNew(prev => ({ ...prev, [it.id]: e.target.value }))}
-                  placeholder="＋新規タスクを作成して結ぶ（任意）"
+                  placeholder="＋作成して結ぶ：実施タスクから選ぶ or 自由入力（任意）"
                   className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
                 />
               </div>
