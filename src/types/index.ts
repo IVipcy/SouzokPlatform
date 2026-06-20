@@ -136,7 +136,7 @@ export type CaseRow = {
   referral_name: string | null
   // 手続き詳細（面談時の受領書類状況・役割分担。migration 083）
   intake_documents: { name: string; status: string; arrival_date: string | null; note: string }[] | null
-  intake_roles: { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: 'task' | 'doc' }[] | null
+  intake_roles: { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: 'task' | 'doc'; rid?: string }[] | null
   // 家裁手続き（放棄/調停/検認/後見）の共通情報。業務(gyomu)をキーに保持。migration 108
   // applicant_heir_id/opponent_heir_ids/claim は調停の当事者・争点（任意）。
   court_procedure_info: Record<string, {
@@ -355,6 +355,7 @@ export type TaskRow = {
   started_by: string | null
   started_at: string | null
   sort_order: number
+  source_rid: string | null        // migration 109: 生成元の実施タスク(intake_roles[].rid)
   ext_data: Record<string, unknown> | null
   issued_date: string | null
   notes: string | null
