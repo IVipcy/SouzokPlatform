@@ -151,7 +151,7 @@ export function buildDeliverableOptions(
   if (gate('協議書')) {
     const heirName = new Map(heirs.map(h => [h.id, h.name]))
     for (const d of agreementDispatches) {
-      if (!d.heir_id || !d.sent_date || d.received) continue
+      if (!d.heir_id || !d.sent_date || d.received || d.received_date) continue
       opts.push({
         value: `agreement_dispatch:${d.id}:received_date`,
         label: `協議書返送（${heirName.get(d.heir_id) ?? '相続人'}）`,

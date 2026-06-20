@@ -53,8 +53,9 @@ export default function AgreementDispatchTable({ caseId, heirs, dispatches, onRe
 
   const dateCls = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
 
+  const isReceived = (d: Partial<AgreementDispatchRow> | undefined) => !!(d?.received_date || d?.received)
   const sentCount = heirs.filter(h => byHeir[h.id]?.sent_date).length
-  const recvCount = heirs.filter(h => byHeir[h.id]?.received).length
+  const recvCount = heirs.filter(h => isReceived(byHeir[h.id])).length
 
   return (
     <div>
@@ -95,8 +96,11 @@ export default function AgreementDispatchTable({ caseId, heirs, dispatches, onRe
                   <td className="px-2.5 py-1.5">
                     <input type="date" defaultValue={d?.received_date ?? ''} key={`r-${d?.received_date ?? ''}`} onBlur={e => { if (e.target.value !== (d?.received_date ?? '')) save(h, { received_date: e.target.value || null }) }} className={dateCls} />
                   </td>
+                  {/* 受領済＝返送(受領)日があるか。受信簿で受領すると received_date が入り自動で受領済に（戸籍・金融と統一） */}
                   <td className="px-2.5 py-1.5 text-center">
-                    <input type="checkbox" checked={d?.received ?? false} onChange={e => save(h, { received: e.target.checked })} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                    {isReceived(d)
+                      ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
+                      : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
                   </td>
                   <td className="px-2.5 py-1.5">
                     <input type="text" defaultValue={d?.notes ?? ''} key={`n-${h.id}`} onBlur={e => { if (e.target.value !== (d?.notes ?? '')) save(h, { notes: e.target.value || null }) }} placeholder="—" className={dateCls} />
