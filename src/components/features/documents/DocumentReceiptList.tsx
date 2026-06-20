@@ -139,6 +139,7 @@ const KIND_GYOMU: Record<string, string[]> = {
   financial_asset: ['金融資産', '解約'],
   real_estate_acquisition: ['不動産'],
   real_estate: ['不動産'],
+  agreement_dispatch: ['協議書'],
 }
 
 // 着手＝書類到着でタスク開始のトリガー。受信簿に着手記録を付け、選択した案件タスクを「対応中」にする。
@@ -407,6 +408,10 @@ function ReceiptRow({
     const linkUpdates = (receipt.items ?? [])
       .filter(i => i.linked_kind && i.linked_id && i.linked_field)
       .map(i => {
+        // 協議書の返送は受領日＋受領済(boolean)も連動させる
+        if (i.linked_kind === 'agreement_dispatch') {
+          return supabase.from('agreement_dispatches').update({ received_date: linkVal, received: linkVal != null }).eq('id', i.linked_id as string)
+        }
         const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
           : i.linked_kind === 'koseki' ? 'koseki_requests'
           : i.linked_kind === 'contract_doc' ? 'contract_documents'

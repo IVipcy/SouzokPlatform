@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
-import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow, AgreementDispatchRow, HeirRow } from '@/types'
 
 type CaseLite = {
   id: string
@@ -70,19 +70,28 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setSelectedCaseId(id)
     setDeliverables([])
     const supabase = createClient()
-    const [fa, re, ac, ko, cd] = await Promise.all([
+    const [fa, re, ac, ko, cd, cs, ad, hr] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
       supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order'),
       supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
       supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order'),
+      supabase.from('cases').select('intake_roles').eq('id', id).single(),
+      supabase.from('agreement_dispatches').select('*').eq('case_id', id),
+      supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
     ])
+    // 案件がやっている業務(intake_roles)を候補のフィルタに使う（オーダーシートが正）
+    const roles = (cs.data?.intake_roles ?? []) as Array<{ gyomu?: string | null }>
+    const activeGyomu = new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))
     setDeliverables(buildDeliverableOptions(
+      activeGyomu,
       (fa.data ?? []) as FinancialAssetRow[],
       (ac.data ?? []) as unknown as RealEstateAcquisitionRow[],
       (re.data ?? []) as RealEstatePropertyRow[],
       (ko.data ?? []) as KosekiRequestRow[],
       (cd.data ?? []) as ContractDocumentRow[],
+      (ad.data ?? []) as AgreementDispatchRow[],
+      (hr.data ?? []) as HeirRow[],
     ))
   }
 
