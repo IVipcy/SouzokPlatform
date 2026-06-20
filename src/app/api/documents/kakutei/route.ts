@@ -159,6 +159,20 @@ export async function POST(request: NextRequest) {
       console.error('[kakutei] storage upload failed:', uploadErr.message)
     }
 
+    // 請求一覧(invoices)にも反映
+    const { error: invErr } = await supabase.from('invoices').insert({
+      case_id: caseId,
+      invoice_type: '確定請求',
+      firm_type: def.office,
+      amount: c.billAmount,
+      fee_amount: fee,
+      expenses_amount: c.expenseGrand,
+      advance_deduction: advanceReceived || 0,
+      status: '作成済',
+      issued_date: new Date().toISOString().slice(0, 10),
+    })
+    if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
+
     return new NextResponse(uploadBuffer as unknown as BodyInit, {
       status: 200,
       headers: {

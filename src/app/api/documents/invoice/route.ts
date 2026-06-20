@@ -147,6 +147,20 @@ export async function POST(request: NextRequest) {
       console.error('[invoice] storage upload failed:', uploadErr.message)
     }
 
+    // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではないので作らない）
+    if (def.docType === '請求書') {
+      const { error: invErr } = await supabase.from('invoices').insert({
+        case_id: caseId,
+        invoice_type: '前受金',
+        firm_type: def.office,
+        amount,
+        fee_amount: amount,
+        status: '作成済',
+        issued_date: new Date().toISOString().slice(0, 10),
+      })
+      if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)
+    }
+
     return new NextResponse(uploadBuffer as unknown as BodyInit, {
       status: 200,
       headers: {

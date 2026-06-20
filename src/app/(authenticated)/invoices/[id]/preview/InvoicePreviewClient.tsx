@@ -69,17 +69,17 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
         .upload(path, blob, { contentType: 'image/png', upsert: true })
       if (upErr) throw upErr
       const docName = `${docLabel}_${invoiceNumber}`
-      const { error: dbErr } = await supabase.from('case_documents').insert({
+      // 作成した書類なので「作成書類一覧」(documents)へ保存（到着物=case_documentsではない）
+      const { error: dbErr } = await supabase.from('documents').insert({
         case_id: invoice.case_id,
-        document_name: docName,
-        outbound_file_path: path,
-        outbound_file_name: `${docName}.png`,
-        outbound_file_type: 'PNG',
-        outbound_file_bucket: 'documents',
+        name: docName,
+        file_path: path,
+        file_type: 'PNG',
+        status: '作成済',
         generated_by: 'system',
       })
       if (dbErr) throw dbErr
-      if (!silent) showToast('案件詳細の「書類」タブに保存しました', 'success')
+      if (!silent) showToast('「書類作成」タブの作成書類一覧に保存しました', 'success')
     } catch (e) {
       console.error(e)
       if (!silent) showToast('保存に失敗しました', 'error')
@@ -93,7 +93,7 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
     if (!isFirstView) return
     const t = setTimeout(() => {
       handleSaveToDocuments(true).then(() => {
-        showToast('案件詳細の「書類」タブに自動保存しました', 'success')
+        showToast('「書類作成」タブの作成書類一覧に自動保存しました', 'success')
         // firstView パラメータを URL から外す（リロード時に再実行しないため）
         router.replace(`/invoices/${invoice.id}/preview`, { scroll: false })
       })
@@ -120,7 +120,7 @@ export default function InvoicePreviewClient({ invoice, expenses }: Props) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-md disabled:opacity-50"
           >
             {savingDoc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            書類タブに保存
+            作成書類に保存
           </button>
           <button
             onClick={handlePrint}
