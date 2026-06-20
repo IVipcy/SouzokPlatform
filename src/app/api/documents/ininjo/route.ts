@@ -129,10 +129,15 @@ export async function POST(request: NextRequest) {
     setCell(ws, f.name, clientName)
     // 委任者氏名はテンプレ既定だと「縮小して全体を表示」で小さく潰れるため、
     // 読みやすいサイズ＋縮小表示OFFにする。
+    // また氏名ラベルは2行分（例 L10:M11）に結合されているのに値セル(N10)は1行だけのため、
+    // 値が上にずれて見える。住所(N8:V8)と同じ幅・2行で結合し縦中央寄せにして位置を揃える。
     if (f.name && clientName) {
+      if (f.name === 'N10') {
+        try { ws.mergeCells('N10:V11') } catch { /* 既に結合済みの様式ならスキップ */ }
+      }
       const nameCell = ws.getCell(f.name)
       nameCell.font = { ...(nameCell.font ?? {}), size: 14 }
-      nameCell.alignment = { ...(nameCell.alignment ?? {}), shrinkToFit: false, wrapText: false }
+      nameCell.alignment = { ...(nameCell.alignment ?? {}), vertical: 'middle', horizontal: 'center', shrinkToFit: false, wrapText: false }
     }
     if (birth) {
       setCell(ws, f.birthEra, birth.era)
