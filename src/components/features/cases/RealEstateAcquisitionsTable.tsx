@@ -98,7 +98,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
               const isProp = meta?.target === '物件'
               return (
-                <tr key={r.id} className={`border-b border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-1.5">
                     <select value={r.item_type ?? ''} onChange={e => changeItem(r.id, e.target.value)} className={selCls}>
                       <option value="">—</option>

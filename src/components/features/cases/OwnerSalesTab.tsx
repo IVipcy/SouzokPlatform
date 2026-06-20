@@ -72,7 +72,6 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
           {caseData.order_route === PAST_CLIENT_ROUTE && (
             <InlineEdit label="詳細（過去の依頼者）" value={caseData.order_route_detail} onSave={v => save('order_route_detail', v)} />
           )}
-          <InlineEdit label="紹介先名" value={caseData.referral_name} onSave={v => save('referral_name', v)} />
         </FieldGrid>
       </Section>
     </div>

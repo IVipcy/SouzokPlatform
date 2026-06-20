@@ -132,36 +132,37 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         </div>
       </Section>
 
-      {/* クレーム（オーダーシート埋め込み時は非表示） */}
-      {!orderSheetMode && (
-      <Section title="クレーム">
-        <div className="space-y-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={caseData.has_complaint}
-              onChange={e => saveCaseField('has_complaint', e.target.checked)}
-              className="w-4 h-4 accent-purple-600 cursor-pointer"
-            />
-            <span className="text-[13px] font-semibold text-gray-700">クレーム有</span>
-            {caseData.has_complaint && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
-                <span className="w-2 h-2 rounded-full bg-purple-600" />
-                紫フラグ案件
-              </span>
-            )}
-          </label>
-          <TextAreaField
-            label="クレーム内容"
-            value={caseData.complaint_detail ?? ''}
-            placeholder="クレームの内容を記載"
-            onSave={v => saveCaseField('complaint_detail', v || null)}
-            disabled={!caseData.has_complaint}
-          />
-        </div>
-      </Section>
-      )}
     </div>
+  )
+
+  // クレーム（やり取り履歴サブタブの先頭に表示。オーダーシート埋め込み時は出さない）
+  const claimSection = (
+    <Section title="クレーム">
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={caseData.has_complaint}
+            onChange={e => saveCaseField('has_complaint', e.target.checked)}
+            className="w-4 h-4 accent-purple-600 cursor-pointer"
+          />
+          <span className="text-[13px] font-semibold text-gray-700">クレーム有</span>
+          {caseData.has_complaint && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+              <span className="w-2 h-2 rounded-full bg-purple-600" />
+              紫フラグ案件
+            </span>
+          )}
+        </label>
+        <TextAreaField
+          label="クレーム内容"
+          value={caseData.complaint_detail ?? ''}
+          placeholder="クレームの内容を記載"
+          onSave={v => saveCaseField('complaint_detail', v || null)}
+          disabled={!caseData.has_complaint}
+        />
+      </div>
+    </Section>
   )
 
   // オーダーシート埋め込み時はサブタブなし（やり取り履歴も非表示）
@@ -176,7 +177,10 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       />
       {sub === 'info' && infoSections}
       {sub === 'history' && (
-        <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
+        <div className="space-y-3.5">
+          {claimSection}
+          <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
+        </div>
       )}
     </div>
   )
