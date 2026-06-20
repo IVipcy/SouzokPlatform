@@ -67,11 +67,42 @@ function findCol(headers: string[], keys: string[]): number {
   return -1
 }
 
-/** CSVテキストを取引行へ。ヘッダから列を推定。金額が取れない行は捨てる。 */
-export function parseBankCsv(text: string): BankRow[] {
-  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '')
+const toAmount = (s: string | undefined) => Number((s ?? '').replace(/[^0-9.-]/g, ''))
+
+// みずほ（法人口座CSV）：明細行は先頭"明細"。取引名(idx12)=振込入金 のみ入金。金額=idx19、摘要(振込人)=idx21。
+function parseMizuho(lines: string[]): BankRow[] {
+  const rows: BankRow[] = []
+  for (const line of lines) {
+    const f = splitCsvLine(line)
+    if (f[0] !== '明細') continue
+    if (!(f[12] ?? '').includes('振込入金')) continue // 出金・振替入金等は除外
+    const amount = toAmount(f[19])
+    if (!amount || amount <= 0) continue
+    const payer = (f[21] ?? '').trim()
+    rows.push({ date: `${f[15] ?? ''}/${f[16] ?? ''}`, name: payer, amount, memo: payer, raw: line })
+  }
+  return rows
+}
+
+// きらぼし（普通預金CSV）：入金金額(idx5)>0 のみ入金。取引区分(idx8)、摘要(振込人)=idx12、取引日=idx2。
+function parseKiraboshi(lines: string[]): BankRow[] {
+  const rows: BankRow[] = []
+  for (const line of lines) {
+    const f = splitCsvLine(line)
+    if (f.length < 13) continue
+    if ((f[8] ?? '') === '出金') continue
+    const amount = toAmount(f[5])
+    if (!amount || amount <= 0) continue
+    const payer = (f[12] ?? '').trim()
+    const date = (f[2] ?? '').replace(/年|月/g, '-').replace(/日/g, '')
+    rows.push({ date, name: payer, amount, memo: payer, raw: line })
+  }
+  return rows
+}
+
+// 汎用フォールバック：ヘッダから列を推定。金額が取れない入金行のみ。
+function parseGeneric(lines: string[]): BankRow[] {
   if (lines.length === 0) return []
-  // ヘッダ行＝「金額」系の列が見つかる最初の行
   let headerIdx = 0
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
     if (findCol(splitCsvLine(lines[i]), HDR.amount) >= 0) { headerIdx = i; break }
@@ -81,12 +112,11 @@ export function parseBankCsv(text: string): BankRow[] {
   const cName = findCol(headers, HDR.name)
   const cDate = findCol(headers, HDR.date)
   const cMemo = findCol(headers, HDR.memo)
-
   const rows: BankRow[] = []
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const f = splitCsvLine(lines[i])
-    const amount = cAmount >= 0 ? Number((f[cAmount] ?? '').replace(/[^0-9.-]/g, '')) : NaN
-    if (!amount || amount <= 0) continue // 入金（プラス）のみ
+    const amount = cAmount >= 0 ? toAmount(f[cAmount]) : NaN
+    if (!amount || amount <= 0) continue
     rows.push({
       date: cDate >= 0 ? (f[cDate] ?? '') : '',
       name: cName >= 0 ? (f[cName] ?? '') : '',
@@ -96,6 +126,18 @@ export function parseBankCsv(text: string): BankRow[] {
     })
   }
   return rows
+}
+
+/** CSVテキストを取引行へ。みずほ／きらぼしは専用パーサ、それ以外は汎用フォールバック。 */
+export function parseBankCsv(text: string): BankRow[] {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '')
+  if (lines.length === 0) return []
+  const head = lines.slice(0, 6)
+  // みずほ：項目名称ヘッダ＋取引名列
+  if (head.some(l => l.includes('項目名称') && l.includes('取引名'))) return parseMizuho(lines)
+  // きらぼし：入金金額列を持つヘッダ
+  if (head.some(l => l.includes('入金金額'))) return parseKiraboshi(lines)
+  return parseGeneric(lines)
 }
 
 /** 取引行を未入金請求へ突合。案件番号(摘要/振込人)＋金額＋振込人名で判定。 */
