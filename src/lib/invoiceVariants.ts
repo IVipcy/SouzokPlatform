@@ -16,7 +16,7 @@ export const INVOICE_FIELDS = {
   kenmei: ['D10', 'B18'] as string[], // 件名（ヘッダ・明細行）
   kubun: 'R18',                       // 請求/領収区分
   amount: ['V18', 'V23', 'V30', 'V31', 'D14'] as string[], // 前受金は合計＝入力額
-  sealCell: 'T11',                    // 社印アンカー（法人名・代表者の右）
+  sealCell: 'T13',                    // 社印アンカー（代表者名の行に重ねる。住所行=11との重なりを避ける）
 }
 
 export type InvoiceVariant = {

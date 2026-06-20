@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
+import { createClient } from '@/lib/supabase/client'
 import { recommendKakuteiOffice, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
 import type { CaseRow, TaskRow } from '@/types'
@@ -40,7 +41,19 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
     setAdvance('')
     setRows([{ id: NEW_ID(), name: '', amount: '', taxable: false }])
     setTaskId(defaultTaskId ?? '')
-  }, [isOpen, recommendedOffice, caseData.deceased_name, defaultTaskId])
+    // 案件に登録済みの立替実費を初期表示（空欄になる問題の解消）。課税フラグも引き継ぐ。
+    ;(async () => {
+      const { data } = await createClient()
+        .from('expenses')
+        .select('item_name, amount, taxable, expense_date')
+        .eq('case_id', caseData.id)
+        .order('expense_date', { ascending: true })
+      const exp = (data ?? []) as Array<{ item_name: string | null; amount: number | null; taxable: boolean | null }>
+      if (exp.length > 0) {
+        setRows(exp.map(e => ({ id: NEW_ID(), name: e.item_name ?? '', amount: e.amount ?? 0, taxable: e.taxable !== false })))
+      }
+    })()
+  }, [isOpen, recommendedOffice, caseData.deceased_name, caseData.id, defaultTaskId])
 
   const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable }))
   const calc = computeKakutei(Number(fee) || 0, Number(advance) || 0, expenses)
