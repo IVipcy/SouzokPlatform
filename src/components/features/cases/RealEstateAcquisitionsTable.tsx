@@ -126,8 +126,13 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {progressMode && (
                     <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'real_estate_acquisition', r.id)} /></td>
                   )}
+                  {/* 取得済＝到着日があるか（受信簿で受領すると arrival_date が入り自動で受信済に）。戸籍・金融と統一。 */}
                   <td className="px-2.5 py-1.5 text-center">
-                    <input type="checkbox" checked={r.received} onChange={e => save(r.id, 'received', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                    {isRef
+                      ? <span className="text-gray-300 text-[11px]">—</span>
+                      : r.arrival_date
+                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
+                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
                   </td>
                   <td className="px-2.5 py-1.5 text-center">
                     <button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>

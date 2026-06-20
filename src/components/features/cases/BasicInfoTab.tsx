@@ -15,7 +15,6 @@ import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
-import ProcedureIntakeSummary from './ProcedureIntakeSummary'
 
 type Props = {
   caseData: CaseRow
@@ -104,9 +103,6 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           </div>
         </div>
       </Section>
-
-      {/* 手続き詳細の連動表示（受託=受領待ち書類 / 対応中=請求・自社作業） */}
-      <ProcedureIntakeSummary caseData={caseData} />
 
           {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
           <CaseTimeline
