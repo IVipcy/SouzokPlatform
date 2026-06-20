@@ -244,6 +244,32 @@ export const CROSS_SERVICE_ROWS: CrossServiceRow[] = [
   { gyomu: '相続税', task: '税理士への引継ぎ', owner: '自社', kind: 'task' },
 ]
 
+// 作業名 → 既存タスクテンプレ(task_templates)のキー。
+// 生成元は実施タスク(intake_roles)に一本化したが、手順(procedure_text)は既存テンプレ本文を流用する。
+// 対応があるものだけ手順が付く（「入れられる部分だけ」）。
+export const PROCEDURE_TEMPLATE_KEY: Record<string, string> = {
+  '戸籍収集（請求・取得）': 'koseki_request_create',
+  '戸籍到着確認・チェック': 'koseki_arrive_check',
+  '法定相続情報一覧図の申出・取得': 'family_tree_create',
+  '名寄帳請求': 'realestate_research',
+  '登記事項証明の取得': 'realestate_research',
+  '固定資産評価証明の取得': 'realestate_research',
+  '査定・鑑定の依頼': 'realestate_appraisal',
+  '残高証明取得': 'bank_balance_request',
+  '証券保管振替機構照会': 'securities_inquiry',
+  '保険照会': 'insurance_inquiry',
+  '財産目録の作成': 'asset_list_create',
+  '遺産分割協議書の作成': 'division_draft',
+  '相続登記の申請': 'touki_submit',
+  '預貯金の解約': 'bank_cancel_request',
+  '証券の移管・売却': 'securities_cancel',
+  // 区分非依存（経理・相続税）
+  '分配金計算書作成': 'distribution_calc',
+  '報酬請求書作成': 'invoice_create',
+  '納品書類一式作成': 'delivery_create',
+  '税理士への引継ぎ': 'tax_accountant_handoff',
+}
+
 export const CROSS_GYOMU_TAB: Record<string, TabKey | undefined> = { '経理': 'contract', '相続税': undefined }
 export function crossTasksFor(gyomu: string): CrossServiceRow[] {
   return CROSS_SERVICE_ROWS.filter(r => r.gyomu === gyomu)

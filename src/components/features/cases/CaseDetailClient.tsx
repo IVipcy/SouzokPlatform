@@ -15,6 +15,7 @@ import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
+import type { RoleRow } from './ProcedureIntakeSection'
 import DocsTab from './DocsTab'
 import DocumentCreateTab from './DocumentCreateTab'
 import ReferralTab from './ReferralTab'
@@ -395,10 +396,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         isOpen={bulkTaskModal.isOpen}
         onClose={bulkTaskModal.close}
         caseId={caseState.id}
+        intakeRoles={(caseState.intake_roles ?? []) as RoleRow[]}
+        serviceCategory={caseState.service_category}
+        serviceCategory2={caseState.service_category_2}
         taskTemplates={taskTemplates}
         existingTasks={tasks}
         onSaved={handleSaved}
-        allowedGyomu={caseState.service_category ? selectedGyomu : undefined}
       />
 
       <AddTaskModal
