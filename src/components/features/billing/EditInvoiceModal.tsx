@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Loader2, Save } from 'lucide-react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import type { InvoiceRow, InvoiceStatus } from '@/types'
 
-const STATUSES: InvoiceStatus[] = ['作成済', '入金待ち', '入金済']
+// 入金済はドロップダウンから設定させない（入金消込／CSV突合で payments を伴って確定する）
+const EDITABLE_STATUS_OPTIONS: InvoiceStatus[] = ['作成済', '入金待ち']
 
 type Props = {
   isOpen: boolean
@@ -30,21 +30,30 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!isOpen || !invoice) return
-    setForm({
-      invoice_type: invoice.invoice_type,
-      fee_amount: String(invoice.fee_amount ?? 0),
-      expenses_amount: String(invoice.expenses_amount ?? 0),
-      status: invoice.status,
-      issued_date: invoice.issued_date ?? '',
-      due_date: invoice.due_date ?? '',
-      notes: invoice.notes ?? '',
-    })
-    setError('')
-  }, [isOpen, invoice])
+  // モーダルを開いた／対象請求が変わったらフォームを初期化（render中の状態調整＝Reactの推奨パターン）
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const activeKey = isOpen && invoice ? invoice.id : null
+  if (activeKey !== loadedKey) {
+    setLoadedKey(activeKey)
+    if (activeKey && invoice) {
+      setForm({
+        invoice_type: invoice.invoice_type,
+        fee_amount: String(invoice.fee_amount ?? 0),
+        expenses_amount: String(invoice.expenses_amount ?? 0),
+        status: invoice.status,
+        issued_date: invoice.issued_date ?? '',
+        due_date: invoice.due_date ?? '',
+        notes: invoice.notes ?? '',
+      })
+      setError('')
+    }
+  }
 
   if (!invoice) return null
+
+  // 金額・種別は「作成済」のうちだけ編集可。入金待ち/入金済になったらロック（直すなら削除→再発行）
+  const moneyLocked = invoice.status !== '作成済' && invoice.status !== '未請求'
+  const isPaid = invoice.status === '入金済'
 
   const feeNum = Number(form.fee_amount) || 0
   const expensesNum = Number(form.expenses_amount) || 0
@@ -105,8 +114,8 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
               <button
                 key={t}
                 onClick={() => setForm(p => ({ ...p, invoice_type: t }))}
-                disabled={saving}
-                className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border ${
+                disabled={saving || moneyLocked}
+                className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded-lg border disabled:opacity-60 disabled:cursor-not-allowed ${
                   form.invoice_type === t ? 'ring-2 ring-brand-400 ring-offset-1 border-brand-200 bg-brand-50 text-brand-700' : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -120,16 +129,22 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
         <div>
           <label className="block text-[12px] font-semibold text-gray-500 mb-1">
             ステータス
-            <span className="ml-2 text-[11px] font-normal text-gray-400">作成 → 送付済（確定請求済） → 入金済 の順で進める</span>
+            <span className="ml-2 text-[11px] font-normal text-gray-400">入金済は「入金消込」／CSV突合で確定（手動設定は不可）</span>
           </label>
-          <select
-            value={form.status}
-            onChange={e => setForm(p => ({ ...p, status: e.target.value as InvoiceStatus }))}
-            disabled={saving}
-            className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-400 outline-none bg-white"
-          >
-            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          {isPaid ? (
+            <div className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500">
+              入金済（入金消込で記録済み）
+            </div>
+          ) : (
+            <select
+              value={form.status === '入金済' ? '入金待ち' : form.status}
+              onChange={e => setForm(p => ({ ...p, status: e.target.value as InvoiceStatus }))}
+              disabled={saving}
+              className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-400 outline-none bg-white"
+            >
+              {EDITABLE_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
         </div>
 
         {/* 金額 */}
@@ -147,8 +162,8 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
                   min={0}
                   value={form.fee_amount}
                   onChange={e => setForm(p => ({ ...p, fee_amount: e.target.value }))}
-                  disabled={saving}
-                  className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                  disabled={saving || moneyLocked}
+                  className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none disabled:bg-gray-50 disabled:text-gray-400"
                 />
               </div>
             </div>
@@ -161,8 +176,8 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
                   min={0}
                   value={form.expenses_amount}
                   onChange={e => setForm(p => ({ ...p, expenses_amount: e.target.value }))}
-                  disabled={saving}
-                  className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
+                  disabled={saving || moneyLocked}
+                  className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none disabled:bg-gray-50 disabled:text-gray-400"
                 />
               </div>
             </div>
@@ -174,7 +189,9 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
             </div>
           </div>
           <div className="px-3 py-2 bg-amber-50 text-[11px] text-amber-700 border-t border-amber-100">
-            ※ 立替実費の内訳変更は新規発行が必要です（一度作成した請求書の実費内訳は変更できません）。
+            {moneyLocked
+              ? '※ 発行後（入金待ち／入金済）は金額・種別を変更できません。金額を直す場合は削除→再発行してください。'
+              : '※ 立替実費の内訳変更は新規発行が必要です（一度作成した請求書の実費内訳は変更できません）。'}
           </div>
         </div>
 
