@@ -97,10 +97,11 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    case: 220, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90,
+    caseNo: 140, case: 180, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
-    { key: 'case', label: '案件' },
+    { key: 'caseNo', label: '案件番号' },
+    { key: 'case', label: '案件名' },
     { key: 'type', label: '請求分類' },
     { key: 'caseStatus', label: '案件ステータス' },
     { key: 'sales', label: '受注担当' },
@@ -535,7 +536,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
@@ -585,22 +586,26 @@ export default function BillingClient({ invoices, cases }: Props) {
                           />
                         )}
                       </td>
-                      {/* 案件（左に契約形態色） */}
+                      {/* 案件番号（左に契約形態色） */}
                       <td className="px-3.5 py-2.5 overflow-hidden">
-                        <div className="flex items-start gap-2">
-                          <span className={`mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold text-white flex-shrink-0 ${cdot.cls}`} title={inv.cases?.contract_type ?? '契約形態未設定'}>{cdot.label}</span>
-                          {inv.cases?.id ? (
-                            <Link href={`/cases/${inv.cases.id}`} onClick={e => e.stopPropagation()} className="block group min-w-0">
-                              <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
-                              <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
-                            </Link>
-                          ) : (
-                            <div className="min-w-0">
-                              <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
-                              <div className="text-[12px] text-gray-400 truncate">{caseNumber}{deceasedName ? ` · 被相続人: ${deceasedName}` : ''}</div>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold text-white flex-shrink-0 ${cdot.cls}`} title={inv.cases?.contract_type ?? '契約形態未設定'}>{cdot.label}</span>
+                          <span className="font-mono text-[12px] text-gray-700 truncate">{caseNumber || '—'}</span>
                         </div>
+                      </td>
+                      {/* 案件名（被相続人） */}
+                      <td className="px-3.5 py-2.5 overflow-hidden">
+                        {inv.cases?.id ? (
+                          <Link href={`/cases/${inv.cases.id}`} onClick={e => e.stopPropagation()} className="block group min-w-0">
+                            <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
+                            {deceasedName && <div className="text-[12px] text-gray-400 truncate">被相続人: {deceasedName}</div>}
+                          </Link>
+                        ) : (
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
+                            {deceasedName && <div className="text-[12px] text-gray-400 truncate">被相続人: {deceasedName}</div>}
+                          </div>
+                        )}
                       </td>
                       {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
                       <td className="px-3.5 py-2.5">

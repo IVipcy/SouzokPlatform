@@ -41,13 +41,15 @@ type CaseFees = {
 export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId, existingInvoiceId }: Props) {
   const [form, setForm] = useState({
     case_id: defaultCaseId ?? '',
-    invoice_type: '確定請求' as '前受金' | '確定請求',
+    invoice_type: '' as '' | '前受金' | '確定請求',  // 既定なし＝必ず選ばせる
     firm_type: 'gyosei' as OfficeKind,
     fee_amount: '',
     issued_date: new Date().toISOString().split('T')[0],
     due_date: '',
     notes: '',
   })
+  const isAdvance = form.invoice_type === '前受金'
+  const isConfirmed = form.invoice_type === '確定請求'
   // 選択した案件の未請求立替実費
   const [unbilledExpenses, setUnbilledExpenses] = useState<ExpenseRow[]>([])
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set())
@@ -75,7 +77,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     if (isOpen) {
       setForm({
         case_id: defaultCaseId ?? '',
-        invoice_type: '確定請求',
+        invoice_type: '',
         firm_type: 'gyosei',
         fee_amount: '',
         issued_date: new Date().toISOString().split('T')[0],
@@ -122,13 +124,6 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       if (defaultFirm === 'gyosei' || defaultFirm === 'shiho') {
         setForm(prev => ({ ...prev, firm_type: defaultFirm }))
       }
-      // 案件の報酬を fee_amount に自動セット（fee_total 優先、無ければ 行政+司法）
-      const defaultFee = fees?.fee_total ?? ((fees?.fee_administrative ?? 0) + (fees?.fee_judicial ?? 0))
-      // 既存値が空 or '0' なら上書き、それ以外（ユーザーが手入力した値）は尊重
-      setForm(prev => (prev.fee_amount === '' || prev.fee_amount === '0')
-        ? { ...prev, fee_amount: String(defaultFee) }
-        : prev
-      )
       const exps = (expRows ?? []) as ExpenseRow[]
       setUnbilledExpenses(exps)
       setSelectedExpenseIds(new Set(exps.map(e => e.id)))
@@ -138,12 +133,22 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     return () => { cancelled = true }
   }, [isOpen, form.case_id])
 
+  // 請求種別を選んだら、その種別に応じた金額をオーダーシートからプリセット。
+  // 前受金→案件の前受金額／確定請求→報酬合計（fee_total、無ければ行政+司法）。
+  useEffect(() => {
+    if (!form.invoice_type || !caseFees) return
+    const preset = form.invoice_type === '前受金'
+      ? (caseFees.advance_payment ?? 0)
+      : (caseFees.fee_total ?? ((caseFees.fee_administrative ?? 0) + (caseFees.fee_judicial ?? 0)))
+    setForm(prev => ({ ...prev, fee_amount: String(preset || '') }))
+  }, [form.invoice_type, caseFees])
+
   const feeAmountNum = Number(form.fee_amount) || 0
-  const selectedExpensesTotal = unbilledExpenses
-    .filter(e => selectedExpenseIds.has(e.id))
-    .reduce((s, e) => s + (e.amount ?? 0), 0)
-  // 前受金控除は確定請求のみ
-  const advanceDeductionNum = form.invoice_type === '確定請求' ? (Number(advanceDeduction) || 0) : 0
+  // 立替実費・前受金控除は確定請求のみ（前受金は金額のみ）
+  const selectedExpensesTotal = isConfirmed
+    ? unbilledExpenses.filter(e => selectedExpenseIds.has(e.id)).reduce((s, e) => s + (e.amount ?? 0), 0)
+    : 0
+  const advanceDeductionNum = isConfirmed ? (Number(advanceDeduction) || 0) : 0
   const totalAmount = feeAmountNum + selectedExpensesTotal - advanceDeductionNum
 
   const toggleExpense = (id: string) => {
@@ -205,7 +210,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
 
   const handleSubmit = async () => {
     if (!form.case_id) { setError('案件を選択してください'); return }
-    if (totalAmount <= 0) { setError('請求総額が0円です'); return }
+    if (!form.invoice_type) { setError('請求種別（前受金 / 確定請求）を選択してください'); return }
+    if (totalAmount <= 0) { setError('請求金額が0円です'); return }
 
     setSaving(true)
     setError('')
@@ -268,8 +274,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     // 互換のため変数名を残す
     const newInvoice = { id: newInvoiceId }
 
-    // 選択した立替実費に billed_invoice_id をセット（請求済みマーク）
-    if (selectedExpenseIds.size > 0) {
+    // 選択した立替実費に billed_invoice_id をセット（確定請求のみ。前受金は実費を含めない）
+    if (isConfirmed && selectedExpenseIds.size > 0) {
       const { error: updErr } = await supabase
         .from('expenses')
         .update({ billed_invoice_id: newInvoice.id })
@@ -295,7 +301,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={saving} disabled={!form.case_id || totalAmount <= 0}>
+          <Button variant="primary" onClick={handleSubmit} loading={saving} disabled={!form.case_id || !form.invoice_type || totalAmount <= 0}>
             {saving ? '発行中...' : '発行する'}
           </Button>
         </>
@@ -320,9 +326,12 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           </select>
         </div>
 
-        {/* Invoice type */}
+        {/* Invoice type（既定なし＝必ず選ぶ） */}
         <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1">請求種別</label>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">
+            請求種別 <span className="text-red-400">*</span>
+            {!form.invoice_type && <span className="ml-1.5 text-[11px] font-normal text-amber-600">前受金か確定請求かを選んでください</span>}
+          </label>
           <div className="flex gap-2">
             {(['前受金', '確定請求'] as const).map(t => (
               <button
@@ -367,11 +376,11 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           </div>
         </div>
 
-        {/* 報酬・立替実費の内訳 */}
-        {form.case_id && (
+        {/* 報酬・立替実費の内訳（種別を選んでから表示） */}
+        {form.case_id && form.invoice_type && (
           <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50/40">
             <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-[12px] font-semibold text-gray-700">
-              請求内訳
+              {isAdvance ? '前受金' : '請求内訳'}
             </div>
 
             {loadingCase ? (
@@ -381,9 +390,9 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {/* 報酬 */}
+                {/* 金額（種別で意味が変わる：前受金額 / 報酬） */}
                 <div className="px-3 py-2.5 flex items-center gap-2 bg-white">
-                  <span className="text-[13px] font-medium text-gray-700 flex-1">報酬</span>
+                  <span className="text-[13px] font-medium text-gray-700 flex-1">{isAdvance ? '前受金額' : '報酬（確定売上）'}</span>
                   <div className="relative w-36">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>
                     <input
@@ -398,8 +407,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                   </div>
                 </div>
 
-                {/* 立替実費 */}
-                <div className="bg-white">
+                {/* 立替実費（確定請求のみ。前受金は金額のみ） */}
+                {isConfirmed && <div className="bg-white">
                   <div className="px-3 py-2 flex items-center gap-2 bg-gray-50/50">
                     <span className="text-[13px] font-medium text-gray-700 flex-1">
                       立替実費（未請求分）
@@ -568,7 +577,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                       立替実費を追加（戸籍代・郵送料など）
                     </button>
                   )}
-                </div>
+                </div>}
 
                 {/* 前受金控除（確定請求のみ） */}
                 {form.invoice_type === '確定請求' && (
