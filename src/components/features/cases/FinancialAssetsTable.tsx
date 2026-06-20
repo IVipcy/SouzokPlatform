@@ -5,10 +5,11 @@ import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
-import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
+import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import ContractReceivedRows from './ContractReceivedRows'
 
 const REQ = ['要', '不要', '確認中']
 
@@ -51,25 +52,16 @@ type Props = {
   // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
+  // 契約時にお客様から受領した金融関係書類（区分=財産のうち金融分）。表の先頭に受領済として表示。
+  contractDocs?: ContractDocumentRow[]
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [] }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
-
-  const applyRolesAcquirer = async () => {
-    if (rows.length === 0) { showToast('対象の金融機関がありません', 'error'); return }
-    const target = acquirerFromRoles(roles, ACQUIRER_GYOMU.financial)
-    if (!confirm(`${kind} 全${rows.length}件の取得区分を「${acquirerLabel(target)}」に上書きします。よろしいですか？`)) return
-    const ids = rows.map(r => r.id)
-    const { error } = await supabase.from('financial_assets').update({ acquirer: target }).in('id', ids)
-    if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
-    setRows(prev => prev.map(r => ({ ...r, acquirer: target })))
-    showToast(`取得区分を「${acquirerLabel(target)}」に反映しました`, 'success')
-  }
 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -82,7 +74,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 
   const addRow = async () => {
     setBusy(true)
-    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '' }).select('*').single()
+    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.financial) }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as FinancialAssetRow])
@@ -119,8 +111,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             </tr>
           </thead>
           <tbody>
+            {/* 契約時に受領済の金融関係書類（依頼者取得分）。二重登録防止のため表の先頭に。 */}
+            <ContractReceivedRows docs={contractDocs} colSpan={colCount} />
             {rows.length === 0 ? (
-              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
+              contractDocs.filter(d => d.status !== '不要').length === 0
+                ? <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
+                : null
             ) : (
               rows.map(r => (
                 <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
@@ -177,12 +173,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           </tbody>
         </table>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
+      <div className="mt-2">
         <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" /> 追加
-        </button>
-        <button type="button" onClick={applyRolesAcquirer} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
-          役割分担から取得区分を反映
         </button>
       </div>
     </div>

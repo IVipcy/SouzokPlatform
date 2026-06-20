@@ -7,10 +7,11 @@ import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
-import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow } from '@/types'
+import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, type RelatedTask } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import ContractReceivedRows from './ContractReceivedRows'
 
 type Props = {
   caseId: string
@@ -26,6 +27,8 @@ type Props = {
   // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
+  // 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。表の先頭に受領済として表示。
+  contractDocs?: ContractDocumentRow[]
 }
 
 /**
@@ -33,7 +36,7 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [] }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
@@ -41,18 +44,6 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   const progressMode = !orderSheetMode
   // 対象者の選択肢（被相続人＋相続人一覧の氏名）
   const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
-
-  // 役割分担から取得区分を一括反映（任意・上書き確認）
-  const applyRolesAcquirer = async () => {
-    if (rows.length === 0) { showToast('対象の戸籍請求がありません', 'error'); return }
-    const target = acquirerFromRoles(roles, ACQUIRER_GYOMU.koseki)
-    if (!confirm(`全${rows.length}件の取得区分を「${acquirerLabel(target)}」に上書きします。よろしいですか？`)) return
-    const ids = rows.map(r => r.id)
-    const { error } = await supabase.from('koseki_requests').update({ acquirer: target }).in('id', ids)
-    if (error) { showToast(`反映に失敗しました: ${error.message}`, 'error'); return }
-    setRows(prev => prev.map(r => ({ ...r, acquirer: target })))
-    showToast(`取得区分を「${acquirerLabel(target)}」に反映しました`, 'success')
-  }
 
   const setLocal = (id: string, field: keyof KosekiRequestRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as KosekiRequestRow : r)))
@@ -70,9 +61,10 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
 
   const addRow = async () => {
     setBusy(true)
+    // 取得区分は役割分担（戸籍の担当）から自動既定（依頼者担当があれば依頼者取得）
     const { data, error } = await supabase
       .from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: rows.length })
+      .insert({ case_id: caseId, sort_order: rows.length, acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.koseki) })
       .select('*')
       .single()
     setBusy(false)
@@ -113,9 +105,9 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
-            ) : (
+            {/* 契約時に受領済の戸籍（依頼者取得分）。同じものを請求行で二重登録しないよう表の先頭に。 */}
+            <ContractReceivedRows docs={contractDocs} colSpan={colCount} />
+            {rows.length > 0 ? (
               rows.map((r, i) => (
                 <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode}
                   open={expanded === r.id}
@@ -123,16 +115,15 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   setLocal={setLocal} commit={commit} saveField={saveField}
                   onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} />
               ))
-            )}
+            ) : contractDocs.filter(d => d.status !== '不要').length === 0 ? (
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
+            ) : null}
           </tbody>
         </table>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
+      <div className="mt-2">
         <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" /> 戸籍請求を追加
-        </button>
-        <button type="button" onClick={applyRolesAcquirer} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
-          役割分担から取得区分を反映
         </button>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">

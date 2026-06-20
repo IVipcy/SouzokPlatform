@@ -12,7 +12,6 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
-import ContractReceivedDocs from './ContractReceivedDocs'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -59,6 +58,12 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
+  // 契約時受領の財産関係書類（区分=財産）を、名称から不動産分/金融分に振り分けて各表の先頭に取り込む。
+  const zaisanDocs = contractDocuments.filter(d => d.category === '財産')
+  const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
+  const reContractDocs = zaisanDocs.filter(d => RE_KW.some(k => (d.name ?? '').includes(k)))
+  const finContractDocs = zaisanDocs.filter(d => !reContractDocs.includes(d))
+
   return (
     <div className="space-y-3.5">
       {/* 財産調査条件 / 調査対象 のタブ切替 */}
@@ -92,11 +97,11 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           </div>
           <div>
             <div className="text-[12px] font-bold text-gray-500 mb-1.5">取得資料管理（どこに何をいつ請求し、受け取れたか）</div>
-            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} />
+            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
           </div>
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
-          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
         </div>
         <div className={sub === 'securities' ? '' : 'hidden'}>
           <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
@@ -114,9 +119,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
           </FieldGrid>
         </div>
-
-        {/* 契約時にお客様から受領した財産関係書類（区分=財産）。調査対象の表の下に表示。 */}
-        <ContractReceivedDocs documents={contractDocuments} category="財産" title="契約時にお客様から受領した財産関係書類" />
+        {/* 契約時受領の財産書類は不動産/金融の各表の先頭に「契約時受領」として取り込み表示（二重登録防止）。 */}
       </div>
     </div>
   )

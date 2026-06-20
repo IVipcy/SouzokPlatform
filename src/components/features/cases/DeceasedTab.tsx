@@ -12,7 +12,6 @@ import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
-import ContractReceivedDocs from './ContractReceivedDocs'
 import { SubTabs } from '@/components/ui/SubTabs'
 import {
   Section,
@@ -218,13 +217,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
       {sub === 'koseki' && (
         <div className="space-y-3.5">
-          {/* 戸籍請求（請求単位の管理表）。理由・目的・特記は各行で個別設定 */}
+          {/* 戸籍請求（請求単位の管理表）。契約時に受領済の戸籍は表の先頭に受領済として取り込み表示。 */}
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
           </Section>
-
-          {/* 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。戸籍請求一覧の下に表示。 */}
-          <ContractReceivedDocs documents={contractDocuments} category="戸籍" title="契約時にお客様から受領した戸籍関係書類" />
         </div>
       )}
 

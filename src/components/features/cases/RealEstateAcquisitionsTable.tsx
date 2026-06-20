@@ -5,10 +5,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
-import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow } from '@/types'
+import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import ContractReceivedRows from './ContractReceivedRows'
 
 type Props = {
   caseId: string
@@ -20,6 +21,8 @@ type Props = {
   // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
+  // 契約時にお客様から受領した不動産関係書類（区分=財産のうち不動産分）。表の先頭に受領済として表示。
+  contractDocs?: ContractDocumentRow[]
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -31,7 +34,7 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [] }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
@@ -85,8 +88,11 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
             </tr>
           </thead>
           <tbody>
+            <ContractReceivedRows docs={contractDocs} colSpan={progressMode ? 9 : 5} />
             {rows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              contractDocs.filter(d => d.status !== '不要').length === 0
+                ? <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+                : null
             ) : rows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
