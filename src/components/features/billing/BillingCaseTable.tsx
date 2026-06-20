@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { FileText, ArrowUpDown, Banknote, ClipboardList, AlertCircle, Hourglass, CheckCircle2 } from 'lucide-react'
+import { ArrowUpDown, Banknote, ClipboardList, AlertCircle, Hourglass, CheckCircle2 } from 'lucide-react'
+import OpenInvoiceButton from './OpenInvoiceButton'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { BILLING_STATUS_ORDER, type BillingCaseRow } from '@/lib/billingCaseRows'
 import { getCaseStatusLabel } from '@/lib/constants'
@@ -162,9 +163,7 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                       <td className="px-2.5 py-2 font-mono text-gray-700">{r.issuedDate ?? <span className="text-gray-400">未発行</span>}</td>
                       <td className="px-2.5 py-2 text-center">
                         {r.invoiceId && r.invoiceStatus !== '未請求' ? (
-                          <Link href={`/invoices/${r.invoiceId}/preview`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded">
-                            <FileText className="w-3 h-3" strokeWidth={2.25} />プレビュー
-                          </Link>
+                          <OpenInvoiceButton invoiceId={r.invoiceId} />
                         ) : <span className="text-gray-300 text-[12px]">未発行</span>}
                       </td>
                     </tr>

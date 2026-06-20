@@ -15,6 +15,8 @@ import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Edit2, FileText, PanelRightOpen } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
+import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
+import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
 import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel } from '@/lib/constants'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -268,15 +270,6 @@ export default function BillingClient({ invoices, cases }: Props) {
     setDeleteInvoice(null)
     setSelectedId(null)
     router.refresh()
-  }
-
-  // 個別: ステータス変更
-  // 公式請求書Excel（documentsバケット）を署名URLで開く
-  const openInvoiceExcel = async (path: string) => {
-    const supabase = createClient()
-    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 120)
-    if (error || !data) { showToast('請求書ファイルを開けませんでした', 'error'); return }
-    window.open(data.signedUrl, '_blank')
   }
 
   // 入金状況確認依頼：受注担当へ依頼レコード＋通知を送る（経理/管理担当→受注担当）。
@@ -784,18 +777,12 @@ export default function BillingClient({ invoices, cases }: Props) {
                         {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
-                      {/* 請求書（公式Excel。無い旧データはHTMLプレビューにフォールバック） */}
+                      {/* 請求書（公式Excelに一本化。無い旧データは開く時に生成） */}
                       <td className="px-3.5 py-2.5 text-center" onClick={e => e.stopPropagation()}>
                         {isUnissued ? (
                           <span className="text-gray-300 text-[12px]">未発行</span>
-                        ) : inv.generated_file_path ? (
-                          <button onClick={() => openInvoiceExcel(inv.generated_file_path!)} className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded" title="公式請求書（Excel）を開く">
-                            <FileText className="w-3 h-3" strokeWidth={2.25} />請求書(Excel)
-                          </button>
                         ) : (
-                          <Link href={`/invoices/${inv.id}/preview`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-gray-500 hover:bg-gray-50 rounded" title="旧プレビュー（HTML）">
-                            <FileText className="w-3 h-3" strokeWidth={2.25} />旧プレビュー
-                          </Link>
+                          <OpenInvoiceButton invoiceId={inv.id} />
                         )}
                       </td>
                       {/* 詳細（編集・入金消込・領収書・入金確認依頼をまとめた右パネルを開く） */}
@@ -883,30 +870,20 @@ export default function BillingClient({ invoices, cases }: Props) {
                   </DetailSection>
                 )}
                 <div className="flex flex-col gap-2 pt-2">
-                  {selected.generated_file_path ? (
-                    <button
-                      onClick={() => openInvoiceExcel(selected.generated_file_path!)}
-                      className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      請求書（Excel）を表示 / DL
-                    </button>
-                  ) : (
-                    <Link
-                      href={`/invoices/${selected.id}/preview`}
-                      className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      請求書を表示 / DL（旧プレビュー）
-                    </Link>
-                  )}
-                  <Link
-                    href={`/invoices/${selected.id}/preview?doc=receipt`}
+                  <button
+                    onClick={() => openOfficialInvoice(selected.id)}
+                    className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    請求書（Excel）を表示 / DL
+                  </button>
+                  <button
+                    onClick={() => openOfficialReceipt(selected.id)}
                     className="px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-center inline-flex items-center justify-center gap-1.5"
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    領収書を表示 / DL
-                  </Link>
+                    領収書（Excel）を表示 / DL
+                  </button>
                   {selected.status !== '入金済' && selected.status !== '未請求' && (() => {
                     const pc = latestPayCheck(selected.payment_check_requests)
                     return (
@@ -974,19 +951,9 @@ export default function BillingClient({ invoices, cases }: Props) {
         onSaved={async (newId) => {
           setCreateOpen(false)
           setCheckedInvoiceId(null)
-          if (newId) {
-            // 発行後は公式Excel（事務所の正式様式）を開く。生成失敗で無い場合のみ旧HTMLプレビューへ。
-            const supabase = createClient()
-            const { data } = await supabase.from('invoices').select('generated_file_path').eq('id', newId).single()
-            if (data?.generated_file_path) {
-              await openInvoiceExcel(data.generated_file_path)
-              router.refresh()
-            } else {
-              router.push(`/invoices/${newId}/preview?firstView=1`)
-            }
-          } else {
-            router.refresh()
-          }
+          // 発行後は公式Excel（事務所の正式様式）を開く
+          if (newId) await openOfficialInvoice(newId)
+          router.refresh()
         }}
       />
 
