@@ -351,7 +351,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <CancellationTab financialAssets={financialAssets} onRefresh={handleSaved} />
       )}
       {PROCEDURE_TABS.map(p => effectiveTab === p.tab && (
-        <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
+        <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
       ))}
       {effectiveTab === 'referral' && (
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />

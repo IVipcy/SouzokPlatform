@@ -138,7 +138,17 @@ export type CaseRow = {
   intake_documents: { name: string; status: string; arrival_date: string | null; note: string }[] | null
   intake_roles: { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: 'task' | 'doc' }[] | null
   // 家裁手続き（放棄/調停/検認/後見）の共通情報。業務(gyomu)をキーに保持。migration 108
-  court_procedure_info: Record<string, { court?: string; case_number?: string; filed_date?: string | null; hearing_date?: string | null; result?: string }> | null
+  // applicant_heir_id/opponent_heir_ids/claim は調停の当事者・争点（任意）。
+  court_procedure_info: Record<string, {
+    court?: string
+    case_number?: string
+    filed_date?: string | null
+    hearing_date?: string | null
+    result?: string
+    applicant_heir_id?: string | null
+    opponent_heir_ids?: string[]
+    claim?: string
+  }> | null
   meeting_place: string | null
   lawyer_name: string | null
   lawyer_office: string | null
