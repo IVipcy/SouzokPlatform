@@ -830,6 +830,24 @@ export type EventRow = {
   cases?: CaseRow
 }
 
+// === 入金状況の確認依頼（経理/管理担当 → 受注担当） ===
+export type PaymentCheckStatus = '依頼中' | '確認済'
+
+export type PaymentCheckRequestRow = {
+  id: string
+  invoice_id: string
+  case_id: string
+  requester_id: string   // 依頼した経理/管理担当
+  confirmer_id: string   // 確認する受注担当
+  status: PaymentCheckStatus
+  result_note: string | null   // 受注担当が入れる確認結果
+  requested_date: string
+  confirmed_date: string | null
+  auto_closed: boolean
+  created_at: string
+  updated_at: string
+}
+
 // === 進捗報告（進捗確認依頼） ===
 export type ProgressReportStatus = '依頼中' | '確認済'
 

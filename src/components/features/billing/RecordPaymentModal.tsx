@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { InvoiceRow, PaymentRow } from '@/types'
@@ -65,6 +66,9 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
     }
 
     await supabase.from('invoices').update({ status: newStatus }).eq('id', invoice.id)
+
+    // 入金確定したら、開いている入金状況確認依頼を自動でクローズ
+    if (newStatus === '入金済') await autoClosePaymentChecks(invoice.id)
 
     setSaving(false)
     onSaved()

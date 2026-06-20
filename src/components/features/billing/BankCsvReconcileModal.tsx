@@ -7,6 +7,7 @@ import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { parseBankCsv, matchBankRows, type InvoiceLite, type MatchResult } from '@/lib/bankReconcile'
+import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 
 type Props = {
   isOpen: boolean
@@ -107,6 +108,8 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       // 金額一致で突合しているため入金済に（部分入金は要確認側で扱う想定）
       const status = inv && r.row.amount >= inv.amount ? '入金済' : '入金待ち'
       await supabase.from('invoices').update({ status }).eq('id', invId)
+      // 入金確定したら、開いている入金状況確認依頼を自動でクローズ
+      if (status === '入金済') await autoClosePaymentChecks(invId)
       // 受注担当へ入金確定通知
       if (inv?.sales_member_id) {
         await supabase.from('notifications').insert({
