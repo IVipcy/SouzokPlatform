@@ -18,6 +18,19 @@ import {
   WILL_BEQUEST_HANDLER_OPTIONS,
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
+import { SubTabs } from '@/components/ui/SubTabs'
+
+// 署名方法は送付・調印に連動（矛盾する組合せを出さない）
+// ・オーシャンで調印＝対面そのもの → 対面固定（欄は出さない）
+// ・OCから各相続人へ＝郵送前提 → 一斉郵送／持ち回り のみ
+// ・依頼者から各相続人へ＝手配は依頼者 → 持ち回り／一斉郵送／対面
+const SIGNING_BY_DISPATCH: Record<string, string[]> = {
+  'オーシャンで調印': ['対面'],
+  'OCから各相続人へ': ['一斉郵送', '持ち回り'],
+  '依頼者から各相続人へ': ['持ち回り', '一斉郵送', '対面'],
+}
+const signingOptionsFor = (dispatch: string | null | undefined): string[] =>
+  (dispatch && SIGNING_BY_DISPATCH[dispatch]) ? SIGNING_BY_DISPATCH[dispatch] : [...AGREEMENT_SIGNING_METHODS]
 
 type Props = {
   caseData: CaseRow
@@ -31,6 +44,8 @@ type Props = {
 }
 
 export default function DivisionTab({ caseData, divisionDetails, heirs, agreementDispatches = [], onRefresh, patchCase, mode = 'division' }: Props) {
+  const [divSub, setDivSub] = useState<'plan' | 'mail'>('plan')
+
   const saveCaseField = async (field: string, value: string) => {
     await patchCase({ [field]: value || null } as Partial<CaseRow>)
   }
@@ -62,33 +77,70 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
 
   return (
     <div className="space-y-3.5">
-      {mode === 'division' && (<>
-      {/* 遺産分割 */}
-      <Section title="分割方針" icon="⚖️">
-        <FieldGrid>
-          <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
-          <InlineSelect label="分配方針の提案" value={caseData.division_proposal_presence} options={[...PRESENCE_OPTIONS]} onSave={v => saveCaseField('division_proposal_presence', v)} />
-          <InlineSelect label="協議書の送付・調印" value={caseData.agreement_dispatch_method} options={[...AGREEMENT_DISPATCH_METHODS]} onSave={v => saveCaseField('agreement_dispatch_method', v)} />
-          <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={[...AGREEMENT_SIGNING_METHODS]} onSave={v => saveCaseField('agreement_signing_method', v)} />
-          <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
-        </FieldGrid>
-        <div className="mt-2">
-          <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
-        </div>
-      </Section>
+      {mode === 'division' && (() => {
+        const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'
+        // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ
+        const showMail = caseData.agreement_dispatch_method === 'OCから各相続人へ' && caseData.agreement_signing_method === '一斉郵送'
+        const activeSub = showMail ? divSub : 'plan'
 
-      {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
-      <Section title="分割内容">
-        <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} onRefresh={onRefresh} />
-      </Section>
+        const planContent = (
+          <div className="space-y-3.5">
+            {/* 遺産分割 */}
+            <Section title="分割方針" icon="⚖️">
+              <FieldGrid>
+                <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
+                <InlineSelect label="分配方針の提案" value={caseData.division_proposal_presence} options={[...PRESENCE_OPTIONS]} onSave={v => saveCaseField('division_proposal_presence', v)} />
+                <InlineSelect
+                  label="協議書の送付・調印"
+                  value={caseData.agreement_dispatch_method}
+                  options={[...AGREEMENT_DISPATCH_METHODS]}
+                  onSave={async v => {
+                    const allowed = signingOptionsFor(v)
+                    const patch: Partial<CaseRow> = { agreement_dispatch_method: v || null }
+                    // 連動: 調印=対面固定／現在の署名方法が新ルートで矛盾するならクリア
+                    if (v === 'オーシャンで調印') patch.agreement_signing_method = '対面'
+                    else if (caseData.agreement_signing_method && !allowed.includes(caseData.agreement_signing_method)) patch.agreement_signing_method = null
+                    await patchCase(patch)
+                  }}
+                />
+                {/* 署名方法：送付・調印に連動。オーシャンで調印＝対面固定のため欄を出さない */}
+                {!isOfficeSign && (
+                  <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={signingOptionsFor(caseData.agreement_dispatch_method)} onSave={v => saveCaseField('agreement_signing_method', v)} />
+                )}
+                <InlineEdit label="相続リスク" value={caseData.inheritance_risk} onSave={v => saveCaseField('inheritance_risk', v)} />
+              </FieldGrid>
+              <div className="mt-2">
+                <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
+              </div>
+            </Section>
 
-      {/* 協議書の送付・受領 — 「OCから各相続人へ」を選んだときだけ表示 */}
-      {caseData.agreement_dispatch_method === 'OCから各相続人へ' && (
-        <Section title="協議書の送付・受領" icon="📨">
-          <AgreementDispatchTable caseId={caseData.id} heirs={heirs} dispatches={agreementDispatches} onRefresh={onRefresh} />
-        </Section>
-      )}
-      </>)}
+            {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
+            <Section title="分割内容">
+              <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} onRefresh={onRefresh} />
+            </Section>
+          </div>
+        )
+
+        const mailContent = (
+          <Section title="協議書の送付・受領" icon="📨">
+            <AgreementDispatchTable caseId={caseData.id} heirs={heirs} dispatches={agreementDispatches} onRefresh={onRefresh} />
+          </Section>
+        )
+
+        return (
+          <div className="space-y-3.5">
+            {/* 郵送管理が要る条件のときだけサブタブ表示。満たさない時は分割方針・内容のみ（従来の見た目） */}
+            {showMail && (
+              <SubTabs
+                tabs={[{ key: 'plan', label: '分割方針・内容' }, { key: 'mail', label: '協議書の郵送管理' }]}
+                active={activeSub}
+                onChange={k => setDivSub(k as 'plan' | 'mail')}
+              />
+            )}
+            {activeSub === 'plan' ? planContent : mailContent}
+          </div>
+        )
+      })()}
 
       {mode === 'will' && (<>
       {/* 遺言 */}
