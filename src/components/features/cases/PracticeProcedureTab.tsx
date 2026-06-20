@@ -114,7 +114,7 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
 
       {/* ② 資料（受領管理）。doc-kindの作業がある場合のみ。 */}
       {docRoles.length > 0 && (
-        <Section title="資料（受領管理）" icon="📥">
+        <Section title="書類受領（受信簿連動）" icon="📥">
           <ProcedureDocsTable caseId={caseData.id} gyomu={gyomu} docRoles={docRoles} documents={docs} receipts={receipts} onRefresh={onRefresh} />
         </Section>
       )}
@@ -144,7 +144,7 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
                 </thead>
                 <tbody>
                   {taskRows.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-4 text-center text-[12px] text-gray-400">タスクはありません（資料の受領管理は上のセクションです）</td></tr>
+                    <tr><td colSpan={6} className="px-3 py-4 text-center text-[12px] text-gray-400">タスクはありません（受け取る書類は上の「書類受領」セクションです）</td></tr>
                   ) : taskRows.map(({ r, i }, n) => {
                     const t = linkedTask(r)
                     return (
