@@ -270,10 +270,6 @@ export const PROCEDURE_TEMPLATE_KEY: Record<string, string> = {
   '税理士への引継ぎ': 'tax_accountant_handoff',
 }
 
-export const CROSS_GYOMU_TAB: Record<string, TabKey | undefined> = { '経理': 'contract', '相続税': undefined }
 export function crossTasksFor(gyomu: string): CrossServiceRow[] {
   return CROSS_SERVICE_ROWS.filter(r => r.gyomu === gyomu)
 }
-// 後方互換: 作業名の配列（CROSS_SERVICE_ROWS から導出）。
-export const KEIZAI_TASKS: string[] = crossTasksFor('経理').map(r => r.task)
-export const ZEIRISHI_TASKS: string[] = crossTasksFor('相続税').map(r => r.task)
