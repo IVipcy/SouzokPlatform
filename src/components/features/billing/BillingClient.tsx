@@ -9,7 +9,7 @@ import Link from 'next/link'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import EditInvoiceModal from './EditInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
-import CsvImportModal from './CsvImportModal'
+import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -814,11 +814,10 @@ export default function BillingClient({ invoices, cases }: Props) {
         />
       )}
 
-      {/* CSV Import Modal */}
-      <CsvImportModal
+      {/* 銀行CSV突合（案件番号・振込人・金額キー／AI判定・要確認／入金確定通知） */}
+      <BankCsvReconcileModal
         isOpen={csvOpen}
         onClose={() => setCsvOpen(false)}
-        invoices={invoices}
         onSaved={() => { setCsvOpen(false); router.refresh() }}
       />
 
