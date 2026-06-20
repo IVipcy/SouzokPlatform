@@ -25,7 +25,6 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
   const [form, setForm] = useState({
     amount: remaining > 0 ? String(remaining) : '',
     payment_date: new Date().toISOString().split('T')[0],
-    payment_method: '銀行振込',
     notes: '',
   })
   const [saving, setSaving] = useState(false)
@@ -46,7 +45,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
       invoice_id: invoice.id,
       amount: paymentAmount,
       payment_date: form.payment_date,
-      payment_method: form.payment_method || null,
+      payment_method: '銀行振込',  // 入金は基本すべて銀行振込（手動消込の入金方法は固定）
       notes: form.notes || null,
     })
 
@@ -131,21 +130,6 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
             onChange={e => setForm(p => ({ ...p, payment_date: e.target.value }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
-        </div>
-
-        {/* Payment method */}
-        <div>
-          <label className="block text-[13px] font-semibold text-gray-500 mb-1">入金方法</label>
-          <select
-            value={form.payment_method}
-            onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          >
-            <option value="銀行振込">銀行振込</option>
-            <option value="現金">現金</option>
-            <option value="クレジットカード">クレジットカード</option>
-            <option value="その他">その他</option>
-          </select>
         </div>
 
         {/* Notes */}

@@ -20,8 +20,9 @@ type Props = {
 export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: Props) {
   const [form, setForm] = useState({
     invoice_type: '確定請求' as '前受金' | '確定請求',
-    fee_amount: '',
-    expenses_amount: '',
+    fee_amount: '',          // 前受金なら前受金額／確定請求なら報酬（確定売上）
+    expenses_amount: '',     // 立替実費（確定請求のみ）
+    advance_deduction: '',   // 前受金控除（確定請求のみ）
     status: '作成済' as InvoiceStatus,
     issued_date: '',
     due_date: '',
@@ -40,6 +41,7 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
         invoice_type: invoice.invoice_type,
         fee_amount: String(invoice.fee_amount ?? 0),
         expenses_amount: String(invoice.expenses_amount ?? 0),
+        advance_deduction: String(invoice.advance_deduction ?? 0),
         status: invoice.status,
         issued_date: invoice.issued_date ?? '',
         due_date: invoice.due_date ?? '',
@@ -55,9 +57,13 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
   const moneyLocked = invoice.status !== '作成済' && invoice.status !== '未請求'
   const isPaid = invoice.status === '入金済'
 
+  const isAdvance = form.invoice_type === '前受金'
+  const isConfirmed = form.invoice_type === '確定請求'
   const feeNum = Number(form.fee_amount) || 0
-  const expensesNum = Number(form.expenses_amount) || 0
-  const totalAmount = feeNum + expensesNum
+  // 立替実費・前受金控除は確定請求のみ（前受金は前受金額のみ）
+  const expensesNum = isConfirmed ? (Number(form.expenses_amount) || 0) : 0
+  const deductionNum = isConfirmed ? (Number(form.advance_deduction) || 0) : 0
+  const totalAmount = feeNum + expensesNum - deductionNum
 
   const handleSave = async () => {
     if (totalAmount <= 0) { setError('請求総額が0円です'); return }
@@ -71,6 +77,7 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
         amount: totalAmount,
         fee_amount: feeNum,
         expenses_amount: expensesNum,
+        advance_deduction: deductionNum,
         status: form.status,
         issued_date: form.issued_date || null,
         due_date: form.due_date || null,
@@ -147,14 +154,15 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
           )}
         </div>
 
-        {/* 金額 */}
+        {/* 金額（種別で意味が変わる：前受金=前受金額のみ／確定請求=報酬+立替−前受金控除） */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-[12px] font-semibold text-gray-700">
-            金額
+            {isAdvance ? '前受金' : '請求内訳'}
           </div>
           <div className="divide-y divide-gray-100">
+            {/* 金額（前受金額 / 報酬） */}
             <div className="px-3 py-2 flex items-center gap-2 bg-white">
-              <span className="text-[13px] font-medium text-gray-700 flex-1">報酬</span>
+              <span className="text-[13px] font-medium text-gray-700 flex-1">{isAdvance ? '前受金額' : '報酬（確定売上）'}</span>
               <div className="relative w-36">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>
                 <input
@@ -167,22 +175,41 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
                 />
               </div>
             </div>
-            <div className="px-3 py-2 flex items-center gap-2 bg-white">
-              <span className="text-[13px] font-medium text-gray-700 flex-1">立替実費</span>
-              <div className="relative w-36">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.expenses_amount}
-                  onChange={e => setForm(p => ({ ...p, expenses_amount: e.target.value }))}
-                  disabled={saving || moneyLocked}
-                  className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none disabled:bg-gray-50 disabled:text-gray-400"
-                />
+
+            {/* 立替実費（確定請求のみ・内訳は作成/再発行で管理＝表示のみ） */}
+            {isConfirmed && (
+              <div className="px-3 py-2 flex items-center gap-2 bg-white">
+                <span className="text-[13px] font-medium text-gray-700 flex-1">
+                  立替実費
+                  <span className="ml-1.5 text-[11px] text-gray-400 font-normal">内訳変更は再発行</span>
+                </span>
+                <span className="w-36 text-right text-[13px] font-mono text-gray-500 pr-2">¥{expensesNum.toLocaleString()}</span>
               </div>
-            </div>
+            )}
+
+            {/* 前受金控除（確定請求のみ） */}
+            {isConfirmed && (
+              <div className="px-3 py-2 flex items-center gap-2 bg-white">
+                <span className="text-[13px] font-medium text-gray-700 flex-1">
+                  前受金控除（▲）
+                  <span className="ml-1.5 text-[11px] text-gray-400 font-normal">受領済の前受金を差し引き</span>
+                </span>
+                <div className="relative w-36">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.advance_deduction}
+                    onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value }))}
+                    disabled={saving || moneyLocked}
+                    className="w-full pl-6 pr-2 py-1 text-[13px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="px-3 py-2.5 bg-brand-50 flex items-center gap-2">
-              <span className="text-[13px] font-bold text-brand-800 flex-1">請求総額</span>
+              <span className="text-[13px] font-bold text-brand-800 flex-1">請求総額{isConfirmed && deductionNum > 0 ? '（前受金控除後）' : ''}</span>
               <span className="text-[16px] font-extrabold font-mono text-brand-700 w-36 text-right">
                 ¥{totalAmount.toLocaleString()}
               </span>
@@ -191,7 +218,7 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
           <div className="px-3 py-2 bg-amber-50 text-[11px] text-amber-700 border-t border-amber-100">
             {moneyLocked
               ? '※ 発行後（入金待ち／入金済）は金額・種別を変更できません。金額を直す場合は削除→再発行してください。'
-              : '※ 立替実費の内訳変更は新規発行が必要です（一度作成した請求書の実費内訳は変更できません）。'}
+              : '※ 立替実費の内訳（どの実費を含めるか）は作成・再発行で管理します。ここでは報酬・前受金控除を修正できます。'}
           </div>
         </div>
 
