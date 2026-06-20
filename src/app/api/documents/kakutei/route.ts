@@ -160,8 +160,10 @@ export async function POST(request: NextRequest) {
       console.error('[kakutei] storage upload failed:', uploadErr.message)
     }
 
-    // 請求一覧(invoices)にも反映（invoiceId 指定時＝メイン経由は既に行があるので作らない）
-    if (!body.invoiceId) {
+    // 請求一覧(invoices)にも反映
+    if (body.invoiceId) {
+      await supabase.from('invoices').update({ generated_file_path: storagePath }).eq('id', body.invoiceId)
+    } else {
       const { error: invErr } = await supabase.from('invoices').insert({
         case_id: caseId,
         invoice_type: '確定請求',
@@ -172,6 +174,7 @@ export async function POST(request: NextRequest) {
         advance_deduction: advanceReceived || 0,
         status: '作成済',
         issued_date: new Date().toISOString().slice(0, 10),
+        generated_file_path: storagePath,
       })
       if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
     }

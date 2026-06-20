@@ -58,11 +58,12 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
-  // 契約時受領の財産関係書類（区分=財産）を、名称から不動産分/金融分に振り分けて各表の先頭に取り込む。
-  const zaisanDocs = contractDocuments.filter(d => d.category === '財産')
+  // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
+  // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
   const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
-  const reContractDocs = zaisanDocs.filter(d => RE_KW.some(k => (d.name ?? '').includes(k)))
-  const finContractDocs = zaisanDocs.filter(d => !reContractDocs.includes(d))
+  const isRE = (d: ContractDocumentRow) => RE_KW.some(k => (d.name ?? '').includes(k))
+  const reContractDocs = contractDocuments.filter(d => d.category === '不動産' || (d.category === '財産' && isRE(d)))
+  const finContractDocs = contractDocuments.filter(d => d.category === '金融' || (d.category === '財産' && !isRE(d)))
 
   return (
     <div className="space-y-3.5">

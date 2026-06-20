@@ -16,13 +16,13 @@ export type DocRow = { name: string; status: string; arrival_date: string | null
 // 業務(gyomu)単位で1書類にまとめる。解約・登記等の「依頼者が手続きする」系は対象外。
 export const SURVEY_GYOMU_DOC: Record<string, { name: string; category: string }> = {
   '戸籍': { name: '戸籍一式（出生〜死亡・相続人の現在戸籍 等）', category: '戸籍' },
-  '不動産': { name: '不動産関係書類（固定資産税通知書・権利証 等）', category: '財産' },
-  '金融資産': { name: '金融資産資料（通帳コピー・残高がわかる資料 等）', category: '財産' },
+  '不動産': { name: '不動産関係書類（固定資産税通知書・権利証 等）', category: '不動産' },
+  '金融資産': { name: '金融資産資料（通帳コピー・残高がわかる資料 等）', category: '金融' },
 }
 // 業務 → 契約残手続きの区分（SURVEY以外のデフォルト）
 const GYOMU_CONTRACT_CATEGORY: Record<string, string> = {
   '戸籍': '戸籍', '相関図': '戸籍', '法定相続情報取得': '戸籍',
-  '不動産': '財産', '金融資産': '財産', '目録': '財産',
+  '不動産': '不動産', '金融資産': '金融', '目録': '金融',
   '登記': '登記',
 }
 export type ReflectCandidate = { gyomu: string; name: string; category: string; defaultChecked: boolean }

@@ -236,6 +236,14 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   // 個別: ステータス変更
+  // 公式請求書Excel（documentsバケット）を署名URLで開く
+  const openInvoiceExcel = async (path: string) => {
+    const supabase = createClient()
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 120)
+    if (error || !data) { showToast('請求書ファイルを開けませんでした', 'error'); return }
+    window.open(data.signedUrl, '_blank')
+  }
+
   const handleStatusChange = async (invoiceId: string, nextStatus: InvoiceStatus) => {
     try {
       const supabase = createClient()
@@ -665,13 +673,19 @@ export default function BillingClient({ invoices, cases }: Props) {
                         {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
-                      {/* 請求書PDF */}
+                      {/* 請求書（公式Excel。無い旧データはHTMLプレビューにフォールバック） */}
                       <td className="px-3.5 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                        {!isUnissued ? (
-                          <Link href={`/invoices/${inv.id}/preview`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded">
-                            <FileText className="w-3 h-3" strokeWidth={2.25} />プレビュー
+                        {isUnissued ? (
+                          <span className="text-gray-300 text-[12px]">未発行</span>
+                        ) : inv.generated_file_path ? (
+                          <button onClick={() => openInvoiceExcel(inv.generated_file_path!)} className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded" title="公式請求書（Excel）を開く">
+                            <FileText className="w-3 h-3" strokeWidth={2.25} />請求書(Excel)
+                          </button>
+                        ) : (
+                          <Link href={`/invoices/${inv.id}/preview`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-gray-500 hover:bg-gray-50 rounded" title="旧プレビュー（HTML）">
+                            <FileText className="w-3 h-3" strokeWidth={2.25} />旧プレビュー
                           </Link>
-                        ) : <span className="text-gray-300 text-[12px]">未発行</span>}
+                        )}
                       </td>
                     </tr>
                   )

@@ -148,19 +148,24 @@ export async function POST(request: NextRequest) {
       console.error('[invoice] storage upload failed:', uploadErr.message)
     }
 
-    // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではない。
-    // invoiceId 指定時＝メイン請求モーダル経由で既に invoices 行があるので作らない）
-    if (def.docType === '請求書' && !body.invoiceId) {
-      const { error: invErr } = await supabase.from('invoices').insert({
-        case_id: caseId,
-        invoice_type: '前受金',
-        firm_type: def.office,
-        amount,
-        fee_amount: amount,
-        status: '作成済',
-        issued_date: new Date().toISOString().slice(0, 10),
-      })
-      if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)
+    // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではない）。
+    if (def.docType === '請求書') {
+      if (body.invoiceId) {
+        // メイン請求モーダル経由＝既に行があるので、公式Excelのパスだけ追記
+        await supabase.from('invoices').update({ generated_file_path: storagePath }).eq('id', body.invoiceId)
+      } else {
+        const { error: invErr } = await supabase.from('invoices').insert({
+          case_id: caseId,
+          invoice_type: '前受金',
+          firm_type: def.office,
+          amount,
+          fee_amount: amount,
+          status: '作成済',
+          issued_date: new Date().toISOString().slice(0, 10),
+          generated_file_path: storagePath,
+        })
+        if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)
+      }
     }
 
     return new NextResponse(uploadBuffer as unknown as BodyInit, {

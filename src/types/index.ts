@@ -455,6 +455,7 @@ export type InvoiceRow = {
   issued_date: string | null
   due_date: string | null
   notes: string | null
+  generated_file_path: string | null  // migration 113: 公式請求書Excelのパス（documentsバケット）
   created_at: string
   updated_at: string
   cases?: CaseRow
