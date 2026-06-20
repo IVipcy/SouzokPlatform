@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
-import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow } from '@/types'
+import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
+import type { TimelineReceipt } from './CaseTimeline'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
@@ -34,6 +35,9 @@ type Props = {
   contractDocuments?: ContractDocumentRow[]
   // 依頼者（同行者含む）。依頼者を相続人に追加する際のプリセット元
   caseClients?: CaseClientRow[]
+  // 受信簿＋タスク（戸籍請求一覧の「関連タスク」リンク用）
+  documentReceipts?: TimelineReceipt[]
+  tasks?: TaskRow[]
 }
 
 const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
@@ -57,7 +61,7 @@ const emptyHeirForm = () => ({
   is_applicant: false,
 })
 
-export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [] }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
   const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
@@ -216,7 +220,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         <div className="space-y-3.5">
           {/* 戸籍請求（請求単位の管理表）。理由・目的・特記は各行で個別設定 */}
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} />
           </Section>
 
           {/* 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。戸籍請求一覧の下に表示。 */}

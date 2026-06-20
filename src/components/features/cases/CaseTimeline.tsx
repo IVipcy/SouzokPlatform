@@ -12,7 +12,8 @@ export type TimelineReceipt = {
   id: string
   received_date: string | null
   started_by_member?: { name: string } | null
-  items?: { item_name: string; sort_order: number }[] | null
+  started_task_id?: string | null
+  items?: { item_name: string; sort_order: number; linked_id?: string | null; linked_kind?: string | null }[] | null
 }
 // ステータス遷移履歴
 export type TimelineStatusEvent = { new_value: string | null; created_at: string }

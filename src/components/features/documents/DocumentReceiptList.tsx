@@ -36,15 +36,10 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
   const today = todayJstYmd(new Date())
   // 当日分 = 受信日が本日以降（基本は当日に届いたもの）
   const todayReceipts = receipts.filter(r => (r.received_date ?? '') >= today)
-  // 過去日分 = 受信日が本日より前。未着手（着手者未設定）を上部に、その中は新しい順。
+  // 過去日分 = 受信日が本日より前。新しい順。
   const pastReceipts = receipts
     .filter(r => (r.received_date ?? '') < today)
-    .sort((a, b) => {
-      const aUn = !a.started_by_member_id, bUn = !b.started_by_member_id
-      if (aUn !== bUn) return aUn ? -1 : 1
-      return (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no)
-    })
-  const pastUnstarted = pastReceipts.filter(r => !r.started_by_member_id).length
+    .sort((a, b) => (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no))
 
   if (receipts.length === 0) {
     return (
@@ -62,7 +57,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
       {/* タブ: 当日分 / 過去日分 */}
       <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
         <TabButton active={tab === 'today'} onClick={() => setTab('today')} label="当日分" count={todayReceipts.length} />
-        <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} badge={pastUnstarted > 0 ? `未着手 ${pastUnstarted}` : undefined} />
+        <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} />
       </div>
 
       {list.length === 0 ? (
@@ -98,7 +93,6 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                   key={r.id}
                   receipt={r}
                   rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
-                  unstartedPast={tab === 'past' && !r.started_by_member_id}
                   currentMemberId={currentMemberId}
                   currentMember={currentMember}
                   onChanged={onChanged}
@@ -209,6 +203,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     if (e1 || e2 || e3) { showToast(`保存に失敗しました: ${(e1 ?? e2 ?? e3)?.message}`, 'error'); return }
     const startedCount = selected.size + (newTitle ? 1 : 0)
     showToast(startedCount > 0 ? `着手し、${startedCount}件のタスクを開始しました` : '着手しました', 'success')
+    // 受信簿に「関連タスク」を記録（新規 or 選択した先頭タスク）。各タブの一覧から飛べるように。
+    const linkTaskId = newTaskId ?? (selected.size > 0 ? [...selected][0] : null)
+    if (linkTaskId) {
+      await supabase.from('document_receipts').update({ started_task_id: linkTaskId }).eq('id', receipt.id)
+    }
     // 開始したタスクが1つに定まるなら、そのタスク詳細へ遷移
     const targetTaskId = newTaskId ?? (selected.size === 1 ? [...selected][0] : null)
     if (targetTaskId) {
@@ -286,7 +285,6 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 function ReceiptRow({
   receipt,
   rowBg,
-  unstartedPast = false,
   currentMemberId,
   currentMember,
   onChanged,
@@ -294,7 +292,6 @@ function ReceiptRow({
 }: {
   receipt: DocumentReceiptRow
   rowBg: string
-  unstartedPast?: boolean
   currentMemberId: string | null
   currentMember: MemberRow | null
   onChanged: () => void
@@ -303,8 +300,7 @@ function ReceiptRow({
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
   const numberText = formatReceiptNumber(receipt.received_date, receipt.sequence_no)
-  // 過去日分の未着手は薄いアンバーで強調（一覧上部に集まる）
-  const rowClass = unstartedPast ? 'bg-amber-50/60' : rowBg
+  const rowClass = rowBg
 
   const [, startTransition] = useTransition()
   const [busyKind, setBusyKind] = useState<null | 'check' | 'start'>(null)
@@ -364,7 +360,7 @@ function ReceiptRow({
     const supabase = createClient()
     const isStarted = !!receipt.started_by_member_id
     const patch = isStarted
-      ? { started_by_member_id: null, started_at: null }
+      ? { started_by_member_id: null, started_at: null, started_task_id: null }
       : { started_by_member_id: currentMemberId, started_at: new Date().toISOString() }
     const { error } = await supabase
       .from('document_receipts')
@@ -391,10 +387,9 @@ function ReceiptRow({
             {isFirst && (
               <td
                 rowSpan={rowCount}
-                className={`px-2.5 py-2 font-mono text-[12px] text-gray-700 align-middle border-r border-gray-100 ${unstartedPast ? 'border-l-2 border-l-amber-400' : ''}`}
+                className="px-2.5 py-2 font-mono text-[12px] text-gray-700 align-middle border-r border-gray-100"
               >
                 {numberText}
-                {unstartedPast && <div className="text-[10px] font-bold text-amber-600 mt-0.5">未着手</div>}
               </td>
             )}
             {/* 案件管理番号（行統合） */}
