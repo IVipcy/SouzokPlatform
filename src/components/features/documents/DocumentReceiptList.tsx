@@ -85,7 +85,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
                 <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
-                <th className="px-2.5 py-2 text-center font-semibold">タスク着手</th>
+                <th className="px-2.5 py-2 text-center font-semibold">対応</th>
               </tr>
             </thead>
             <tbody>
@@ -133,6 +133,14 @@ function TabButton({ active, onClick, label, count, badge }: { active: boolean; 
   )
 }
 
+// 到着物の種類(linked_kind) → 関係する業務。候補タスクをこの業務に絞る。
+const KIND_GYOMU: Record<string, string[]> = {
+  koseki: ['戸籍', '相関図', '法定相続情報取得'],
+  financial_asset: ['金融資産', '解約'],
+  real_estate_acquisition: ['不動産'],
+  real_estate: ['不動産'],
+}
+
 // 着手＝書類到着でタスク開始のトリガー。受信簿に着手記録を付け、選択した案件タスクを「対応中」にする。
 function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   receipt: DocumentReceiptRow
@@ -169,7 +177,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 
   // 実施タスク（作業区分=作業）の候補。datalistで提示し、選ぶ/一致すると source_rid で紐付ける。
   const isTaskKind = (r: RoleRow) => (r.kind ?? kindForTask(cats, r.gyomu, r.sagyou)) === 'task'
-  const candidateNames = [...new Set(intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要' && isTaskKind(r)).map(r => r.sagyou))]
+  const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要' && isTaskKind(r))
+  // 到着物の種類(linked_kind)に応じて、関係する業務の実施タスクだけ候補に出す（契約書類はタスク不要＝候補なし）。
+  const candidateNamesFor = (linkedKind: string | null | undefined): string[] => {
+    if (linkedKind === 'contract_doc') return []
+    const gy = linkedKind ? KIND_GYOMU[linkedKind] : undefined
+    const rs = gy ? taskRoles.filter(r => gy.includes(r.gyomu)) : taskRoles
+    return [...new Set(rs.map(r => r.sagyou))]
+  }
 
   const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
     const cur = new Set(prev[itemId] ?? [])
@@ -264,17 +279,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {totalLinks > 0 ? `タスクを作成・着手 (${totalLinks})` : '着手のみ記録'}
+            {totalLinks > 0 ? `タスクを作成・着手 (${totalLinks})` : 'タスクなしで完了'}
           </Button>
         </>
       }
     >
-      <datalist id="receipt-task-candidates">
-        {candidateNames.map(n => <option key={n} value={n} />)}
-      </datalist>
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます（対応中前でもOK。タスクタブ表示後に出てきます）。不要な受信は選ばず「着手のみ記録」で。
+          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます（対応中前でもOK。タスクタブ表示後に出てきます）。契約書類などタスク不要なものは、何も選ばず<strong>「タスクなしで完了」</strong>（受信を処理済みとして閉じるだけ）でOK。
         </p>
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
@@ -282,11 +294,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
           <div className="space-y-3 max-h-[28rem] overflow-y-auto">
-            {items.map(it => (
+            {items.map(it => {
+              const cand = candidateNamesFor(it.linked_kind)
+              const isContract = it.linked_kind === 'contract_doc'
+              return (
               <div key={it.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
                 {tasks.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 mb-2">未完了の既存タスクはありません</p>
+                  <p className="text-[11px] text-gray-400 mb-2">既存タスクはありません（下で作成できます）</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {tasks.map(t => {
@@ -304,16 +319,36 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     })}
                   </div>
                 )}
-                <input
-                  type="text"
-                  list="receipt-task-candidates"
-                  value={itemNew[it.id] ?? ''}
-                  onChange={e => setItemNew(prev => ({ ...prev, [it.id]: e.target.value }))}
-                  placeholder="＋作成して結ぶ：実施タスクから選ぶ or 自由入力（任意）"
-                  className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-                />
+                {isContract ? (
+                  <p className="text-[11px] text-gray-400">契約書類はタスク不要（W-Checkで確定済み）。結ぶ必要はありません。</p>
+                ) : (
+                  <>
+                    {cand.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {cand.map(n => {
+                          const on = (itemNew[it.id] ?? '') === n
+                          return (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setItemNew(prev => ({ ...prev, [it.id]: on ? '' : n }))}
+                              className={`inline-flex items-center px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-white border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'}`}
+                            >＋{n}</button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <input
+                      type="text"
+                      value={itemNew[it.id] ?? ''}
+                      onChange={e => setItemNew(prev => ({ ...prev, [it.id]: e.target.value }))}
+                      placeholder={cand.length > 0 ? '＋自由入力で作成（任意）' : '＋新規タスクを作成して結ぶ（任意）'}
+                      className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+                    />
+                  </>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
@@ -537,10 +572,10 @@ function ReceiptRow({
                     onClick={() => onStartRequest(receipt)}
                     disabled={!currentMemberId}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50 text-[11px] font-semibold"
-                    title={currentMember ? `${currentMember.name} としてタスクに着手` : 'タスクに着手'}
+                    title={currentMember ? `${currentMember.name} として対応（タスクを結ぶ／タスクなしで完了）` : '対応'}
                   >
                     <Hand className="w-3.5 h-3.5" />
-                    タスクに着手
+                    対応
                   </button>
                 )}
               </td>
