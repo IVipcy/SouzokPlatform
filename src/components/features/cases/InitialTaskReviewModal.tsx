@@ -13,8 +13,7 @@ const ADD_CATEGORIES = ['初期対応', '契約手続き残']
 
 // ステータス別に「初期対応タスク」として確認対象にするシステムタスク（template_key）。
 // 056/076 の generate_system_tasks_on_status_change が生成するものに対応。
-// 受注時の sys_initial_tasks_create（初期タスクあげ）は管理担当アサイン時のみ生成されるため、
-// 存在すれば一覧に出る（in() で取りこぼさないようキーは含める）。
+// ※ 初期タスクあげ（sys_initial_tasks_create）は廃止（migration 107）。
 const INITIAL_TASK_KEYS: Record<string, string[]> = {
   受注: [
     'sys_order_sheet',
@@ -22,7 +21,6 @@ const INITIAL_TASK_KEYS: Record<string, string[]> = {
     'sys_case_handover',
     'sys_advance_invoice',
     'sys_advance_payment_confirm',
-    'sys_initial_tasks_create',
   ],
   検討中: ['sys_review_status'],
   '検討中（契約書待ち）': ['sys_review_status', 'sys_contract_send'],
