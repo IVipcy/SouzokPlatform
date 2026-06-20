@@ -142,6 +142,17 @@ const KIND_GYOMU: Record<string, string[]> = {
   agreement_dispatch: ['協議書'],
 }
 
+// 契約時受領書類の区分(category) → 関係する業務。
+// 契約書類でも戸籍・評価証明など調査系の書類が一緒に届くことがあり、その場合は該当タスクに結べるようにする。
+// 区分=契約/その他（＝対応なし）はタスク不要。
+const CONTRACT_CATEGORY_GYOMU: Record<string, string[]> = {
+  '戸籍': ['戸籍', '相関図', '法定相続情報取得'],
+  '金融': ['金融資産', '解約'],
+  '不動産': ['不動産'],
+  '登記': ['登記'],
+  '財産': ['金融資産', '解約', '不動産'], // 旧データ（金融/不動産分割前の区分=財産）
+}
+
 // 着手＝書類到着でタスク開始のトリガー。受信簿に着手記録を付け、選択した案件タスクを「対応中」にする。
 function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   receipt: DocumentReceiptRow
@@ -153,6 +164,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null }>>([])
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
   const [cats, setCats] = useState<string[]>([])
+  // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
+  const [contractCat, setContractCat] = useState<Map<string, string | null>>(new Map())
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
   const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
   const [itemNew, setItemNew] = useState<Record<string, string>>({})
@@ -164,14 +177,16 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const [tk, cs] = await Promise.all([
+      const [tk, cs, cd] = await Promise.all([
         supabase.from('tasks').select('id,title,status,source_rid').eq('case_id', receipt.case_id).neq('status', '完了').order('sort_order'),
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
+        supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
       ])
       setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null }>)
       const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
       setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
       setCats(categoriesOf(c?.service_category, c?.service_category_2))
+      setContractCat(new Map(((cd.data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
       setLoading(false)
     })()
   }, [receipt.case_id])
@@ -179,13 +194,25 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 実施タスク（作業区分=作業）の候補。datalistで提示し、選ぶ/一致すると source_rid で紐付ける。
   const isTaskKind = (r: RoleRow) => (r.kind ?? kindForTask(cats, r.gyomu, r.sagyou)) === 'task'
   const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要' && isTaskKind(r))
-  // 到着物の種類(linked_kind)に応じて、関係する業務の実施タスクだけ候補に出す（契約書類はタスク不要＝候補なし）。
-  const candidateNamesFor = (linkedKind: string | null | undefined): string[] => {
-    if (linkedKind === 'contract_doc') return []
-    const gy = linkedKind ? KIND_GYOMU[linkedKind] : undefined
-    const rs = gy ? taskRoles.filter(r => gy.includes(r.gyomu)) : taskRoles
+  // 契約時受領書類の区分（戸籍/評価証明等は調査系）。区分=契約/その他のみタスク不要。
+  const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
+    CONTRACT_CATEGORY_GYOMU[contractCat.get(it.linked_id ?? '') ?? '']
+  // 到着物ごとに、関係する業務の実施タスクだけ候補に出す。
+  // 契約書類は区分で出し分け（戸籍・評価証明など調査系は該当タスクに結べる／契約・その他はタスク不要）。
+  const candidateNamesForItem = (it: { linked_kind: string | null; linked_id: string | null }): string[] => {
+    let gy: string[] | undefined
+    if (it.linked_kind === 'contract_doc') {
+      gy = contractGyomuFor(it)
+      if (!gy) return [] // 区分=契約/その他 ＝ タスク不要
+    } else {
+      gy = it.linked_kind ? KIND_GYOMU[it.linked_kind] : undefined
+    }
+    const rs = gy ? taskRoles.filter(r => gy!.includes(r.gyomu)) : taskRoles
     return [...new Set(rs.map(r => r.sagyou))]
   }
+  // タスク不要＝区分が調査系にマップされない契約書類のみ。
+  const isTaskFree = (it: { linked_kind: string | null; linked_id: string | null }): boolean =>
+    it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
 
   const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
     const cur = new Set(prev[itemId] ?? [])
@@ -296,8 +323,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         ) : (
           <div className="space-y-3 max-h-[28rem] overflow-y-auto">
             {items.map(it => {
-              const cand = candidateNamesFor(it.linked_kind)
-              const isContract = it.linked_kind === 'contract_doc'
+              const cand = candidateNamesForItem(it)
+              const isContract = isTaskFree(it)
               return (
               <div key={it.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
