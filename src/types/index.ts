@@ -136,7 +136,9 @@ export type CaseRow = {
   referral_name: string | null
   // 手続き詳細（面談時の受領書類状況・役割分担。migration 083）
   intake_documents: { name: string; status: string; arrival_date: string | null; note: string }[] | null
-  intake_roles: { gyomu: string; sagyou: string; owner: string; note: string }[] | null
+  intake_roles: { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: 'task' | 'doc' }[] | null
+  // 家裁手続き（放棄/調停/検認/後見）の共通情報。業務(gyomu)をキーに保持。migration 108
+  court_procedure_info: Record<string, { court?: string; case_number?: string; filed_date?: string | null; hearing_date?: string | null; result?: string }> | null
   meeting_place: string | null
   lawyer_name: string | null
   lawyer_office: string | null
