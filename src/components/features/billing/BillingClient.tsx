@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, X, BellRing, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -45,6 +45,15 @@ function fmt(n: number) {
 function getPaidAmount(payments: PaymentRow[] | null | undefined): number {
   if (!payments || payments.length === 0) return 0
   return payments.reduce((sum, p) => sum + p.amount, 0)
+}
+
+// 入金期日からの超過日数。未入金（入金済/未請求以外）かつ期日を過ぎた場合のみ正の値、それ以外は null。
+function overdueDays(dueDate: string | null, status: InvoiceStatus, todayMs: number): number | null {
+  if (!dueDate || status === '入金済' || status === '未請求') return null
+  const due = new Date(`${dueDate}T00:00:00`).getTime()
+  if (isNaN(due)) return null
+  const d = Math.floor((todayMs - due) / 86_400_000)
+  return d > 0 ? d : null
 }
 
 type Assignee = { id: string; name: string; avatarUrl: string | null }
@@ -97,7 +106,7 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90,
+    caseNo: 140, case: 180, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
@@ -107,6 +116,8 @@ export default function BillingClient({ invoices, cases }: Props) {
     { key: 'sales', label: '受注担当' },
     { key: 'manager', label: '管理担当' },
     { key: 'status', label: '入金ステータス' },
+    { key: 'dueDate', label: '入金期日' },
+    { key: 'overdue', label: '超過日数' },
     { key: 'amount', label: '請求金額', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
     { key: 'diff', label: '差額', align: 'right' },
@@ -242,6 +253,34 @@ export default function BillingClient({ invoices, cases }: Props) {
     const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 120)
     if (error || !data) { showToast('請求書ファイルを開けませんでした', 'error'); return }
     window.open(data.signedUrl, '_blank')
+  }
+
+  // 未入金アラート：期日超過の未入金について受注担当へ通知（経理→受注の連絡を1クリック化）
+  const [alertingId, setAlertingId] = useState<string | null>(null)
+  const handleOverdueAlert = async (inv: InvoiceWithRelations) => {
+    const sales = getAssignees(inv.cases).sales
+    if (!sales) { showToast('受注担当が未設定のため通知できません', 'error'); return }
+    setAlertingId(inv.id)
+    try {
+      const supabase = createClient()
+      const od = overdueDays(inv.due_date, inv.status, Date.now())
+      const { error } = await supabase.from('notifications').insert({
+        member_id: sales.id,
+        type: 'payment_overdue',
+        case_id: inv.case_id,
+        title: '未入金の確認依頼',
+        body: `${inv.cases?.case_number ?? ''} ${inv.cases?.deal_name ?? ''} の請求 ¥${inv.amount.toLocaleString()}（入金期日 ${inv.due_date ?? '未設定'}${od ? `・${od}日超過` : ''}）が未入金です。入金済で突合できていない可能性もあるため、お客様へ入金確認のご連絡をお願いします。`,
+      })
+      if (error) throw error
+      await supabase.from('invoices').update({ overdue_notified_at: new Date().toISOString() }).eq('id', inv.id)
+      showToast(`${sales.name}さんへ未入金アラートを送信しました`, 'success')
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('アラート送信に失敗しました', 'error')
+    } finally {
+      setAlertingId(null)
+    }
   }
 
   const handleStatusChange = async (invoiceId: string, nextStatus: InvoiceStatus) => {
@@ -544,7 +583,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={HEADERS.length + 1} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
@@ -553,6 +592,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                   const st = INVOICE_STATUS_STYLES[inv.status] ?? INVOICE_STATUS_STYLES['作成済']
                   const paidAmount = getPaidAmount(inv.payments)
                   const diff = inv.amount - paidAmount
+                  const od = overdueDays(inv.due_date, inv.status, Date.now())
                   const { sales, manager } = getAssignees(inv.cases)
                   const cdot = contractDot(inv.cases?.contract_type)
                   const caseStatusLabel = getCaseStatusLabel(inv.cases?.status)
@@ -662,6 +702,31 @@ export default function BillingClient({ invoices, cases }: Props) {
                           )}
                         </div>
                       </td>
+                      {/* 入金期日 */}
+                      <td className={`px-3.5 py-2.5 text-xs font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
+                      {/* 超過日数（超過した未入金のみ。受注担当への未入金アラートボタン付き） */}
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
+                        {od == null ? (
+                          <span className="text-gray-300 text-xs">—</span>
+                        ) : (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">{od}日超過</span>
+                            {inv.overdue_notified_at ? (
+                              <span className="text-[10px] text-gray-400" title={`受注担当へ送信済: ${inv.overdue_notified_at.slice(0, 10)}`}>連絡済 {inv.overdue_notified_at.slice(5, 10)}</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleOverdueAlert(inv)}
+                                disabled={alertingId === inv.id}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50"
+                                title="受注担当へ未入金の確認連絡を通知します"
+                              >
+                                <BellRing className="w-2.5 h-2.5" strokeWidth={2.25} />受注担当へ連絡
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
                         <div>{fmt(inv.amount)}</div>
                         {inv.expenses_amount > 0 && (
@@ -737,6 +802,10 @@ export default function BillingClient({ invoices, cases }: Props) {
                   <DetailRow label="入金済額" value={fmt(selPaidAmount)} className="text-green-600" />
                   <DetailRow label="差額" value={selected.amount > 0 ? fmt(selDiff) : '—'} className={selDiff > 0 ? 'text-red-500' : ''} />
                   <DetailRow label="請求日" value={selected.issued_date || '—'} />
+                  {(() => {
+                    const sOd = overdueDays(selected.due_date, selected.status, Date.now())
+                    return <DetailRow label="入金期日" value={selected.due_date ? `${selected.due_date}${sOd ? `（${sOd}日超過）` : ''}` : '—'} className={sOd ? 'text-red-600 font-semibold' : ''} />
+                  })()}
                 </DetailSection>
                 <DetailSection title="案件情報">
                   <DetailRow label="受注担当" value={selAssignee?.name || '—'} />
@@ -769,6 +838,23 @@ export default function BillingClient({ invoices, cases }: Props) {
                     <FileText className="w-3.5 h-3.5" />
                     領収書を表示 / DL
                   </Link>
+                  {overdueDays(selected.due_date, selected.status, Date.now()) != null && (
+                    selected.overdue_notified_at ? (
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-400 border border-gray-200 rounded-lg text-center bg-gray-50">
+                        受注担当へ連絡済（{selected.overdue_notified_at.slice(0, 10)}）
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleOverdueAlert(selected)}
+                        disabled={alertingId === selected.id}
+                        className="px-3 py-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg hover:bg-amber-100 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        title="未入金の確認連絡を受注担当へ通知します"
+                      >
+                        <BellRing className="w-3.5 h-3.5" strokeWidth={2.25} />
+                        受注担当へ未入金アラート
+                      </button>
+                    )
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditInvoice(selected)}

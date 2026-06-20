@@ -457,6 +457,7 @@ export type InvoiceRow = {
   due_date: string | null
   notes: string | null
   generated_file_path: string | null  // migration 113: 公式請求書Excelのパス（documentsバケット）
+  overdue_notified_at: string | null   // migration 115: 未入金アラートを受注担当へ送信した日時
   created_at: string
   updated_at: string
   cases?: CaseRow
