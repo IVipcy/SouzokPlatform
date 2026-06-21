@@ -6,7 +6,6 @@ import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/d
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
 import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
 import BillingStatusView, { type BillingViewRow, type BillingViewSummary } from '@/components/features/dashboard/BillingStatusView'
-import ManagerTeamTable, { type ManagerTeamGroup } from '@/components/features/dashboard/ManagerTeamTable'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
@@ -28,7 +27,6 @@ import {
  */
 type CaseFull = DashCase & { case_number: string; deal_name: string; client_id: string | null; order_route: string | null; order_route_detail: string | null }
 type MemberRow = { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null; team_id: string | null }
-type TeamRow = { id: string; name: string; sort_order: number }
 type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null }
 
 const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
@@ -49,17 +47,15 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const statusFilter = statusParam && CASE_STATUSES.some(s => s.key === statusParam) ? statusParam : null
   const pstatusFilter = pstatusParam && (INVOICE_PSTATUS as readonly string[]).includes(pstatusParam) ? pstatusParam : null
 
-  const [{ data: membersRaw }, { data: caseMembersRaw }, { data: clientsRaw }, { data: teamsRaw }] = await Promise.all([
+  const [{ data: membersRaw }, { data: caseMembersRaw }, { data: clientsRaw }] = await Promise.all([
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,team_id').eq('is_active', true),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase.from('clients').select('id,name'),
-    supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
   ])
 
   const members = (membersRaw ?? []) as MemberRow[]
   const caseMembers = (caseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const clients = (clientsRaw ?? []) as Array<{ id: string; name: string }>
-  const teams = (teamsRaw ?? []) as TeamRow[]
   const memberById = new Map(members.map(m => [m.id, m]))
   const clientById = new Map(clients.map(c => [c.id, c.name]))
 
@@ -88,7 +84,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
     return qs ? `${basePath}?${qs}` : basePath
   }
 
-  const renderHeader = (kpis: Parameters<typeof ProgressKpis>[0]['metrics'], teamGroups: ManagerTeamGroup[]) => (
+  const renderHeader = (kpis: Parameters<typeof ProgressKpis>[0]['metrics']) => (
     <>
       <PageHeader
         eyebrow="Manager · Overview"
@@ -97,8 +93,6 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
         description="全チーム（全管理担当）を合算した進捗管理ボード"
       />
       <ProgressKpis scopeLabel="管理担当 全体" metrics={kpis} />
-      {/* チーム別／個人別（チーム小計付き）。メンバー切替の代わりに一覧で把握する */}
-      <ManagerTeamTable groups={teamGroups} />
       <ProgressViewTabs basePath={basePath} currentView={currentView} extraParams={{ month: selectedMonth !== ymToday ? selectedMonth : undefined, status: statusFilter ?? undefined }} />
       <MonthSelector basePath={basePath} selectedMonth={selectedMonth} today={today} extraParams={{ view: currentView !== 'progress' ? currentView : undefined, status: statusFilter ?? undefined, pstatus: pstatusFilter ?? undefined }} />
     </>
@@ -108,7 +102,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   if (scopeCaseIds.size === 0) {
     return (
       <div>
-        {renderHeader(emptyKpis, [])}
+        {renderHeader(emptyKpis)}
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">該当する案件がありません</div>
       </div>
     )
@@ -149,51 +143,6 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
     .filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
 
   const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
-
-  // === チーム別／個人別（チーム小計付き）KPI ===
-  const caseIdsByManager = new Map<string, Set<string>>()
-  for (const cm of caseMembers) {
-    if (cm.role === 'manager' && scopeMemberIds.has(cm.member_id)) {
-      if (!caseIdsByManager.has(cm.member_id)) caseIdsByManager.set(cm.member_id, new Set())
-      caseIdsByManager.get(cm.member_id)!.add(cm.case_id)
-    }
-  }
-  const kpisForCaseIds = (ids: Set<string>) => computeProgressKpis(
-    cases.filter(c => ids.has(c.id)),
-    tasks.filter(t => ids.has(t.case_id)),
-    selectedMonthForKpis,
-    today,
-    invoices.filter(i => ids.has(i.case_id)),
-  )
-  const teamSortOrder = new Map(teams.map(t => [t.id, t.sort_order]))
-  const teamNameById = new Map(teams.map(t => [t.id, t.name]))
-  const byTeam: Record<string, MemberRow[]> = {}
-  for (const m of managers) {
-    const key = m.team_id ?? '__unassigned__'
-    if (!byTeam[key]) byTeam[key] = []
-    byTeam[key].push(m)
-  }
-  const groupKeys = Object.keys(byTeam).sort((a, b) => {
-    if (a === '__unassigned__') return 1
-    if (b === '__unassigned__') return -1
-    return (teamSortOrder.get(a) ?? 999) - (teamSortOrder.get(b) ?? 999)
-  })
-  const teamGroups: ManagerTeamGroup[] = groupKeys.map(key => {
-    const mem = byTeam[key]
-    const teamIds = new Set<string>()
-    for (const m of mem) for (const id of (caseIdsByManager.get(m.id) ?? [])) teamIds.add(id)
-    return {
-      teamName: key === '__unassigned__' ? '未所属' : (teamNameById.get(key) ?? '不明'),
-      teamKpis: kpisForCaseIds(teamIds),
-      members: [...mem].sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(m => ({
-        id: m.id,
-        name: m.name,
-        avatarUrl: m.avatar_url,
-        jobType: null,
-        kpis: kpisForCaseIds(caseIdsByManager.get(m.id) ?? new Set<string>()),
-      })),
-    }
-  })
 
   // 案件→管理担当 / 受注担当
   const managerByCase = new Map<string, MemberRow>()
@@ -307,7 +256,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   return (
     <div>
-      {renderHeader(kpis, teamGroups)}
+      {renderHeader(kpis)}
 
       {currentView === 'progress' ? (
         <>
