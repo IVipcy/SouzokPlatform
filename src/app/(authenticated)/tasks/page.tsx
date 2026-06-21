@@ -14,7 +14,7 @@ export default async function TasksPage() {
       .order('sort_order'),
     supabase
       .from('cases')
-      .select('id, case_number, deal_name, case_members(role, members(*))'),
+      .select('id, case_number, deal_name, status, service_category, service_category_2, expected_completion_date, case_members(role, members(*))'),
     supabase
       .from('members')
       .select('*')
@@ -22,21 +22,43 @@ export default async function TasksPage() {
       .order('name'),
   ])
 
-  // Build caseMap with case_number, deal_name, and case member info (sales, manager)
+  // Build caseMap with case info and member info (sales, manager)
+  type RawMember = { id: string; name: string; avatar_color: string; avatar_url: string | null }
+  type RawCaseRow = {
+    id: string
+    case_number: string
+    deal_name: string
+    status: string
+    service_category: string | null
+    service_category_2: string | null
+    expected_completion_date: string | null
+    case_members?: { role: string; members: RawMember | null }[] | null
+  }
+  type CaseMemberInfo = RawMember
   const caseMap: Record<string, {
     case_number: string
     deal_name: string
-    sales?: { id: string; name: string; avatar_color: string }
-    manager?: { id: string; name: string; avatar_color: string }
+    status: string
+    service_category: string | null
+    service_category_2: string | null
+    expected_completion_date: string | null
+    sales?: CaseMemberInfo
+    manager?: CaseMemberInfo
   }> = {}
-  casesResult.data?.forEach(c => {
-    const salesMember = (c as any).case_members?.find((cm: any) => cm.role === 'sales')?.members
-    const managerMember = (c as any).case_members?.find((cm: any) => cm.role === 'manager')?.members
+  const toMemberInfo = (m: RawMember | null | undefined): CaseMemberInfo | undefined =>
+    m ? { id: m.id, name: m.name, avatar_color: m.avatar_color, avatar_url: m.avatar_url ?? null } : undefined
+  ;((casesResult.data ?? []) as unknown as RawCaseRow[]).forEach(c => {
+    const salesMember = c.case_members?.find(cm => cm.role === 'sales')?.members
+    const managerMember = c.case_members?.find(cm => cm.role === 'manager')?.members
     caseMap[c.id] = {
       case_number: c.case_number,
       deal_name: c.deal_name,
-      sales: salesMember ? { id: salesMember.id, name: salesMember.name, avatar_color: salesMember.avatar_color } : undefined,
-      manager: managerMember ? { id: managerMember.id, name: managerMember.name, avatar_color: managerMember.avatar_color } : undefined,
+      status: c.status,
+      service_category: c.service_category ?? null,
+      service_category_2: c.service_category_2 ?? null,
+      expected_completion_date: c.expected_completion_date ?? null,
+      sales: toMemberInfo(salesMember),
+      manager: toMemberInfo(managerMember),
     }
   })
 

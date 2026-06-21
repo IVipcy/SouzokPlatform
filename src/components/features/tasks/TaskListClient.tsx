@@ -8,6 +8,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
+import CaseStatusBoard from './CaseStatusBoard'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -15,10 +16,14 @@ import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
 
-type CaseMemberInfo = { id: string; name: string; avatar_color: string }
-type CaseInfo = {
+type CaseMemberInfo = { id: string; name: string; avatar_color: string; avatar_url: string | null }
+export type CaseInfo = {
   case_number: string
   deal_name: string
+  status: string
+  service_category: string | null
+  service_category_2: string | null
+  expected_completion_date: string | null
   sales?: CaseMemberInfo
   manager?: CaseMemberInfo
 }
@@ -48,6 +53,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [filterUrgent, setFilterUrgent] = useState(false)
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
+  const [viewTab, setViewTab] = useState<'tasks' | 'cases'>('tasks')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
@@ -279,6 +285,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           }
         />
 
+        {/* サブタブ: タスク一覧 / 案件状況ボード */}
+        <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
+          <SubTabBtn active={viewTab === 'tasks'} onClick={() => setViewTab('tasks')} label="タスク一覧" />
+          <SubTabBtn active={viewTab === 'cases'} onClick={() => setViewTab('cases')} label="案件状況" />
+        </div>
+
+        {viewTab === 'tasks' && (<>
         {/* Quick filters: 自分のタスク / 要対応 */}
         <div className="flex gap-2 mb-3 items-center">
           <button
@@ -348,8 +361,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             </div>
           </div>
         </div>
+        </>)}
       </div>
 
+      {viewTab === 'cases' ? (
+        <CaseStatusBoard tasks={tasks} caseMap={caseMap} currentMemberId={currentMemberId} />
+      ) : (
+      <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
       {selectedIds.size > 0 && viewMode === 'list' && (
         <BulkActionBar
@@ -386,6 +404,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           onDelete={setDeleteTask}
           today={today}
         />
+      )}
+      </>
       )}
 
       {editTask && (
@@ -861,6 +881,18 @@ function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDe
 }
 
 // ─── Sub components ───
+function SubTabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+    >
+      {label}
+    </button>
+  )
+}
+
 function FilterTab({ label, active, onClick, count, accent }: { label: string; active: boolean; onClick: () => void; count?: number; accent?: 'danger' }) {
   const activeCls = accent === 'danger'
     ? 'bg-red-600 text-white font-semibold shadow-sm'
