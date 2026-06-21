@@ -183,9 +183,25 @@ export function tasksFor(category: string, gyomu: string): ServiceRow[] {
   return SERVICE_ROWS.filter(r => r.category === category && r.gyomu === gyomu)
 }
 
-// 作業の性質（kind未指定は 'task' 既定）。
-export function kindOf(row: Pick<ServiceRow, 'kind'>): ServiceKind {
-  return row.kind ?? 'task'
+// 請求・受領(doc)が初期値の作業名（受注区分をまたいで共通。行の明示 kind を優先）。
+// 「請求して文書を受け取る」もの＝請求・受領。家裁系の受領書類は行に kind:'doc' を直書きしているため不要。
+const DOC_TASK_NAMES = new Set<string>([
+  '戸籍収集（請求・取得）', '追加戸籍請求',
+  '法定相続情報一覧図の申出・取得',
+  '名寄帳請求', '登記事項証明の取得', '固定資産評価証明の取得', '査定・鑑定の依頼',
+  '全店調査', '残高証明取得', '取引履歴取得', '証券保管振替機構照会', '保険照会', '年金照会', '負債調査',
+])
+// デフォルト非表示（必要なときに「作業を追加」で選んで足す）の作業名。発生頻度が低い／条件付き。
+const OPTIONAL_TASK_NAMES = new Set<string>([
+  '追加戸籍請求', '査定・鑑定の依頼', '不動産売却サポート',
+  '証券保管振替機構照会', '保険照会', '年金照会', '負債調査', '取引履歴取得',
+  '証券の移管・売却', '投資信託の解約', '自動車名義変更', '保険金請求手続き',
+])
+export function isOptionalTask(task: string): boolean { return OPTIONAL_TASK_NAMES.has(task) }
+
+// 作業の性質（明示 kind → 作業名による既定 → task）。
+export function kindOf(row: Pick<ServiceRow, 'kind' | 'task'>): ServiceKind {
+  return row.kind ?? (DOC_TASK_NAMES.has(row.task) ? 'doc' : 'task')
 }
 // 資料（受領管理）の行だけ抽出。
 export function docRowsFor(category: string, gyomu: string): ServiceRow[] {
@@ -221,7 +237,10 @@ export function tasksForCategories(categories: string[], gyomu: string): Service
  *  kind（資料/タスク）の初期値もマスタから載せる（オーダーシートで上書き可）。 */
 export function seedRolesForCategories(categories: string[]): { gyomu: string; sagyou: string; owner: string; note: string; kind: ServiceKind }[] {
   return gyomuForCategories(categories).flatMap(g =>
-    tasksForCategories(categories, g).map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) })),
+    // 発生頻度の低い optional 作業は初期表示しない（必要なときに「作業を追加」で足す）
+    tasksForCategories(categories, g)
+      .filter(t => !isOptionalTask(t.task))
+      .map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) })),
   )
 }
 /** 区分×業務×作業名 から kind（資料/タスク）の初期値を引く。未知の作業は task。 */

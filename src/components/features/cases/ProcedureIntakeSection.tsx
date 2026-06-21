@@ -5,7 +5,7 @@ import { Trash2, Plus, Check, ArrowDownToLine } from 'lucide-react'
 import { Section, SectionHeading } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories, kindForTask, type ServiceKind } from '@/lib/serviceMaster'
+import { REFERRAL_ONLY_CATEGORY, categoriesOf, gyomuForCategories, tasksForCategories, kindForTask, isOptionalTask, type ServiceKind } from '@/lib/serviceMaster'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import ClientDocsReflectModal from './ClientDocsReflectModal'
 import type { CaseRow, ContractDocumentRow } from '@/types'
@@ -144,12 +144,14 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
 // ─── ② 役割分担エディタ（業務→作業。再利用可能） ───
 // 業務をチップで選ぶ → その業務の定型作業が展開され、各作業を 自社/依頼者/不要 で分担。
 // 作業は定型＋任意追加。同じデータ（intake_roles）を面談フォーム・各タブ・OSで共有。
-export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, presetFor, kindFor }: {
+export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, presetFor, addableFor, kindFor }: {
   roles: RoleRow[]
   onSave: (next: RoleRow[]) => void
   // 受注区分マスタ駆動で業務候補・作業プリセットを差し替えるための任意引数
   gyomuOptions?: readonly string[]
   presetFor?: (gyomu: string) => string[]
+  // 「作業を追加」で選べる、その業務の全マスタ作業（optional含む・未追加分を出す）
+  addableFor?: (gyomu: string) => { task: string; kind: ServiceKind }[]
   // 作業の種別（資料/タスク）の初期値をマスタから引く。未指定なら全て task 扱い。
   kindFor?: (gyomu: string, sagyou: string) => ServiceKind
 }) {
@@ -244,9 +246,29 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                   </tbody>
                 </table>
               </div>
-              <button type="button" onClick={() => onSave([...roles, { gyomu: g, sagyou: '', owner: '自社', note: '' }])} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-                <Plus className="w-3.5 h-3.5" /> 作業を追加
-              </button>
+              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                {(() => {
+                  const added = new Set(rowsWithIdx.map(x => x.r.sagyou))
+                  const addable = (addableFor ? addableFor(g) : []).filter(t => t.task && !added.has(t.task))
+                  return addable.length > 0 ? (
+                    <select
+                      value=""
+                      onChange={e => {
+                        const t = addable.find(x => x.task === e.target.value)
+                        if (t) onSave([...roles, { gyomu: g, sagyou: t.task, owner: '自社', note: '', kind: t.kind }])
+                      }}
+                      className="px-2 py-1 text-[12px] border border-gray-200 rounded-md bg-white outline-none focus:border-brand-500 font-semibold text-brand-700"
+                      title="この業務の作業から選んで追加（任意作業を含む）"
+                    >
+                      <option value="">＋ 作業を選んで追加</option>
+                      {addable.map(t => <option key={t.task} value={t.task}>{t.task}{isOptionalTask(t.task) ? '（任意）' : ''}</option>)}
+                    </select>
+                  ) : null
+                })()}
+                <button type="button" onClick={() => onSave([...roles, { gyomu: g, sagyou: '', owner: '自社', note: '' }])} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+                  <Plus className="w-3.5 h-3.5" /> 自由入力で追加
+                </button>
+              </div>
             </div>
           )
         })
@@ -308,7 +330,8 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
             roles={roles}
             onSave={saveRoles}
             gyomuOptions={cats.length ? gyomuForCategories(cats) : undefined}
-            presetFor={cats.length ? (g => tasksForCategories(cats, g).map(t => t.task)) : undefined}
+            presetFor={cats.length ? (g => tasksForCategories(cats, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)) : undefined}
+            addableFor={cats.length ? (g => tasksForCategories(cats, g).map(t => ({ task: t.task, kind: kindForTask(cats, g, t.task) }))) : undefined}
             kindFor={cats.length ? ((g, s) => kindForTask(cats, g, s)) : undefined}
           />
           {candidates.length > 0 && (

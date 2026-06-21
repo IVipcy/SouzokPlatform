@@ -5,7 +5,7 @@ import { Section, FieldGrid, InlineEdit, InlineSelect } from '@/components/ui/In
 import { CONTRACT_TYPES } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
-  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask,
+  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
 } from '@/lib/serviceMaster'
 import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow } from '@/types'
@@ -80,7 +80,8 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
               roles={roles}
               onSave={saveRoles}
               gyomuOptions={gyomuForCategories(cats)}
-              presetFor={g => tasksForCategories(cats, g).map(t => t.task)}
+              presetFor={g => tasksForCategories(cats, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
+              addableFor={g => tasksForCategories(cats, g).map(t => ({ task: t.task, kind: kindForTask(cats, g, t.task) }))}
               kindFor={(g, s) => kindForTask(cats, g, s)}
             />
           </>
