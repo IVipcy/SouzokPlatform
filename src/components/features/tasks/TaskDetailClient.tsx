@@ -486,13 +486,25 @@ function TaskWorkSection({
       {/* セクションヘッダー */}
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         <span className="text-base">📝</span>
-        <h2 className="text-[14px] font-bold text-gray-900">このタスクの実施結果・メモ</h2>
+        <h2 className="text-[14px] font-bold text-gray-900">このタスクの作業内容</h2>
       </div>
 
       <div className="px-4 py-3 divide-y divide-gray-100">
-        {/* 実施結果・引継ぎ事項 (システムタスクでは非表示)。作業内容(procedure_text)欄は廃止。 */}
+        {/* 1. 作業内容（テンプレートの手順。初期値入り・上書き可） */}
+        <div className="pb-3">
+          <InlineTextarea
+            label="作業内容"
+            value={task.procedure_text ?? ''}
+            onSave={v => saveField('procedure_text', v)}
+          />
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            タスクテンプレートの内容が初期値で入っています。このタスク用に上書きできます。
+          </div>
+        </div>
+
+        {/* 2. 実施結果・引継ぎ事項 (システムタスクでは非表示) */}
         {task.task_kind !== 'system' && (
-          <div className="pb-3">
+          <div className="py-3">
             <InlineTextarea
               label="実施結果・引継ぎ事項"
               value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
