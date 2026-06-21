@@ -6,6 +6,7 @@ import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lu
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
+import { toKatakana } from '@/lib/kana'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
@@ -189,6 +190,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
     if (selectedCase.id !== 'new') {
       init.clients[0] = { ...init.clients[0], name: selectedCase.client, phone: selectedCase.phone }
+      // 連携①（相続ステーション）で事前登録された面談ルート・紹介元を引き継ぐ
+      if (selectedCase.orderRoute) init.orderRoute = selectedCase.orderRoute
+      if (selectedCase.orderRouteDetail) init.orderRouteDetail = selectedCase.orderRouteDetail
     }
     return init
   })
@@ -257,6 +261,10 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       const clientPayload = {
         name: mainName || '無題',
         furigana: mainClient?.kana || null,
+        // 振込名義人カナ＝入金CSV突合キー。明示入力が無ければ依頼者ふりがな（本人振込前提）を採用。
+        transfer_name_kana: formData.transferNameKana.trim()
+          ? toKatakana(formData.transferNameKana)
+          : (mainClient?.kana ? toKatakana(mainClient.kana) : null),
         phone: mainClient?.phone || null,
         email: mainClient?.email || null,
         relationship_to_deceased: mainClient?.relationship || null,
@@ -559,6 +567,17 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
             <Card label="郵便番号"><Input value={data.postalCode} onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))} placeholder="4600008" /></Card>
             <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
+            {/* 振込名義人（カナ）＝入金CSV突合キー。本人振込なら依頼者ふりがなを流用 */}
+            <Card label="振込名義人（カナ）">
+              <Input value={data.transferNameKana} onChange={v => update('transferNameKana', v)} placeholder="ヤマダ タロウ（カタカナ）／入金CSV突合に使用" />
+              {(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana && (
+                <button
+                  type="button"
+                  onClick={() => update('transferNameKana', toKatakana((data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana ?? ''))}
+                  className="mt-1.5 text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
+                >依頼者と同じ</button>
+              )}
+            </Card>
 
             {/* 郵送・書類設定 */}
             <Card label="顧客郵送先"><Pills value={data.mailingDestination} options={[...MAILING_DESTINATIONS]} onChange={v => update('mailingDestination', v as string)} /></Card>

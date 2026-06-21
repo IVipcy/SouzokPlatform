@@ -34,6 +34,7 @@ export type FormData = {
   // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
   postalCode: string          // メイン依頼者 郵便番号
   address: string             // メイン依頼者 住所
+  transferNameKana: string    // 振込名義人カナ（入金CSV突合キー。本人振込なら依頼者ふりがな）
   mailingDestination: string  // 顧客郵送先（依頼者住所 / その他）
   mailingAddressOther: string // 郵送先住所（その他）
   clientTrait: string         // 依頼者特徴（smile / neutral / angry）
@@ -74,6 +75,7 @@ export const INITIAL_DATA: FormData = {
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
   postalCode: '',
   address: '',
+  transferNameKana: '',
   mailingDestination: '',
   mailingAddressOther: '',
   clientTrait: '',
