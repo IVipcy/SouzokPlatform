@@ -12,6 +12,7 @@ import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
+import AddTaskButton from './AddTaskButton'
 import { SubTabs } from '@/components/ui/SubTabs'
 import {
   Section,
@@ -210,6 +211,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
         <h3 className="text-[13px] font-semibold text-gray-900">相続人・戸籍の調査</h3>
         <span className="text-[12px] text-gray-400">被相続人・相続人の確定と、戸籍請求の管理</span>
+        {!orderSheetMode && <span className="ml-auto"><AddTaskButton caseId={caseData.id} defaultPhase="phase1" /></span>}
       </div>
 
       {/* 子タブ（相続人 / 戸籍請求） */}

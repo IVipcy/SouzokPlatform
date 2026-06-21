@@ -13,6 +13,8 @@ type Props = {
   caseId: string
   allMembers: MemberRow[]
   onSaved: () => void
+  /** 調査タブ等から開く際の初期フェーズ（例: 相続人調査=phase1 / 財産調査=phase2） */
+  defaultPhase?: string
 }
 
 const PRIORITIES = [
@@ -20,10 +22,10 @@ const PRIORITIES = [
   { key: '急ぎ', label: '急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
 ] as const
 
-export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved }: Props) {
+export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved, defaultPhase }: Props) {
   const [form, setForm] = useState({
     title: '',
-    phase: 'phase1' as string,
+    phase: (defaultPhase ?? 'phase1') as string,
     dueDate: '',
     priority: '通常' as string,
   })
@@ -61,7 +63,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
     }
 
     setSaving(false)
-    setForm({ title: '', phase: 'phase1', dueDate: '', priority: '通常' })
+    setForm({ title: '', phase: (defaultPhase ?? 'phase1'), dueDate: '', priority: '通常' })
     onSaved()
     onClose()
   }
