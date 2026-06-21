@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ClipboardCheck, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react'
+import { ClipboardCheck, ArrowRight, ChevronDown, ChevronRight, Rocket } from 'lucide-react'
 import type { TaskRow } from '@/types'
+import AddTaskButton from './AddTaskButton'
 
 // TasksTab と同じ正規化（未着手→着手前、Wチェック待ち/保留→対応中、キャンセル→完了）
 const normalizeStatus = (status: string) => {
@@ -24,7 +25,7 @@ function execResult(t: TaskRow): string {
  * - 次やること = 未完了タスクのうち先頭（対応中→着手前の順）。
  * 翌日の作業者が「今どこまで進み、次に何をするか」を一目で把握できるようにする。
  */
-export default function CaseCurrentStatusCard({ tasks }: { tasks: TaskRow[] }) {
+export default function CaseCurrentStatusCard({ tasks, caseId, status }: { tasks: TaskRow[]; caseId: string; status: string }) {
   const [open, setOpen] = useState(false)
 
   // 実施結果が入っているタスクのうち、完了日（無ければ更新日）が最新のもの
@@ -39,7 +40,10 @@ export default function CaseCurrentStatusCard({ tasks }: { tasks: TaskRow[] }) {
   const rank = (t: TaskRow) => (normalizeStatus(t.status) === '対応中' ? 0 : 1)
   const next = pending.sort((a, b) => rank(a) - rank(b) || (a.sort_order ?? 999) - (b.sort_order ?? 999))[0] ?? null
 
-  if (!latest && !next) return null
+  // 対応中なのに次にやるタスクが無い＝着手ナビを出す（タスク未作成 or 全部完了で次が無い）
+  const needsKickoff = status === '対応中' && !next
+
+  if (!latest && !next && !needsKickoff) return null
 
   const long = result.length > 80
 
@@ -78,6 +82,22 @@ export default function CaseCurrentStatusCard({ tasks }: { tasks: TaskRow[] }) {
           <span className="font-semibold text-gray-600">次やること</span>
           <Link href={`/tasks/${next.id}`} className="text-brand-700 hover:underline font-medium truncate">{next.title}</Link>
           <span className={`ml-1 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${normalizeStatus(next.status) === '対応中' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{normalizeStatus(next.status)}</span>
+        </div>
+      )}
+
+      {/* 着手ナビ（対応中なのに次のタスクが無い）。確認すべき場所を案内してその場でタスク作成 */}
+      {needsKickoff && (
+        <div className="pt-2 mt-1.5 border-t border-brand-100">
+          <div className="flex items-center gap-1 text-[12px] font-semibold text-amber-700 mb-1.5">
+            <Rocket className="w-3.5 h-3.5" strokeWidth={2.25} />
+            {latest ? '前回タスクが完了し、次のタスクが未定です。' : '対応中になりました。まだタスクがありません。'}下記を確認して着手しましょう。
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+            <Link href={`/cases/${caseId}?tab=orderSheet`} className="inline-flex items-center px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-brand-700">① 受注内容（オーダーシート）を確認</Link>
+            <span className="inline-flex items-center px-2 py-1 rounded border border-gray-200 bg-white text-gray-600">② 契約時受領資料を確認（下に表示）</span>
+            {latest && <span className="inline-flex items-center px-2 py-1 rounded border border-gray-200 bg-white text-gray-600">③ 前回の実施結果を確認（上）</span>}
+            <AddTaskButton caseId={caseId} label="タスクを作成" />
+          </div>
         </div>
       )}
     </div>

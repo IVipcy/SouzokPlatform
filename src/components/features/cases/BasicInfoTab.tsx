@@ -12,9 +12,11 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
-import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
+import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
+import { useRouter } from 'next/navigation'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import CaseCurrentStatusCard from './CaseCurrentStatusCard'
+import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
 
 type Props = {
@@ -25,6 +27,8 @@ type Props = {
   currentMemberId: string | null
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   documentReceipts?: TimelineReceipt[]
+  // 契約時にお客様から受領した資料（案件進捗で一覧表示）
+  contractDocuments?: ContractDocumentRow[]
   // 管理担当アサイン済か（対応中ガード用）
   managerAssigned?: boolean
   // 契約残手続き（契約書類受信）完了か（対応中ガード用）
@@ -37,7 +41,8 @@ type Props = {
 
 const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
+  const router = useRouter()
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -105,8 +110,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         </div>
       </Section>
 
-          {/* 現在の状況・次やること（最新の実施結果＋次タスク）。翌日の作業者向け */}
-          <CaseCurrentStatusCard tasks={tasks} />
+          {/* 現在の状況・次やること（最新の実施結果＋次タスク＋着手ナビ）。翌日の作業者向け */}
+          <CaseCurrentStatusCard tasks={tasks} caseId={caseData.id} status={caseData.status} />
 
           {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
           <CaseTimeline
@@ -117,6 +122,18 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
             variant="detail"
             embedded
           />
+
+          {/* 契約時にお客様から受け取った資料の一覧（戸籍/財産/不動産で散在するものを集約）。添付の確認も */}
+          {contractDocuments.filter(d => d.status !== '不要').length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-block w-[3px] h-4 bg-emerald-600 rounded-full" />
+                <h3 className="text-[13px] font-semibold text-gray-900">契約時に事前に受け取った資料</h3>
+                <span className="text-[12px] text-gray-400">タスクを考える前にここで確認</span>
+              </div>
+              <ContractReceivedBlock docs={contractDocuments} caseId={caseData.id} onRefresh={() => router.refresh()} />
+            </div>
+          )}
         </div>
       )}
 
