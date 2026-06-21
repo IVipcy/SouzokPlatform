@@ -17,6 +17,7 @@ export type InvoiceLite = {
   // 振込名義人（依頼者セクションで登録。カナ）。突合のマスターキー。
   payer_kana: string | null
   sales_member_id: string | null
+  manager_member_id: string | null
 }
 
 export type MatchResult = {

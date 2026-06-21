@@ -196,7 +196,9 @@ export default function NotificationBell({ collapsed = false }: { collapsed?: bo
                   const href = n.task_id
                     ? `/tasks/${n.task_id}`
                     : n.case_id
-                      ? (n.type === 'doc_received' ? `/cases/${n.case_id}?tab=docs` : `/cases/${n.case_id}`)
+                      ? (n.type === 'doc_received' ? `/cases/${n.case_id}?tab=docs`
+                        : n.type === 'payment_confirmed' ? `/billing?case=${n.case_id}`
+                        : `/cases/${n.case_id}`)
                       : null
                   const body = (
                     <div className={`flex items-start gap-2 px-3 py-2.5 ${n.is_read ? '' : 'bg-amber-50/50'}`}>

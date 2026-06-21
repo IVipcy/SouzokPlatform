@@ -53,12 +53,16 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, furigana), case_clients(furigana, priority, sort_order))')
         .neq('status', '入金済')
       const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
-      // 受注担当（通知先）を案件ごとに取得
+      // 受注担当・管理担当（通知先）を案件ごとに取得
       const caseIds = [...new Set(rawInv.map(i => i.case_id))]
       const salesByCase = new Map<string, string>()
+      const managerByCase = new Map<string, string>()
       if (caseIds.length > 0) {
-        const { data: cms } = await supabase.from('case_members').select('case_id, member_id').eq('role', 'sales').in('case_id', caseIds)
-        for (const m of (cms ?? []) as Array<{ case_id: string; member_id: string }>) if (!salesByCase.has(m.case_id)) salesByCase.set(m.case_id, m.member_id)
+        const { data: cms } = await supabase.from('case_members').select('case_id, member_id, role').in('role', ['sales', 'manager']).in('case_id', caseIds)
+        for (const m of (cms ?? []) as Array<{ case_id: string; member_id: string; role: string }>) {
+          const map = m.role === 'manager' ? managerByCase : salesByCase
+          if (!map.has(m.case_id)) map.set(m.case_id, m.member_id)
+        }
       }
       const lite: InvoiceLite[] = rawInv.map(i => ({
         id: i.id, case_id: i.case_id, amount: i.amount, status: i.status,
@@ -70,6 +74,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
           || ((i.cases?.case_clients ?? []).find(c => c.priority === 'main') ?? (i.cases?.case_clients ?? [])[0])?.furigana
           || null,
         sales_member_id: salesByCase.get(i.case_id) ?? null,
+        manager_member_id: managerByCase.get(i.case_id) ?? null,
       }))
       const res = matchBankRows(rows, lite)
       setResults(res)
@@ -114,20 +119,25 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       await supabase.from('invoices').update({ status }).eq('id', invId)
       // 入金確定したら、開いている入金状況確認依頼を自動でクローズ
       if (status === '入金済') { await autoClosePaymentChecks(invId); await ensureReceiptTask(invId) }
-      // 受注担当へ入金確定通知
-      if (inv?.sales_member_id) {
-        await supabase.from('notifications').insert({
-          member_id: inv.sales_member_id,
-          type: 'payment_confirmed',
-          case_id: inv.case_id,
-          title: '入金確定',
-          body: `${inv.case_number} ${inv.deal_name} の入金（¥${r.row.amount.toLocaleString()}）が確定しました。前受金請求の入金確認タスクを完了にしてください。`,
-        })
+      // 受注担当・管理担当へ入金確定通知（同一人物なら1件）。クリックで請求タブの該当案件へ。
+      if (inv) {
+        const recipients = new Set<string>()
+        if (inv.sales_member_id) recipients.add(inv.sales_member_id)
+        if (inv.manager_member_id) recipients.add(inv.manager_member_id)
+        if (recipients.size > 0) {
+          await supabase.from('notifications').insert([...recipients].map(mid => ({
+            member_id: mid,
+            type: 'payment_confirmed',
+            case_id: inv.case_id,
+            title: '入金確定',
+            body: `${inv.case_number} ${inv.deal_name} の入金（¥${r.row.amount.toLocaleString()}）が入金済になりました。請求タブで確認してください。`,
+          })))
+        }
       }
       done++
     }
     setSaving(false)
-    showToast(done > 0 ? `${done}件の入金を確定し、受注担当へ通知しました` : '確定対象がありません', done > 0 ? 'success' : 'error')
+    showToast(done > 0 ? `${done}件の入金を確定し、受注担当・管理担当へ通知しました` : '確定対象がありません', done > 0 ? 'success' : 'error')
     if (done > 0) { onSaved(); reset(); onClose() }
   }
 
@@ -221,7 +231,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-gray-400">AI確定＝自動で一致。要確認＝突合先を選んでチェック。確定すると入金記録＋受注担当へ入金確定通知が飛びます（タスク完了は人手）。</p>
+            <p className="text-[11px] text-gray-400">AI確定＝自動で一致。要確認＝突合先を選んでチェック。確定すると入金記録＋受注担当・管理担当へ入金確定通知が飛びます（タスク完了は人手）。</p>
           </>
         )}
       </div>
