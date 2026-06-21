@@ -14,6 +14,7 @@ import { getPhaseLabel } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow } from '@/types'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
+import CaseCurrentStatusCard from './CaseCurrentStatusCard'
 import HistoryTab from './HistoryTab'
 
 type Props = {
@@ -103,6 +104,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           </div>
         </div>
       </Section>
+
+          {/* 現在の状況・次やること（最新の実施結果＋次タスク）。翌日の作業者向け */}
+          <CaseCurrentStatusCard tasks={tasks} />
 
           {/* 作業の進捗（タスク・書類の線表）。フラット埋め込み */}
           <CaseTimeline

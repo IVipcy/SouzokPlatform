@@ -130,36 +130,8 @@ export default function TaskDependencyEditor({ isOpen, onClose, task, caseTasks,
             )}
           </div>
 
-          {/* 次のタスク（このタスクの後のタスク） */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-500 mb-2">次のタスク（このタスクの後）</h4>
-            {outgoing.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">なし</p>
-            ) : (
-              <div className="space-y-1.5">
-                {outgoing.map(dep => {
-                  const toTask = dep.to_task
-                  return (
-                    <div key={dep.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-xs font-medium text-gray-700 flex-1 truncate">
-                        {toTask?.title ?? '不明なタスク'}
-                      </span>
-                      <span className="text-[12px] text-gray-400 flex-shrink-0">
-                        {dep.label ?? dep.condition_type}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(dep.id)}
-                        className="text-red-400 hover:text-red-600 text-xs flex-shrink-0"
-                        title="削除"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          {/* 次のタスクの紐付けは廃止（前作業の引継ぎは「前提条件＝前のタスク」のみで管理）。
+              後続は各タスクが自分の前提を設定すれば自動的に逆方向の関係として表現される。 */}
 
           <button
             onClick={() => setMode('add')}

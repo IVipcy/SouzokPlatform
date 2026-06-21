@@ -335,6 +335,8 @@ function TaskLane({ title, tasks, todayYmd, sepCls }: { title: string; tasks: Ta
 // ───────── タスクノード（ドット中央・中央下にタスク名/日付/担当/超過） ─────────
 function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd: string; isFirst: boolean; isLast: boolean }) {
   const state = classifyTask(task, todayYmd)
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  const hasResult = typeof ext.execution_result === 'string' && ext.execution_result.trim() !== ''
   const started = ymd(task.started_at)
   const completed = ymd(task.completed_at)
   const assignee = taskAssignee(task)
@@ -361,9 +363,10 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
         <Link
           href={`/tasks/${task.id}`}
           className={`block text-[12px] leading-[16px] line-clamp-2 h-8 hover:underline ${titleCls(state)}`}
-          title={`「${task.title}」を開く`}
+          title={hasResult ? `「${task.title}」を開く（実施結果あり）` : `「${task.title}」を開く`}
         >
           {task.title}
+          {hasResult && <span className="ml-0.5" title="実施結果あり">📝</span>}
         </Link>
         <div className="mt-1.5">
           <div className="h-[15px] leading-[15px] text-[11px] text-gray-400 truncate">{dateText}</div>
