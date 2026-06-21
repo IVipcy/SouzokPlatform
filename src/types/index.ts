@@ -476,6 +476,7 @@ export type PaymentRow = {
   notes: string | null
   matched_by: string | null   // migration 112: 'ai'（CSV自動突合）/ 'human'
   match_note: string | null
+  is_refund: boolean          // migration 122: 返金行（amountはマイナス）
   created_at: string
 }
 

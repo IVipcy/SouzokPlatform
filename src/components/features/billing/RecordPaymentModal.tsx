@@ -47,6 +47,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
       amount: paymentAmount,
       payment_date: form.payment_date,
       payment_method: '銀行振込',  // 入金は基本すべて銀行振込（手動消込の入金方法は固定）
+      is_refund: false,
       notes: form.notes || null,
     })
 

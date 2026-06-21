@@ -9,6 +9,7 @@ import Link from 'next/link'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import EditInvoiceModal from './EditInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
+import RefundModal from './RefundModal'
 import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
@@ -60,6 +61,12 @@ function fmt(n: number) {
 function getPaidAmount(payments: PaymentRow[] | null | undefined): number {
   if (!payments || payments.length === 0) return 0
   return payments.reduce((sum, p) => sum + p.amount, 0)
+}
+
+// 返金合計（正の額）。is_refund 行の amount はマイナスなので符号反転して合算。
+function getRefundTotal(payments: PaymentRow[] | null | undefined): number {
+  if (!payments || payments.length === 0) return 0
+  return payments.filter(p => p.is_refund).reduce((sum, p) => sum - p.amount, 0)
 }
 
 // 入金期日からの超過日数。未入金（入金済/未請求以外）かつ期日を過ぎた場合のみ正の値、それ以外は null。
@@ -133,7 +140,7 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
+    caseNo: 140, case: 180, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
@@ -151,6 +158,7 @@ export default function BillingClient({ invoices, cases }: Props) {
     { key: 'advance', label: '前受金', align: 'right' },
     { key: 'expenses', label: '実費', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
+    { key: 'refund', label: '返金額', align: 'right' },
     { key: 'diff', label: '差額', align: 'right' },
     { key: 'invoiceDate', label: '請求日' },
     { key: 'pdf', label: '請求書' },
@@ -164,6 +172,7 @@ export default function BillingClient({ invoices, cases }: Props) {
   const [csvOpen, setCsvOpen] = useState(false)
   const [editInvoice, setEditInvoice] = useState<InvoiceWithRelations | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceWithRelations | null>(null)
+  const [refundInvoice, setRefundInvoice] = useState<InvoiceWithRelations | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceWithRelations | null>(null)
 
   // 一覧で選択中の「未請求」行（請求書発行ボタンで使う）
@@ -642,6 +651,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                 filtered.map(inv => {
                   const st = INVOICE_STATUS_STYLES[inv.status] ?? INVOICE_STATUS_STYLES['作成済']
                   const paidAmount = getPaidAmount(inv.payments)
+                  const refundTotal = getRefundTotal(inv.payments)
                   const diff = inv.amount - paidAmount
                   const od = overdueDays(inv.due_date, inv.status, Date.now())
                   const { sales, manager } = getAssignees(inv.cases)
@@ -759,6 +769,11 @@ export default function BillingClient({ invoices, cases }: Props) {
                           {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
                           )}
+                          {refundTotal > 0 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title={`返金 ¥${refundTotal.toLocaleString()}`}>
+                              {paidAmount <= 0 ? '全額返金' : '一部返金'}
+                            </span>
+                          )}
                         </div>
                       </td>
                       {/* 入金期日 */}
@@ -797,6 +812,10 @@ export default function BillingClient({ invoices, cases }: Props) {
                       {/* 実費（立替実費） */}
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono text-gray-700">{fmt(inv.expenses_amount || 0)}</td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono text-green-600">{fmt(paidAmount)}</td>
+                      {/* 返金額 */}
+                      <td className="px-3.5 py-2.5 text-right text-xs font-mono">
+                        {refundTotal > 0 ? <span className="text-rose-600">−{fmt(refundTotal)}</span> : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
                         {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
                       </td>
@@ -849,6 +868,7 @@ export default function BillingClient({ invoices, cases }: Props) {
         {/* Detail Panel */}
         {selected && (() => {
           const selPaidAmount = getPaidAmount(selected.payments)
+          const selRefund = getRefundTotal(selected.payments)
           const selDiff = selected.amount - selPaidAmount
           const selAssignee = getAssignees(selected.cases).sales
           return (
@@ -888,6 +908,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                     </>
                   )}
                   <DetailRow label="入金済額" value={fmt(selPaidAmount)} className="text-green-600" />
+                  {selRefund > 0 && <DetailRow label="返金額" value={`−${fmt(selRefund)}`} className="text-rose-600" />}
                   <DetailRow label="差額" value={selected.amount > 0 ? fmt(selDiff) : '—'} className={selDiff > 0 ? 'text-red-500' : ''} />
                   <DetailRow label="請求日" value={selected.issued_date || '—'} />
                   {(() => {
@@ -969,6 +990,14 @@ export default function BillingClient({ invoices, cases }: Props) {
                       💰 入金消込
                     </button>
                   </div>
+                  {selPaidAmount > 0 && (
+                    <button
+                      onClick={() => setRefundInvoice(selected)}
+                      className="w-full px-3 py-2 text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 rounded-lg hover:bg-rose-100 transition inline-flex items-center justify-center gap-1"
+                    >
+                      ↩ 返金を記録
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteInvoice(selected)}
                     className="w-full px-3 py-1.5 text-[11px] font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition"
@@ -1014,6 +1043,16 @@ export default function BillingClient({ invoices, cases }: Props) {
           onClose={() => setPaymentInvoice(null)}
           invoice={paymentInvoice}
           onSaved={() => { setPaymentInvoice(null); router.refresh() }}
+        />
+      )}
+
+      {/* Refund Modal（返金＝マイナス入金） */}
+      {refundInvoice && (
+        <RefundModal
+          isOpen={!!refundInvoice}
+          onClose={() => setRefundInvoice(null)}
+          invoice={refundInvoice}
+          onSaved={() => { setRefundInvoice(null); router.refresh() }}
         />
       )}
 
