@@ -7,8 +7,9 @@ import { showToast } from '@/components/ui/Toast'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor } from '@/lib/relatedTasks'
+import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 
 type Props = {
@@ -123,7 +124,12 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.expected_arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.expected_arrival_date ?? '')) save(r.id, 'expected_arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && (
-                    <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'real_estate_acquisition', r.id)} /></td>
+                    <td className="px-2.5 py-1.5">
+                      <div className="flex flex-col gap-1 items-start">
+                        <RelatedTaskChips tasks={relatedTasksFor(receipts, 'real_estate_acquisition', r.id)} />
+                        {receiptFilesFor(receipts, 'real_estate_acquisition', r.id).map((f, i) => <OpenStorageFile key={i} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}
+                      </div>
+                    </td>
                   )}
                   {/* 取得済＝到着日があるか（受信簿で受領すると arrival_date が入り自動で受信済に）。戸籍・金融と統一。 */}
                   <td className="px-2.5 py-1.5 text-center">

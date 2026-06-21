@@ -21,3 +21,25 @@ export function relatedTasksFor(receipts: TimelineReceipt[], kind: string, rowId
   }
   return [...out.values()]
 }
+
+export type ReceiptFile = { bucket: string; path: string; name: string | null }
+
+/**
+ * 取得物(タブの1行)に紐づく「受領ファイル」を受信簿から引く。
+ * 受信簿の到着物(item)を linked_kind/linked_id でこの行に対応づけ、その到着物に添付された
+ * case_documents の受領ファイルを返す。複数あれば全部（新しい順序は呼び出し側）。
+ */
+export function receiptFilesFor(receipts: TimelineReceipt[], kind: string, rowId: string, field?: string): ReceiptFile[] {
+  const out: ReceiptFile[] = []
+  for (const r of receipts) {
+    for (const it of r.items ?? []) {
+      if (it.linked_kind !== kind || it.linked_id !== rowId) continue
+      if (field && it.linked_field !== field) continue
+      const cd = it.case_document
+      if (cd?.received_file_path && cd.received_file_bucket) {
+        out.push({ bucket: cd.received_file_bucket, path: cd.received_file_path, name: cd.received_file_name ?? it.item_name })
+      }
+    }
+  }
+  return out
+}

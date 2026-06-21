@@ -9,8 +9,9 @@ import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_R
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
 import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor, type RelatedTask } from '@/lib/relatedTasks'
+import { relatedTasksFor, receiptFilesFor, type RelatedTask, type ReceiptFile } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 
 type Props = {
@@ -113,7 +114,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField}
-                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} />
+                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} receiptFiles={receiptFilesFor(receipts, 'koseki', r.id)} />
               ))
             ) : (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
@@ -134,7 +135,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTasks }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -147,6 +148,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   colCount: number
   targetOptions: string[]
   relatedTasks: RelatedTask[]
+  receiptFiles: ReceiptFile[]
 }) {
   return (
     <>
@@ -167,7 +169,12 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
         {progressMode && <ReceivedCell received={!!r.arrival_date} />}
         {progressMode && (
-          <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasks} /></td>
+          <td className="px-2.5 py-1.5">
+            <div className="flex flex-col gap-1 items-start">
+              <RelatedTaskChips tasks={relatedTasks} />
+              {receiptFiles.map((f, i) => <OpenStorageFile key={i} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}
+            </div>
+          </td>
         )}
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>

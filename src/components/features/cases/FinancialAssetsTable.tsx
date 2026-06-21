@@ -7,8 +7,9 @@ import { showToast } from '@/components/ui/Toast'
 import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor } from '@/lib/relatedTasks'
+import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 
 const REQ = ['要', '不要', '確認中']
@@ -162,7 +163,14 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   )}
                   {progressMode && (
-                    <td className="px-2 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id)} /></td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex flex-col gap-1 items-start">
+                        <RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id)} />
+                        {receiptFilesFor(receipts, 'financial_asset', r.id).map((f, i) => (
+                          <OpenStorageFile key={i} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />
+                        ))}
+                      </div>
+                    </td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
                   <td className="px-2 py-1.5 text-center">

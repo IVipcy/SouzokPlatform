@@ -20,6 +20,9 @@ export type TimelineReceipt = {
     linked_id?: string | null
     linked_kind?: string | null
     linked_field?: string | null
+    // 受領ファイル（受信簿で添付したものを case_documents に保存。migration 082の case_document_id 経由）
+    case_document_id?: string | null
+    case_document?: { received_file_path: string | null; received_file_bucket: string | null; received_file_name: string | null } | null
     // 到着物ごとに結ばれたタスク（多対多。migration 111）
     item_tasks?: { task: { id: string; title: string } | null }[] | null
   }[] | null

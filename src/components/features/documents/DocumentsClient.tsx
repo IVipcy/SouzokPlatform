@@ -11,17 +11,25 @@ import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
 type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
 
 type Props = {
-  documents: CaseDocumentRow[]   // 互換のため受け取るが未使用（案件ごとに管理）
+  documents: CaseDocumentRow[]   // 受領ファイルの参照に使用（case_document_id→ファイル）
   receipts: DocumentReceiptRow[]
   cases: CaseLite[]
   currentMemberId: string | null
   currentMember: MemberRow | null
 }
 
-export default function DocumentsClient({ receipts, cases, currentMemberId, currentMember }: Props) {
+export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const refresh = () => startTransition(() => router.refresh())
+  // case_document_id → 受領ファイル。受信簿の各到着物から開く/未添付判定に使う。
+  const fileByDocId = useMemo(() => {
+    const m: Record<string, { bucket: string; path: string; name: string | null }> = {}
+    for (const d of documents) {
+      if (d.received_file_path && d.received_file_bucket) m[d.id] = { bucket: d.received_file_bucket, path: d.received_file_path, name: d.received_file_name }
+    }
+    return m
+  }, [documents])
 
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
@@ -99,6 +107,7 @@ export default function DocumentsClient({ receipts, cases, currentMemberId, curr
         receipts={filteredReceipts}
         currentMemberId={currentMemberId}
         currentMember={currentMember}
+        fileByDocId={fileByDocId}
         onChanged={refresh}
       />
 

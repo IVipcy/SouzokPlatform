@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Hand, Loader2, Play, Link2 } from 'lucide-react'
+import { Check, Hand, Loader2, Play, Link2, Paperclip } from 'lucide-react'
+import OpenStorageFile from './OpenStorageFile'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
@@ -15,10 +16,13 @@ import Button from '@/components/ui/Button'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
 import type { RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
+type ReceiptFileMap = Record<string, { bucket: string; path: string; name: string | null }>
+
 type Props = {
   receipts: DocumentReceiptRow[]
   currentMemberId: string | null
   currentMember: MemberRow | null
+  fileByDocId: ReceiptFileMap
   onChanged: () => void
 }
 
@@ -30,7 +34,7 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
   return `${mm}${dd}/${String(seq).padStart(3, '0')}`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, fileByDocId, onChanged }: Props) {
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
 
@@ -96,6 +100,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                   rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
                   currentMemberId={currentMemberId}
                   currentMember={currentMember}
+                  fileByDocId={fileByDocId}
                   onChanged={onChanged}
                   onStartRequest={setStartingReceipt}
                 />
@@ -114,6 +119,52 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         />
       )}
     </div>
+  )
+}
+
+// 到着物ごとの受領ファイル（case_documents の received_file）を添付/開く。
+function ItemFileCell({ caseId, caseDocumentId, file, onChanged }: {
+  caseId: string
+  caseDocumentId: string
+  file: { bucket: string; path: string; name: string | null } | null
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const upload = async (f: File) => {
+    setBusy(true)
+    const supabase = createClient()
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? 'bin'
+    const path = `${caseId}/${caseDocumentId}/received-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('documents').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: true })
+    if (upErr) { setBusy(false); showToast(`アップロードに失敗しました: ${upErr.message}`, 'error'); return }
+    const { error: dbErr } = await supabase.from('case_documents').update({
+      received_file_path: path,
+      received_file_name: f.name,
+      received_file_type: f.type || f.name.split('.').pop()?.toUpperCase() || null,
+      received_file_bucket: 'documents',
+    }).eq('id', caseDocumentId)
+    setBusy(false)
+    if (dbErr) { showToast(`保存に失敗しました: ${dbErr.message}`, 'error'); return }
+    showToast('ファイルを添付しました', 'success')
+    onChanged()
+  }
+  if (file) {
+    return <OpenStorageFile bucket={file.bucket} path={file.path} name={file.name} label="ファイル" />
+  }
+  return (
+    <>
+      <input ref={inputRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
+        title="受領ファイルを添付（各調査表・到着物一覧から参照できます）"
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Paperclip className="w-3 h-3" />}添付
+      </button>
+    </>
   )
 }
 
@@ -389,6 +440,7 @@ function ReceiptRow({
   rowBg,
   currentMemberId,
   currentMember,
+  fileByDocId,
   onChanged,
   onStartRequest,
 }: {
@@ -396,6 +448,7 @@ function ReceiptRow({
   rowBg: string
   currentMemberId: string | null
   currentMember: MemberRow | null
+  fileByDocId: ReceiptFileMap
   onChanged: () => void
   onStartRequest: (r: DocumentReceiptRow) => void
 }) {
@@ -530,6 +583,14 @@ function ReceiptRow({
                     <Link2 className="w-3 h-3" />
                     {deliverableLinkLabel(it.linked_kind, it.linked_field)}
                   </span>
+                )}
+                {it?.case_document_id && (
+                  <ItemFileCell
+                    caseId={receipt.case_id}
+                    caseDocumentId={it.case_document_id}
+                    file={fileByDocId[it.case_document_id] ?? null}
+                    onChanged={onChanged}
+                  />
                 )}
               </div>
             </td>
