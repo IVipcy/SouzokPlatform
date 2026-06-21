@@ -121,13 +121,14 @@ export function QIRow({ label, children }: { label: string; children: React.Reac
 }
 
 // ─── InlineEdit (text) ───
-export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
+export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   mono?: boolean
   fullWidth?: boolean
   required?: boolean
+  action?: React.ReactNode  // ラベル横に置く補助ボタン（例: 「依頼者と同じ」自動入力）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -161,8 +162,11 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required }: 
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
-        {label}
+      <div className="flex items-center gap-2">
+        <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
+          {label}
+        </div>
+        {action}
       </div>
       {editing ? (
         <input

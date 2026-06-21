@@ -49,9 +49,9 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       const supabase = createClient()
       const { data: invs } = await supabase
         .from('invoices')
-        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, furigana))')
+        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, furigana), case_clients(furigana, priority, sort_order))')
         .neq('status', '入金済')
-      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; furigana: string | null } | null } | null }>
+      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
       // 受注担当（通知先）を案件ごとに取得
       const caseIds = [...new Set(rawInv.map(i => i.case_id))]
       const salesByCase = new Map<string, string>()
@@ -63,8 +63,11 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         id: i.id, case_id: i.case_id, amount: i.amount, status: i.status,
         case_number: i.cases?.case_number ?? '', deal_name: i.cases?.deal_name ?? '',
         client_name: i.cases?.clients?.name ?? '',
-        // 振込名義人カナ。未登録なら依頼者ふりがな（カナ化は突合側で実施）で補完。
-        payer_kana: i.cases?.clients?.transfer_name_kana || i.cases?.clients?.furigana || null,
+        // 振込名義人カナ。未登録なら依頼者ふりがな（clients→依頼者一覧のメイン）で補完。カナ化は突合側で実施。
+        payer_kana: i.cases?.clients?.transfer_name_kana
+          || i.cases?.clients?.furigana
+          || ((i.cases?.case_clients ?? []).find(c => c.priority === 'main') ?? (i.cases?.case_clients ?? [])[0])?.furigana
+          || null,
         sales_member_id: salesByCase.get(i.case_id) ?? null,
       }))
       const res = matchBankRows(rows, lite)
