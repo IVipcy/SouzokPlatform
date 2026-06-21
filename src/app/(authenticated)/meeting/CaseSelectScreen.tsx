@@ -79,7 +79,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                 <tr
                   key={c.id}
                   className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '' })}
+                  onClick={() => onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '', orderRoute: c.order_route, orderRouteDetail: c.order_route_detail })}
                 >
                   <td className="px-3.5 py-2.5">
                     <span className="font-mono text-[13px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{c.case_number}</span>
@@ -95,7 +95,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   </td>
                   <td className="px-3.5 py-2.5">
                     <button
-                      onClick={e => { e.stopPropagation(); onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '' }) }}
+                      onClick={e => { e.stopPropagation(); onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '', orderRoute: c.order_route, orderRouteDetail: c.order_route_detail }) }}
                       className="px-2.5 py-1 rounded-md bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition"
                     >
                       選択

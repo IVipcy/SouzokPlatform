@@ -12,6 +12,9 @@ export type SelectedCase = {
   name: string
   client: string
   phone: string
+  // 連携①（相続ステーション）由来の事前データ。面談登録フォームの初期値に引き継ぐ。
+  orderRoute?: string | null
+  orderRouteDetail?: string | null
 } | null
 
 export type CaseData = CaseRow & { clients?: ClientRow | null }
