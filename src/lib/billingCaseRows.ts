@@ -24,6 +24,13 @@ export type BillingCaseRow = {
   amount: number                   // 請求金額
   paidAmount: number               // 入金済額
   issuedDate: string | null        // 請求日
+  // 請求一覧と揃える表示用
+  orderRoute: string | null
+  orderRouteDetail: string | null
+  advance: number                  // 前受金(前受金請求=請求額/確定請求=前受金控除)
+  expenses: number                 // 立替実費
+  receiptIssuedDate: string | null
+  notes: string | null
 }
 
 type CaseLike = {
@@ -39,6 +46,8 @@ type CaseLike = {
   fee_administrative?: number | null
   fee_judicial?: number | null
   advance_payment?: number | null
+  order_route?: string | null
+  order_route_detail?: string | null
 }
 type CaseMemberLike = { case_id: string; member_id: string; role: string }
 type MemberLike = { id: string; name: string; avatar_url?: string | null }
@@ -51,6 +60,10 @@ type InvoiceLike = {
   firm_type?: string | null
   issued_date?: string | null
   created_at?: string | null
+  expenses_amount?: number | null
+  advance_deduction?: number | null
+  notes?: string | null
+  receipt_issued_date?: string | null
 }
 
 function firmFromContract(contractType: string | null | undefined): 'gyosei' | 'shiho' | null {
@@ -135,6 +148,12 @@ export function buildBillingCaseRows(
       amount: inv?.amount ?? estimate,
       paidAmount: paid,
       issuedDate: inv?.issued_date ?? null,
+      orderRoute: c.order_route ?? null,
+      orderRouteDetail: c.order_route_detail ?? null,
+      advance: inv ? (inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction ?? 0)) : 0,
+      expenses: inv?.expenses_amount ?? 0,
+      receiptIssuedDate: inv?.receipt_issued_date ?? null,
+      notes: inv?.notes ?? null,
     })
   }
   return rows

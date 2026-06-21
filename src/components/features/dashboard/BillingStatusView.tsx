@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { FileText, Send, Hourglass, CheckCircle2, AlertCircle } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import OpenInvoiceButton from '@/components/features/billing/OpenInvoiceButton'
+import OpenReceiptButton from '@/components/features/billing/OpenReceiptButton'
+
+const fmtMoney = (n: number | undefined) => (n && n > 0 ? `¥${n.toLocaleString()}` : '—')
 
 // 進捗管理ボード「請求状況」ビュー用の集計済み行
 export type BillingViewRow = {
@@ -19,6 +22,13 @@ export type BillingViewRow = {
   amount: number          // 円
   issuedDate: string | null
   hasPdf: boolean         // PDF プレビューリンク有無
+  // 請求一覧と揃える表示用
+  orderRoute?: string | null
+  orderRouteDetail?: string | null
+  advance?: number        // 前受金(前受金請求=請求額/確定請求=前受金控除)
+  expenses?: number       // 立替実費
+  receiptIssuedDate?: string | null
+  notes?: string | null
 }
 
 export type BillingViewSummary = {
@@ -103,11 +113,17 @@ export default function BillingStatusView({ summary, rows }: Props) {
                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
                   <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">受注ルート</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">紹介元</th>
                   <th className="px-2.5 py-2 text-left font-semibold">担当者</th>
                   <th className="px-2.5 py-2 text-center font-semibold">請求ステータス</th>
                   <th className="px-2.5 py-2 text-right font-semibold">請求金額</th>
+                  <th className="px-2.5 py-2 text-right font-semibold">前受金</th>
+                  <th className="px-2.5 py-2 text-right font-semibold">実費</th>
                   <th className="px-2.5 py-2 text-left font-semibold">請求日</th>
-                  <th className="px-2.5 py-2 text-center font-semibold">請求書PDF</th>
+                  <th className="px-2.5 py-2 text-center font-semibold">請求書</th>
+                  <th className="px-2.5 py-2 text-center font-semibold">領収書</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">備考</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,6 +142,8 @@ export default function BillingStatusView({ summary, rows }: Props) {
                           {r.dealName}
                         </Link>
                       </td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.orderRoute || <span className="text-gray-400">—</span>}</td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.orderRouteDetail || <span className="text-gray-400">—</span>}</td>
                       <td className="px-2.5 py-2">
                         {r.managerName && r.managerId ? (
                           <Link
@@ -152,6 +170,8 @@ export default function BillingStatusView({ summary, rows }: Props) {
                       <td className="px-2.5 py-2 font-mono text-right text-gray-900 whitespace-nowrap">
                         {fmtYen(r.amount)}
                       </td>
+                      <td className="px-2.5 py-2 font-mono text-right text-gray-700 whitespace-nowrap">{fmtMoney(r.advance)}</td>
+                      <td className="px-2.5 py-2 font-mono text-right text-gray-700 whitespace-nowrap">{fmtMoney(r.expenses)}</td>
                       <td className="px-2.5 py-2 font-mono text-gray-700 whitespace-nowrap">
                         {r.issuedDate ?? <span className="text-gray-400">未発行</span>}
                       </td>
@@ -162,6 +182,14 @@ export default function BillingStatusView({ summary, rows }: Props) {
                           <span className="text-gray-300 text-[12px]">-</span>
                         )}
                       </td>
+                      <td className="px-2.5 py-2 text-center">
+                        {r.hasPdf && r.invoiceId ? (
+                          <OpenReceiptButton invoiceId={r.invoiceId} issuedDate={r.receiptIssuedDate} />
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">-</span>
+                        )}
+                      </td>
+                      <td className="px-2.5 py-2 text-gray-600 max-w-[200px] truncate" title={r.notes ?? undefined}>{r.notes || <span className="text-gray-400">—</span>}</td>
                     </tr>
                   )
                 })}

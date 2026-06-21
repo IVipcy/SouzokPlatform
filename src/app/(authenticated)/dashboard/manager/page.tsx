@@ -26,10 +26,10 @@ import {
  * 管理担当 全体ダッシュボード
  * チーム別進捗管理ボードと同じ見た目で、全チーム（全管理担当）の案件を合算して表示する。
  */
-type CaseFull = DashCase & { case_number: string; deal_name: string; client_id: string | null }
+type CaseFull = DashCase & { case_number: string; deal_name: string; client_id: string | null; order_route: string | null; order_route_detail: string | null }
 type MemberRow = { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null; team_id: string | null }
 type TeamRow = { id: string; name: string; sort_order: number }
-type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string }
+type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null }
 
 const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
 const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
@@ -119,9 +119,9 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   const caseIdArray = Array.from(scopeCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type').in('id', caseIdArray),
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,order_route,order_route_detail').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
-    supabase.from('invoices').select('id,case_id,invoice_number,amount,status,issued_date,invoice_type').in('case_id', caseIdArray),
+    supabase.from('invoices').select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,expenses_amount,advance_deduction,notes,receipt_issued_date').in('case_id', caseIdArray),
   ])
   const cases = (casesRaw ?? []) as CaseFull[]
   const tasks = (tasksRaw ?? []) as DashTask[]
@@ -295,6 +295,12 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
         amount: inv.amount,
         issuedDate: inv.issued_date,
         hasPdf: inv.status !== '未請求',
+        orderRoute: c?.order_route ?? null,
+        orderRouteDetail: c?.order_route_detail ?? null,
+        advance: inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction ?? 0),
+        expenses: inv.expenses_amount ?? 0,
+        receiptIssuedDate: inv.receipt_issued_date ?? null,
+        notes: inv.notes ?? null,
       }
     })
   const billingRows = pstatusFilter ? allBillingRows.filter(r => r.status === pstatusFilter) : allBillingRows

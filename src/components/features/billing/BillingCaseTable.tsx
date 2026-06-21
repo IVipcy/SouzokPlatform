@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowUpDown, Banknote, ClipboardList, AlertCircle, Hourglass, CheckCircle2 } from 'lucide-react'
 import OpenInvoiceButton from './OpenInvoiceButton'
+import OpenReceiptButton from './OpenReceiptButton'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { BILLING_STATUS_ORDER, type BillingCaseRow } from '@/lib/billingCaseRows'
 import { getCaseStatusLabel } from '@/lib/constants'
@@ -98,6 +99,8 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                   <th className="px-1 py-2 text-center font-semibold" title="契約形態（行/司/連名）"></th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">受注ルート</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">紹介元</th>
                   <th className="px-2.5 py-2 text-left font-semibold">請求分類</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件ステータス</th>
                   <th className="px-2.5 py-2 text-left font-semibold">受注担当</th>
@@ -108,10 +111,14 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                     </button>
                   </th>
                   <th className="px-2.5 py-2 text-right font-semibold">請求金額</th>
+                  <th className="px-2.5 py-2 text-right font-semibold">前受金</th>
+                  <th className="px-2.5 py-2 text-right font-semibold">実費</th>
                   <th className="px-2.5 py-2 text-right font-semibold">入金済額</th>
                   <th className="px-2.5 py-2 text-right font-semibold">差額</th>
                   <th className="px-2.5 py-2 text-left font-semibold">請求日</th>
-                  <th className="px-2.5 py-2 text-center font-semibold">請求書PDF</th>
+                  <th className="px-2.5 py-2 text-center font-semibold">請求書</th>
+                  <th className="px-2.5 py-2 text-center font-semibold">領収書</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">備考</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,6 +143,8 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                           </div>
                         )}
                       </td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.orderRoute || <span className="text-gray-400">—</span>}</td>
+                      <td className="px-2.5 py-2 text-gray-600">{r.orderRouteDetail || <span className="text-gray-400">—</span>}</td>
                       <td className="px-2.5 py-2 text-gray-700">{typeLabel(r.invoiceType)}</td>
                       <td className="px-2.5 py-2">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[11px] font-bold bg-gray-50 text-gray-700 border-gray-200">{getCaseStatusLabel(r.bucket === '受託' ? '受注' : r.bucket)}</span>
@@ -158,6 +167,8 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[12px] font-semibold ${STATUS_COLOR[r.invoiceStatus] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>{r.invoiceStatus}</span>
                       </td>
                       <td className="px-2.5 py-2 font-mono text-right text-gray-900">{fmtYen(r.amount)}</td>
+                      <td className="px-2.5 py-2 font-mono text-right text-gray-700">{r.advance > 0 ? fmtYen(r.advance) : <span className="text-gray-300">—</span>}</td>
+                      <td className="px-2.5 py-2 font-mono text-right text-gray-700">{r.expenses > 0 ? fmtYen(r.expenses) : <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 font-mono text-right text-green-700">{r.paidAmount > 0 ? fmtYen(r.paidAmount) : <span className="text-gray-300">—</span>}</td>
                       <td className={`px-2.5 py-2 font-mono text-right ${diff > 0 ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>{fmtYen(diff)}</td>
                       <td className="px-2.5 py-2 font-mono text-gray-700">{r.issuedDate ?? <span className="text-gray-400">未発行</span>}</td>
@@ -166,6 +177,12 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                           <OpenInvoiceButton invoiceId={r.invoiceId} />
                         ) : <span className="text-gray-300 text-[12px]">未発行</span>}
                       </td>
+                      <td className="px-2.5 py-2 text-center">
+                        {r.invoiceId && r.invoiceStatus !== '未請求' ? (
+                          <OpenReceiptButton invoiceId={r.invoiceId} issuedDate={r.receiptIssuedDate} />
+                        ) : <span className="text-gray-300 text-[12px]">—</span>}
+                      </td>
+                      <td className="px-2.5 py-2 text-gray-600 max-w-[160px] truncate" title={r.notes ?? undefined}>{r.notes || <span className="text-gray-400">—</span>}</td>
                     </tr>
                   )
                 })}
