@@ -365,7 +365,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       </div>
 
       {viewTab === 'cases' ? (
-        <CaseStatusBoard tasks={tasks} caseMap={caseMap} currentMemberId={currentMemberId} />
+        <CaseStatusBoard tasks={tasks} caseMap={caseMap} />
       ) : (
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}

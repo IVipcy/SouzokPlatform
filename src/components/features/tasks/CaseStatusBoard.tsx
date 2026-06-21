@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowUpDown, ArrowRight } from 'lucide-react'
+import { ArrowUpDown, ArrowRight, Search } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { TaskRow } from '@/types'
@@ -42,14 +42,12 @@ type SortKey = 'due' | 'overdue' | 'stall'
 type Props = {
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
-  currentMemberId: string | null
 }
 
-export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Props) {
+export default function CaseStatusBoard({ tasks, caseMap }: Props) {
   const today = todayJstYmd(new Date())
-  const [includeReceived, setIncludeReceived] = useState(false)  // 受託(着手前)も含める
-  const [mineOnly, setMineOnly] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('due')
+  const [search, setSearch] = useState('')
 
   // 案件ごとにタスクをまとめる
   const tasksByCase = useMemo(() => {
@@ -62,11 +60,9 @@ export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Pro
   }, [tasks])
 
   const rows = useMemo<BoardRow[]>(() => {
-    const activeStatuses = includeReceived ? ['対応中', '受託'] : ['対応中']
     const out: BoardRow[] = []
     for (const [caseId, info] of Object.entries(caseMap)) {
-      if (!activeStatuses.includes(info.status)) continue
-      if (mineOnly && info.manager?.id !== currentMemberId) continue
+      if (info.status !== '対応中') continue
       const ct = tasksByCase[caseId] ?? []
       const total = ct.length
       const done = ct.filter(t => normalizeStatus(t.status) === '完了').length
@@ -86,7 +82,7 @@ export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Pro
       out.push({ caseId, info, total, done, latest, latestResult: latest ? execResult(latest) : '', next, overdue, stallDays, badge })
     }
     return out
-  }, [caseMap, tasksByCase, includeReceived, mineOnly, currentMemberId, today])
+  }, [caseMap, tasksByCase, today])
 
   const sorted = useMemo(() => {
     const r = rows.slice()
@@ -106,19 +102,33 @@ export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Pro
     stall: rows.filter(r => r.badge === '停滞').length,
   }), [rows])
 
+  // 検索: 案件番号・案件名・管理担当・受注担当・受注区分
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return sorted
+    return sorted.filter(r => {
+      const hay = [r.info.case_number, r.info.deal_name, r.info.manager?.name, r.info.sales?.name, r.info.service_category, r.info.service_category_2]
+        .filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [sorted, search])
+
   return (
     <div>
-      {/* フィルタ・サマリー */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-[12px] font-semibold text-gray-500">対象</span>
-        <FilterChip active={!includeReceived} onClick={() => setIncludeReceived(false)} label="対応中のみ" />
-        <FilterChip active={includeReceived} onClick={() => setIncludeReceived(true)} label="受託(着手前)も含む" />
-        <span className="mx-1 w-px h-4 bg-gray-200" />
-        <FilterChip active={mineOnly} onClick={() => setMineOnly(m => !m)} label="自分が管理担当" />
-        <div className="ml-auto flex items-center gap-2 text-[12px]">
-          <span className="text-gray-500">対応中 <b className="text-gray-800">{counts.active}</b></span>
-          <span className="text-red-600">遅延 <b>{counts.overdue}</b></span>
-          <span className="text-amber-600">停滞 <b>{counts.stall}</b></span>
+      {/* サマリー＋検索（対応中の案件のみ表示） */}
+      <div className="flex flex-wrap items-center gap-3 mb-3 text-[12px]">
+        <span className="font-semibold text-gray-600">対応中の案件 <b className="text-gray-800">{counts.active}</b> 件</span>
+        <span className="text-red-600">遅延 <b>{counts.overdue}</b></span>
+        <span className="text-amber-600">停滞 <b>{counts.stall}</b></span>
+        <div className="ml-auto flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 w-[260px]">
+          <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="案件名・番号・管理担当・受注担当で検索"
+            className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
+          />
         </div>
       </div>
 
@@ -140,9 +150,9 @@ export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Pro
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-[13px] text-gray-400">対象の案件がありません</td></tr>
-            ) : sorted.map((r, i) => (
+            {visible.length === 0 ? (
+              <tr><td colSpan={11} className="px-3 py-8 text-center text-[13px] text-gray-400">{search.trim() ? '検索条件に一致する案件がありません' : '対象の案件がありません'}</td></tr>
+            ) : visible.map((r, i) => (
               <tr key={r.caseId} className={`border-b border-gray-100 hover:bg-brand-50/30 whitespace-nowrap ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 <td className="px-2.5 py-2"><BadgePill badge={r.badge} /></td>
                 <td className="px-2.5 py-2 font-mono">
@@ -187,12 +197,6 @@ export default function CaseStatusBoard({ tasks, caseMap, currentMemberId }: Pro
         </table>
       </div>
     </div>
-  )
-}
-
-function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button type="button" onClick={onClick} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${active ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{label}</button>
   )
 }
 
