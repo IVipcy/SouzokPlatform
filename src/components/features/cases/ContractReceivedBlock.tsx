@@ -1,11 +1,13 @@
 import type { ContractDocumentRow } from '@/types'
+import ContractDocFileCell from './ContractDocFileCell'
 
 /**
  * 調査表の「上」に置く、契約時にお客様から受領済み（依頼者取得分）の参照ブロック。
  * 新規に自社で請求する行とは表を分けて表示し、同じ書類を請求行として二重登録しないための参照に使う。
  * 編集は契約手続きタブ（再請求不要）。区分（戸籍/金融/不動産）で絞った contract_documents を渡す。
+ * 受領済の書類にはスキャンPDF等を添付・参照できる（任意。原本のみのこともある）。
  */
-export default function ContractReceivedBlock({ docs }: { docs: ContractDocumentRow[] }) {
+export default function ContractReceivedBlock({ docs, caseId, onRefresh }: { docs: ContractDocumentRow[]; caseId?: string; onRefresh?: () => void }) {
   const rows = docs.filter(d => d.status !== '不要')
   if (rows.length === 0) return null
   return (
@@ -22,6 +24,11 @@ export default function ContractReceivedBlock({ docs }: { docs: ContractDocument
             {d.arrival_date
               ? <span className="text-emerald-700 font-semibold">受領済 <span className="font-mono">{d.arrival_date}</span></span>
               : <span className="text-amber-600">未受領</span>}
+            {caseId && (
+              <span className="ml-1">
+                <ContractDocFileCell caseId={caseId} docId={d.id} filePath={d.file_path} fileBucket={d.file_bucket} fileName={d.file_name} onChanged={onRefresh} />
+              </span>
+            )}
           </div>
         ))}
       </div>

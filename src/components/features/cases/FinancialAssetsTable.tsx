@@ -99,7 +99,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   return (
     <div>
       {/* 契約時にお客様から受領済の書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
-      <ContractReceivedBlock docs={contractDocs} />
+      <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1340 : 980 }}>
           <thead>

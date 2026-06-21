@@ -5,6 +5,7 @@ import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { ContractDocumentRow } from '@/types'
+import ContractDocFileCell from './ContractDocFileCell'
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
 // 区分。戸籍/財産/登記は各調査タブに「契約時受領」として受領済/未受領で表示される。
@@ -120,13 +121,14 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">ファイル</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
+              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
@@ -149,6 +151,9 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
                     {r.arrival_date
                       ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
                       : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
+                  </td>
+                  <td className="px-2.5 py-1.5">
+                    <ContractDocFileCell caseId={caseId} docId={r.id} filePath={r.file_path} fileBucket={r.file_bucket} fileName={r.file_name} onChanged={onRefresh} />
                   </td>
                   <Cell value={r.notes} onCommit={v => saveNow(r.id, 'notes', v)} placeholder="例：実印分は後日、料金 等" />
                   <td className="px-2.5 py-1.5 text-center">

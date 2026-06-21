@@ -531,6 +531,11 @@ export type ContractDocumentRow = {
   expected_arrival_date: string | null   // 到着予定日（見込み）
   arrival_date: string | null            // 到着日（受信簿で受信＝受信済）
   case_document_id: string | null
+  // 受領書類のスキャンファイル等（任意・migration 121）。原本のみでスキャン無しのこともある
+  file_path: string | null
+  file_bucket: string | null
+  file_name: string | null
+  file_type: string | null
   notes: string | null
   sort_order: number
   created_at: string
