@@ -9,6 +9,7 @@ import {
   type InvoiceVariant,
 } from '@/lib/invoiceVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
+import { advanceForFirm } from '@/lib/advancePayment'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -17,25 +18,41 @@ type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   docType: InvoiceVariant['docType']  // '請求書' | '領収書'
+  /** true=確定（確定の領収書など）、false/未指定=前受金 */
+  kakutei?: boolean
   /** タスク詳細から作成する際に紐づけるタスクID（初期選択） */
   defaultTaskId?: string
   onSaved?: () => void
 }
 
-export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks, docType, defaultTaskId, onSaved }: Props) {
+export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks, docType, kakutei = false, defaultTaskId, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendInvoiceOffice(caseData.contract_type), [caseData.contract_type])
+  const kubunLabel = kakutei ? '確定' : '前受金'
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
   const [kenmei, setKenmei] = useState('')
   const [amount, setAmount] = useState<number | ''>('')
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
 
+  // 発行法人ぶんの金額をオーダーシートからプリセット（前受金=その法人の前受金／確定=その法人の報酬−前受金）。
+  const presetAmount = (firm: StampLaw): number => {
+    if (kakutei) {
+      let fee = firm === 'shiho' ? (caseData.fee_judicial ?? 0) : (caseData.fee_administrative ?? 0)
+      if (fee === 0 && (caseData.fee_administrative ?? 0) === 0 && (caseData.fee_judicial ?? 0) === 0) {
+        fee = caseData.fee_total ?? 0
+      }
+      return Math.max(0, fee - advanceForFirm(caseData, firm))
+    }
+    return advanceForFirm(caseData, firm)
+  }
+
   useEffect(() => {
     if (!isOpen) return
     setOffice(recommendedOffice)
-    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き 前受金`)
-    setAmount('')
+    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き ${kubunLabel}`)
+    setAmount(presetAmount(recommendedOffice) || '')
     setTaskId(defaultTaskId ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, recommendedOffice, caseData.deceased_name, defaultTaskId])
 
   const handleGenerate = async () => {
@@ -53,7 +70,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
       const res = await fetch('/api/documents/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null }),
+        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, kubun: kakutei ? '確定請求' : '前受金' }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
@@ -62,7 +79,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
       }
       const blob = await res.blob()
       const officeLabel = office === 'gyosei' ? '行政' : '司法'
-      const filename = `${docType}_前受金_${officeLabel}_${caseData.case_number ?? ''}.xlsx`
+      const filename = `${docType}_${kubunLabel}_${officeLabel}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -86,7 +103,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${docType}（前受金）を作成`}
+      title={`${docType}（${kubunLabel}）を作成`}
       maxWidth="max-w-xl"
       footer={
         <>
@@ -119,7 +136,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
               <button
                 key={o}
                 type="button"
-                onClick={() => setOffice(o)}
+                onClick={() => { setOffice(o); setAmount(presetAmount(o) || '') }}
                 className={`flex-1 text-sm px-3 py-2 rounded-lg border transition-colors ${
                   office === o ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
                 }`}
@@ -138,14 +155,14 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
             type="text"
             value={kenmei}
             onChange={e => setKenmei(e.target.value)}
-            placeholder="例: ○○様 相続手続き 前受金"
+            placeholder={`例: ○○様 相続手続き ${kubunLabel}`}
             className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
           />
         </section>
 
         {/* 金額 */}
         <section>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">{docType === '請求書' ? '請求額' : '領収額'}（前受金・税込）</label>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">{docType === '請求書' ? '請求額' : '領収額'}（{kubunLabel}・税込）</label>
           <div className="relative">
             <input
               type="number"
@@ -157,7 +174,11 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">円</span>
           </div>
-          <p className="text-[12px] text-gray-400 mt-1">前受金は消費税対象外のため、合計＝入力額で出力します。</p>
+          <p className="text-[12px] text-gray-400 mt-1">
+            {kakutei
+              ? '報酬−前受金を初期表示。立替実費を含める場合は加算してください。'
+              : '前受金は消費税対象外のため、合計＝入力額で出力します。'}
+          </p>
         </section>
 
         {/* 流し込みプレビュー */}

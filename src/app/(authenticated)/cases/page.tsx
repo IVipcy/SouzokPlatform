@@ -7,6 +7,7 @@ import type { ConsultCase } from '@/components/features/my/ConsultationCasesTabl
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
 import { CONSULT_STATUSES, REFERRAL_STATUSES } from '@/lib/constants'
+import { advanceTotal } from '@/lib/advancePayment'
 
 // 案件分類（constants の定義に一元化）
 // 管理案件一覧 = 対応中（稼働中）のみ。完了はこの一覧には出さない（バッジ数＝表示と一致させる）。
@@ -40,6 +41,8 @@ type CaseRowRaw = {
   fee_judicial: number | null
   fee_total: number | null
   advance_payment: number | null
+  advance_payment_administrative: number | null
+  advance_payment_judicial: number | null
   tax_advisor_name: string | null
   real_estate_appraisal_status: string | null
   meeting_executed_date: string | null
@@ -209,7 +212,7 @@ export default async function CasesPage() {
     sales_name: salesByCase.get(c.id) ?? null,
     team_name: salesTeamByCase.get(c.id) ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
-    advance_payment: c.advance_payment,
+    advance_payment: advanceTotal(c),
     confirmed_revenue: confirmedRevenue(c),
     expected_completion_date: c.expected_completion_date,
     tax_advisor_name: c.tax_advisor_name,

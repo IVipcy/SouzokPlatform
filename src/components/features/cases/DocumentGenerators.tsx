@@ -43,7 +43,8 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'ininjo', category: '委任状', categoryColor: 'bg-green-50 text-green-700 border-green-200', title: '委任状（相続手続／登記のみ／法定相続情報 等）', description: '行/司/連名×業務でFMTを切替。委任者・被相続人を自動流し込み＋押印', status: 'ready' },
   { key: 'invoice_advance', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（前受金）', description: '前受金の請求書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）＋立替実費明細', description: '報酬＋立替実費－前受金。確定請求書と立替明細を1ファイル2シートで出力', status: 'ready' },
-  { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。件名・金額を入力＋社印配置', status: 'ready' },
+  { key: 'receipt_final', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（確定）', description: '確定（報酬−前受金）の領収書を発行（行/司）。入金時に発行', status: 'ready' },
+  { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。基本は確定領収書を使用', status: 'ready' },
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '依頼者の郵便番号・住所・宛名を流し込み（差出人はテンプレ既設）', status: 'ready' },
 ]
 
@@ -56,6 +57,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
   const keiyakuModal = useModal()
   const invoiceModal = useModal()
   const receiptModal = useModal()
+  const receiptFinalModal = useModal()
   const kakuteiModal = useModal()
   const envelopeModal = useModal()
 
@@ -68,6 +70,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
     else if (key === 'contract') keiyakuModal.open()
     else if (key === 'invoice_advance') invoiceModal.open()
     else if (key === 'receipt') receiptModal.open()
+    else if (key === 'receipt_final') receiptFinalModal.open()
     else if (key === 'invoice_final') kakuteiModal.open()
     else if (key === 'envelope') envelopeModal.open()
   }
@@ -183,6 +186,16 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
         caseData={caseData}
         tasks={tasks}
         docType="領収書"
+        defaultTaskId={defaultTaskId}
+        onSaved={onGenerated}
+      />
+      <InvoiceDocumentModal
+        isOpen={receiptFinalModal.isOpen}
+        onClose={() => { receiptFinalModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        tasks={tasks}
+        docType="領収書"
+        kakutei
         defaultTaskId={defaultTaskId}
         onSaved={onGenerated}
       />

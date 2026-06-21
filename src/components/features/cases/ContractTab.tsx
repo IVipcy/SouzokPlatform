@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { advanceTotal } from '@/lib/advancePayment'
 import {
   Section, FieldGrid, Field,
   InlineCurrency, InlineDate, InlineTextarea,
@@ -47,7 +48,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
-  const confirmedAmount = feeSubtotal - (caseData.advance_payment ?? 0)
+  const confirmedAmount = feeSubtotal - advanceTotal(caseData)
   const partnerName = caseData.order_route_detail
   const partnerCompensation = referralRate != null
     ? (caseData.fee_administrative ?? 0) * referralRate / 100
@@ -103,10 +104,16 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               />
               <Field label="報酬小計" value={yen(feeSubtotal)} mono />
               <InlineCurrency
-                label="前受金"
-                value={caseData.advance_payment}
-                onSave={v => save('advance_payment', v)}
+                label="前受金（行政）"
+                value={caseData.advance_payment_administrative}
+                onSave={v => save('advance_payment_administrative', v)}
               />
+              <InlineCurrency
+                label="前受金（司法）"
+                value={caseData.advance_payment_judicial}
+                onSave={v => save('advance_payment_judicial', v)}
+              />
+              <Field label="前受金小計" value={yen(advanceTotal(caseData))} mono />
               <Field label="請求金額（確定）" value={yen(confirmedAmount)} mono />
               <InlineTextarea
                 label="メモ"

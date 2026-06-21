@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import { EXPENSE_CATEGORIES, inferExpenseTaxable } from '@/lib/constants'
 import { officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
 import { invoiceVariantKey } from '@/lib/invoiceVariants'
+import { advanceForFirm } from '@/lib/advancePayment'
 import type { ExpenseRow } from '@/types'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
@@ -36,6 +37,8 @@ type CaseFees = {
   fee_judicial: number | null
   fee_total: number | null
   advance_payment: number | null
+  advance_payment_administrative: number | null
+  advance_payment_judicial: number | null
   contract_type: string | null
   deceased_name: string | null
 }
@@ -56,6 +59,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
   const [unbilledExpenses, setUnbilledExpenses] = useState<ExpenseRow[]>([])
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set())
   const [caseFees, setCaseFees] = useState<CaseFees | null>(null)
+  // 案件の前受金請求書（法人別の前受金控除を出すため firm_type も保持）
+  const [advInvoices, setAdvInvoices] = useState<Array<{ amount: number; status: string; firm_type: string | null }>>([])
   // 前受金控除額（確定請求のみ）。案件の前受金請求書から自動セット
   const [advanceDeduction, setAdvanceDeduction] = useState('0')
   const [loadingCase, setLoadingCase] = useState(false)
@@ -109,18 +114,15 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     const run = async () => {
       setLoadingCase(true)
       const supabase = createClient()
-      const [{ data: caseRow }, { data: expRows }, { data: advInvoices }] = await Promise.all([
-        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,contract_type,deceased_name').eq('id', form.case_id).single(),
+      const [{ data: caseRow }, { data: expRows }, { data: advInvRows }] = await Promise.all([
+        supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,advance_payment_administrative,advance_payment_judicial,contract_type,deceased_name').eq('id', form.case_id).single(),
         supabase.from('expenses').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('expense_date', { nullsFirst: false }),
-        supabase.from('invoices').select('amount,status').eq('case_id', form.case_id).eq('invoice_type', '前受金'),
+        supabase.from('invoices').select('amount,status,firm_type').eq('case_id', form.case_id).eq('invoice_type', '前受金'),
       ])
       if (cancelled) return
       const fees = caseRow as CaseFees | null
       setCaseFees(fees)
-      // 前受金控除の既定値: 発行済の前受金請求書合計（無ければ案件の前受金額）
-      const advRows = (advInvoices ?? []) as Array<{ amount: number; status: string }>
-      const advTotal = advRows.filter(i => i.status !== '未請求').reduce((s, i) => s + (i.amount ?? 0), 0)
-      setAdvanceDeduction(String(advTotal > 0 ? advTotal : (fees?.advance_payment ?? 0)))
+      setAdvInvoices(((advInvRows ?? []) as Array<{ amount: number; status: string; firm_type: string | null }>))
       // 発行法人の既定値を契約形態から決定（単独はその法人、連名は行をデフォルト）
       const defaultFirm = officesForContractType(fees?.contract_type)[0]
       if (defaultFirm === 'gyosei' || defaultFirm === 'shiho') {
@@ -135,15 +137,27 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     return () => { cancelled = true }
   }, [isOpen, form.case_id])
 
-  // 請求種別を選んだら、その種別に応じた金額をオーダーシートからプリセット。
-  // 前受金→案件の前受金額／確定請求→報酬合計（fee_total、無ければ行政+司法）。
+  // 請求種別・発行法人(行/司)を選んだら、その法人ぶんの金額をオーダーシートからプリセット。
+  // 前受金→その法人の前受金／確定請求→その法人の報酬。確定の前受金控除もその法人ぶんで既定化。
   useEffect(() => {
     if (!form.invoice_type || !caseFees) return
-    const preset = form.invoice_type === '前受金'
-      ? (caseFees.advance_payment ?? 0)
-      : (caseFees.fee_total ?? ((caseFees.fee_administrative ?? 0) + (caseFees.fee_judicial ?? 0)))
-    setForm(prev => ({ ...prev, fee_amount: String(preset || '') }))
-  }, [form.invoice_type, caseFees])
+    const firm = form.firm_type
+    if (form.invoice_type === '前受金') {
+      setForm(prev => ({ ...prev, fee_amount: String(advanceForFirm(caseFees, firm) || '') }))
+      return
+    }
+    // 確定請求: その法人の報酬（無ければ単独案件として fee_total にフォールバック）
+    let fee = firm === 'shiho' ? (caseFees.fee_judicial ?? 0) : (caseFees.fee_administrative ?? 0)
+    if (fee === 0 && (caseFees.fee_administrative ?? 0) === 0 && (caseFees.fee_judicial ?? 0) === 0) {
+      fee = caseFees.fee_total ?? 0
+    }
+    setForm(prev => ({ ...prev, fee_amount: String(fee || '') }))
+    // 前受金控除の既定値: その法人の発行済前受金請求合計（無ければ案件の前受金(法人別)）
+    const billed = advInvoices
+      .filter(i => i.status !== '未請求' && (i.firm_type ?? 'gyosei') === firm)
+      .reduce((s, i) => s + (i.amount ?? 0), 0)
+    setAdvanceDeduction(String(billed > 0 ? billed : advanceForFirm(caseFees, firm)))
+  }, [form.invoice_type, form.firm_type, caseFees, advInvoices])
 
   const feeAmountNum = Number(form.fee_amount) || 0
   // 立替実費・前受金控除は確定請求のみ（前受金は金額のみ）

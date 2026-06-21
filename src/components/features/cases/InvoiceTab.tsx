@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, Field, InlineSelect, InlineCurrency, InlineDate, InlineTextarea, FormField } from '@/components/ui/InlineFields'
 import { INVOICE_STATUSES, PAYMENT_STATUSES, EXPENSE_CATEGORIES } from '@/lib/constants'
+import { advanceTotal } from '@/lib/advancePayment'
 import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
 
 type Props = {
@@ -54,7 +55,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
 
   // Computed values
   const subtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
-  const confirmedAmount = subtotal - (caseData.advance_payment ?? 0)
+  const confirmedAmount = subtotal - advanceTotal(caseData)
   // パートナー報酬 = 行政報酬のみを対象（司法書士報酬は紹介料計算から除外）
   const partnerCompensation = partner ? (caseData.fee_administrative ?? 0) * (partner.kickback_rate ?? 0) / 100 : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
@@ -122,10 +123,16 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
               />
               <Field label="報酬小計" value={yen(subtotal)} mono />
               <InlineCurrency
-                label="前受金"
-                value={caseData.advance_payment}
-                onSave={v => saveCaseField('advance_payment', v)}
+                label="前受金（行政）"
+                value={caseData.advance_payment_administrative}
+                onSave={v => saveCaseField('advance_payment_administrative', v)}
               />
+              <InlineCurrency
+                label="前受金（司法）"
+                value={caseData.advance_payment_judicial}
+                onSave={v => saveCaseField('advance_payment_judicial', v)}
+              />
+              <Field label="前受金小計" value={yen(advanceTotal(caseData))} mono />
               <Field label="請求金額（確定）" value={yen(confirmedAmount)} mono />
               <InlineDate
                 label="請求日"

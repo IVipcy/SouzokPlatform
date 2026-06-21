@@ -214,6 +214,8 @@ export type CaseRow = {
   // 請求関連
   invoice_status: string | null
   advance_payment: number | null
+  advance_payment_administrative: number | null  // 前受金（行政・migration 119）
+  advance_payment_judicial: number | null         // 前受金（司法・migration 119）
   invoice_date: string | null
   payment_due_date: string | null
   payment_confirmed_date: string | null
