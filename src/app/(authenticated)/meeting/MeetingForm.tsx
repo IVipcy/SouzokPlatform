@@ -370,17 +370,24 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
         }
         // 契約手続きの受領書類（①）を contract_documents へ。入力済み（書類名 or 受領状況あり）のみ。
+        // 「その場で受領」は面談当日に受領済とみなし、到着日(arrival_date)を面談実施日で埋める。
+        // それ以外（後日郵送／依頼者が取得）は到着予定日(expected_arrival_date)として扱う。
+        const onSpotDate = formData.meetingDate || new Date().toISOString().slice(0, 10)
         const docRows = formData.intakeDocuments
           .filter(d => d.name.trim() || d.status)
-          .map((d, i) => ({
-            case_id: caseId,
-            name: d.name.trim() || null,
-            status: d.status || null,
-            category: d.category || null,
-            expected_arrival_date: d.arrival_date || null,
-            notes: d.note || null,
-            sort_order: i,
-          }))
+          .map((d, i) => {
+            const onSpot = d.status === 'その場で受領'
+            return {
+              case_id: caseId,
+              name: d.name.trim() || null,
+              status: d.status || null,
+              category: d.category || null,
+              arrival_date: onSpot ? onSpotDate : null,
+              expected_arrival_date: onSpot ? null : (d.arrival_date || null),
+              notes: d.note || null,
+              sort_order: i,
+            }
+          })
         if (docRows.length > 0) {
           await supabase.from('contract_documents').insert(docRows)
         }

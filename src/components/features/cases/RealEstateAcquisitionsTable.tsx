@@ -9,7 +9,7 @@ import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, Contract
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
-import ContractReceivedRows from './ContractReceivedRows'
+import ContractReceivedBlock from './ContractReceivedBlock'
 
 type Props = {
   caseId: string
@@ -72,6 +72,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
 
   return (
     <div>
+      {/* 契約時に受領済の不動産関係書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
+      <ContractReceivedBlock docs={contractDocs} />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1100 : 720 }}>
           <thead>
@@ -88,11 +90,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
             </tr>
           </thead>
           <tbody>
-            <ContractReceivedRows docs={contractDocs} colSpan={progressMode ? 9 : 5} />
             {rows.length === 0 ? (
-              contractDocs.filter(d => d.status !== '不要').length === 0
-                ? <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
-                : null
+              <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : rows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし

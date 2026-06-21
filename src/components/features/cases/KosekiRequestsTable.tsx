@@ -11,7 +11,7 @@ import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow }
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, type RelatedTask } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
-import ContractReceivedRows from './ContractReceivedRows'
+import ContractReceivedBlock from './ContractReceivedBlock'
 
 type Props = {
   caseId: string
@@ -85,6 +85,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
 
   return (
     <div>
+      {/* 契約時に受領済の戸籍（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
+      <ContractReceivedBlock docs={contractDocs} />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1240 : 820 }}>
           <thead>
@@ -105,8 +107,6 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
             </tr>
           </thead>
           <tbody>
-            {/* 契約時に受領済の戸籍（依頼者取得分）。同じものを請求行で二重登録しないよう表の先頭に。 */}
-            <ContractReceivedRows docs={contractDocs} colSpan={colCount} />
             {rows.length > 0 ? (
               rows.map((r, i) => (
                 <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode}
@@ -115,9 +115,9 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   setLocal={setLocal} commit={commit} saveField={saveField}
                   onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} />
               ))
-            ) : contractDocs.filter(d => d.status !== '不要').length === 0 ? (
+            ) : (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
-            ) : null}
+            )}
           </tbody>
         </table>
       </div>

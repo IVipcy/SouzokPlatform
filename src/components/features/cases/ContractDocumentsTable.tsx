@@ -51,6 +51,19 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
   }
   const saveNow = (id: string, field: keyof ContractDocumentRow, value: string) => { setLocal(id, field, value); commit(id, field, value) }
 
+  // 受領状況を「その場で受領」にしたら、到着日が未入力なら当日で埋めて受領済にする。
+  const onStatusChange = async (row: ContractDocumentRow, value: string) => {
+    setLocal(row.id, 'status', value)
+    if (value === 'その場で受領' && !row.arrival_date) {
+      const today = new Date().toISOString().slice(0, 10)
+      setLocal(row.id, 'arrival_date', today)
+      const { error } = await supabase.from('contract_documents').update({ status: value, arrival_date: today }).eq('id', row.id)
+      if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    } else {
+      commit(row.id, 'status', value)
+    }
+  }
+
   const addRow = async (name = '') => {
     setBusy(true)
     const { data, error } = await supabase
@@ -125,7 +138,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
                     </select>
                   </td>
                   <td className="px-2.5 py-1.5">
-                    <select value={r.status ?? ''} onChange={e => saveNow(r.id, 'status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                    <select value={r.status ?? ''} onChange={e => onStatusChange(r, e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       <option value="">—</option>
                       {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>

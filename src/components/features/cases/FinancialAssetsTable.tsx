@@ -9,12 +9,13 @@ import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
-import ContractReceivedRows from './ContractReceivedRows'
+import ContractReceivedBlock from './ContractReceivedBlock'
 
 const REQ = ['要', '不要', '確認中']
+const CANCEL = ['有', '無', '確認中']
 
 type Kind = '預貯金' | '証券' | '信託銀行'
-type ColType = 'text' | 'req'
+type ColType = 'text' | 'req' | 'cancel'
 type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?: string }
 
 // 種別ごとの列定義（調査期間・備考・進捗列は共通で末尾に付与）
@@ -25,6 +26,8 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
+    // 解約有無（cancellation_required）。同じ行を解約タブと共有するため、ここで「有」にすると解約手続タブに出る。
+    { key: 'cancellation_required', label: '解約', type: 'cancel', width: 'w-24' },
   ],
   '証券': [
     { key: 'institution_name', label: '証券会社', type: 'text' },
@@ -94,6 +97,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 
   return (
     <div>
+      {/* 契約時にお客様から受領済の書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
+      <ContractReceivedBlock docs={contractDocs} />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1340 : 980 }}>
           <thead>
@@ -111,12 +116,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             </tr>
           </thead>
           <tbody>
-            {/* 契約時に受領済の金融関係書類（依頼者取得分）。二重登録防止のため表の先頭に。 */}
-            <ContractReceivedRows docs={contractDocs} colSpan={colCount} />
             {rows.length === 0 ? (
-              contractDocs.filter(d => d.status !== '不要').length === 0
-                ? <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
-                : null
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
               rows.map(r => (
                 <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
@@ -125,7 +126,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
-                        <SmallSelect value={(r[c.key] as string) ?? ''} options={REQ} onChange={v => save(r.id, c.key, v)} />
+                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />
                       )}
                     </td>
                   ))}
