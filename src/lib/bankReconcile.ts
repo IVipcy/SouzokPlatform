@@ -164,6 +164,13 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     }
     // カナ一致を先頭に寄せた候補並び（人が選びやすいように）
     const sortByKana = (arr: InvoiceLite[]) => [...arr].sort((a, b) => Number(payerHit(b)) - Number(payerHit(a)))
+    // 振込額と請求額の差を「不足/超過」で言葉にする（過少/過払いの予測）
+    const diffNote = (invAmt: number) => {
+      const d = row.amount - invAmt
+      return d > 0
+        ? `${d.toLocaleString()}円 超過（過払いの可能性）`
+        : `${(-d).toLocaleString()}円 不足（過少入金の可能性）`
+    }
 
     // 1) 案件番号一致 ＋ 金額一致 → 確定（AI）
     const byCaseNo = unpaid.filter(i => i.case_number && hayAlnum.includes(norm(i.case_number)))
@@ -171,9 +178,12 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     if (caseAmt.length === 1) {
       return { row, invoiceId: caseAmt[0].id, kind: 'matched', by: 'ai', reason: '案件番号・金額が一致', candidates: caseAmt }
     }
-    // 2) 案件番号一致だが金額不一致 → 要確認
+    // 2) 案件番号一致だが金額不一致 → 要確認（差額・過不足を明示。候補1件なら先に選択）
     if (byCaseNo.length > 0 && caseAmt.length === 0) {
-      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '案件番号は一致するが金額が違う', candidates: sortByKana(byCaseNo) }
+      if (byCaseNo.length === 1) {
+        return { row, invoiceId: byCaseNo[0].id, kind: 'review', by: 'human', reason: `案件番号一致・金額が${diffNote(byCaseNo[0].amount)}`, candidates: byCaseNo }
+      }
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '案件番号は一致するが金額が違う。候補から選択', candidates: sortByKana(byCaseNo) }
     }
     // 3) 振込人カナ一致 ＋ 金額一致 → 確定（AI）＝マスターキー
     const kanaCands = unpaid.filter(payerHit)
@@ -184,9 +194,12 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     if (kanaAmt.length > 1) {
       return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナ・金額一致が複数。選択してください', candidates: kanaAmt }
     }
-    // 4) 振込人カナは一致するが金額が違う → 要確認
+    // 4) 振込人カナは一致するが金額が違う → 要確認（差額・過不足を明示。候補1件なら先に選択）
     if (kanaCands.length > 0) {
-      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナは一致するが金額が違う', candidates: sortByKana(kanaCands) }
+      if (kanaCands.length === 1) {
+        return { row, invoiceId: kanaCands[0].id, kind: 'review', by: 'human', reason: `振込人カナ一致・金額が${diffNote(kanaCands[0].amount)}`, candidates: kanaCands }
+      }
+      return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナは一致するが金額が違う。候補から選択', candidates: sortByKana(kanaCands) }
     }
     // 5) 金額一致のみ（カナ未登録/不一致）→ 要確認（人がカナを確認）
     const amtMatches = unpaid.filter(amountEq)
