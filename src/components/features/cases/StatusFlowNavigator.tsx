@@ -30,14 +30,14 @@ export function getJutakuFlowSteps(args: {
   ]
 }
 
-// 検討中（契約書待ち）→受託 の前提条件。契約残手続き＋この段階の全タスク完了。
+// 検討中（契約書待ち）→受託 の前提条件。契約残手続き＋受注/管理担当タスク完了（事務管理タスクは対応中で着手するため除外）。
 export function getKentouContractFlowSteps(args: {
   contractProcDone: boolean
   allTasksDone: boolean
 }): FlowStep[] {
   return [
     { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
-    { key: 'tasks', label: 'タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.allTasksDone },
+    { key: 'tasks', label: '受注/管理担当タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.allTasksDone },
   ]
 }
 

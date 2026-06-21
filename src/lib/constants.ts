@@ -116,11 +116,14 @@ export const getSelectableCaseStatuses = (
   return [currentStatus, ...filtered.filter(t => t !== currentStatus)]
 }
 
-// 検討中（契約書待ち）→受注 のゲート用：この段階のタスクが全て完了（タスクが1件以上あり、未完了が無い）。
+// 検討中（契約書待ち）→受注 のゲート用：受託の前提となる「受注担当/管理担当タスク(system)」が完了か。
+// 戸籍・財産調査などの事務管理(業務=case)タスクは対応中で着手するため、受託のゲートには含めない。
 export const isAllTasksDone = (
-  tasks: { status: string }[],
-): boolean =>
-  tasks.length > 0 && !tasks.some(t => t.status !== '完了' && t.status !== 'キャンセル')
+  tasks: { task_kind?: string | null; status: string }[],
+): boolean => {
+  const gating = tasks.filter(t => t.task_kind === 'system')
+  return !gating.some(t => t.status !== '完了' && t.status !== 'キャンセル')
+}
 
 // 初期対応タスク（受託時に生成される system かつ category=初期対応）が全完了か。
 // 受託→対応中の移行ゲート（getSelectableCaseStatuses の initialTasksDone）に使う。
