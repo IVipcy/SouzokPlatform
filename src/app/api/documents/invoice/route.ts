@@ -21,6 +21,7 @@ type Body = {
   amount: number
   taskId?: string | null
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
+  kubun?: string              // 区分セル（請求書=前受金、領収書=前受金/確定請求 等）。既定は前受金
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     // 依頼者・件名・区分
     setCell(ws, F.clientName, clientName)
     for (const c of F.kenmei) setCell(ws, c, kenmei || '')
-    setCell(ws, F.kubun, '前受金')
+    setCell(ws, F.kubun, body.kubun || '前受金')
 
     // 金額（前受金は消費税対象外＝合計も同額）
     for (const c of F.amount) setCell(ws, c, amount)

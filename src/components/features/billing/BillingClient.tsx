@@ -111,6 +111,8 @@ export default function BillingClient({ invoices, cases }: Props) {
   const [search, setSearch] = useState('')
   const [caseFilter, setCaseFilter] = useState<string | null>(caseFromUrl)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // 行/司サマリーの開閉（既定は閉じる。請求合計KPIクリックで開く）
+  const [showFirmSummary, setShowFirmSummary] = useState(false)
 
   // URL の ?case= が変わったら state にも反映
   useEffect(() => {
@@ -131,11 +133,13 @@ export default function BillingClient({ invoices, cases }: Props) {
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, paid: 100, diff: 90, invoiceDate: 100, pdf: 90, actions: 72,
+    caseNo: 140, case: 180, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
     { key: 'case', label: '案件名' },
+    { key: 'route', label: '受注ルート' },
+    { key: 'referral', label: '紹介元' },
     { key: 'type', label: '請求分類' },
     { key: 'caseStatus', label: '案件ステータス' },
     { key: 'sales', label: '受注担当' },
@@ -144,10 +148,14 @@ export default function BillingClient({ invoices, cases }: Props) {
     { key: 'dueDate', label: '入金期日' },
     { key: 'overdue', label: '超過日数' },
     { key: 'amount', label: '請求金額', align: 'right' },
+    { key: 'advance', label: '前受金', align: 'right' },
+    { key: 'expenses', label: '実費', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
     { key: 'diff', label: '差額', align: 'right' },
     { key: 'invoiceDate', label: '請求日' },
-    { key: 'pdf', label: '請求書PDF' },
+    { key: 'pdf', label: '請求書' },
+    { key: 'receipt', label: '領収書' },
+    { key: 'remarks', label: '備考' },
     { key: 'actions', label: '' },
   ]
 
@@ -311,6 +319,17 @@ export default function BillingClient({ invoices, cases }: Props) {
     } finally {
       setAlertingId(null)
     }
+  }
+
+  // 備考のインライン保存
+  const handleNotesCommit = async (invoiceId: string, value: string) => {
+    const supabase = createClient()
+    await supabase.from('invoices').update({ notes: value || null }).eq('id', invoiceId)
+  }
+  // 領収書を発行（生成）→発行日が入るので一覧を更新
+  const handleIssueReceipt = async (invoiceId: string) => {
+    await openOfficialReceipt(invoiceId)
+    router.refresh()
   }
 
   const handleStatusChange = async (invoiceId: string, nextStatus: InvoiceStatus) => {
@@ -505,9 +524,9 @@ export default function BillingClient({ invoices, cases }: Props) {
         {kpis.map(kpi => (
           <button
             key={kpi.key}
-            onClick={() => setStatusFilter(kpi.key === statusFilter ? 'all' : kpi.key)}
+            onClick={() => { if (kpi.key === 'all') { setShowFirmSummary(s => !s); setStatusFilter('all') } else setStatusFilter(kpi.key === statusFilter ? 'all' : kpi.key) }}
             className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${
-              statusFilter === kpi.key ? 'border-brand-300 bg-brand-50 border-t-[3px] border-t-brand-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
+              (kpi.key === 'all' ? showFirmSummary : statusFilter === kpi.key) ? 'border-brand-300 bg-brand-50 border-t-[3px] border-t-brand-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
@@ -515,12 +534,13 @@ export default function BillingClient({ invoices, cases }: Props) {
               <kpi.Icon className="w-5 h-5 text-gray-400" strokeWidth={1.75} />
             </div>
             <div className={`text-[22px] font-extrabold tracking-tight leading-none ${kpi.color || ''}`}>{kpi.value}</div>
-            <div className="text-[12px] text-gray-400 mt-1">{kpi.sub}</div>
+            <div className="text-[12px] text-gray-400 mt-1">{kpi.key === 'all' ? `${kpi.sub}・クリックで行/司内訳` : kpi.sub}</div>
           </button>
         ))}
       </div>
 
-      {/* 行/司 別の集計（発行法人ごと） */}
+      {/* 行/司 別の集計（発行法人ごと）。請求合計KPIクリックで開閉 */}
+      {showFirmSummary && (<>
       <div className="grid grid-cols-2 gap-3 mb-5">
         {([
           { key: 'gyosei', label: '行政書士法人', sum: firmSummary.gyosei, ring: 'border-blue-200', head: 'bg-blue-50 text-blue-800', accent: 'text-blue-700' },
@@ -557,6 +577,7 @@ export default function BillingClient({ invoices, cases }: Props) {
           発行法人が未設定の請求書が {firmSummary.unset.count} 件（{fmt(firmSummary.unset.total)}）あります。集計を正確にするには各請求書の発行法人を設定してください。
         </div>
       )}
+      </>)}
 
       <div>
         {/* Table */}
@@ -688,6 +709,10 @@ export default function BillingClient({ invoices, cases }: Props) {
                           </div>
                         )}
                       </td>
+                      {/* 受注ルート */}
+                      <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{inv.cases?.order_route || <span className="text-gray-300">—</span>}</td>
+                      {/* 紹介元（詳細） */}
+                      <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{inv.cases?.order_route_detail || <span className="text-gray-300">—</span>}</td>
                       {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
                       <td className="px-3.5 py-2.5">
                         <div className="flex flex-col items-start gap-1">
@@ -766,12 +791,11 @@ export default function BillingClient({ invoices, cases }: Props) {
                           )
                         })()}
                       </td>
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">
-                        <div>{fmt(inv.amount)}</div>
-                        {inv.expenses_amount > 0 && (
-                          <div className="text-[10px] text-gray-400 font-normal mt-0.5" title="報酬 + 立替実費">報酬 ¥{inv.fee_amount.toLocaleString()} + 実費 ¥{inv.expenses_amount.toLocaleString()}</div>
-                        )}
-                      </td>
+                      <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">{fmt(inv.amount)}</td>
+                      {/* 前受金（前受金請求＝請求額／確定請求＝差し引いた前受金控除） */}
+                      <td className="px-3.5 py-2.5 text-right text-xs font-mono text-gray-700">{fmt(inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction || 0))}</td>
+                      {/* 実費（立替実費） */}
+                      <td className="px-3.5 py-2.5 text-right text-xs font-mono text-gray-700">{fmt(inv.expenses_amount || 0)}</td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono text-green-600">{fmt(paidAmount)}</td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
                         {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
@@ -784,6 +808,24 @@ export default function BillingClient({ invoices, cases }: Props) {
                         ) : (
                           <OpenInvoiceButton invoiceId={inv.id} />
                         )}
+                      </td>
+                      {/* 領収書（発行済→開く＋発行日／未発行→発行ボタン。前受金は基本発行しない運用） */}
+                      <td className="px-3.5 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                        {isUnissued ? (
+                          <span className="text-gray-300 text-[12px]">—</span>
+                        ) : inv.receipt_issued_date ? (
+                          <button type="button" onClick={() => openOfficialReceipt(inv.id)} className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 rounded" title={`発行日 ${inv.receipt_issued_date}`}>
+                            <FileText className="w-3 h-3" strokeWidth={2.25} />領収書
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => handleIssueReceipt(inv.id)} className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 rounded" title="領収書を発行（Excel生成）">
+                            <FileText className="w-3 h-3" strokeWidth={2.25} />発行
+                          </button>
+                        )}
+                      </td>
+                      {/* 備考（表上で直接編集） */}
+                      <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                        <RemarksCell value={inv.notes} onCommit={v => handleNotesCommit(inv.id, v)} />
                       </td>
                       {/* 詳細（編集・入金消込・領収書・入金確認依頼をまとめた右パネルを開く） */}
                       <td className="px-2 py-2.5 text-center">
@@ -999,6 +1041,24 @@ export default function BillingClient({ invoices, cases }: Props) {
         onConfirm={handleBulkDelete}
       />
     </div>
+  )
+}
+
+// 備考のインライン編集セル（フォーカス時のみ枠線・blurで保存）
+function RemarksCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
+  const [v, setV] = useState(value ?? '')
+  // propが変わったらローカルへ同期（render中の状態調整＝Reactの推奨パターン）
+  const [lastValue, setLastValue] = useState(value ?? '')
+  if ((value ?? '') !== lastValue) { setLastValue(value ?? ''); setV(value ?? '') }
+  return (
+    <input
+      type="text"
+      value={v}
+      onChange={e => setV(e.target.value)}
+      onBlur={() => { if (v !== (value ?? '')) onCommit(v) }}
+      placeholder="—"
+      className="w-full px-1.5 py-1 text-[12px] border border-transparent hover:border-gray-200 focus:border-brand-400 rounded bg-transparent focus:bg-white outline-none"
+    />
   )
 }
 

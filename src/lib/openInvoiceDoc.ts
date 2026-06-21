@@ -80,10 +80,13 @@ export async function openOfficialReceipt(invoiceId: string) {
   const inv = data as Pick<InvForDoc, 'id' | 'case_id' | 'invoice_type' | 'firm_type' | 'amount' | 'cases'> | null
   if (!inv) { showToast('請求書が見つかりません', 'error'); return }
   const firm = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
+  // 領収書は前受金・確定で「区分」と金額が変わる（テンプレ体裁は共通）。確定請求は確定総額を領収。
   const res = await fetch('/api/documents/invoice', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ caseId: inv.case_id, variant: invoiceVariantKey('領収書', firm), kenmei: kenmeiOf(inv), amount: inv.amount }),
+    body: JSON.stringify({ caseId: inv.case_id, variant: invoiceVariantKey('領収書', firm), kenmei: kenmeiOf(inv), amount: inv.amount, kubun: inv.invoice_type }),
   })
   if (!res.ok) { showToast('領収書の生成に失敗しました', 'error'); return }
   openBlob(await res.blob())
+  // 発行日を記録（請求一覧の領収書列に表示）
+  await supabase.from('invoices').update({ receipt_issued_date: new Date().toISOString().slice(0, 10) }).eq('id', invoiceId)
 }
