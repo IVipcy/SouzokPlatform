@@ -516,17 +516,7 @@ function TaskWorkSection({
           </div>
         )}
 
-        {/* 3. 作業進捗メモ */}
-        <div className="pt-3">
-          <InlineTextarea
-            label="作業進捗メモ"
-            value={task.notes ?? ''}
-            onSave={v => saveField('notes', v)}
-          />
-          <div className="text-[11px] text-gray-400 mt-0.5">
-            いつ何をやったのか、作業の進捗が分かるメモを記載
-          </div>
-        </div>
+        {/* 作業進捗メモ(notes)は実施結果・引継ぎ事項に集約のため廃止（データ列は残置） */}
       </div>
     </section>
   )
