@@ -29,6 +29,14 @@ export type FormData = {
   meetingPlace: string      // 面談場所
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明）
+  // LP担当の追いかけ運用（検討中系のとき入力。連携②廃止に伴うLP直接追いかけ）
+  lpFollowupAllowed: '' | '可' | '不可'   // LP追いかけ可否（空＝未入力）
+  lpFollowupMethod: string              // 連絡方法（電話/メール/SMS/LINE/その他）
+  lpFollowupMethodOther: string         // 連絡方法が「その他」のときの自由入力
+  lpFollowupDueDate: string             // 追いかけ期限日
+  // 他事業者紹介：依頼内容（partner_type が 税理士/不動産 のとき選択肢、それ以外はフリー）
+  taxAdvisorBusinessType: string  // 税理士業務（依頼内容） — case_referrals(partner_type='税理士').content と連動
+  realEstateRegistrationType: string  // 不動産登記（依頼内容） — case_referrals(partner_type='不動産').content と連動
   // 依頼者（複数人）
   clients: ClientPerson[]
   // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
@@ -72,6 +80,12 @@ export const INITIAL_DATA: FormData = {
   meetingPlace: '',
   clientResponseDueDate: '',
   considerationPeriod: '',
+  lpFollowupAllowed: '',
+  lpFollowupMethod: '',
+  lpFollowupMethodOther: '',
+  lpFollowupDueDate: '',
+  taxAdvisorBusinessType: '',
+  realEstateRegistrationType: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
   postalCode: '',
   address: '',

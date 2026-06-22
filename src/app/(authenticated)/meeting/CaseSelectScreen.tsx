@@ -79,7 +79,21 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                 <tr
                   key={c.id}
                   className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '', orderRoute: c.order_route, orderRouteDetail: c.order_route_detail })}
+                  onClick={() => onSelect({
+                    id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '',
+                    orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
+                    deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
+                    deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
+                    deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
+                    clientFurigana: c.clients?.furigana ?? null,
+                    clientRelation: c.clients?.relationship_to_deceased ?? null,
+                    clientMobilePhone: c.clients?.mobile_phone ?? null,
+                    clientEmail: c.clients?.email ?? null,
+                    clientAddress: c.clients?.address ?? null,
+                    clientPostalCode: c.clients?.postal_code ?? null,
+                    clientNotes: c.clients?.notes ?? null,
+                    hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
+                  })}
                 >
                   <td className="px-3.5 py-2.5">
                     <span className="font-mono text-[13px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{c.case_number}</span>
@@ -95,7 +109,21 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   </td>
                   <td className="px-3.5 py-2.5">
                     <button
-                      onClick={e => { e.stopPropagation(); onSelect({ id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '', orderRoute: c.order_route, orderRouteDetail: c.order_route_detail }) }}
+                      onClick={e => { e.stopPropagation(); onSelect({
+                    id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '',
+                    orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
+                    deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
+                    deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
+                    deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
+                    clientFurigana: c.clients?.furigana ?? null,
+                    clientRelation: c.clients?.relationship_to_deceased ?? null,
+                    clientMobilePhone: c.clients?.mobile_phone ?? null,
+                    clientEmail: c.clients?.email ?? null,
+                    clientAddress: c.clients?.address ?? null,
+                    clientPostalCode: c.clients?.postal_code ?? null,
+                    clientNotes: c.clients?.notes ?? null,
+                    hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
+                  }) }}
                       className="px-2.5 py-1 rounded-md bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition"
                     >
                       選択

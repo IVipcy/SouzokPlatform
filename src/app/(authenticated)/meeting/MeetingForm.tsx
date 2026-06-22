@@ -12,6 +12,7 @@ import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } f
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
+  LP_FOLLOWUP_METHODS, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
@@ -189,10 +190,36 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   const [data, setData] = useState<FormData>(() => {
     const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
     if (selectedCase.id !== 'new') {
-      init.clients[0] = { ...init.clients[0], name: selectedCase.client, phone: selectedCase.phone }
-      // 連携①（相続ステーション）で事前登録された面談ルート・紹介元を引き継ぐ
+      // 連携①（相続ステーション）で事前登録された情報を初期値に引き継ぐ
+      // 面談ルート・紹介元
       if (selectedCase.orderRoute) init.orderRoute = selectedCase.orderRoute
       if (selectedCase.orderRouteDetail) init.orderRouteDetail = selectedCase.orderRouteDetail
+      // 依頼者（メイン）
+      init.clients[0] = {
+        ...init.clients[0],
+        name: selectedCase.client,
+        kana: selectedCase.clientFurigana ?? '',
+        relationship: selectedCase.clientRelation ?? '',
+        phone: selectedCase.phone,
+        mobilePhone: selectedCase.clientMobilePhone ?? '',
+        email: selectedCase.clientEmail ?? '',
+      }
+      if (selectedCase.clientAddress) init.address = selectedCase.clientAddress
+      if (selectedCase.clientPostalCode) init.postalCode = selectedCase.clientPostalCode
+      if (selectedCase.clientNotes) init.clientTraitDetail = selectedCase.clientNotes
+      // 被相続人
+      if (selectedCase.deceasedName) init.deceasedName = selectedCase.deceasedName
+      if (selectedCase.deceasedFurigana) init.deceasedKana = selectedCase.deceasedFurigana
+      if (selectedCase.deceasedBirthDate) init.deceasedBirthday = selectedCase.deceasedBirthDate
+      if (selectedCase.dateOfDeath) init.dateOfDeath = selectedCase.dateOfDeath
+      if (selectedCase.deceasedAddress) init.deceasedAddress = selectedCase.deceasedAddress
+      if (selectedCase.deceasedRegisteredAddress) init.deceasedRegisteredAddress = selectedCase.deceasedRegisteredAddress
+      // LP事前ヒアリング情報をヒアリングメモの先頭にプリセット（営業が面談時に追記する想定）
+      const lpHearing: string[] = []
+      if (selectedCase.hearingContent) lpHearing.push(`【LP事前ヒアリング】\n${selectedCase.hearingContent}`)
+      if (selectedCase.specialNotes) lpHearing.push(`【特記事項】\n${selectedCase.specialNotes}`)
+      if (selectedCase.otherNeeds) lpHearing.push(`【その他ニーズ】\n${selectedCase.otherNeeds}`)
+      if (lpHearing.length > 0) init.hearingMemo = lpHearing.join('\n\n') + '\n\n---\n【面談で確認した内容】\n'
     }
     return init
   })
@@ -336,6 +363,11 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deceased_has_special_chars: formData.deceasedHasSpecialChars,
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
         contract_type: formData.contractType || null,
+        // LP担当の追いかけ運用
+        lp_followup_allowed: formData.lpFollowupAllowed === '' ? null : formData.lpFollowupAllowed === '可',
+        lp_followup_method: formData.lpFollowupMethod || null,
+        lp_followup_method_other: formData.lpFollowupMethod === 'その他' ? (formData.lpFollowupMethodOther || null) : null,
+        lp_followup_due_date: formData.lpFollowupDueDate || null,
       }
 
       if (isNew) {
@@ -418,9 +450,15 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       }
 
       // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
+      //    税理士/不動産は依頼内容(content)も同時に保存（LP案件一覧の該当列のソースとなる）
       if (formData.referralPartners.length > 0) {
-        const rows = formData.referralPartners.map(p => ({ case_id: caseId, partner_type: p }))
-        await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type', ignoreDuplicates: true })
+        const rows = formData.referralPartners.map(p => {
+          const row: { case_id: string; partner_type: string; content?: string | null } = { case_id: caseId, partner_type: p }
+          if (p === '税理士' && formData.taxAdvisorBusinessType) row.content = formData.taxAdvisorBusinessType
+          if (p === '不動産' && formData.realEstateRegistrationType) row.content = formData.realEstateRegistrationType
+          return row
+        })
+        await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type' })
       }
 
       setSaving(false)
@@ -502,6 +540,26 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   <Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} max={considerationDueMax(data.considerationPeriod) ?? undefined} />
                   <p className="mt-1 text-[11px] text-gray-400">「{data.considerationPeriod}」以内（〜{considerationDueMax(data.considerationPeriod)}）で選べます。</p>
                 </Card>
+              )}
+              {/* LP担当追いかけ運用（連携②廃止に伴う） */}
+              <Card label="LPによる追いかけ可否">
+                <Pills value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} />
+                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
+              </Card>
+              {data.lpFollowupAllowed === '可' && (
+                <>
+                  <Card label="連絡方法">
+                    <Pills value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v as string)} />
+                    {data.lpFollowupMethod === 'その他' && (
+                      <div className="mt-2">
+                        <Input value={data.lpFollowupMethodOther} onChange={v => update('lpFollowupMethodOther', v)} placeholder="連絡方法を入力（例：FAX、対面 等）" />
+                      </div>
+                    )}
+                  </Card>
+                  <Card label="追いかけ期限日">
+                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
+                  </Card>
+                </>
               )}
             </>
           )}
@@ -708,6 +766,20 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
           {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
             <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
+          )}
+          {/* 税理士／不動産が選ばれた場合、依頼内容（リスト選択）を入力。
+              この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
+          {data.referralPartners.includes('税理士') && (
+            <Card label="税理士業務（依頼内容）">
+              <Pills value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onChange={v => update('taxAdvisorBusinessType', v as string)} />
+              <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「税理士業務」列にもこの値が表示されます。</p>
+            </Card>
+          )}
+          {data.referralPartners.includes('不動産') && (
+            <Card label="不動産登記（依頼内容）">
+              <Pills value={data.realEstateRegistrationType} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onChange={v => update('realEstateRegistrationType', v as string)} />
+              <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「不動産登記」列にもこの値が表示されます。</p>
+            </Card>
           )}
           <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>

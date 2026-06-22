@@ -48,8 +48,15 @@ type CaseRowRaw = {
   meeting_executed_date: string | null
   client_response_due_date: string | null
   consideration_period: string | null
+  // LP担当の追いかけ運用（連携②廃止に伴う）
+  lp_followup_allowed: boolean | null
+  lp_followup_method: string | null
+  lp_followup_method_other: string | null
+  lp_followup_due_date: string | null
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
+  // 他事業者紹介の依頼内容（partner_type='税理士'/'不動産' の content）
+  case_referrals?: Array<{ partner_type: string; content: string | null }>
 }
 
 // 確定売上金額: 契約形態に応じて 行政単独=行政報酬 / 司法単独=司法報酬 / 連名=合計
@@ -74,7 +81,7 @@ export default async function CasesPage() {
   const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('*, clients(id,name), case_members(role, members(id,name,team_id))')
+      .select('*, clients(id,name), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),
@@ -196,28 +203,37 @@ export default async function CasesPage() {
     order_sheet_completed_at: c.order_sheet_completed_at,
   }))
 
-  // LP案件一覧（受注ルート = LP直 / その他）
-  const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => ({
-    id: c.id,
-    case_number: c.case_number,
-    lp_case_number: c.lp_case_number,
-    deal_name: c.deal_name,
-    status: c.status,
-    contract_type: c.contract_type,
-    referral_source: c.order_route_detail || c.order_route_lp_name || c.referral_name || null,
-    client_name: c.clients?.name ?? null,
-    lost_reason: c.lost_reason,
-    client_response_due_date: c.client_response_due_date,
-    consideration_period: c.consideration_period,
-    sales_name: salesByCase.get(c.id) ?? null,
-    team_name: salesTeamByCase.get(c.id) ?? null,
-    manager_name: managerByCase.get(c.id) ?? null,
-    advance_payment: advanceTotal(c),
-    confirmed_revenue: confirmedRevenue(c),
-    expected_completion_date: c.expected_completion_date,
-    tax_advisor_name: c.tax_advisor_name,
-    real_estate_status: c.real_estate_appraisal_status,
-  }))
+  // LP案件一覧（受注ルート = LP経由）
+  const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => {
+    const refMap = new Map<string, string | null>((c.case_referrals ?? []).map(r => [r.partner_type, r.content]))
+    return {
+      id: c.id,
+      case_number: c.case_number,
+      lp_case_number: c.lp_case_number,
+      deal_name: c.deal_name,
+      status: c.status,
+      contract_type: c.contract_type,
+      referral_source: c.order_route_detail || c.order_route_lp_name || c.referral_name || null,
+      client_name: c.clients?.name ?? null,
+      lost_reason: c.lost_reason,
+      client_response_due_date: c.client_response_due_date,
+      consideration_period: c.consideration_period,
+      sales_name: salesByCase.get(c.id) ?? null,
+      team_name: salesTeamByCase.get(c.id) ?? null,
+      manager_name: managerByCase.get(c.id) ?? null,
+      advance_payment: advanceTotal(c),
+      confirmed_revenue: confirmedRevenue(c),
+      expected_completion_date: c.expected_completion_date,
+      // 他事業者紹介(税理士/不動産)の依頼内容を引用（同一データ）
+      tax_advisor_business: refMap.get('税理士') ?? null,
+      real_estate_registration: refMap.get('不動産') ?? null,
+      // LP追いかけ運用
+      lp_followup_allowed: c.lp_followup_allowed,
+      lp_followup_method: c.lp_followup_method,
+      lp_followup_method_other: c.lp_followup_method_other,
+      lp_followup_due_date: c.lp_followup_due_date,
+    }
+  })
 
   // 個別管理案件（紹介のみ・長期保留）
   const referralRows: ReferralRow[] = cases.filter(c => REFERRAL.has(c.status)).map(c => ({

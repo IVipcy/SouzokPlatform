@@ -199,6 +199,11 @@ export type CaseRow = {
   other_needs: string | null
   // 相続ステーション連携：紹介元の屋号管理番号（例：KN02）
   referral_partner_number: string | null
+  // LP担当の追いかけ運用（連携②廃止に伴う）
+  lp_followup_allowed: boolean | null
+  lp_followup_method: string | null
+  lp_followup_method_other: string | null
+  lp_followup_due_date: string | null
   // 面談内容（面談で聞き取った内容のメモ・備考。事前情報とは別）
   meeting_hearing_memo: string | null
   meeting_other_notes: string | null

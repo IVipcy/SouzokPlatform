@@ -2,6 +2,11 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // 外部システム連携エンドポイントはユーザー認証を要求しない（独自のAPIキー+HMAC検証）
+  if (request.nextUrl.pathname.startsWith('/api/integration/')) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

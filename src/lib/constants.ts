@@ -363,6 +363,27 @@ export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
 export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 
+// LP担当の追いかけ連絡方法（連携②廃止に伴うLP追いかけ運用）
+export const LP_FOLLOWUP_METHODS = ['電話', 'メール', 'SMS', 'LINE', 'その他'] as const
+
+// 不動産登記の発生有無（LP案件一覧・他事業者紹介(不動産)の依頼内容として共有）
+export const REAL_ESTATE_REGISTRATION_OPTIONS = [
+  '不動産なし',
+  '登記申請あり(OC依頼予定)',
+  '登記申請あり(その他)',
+] as const
+
+// 税理士業務の発生有無（LP案件一覧・他事業者紹介(税理士)の依頼内容として共有）
+export const TAX_ADVISOR_BUSINESS_OPTIONS = [
+  '相続税申告なし',
+  '相続税申告あり',
+  '相続税申告・財産調査次第',
+  '相続税申告・準確定申告あり',
+  '相続税申告あり・その他申告あり',
+  '準確定申告あり',
+  'その他申告あり',
+] as const
+
 // 案件番号の経路コード（YYMM + コード + 当日連番4桁）
 export const ORDER_ROUTE_CODES: Record<string, string> = {
   'LP経由': 'LP',

@@ -15,6 +15,25 @@ export type SelectedCase = {
   // 連携①（相続ステーション）由来の事前データ。面談登録フォームの初期値に引き継ぐ。
   orderRoute?: string | null
   orderRouteDetail?: string | null
+  // 被相続人情報
+  deceasedName?: string | null
+  deceasedFurigana?: string | null
+  deceasedBirthDate?: string | null
+  dateOfDeath?: string | null
+  deceasedAddress?: string | null
+  deceasedRegisteredAddress?: string | null
+  // 依頼者情報（メイン）
+  clientFurigana?: string | null
+  clientRelation?: string | null
+  clientMobilePhone?: string | null
+  clientEmail?: string | null
+  clientAddress?: string | null
+  clientPostalCode?: string | null
+  clientNotes?: string | null
+  // 相談事前情報（LPヒアリング）
+  hearingContent?: string | null
+  specialNotes?: string | null
+  otherNeeds?: string | null
 } | null
 
 export type CaseData = CaseRow & { clients?: ClientRow | null }

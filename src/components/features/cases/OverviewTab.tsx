@@ -77,6 +77,15 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
             <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
             <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
+            {/* LP担当の追いかけ運用（連携②廃止に伴う） */}
+            <InlineSelect label="LP追いかけ可否" value={caseData.lp_followup_allowed === true ? '可' : caseData.lp_followup_allowed === false ? '不可' : null}
+              options={['可', '不可']}
+              onSave={v => saveCaseField('lp_followup_allowed', v === '可' ? true : v === '不可' ? false : null)} />
+            <InlineSelect label="LP追いかけ連絡方法" value={caseData.lp_followup_method} options={['電話', 'メール', 'SMS', 'LINE', 'その他']} onSave={v => saveCaseField('lp_followup_method', v)} />
+            {caseData.lp_followup_method === 'その他' && (
+              <InlineEdit label="LP追いかけ連絡方法(その他)" value={caseData.lp_followup_method_other} onSave={v => saveCaseField('lp_followup_method_other', v)} />
+            )}
+            <InlineDate label="LP追いかけ期限日" value={caseData.lp_followup_due_date} onSave={v => saveCaseField('lp_followup_due_date', v || null)} />
           </FieldGrid>
         </Section>
 
@@ -167,6 +176,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineEdit label="受注ルート（LP名）" value={caseData.order_route_lp_name} onSave={v => saveCaseField('order_route_lp_name', v)} />
             <InlineEdit label="受注ルート担当者" value={caseData.order_route_person} onSave={v => saveCaseField('order_route_person', v)} />
             <InlineEdit label="紹介先" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />
+            <InlineEdit label="屋号管理番号" value={caseData.referral_partner_number} onSave={v => saveCaseField('referral_partner_number', v)} />
           </FieldGrid>
         </Section>
 

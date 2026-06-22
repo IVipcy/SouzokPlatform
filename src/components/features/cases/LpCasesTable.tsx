@@ -38,10 +38,18 @@ export type LpCaseRow = {
   confirmed_revenue: number | null
   /** 完了予定日 */
   expected_completion_date: string | null
-  /** 税理士名・事務所名 */
-  tax_advisor_name: string | null
-  /** 不動産（査定状況） */
-  real_estate_status: string | null
+  /** 税理士業務（依頼内容、case_referrals(partner_type='税理士').content） */
+  tax_advisor_business: string | null
+  /** 不動産登記（依頼内容、case_referrals(partner_type='不動産').content） */
+  real_estate_registration: string | null
+  /** LPによる追いかけ可否（cases.lp_followup_allowed） */
+  lp_followup_allowed: boolean | null
+  /** LP追いかけ連絡方法 */
+  lp_followup_method: string | null
+  /** 連絡方法が「その他」のとき自由入力 */
+  lp_followup_method_other: string | null
+  /** LP追いかけ期限日 */
+  lp_followup_due_date: string | null
 }
 
 type Props = {
@@ -124,9 +132,10 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                 <th className="px-3 py-2 text-right font-bold">確定売上金額</th>
                 <th className="px-3 py-2 text-left font-bold">LPによる<br />追いかけ可否</th>
                 <th className="px-3 py-2 text-left font-bold">連絡方法</th>
+                <th className="px-3 py-2 text-left font-bold">追いかけ<br />期限日</th>
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
-                <th className="px-3 py-2 text-left font-bold">税理士</th>
-                <th className="px-3 py-2 text-left font-bold">不動産売却</th>
+                <th className="px-3 py-2 text-left font-bold">税理士業務</th>
+                <th className="px-3 py-2 text-left font-bold">不動産登記</th>
                 <th className="px-3 py-2 text-left font-bold">その他特記事項</th>
               </tr>
             </thead>
@@ -219,16 +228,22 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    {/* LPによる追いかけ可否（フィールド未設置） */}
-                    <td className="px-3 py-2.5 text-[12px]"><span className="text-gray-300">—</span></td>
-                    {/* 連絡方法（フィールド未設置） */}
-                    <td className="px-3 py-2.5 text-[12px]"><span className="text-gray-300">—</span></td>
+                    {/* LPによる追いかけ可否 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700">
+                      {c.lp_followup_allowed === true ? '可' : c.lp_followup_allowed === false ? '不可' : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* 連絡方法 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700">
+                      {c.lp_followup_method ? (c.lp_followup_method === 'その他' ? (c.lp_followup_method_other || 'その他') : c.lp_followup_method) : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* 追いかけ期限日 */}
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-700">{c.lp_followup_due_date ?? <span className="text-gray-300">—</span>}</td>
                     {/* 完了予定日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-                    {/* 税理士 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.tax_advisor_name || <span className="text-gray-300">—</span>}</td>
-                    {/* 不動産売却 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.real_estate_status || <span className="text-gray-300">—</span>}</td>
+                    {/* 税理士業務（case_referrals(税理士).content） */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.tax_advisor_business || <span className="text-gray-300">—</span>}</td>
+                    {/* 不動産登記（case_referrals(不動産).content） */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.real_estate_registration || <span className="text-gray-300">—</span>}</td>
                     {/* その他特記事項（フィールド未設置） */}
                     <td className="px-3 py-2.5 text-[12px]"><span className="text-gray-300">—</span></td>
                   </tr>
