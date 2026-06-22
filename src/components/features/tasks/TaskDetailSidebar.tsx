@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { Bot, FileText } from 'lucide-react'
 import type { TaskRow, CaseDocumentRow, TaskDependencyRow, TaskTemplateRow } from '@/types'
-import NextTaskSelector from './NextTaskSelector'
 
 type Props = {
   task: TaskRow
@@ -15,33 +14,9 @@ type Props = {
   taskTemplates?: TaskTemplateRow[]
 }
 
-const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
-  '着手前': { bg: 'bg-gray-100', text: 'text-gray-600' },
-  '対応中': { bg: 'bg-brand-50', text: 'text-brand-700' },
-  '完了': { bg: 'bg-green-50', text: 'text-green-700' },
-}
-
-export default function TaskDetailSidebar({ task, documents, dependencies = [], caseTasks = [], taskTemplates = [] }: Props) {
+export default function TaskDetailSidebar({ task, documents }: Props) {
   const caseData = task.cases
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
-
-  // 次のタスク（このタスクが前提のもの）
-  const nextTaskDeps = dependencies.filter(d => d.from_task_id === task.id && d.to_task)
-  // 前のタスク（このタスクの前段）
-  const prevTaskDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
-  // 紐づけ済 ID（前 / 次）
-  const linkedNextIds = new Set(
-    dependencies
-      .filter(d => d.from_task_id === task.id && d.condition_type === 'task_completed')
-      .map(d => d.to_task_id)
-  )
-  const linkedPrevIds = new Set(
-    dependencies
-      .filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed')
-      .map(d => d.from_task_id)
-  )
-  // 候補（同一案件の他タスク、自分自身は除外）
-  const otherCaseTasks = caseTasks.filter(t => t.id !== task.id)
 
   // タイムラインイベント構築
   const timelineEvents: { date: string; label: string; color: string }[] = []
@@ -104,18 +79,6 @@ export default function TaskDetailSidebar({ task, documents, dependencies = [], 
 
   return (
     <div className="sticky top-[90px] flex flex-col gap-4">
-      {/* このタスクが終わったら（次タスク紐づけ）— システムタスクでは非表示 */}
-      {task.task_kind !== 'system' && (
-        <NextTaskSelector
-          currentTask={task}
-          direction="next"
-          candidates={otherCaseTasks.filter(t => t.task_kind !== 'system')}
-          linkedIds={linkedNextIds}
-          existingDeps={nextTaskDeps}
-          taskTemplates={taskTemplates}
-        />
-      )}
-
       {/* タイムライン */}
       {timelineEvents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
