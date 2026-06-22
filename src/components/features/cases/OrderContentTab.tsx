@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Section, FieldGrid, InlineEdit, InlineSelect } from '@/components/ui/InlineFields'
+import { Section, FieldGrid, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
@@ -59,6 +59,8 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
           <InlineSelect label="受注区分" value={orderCategory || null} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} required />
           <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => save('other_procedure', v)} />
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
+          <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
+          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>
         {orderCategory === KENIN_CATEGORY && (
           <label className="mt-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">

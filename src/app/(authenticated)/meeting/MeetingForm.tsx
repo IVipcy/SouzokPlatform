@@ -40,6 +40,9 @@ const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち
 const DECLINE_REASON_REQUIRED = new Set(['検討中', '不受託'])
 // 「LPによる追いかけ可否」を表示する面談結果（検討中(契約書待ち)は受注確定済のため不要）
 const LP_FOLLOWUP_VISIBLE = new Set(['検討中'])
+// 契約関連項目（役割分担／契約手続き／他事業者紹介／契約形態／難易度／完了予定日）を表示する面談結果。
+// 検討中・不受託は受託前のため非表示。検討中→受託になった後はオーダーシートで入力する。
+const POST_CONTRACT_FIELDS_VISIBLE = new Set(['受託', '検討中（契約書待ち）', '紹介のみ', '長期保留'])
 // 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
   { key: 'smile',   emoji: '😊', label: '笑顔' },
@@ -736,70 +739,76 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               </label>
             )}
           </Card>
-          {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
-            // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
-            <Card label="紹介先（自社手続きはありません）">
-              <p className="text-[12px] text-gray-400 mb-2">紹介のみは自社で行う相続手続きはありません。専門家への紹介先を選んでください（法人名・紹介日・見込み報酬などの詳細は案件詳細の「他事業者紹介」タブで入力）。</p>
-              <Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi />
-            </Card>
-          ) : (
-            <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
-              {data.serviceCategory ? (
-                <>
-                  <p className="text-[12px] text-gray-400 mb-2">{data.serviceCategory2 ? '検認①→手続き一式②の業務が表示されます（重複は先の区分優先）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
-                  <IntakeRolesEditor
-                    roles={data.intakeRoles}
-                    onSave={v => update('intakeRoles', v)}
-                    gyomuOptions={gyomuForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2))}
-                    presetFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
-                    addableFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).map(t => ({ task: t.task, kind: kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, t.task) }))}
-                    kindFor={(g, s) => kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, s)}
-                  />
-                </>
+          {/* 受託確定前(検討中/不受託)では契約・業務関連項目を隠す。
+              検討中→受託に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
+          {POST_CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
+            <>
+              {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
+                // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
+                <Card label="紹介先（自社手続きはありません）">
+                  <p className="text-[12px] text-gray-400 mb-2">紹介のみは自社で行う相続手続きはありません。専門家への紹介先を選んでください（法人名・紹介日・見込み報酬などの詳細は案件詳細の「他事業者紹介」タブで入力）。</p>
+                  <Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi />
+                </Card>
               ) : (
-                <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
+                <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
+                  {data.serviceCategory ? (
+                    <>
+                      <p className="text-[12px] text-gray-400 mb-2">{data.serviceCategory2 ? '検認①→手続き一式②の業務が表示されます（重複は先の区分優先）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
+                      <IntakeRolesEditor
+                        roles={data.intakeRoles}
+                        onSave={v => update('intakeRoles', v)}
+                        gyomuOptions={gyomuForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2))}
+                        presetFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
+                        addableFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).map(t => ({ task: t.task, kind: kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, t.task) }))}
+                        kindFor={(g, s) => kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, s)}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
+                  )}
+                </Card>
               )}
-            </Card>
+              <Card label="契約手続き（契約関連書類の受け取り）">
+                {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientReflectCandidates(data.intakeRoles).length > 0 && (
+                  <div className="mb-2.5">
+                    <button type="button" onClick={() => setReflectOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
+                      ＋ 依頼者取得分を契約手続きに反映
+                    </button>
+                    <span className="ml-2 text-[11px] text-gray-400">役割分担で依頼者にした業務を、契約時にもらう書類として選んで追加</span>
+                  </div>
+                )}
+                <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
+                <ClientDocsReflectModal
+                  isOpen={reflectOpen}
+                  onClose={() => setReflectOpen(false)}
+                  candidates={clientReflectCandidates(data.intakeRoles)}
+                  existingNames={data.intakeDocuments.map(d => d.name.trim())}
+                  onConfirm={addReflectedDocs}
+                />
+              </Card>
+              {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
+              {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
+                <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
+              )}
+              {/* 税理士／不動産が選ばれた場合、依頼内容（リスト選択）を入力。
+                  この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
+              {data.referralPartners.includes('税理士') && (
+                <Card label="税理士業務（依頼内容）">
+                  <Pills value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onChange={v => update('taxAdvisorBusinessType', v as string)} />
+                  <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「税理士業務」列にもこの値が表示されます。</p>
+                </Card>
+              )}
+              {data.referralPartners.includes('不動産') && (
+                <Card label="不動産登記（依頼内容）">
+                  <Pills value={data.realEstateRegistrationType} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onChange={v => update('realEstateRegistrationType', v as string)} />
+                  <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「不動産登記」列にもこの値が表示されます。</p>
+                </Card>
+              )}
+              <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
+              <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
+              <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+            </>
           )}
-          <Card label="契約手続き（契約関連書類の受け取り）">
-            {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientReflectCandidates(data.intakeRoles).length > 0 && (
-              <div className="mb-2.5">
-                <button type="button" onClick={() => setReflectOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
-                  ＋ 依頼者取得分を契約手続きに反映
-                </button>
-                <span className="ml-2 text-[11px] text-gray-400">役割分担で依頼者にした業務を、契約時にもらう書類として選んで追加</span>
-              </div>
-            )}
-            <IntakeDocsEditor docs={data.intakeDocuments} onSave={v => update('intakeDocuments', v)} />
-            <ClientDocsReflectModal
-              isOpen={reflectOpen}
-              onClose={() => setReflectOpen(false)}
-              candidates={clientReflectCandidates(data.intakeRoles)}
-              existingNames={data.intakeDocuments.map(d => d.name.trim())}
-              onConfirm={addReflectedDocs}
-            />
-          </Card>
-          {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
-          {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
-            <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
-          )}
-          {/* 税理士／不動産が選ばれた場合、依頼内容（リスト選択）を入力。
-              この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
-          {data.referralPartners.includes('税理士') && (
-            <Card label="税理士業務（依頼内容）">
-              <Pills value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onChange={v => update('taxAdvisorBusinessType', v as string)} />
-              <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「税理士業務」列にもこの値が表示されます。</p>
-            </Card>
-          )}
-          {data.referralPartners.includes('不動産') && (
-            <Card label="不動産登記（依頼内容）">
-              <Pills value={data.realEstateRegistrationType} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onChange={v => update('realEstateRegistrationType', v as string)} />
-              <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「不動産登記」列にもこの値が表示されます。</p>
-            </Card>
-          )}
-          <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
-          <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
-          <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
         </div>
       )
