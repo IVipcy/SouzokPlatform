@@ -13,7 +13,6 @@ import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
-import NextTaskSelector from './NextTaskSelector'
 import TaskCreatedDocsSection from './TaskCreatedDocsSection'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -62,8 +61,8 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const isSystemTask = task.task_kind === 'system'
 
   // 前段作業（task_completed 型依存の from_task）を抽出
-  const prereqDeps = dependencies.filter(d => d.to_task_id === task.id && d.from_task)
-  const hasPrereq = !isSystemTask && prereqDeps.some(d => d.condition_type === 'task_completed' && d.from_task)
+  // 前段＝同じフェーズ内で完了済みの他タスクがあるか（前段確認セクションの表示判定）
+  const hasPrevInPhase = !isSystemTask && caseTasks.some(t => t.id !== task.id && t.phase === task.phase && t.status === '完了')
 
   const currentStatus = normalizeStatus(task.status)
   const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
@@ -306,27 +305,15 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
           右:  次タスク紐づけ + タイムライン         (時系列: 未来) */}
       <div className="flex gap-5 lg:flex-row flex-col">
-        {/* 左カラム — 前段 (システムタスクでは非表示) */}
-        {!isSystemTask && (
+        {/* 左カラム — 前段確認（同じフェーズの最新完了タスクを自動表示。無ければ非表示） */}
+        {hasPrevInPhase && (
           <aside className="w-full lg:w-[300px] lg:flex-shrink-0 flex flex-col gap-4">
             <div className="lg:sticky lg:top-[90px] flex flex-col gap-4">
-              {/* このタスクの前のタスク（前段紐づけ） */}
-              <NextTaskSelector
-                currentTask={task}
-                direction="prev"
-                candidates={caseTasks.filter(t => t.id !== task.id && t.task_kind !== 'system')}
-                linkedIds={new Set(dependencies.filter(d => d.to_task_id === task.id && d.condition_type === 'task_completed').map(d => d.from_task_id))}
-                existingDeps={dependencies.filter(d => d.to_task_id === task.id && d.from_task)}
-                taskTemplates={taskTemplates}
+              <PrevTaskReviewSection
+                task={task}
+                caseTasks={caseTasks}
+                currentMemberId={currentMemberId}
               />
-              {/* 前段作業の確認（前提タスクがある場合のみ） */}
-              {hasPrereq && (
-                <PrevTaskReviewSection
-                  task={task}
-                  prereqDeps={prereqDeps}
-                  currentMemberId={currentMemberId}
-                />
-              )}
             </div>
           </aside>
         )}

@@ -6,27 +6,31 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { TaskRow, TaskDependencyRow } from '@/types'
+import type { TaskRow } from '@/types'
 
 type Props = {
   task: TaskRow
-  prereqDeps: TaskDependencyRow[]
+  /** 同一案件の他タスク（前段＝同じフェーズの最新完了を自動判定するために使う） */
+  caseTasks: TaskRow[]
   currentMemberId: string | null
 }
 
 /**
  * 前段作業の確認セクション
- * - 前タスクの実施結果（実施者・完了日・主要 ext_data フィールド）を表示
- * - 「確認（不備なし）」を保存すると、このタスクの ext_data.prev_task_evaluation に記録
- *   （差戻し機能は廃止済み）
+ * - 前タスク＝「同じフェーズ内で最新に完了したタスク」を自動表示（手動紐付けは廃止）。
+ * - 前タスクの実施結果（実施者・完了日・実施結果メモ）を表示。
+ * - 「確認（不備なし）」を保存すると、このタスクの ext_data.prev_task_evaluation に記録。
  */
-export default function PrevTaskReviewSection({ task, prereqDeps, currentMemberId }: Props) {
+export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId }: Props) {
   const router = useRouter()
   const ext = useMemo(() => (task.ext_data ?? {}) as Record<string, unknown>, [task.ext_data])
 
-  // 「前段作業」とみなすのは task_completed 型の依存。最初の1件を表示対象に。
-  const primaryDep = prereqDeps.find(d => d.condition_type === 'task_completed' && d.from_task)
-  const prevTask = primaryDep?.from_task
+  // 前段＝同じフェーズ内で最新に完了したタスク（自分自身は除外）。完了日（無ければ更新日）が最新のもの。
+  const prevTask = useMemo(() => {
+    return caseTasks
+      .filter(t => t.id !== task.id && t.phase === task.phase && t.status === '完了')
+      .sort((a, b) => (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? ''))[0] ?? null
+  }, [caseTasks, task.id, task.phase])
 
   const initialEval = (ext.prev_task_evaluation as string | undefined) ?? null
   const [confirmed, setConfirmed] = useState<boolean>(initialEval === '不備なし')
