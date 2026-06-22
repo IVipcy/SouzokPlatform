@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
-import { getPhaseLabel, getPhaseColor } from '@/lib/phases'
+import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -61,8 +61,17 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const isSystemTask = task.task_kind === 'system'
 
   // 前段作業（task_completed 型依存の from_task）を抽出
-  // 前段＝同じフェーズ内で完了済みの他タスクがあるか（前段確認セクションの表示判定）
-  const hasPrevInPhase = !isSystemTask && caseTasks.some(t => t.id !== task.id && t.phase === task.phase && t.status === '完了')
+  // 前段確認の表示判定：自分以前のフェーズ（同フェーズ含む）に完了タスクがあるか
+  const hasPrevContext = !isSystemTask && (() => {
+    const ranks = DB_PHASES as readonly string[]
+    const cur = ranks.indexOf(task.phase ?? '')
+    if (cur < 0) return false
+    return caseTasks.some(t => {
+      if (t.id === task.id || t.status !== '完了') return false
+      const r = ranks.indexOf(t.phase ?? '')
+      return r >= 0 && r <= cur
+    })
+  })()
 
   const currentStatus = normalizeStatus(task.status)
   const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
@@ -305,8 +314,8 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
           右:  次タスク紐づけ + タイムライン         (時系列: 未来) */}
       <div className="flex gap-5 lg:flex-row flex-col">
-        {/* 左カラム — 前段確認（同じフェーズの最新完了タスクを自動表示。無ければ非表示） */}
-        {hasPrevInPhase && (
+        {/* 左カラム — 前段確認（同フェーズ→無ければ前フェーズの最新完了タスクを自動表示。無ければ非表示） */}
+        {hasPrevContext && (
           <aside className="w-full lg:w-[300px] lg:flex-shrink-0 flex flex-col gap-4">
             <div className="lg:sticky lg:top-[90px] flex flex-col gap-4">
               <PrevTaskReviewSection

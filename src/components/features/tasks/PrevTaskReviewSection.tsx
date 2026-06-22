@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { DB_PHASES } from '@/lib/phases'
 import type { TaskRow } from '@/types'
 
 type Props = {
@@ -25,11 +26,22 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
   const router = useRouter()
   const ext = useMemo(() => (task.ext_data ?? {}) as Record<string, unknown>, [task.ext_data])
 
-  // 前段＝同じフェーズ内で最新に完了したタスク（自分自身は除外）。完了日（無ければ更新日）が最新のもの。
+  // 前段タスクの自動判定（自分自身は除外。完了日＝無ければ更新日 が新しい順）：
+  //  ① 同じフェーズ内で最新に完了したタスク
+  //  ② 無ければ（＝このフェーズの最初のタスク）、前のフェーズで最後に完了したタスク
   const prevTask = useMemo(() => {
-    return caseTasks
-      .filter(t => t.id !== task.id && t.phase === task.phase && t.status === '完了')
-      .sort((a, b) => (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? ''))[0] ?? null
+    const ranks = DB_PHASES as readonly string[]
+    const byDesc = (a: TaskRow, b: TaskRow) =>
+      (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? '')
+    const done = caseTasks.filter(t => t.id !== task.id && t.status === '完了')
+    const samePhase = done.filter(t => t.phase === task.phase).sort(byDesc)
+    if (samePhase[0]) return samePhase[0]
+    const cur = ranks.indexOf(task.phase ?? '')
+    if (cur < 0) return null
+    const earlier = done
+      .filter(t => { const r = ranks.indexOf(t.phase ?? ''); return r >= 0 && r < cur })
+      .sort(byDesc)
+    return earlier[0] ?? null
   }, [caseTasks, task.id, task.phase])
 
   const initialEval = (ext.prev_task_evaluation as string | undefined) ?? null
