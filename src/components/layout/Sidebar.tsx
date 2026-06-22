@@ -11,7 +11,7 @@ import {
   ListChecks,
   FileText,
   Receipt,
-  BarChart3,
+  BookOpen,
   Gauge,
   LogOut,
   Building2,
@@ -55,7 +55,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/documents', label: '到着物受信簿', Icon: FileText },
       { href: '/billing',   label: '請求・入金',   Icon: Receipt },
       { href: '/workload',  label: '稼働状況一覧', Icon: Gauge },
-      { href: '/reports',   label: 'レポート',     Icon: BarChart3 },
+      { href: '/manual',    label: 'マニュアル',   Icon: BookOpen },
     ],
   },
 ]
