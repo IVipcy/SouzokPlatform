@@ -117,7 +117,8 @@ export type CaseRow = {
   client_response_due_date: string | null   // migration 049: お客様回答予定日
   consideration_period: string | null        // migration 092: 検討期間区分(1週間/2週間/1ヶ月/見込み不明)
   order_received_date: string | null
-  lost_reason: string | null
+  // 検討中・不受託理由（旧 lost_reason の置換、migration 125 で導入）
+  consideration_decline_reason: string | null
   // 受注内容追加
   other_procedure: string | null
   order_category: string[] | null

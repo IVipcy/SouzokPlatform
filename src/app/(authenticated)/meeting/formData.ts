@@ -62,7 +62,7 @@ export type FormData = {
   serviceCategory2: string  // 受注区分②（検認①→手続き一式②のコンボのみ）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
-  lostReason: string        // 失注理由
+  considerationDeclineReason: string  // 検討中・不受託理由（面談結果が検討中／不受託のとき入力）
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
   expectedCompletionDate: string  // 完了予定日
@@ -107,7 +107,7 @@ export const INITIAL_DATA: FormData = {
   serviceCategory2: '',
   referralPartners: [],
   contractType: '',
-  lostReason: '',
+  considerationDeclineReason: '',
   otherNotes: '',
   difficulty: '',
   expectedCompletionDate: '',

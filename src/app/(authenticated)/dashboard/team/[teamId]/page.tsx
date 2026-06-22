@@ -356,7 +356,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
               meeting_executed_date: c.meeting_executed_date ?? null,
               client_response_due_date: c.client_response_due_date ?? null,
               meeting_place: c.meeting_place ?? null,
-              lost_reason: c.lost_reason ?? null,
+              consideration_decline_reason: c.consideration_decline_reason ?? null,
             }))
           return (
             <>

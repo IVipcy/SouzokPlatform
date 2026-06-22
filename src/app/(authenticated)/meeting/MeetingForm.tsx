@@ -11,8 +11,9 @@ import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
-  LOST_REASONS, REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
+  REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
   LP_FOLLOWUP_METHODS, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
+  CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
@@ -35,6 +36,10 @@ type Props = {
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
+// 「検討中・不受託理由」を表示する面談結果
+const DECLINE_REASON_REQUIRED = new Set(['検討中', '不受託'])
+// 「LPによる追いかけ可否」を表示する面談結果（検討中(契約書待ち)は受注確定済のため不要）
+const LP_FOLLOWUP_VISIBLE = new Set(['検討中'])
 // 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
   { key: 'smile',   emoji: '😊', label: '笑顔' },
@@ -343,7 +348,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         meeting_place: formData.meetingPlace || null,
         meeting_hearing_memo: formData.hearingMemo || null,
         meeting_other_notes: formData.otherNotes || null,
-        lost_reason: formData.lostReason || null,
+        consideration_decline_reason: formData.considerationDeclineReason || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
         // 郵送・書類設定／依頼者特徴（メイン依頼者）
@@ -532,6 +537,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             )}
           </Card>
           <Card label="面談結果" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          {/* 検討期間・お客様回答予定日: 検討中 / 検討中(契約書待ち) で表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
               <Card label="検討期間" required><Pills value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v as string)} /></Card>
@@ -541,7 +547,17 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   <p className="mt-1 text-[11px] text-gray-400">「{data.considerationPeriod}」以内（〜{considerationDueMax(data.considerationPeriod)}）で選べます。</p>
                 </Card>
               )}
-              {/* LP担当追いかけ運用（連携②廃止に伴う） */}
+            </>
+          )}
+          {/* 検討中・不受託理由: 検討中 / 不受託 で表示（旧 失注理由の置換） */}
+          {DECLINE_REASON_REQUIRED.has(data.caseStatus) && (
+            <Card label="検討中・不受託理由">
+              <Pills value={data.considerationDeclineReason} options={[...CONSIDERATION_DECLINE_REASONS]} onChange={v => update('considerationDeclineReason', v as string)} />
+            </Card>
+          )}
+          {/* LP担当追いかけ運用: 検討中 のみで表示（検討中(契約書待ち)は受注確定済のため不要） */}
+          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && (
+            <>
               <Card label="LPによる追いかけ可否">
                 <Pills value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} />
                 <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
@@ -784,7 +800,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
           <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
-          <Card label="失注理由"><Pills value={data.lostReason} options={[...LOST_REASONS]} onChange={v => update('lostReason', v as string)} /></Card>
           <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
         </div>
       )
@@ -812,7 +827,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               <ConfirmRow label="受注区分" value={data.serviceCategory} />
               <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
               <ConfirmRow label="難易度" value={data.difficulty} />
-              <ConfirmRow label="失注理由" value={data.lostReason} />
+              <ConfirmRow label="検討中・不受託理由" value={data.considerationDeclineReason} />
             </ConfirmSection>
           </div>
         </div>

@@ -10,7 +10,7 @@ import {
   ORDER_ROUTES, MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS,
   WILL_TYPES, WILL_STORAGE_OPTIONS, WILL_EXECUTION_OPTIONS, WILL_CREATION_PLACES,
   TRUST_CONTRACT_TYPES, LIFE_INSURANCE_PROPOSAL_OPTIONS, TAX_ADVISOR_REFERRAL_OPTIONS,
-  LOST_REASONS,
+  CONSIDERATION_DECLINE_REASONS,
 } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow } from '@/types'
@@ -76,7 +76,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
             <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
-            <InlineSelect label="失注の理由"    value={caseData.lost_reason}              options={[...LOST_REASONS]} onSave={v => saveCaseField('lost_reason', v)} />
+            <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
             {/* LP担当の追いかけ運用（連携②廃止に伴う） */}
             <InlineSelect label="LP追いかけ可否" value={caseData.lp_followup_allowed === true ? '可' : caseData.lp_followup_allowed === false ? '不可' : null}
               options={['可', '不可']}

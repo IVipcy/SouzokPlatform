@@ -27,7 +27,7 @@ export type DashCase = {
   meeting_executed_date?: string | null
   client_response_due_date?: string | null
   meeting_place?: string | null
-  lost_reason?: string | null
+  consideration_decline_reason?: string | null
 }
 
 // 受注担当ダッシュボードの「不動産査定件数」算出に使用する物件行型
