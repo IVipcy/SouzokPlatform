@@ -9,7 +9,6 @@ import {
   FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, INVENTORY_CATEGORIES, REAL_ESTATE_EVAL_METHODS,
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
-import AddTaskButton from './AddTaskButton'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
@@ -69,10 +68,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   return (
     <div className="space-y-3.5">
       {/* 財産調査条件 / 調査対象 のタブ切替 */}
-      <div className="flex items-center gap-2">
-        <SubTabs tabs={MAIN_TABS} active={mainTab} onChange={setMainTab} />
-        {!orderSheetMode && <span className="ml-auto"><AddTaskButton caseId={caseData.id} defaultPhase="phase2" /></span>}
-      </div>
+      <SubTabs tabs={MAIN_TABS} active={mainTab} onChange={setMainTab} />
 
       {/* 財産調査条件タブ */}
       <div className={mainTab === 'conditions' ? '' : 'hidden'}>
