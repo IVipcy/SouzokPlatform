@@ -140,6 +140,24 @@ export async function POST(req: NextRequest) {
     return jsonError('INTERNAL_ERROR', 'Failed to create case', 500)
   }
 
+  // case_clients にもメイン依頼者を登録（案件詳細「依頼者一覧」用）
+  if (clientFields.name) {
+    const { error: caseClientErr } = await supabase.from('case_clients').insert({
+      case_id: caseRow.id,
+      name: clientFields.name,
+      furigana: clientFields.furigana,
+      priority: 'main',
+      relationship: clientFields.relationship_to_deceased,
+      phone: clientFields.phone,
+      mobile_phone: clientFields.mobile_phone,
+      sort_order: 0,
+    })
+    if (caseClientErr) {
+      console.error('[station-integration] case_clients insert failed', caseClientErr)
+      // 致命的ではないので継続（運用で確認できる）
+    }
+  }
+
   return NextResponse.json(
     {
       pf_case_number: caseRow.case_number,

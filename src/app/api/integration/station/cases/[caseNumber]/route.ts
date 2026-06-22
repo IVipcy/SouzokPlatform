@@ -130,6 +130,31 @@ export async function PUT(
       return jsonError('INTERNAL_ERROR', 'Failed to update case', 500)
     }
 
+    // case_clients も更新（メイン依頼者のみ。同行者は面談登録で追加される想定）
+    if (clientFields.name) {
+      const { data: existingMainCc } = await supabase
+        .from('case_clients')
+        .select('id')
+        .eq('case_id', existing.id)
+        .eq('priority', 'main')
+        .maybeSingle()
+      const ccPayload = {
+        case_id: existing.id,
+        name: clientFields.name,
+        furigana: clientFields.furigana,
+        priority: 'main' as const,
+        relationship: clientFields.relationship_to_deceased,
+        phone: clientFields.phone,
+        mobile_phone: clientFields.mobile_phone,
+        sort_order: 0,
+      }
+      if (existingMainCc) {
+        await supabase.from('case_clients').update(ccPayload).eq('id', existingMainCc.id)
+      } else {
+        await supabase.from('case_clients').insert(ccPayload)
+      }
+    }
+
     return NextResponse.json(
       {
         pf_case_number: existing.case_number,
@@ -190,6 +215,23 @@ export async function PUT(
   if (!caseRow) {
     console.error('[station-integration] case insert failed', lastErr)
     return jsonError('INTERNAL_ERROR', 'Failed to create case', 500)
+  }
+
+  // case_clients にもメイン依頼者を登録
+  if (clientFields.name) {
+    const { error: caseClientErr } = await supabase.from('case_clients').insert({
+      case_id: caseRow.id,
+      name: clientFields.name,
+      furigana: clientFields.furigana,
+      priority: 'main',
+      relationship: clientFields.relationship_to_deceased,
+      phone: clientFields.phone,
+      mobile_phone: clientFields.mobile_phone,
+      sort_order: 0,
+    })
+    if (caseClientErr) {
+      console.error('[station-integration] case_clients insert failed', caseClientErr)
+    }
   }
 
   return NextResponse.json(
