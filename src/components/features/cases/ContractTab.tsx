@@ -42,6 +42,45 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     return () => { alive = false }
   }, [caseData.order_route, caseData.order_route_detail])
 
+  // 返金（請求タブで記録されたマイナス入金）を案件単位で集計し、読み取り表示する。
+  // 入力は請求タブ一本。ここは派生表示（前受金/確定 × 行政/司法 の内訳＋理由）。
+  type RefundInfo = {
+    total: number
+    buckets: { label: string; amount: number }[]
+    reasons: { date: string; amount: number; note: string }[]
+  }
+  const [refund, setRefund] = useState<RefundInfo | null>(null)
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('invoices')
+        .select('invoice_type, firm_type, payments(amount, is_refund, match_note, payment_date)')
+        .eq('case_id', caseData.id)
+      if (!alive) return
+      const firmLabel = (f: string | null) => (f === 'shiho' ? '司法' : '行政')
+      const bucketMap = new Map<string, number>()
+      const reasons: RefundInfo['reasons'] = []
+      let total = 0
+      type InvLite = { invoice_type: string; firm_type: string | null; payments: { amount: number; is_refund: boolean; match_note: string | null; payment_date: string | null }[] | null }
+      for (const inv of (data ?? []) as InvLite[]) {
+        for (const p of inv.payments ?? []) {
+          if (!p.is_refund) continue
+          const amt = -p.amount // マイナス保存→正の返金額
+          total += amt
+          const label = `${inv.invoice_type === '確定請求' ? '確定' : '前受金'}（${firmLabel(inv.firm_type)}）`
+          bucketMap.set(label, (bucketMap.get(label) ?? 0) + amt)
+          reasons.push({ date: p.payment_date ?? '', amount: amt, note: p.match_note ?? '' })
+        }
+      }
+      if (total <= 0) { setRefund(null); return }
+      reasons.sort((a, b) => (b.date).localeCompare(a.date))
+      setRefund({ total, buckets: [...bucketMap].map(([label, amount]) => ({ label, amount })), reasons })
+    })()
+    return () => { alive = false }
+  }, [caseData.id])
+
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -121,6 +160,31 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 onSave={v => save('invoice_memo', v)}
               />
             </FieldGrid>
+
+            {/* 返金（請求タブで記録されたマイナス入金の読み取り表示。前受金/確定×行/司の内訳＋理由） */}
+            {refund && (
+              <div className="mt-3 pt-3 border-t border-rose-100">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span className="text-[12px] font-bold text-rose-700">返金（請求タブで記録）</span>
+                  <span className="text-[11px] text-gray-400">実際の受領額はこの分だけ減ります（売上集計への反映は別途）</span>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
+                  <span className="text-[13px]"><span className="text-gray-500">返金額合計</span> <span className="font-mono font-bold text-rose-600">▲{yen(refund.total)}</span></span>
+                  {refund.buckets.map(b => (
+                    <span key={b.label} className="text-[12px] text-gray-600">{b.label} <span className="font-mono text-rose-600">▲{yen(b.amount)}</span></span>
+                  ))}
+                </div>
+                <ul className="space-y-0.5">
+                  {refund.reasons.map((r, i) => (
+                    <li key={i} className="text-[11px] text-gray-500 flex gap-2">
+                      <span className="font-mono text-gray-400 shrink-0">{r.date || '—'}</span>
+                      <span className="font-mono text-rose-500 shrink-0">▲{yen(r.amount)}</span>
+                      <span className="break-all">{r.note || '—'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* 請求・入金 への導線（オーダーシート埋め込み時は不要なので非表示） */}
             {!orderSheetMode && (
