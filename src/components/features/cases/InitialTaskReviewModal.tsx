@@ -19,6 +19,7 @@ const INITIAL_TASK_KEYS: Record<string, string[]> = {
   受注: [
     'sys_order_sheet',
     'sys_contract_send',
+    'sys_contract_docs_upload',
     'sys_case_handover',
     'sys_advance_invoice',
     'sys_advance_payment_confirm',
