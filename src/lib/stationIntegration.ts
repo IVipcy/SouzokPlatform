@@ -115,6 +115,8 @@ export type MappedCaseFields = {
   hearing_content: string | null
   special_notes: string | null
   other_needs: string | null
+  /** 顧客情報備考 → ClientInfoTab「依頼者特徴詳細」に表示される */
+  client_trait_detail: string | null
 }
 
 /** clients テーブル用にマッピングしたペイロード */
@@ -125,7 +127,6 @@ export type MappedClientFields = {
   phone: string | null
   mobile_phone: string | null
   address: string | null
-  notes: string | null
 }
 
 /**
@@ -150,6 +151,8 @@ export function mapPayloadToDb(payload: StationCasePayload): {
       hearing_content: payload.hearing_content ?? null,
       special_notes: payload.special_note ?? null,
       other_needs: payload.other_needs ?? null,
+      // 顧客情報備考 → ClientInfoTab「依頼者特徴詳細」（cases.client_trait_detail）
+      client_trait_detail: payload.client_detail ?? null,
     },
     clientFields: {
       name: payload.client_name ?? null,
@@ -158,7 +161,6 @@ export function mapPayloadToDb(payload: StationCasePayload): {
       phone: payload.client_tel1 ?? null,
       mobile_phone: payload.client_tel2 ?? null,
       address: payload.client_address ?? null,
-      notes: payload.client_detail ?? null,
     },
   }
 }

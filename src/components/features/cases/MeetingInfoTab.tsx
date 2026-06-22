@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
-  InlineDate, InlineMemberSelect, InlineTextarea,
+  InlineDate, InlineMemberSelect, InlineTextarea, InlineNumber, InlineCheckbox,
 } from '@/components/ui/InlineFields'
 import {
   LOST_REASONS, MEETING_PLACES, CONTRACT_TYPES,
@@ -119,6 +119,20 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="お客様回答予定日"  value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
           <InlineEdit label="伺い先住所"        value={caseData.visit_address}            onSave={v => saveCaseField('visit_address', v)} fullWidth />
           <InlineEdit label="伺い先補足"        value={caseData.visit_notes}              onSave={v => saveCaseField('visit_notes', v)} fullWidth />
+        </FieldGrid>
+      </Section>
+
+      {/* ②-b 被相続人情報（連携①受信＋面談入力。"deceased"タブとは別に常時表示） */}
+      <Section title="被相続人情報">
+        <FieldGrid>
+          <InlineEdit label="被相続人氏名"      value={caseData.deceased_name}                  onSave={v => saveCaseField('deceased_name', v)} />
+          <InlineEdit label="被相続人ふりがな"  value={caseData.deceased_furigana}              onSave={v => saveCaseField('deceased_furigana', v)} />
+          <InlineDate label="被相続人生年月日"  value={caseData.deceased_birth_date}            onSave={v => saveCaseField('deceased_birth_date', v || null)} />
+          <InlineNumber label="被相続人年齢"    value={caseData.deceased_age}                   onSave={v => saveCaseField('deceased_age', v)} suffix="歳" />
+          <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death}               onSave={v => saveCaseField('date_of_death', v || null)} />
+          <InlineEdit label="被相続人住所"      value={caseData.deceased_address}               onSave={v => saveCaseField('deceased_address', v)} fullWidth />
+          <InlineEdit label="被相続人本籍"      value={caseData.deceased_registered_address}    onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
+          <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
         </FieldGrid>
       </Section>
 
