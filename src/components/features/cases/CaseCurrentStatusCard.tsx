@@ -40,8 +40,12 @@ export default function CaseCurrentStatusCard({ tasks, caseId, status }: { tasks
   const rank = (t: TaskRow) => (normalizeStatus(t.status) === '対応中' ? 0 : 1)
   const next = pending.sort((a, b) => rank(a) - rank(b) || (a.sort_order ?? 999) - (b.sort_order ?? 999))[0] ?? null
 
-  // 対応中なのに次にやるタスクが無い＝着手ナビを出す（タスク未作成 or 全部完了で次が無い）
-  const needsKickoff = status === '対応中' && !next
+  // 着手済みか＝対応中/完了のタスクがある、または実施結果が記入済み
+  const startedAny = tasks.some(t => ['対応中', '完了'].includes(normalizeStatus(t.status))) || !!latest
+  // 着手ナビを出す条件（対応中のとき）：
+  //  ・まだ着手していない（着手前タスクだけ／タスク未作成）＝ !startedAny
+  //  ・全部完了して次が無い＝ !next
+  const needsKickoff = status === '対応中' && (!startedAny || !next)
 
   if (!latest && !next && !needsKickoff) return null
 
@@ -90,7 +94,9 @@ export default function CaseCurrentStatusCard({ tasks, caseId, status }: { tasks
         <div className="pt-2 mt-1.5 border-t border-brand-100">
           <div className="flex items-center gap-1 text-[12px] font-semibold text-amber-700 mb-1.5">
             <Rocket className="w-3.5 h-3.5" strokeWidth={2.25} />
-            {latest ? '前回タスクが完了し、次のタスクが未定です。' : '対応中になりました。まだタスクがありません。'}下記を確認して着手しましょう。
+            {!next
+              ? (latest ? '前回タスクが完了し、次のタスクが未定です。' : '対応中になりました。まだタスクがありません。')
+              : '対応中です。まだ着手していません。'}下記を確認して着手しましょう。
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <Link href={`/cases/${caseId}?tab=orderSheet`} className="inline-flex items-center px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-brand-700">① 受注内容（オーダーシート）を確認</Link>
