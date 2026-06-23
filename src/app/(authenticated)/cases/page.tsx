@@ -34,6 +34,7 @@ type CaseRowRaw = {
   referral_name: string | null
   contract_type: string | null
   consideration_decline_reason: string | null
+  consideration_decline_reason_detail: string | null
   procedure_type: string[] | null
   expected_completion_date: string | null
   order_sheet_completed_at: string | null
@@ -216,6 +217,7 @@ export default async function CasesPage() {
       referral_source: c.order_route_detail || c.order_route_lp_name || c.referral_name || null,
       client_name: c.clients?.name ?? null,
       consideration_decline_reason: c.consideration_decline_reason,
+      consideration_decline_reason_detail: c.consideration_decline_reason_detail,
       client_response_due_date: c.client_response_due_date,
       consideration_period: c.consideration_period,
       sales_name: salesByCase.get(c.id) ?? null,

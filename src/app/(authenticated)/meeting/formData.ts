@@ -43,6 +43,8 @@ export type FormData = {
   postalCode: string          // メイン依頼者 郵便番号
   address: string             // メイン依頼者 住所
   transferNameKana: string    // 振込名義人カナ（入金CSV突合キー。本人振込なら依頼者ふりがな）
+  transferNameKana2: string   // 振込名義人カナ2（任意）
+  transferNameKana3: string   // 振込名義人カナ3（任意）
   mailingDestination: string  // 顧客郵送先（依頼者住所 / その他）
   mailingAddressOther: string // 郵送先住所（その他）
   clientTrait: string         // 依頼者特徴（smile / neutral / angry）
@@ -63,6 +65,7 @@ export type FormData = {
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
   considerationDeclineReason: string  // 検討中・不受託理由（面談結果が検討中／不受託のとき入力）
+  considerationDeclineReasonDetail: string  // その他理由詳細（フリーテキスト）
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
   expectedCompletionDate: string  // 完了予定日
@@ -90,6 +93,8 @@ export const INITIAL_DATA: FormData = {
   postalCode: '',
   address: '',
   transferNameKana: '',
+  transferNameKana2: '',
+  transferNameKana3: '',
   mailingDestination: '',
   mailingAddressOther: '',
   clientTrait: '',
@@ -108,6 +113,7 @@ export const INITIAL_DATA: FormData = {
   referralPartners: [],
   contractType: '',
   considerationDeclineReason: '',
+  considerationDeclineReasonDetail: '',
   otherNotes: '',
   difficulty: '',
   expectedCompletionDate: '',

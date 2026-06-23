@@ -364,7 +364,7 @@ export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
 export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 
 // LP担当の追いかけ連絡方法（連携②廃止に伴うLP追いかけ運用）
-export const LP_FOLLOWUP_METHODS = ['電話', 'メール', 'SMS', 'LINE', 'その他'] as const
+export const LP_FOLLOWUP_METHODS = ['電話', 'メール', 'SMS', 'LINE'] as const
 
 // 不動産登記の発生有無（LP案件一覧・他事業者紹介(不動産)の依頼内容として共有）
 export const REAL_ESTATE_REGISTRATION_OPTIONS = [

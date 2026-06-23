@@ -14,8 +14,10 @@ export type InvoiceLite = {
   case_number: string
   client_name: string
   deal_name: string
-  // 振込名義人（依頼者セクションで登録。カナ）。突合のマスターキー。
+  // 振込名義人（依頼者セクションで登録。カナ）。突合のマスターキー。最大3つ。
   payer_kana: string | null
+  payer_kana_2?: string | null
+  payer_kana_3?: string | null
   sales_member_id: string | null
   manager_member_id: string | null
 }
@@ -158,11 +160,12 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     const hayAlnum = norm(`${row.memo} ${row.name}`)        // 案件番号照合用（英数）
     const hayKana = kanaKey(`${row.memo} ${row.name}`)       // 振込人カナ照合用（全角カナ）
     const amountEq = (i: InvoiceLite) => i.amount === row.amount
-    // 振込名義人カナが摘要/振込人に部分一致するか（マスターキー）
-    const payerHit = (i: InvoiceLite) => {
-      const k = kanaKey(i.payer_kana)
-      return !!k && (hayKana.includes(k) || k.includes(hayKana))
-    }
+    // 振込名義人カナ（最大3つ）のいずれかが摘要/振込人に部分一致するか（マスターキー）
+    const payerHit = (i: InvoiceLite) =>
+      [i.payer_kana, i.payer_kana_2, i.payer_kana_3].some(raw => {
+        const k = kanaKey(raw)
+        return !!k && (hayKana.includes(k) || k.includes(hayKana))
+      })
     // カナ一致を先頭に寄せた候補並び（人が選びやすいように）
     const sortByKana = (arr: InvoiceLite[]) => [...arr].sort((a, b) => Number(payerHit(b)) - Number(payerHit(a)))
     // 振込額と請求額の差を「不足/超過」で言葉にする（過少/過払いの予測）

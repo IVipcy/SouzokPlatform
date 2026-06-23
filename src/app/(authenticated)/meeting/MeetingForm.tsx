@@ -36,8 +36,8 @@ type Props = {
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
-// 「検討中・不受託理由」を表示する面談結果
-const DECLINE_REASON_REQUIRED = new Set(['検討中', '不受託'])
+// 「検討中・不受託理由」を表示する面談結果（不受託のステータスキーは '失注'）
+const DECLINE_REASON_REQUIRED = new Set(['検討中', '失注'])
 // 「LPによる追いかけ可否」を表示する面談結果（検討中(契約書待ち)は受注確定済のため不要）
 const LP_FOLLOWUP_VISIBLE = new Set(['検討中'])
 // 契約関連項目（役割分担／契約手続き／他事業者紹介／契約形態／難易度／完了予定日）を表示する面談結果。
@@ -300,6 +300,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         transfer_name_kana: formData.transferNameKana.trim()
           ? toKatakana(formData.transferNameKana)
           : (mainClient?.kana ? toKatakana(mainClient.kana) : null),
+        transfer_name_kana_2: formData.transferNameKana2.trim() ? toKatakana(formData.transferNameKana2) : null,
+        transfer_name_kana_3: formData.transferNameKana3.trim() ? toKatakana(formData.transferNameKana3) : null,
         phone: mainClient?.phone || null,
         email: mainClient?.email || null,
         relationship_to_deceased: mainClient?.relationship || null,
@@ -352,6 +354,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         meeting_hearing_memo: formData.hearingMemo || null,
         meeting_other_notes: formData.otherNotes || null,
         consideration_decline_reason: formData.considerationDeclineReason || null,
+        consideration_decline_reason_detail: formData.considerationDeclineReasonDetail || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
         // 郵送・書類設定／依頼者特徴（メイン依頼者）
@@ -554,9 +557,14 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           )}
           {/* 検討中・不受託理由: 検討中 / 不受託 で表示（旧 失注理由の置換） */}
           {DECLINE_REASON_REQUIRED.has(data.caseStatus) && (
-            <Card label="検討中・不受託理由">
-              <Pills value={data.considerationDeclineReason} options={[...CONSIDERATION_DECLINE_REASONS]} onChange={v => update('considerationDeclineReason', v as string)} />
-            </Card>
+            <>
+              <Card label="検討中・不受託理由">
+                <Pills value={data.considerationDeclineReason} options={[...CONSIDERATION_DECLINE_REASONS]} onChange={v => update('considerationDeclineReason', v as string)} />
+              </Card>
+              <Card label="その他理由詳細">
+                <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="理由の詳細を自由に入力（任意）" />
+              </Card>
+            </>
           )}
           {/* LP担当追いかけ運用: 検討中 のみで表示（検討中(契約書待ち)は受注確定済のため不要） */}
           {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && (
@@ -569,11 +577,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                 <>
                   <Card label="連絡方法">
                     <Pills value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v as string)} />
-                    {data.lpFollowupMethod === 'その他' && (
-                      <div className="mt-2">
-                        <Input value={data.lpFollowupMethodOther} onChange={v => update('lpFollowupMethodOther', v)} placeholder="連絡方法を入力（例：FAX、対面 等）" />
-                      </div>
-                    )}
                   </Card>
                   <Card label="追いかけ期限日">
                     <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
@@ -651,8 +654,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
             <Card label="郵便番号"><Input value={data.postalCode} onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))} placeholder="4600008" /></Card>
             <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
-            {/* 振込名義人（カナ）＝入金CSV突合キー。本人振込なら依頼者ふりがなを流用 */}
-            <Card label="振込名義人（カナ）">
+            {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン */}
+            <Card label="振込名義人（カナ・最大3つ）">
               <Input value={data.transferNameKana} onChange={v => update('transferNameKana', v)} placeholder="ヤマダ タロウ（カタカナ）／入金CSV突合に使用" />
               {(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana && (
                 <button
@@ -661,6 +664,10 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   className="mt-1.5 text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
                 >依頼者と同じ</button>
               )}
+              <div className="mt-2 space-y-2">
+                <Input value={data.transferNameKana2} onChange={v => update('transferNameKana2', v)} placeholder="2つ目（任意）" />
+                <Input value={data.transferNameKana3} onChange={v => update('transferNameKana3', v)} placeholder="3つ目（任意）" />
+              </div>
             </Card>
 
             {/* 郵送・書類設定 */}

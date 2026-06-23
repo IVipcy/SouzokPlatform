@@ -50,9 +50,9 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       const supabase = createClient()
       const { data: invs } = await supabase
         .from('invoices')
-        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, furigana), case_clients(furigana, priority, sort_order))')
+        .select('id, case_id, amount, status, cases(case_number, deal_name, clients(name, transfer_name_kana, transfer_name_kana_2, transfer_name_kana_3, furigana), case_clients(furigana, priority, sort_order))')
         .neq('status', '入金済')
-      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
+      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; amount: number; status: string; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; transfer_name_kana_2: string | null; transfer_name_kana_3: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
       // 受注担当・管理担当（通知先）を案件ごとに取得
       const caseIds = [...new Set(rawInv.map(i => i.case_id))]
       const salesByCase = new Map<string, string>()
@@ -73,6 +73,8 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
           || i.cases?.clients?.furigana
           || ((i.cases?.case_clients ?? []).find(c => c.priority === 'main') ?? (i.cases?.case_clients ?? [])[0])?.furigana
           || null,
+        payer_kana_2: i.cases?.clients?.transfer_name_kana_2 ?? null,
+        payer_kana_3: i.cases?.clients?.transfer_name_kana_3 ?? null,
         sales_member_id: salesByCase.get(i.case_id) ?? null,
         manager_member_id: managerByCase.get(i.case_id) ?? null,
       }))

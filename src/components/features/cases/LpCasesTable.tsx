@@ -22,6 +22,8 @@ export type LpCaseRow = {
   client_name: string | null
   /** 検討中・不受託理由（旧 lost_reason の置換、migration 125） */
   consideration_decline_reason: string | null
+  /** その他理由詳細（migration 126） */
+  consideration_decline_reason_detail?: string | null
   /** お客様回答予定日 */
   client_response_due_date: string | null
   /** 検討期間区分（1週間/2週間/1ヶ月/見込み不明） */
@@ -122,6 +124,7 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                 <th className="px-3 py-2 text-left font-bold">依頼者氏名</th>
                 <th className="px-3 py-2 text-left font-bold">案件ステータス</th>
                 <th className="px-3 py-2 text-left font-bold">検討中・不受託理由</th>
+                <th className="px-3 py-2 text-left font-bold">その他理由詳細</th>
                 <th className="px-3 py-2 text-left font-bold">お客様回答予定日</th>
                 <th className="px-3 py-2 text-left font-bold">検討期間</th>
                 <th className="px-3 py-2 text-left font-bold">残り日数</th>
@@ -180,6 +183,8 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                     </td>
                     {/* 検討中・不受託理由（旧 不受託理由＋検討理由 を統合） */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.consideration_decline_reason || <span className="text-gray-300">—</span>}</td>
+                    {/* その他理由詳細 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[220px] truncate" title={c.consideration_decline_reason_detail ?? undefined}>{c.consideration_decline_reason_detail || <span className="text-gray-300">—</span>}</td>
                     {/* お客様回答予定日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono">
                       {c.client_response_due_date ? (

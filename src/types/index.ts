@@ -119,6 +119,7 @@ export type CaseRow = {
   order_received_date: string | null
   // 検討中・不受託理由（旧 lost_reason の置換、migration 125 で導入）
   consideration_decline_reason: string | null
+  consideration_decline_reason_detail: string | null  // その他理由詳細（migration 126）
   // 受注内容追加
   other_procedure: string | null
   order_category: string[] | null
@@ -305,6 +306,8 @@ export type ClientRow = {
   has_special_chars: boolean
   notes: string | null
   transfer_name_kana: string | null  // 振込名義人カナ（入金CSV突合キー。migration 114）
+  transfer_name_kana_2: string | null  // 振込名義人カナ2（migration 126）
+  transfer_name_kana_3: string | null  // 振込名義人カナ3（migration 126）
 }
 
 export type MemberRow = {
