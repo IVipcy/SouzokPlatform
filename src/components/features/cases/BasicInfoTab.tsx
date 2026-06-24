@@ -16,6 +16,7 @@ import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocume
 import { useRouter } from 'next/navigation'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import CaseCurrentStatusCard from './CaseCurrentStatusCard'
+import CasePartsProgressCard from './CasePartsProgressCard'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
 
@@ -109,6 +110,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           </div>
         </div>
       </Section>
+
+          {/* 受注区分の進行（複数パートの先行→本体）。単独パートでは非表示 */}
+          <CasePartsProgressCard caseData={caseData} tasks={tasks} patchCase={patchCase} />
 
           {/* 現在の状況・次やること（最新の実施結果＋次タスク＋着手ナビ）。翌日の作業者向け */}
           <CaseCurrentStatusCard tasks={tasks} caseId={caseData.id} status={caseData.status} />
