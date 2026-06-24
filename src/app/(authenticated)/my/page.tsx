@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, Banknote } from 'lucide-react'
+import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
@@ -9,8 +9,6 @@ import ConsultationCasesTable, { type ConsultCase } from '@/components/features/
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
-import PaymentCheckReviewTab, { type PayCheckReviewRow } from '@/components/features/my/PaymentCheckReviewTab'
-import PaymentCheckSentTab, { type PayCheckSentRow } from '@/components/features/my/PaymentCheckSentTab'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
@@ -27,7 +25,7 @@ import {
   type DashProperty,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
-import type { TaskRow, ProgressReportRow, PaymentCheckRequestRow } from '@/types'
+import type { TaskRow, ProgressReportRow } from '@/types'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -41,13 +39,7 @@ import type { TaskRow, ProgressReportRow, PaymentCheckRequestRow } from '@/types
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string }>
-type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'reviews' | 'tasks' | 'pay_reviews' | 'pay_sent'
-
-// 入金状況確認依頼（join付き）の生レコード型
-type PayCheckRaw = PaymentCheckRequestRow & {
-  invoices: { amount: number; due_date: string | null } | null
-  cases: { case_number: string; deal_name: string } | null
-}
+type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'reviews' | 'tasks'
 
 // 相談案件 = 受注担当が受託に至るまで（長期保留・紹介のみは個別管理案件へ移管）
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注'])
@@ -175,24 +167,22 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
   let boardTasks: BoardTask[] = []
-  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null }> = []
+  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null; due_date: string | null }> = []
   let billingPayments: Array<{ invoice_id: string; amount: number }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
   let roleTaskRows: TaskRow[] = []
   let allReports: ProgressReportRow[] = []
   let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
-  let payReviewRaw: PayCheckRaw[] = []   // 受注担当: 自分宛の入金確認依頼
-  let paySentRaw: PayCheckRaw[] = []     // 管理担当: 自分が出した入金確認依頼
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
   let comms: Array<{ case_id: string; communicated_at: string | null; detail: string | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes, payReviewRes, paySentRes] = await Promise.all([
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
-        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date').in('case_id', caseIdArray),
+        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
         // started_by_member は「対応中（名前）」表示に使う
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*), task_assignees!inner(member_id, role)').eq('task_assignees.member_id', memberId).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),
@@ -211,13 +201,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           ? supabase.from('activity_log').select('entity_id,metadata').eq('entity_type', 'case').eq('action', 'assignee_change').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
         supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
-        // 入金状況確認依頼（受信＝自分が確認者 / 発信＝自分が依頼者）
-        supabase.from('payment_check_requests').select('*, invoices(amount, due_date), cases(case_number, deal_name)').eq('confirmer_id', memberId).order('requested_date', { ascending: false }),
-        supabase.from('payment_check_requests').select('*, invoices(amount, due_date), cases(case_number, deal_name)').eq('requester_id', memberId).order('requested_date', { ascending: false }),
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
-      if (isManager && invoices.length > 0) {
+      if ((isManager || isSales) && invoices.length > 0) {
         const { data: payRaw } = await supabase.from('payments').select('invoice_id,amount').in('invoice_id', invoices.map(i => i.id))
         billingPayments = (payRaw ?? []) as typeof billingPayments
       }
@@ -229,8 +216,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
       comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
-      payReviewRaw = (payReviewRes.data ?? []) as PayCheckRaw[]
-      paySentRaw = (paySentRes.data ?? []) as PayCheckRaw[]
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -496,60 +481,29 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }))
   const reviewPendingCount = reviewRows.filter(r => r.status === '依頼中').length
 
-  // === 入金状況確認（受注担当＝受信 / 管理担当＝発信一覧） ===
-  const payReviewRows: PayCheckReviewRow[] = payReviewRaw.map(r => ({
-    requestId: r.id,
-    invoice_id: r.invoice_id,
-    case_id: r.case_id,
-    case_number: r.cases?.case_number ?? '—',
-    deal_name: r.cases?.deal_name ?? '—',
-    amount: r.invoices?.amount ?? 0,
-    due_date: r.invoices?.due_date ?? null,
-    requesterId: r.requester_id,
-    requesterName: memberById.get(r.requester_id) ?? null,
-    requestedDate: r.requested_date,
-    status: r.status,
-    resultNote: r.result_note,
-    confirmedDate: r.confirmed_date,
-    autoClosed: r.auto_closed,
-  }))
-  const payReviewPendingCount = payReviewRows.filter(r => r.status === '依頼中').length
-
-  const paySentRows: PayCheckSentRow[] = paySentRaw.map(r => ({
-    requestId: r.id,
-    case_id: r.case_id,
-    case_number: r.cases?.case_number ?? '—',
-    deal_name: r.cases?.deal_name ?? '—',
-    amount: r.invoices?.amount ?? 0,
-    confirmerName: memberById.get(r.confirmer_id) ?? null,
-    requestedDate: r.requested_date,
-    status: r.status,
-    resultNote: r.result_note,
-    confirmedDate: r.confirmed_date,
-    autoClosed: r.auto_closed,
-  }))
-  const paySentPendingCount = paySentRows.filter(r => r.status === '依頼中').length
-
-  // 請求タブ（管理担当）: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件
-  const billingCaseRows = isManager
-    ? buildBillingCaseRows(myCases.filter(c => managerCaseIds.has(c.id)), allCaseMembers, memberObjById, invoices, today, billingPayments)
+  // 請求タブ: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件。
+  // 管理担当＝自分が管理担当の案件 / 受注担当＝自分が受注担当の案件。
+  const billingScopeIds = isManager ? managerCaseIds : isSales ? salesCaseIds : new Set<string>()
+  const billingCaseRows = (isManager || isSales)
+    ? buildBillingCaseRows(myCases.filter(c => billingScopeIds.has(c.id)), allCaseMembers, memberObjById, invoices, today, billingPayments)
     : []
+  // 入金期日超過アラート（受注担当）: 自分の案件で、入金期日を過ぎた未入金の請求。
+  const overdueInvoices = isSales
+    ? invoices.filter(i => salesCaseIds.has(i.case_id) && i.due_date && i.due_date < todayStr && i.status !== '入金済')
+    : []
+  const overduePaymentCount = new Set(overdueInvoices.map(i => i.case_id)).size
 
   // === タブ構成（役割 + 確認依頼の有無で決定） ===
   const showProgress = isManager
   const showReviews = isSales || reviewRows.length > 0
-  const showPaySent = isManager || paySentRows.length > 0       // 発信一覧（管理担当）
-  const showPayReviews = isSales || payReviewRows.length > 0     // 受信（受注担当）
   const validTabs: TabKey[] = []
   if (isSales) validTabs.push('meetings')
   validTabs.push('cases')
-  if (isManager) validTabs.push('billing')
+  if (isManager || isSales) validTabs.push('billing')
   if (isSales) validTabs.push('referrals')
   if (showProgress) validTabs.push('progress')
-  if (showPaySent) validTabs.push('pay_sent')
   validTabs.push('tasks')
   if (showReviews) validTabs.push('reviews')
-  if (showPayReviews) validTabs.push('pay_reviews')
   const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
   const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
 
@@ -572,20 +526,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href="/my?tab=billing" label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {isSales && (
+          <TabLink href="/my?tab=billing" label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
+        )}
+        {isSales && (
           <TabLink href="/my?tab=referrals" label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
         {showProgress && (
           <TabLink href="/my?tab=progress" label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
-        {showPaySent && (
-          <TabLink href="/my?tab=pay_sent" label={`入金状況確認 (${paySentPendingCount})`} Icon={Banknote} active={activeTab === 'pay_sent'} />
-        )}
         <TabLink href="/my?tab=tasks" label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
         {showReviews && (
           <TabLink href="/my?tab=reviews" label={`進捗確認依頼 (${reviewPendingCount})`} Icon={ClipboardCheck} active={activeTab === 'reviews'} />
-        )}
-        {showPayReviews && (
-          <TabLink href="/my?tab=pay_reviews" label={`入金状況確認 (${payReviewPendingCount})`} Icon={Banknote} active={activeTab === 'pay_reviews'} />
         )}
       </div>
 
@@ -631,9 +582,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         </div>
       )}
 
-      {/* 請求（管理担当）: サマリ等は出さず、案件ベースの請求一覧のみ */}
-      {activeTab === 'billing' && isManager && (
-        <BillingCaseTable rows={billingCaseRows} />
+      {/* 請求（管理担当＝請求 / 受注担当＝請求状況）: 案件ベースの請求一覧 */}
+      {activeTab === 'billing' && (isManager || isSales) && (
+        <div className="space-y-3">
+          {isSales && overduePaymentCount > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">
+              <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2.25} />
+              <span>入金期日を超過した未入金の案件が <span className="font-bold">{overduePaymentCount}件</span> あります。お客様への確認・消込状況をご確認ください。</span>
+            </div>
+          )}
+          <BillingCaseTable rows={billingCaseRows} />
+        </div>
       )}
 
       {/* 進捗報告（管理担当） */}
@@ -647,16 +606,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {/* 進捗確認依頼（確認者） */}
       {activeTab === 'reviews' && showReviews && (
         <ProgressReviewTab rows={reviewRows} currentMemberId={memberId} />
-      )}
-
-      {/* 入金状況確認（管理担当＝発信一覧） */}
-      {activeTab === 'pay_sent' && showPaySent && (
-        <PaymentCheckSentTab rows={paySentRows} />
-      )}
-
-      {/* 入金状況確認（受注担当＝受信・確認結果入力） */}
-      {activeTab === 'pay_reviews' && showPayReviews && (
-        <PaymentCheckReviewTab rows={payReviewRows} currentMemberId={memberId} />
       )}
 
       {/* 個別管理案件（紹介のみ・長期保留） */}
