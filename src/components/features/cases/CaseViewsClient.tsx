@@ -16,7 +16,7 @@ const VIEWS: View[] = ['consult', 'manage', 'referral', 'lp']
 const VIEW_META: Record<View, { label: string; Icon: LucideIcon }> = {
   consult: { label: '相談案件一覧', Icon: MessageSquare },
   manage: { label: '管理案件一覧', Icon: ClipboardList },
-  referral: { label: '個別管理案件', Icon: Sparkles },
+  referral: { label: '個別案件一覧', Icon: Sparkles },
   lp: { label: 'LP案件一覧', Icon: Megaphone },
 }
 
