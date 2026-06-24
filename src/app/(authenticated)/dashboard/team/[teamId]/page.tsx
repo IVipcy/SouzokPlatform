@@ -315,13 +315,13 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         title={`${team.name}・受注担当 ${periodLabel}`}
         icon={Users}
         description={`${dateLabel}・受注担当の${periodLabel}の動きとチーム成績`}
-      />
-
-      {/* チームタスク（ボタン押下でその場に展開） */}
-      <TeamTaskButton
-        tasks={urgentTeamTasks}
-        currentMemberId={currentMemberId ?? undefined}
-        caseAssignees={teamTaskAssignees}
+        afterTitle={
+          <TeamTaskButton
+            tasks={urgentTeamTasks}
+            currentMemberId={currentMemberId ?? undefined}
+            caseAssignees={teamTaskAssignees}
+          />
+        }
       />
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
