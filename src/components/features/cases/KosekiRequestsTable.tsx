@@ -30,6 +30,9 @@ type Props = {
   tasks?: TaskRow[]
   // 契約時にお客様から受領した戸籍関係書類（区分=戸籍）。表の先頭に受領済として表示。
   contractDocs?: ContractDocumentRow[]
+  // パート制：複数パート案件のとき、行に「取得パート」バッジを出す。新規行は現在パートで記録。
+  multiPart?: boolean
+  currentPartKey?: string | null
 }
 
 /**
@@ -37,7 +40,7 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [], contractDocs = [] }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
@@ -65,7 +68,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     // 取得区分は役割分担（戸籍の担当）から自動既定（依頼者担当があれば依頼者取得）
     const { data, error } = await supabase
       .from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: rows.length, acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.koseki) })
+      .insert({ case_id: caseId, sort_order: rows.length, acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.koseki), acquired_part: multiPart ? currentPartKey : null })
       .select('*')
       .single()
     setBusy(false)
@@ -82,7 +85,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     onRefresh?.()
   }
 
-  const colCount = progressMode ? 13 : 8
+  const colCount = (progressMode ? 13 : 8) + (multiPart ? 1 : 0)
 
   return (
     <div>
@@ -99,6 +102,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               <th className="px-2.5 py-2 text-left font-semibold w-40">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
+              {multiPart && <th className="px-2.5 py-2 text-left font-semibold w-24">取得パート</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着予定日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
@@ -110,7 +114,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
           <tbody>
             {rows.length > 0 ? (
               rows.map((r, i) => (
-                <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode}
+                <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode} multiPart={multiPart}
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField}
@@ -135,10 +139,11 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
+function Row({ r, odd, progressMode, multiPart, open, onToggle, setLocal, commit, saveField, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
+  multiPart: boolean
   open: boolean
   onToggle: () => void
   setLocal: (id: string, field: keyof KosekiRequestRow, value: string) => void
@@ -164,6 +169,13 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
+        {multiPart && (
+          <td className="px-2.5 py-1.5">
+            {r.acquired_part
+              ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200">{r.acquired_part}</span>
+              : <span className="text-[11px] text-gray-300">—</span>}
+          </td>
+        )}
         {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
         {progressMode && <DateCell value={r.expected_arrival_date} onCommit={v => commit(r.id, 'expected_arrival_date', v)} />}
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
