@@ -1,7 +1,7 @@
 'use client'
 
-// マイページのアラートセンター。アラート(やること)＋通知(履歴)を大きく表示し、
-// ベルを押すと全件モーダルを開く。サイドバーの「マイページ」バッジと同じデータ(Provider)を共有。
+// マイページのアラート（コンパクト表示）。上部に「🔔アラート N」だけ置き、
+// クリックでモーダルを開く。モーダルはアラート(やること)＋通知(履歴)を1つに統合した一覧。
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -26,6 +26,71 @@ function notificationHref(n: NotificationItem): string | null {
   return `/cases/${n.case_id}`
 }
 
+export default function MyAlertCenter() {
+  const { alerts, notifications, unreadCount, totalCount, markRead, markAllRead, removeOne } = useAlertCenter()
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      {/* コンパクト表示（ページ上部・右寄せ）。押すとモーダル */}
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition"
+          aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+        >
+          <span className="relative inline-flex">
+            <Bell className={`w-[18px] h-[18px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={2} />
+            {totalCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+            )}
+          </span>
+          <span className="text-[13px] font-semibold text-gray-800">アラート</span>
+        </button>
+      </div>
+
+      {/* モーダル（アラート＋通知を統合した一覧） */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto" onClick={() => setOpen(false)}>
+          <div className="mt-10 w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <header className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
+              <Bell className="w-5 h-5 text-brand-600" strokeWidth={2.25} />
+              <h3 className="text-[16px] font-bold text-gray-900">アラート</h3>
+              {totalCount > 0 && <span className="text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">{totalCount}</span>}
+              {unreadCount > 0 && (
+                <button type="button" onClick={markAllRead} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+                  <CheckCheck className="w-3.5 h-3.5" />通知を既読
+                </button>
+              )}
+              <button type="button" onClick={() => setOpen(false)} className={`${unreadCount > 0 ? 'ml-2' : 'ml-auto'} text-gray-400 hover:text-gray-700`} aria-label="閉じる">
+                <X className="w-5 h-5" />
+              </button>
+            </header>
+
+            <div className="max-h-[72vh] overflow-y-auto p-3">
+              {alerts.length === 0 && notifications.length === 0 ? (
+                <div className="py-10 text-center text-[13px] text-gray-400">対応すべきことはありません</div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {/* アラート（やること・重大度順） */}
+                  {alerts.map(a => <li key={a.id}><AlertRow a={a} onNavigate={() => setOpen(false)} /></li>)}
+                  {/* 通知（履歴。既読/削除可） */}
+                  {notifications.map(n => (
+                    <li key={n.id}>
+                      <NotificationRow n={n} onRead={() => markRead(n.id)} onRemove={() => removeOne(n.id)} onNavigate={() => setOpen(false)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function AlertRow({ a, onNavigate }: { a: AlertItem; onNavigate: () => void }) {
   const sv = ALERT_SEVERITY_STYLE[a.severity]
   const inner = (
@@ -44,122 +109,25 @@ function AlertRow({ a, onNavigate }: { a: AlertItem; onNavigate: () => void }) {
   return a.href ? <Link href={a.href} onClick={onNavigate} className="block">{inner}</Link> : <div>{inner}</div>
 }
 
-export default function MyAlertCenter() {
-  const { alerts, notifications, unreadCount, totalCount, markRead, markAllRead, removeOne } = useAlertCenter()
-  const [open, setOpen] = useState(false)
-  const topAlerts = alerts.slice(0, 5)
-
-  return (
-    <>
-      {/* 大きいアラート表示（ページ上部） */}
-      <div className="mb-5 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="relative inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:text-brand-600 border border-transparent hover:border-gray-200 transition"
-            aria-label="アラートと通知を開く"
-            title="アラートと通知を開く"
-          >
-            <Bell className="w-[18px] h-[18px]" strokeWidth={2} />
-            {totalCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
-            )}
-          </button>
-          <h2 className="text-[15px] font-bold text-gray-900">アラート</h2>
-          {alerts.length > 0 && <span className="text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">{alerts.length}</span>}
-          <button type="button" onClick={() => setOpen(true)} className="ml-auto inline-flex items-center gap-0.5 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-            すべて表示<ChevronRight className="w-3.5 h-3.5" />
-          </button>
+function NotificationRow({ n, onRead, onRemove, onNavigate }: { n: NotificationItem; onRead: () => void; onRemove: () => void; onNavigate: () => void }) {
+  const href = notificationHref(n)
+  const inner = (
+    <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-gray-100 ${n.is_read ? 'hover:bg-gray-50' : 'bg-amber-50/50 hover:bg-amber-50'}`}>
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${n.is_read ? 'bg-gray-300' : 'bg-amber-500'}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-gray-50 text-gray-600 border-gray-200">通知</span>
+          <span className="text-[11px] text-gray-400">{relativeTime(n.created_at)}</span>
         </div>
-        <div className="p-3">
-          {alerts.length === 0 ? (
-            <div className="py-5 text-center text-[13px] text-gray-400">
-              対応すべきアラートはありません{unreadCount > 0 && <span className="text-gray-500">（未読の通知が {unreadCount} 件）</span>}
-            </div>
-          ) : (
-            <ul className="space-y-1.5">
-              {topAlerts.map(a => <li key={a.id}><AlertRow a={a} onNavigate={() => {}} /></li>)}
-              {alerts.length > topAlerts.length && (
-                <li>
-                  <button type="button" onClick={() => setOpen(true)} className="w-full text-center py-2 text-[12px] font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50/50 rounded-lg">
-                    他 {alerts.length - topAlerts.length} 件のアラートを表示
-                  </button>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
+        <div className={`text-[13px] leading-snug ${n.is_read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>{n.title}</div>
+        {n.body && <div className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{n.body}</div>}
       </div>
-
-      {/* モーダル（アラート＋通知の全件） */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto" onClick={() => setOpen(false)}>
-          <div className="mt-10 w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <header className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
-              <Bell className="w-5 h-5 text-brand-600" strokeWidth={2.25} />
-              <h3 className="text-[16px] font-bold text-gray-900">アラート＆通知</h3>
-              {totalCount > 0 && <span className="text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">{totalCount}</span>}
-              {unreadCount > 0 && (
-                <button type="button" onClick={markAllRead} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-                  <CheckCheck className="w-3.5 h-3.5" />通知を既読
-                </button>
-              )}
-              <button type="button" onClick={() => setOpen(false)} className={`${unreadCount > 0 ? 'ml-2' : 'ml-auto'} text-gray-400 hover:text-gray-700`} aria-label="閉じる">
-                <X className="w-5 h-5" />
-              </button>
-            </header>
-
-            <div className="max-h-[72vh] overflow-y-auto px-5 py-4 space-y-5">
-              {/* アラート（やること） */}
-              <section>
-                <h4 className="text-[12px] font-bold text-gray-500 mb-2">アラート（対応が必要なこと）{alerts.length > 0 && <span className="text-red-500">・{alerts.length}件</span>}</h4>
-                {alerts.length === 0 ? (
-                  <div className="py-4 text-center text-[12px] text-gray-400 bg-gray-50/60 rounded-lg">対応すべきアラートはありません</div>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {alerts.map(a => <li key={a.id}><AlertRow a={a} onNavigate={() => setOpen(false)} /></li>)}
-                  </ul>
-                )}
-              </section>
-
-              {/* 通知（履歴） */}
-              <section>
-                <h4 className="text-[12px] font-bold text-gray-500 mb-2">通知（お知らせ・履歴）{unreadCount > 0 && <span className="text-red-500">・未読{unreadCount}件</span>}</h4>
-                {notifications.length === 0 ? (
-                  <div className="py-4 text-center text-[12px] text-gray-400 bg-gray-50/60 rounded-lg">通知はありません</div>
-                ) : (
-                  <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
-                    {notifications.map(n => {
-                      const href = notificationHref(n)
-                      const inner = (
-                        <div className={`flex items-start gap-2 px-3 py-2.5 ${n.is_read ? '' : 'bg-amber-50/50'}`}>
-                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5" />}
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-[13px] leading-snug ${n.is_read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>{n.title}</div>
-                            {n.body && <div className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{n.body}</div>}
-                            <div className="text-[11px] text-gray-400 mt-0.5">{relativeTime(n.created_at)}</div>
-                          </div>
-                          <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); removeOne(n.id) }} className="text-gray-300 hover:text-red-500 flex-shrink-0" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
-                        </div>
-                      )
-                      return (
-                        <li key={n.id}>
-                          {href ? (
-                            <Link href={href} className="block hover:bg-gray-50" onClick={() => { if (!n.is_read) markRead(n.id); setOpen(false) }}>{inner}</Link>
-                          ) : (
-                            <div role="button" tabIndex={0} onClick={() => { if (!n.is_read) markRead(n.id) }} className="block hover:bg-gray-50 cursor-pointer">{inner}</div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove() }} className="text-gray-300 hover:text-red-500 flex-shrink-0" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+    </div>
+  )
+  return href ? (
+    <Link href={href} className="block" onClick={() => { if (!n.is_read) onRead(); onNavigate() }}>{inner}</Link>
+  ) : (
+    <div role="button" tabIndex={0} onClick={() => { if (!n.is_read) onRead() }} className="block cursor-pointer">{inner}</div>
   )
 }
