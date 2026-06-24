@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useTransition } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Check, Hand, Loader2, Play, Link2, Paperclip } from 'lucide-react'
 import OpenStorageFile from './OpenStorageFile'
 import { createClient } from '@/lib/supabase/client'
@@ -211,7 +210,6 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   onClose: () => void
   onDone: () => void
 }) {
-  const router = useRouter()
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null }>>([])
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
   const [cats, setCats] = useState<string[]>([])
@@ -344,8 +342,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 
     setSaving(false)
     showToast(totalLinks > 0 ? `着手し、${totalLinks}件をタスクに紐付けました` : '着手しました', 'success')
-    if (totalLinks === 1 && firstTaskId) router.push(`/tasks/${firstTaskId}`)
-    else onDone()
+    // タスク詳細へは遷移しない（受信簿の流れを止めない）。
+    onDone()
   }
 
   return (
