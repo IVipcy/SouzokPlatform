@@ -60,8 +60,9 @@ export type FormData = {
   deceasedHasSpecialChars: boolean  // 被相続人 外字有無
   // 面談内容
   hearingMemo: string       // ヒアリング内容メモ
-  serviceCategory: string   // 受注区分①（serviceMaster の ORDER_CATEGORIES）
-  serviceCategory2: string  // 受注区分②（検認①→手続き一式②のコンボのみ）
+  serviceCategory: string   // 受注区分①（後方互換＝先頭パート。serviceMaster の ORDER_CATEGORIES）
+  serviceCategory2: string  // 受注区分②（後方互換＝2つ目パート）
+  serviceCategories: string[] // 受注区分パート（順序付き・複数選択。source of truth）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
   considerationDeclineReason: string  // 検討中・不受託理由（面談結果が検討中／不受託のとき入力）
@@ -110,6 +111,7 @@ export const INITIAL_DATA: FormData = {
   hearingMemo: '',
   serviceCategory: '',
   serviceCategory2: '',
+  serviceCategories: [],
   referralPartners: [],
   contractType: '',
   considerationDeclineReason: '',

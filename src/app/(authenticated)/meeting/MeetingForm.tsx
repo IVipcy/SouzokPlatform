@@ -18,9 +18,10 @@ import {
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
-  ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
-  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
+  ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
+  gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
 } from '@/lib/serviceMaster'
+import { buildParts, partRank } from '@/lib/serviceParts'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
 import { IntakeRolesEditor, IntakeDocsEditor, clientReflectCandidates, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
@@ -248,13 +249,25 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     }))
   }
 
-  // 受注区分①を選ぶ → 業務・作業を初期セット（区分変更時は入れ直し）。検認以外は②をクリア。
-  const selectServiceCategory = (cat: string) => {
-    if (cat === data.serviceCategory) return
-    if (data.intakeRoles.length > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
-    const newCat2 = cat === KENIN_CATEGORY ? data.serviceCategory2 : ''
-    const seeded = (cat ? seedRolesForCategories(categoriesOf(cat, newCat2)) : []) as RoleRow[]
-    setData(prev => ({ ...prev, serviceCategory: cat, serviceCategory2: newCat2, intakeRoles: seeded }))
+  // 受注区分（複数選択）。選んだ区分を rank 順（先行→本体）に並べ、業務・作業を入れ直す。
+  // 既存の担当(owner)・メモ(note)は同じ業務×作業に引き継ぐ。「紹介のみ」は自社手続きなしのため排他。
+  const setServiceCategories = (keys: string[]) => {
+    let next = [...new Set(keys)]
+    if (next.includes(REFERRAL_ONLY_CATEGORY) && next.length > 1) {
+      const justAddedReferral = !data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY)
+      next = justAddedReferral ? [REFERRAL_ONLY_CATEGORY] : next.filter(k => k !== REFERRAL_ONLY_CATEGORY)
+    }
+    const ordered = next.sort((a, b) => partRank(a) - partRank(b))
+    // 区分を外す（業務が消える）ときだけ確認
+    const removing = data.serviceCategories.some(k => !ordered.includes(k))
+    if (removing && data.intakeRoles.length > 0 && !confirm('受注区分を外すと、その区分の業務が役割分担から消えます。よろしいですか？')) return
+    const seeded = (ordered.length ? seedRolesForCategories(ordered) : []) as RoleRow[]
+    const prevByKey = new Map(data.intakeRoles.map(r => [`${r.gyomu}|||${r.sagyou}`, r]))
+    const merged = seeded.map(s => {
+      const p = prevByKey.get(`${s.gyomu}|||${s.sagyou}`)
+      return p ? { ...s, owner: p.owner, note: p.note } : s
+    })
+    setData(prev => ({ ...prev, serviceCategories: ordered, serviceCategory: ordered[0] ?? '', serviceCategory2: ordered[1] ?? '', intakeRoles: merged }))
   }
 
   // 「依頼者」にした業務を、チェックリストで選んで契約時にもらう書類として契約手続きへ反映
@@ -267,13 +280,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     if (toAdd.length > 0) update('intakeDocuments', [...data.intakeDocuments, ...toAdd])
   }
 
-  // 検認①→手続き一式② の追加/解除
-  const toggleFullService = (on: boolean) => {
-    if (data.intakeRoles.length > 0 && !confirm('受注区分を変えると、業務・担当が入れ直されます。よろしいですか？')) return
-    const newCat2 = on ? KENIN_COMBO_SECONDARY : ''
-    const seeded = seedRolesForCategories(categoriesOf(data.serviceCategory, newCat2)) as RoleRow[]
-    setData(prev => ({ ...prev, serviceCategory2: newCat2, intakeRoles: seeded }))
-  }
 
   // 依頼者（複数人）操作
   const updateClient = (i: number, patch: Partial<ClientPerson>) =>
@@ -342,10 +348,11 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         deal_name: mainName || '無題',
         status: formData.caseStatus || '検討中',
         difficulty,
-        service_category: formData.serviceCategory || null,
-        service_category_2: formData.serviceCategory2 || null,
-        // 一覧表示の互換のため、受注区分①②を従来の手続区分(配列)にも反映
-        procedure_type: formData.serviceCategory ? categoriesOf(formData.serviceCategory, formData.serviceCategory2) : null,
+        service_category: formData.serviceCategories[0] || null,
+        service_category_2: formData.serviceCategories[1] || null,
+        // 受注区分パート（順序付き）。一覧/旧読み取り互換のため①②と procedure_type も併せて保持。
+        service_parts: formData.serviceCategories.length > 0 ? buildParts(formData.serviceCategories) : null,
+        procedure_type: formData.serviceCategories.length > 0 ? formData.serviceCategories : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         consideration_period: formData.considerationPeriod || null,
         meeting_executed_date: formData.meetingDate || null,
@@ -738,20 +745,19 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         <div className="max-w-[800px]">
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder={HEARING_MEMO_SAMPLE} /></Card>
-          <Card label="受注区分（1つ選択）">
-            <Pills value={data.serviceCategory} options={[...ORDER_CATEGORIES]} onChange={v => selectServiceCategory(v as string)} />
-            {data.serviceCategory === KENIN_CATEGORY && (
-              <label className="mt-2.5 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">
-                <input type="checkbox" checked={data.serviceCategory2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFullService(e.target.checked)} className="w-4 h-4 accent-brand-600" />
-                手続き一式へ移行する（検認① → 手続き一式②。重複する業務は表示しません）
-              </label>
+          <Card label="受注区分（複数選択できます）">
+            <Pills value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} multi />
+            {data.serviceCategories.length > 1 && (
+              <p className="mt-2.5 text-[12px] text-gray-500">
+                進行順：{data.serviceCategories.map((k, i) => `${'①②③④⑤'[i] ?? `(${i + 1})`} ${k}`).join(' → ')}（先行→本体で自動・前から順に進みます）
+              </p>
             )}
           </Card>
           {/* 受託確定前(検討中/不受託)では契約・業務関連項目を隠す。
               検討中→受託に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
           {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (
             <>
-              {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
+              {data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY) ? (
                 // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
                 <Card label="紹介先（自社手続きはありません）">
                   <p className="text-[12px] text-gray-400 mb-2">紹介のみは自社で行う相続手続きはありません。専門家への紹介先を選んでください（法人名・紹介日・見込み報酬などの詳細は案件詳細の「他事業者紹介」タブで入力）。</p>
@@ -759,16 +765,16 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                 </Card>
               ) : CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) ? (
                 <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
-                  {data.serviceCategory ? (
+                  {data.serviceCategories.length > 0 ? (
                     <>
-                      <p className="text-[12px] text-gray-400 mb-2">{data.serviceCategory2 ? '検認①→手続き一式②の業務が表示されます（重複は先の区分優先）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
+                      <p className="text-[12px] text-gray-400 mb-2">{data.serviceCategories.length > 1 ? '選んだ区分の業務がまとめて表示されます（重複する業務は1つ）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。</p>
                       <IntakeRolesEditor
                         roles={data.intakeRoles}
                         onSave={v => update('intakeRoles', v)}
-                        gyomuOptions={gyomuForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2))}
-                        presetFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
-                        addableFor={g => tasksForCategories(categoriesOf(data.serviceCategory, data.serviceCategory2), g).map(t => ({ task: t.task, kind: kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, t.task) }))}
-                        kindFor={(g, s) => kindForTask(categoriesOf(data.serviceCategory, data.serviceCategory2), g, s)}
+                        gyomuOptions={gyomuForCategories(data.serviceCategories)}
+                        presetFor={g => tasksForCategories(data.serviceCategories, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
+                        addableFor={g => tasksForCategories(data.serviceCategories, g).map(t => ({ task: t.task, kind: kindForTask(data.serviceCategories, g, t.task) }))}
+                        kindFor={(g, s) => kindForTask(data.serviceCategories, g, s)}
                       />
                     </>
                   ) : (
@@ -778,7 +784,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               ) : null}
               {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
               <Card label="契約手続き（契約関連書類の受け取り）">
-                {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientReflectCandidates(data.intakeRoles).length > 0 && (
+                {!data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY) && clientReflectCandidates(data.intakeRoles).length > 0 && (
                   <div className="mb-2.5">
                     <button type="button" onClick={() => setReflectOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
                       ＋ 依頼者取得分を契約手続きに反映
@@ -797,7 +803,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               </Card>
               )}
               {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
-              {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
+              {!data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY) && (
                 <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
               )}
               {/* 税理士／不動産が選ばれた場合、依頼内容（リスト選択）を入力。
@@ -847,7 +853,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               <ConfirmRow label="依頼者特徴" value={TRAIT_OPTIONS.find(t => t.key === data.clientTrait)?.label ?? ''} />
             </ConfirmSection>
             <ConfirmSection title="面談内容">
-              <ConfirmRow label="受注区分" value={data.serviceCategory} />
+              <ConfirmRow label="受注区分" value={data.serviceCategories.join('・') || '（未選択）'} />
               <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
               <ConfirmRow label="難易度" value={data.difficulty} />
               <ConfirmRow label="検討中・不受託理由" value={data.considerationDeclineReason} />
