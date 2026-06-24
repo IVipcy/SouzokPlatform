@@ -66,6 +66,8 @@ function ChangePartSelect({ label, hint, options, onPick }: { label: string; hin
 export default function OrderContentTab({ caseData, patchCase }: Props) {
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
+  // 途中（対応中）で区分を足したときに「役割分担を確認して」を促すナビ
+  const [addedNotice, setAddedNotice] = useState<string[]>([])
 
   const selectedKeys = activePartKeys(parts)
   const isReferralOnly = selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
@@ -109,6 +111,10 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
     const prevByKey = new Map(roles.map(r => [`${r.gyomu}|||${r.sagyou}`, r]))
     const merged = seeded.map(s => { const p = prevByKey.get(`${s.gyomu}|||${s.sagyou}`); return p ? { ...s, owner: p.owner, note: p.note } : s })
 
+    // 対応中（=途中）で区分を足したら、役割分担の確認を促す
+    const addedKeys = newKeys.filter(k => !selectedKeys.includes(k))
+    if (addedKeys.length > 0 && caseData.status === '対応中') setAddedNotice(addedKeys)
+
     setParts(nextParts); setRoles(merged)
     await patchCase({ service_parts: nextParts, service_category: newKeys[0] ?? null, service_category_2: newKeys[1] ?? null, procedure_type: newKeys, intake_roles: merged })
   }
@@ -129,11 +135,13 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
   const replaceWith = async (newKey: string) => {
     if (!confirm(`現在のパートを中止し、「${newKey}」に差し替えます。これまでの業務は履歴として残ります。よろしいですか？`)) return
     await persistParts(replaceCurrent(parts, newKey), addRolesFor(newKey, roles))
+    setAddedNotice([newKey])
   }
   // 完了案件を再開：新区分を進行中で追加し、ステータスを対応中へ戻す（生前系→死亡後の再受注）。
   const reopen = async (newKey: string) => {
     if (!confirm(`完了案件を「${newKey}」で再開します（ステータスを対応中に戻します）。よろしいですか？`)) return
     await persistParts(reopenWith(parts, newKey), addRolesFor(newKey, roles), { status: '対応中' })
+    setAddedNotice([newKey])
   }
 
   const hasRunning = parts.some(p => p.status === '進行中')
@@ -168,6 +176,13 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
           </div>
         )}
       </Section>
+
+      {addedNotice.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          <span className="flex-1">「{addedNotice.join('・')}」を追加しました。下の<span className="font-semibold">役割分担</span>で、増えた業務・担当（自社/依頼者）を確認してください。</span>
+          <button type="button" onClick={() => setAddedNotice([])} className="text-amber-500 hover:text-amber-700 font-bold leading-none">×</button>
+        </div>
+      )}
 
       <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
         {isReferralOnly ? (
