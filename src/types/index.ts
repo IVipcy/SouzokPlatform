@@ -641,6 +641,7 @@ export type RealEstatePropertyRow = {
   registration_complete_date: string | null        // 完了日
   registration_notes: string | null                // 備考
   notes: string | null
+  acquired_part: string | null                     // 取得した受注区分パート（パート制。migration 129）
   created_at: string
 }
 
@@ -703,6 +704,7 @@ export type FinancialAssetRow = {
   arrival_date: string | null               // 到着日（進捗）
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
   expected_arrival_date: string | null       // 到着予定日（見込み。migration 085）
+  acquired_part: string | null               // 取得した受注区分パート（パート制。migration 129）
   created_at: string
 }
 

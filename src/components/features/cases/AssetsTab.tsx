@@ -12,6 +12,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import { partsForCase, currentPart, isMultiPart } from '@/lib/serviceParts'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -58,6 +59,11 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
+  // パート制：複数パート案件のとき、行に「取得パート」バッジ。新規行は現在パートで記録。
+  const parts = partsForCase(caseData)
+  const multiPart = isMultiPart(parts)
+  const currentPartKey = currentPart(parts)?.key ?? null
+
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
   const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
@@ -94,7 +100,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           <div>
             <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} multiPart={multiPart} currentPartKey={currentPartKey} />
           </div>
           <div>
             <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -103,15 +109,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
           <SectionHeading title="預金口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} multiPart={multiPart} currentPartKey={currentPartKey} />
         </div>
         <div className={sub === 'securities' ? '' : 'hidden'}>
           <SectionHeading title="証券口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} multiPart={multiPart} currentPartKey={currentPartKey} />
         </div>
         <div className={sub === 'trust' ? '' : 'hidden'}>
           <SectionHeading title="信託口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} multiPart={multiPart} currentPartKey={currentPartKey} />
         </div>
         <div className={sub === 'insurance' ? '' : 'hidden'}>
           <FieldGrid>
