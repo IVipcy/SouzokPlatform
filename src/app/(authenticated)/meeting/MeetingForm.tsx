@@ -40,9 +40,10 @@ const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち
 const DECLINE_REASON_REQUIRED = new Set(['検討中', '失注'])
 // 「LPによる追いかけ可否」を表示する面談結果（検討中(契約書待ち)は受注確定済のため不要）
 const LP_FOLLOWUP_VISIBLE = new Set(['検討中'])
-// 契約関連項目（役割分担／契約手続き／他事業者紹介／契約形態／難易度／完了予定日）を表示する面談結果。
-// 検討中・不受託は受託前のため非表示。検討中→受託になった後はオーダーシートで入力する。
-const POST_CONTRACT_FIELDS_VISIBLE = new Set(['受託', '検討中（契約書待ち）', '紹介のみ', '長期保留'])
+// 契約確定系（役割分担／契約手続き／契約形態／難易度／完了予定日）を表示する面談結果。※ステータスのキーで判定（受託のキーは'受注'）。
+const CONTRACT_FIELDS_VISIBLE = new Set(['受注', '検討中（契約書待ち）'])
+// 他事業者紹介を表示する面談結果。上記＋「紹介のみ」（紹介先を埋めるため）。
+const REFERRAL_FIELDS_VISIBLE = new Set(['受注', '検討中（契約書待ち）', '紹介のみ'])
 // 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
   { key: 'smile',   emoji: '😊', label: '笑顔' },
@@ -748,7 +749,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           </Card>
           {/* 受託確定前(検討中/不受託)では契約・業務関連項目を隠す。
               検討中→受託に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
-          {POST_CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
+          {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (
             <>
               {data.serviceCategory === REFERRAL_ONLY_CATEGORY ? (
                 // 紹介のみ：自社手続きなし → 業務・作業を出さず、紹介先（他事業者紹介）を埋める
@@ -756,7 +757,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   <p className="text-[12px] text-gray-400 mb-2">紹介のみは自社で行う相続手続きはありません。専門家への紹介先を選んでください（法人名・紹介日・見込み報酬などの詳細は案件詳細の「他事業者紹介」タブで入力）。</p>
                   <Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi />
                 </Card>
-              ) : (
+              ) : CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) ? (
                 <Card label="役割分担（自社 / 依頼者 どちらが行うか）">
                   {data.serviceCategory ? (
                     <>
@@ -774,7 +775,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                     <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
                   )}
                 </Card>
-              )}
+              ) : null}
+              {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
               <Card label="契約手続き（契約関連書類の受け取り）">
                 {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && clientReflectCandidates(data.intakeRoles).length > 0 && (
                   <div className="mb-2.5">
@@ -793,6 +795,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   onConfirm={addReflectedDocs}
                 />
               </Card>
+              )}
               {/* 紹介のみは上の「紹介先」で選ぶため、重複する他事業者紹介要否カードは隠す */}
               {data.serviceCategory !== REFERRAL_ONLY_CATEGORY && (
                 <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
@@ -811,9 +814,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「不動産登記」列にもこの値が表示されます。</p>
                 </Card>
               )}
-              <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
-              <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
-              <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+              {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
+                <>
+                  <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
+                  <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
+                  <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+                </>
+              )}
             </>
           )}
           <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
