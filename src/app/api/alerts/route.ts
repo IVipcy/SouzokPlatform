@@ -47,7 +47,7 @@ export async function GET() {
     supabase.from('tasks')
       .select('id,title,due_date,status,case_id, task_assignees!inner(member_id)')
       .eq('task_assignees.member_id', memberId).neq('status', '完了'),
-    supabase.from('invoices').select('case_id,invoice_type,status').in('case_id', myCaseIds).eq('invoice_type', '前受金'),
+    supabase.from('invoices').select('case_id,invoice_type,status,due_date').in('case_id', myCaseIds),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date').in('case_id', myCaseIds),
     // 書類受信簿：ダブルチェック済みで未着手＝着手待ち
     supabase.from('document_receipts').select('case_id,dual_checked_at,started_by_member_id').in('case_id', myCaseIds),
@@ -62,7 +62,7 @@ export async function GET() {
   const cases = (casesRaw ?? []) as CaseRow[]
   const allCm = (allCmRaw ?? []) as Array<{ case_id: string; role: string }>
   const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string }>
-  const invoices = (invRaw ?? []) as Array<{ case_id: string; status: string }>
+  const invoices = (invRaw ?? []) as Array<{ case_id: string; invoice_type: string; status: string; due_date: string | null }>
   const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null }>
 
   const receipts2 = (receiptRaw ?? []) as Array<{ case_id: string; dual_checked_at: string | null; started_by_member_id: string | null }>
@@ -73,7 +73,9 @@ export async function GET() {
 
   const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
-  for (const i of invoices) if (!advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
+  for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
+  // 入金期日を過ぎた未入金の請求がある案件
+  const overduePayCaseIds = new Set(invoices.filter(i => i.due_date && i.due_date < todayStr && i.status !== '入金済').map(i => i.case_id))
   const recentConfirmed = new Set(reports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
 
   const alerts: AlertItem[] = []
@@ -101,6 +103,9 @@ export async function GET() {
     const advStatus = advanceStatusByCase.get(c.id)
     if (active && (advStatus === '作成済' || advStatus === '入金待ち')) {
       push({ id: `advance-${c.id}`, severity: 'high', category: '前受金 未入金', title: name, body: '前受金の入金が未確認です', href: `/billing?case=${c.id}` })
+    }
+    if (isMySales && overduePayCaseIds.has(c.id)) {
+      push({ id: `paydue-${c.id}`, severity: 'high', category: '入金期日 超過', title: name, body: '入金期日を過ぎた未入金の請求があります', href: '/my?tab=billing' })
     }
     if (isMyManager && c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') {
       push({ id: `overdue-comp-${c.id}`, severity: 'high', category: '完了予定日 超過', title: name, body: `完了予定日 ${c.expected_completion_date} を超過`, href: `${caseHref}?tab=tasks` })

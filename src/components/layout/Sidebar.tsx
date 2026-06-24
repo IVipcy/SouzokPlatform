@@ -17,12 +17,13 @@ import {
   Building2,
   ChevronsLeft,
   ChevronsRight,
+  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { useAlertCenter } from '@/components/providers/AlertCenterProvider'
 import UserAvatar from '@/components/ui/UserAvatar'
-import NotificationBell from '@/components/features/notifications/NotificationBell'
 
 const ROLE_LABEL: Record<string, string> = {
   sales: '受注担当',
@@ -67,6 +68,7 @@ export default function Sidebar() {
   const router = useRouter()
   const supabase = createClient()
   const user = useAuth()
+  const { totalCount } = useAlertCenter()
   // 初期値は false。マウント後 localStorage から復元 + body の data 属性を同期。
   const [collapsed, setCollapsed] = useState(false)
 
@@ -144,11 +146,22 @@ export default function Sidebar() {
                 const itemClass = `group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`
+                const showAlertBadge = item.href === '/my' && totalCount > 0
                 return (
                   <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} className={itemClass}>
                     {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />}
                     <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'}`} strokeWidth={isActive ? 2.25 : 1.75} />
                     {!collapsed && <span className="truncate">{item.label}</span>}
+                    {/* マイページのアラート件数（アラート＋未読通知）。クリックでマイページへ */}
+                    {showAlertBadge && !collapsed && (
+                      <span className="ml-auto inline-flex items-center gap-1 text-red-600">
+                        <Bell className="w-3.5 h-3.5" strokeWidth={2.25} />
+                        <span className="min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+                      </span>
+                    )}
+                    {showAlertBadge && collapsed && (
+                      <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+                    )}
                   </Link>
                 )
               })}
@@ -157,9 +170,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* プロフィール + 通知 + ログアウト */}
+      {/* プロフィール + ログアウト（通知/アラートはマイページに集約） */}
       <div className={`${collapsed ? 'p-2' : 'p-3'} border-t border-gray-100 space-y-1`}>
-        {user?.memberId && <NotificationBell collapsed={collapsed} />}
         {user?.memberId && (
           <Link
             href="/profile"

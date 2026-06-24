@@ -10,6 +10,7 @@ import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
+import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
@@ -515,6 +516,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
       />
+
+      {/* アラート＆通知（やること・お知らせを大きく表示。ベルで全件モーダル） */}
+      <MyAlertCenter />
 
       {/* タブ */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
