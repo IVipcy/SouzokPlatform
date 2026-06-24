@@ -118,9 +118,15 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
               {/* 依頼内容（旧称：紹介内容）。税理士/不動産は選択肢、それ以外はフリー入力。
                   この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
               {activeRow.partner_type === '税理士' ? (
-                <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                <>
+                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                  <InlineTextarea label="依頼内容詳細" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth />
+                </>
               ) : activeRow.partner_type === '不動産' ? (
-                <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                <>
+                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                  <InlineTextarea label="依頼内容詳細" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth />
+                </>
               ) : (
                 <InlineTextarea label="依頼内容" value={activeRow.content} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
               )}

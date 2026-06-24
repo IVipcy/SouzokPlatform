@@ -368,14 +368,12 @@ export const LP_FOLLOWUP_METHODS = ['電話', 'メール', 'SMS', 'LINE'] as con
 
 // 不動産登記の発生有無（LP案件一覧・他事業者紹介(不動産)の依頼内容として共有）
 export const REAL_ESTATE_REGISTRATION_OPTIONS = [
-  '不動産なし',
   '登記申請あり(OC依頼予定)',
   '登記申請あり(その他)',
 ] as const
 
 // 税理士業務の発生有無（LP案件一覧・他事業者紹介(税理士)の依頼内容として共有）
 export const TAX_ADVISOR_BUSINESS_OPTIONS = [
-  '相続税申告なし',
   '相続税申告あり',
   '相続税申告・財産調査次第',
   '相続税申告・準確定申告あり',

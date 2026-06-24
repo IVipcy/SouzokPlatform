@@ -254,7 +254,8 @@ export type CaseReferralRow = {
   partner_type: CaseReferralPartner | string
   firm_name: string | null        // 紹介先法人名
   referred_date: string | null    // 紹介日付（YYYY-MM-DD）
-  content: string | null          // 紹介内容
+  content: string | null          // 依頼内容（税理士/不動産は選択肢、他はフリー）
+  content_detail: string | null   // 依頼内容詳細（フリーテキスト。migration 130）
   estimated_fee: number | null    // 見込み報酬
   billing_status: string | null   // 報酬請求状態
   created_at: string
