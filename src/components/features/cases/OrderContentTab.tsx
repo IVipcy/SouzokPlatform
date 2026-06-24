@@ -7,7 +7,7 @@ import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
   gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
 } from '@/lib/serviceMaster'
-import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
+import { partsForCase, activePartKeys, partRank, buildParts, replaceCurrent, reopenWith, type ServicePart } from '@/lib/serviceParts'
 import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow } from '@/types'
 
@@ -35,6 +35,24 @@ function MultiPills({ value, options, onChange }: { value: string[]; options: st
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// 区分を1つ選んでアクション（差し替え/再開）。選択で即実行。
+function ChangePartSelect({ label, hint, options, onPick }: { label: string; hint: string; options: string[]; onPick: (key: string) => void }) {
+  return (
+    <div>
+      <div className="text-[12px] font-semibold text-gray-600">{label}</div>
+      <p className="text-[11px] text-gray-400 mb-1">{hint}</p>
+      <select
+        value=""
+        onChange={e => { const v = e.target.value; if (v) onPick(v) }}
+        className="text-[13px] border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 hover:border-gray-300"
+      >
+        <option value="">区分を選択…</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
     </div>
   )
 }
@@ -95,6 +113,32 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
     await patchCase({ service_parts: nextParts, service_category: newKeys[0] ?? null, service_category_2: newKeys[1] ?? null, procedure_type: newKeys, intake_roles: merged })
   }
 
+  // 区分追加時、既存の業務はそのまま残し、新区分の業務だけ足す（履歴・流用のため）。
+  const addRolesFor = (newKey: string, existing: RoleRow[]): RoleRow[] => {
+    const seeded = seedRolesForCategories([newKey]) as RoleRow[]
+    const have = new Set(existing.map(r => `${r.gyomu}|||${r.sagyou}`))
+    return [...existing, ...seeded.filter(s => !have.has(`${s.gyomu}|||${s.sagyou}`))]
+  }
+  const persistParts = async (nextParts: ServicePart[], nextRoles: RoleRow[], extra: Partial<CaseRow> = {}) => {
+    const keys = activePartKeys(nextParts)
+    setParts(nextParts); setRoles(nextRoles)
+    await patchCase({ service_parts: nextParts, service_category: keys[0] ?? null, service_category_2: keys[1] ?? null, procedure_type: keys, intake_roles: nextRoles, ...extra })
+  }
+
+  // 差し替え（放棄等の方針変更）：現在の進行中パートを中止し、新区分を進行中に。業務は履歴として残す。
+  const replaceWith = async (newKey: string) => {
+    if (!confirm(`現在のパートを中止し、「${newKey}」に差し替えます。これまでの業務は履歴として残ります。よろしいですか？`)) return
+    await persistParts(replaceCurrent(parts, newKey), addRolesFor(newKey, roles))
+  }
+  // 完了案件を再開：新区分を進行中で追加し、ステータスを対応中へ戻す（生前系→死亡後の再受注）。
+  const reopen = async (newKey: string) => {
+    if (!confirm(`完了案件を「${newKey}」で再開します（ステータスを対応中に戻します）。よろしいですか？`)) return
+    await persistParts(reopenWith(parts, newKey), addRolesFor(newKey, roles), { status: '対応中' })
+  }
+
+  const hasRunning = parts.some(p => p.status === '進行中')
+  const changeOptions = ORDER_CATEGORIES.filter(c => !selectedKeys.includes(c))
+
   return (
     <div className="space-y-3.5">
       <Section title="受注内容">
@@ -113,6 +157,16 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
           <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>
+        {((hasRunning && caseData.status === '対応中') || caseData.status === '完了') && changeOptions.length > 0 && (
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex flex-wrap gap-6">
+            {hasRunning && caseData.status === '対応中' && (
+              <ChangePartSelect label="受注区分を変更（差し替え）" hint="現在のパートを中止し別区分へ。放棄などの方針変更に。" options={[...changeOptions]} onPick={replaceWith} />
+            )}
+            {caseData.status === '完了' && (
+              <ChangePartSelect label="完了案件を再開（区分追加）" hint="生前作成→死亡後の再受注など。区分を足して対応中に戻します。" options={[...changeOptions]} onPick={reopen} />
+            )}
+          </div>
+        )}
       </Section>
 
       <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
