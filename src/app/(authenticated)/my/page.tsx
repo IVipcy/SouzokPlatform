@@ -526,10 +526,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href="/my?tab=billing" label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {isSales && (
-          <TabLink href="/my?tab=billing" label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
+          <TabLink href="/my?tab=referrals" label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
         {isSales && (
-          <TabLink href="/my?tab=referrals" label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
+          <TabLink href="/my?tab=billing" label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {showProgress && (
           <TabLink href="/my?tab=progress" label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
