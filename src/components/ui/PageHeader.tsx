@@ -9,6 +9,8 @@ type Props = {
   icon?: LucideIcon
   /** タイトル下の説明文 */
   description?: React.ReactNode
+  /** タイトル（名前）のすぐ右に置く要素（アラートベル etc） */
+  afterTitle?: React.ReactNode
   /** 右側に置く要素（ボタン・検索 etc） */
   right?: React.ReactNode
   className?: string
@@ -30,6 +32,7 @@ export default function PageHeader({
   title,
   icon: Icon,
   description,
+  afterTitle,
   right,
   className = '',
 }: Props) {
@@ -37,10 +40,13 @@ export default function PageHeader({
     <div className={`mb-5 flex items-end justify-between gap-4 flex-wrap ${className}`}>
       <div className="min-w-0">
         <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">{eyebrow}</p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1 tracking-tight flex items-center gap-2">
-          {Icon && <Icon className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />}
-          <span className="truncate">{title}</span>
-        </h1>
+        <div className="flex items-center gap-3 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            {Icon && <Icon className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />}
+            <span className="truncate">{title}</span>
+          </h1>
+          {afterTitle}
+        </div>
         {description && (
           <p className="text-sm text-gray-500 mt-1">{description}</p>
         )}

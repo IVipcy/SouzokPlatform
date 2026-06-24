@@ -32,23 +32,21 @@ export default function MyAlertCenter() {
 
   return (
     <>
-      {/* コンパクト表示（ページ上部・右寄せ）。押すとモーダル */}
-      <div className="mb-4 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition"
-          aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
-        >
-          <span className="relative inline-flex">
-            <Bell className={`w-[18px] h-[18px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={2} />
-            {totalCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
-            )}
-          </span>
-          <span className="text-[13px] font-semibold text-gray-800">アラート</span>
-        </button>
-      </div>
+      {/* コンパクト表示（名前のすぐ右）。押すとモーダル */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition"
+        aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+      >
+        <span className="relative inline-flex">
+          <Bell className={`w-[17px] h-[17px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={2} />
+          {totalCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+          )}
+        </span>
+        <span className="text-[12px] font-semibold text-gray-700">アラート</span>
+      </button>
 
       {/* モーダル（アラート＋通知を統合した一覧） */}
       {open && (

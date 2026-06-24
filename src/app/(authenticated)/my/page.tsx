@@ -515,10 +515,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         title={`${user.memberName ?? 'マイページ'}`}
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
+        afterTitle={<MyAlertCenter />}
       />
-
-      {/* アラート＆通知（やること・お知らせを大きく表示。ベルで全件モーダル） */}
-      <MyAlertCenter />
 
       {/* タブ */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
