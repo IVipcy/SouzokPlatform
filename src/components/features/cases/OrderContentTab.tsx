@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Section, FieldGrid, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
 import {
-  ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY, KENIN_CATEGORY, KENIN_COMBO_SECONDARY,
-  categoriesOf, gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
+  ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
+  gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
 } from '@/lib/serviceMaster'
+import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow } from '@/types'
 
@@ -15,76 +16,120 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
 }
 
+// 複数選択用ピル（受注区分パート）。
+function MultiPills({ value, options, onChange }: { value: string[]; options: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => {
+        const selected = value.includes(o)
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(selected ? value.filter(x => x !== o) : [...value, o])}
+            className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${
+              selected ? 'bg-brand-700 border-brand-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            {o}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /**
  * 受注内容タブ。
- *   受注区分（1つ。検認のみ「検認①→手続き一式②」のコンボ可）→ 紐づく業務がプリセットで全選択表示
+ *   受注区分（複数選択・パート制）→ 紐づく業務がプリセットで全選択表示（重複は1つ）
  *   → 業務ごとの作業に担当（既定=自社）。業務・作業・担当は intake_roles(JSONB) に保持。
- *   コンボ時、重複業務（戸籍等）は先の区分（検認）を優先し1回だけ表示。
+ *   パートは service_parts(JSONB) に順序＋status で保持。途中追加は未着手で末尾に足す（進捗は保持）。
  */
 export default function OrderContentTab({ caseData, patchCase }: Props) {
-  const [orderCategory, setOrderCategory] = useState<string>(caseData.service_category ?? '')
-  const [cat2, setCat2] = useState<string>(caseData.service_category_2 ?? '')
+  const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
 
-  const cats = categoriesOf(orderCategory, cat2)
+  const selectedKeys = activePartKeys(parts)
+  const isReferralOnly = selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
   const save = async (field: string, value: unknown) => { await patchCase({ [field]: value ?? null } as Partial<CaseRow>) }
   const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
 
-  // 受注区分①を選ぶ → 業務・作業を初期セット（区分変更時は入れ直し）。検認以外は②をクリア。
-  const selectCategory = async (cat: string) => {
-    if (cat === orderCategory) return
-    if (!cat) { setOrderCategory(''); setCat2(''); await patchCase({ service_category: null, service_category_2: null, procedure_type: null, intake_roles: [] }); return }
-    if (roles.length > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
-    const newCat2 = cat === KENIN_CATEGORY ? cat2 : ''
-    const next = categoriesOf(cat, newCat2)
-    const seeded = seedRolesForCategories(next) as RoleRow[]
-    setOrderCategory(cat); setCat2(newCat2); setRoles(seeded)
-    await patchCase({ service_category: cat, service_category_2: newCat2 || null, procedure_type: next, intake_roles: seeded })
-  }
+  // 受注区分（複数選択）。追加=未着手で末尾、削除=確認（進行中/完了は進捗が失われる旨）。紹介のみは排他。
+  // 進捗(完了/進行中/中止)が一切なければ buildParts で初期化、あれば既存パートの status/order を保持。
+  const setCategories = async (rawKeys: string[]) => {
+    let next = [...new Set(rawKeys)]
+    if (next.includes(REFERRAL_ONLY_CATEGORY) && next.length > 1) {
+      const justAdded = !selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
+      next = justAdded ? [REFERRAL_ONLY_CATEGORY] : next.filter(k => k !== REFERRAL_ONLY_CATEGORY)
+    }
+    const newKeys = next.sort((a, b) => partRank(a) - partRank(b))
 
-  // 検認①→手続き一式② の追加/解除
-  const toggleFull = async (on: boolean) => {
-    if (roles.length > 0 && !confirm('受注区分を変えると、業務・担当が入れ直されます。よろしいですか？')) return
-    const newCat2 = on ? KENIN_COMBO_SECONDARY : ''
-    const next = categoriesOf(orderCategory, newCat2)
-    const seeded = seedRolesForCategories(next) as RoleRow[]
-    setCat2(newCat2); setRoles(seeded)
-    await patchCase({ service_category_2: newCat2 || null, procedure_type: next, intake_roles: seeded })
+    if (newKeys.length === 0) {
+      setParts([]); setRoles([])
+      await patchCase({ service_parts: null, service_category: null, service_category_2: null, procedure_type: null, intake_roles: [] })
+      return
+    }
+
+    const removed = selectedKeys.filter(k => !newKeys.includes(k))
+    const losingProgress = removed.some(k => { const p = parts.find(pp => pp.key === k); return !!p && (p.status === '完了' || p.status === '進行中') })
+    if (removed.length > 0 && !confirm(losingProgress ? '進行中／完了のパートを外すと進捗が失われます。よろしいですか？' : '受注区分を外すと、その区分の業務が役割分担から消えます。よろしいですか？')) return
+
+    const anyProgress = parts.some(p => p.status === '完了' || p.status === '進行中' || p.status === '中止')
+    let nextParts: ServicePart[]
+    if (!anyProgress) {
+      nextParts = buildParts(newKeys)
+    } else {
+      const stopped = parts.filter(p => p.status === '中止')
+      const kept = parts.filter(p => p.status !== '中止' && newKeys.includes(p.key))
+      let maxOrder = [...stopped, ...kept].reduce((m, p) => Math.max(m, p.order), 0)
+      const added = newKeys.filter(k => !kept.some(p => p.key === k)).map(k => ({ key: k, order: ++maxOrder, status: '未着手' as const }))
+      nextParts = [...stopped, ...kept, ...added].sort((a, b) => a.order - b.order)
+    }
+
+    // 役割分担を入れ直し（既存の担当/メモは同じ業務×作業に引き継ぐ）
+    const seeded = seedRolesForCategories(newKeys) as RoleRow[]
+    const prevByKey = new Map(roles.map(r => [`${r.gyomu}|||${r.sagyou}`, r]))
+    const merged = seeded.map(s => { const p = prevByKey.get(`${s.gyomu}|||${s.sagyou}`); return p ? { ...s, owner: p.owner, note: p.note } : s })
+
+    setParts(nextParts); setRoles(merged)
+    await patchCase({ service_parts: nextParts, service_category: newKeys[0] ?? null, service_category_2: newKeys[1] ?? null, procedure_type: newKeys, intake_roles: merged })
   }
 
   return (
     <div className="space-y-3.5">
       <Section title="受注内容">
+        <div className="mb-3">
+          <div className="text-[13px] text-gray-500 mb-1.5">受注区分（複数選択できます）</div>
+          <MultiPills value={selectedKeys} options={[...ORDER_CATEGORIES]} onChange={setCategories} />
+          {selectedKeys.length > 1 && (
+            <p className="mt-2 text-[12px] text-gray-500">
+              進行順：{selectedKeys.map((k, i) => `${'①②③④⑤'[i] ?? `(${i + 1})`} ${k}`).join(' → ')}（先行→本体で自動・前から順に進みます）
+            </p>
+          )}
+        </div>
         <FieldGrid>
-          <InlineSelect label="受注区分" value={orderCategory || null} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} required />
           <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => save('other_procedure', v)} />
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
           <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>
-        {orderCategory === KENIN_CATEGORY && (
-          <label className="mt-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">
-            <input type="checkbox" checked={cat2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFull(e.target.checked)} className="w-4 h-4 accent-brand-600" />
-            手続き一式へ移行する（検認① → 手続き一式②。重複する業務は表示しません）
-          </label>
-        )}
       </Section>
 
-      <Section title={orderCategory === REFERRAL_ONLY_CATEGORY ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
-        {orderCategory === REFERRAL_ONLY_CATEGORY ? (
+      <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
+        {isReferralOnly ? (
           <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は「他事業者紹介」タブで入力してください。</p>
-        ) : orderCategory ? (
+        ) : selectedKeys.length > 0 ? (
           <>
             <p className="text-[12px] text-gray-400 mb-2">
-              {cat2 ? '検認①→手続き一式②の業務が表示されます（重複は先の区分優先）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。
+              {selectedKeys.length > 1 ? '選んだ区分の業務がまとめて表示されます（重複する業務は1つ）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。
             </p>
             <IntakeRolesEditor
               roles={roles}
               onSave={saveRoles}
-              gyomuOptions={gyomuForCategories(cats)}
-              presetFor={g => tasksForCategories(cats, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
-              addableFor={g => tasksForCategories(cats, g).map(t => ({ task: t.task, kind: kindForTask(cats, g, t.task) }))}
-              kindFor={(g, s) => kindForTask(cats, g, s)}
+              gyomuOptions={gyomuForCategories(selectedKeys)}
+              presetFor={g => tasksForCategories(selectedKeys, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
+              addableFor={g => tasksForCategories(selectedKeys, g).map(t => ({ task: t.task, kind: kindForTask(selectedKeys, g, t.task) }))}
+              kindFor={(g, s) => kindForTask(selectedKeys, g, s)}
             />
           </>
         ) : (

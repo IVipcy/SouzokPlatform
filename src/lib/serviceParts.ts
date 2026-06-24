@@ -26,7 +26,7 @@ export function buildParts(categories: (string | null | undefined)[]): ServicePa
 }
 
 type CaseLike = {
-  service_parts?: ServicePart[] | null
+  service_parts?: { key: string; order: number; status: string }[] | null
   service_category?: string | null
   service_category_2?: string | null
 }
@@ -34,7 +34,9 @@ type CaseLike = {
 // 案件のパート一覧（service_parts優先、無ければservice_category/_2から導出）。order昇順。
 export function partsForCase(c: CaseLike): ServicePart[] {
   if (Array.isArray(c.service_parts) && c.service_parts.length > 0) {
-    return [...c.service_parts].sort((a, b) => a.order - b.order)
+    return c.service_parts
+      .map(p => ({ key: p.key, order: p.order, status: p.status as PartStatus }))
+      .sort((a, b) => a.order - b.order)
   }
   return buildParts([c.service_category, c.service_category_2])
 }

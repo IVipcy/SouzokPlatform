@@ -68,8 +68,9 @@ export type CaseRow = {
   expected_completion_date: string | null
   difficulty: '易' | '普' | '難' | null
   procedure_type: string[] | null
-  service_category: string | null  // 受注区分①（migration 090）
-  service_category_2: string | null  // 受注区分②（検認①→手続き一式②のコンボ。migration 093）
+  service_category: string | null  // 受注区分①（後方互換＝先頭パート。migration 090）
+  service_category_2: string | null  // 受注区分②（後方互換＝2つ目パート。migration 093）
+  service_parts: { key: string; order: number; status: string }[] | null  // 受注区分パート（順序＋status。migration 127）
   additional_services: string[] | null
   tax_filing_required: '要' | '不要' | '確認中'
   tax_filing_deadline: string | null
