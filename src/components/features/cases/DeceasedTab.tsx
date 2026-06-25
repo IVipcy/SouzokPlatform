@@ -281,7 +281,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <thead>
                   <tr>
                     {['氏名', '生年月日', '住所', '本籍', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[11px] font-medium text-gray-400 tracking-[0.04em] bg-gray-50/70 border-b border-gray-200">{h}</th>
+                      <th key={h} className="text-left px-3 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] bg-brand-50/60 border-b border-brand-100">{h}</th>
                     ))}
                   </tr>
                 </thead>

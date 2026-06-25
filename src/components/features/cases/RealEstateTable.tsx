@@ -66,7 +66,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, multiPa
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 940 }}>
           <thead>
-            <tr className="bg-gray-50/70 border-b border-gray-200 text-[11px] text-gray-400 tracking-[0.04em]">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-1 py-2 w-7" />
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
