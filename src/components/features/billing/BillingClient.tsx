@@ -560,7 +560,7 @@ export default function BillingClient({ invoices, cases }: Props) {
             </colgroup>
             <thead>
               <tr>
-                <th className="bg-gray-50 border-b border-gray-200 px-2 py-2">
+                <th className="bg-brand-50/60 border-b border-brand-100 px-2 py-2">
                   {/* 全選択（発行済の行のみが対象、未請求は別チェック用） */}
                   {(() => {
                     const issuableIds = filtered.filter(inv => inv.status !== '未請求').map(inv => inv.id)
@@ -581,7 +581,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
-                    className={`relative bg-gray-50 border-b border-gray-200 px-3.5 py-2 text-[12px] font-bold text-gray-400 tracking-wider uppercase ${h.align === 'right' ? 'text-right' : 'text-left'}`}
+                    className={`relative bg-brand-50/60 border-b border-brand-100 px-3.5 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'}`}
                   >
                     {h.label}
                     <ResizeHandle onMouseDown={startColResize(h.key)} />

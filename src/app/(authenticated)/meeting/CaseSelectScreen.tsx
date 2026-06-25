@@ -59,12 +59,12 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">案件番号</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">案件名</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">依頼者</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">電話番号</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide">ステータス</th>
-              <th className="bg-gray-50 border-b border-gray-200 px-3.5 py-2.5 text-left text-[13px] font-bold text-gray-400 tracking-wide w-20">操作</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">案件番号</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">案件名</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">依頼者</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">電話番号</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">ステータス</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em] w-20">操作</th>
             </tr>
           </thead>
           <tbody>
