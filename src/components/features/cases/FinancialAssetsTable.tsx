@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
+import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
@@ -64,7 +64,7 @@ type Props = {
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, roles, receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
@@ -81,7 +81,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 
   const addRow = async () => {
     setBusy(true)
-    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.financial), acquired_part: multiPart ? currentPartKey : null }).select('*').single()
+    // 取得区分の既定は常に「自社取得」。役割分担には引っ張られない。
+    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社', acquired_part: multiPart ? currentPartKey : null }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as FinancialAssetRow])
@@ -110,7 +111,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {multiPart && <th className="px-2 py-2 text-left font-semibold w-24">取得パート</th>}
-              <th className="px-2 py-2 text-left font-semibold w-44">調査期間</th>
+              <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着予定日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
@@ -149,12 +150,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                         : <span className="text-[11px] text-gray-300">—</span>}
                     </td>
                   )}
-                  {/* 調査期間 */}
+                  {/* 調査期間（任意指定の文字が潰れないよう固定幅＋折返し可） */}
                   <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-1">
-                      <SmallSelect value={r.survey_period_type ?? ''} options={['相続開始日', '任意指定']} onChange={v => save(r.id, 'survey_period_type', v)} placeholder="—" />
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <SmallSelect value={r.survey_period_type ?? ''} options={['相続開始日', '任意指定']} onChange={v => save(r.id, 'survey_period_type', v)} placeholder="—" className="w-[88px] flex-none" />
                       {r.survey_period_type === '任意指定' && (
-                        <input type="date" value={r.survey_date ?? ''} onChange={e => setLocal(r.id, 'survey_date', e.target.value)} onBlur={e => commit(r.id, 'survey_date', e.target.value)} className="px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" />
+                        <input type="date" value={r.survey_date ?? ''} onChange={e => setLocal(r.id, 'survey_date', e.target.value)} onBlur={e => commit(r.id, 'survey_date', e.target.value)} className="w-[130px] flex-none px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" />
                       )}
                     </div>
                   </td>
@@ -216,9 +217,9 @@ function TextInput({ value, onChange, onCommit, placeholder }: { value: string |
   )
 }
 
-function SmallSelect({ value, options, onChange, placeholder }: { value: string; options: readonly string[]; onChange: (v: string) => void; placeholder?: string }) {
+function SmallSelect({ value, options, onChange, placeholder, className }: { value: string; options: readonly string[]; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+    <select value={value} onChange={e => onChange(e.target.value)} className={`${className ?? 'w-full'} px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500`}>
       <option value="">{placeholder ?? '—'}</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>

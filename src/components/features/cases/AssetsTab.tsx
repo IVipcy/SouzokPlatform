@@ -64,6 +64,11 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const multiPart = isMultiPart(parts)
   const currentPartKey = currentPart(parts)?.key ?? null
 
+  // 財産目録の記載範囲は、受注区分に紐づく業務で「目録（財産目録）」を選択した案件のみ表示。
+  // 受注区分（service_category）未設定の旧案件は後方互換で常に表示。
+  const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
+  const showInventoryRange = !caseData.service_category || selectedGyomu.includes('目録')
+
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
   const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
@@ -86,7 +91,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
             <InlineSelect label="不動産の評価方法" value={caseData.real_estate_evaluation_method} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={v => save('real_estate_evaluation_method', v)} />
-            <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
+            {showInventoryRange && (
+              <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
+            )}
           </FieldGrid>
         </Section>
       </div>

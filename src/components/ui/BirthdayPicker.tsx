@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toWareki } from '@/lib/wareki'
 
 // 生年月日は年を遡るのがカレンダーだと面倒なので、年・月・日のドロップダウンで入力する。
 const NOW_YEAR = new Date().getFullYear()
@@ -34,20 +35,25 @@ export default function BirthdayPicker({ value, onChange, className }: Props) {
   }
 
   const sel = 'px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+  const completed = s.y && s.mo && s.d
+  const wareki = completed ? toWareki(`${s.y}-${s.mo.padStart(2, '0')}-${s.d.padStart(2, '0')}`) : ''
   return (
-    <div className={`flex items-center gap-1 ${className ?? ''}`}>
-      <select value={s.y} onChange={e => emit({ ...s, y: e.target.value })} className={sel} aria-label="年">
-        <option value="">年</option>
-        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-      </select>
-      <select value={s.mo} onChange={e => emit({ ...s, mo: e.target.value })} className={sel} aria-label="月">
-        <option value="">月</option>
-        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-      </select>
-      <select value={s.d} onChange={e => emit({ ...s, d: e.target.value })} className={sel} aria-label="日">
-        <option value="">日</option>
-        {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-      </select>
+    <div className={className}>
+      <div className="flex items-center gap-1">
+        <select value={s.y} onChange={e => emit({ ...s, y: e.target.value })} className={sel} aria-label="年">
+          <option value="">年</option>
+          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={s.mo} onChange={e => emit({ ...s, mo: e.target.value })} className={sel} aria-label="月">
+          <option value="">月</option>
+          {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select value={s.d} onChange={e => emit({ ...s, d: e.target.value })} className={sel} aria-label="日">
+          <option value="">日</option>
+          {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+      {wareki && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{wareki}</div>}
     </div>
   )
 }

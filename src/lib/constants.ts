@@ -351,6 +351,7 @@ export const REGISTRATION_STATUSES = [
 // target=物件 は物件を選択、target=市区町村 は市区町村を入力。
 export const ACQUISITION_ITEMS = [
   { key: '登記情報', method: '請求', target: '物件', office: '法務局' },
+  { key: '所有者事項', method: '請求', target: '物件', office: '法務局' },
   { key: '公図', method: '請求', target: '物件', office: '法務局' },
   { key: '地積測量図', method: '請求', target: '物件', office: '法務局' },
   { key: '評価証明', method: '請求', target: '市区町村', office: '市区町村役所' },

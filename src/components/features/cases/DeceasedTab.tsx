@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
+import { toWareki } from '@/lib/wareki'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
@@ -304,7 +305,14 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">{heir.birth_date ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">
+                        {heir.birth_date ? (
+                          <>
+                            {heir.birth_date}
+                            {toWareki(heir.birth_date) && <div className="text-[11px] text-gray-400">{toWareki(heir.birth_date)}</div>}
+                          </>
+                        ) : '—'}
+                      </td>
                       <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
                       <td className="px-3 py-2.5">
@@ -356,11 +364,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   </select>
                 </FormField>
                 <FormField label="生年月日">
-                  <input
-                    type="date"
+                  <BirthdayPicker
                     value={heirForm.birth_date}
-                    onChange={e => setHeirForm(f => ({ ...f, birth_date: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                    onChange={v => setHeirForm(f => ({ ...f, birth_date: v }))}
                   />
                 </FormField>
                 <div>

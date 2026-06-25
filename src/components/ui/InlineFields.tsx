@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
+import { toWareki } from '@/lib/wareki'
 import type { CaseMemberRow, MemberRow } from '@/types'
 
 /** 保存後にトーストを表示する共通ラッパ */
@@ -343,7 +344,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
 }
 
 // ─── InlineDate ───
-export function InlineDate({ label, value, onSave, fullWidth, required, max }: {
+export function InlineDate({ label, value, onSave, fullWidth, required, max, wareki }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -351,6 +352,8 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max }: {
   required?: boolean
   /** 選択可能な上限日（YYYY-MM-DD）。検討期間区分による回答予定日の制約等に使う。 */
   max?: string
+  /** 値の下に和暦を表示する（生年月日など役所申請で和暦が要る項目用） */
+  wareki?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -407,6 +410,9 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max }: {
           </span>
           <span className="text-gray-400 group-hover:opacity-100 opacity-60 transition-opacity text-[12px]">📅</span>
         </div>
+      )}
+      {wareki && value && toWareki(value) && (
+        <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
     </div>
   )

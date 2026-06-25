@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
-import { ACQUIRERS, acquirerLabel, acquirerFromRoles, ACQUIRER_GYOMU } from '@/lib/acquirer'
+import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, receiptFilesFor, type RelatedTask, type ReceiptFile } from '@/lib/relatedTasks'
@@ -40,7 +40,7 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, roles, deceasedName, heirs = [], receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, deceasedName, heirs = [], receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
@@ -65,10 +65,10 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
 
   const addRow = async () => {
     setBusy(true)
-    // 取得区分は役割分担（戸籍の担当）から自動既定（依頼者担当があれば依頼者取得）
+    // 取得区分の既定は常に「自社取得」。役割分担（面談時の戸籍担当）には引っ張られない。
     const { data, error } = await supabase
       .from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: rows.length, acquirer: acquirerFromRoles(roles, ACQUIRER_GYOMU.koseki), acquired_part: multiPart ? currentPartKey : null })
+      .insert({ case_id: caseId, sort_order: rows.length, acquirer: '自社', acquired_part: multiPart ? currentPartKey : null })
       .select('*')
       .single()
     setBusy(false)
@@ -165,7 +165,7 @@ function Row({ r, odd, progressMode, multiPart, open, onToggle, setLocal, commit
         </td>
         <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
         <TargetCell value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
-        <SelectCell value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} />
+        <ComboCell value={r.range_text} options={KOSEKI_RANGES} listId={`koseki-range-${r.id}`} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" />
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
@@ -214,6 +214,25 @@ function SelectCell({ value, options, onSave }: { value: string | null; options:
         <option value="">—</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
+    </td>
+  )
+}
+
+// 選択肢＋自由入力の両対応セル（datalist）。プリセットから選べるが任意の文字列も入力できる。
+function ComboCell({ value, options, listId, onSave, placeholder }: { value: string | null; options: readonly string[]; listId: string; onSave: (v: string) => void; placeholder?: string }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <input
+        type="text"
+        list={listId}
+        defaultValue={value ?? ''}
+        onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }}
+        placeholder={placeholder}
+        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
+      />
+      <datalist id={listId}>
+        {options.map(o => <option key={o} value={o} />)}
+      </datalist>
     </td>
   )
 }
