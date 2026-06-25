@@ -14,18 +14,18 @@
     "Hiragino Kaku Gothic ProN", "Hiragino Sans",
     var(--font-noto-sans-jp), "Yu Gothic", system-ui, sans-serif;
 
-  /* ─── ブランドカラー（OCEAN GROUP ネイビー基調）─── */
-  /* メインの広い面は白／グレー、アクセントとしてこのブランド色を10〜15%使用 */
-  --color-brand-50:  #eff5fa;
-  --color-brand-100: #d6e4f0;
-  --color-brand-200: #aac8de;
-  --color-brand-300: #7daac8;
-  --color-brand-400: #4f8bb2;
-  --color-brand-500: #2670a0;
-  --color-brand-600: #0f487e;  /* Ocean メイン */
-  --color-brand-700: #0c3a66;
-  --color-brand-800: #0a1f37;  /* Ocean 濃紺 */
-  --color-brand-900: #050f1f;
+  /* ─── ブランドカラー（明るい青基調・白との抜け感）─── */
+  /* メインの広い面は白／グレー、見出し帯・ボタン・タブ・リンク・表ヘッダ等にこのブランド青を使用 */
+  --color-brand-50:  #eef2fe;
+  --color-brand-100: #d9e2fb;
+  --color-brand-200: #b6c7f4;
+  --color-brand-300: #8aa4ec;
+  --color-brand-400: #5e80e2;
+  --color-brand-500: #3d60d9;
+  --color-brand-600: #2f58d4;  /* メイン（鮮やかだけど締まった青）*/
+  --color-brand-700: #2545a8;  /* hover（濃いめ）*/
+  --color-brand-800: #1b3a8a;  /* 見出し・文字 */
+  --color-brand-900: #142a63;
 
   /* ─── アクセントカラー（Ocean シアン）─── */
   --color-accent-50:  #e6f7fc;
