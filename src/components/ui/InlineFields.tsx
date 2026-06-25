@@ -34,9 +34,10 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const isOpen = collapsible ? open : true
 
   // カード型セクション：白背景＋薄枠＋角丸（4px）。見出しは青い帯＋アクセントバーで境界を明確に。
+  // overflow-hidden は使わない（中のドロップダウン/ポップアップが切れるため）。見出しの上角だけ丸める。
   return (
-    <section className="bg-white border border-gray-200 rounded overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100">
+    <section className="bg-white border border-gray-200 rounded">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100 rounded-t-[3px]">
         <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0" />
         {collapsible ? (
           <button
