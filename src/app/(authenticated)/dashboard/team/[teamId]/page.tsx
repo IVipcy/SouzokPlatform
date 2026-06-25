@@ -20,9 +20,11 @@ import {
   computeSalesMetrics,
   fiscalYearMonthsToDate,
   todayJstYmd,
+  applyReferralFlags,
   type DashCase,
   type DashCaseMember,
   type DashProperty,
+  type DashReferral,
   type DashStatusChange,
 } from '@/lib/dashboardMetrics'
 
@@ -71,6 +73,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
     { data: changesRaw },
     { data: propertiesRaw },
     { data: memberTargetsRaw },
+    { data: referralsRaw },
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     // 安全のため * を使用（新カラム meeting_executed_date 等の migration 適用前でも動くように）
@@ -92,6 +95,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .from('member_targets')
       .select('member_id,new_orders_count')
       .eq('ym', ym),
+    supabase.from('case_referrals').select('case_id,partner_type,content'),
   ])
 
   // 現在のユーザー（チームタスクの引き取り＝started_by 記録に使う）
@@ -135,7 +139,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
 
   if (!team) notFound()
 
-  const cases = (casesRaw ?? []) as DashCase[]
+  const cases = applyReferralFlags((casesRaw ?? []) as DashCase[], (referralsRaw ?? []) as DashReferral[])
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const allActiveMembers = (membersRaw ?? []) as MemberRow[]
   // dashboard_team_members からチーム編成を読む（migration 048 未適用環境でも動くようフォールバック）

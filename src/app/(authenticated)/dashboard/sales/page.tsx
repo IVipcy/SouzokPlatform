@@ -24,9 +24,11 @@ import {
   fiscalYearMonthsToDate,
   EMPTY_SALES_TARGET,
   isSalesAchieved,
+  applyReferralFlags,
   type DashCase,
   type DashCaseMember,
   type DashProperty,
+  type DashReferral,
   type DashStatusChange,
   type SalesTargetRow,
   type SalesMetricsBundle,
@@ -69,6 +71,7 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
     { data: teamsRaw },
     { data: changesRaw },
     { data: propertiesRaw },
+    { data: referralsRaw },
     { data: targetRaw },
     { data: memberTargetsRaw },
   ] = await Promise.all([
@@ -90,6 +93,7 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
       .gte('created_at', fiscalStart)
       .lt('created_at', nextMonthStart),
     supabase.from('real_estate_properties').select('case_id,appraisal_status'),
+    supabase.from('case_referrals').select('case_id,partner_type,content'),
     supabase
       .from('sales_targets')
       .select('ym,meetings_count,new_orders_count,conversion_rate,avg_order_unit,tax_filing_count,property_appraisal_count')
@@ -101,7 +105,8 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
       .in('ym', fiscalMonths),
   ])
 
-  const cases = (casesRaw ?? []) as DashCase[]
+  // 他事業者紹介フラグ（相続税申告/不動産査定KPIの集計元）を各案件に付与
+  const cases = applyReferralFlags((casesRaw ?? []) as DashCase[], (referralsRaw ?? []) as DashReferral[])
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const salesMembers = (membersRaw ?? []) as MemberRow[]
   const teams = (teamsRaw ?? []) as TeamRow[]

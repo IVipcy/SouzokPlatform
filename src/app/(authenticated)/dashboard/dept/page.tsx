@@ -17,8 +17,10 @@ import {
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
   isDeptAchieved,
+  applyReferralFlags,
   type DashCase,
   type DashCaseMember,
+  type DashReferral,
   type DashStatusChange,
   type DeptTargetRow,
 } from '@/lib/dashboardMetrics'
@@ -58,6 +60,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     { data: targetRaw },
     { data: memberTargetsRaw },
     { data: statusChangesRaw },
+    { data: referralsRaw },
   ] = await Promise.all([
     supabase
       .from('cases')
@@ -84,9 +87,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .eq('action', 'status_change')
       .gte('created_at', monthStart)
       .lt('created_at', nextMonthStart),
+    supabase.from('case_referrals').select('case_id,partner_type,content'),
   ])
 
-  const cases = (casesRaw ?? []) as DashCase[]
+  const cases = applyReferralFlags((casesRaw ?? []) as DashCase[], (referralsRaw ?? []) as DashReferral[])
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
   const members = (membersRaw ?? []) as MemberRow[]
   const teams = (teamsRaw ?? []) as TeamRow[]

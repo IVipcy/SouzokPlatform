@@ -114,7 +114,10 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
               {!orderSheetMode && (
                 <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
               )}
-              <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
+              {/* 弁護士は紹介料が発生しないため見込み報酬は入力不可（非表示） */}
+              {activeRow.partner_type !== '弁護士' && (
+                <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
+              )}
               {/* 依頼内容（旧称：紹介内容）。税理士/不動産は選択肢、それ以外はフリー入力。
                   この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
               {activeRow.partner_type === '税理士' ? (

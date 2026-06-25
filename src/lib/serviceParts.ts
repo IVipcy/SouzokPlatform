@@ -74,6 +74,14 @@ export function isMultiPart(parts: ServicePart[]): boolean {
   return parts.filter(p => p.status !== '中止').length > 1
 }
 
+// 「検認 → 手続き一式」の組み合わせか。戸籍収集が両パートにまたがるのはこの組み合わせだけなので、
+// 「取得パート」フラグ（どのパートで取得した戸籍か）はこのときの戸籍請求でのみ表示する。
+// （遺言→執行など他の組み合わせでは取得パートの区別は不要。）
+export function isKosekiCrossPart(parts: ServicePart[]): boolean {
+  const keys = activePartKeys(parts)
+  return keys.includes('検認') && keys.includes('手続き一式')
+}
+
 // 受注区分を差し替え（現パートを中止し、新区分を進行中で末尾に追加）。放棄等の方針変更。
 export function replaceCurrent(parts: ServicePart[], newKey: string): ServicePart[] {
   const sorted = [...parts].sort((a, b) => a.order - b.order)

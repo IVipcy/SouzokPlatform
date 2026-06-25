@@ -13,7 +13,7 @@ import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
-import { partsForCase, currentPart, isMultiPart } from '@/lib/serviceParts'
+import { partsForCase, currentPart, isKosekiCrossPart } from '@/lib/serviceParts'
 import { SubTabs } from '@/components/ui/SubTabs'
 import {
   Section,
@@ -241,7 +241,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         <div className="space-y-3.5">
           {/* 戸籍請求（請求単位の管理表）。契約時に受領済の戸籍は表の先頭に受領済として取り込み表示。 */}
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} multiPart={isMultiPart(partsForCase(caseData))} currentPartKey={currentPart(partsForCase(caseData))?.key ?? null} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} multiPart={isKosekiCrossPart(partsForCase(caseData))} currentPartKey={currentPart(partsForCase(caseData))?.key ?? null} />
           </Section>
         </div>
       )}

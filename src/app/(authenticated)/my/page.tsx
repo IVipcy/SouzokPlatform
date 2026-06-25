@@ -19,10 +19,12 @@ import {
   computeSalesMetricsForDay,
   computeProgressKpis,
   fiscalYearMonthsToDate,
+  applyReferralFlags,
   type DashCase,
   type DashTask,
   type DashStatusChange,
   type DashProperty,
+  type DashReferral,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
 import type { TaskRow, ProgressReportRow } from '@/types'
@@ -171,6 +173,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let billingPayments: Array<{ invoice_id: string; amount: number }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
+  let salesReferrals: DashReferral[] = []
   let roleTaskRows: TaskRow[] = []
   let allReports: ProgressReportRow[] = []
   let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
@@ -180,7 +183,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
@@ -191,6 +194,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           : Promise.resolve({ data: [] }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('real_estate_properties').select('case_id,appraisal_status').in('case_id', salesCaseIdArray)
+          : Promise.resolve({ data: [] }),
+        isSales && salesCaseIdArray.length > 0
+          ? supabase.from('case_referrals').select('case_id,partner_type,content').in('case_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
         supabase.from('progress_reports').select('*').in('case_id', caseIdArray),
         supabase.from('progress_reports').select('*, cases(case_number, deal_name)').eq('confirmer_id', memberId).order('requested_date', { ascending: false }),
@@ -211,6 +217,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       roleTaskRows = (roleTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
+      salesReferrals = (referralsRes.data ?? []) as DashReferral[]
       allReports = (reportsRes.data ?? []) as ProgressReportRow[]
       reviewReportsRaw = (reviewReportsRes.data ?? []) as typeof reviewReportsRaw
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
@@ -330,19 +337,22 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   })
 
   // === 相談案件一覧（受注担当のみ） ===
-  const salesDashCases: DashCase[] = myCases
-    .filter(c => salesCaseIds.has(c.id))
-    .map(c => ({
-      id: c.id,
-      status: c.status,
-      order_received_date: c.order_received_date,
-      completion_date: c.completion_date,
-      expected_completion_date: c.expected_completion_date,
-      fee_total: c.fee_total,
-      total_revenue_estimate: c.total_revenue_estimate,
-      tax_filing_required: c.tax_filing_required,
-      meeting_executed_date: c.meeting_executed_date,
-    }))
+  const salesDashCases: DashCase[] = applyReferralFlags(
+    myCases
+      .filter(c => salesCaseIds.has(c.id))
+      .map(c => ({
+        id: c.id,
+        status: c.status,
+        order_received_date: c.order_received_date,
+        completion_date: c.completion_date,
+        expected_completion_date: c.expected_completion_date,
+        fee_total: c.fee_total,
+        total_revenue_estimate: c.total_revenue_estimate,
+        tax_filing_required: c.tax_filing_required,
+        meeting_executed_date: c.meeting_executed_date,
+      })),
+    salesReferrals,
+  )
 
   const salesMetrics = selectedPeriod === 'all'
     ? cumulativeSalesMetrics(fiscalMonths.map(m => computeSalesMetrics(salesDashCases, salesChanges, m, salesProps)))

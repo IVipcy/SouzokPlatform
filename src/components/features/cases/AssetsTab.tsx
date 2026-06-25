@@ -2,17 +2,15 @@
 
 import { useState } from 'react'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCurrency, InlineCheckbox, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  LIFE_INSURANCE_PROPOSAL_OPTIONS, LIFE_INSURANCE_TYPES,
   FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, INVENTORY_CATEGORIES, REAL_ESTATE_EVAL_METHODS,
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
-import { partsForCase, currentPart, isMultiPart } from '@/lib/serviceParts'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -59,11 +57,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
-  // パート制：複数パート案件のとき、行に「取得パート」バッジ。新規行は現在パートで記録。
-  const parts = partsForCase(caseData)
-  const multiPart = isMultiPart(parts)
-  const currentPartKey = currentPart(parts)?.key ?? null
-
   // 財産目録の記載範囲は、受注区分に紐づく業務で「目録（財産目録）」を選択した案件のみ表示。
   // 受注区分（service_category）未設定の旧案件は後方互換で常に表示。
   const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
@@ -107,7 +100,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           <div>
             <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} multiPart={multiPart} currentPartKey={currentPartKey} />
+            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
           </div>
           <div>
             <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -116,22 +109,19 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         </div>
         <div className={sub === 'deposit' ? '' : 'hidden'}>
           <SectionHeading title="預金口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} multiPart={multiPart} currentPartKey={currentPartKey} />
+          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
         </div>
         <div className={sub === 'securities' ? '' : 'hidden'}>
           <SectionHeading title="証券口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} multiPart={multiPart} currentPartKey={currentPartKey} />
+          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'trust' ? '' : 'hidden'}>
           <SectionHeading title="信託口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} multiPart={multiPart} currentPartKey={currentPartKey} />
+          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
         <div className={sub === 'insurance' ? '' : 'hidden'}>
           <FieldGrid>
-            <InlineSelect label="生命保険提案有無" value={caseData.life_insurance_proposal} options={[...LIFE_INSURANCE_PROPOSAL_OPTIONS]} onSave={v => save('life_insurance_proposal', v)} />
             <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
-            <InlineSelect label="保険種類" value={caseData.life_insurance_type} options={[...LIFE_INSURANCE_TYPES]} onSave={v => save('life_insurance_type', v)} />
-            <InlineCurrency label="生命保険金額" value={caseData.life_insurance_amount} onSave={v => save('life_insurance_amount', v)} />
             <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />
             <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
           </FieldGrid>

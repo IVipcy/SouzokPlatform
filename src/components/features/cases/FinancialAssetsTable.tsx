@@ -35,6 +35,7 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
+    { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },
   ],
   '信託銀行': [
     { key: 'institution_name', label: '信託銀行名', type: 'text' },

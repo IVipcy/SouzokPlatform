@@ -18,8 +18,12 @@ export type DashCase = {
   // 内訳別タブで使用（主区分 = 配列の先頭）。
   // 未設定の案件は '未設定' バケットに集計される。
   procedure_type?: string[] | null
-  // 受注担当ダッシュボードの「相続税申告件数」算出に使用
+  // 受注担当ダッシュボードの「相続税申告件数」算出に使用（旧ロジック・現在は他事業者紹介ベース）
   tax_filing_required?: string | null
+  // 受注担当ダッシュボードKPI: 他事業者紹介(税理士)で相続税申告ありの依頼内容があるか（buildReferralFlagsで付与）
+  has_tax_filing_referral?: boolean | null
+  // 受注担当ダッシュボードKPI: 他事業者紹介(不動産)にチェックがあるか（buildReferralFlagsで付与）
+  has_real_estate_referral?: boolean | null
   // 進捗管理ボードで紫フラグ（最優先）判定に使用
   has_complaint?: boolean | null
   // 当月面談一覧 (migration 049)
@@ -34,6 +38,36 @@ export type DashCase = {
 export type DashProperty = {
   case_id: string
   appraisal_status: '未対応' | '対応中' | '完了' | '不要' | null
+}
+
+// 他事業者紹介（case_referrals）の行型。KPIの相続税申告/不動産査定はこれを集計元にする。
+export type DashReferral = {
+  case_id: string
+  partner_type: string
+  content: string | null
+}
+
+// 案件ごとに「相続税申告あり(税理士紹介)」「不動産査定あり(不動産紹介)」のフラグを作る。
+//   相続税申告あり = 税理士の紹介があり、依頼内容に「相続税申告」を含む
+//   不動産査定あり = 不動産の紹介がある（チェックが入っている）
+export function buildReferralFlags(referrals: DashReferral[]): Map<string, { tax: boolean; realEstate: boolean }> {
+  const m = new Map<string, { tax: boolean; realEstate: boolean }>()
+  for (const r of referrals) {
+    const cur = m.get(r.case_id) ?? { tax: false, realEstate: false }
+    if (r.partner_type === '税理士' && !!r.content && r.content.includes('相続税申告')) cur.tax = true
+    if (r.partner_type === '不動産') cur.realEstate = true
+    m.set(r.case_id, cur)
+  }
+  return m
+}
+
+// cases に紹介フラグ（has_tax_filing_referral / has_real_estate_referral）を付与して返す。
+export function applyReferralFlags<T extends DashCase>(cases: T[], referrals: DashReferral[]): T[] {
+  const flags = buildReferralFlags(referrals)
+  return cases.map(c => {
+    const f = flags.get(c.id)
+    return { ...c, has_tax_filing_referral: f?.tax ?? false, has_real_estate_referral: f?.realEstate ?? false }
+  })
 }
 
 export type DashCaseMember = {
@@ -462,7 +496,7 @@ export function computeDailyMetrics(
 export function computeSalesDailyMetrics(
   cases: DashCase[],
   statusChanges: DashStatusChange[],
-  properties: DashProperty[],
+  _properties: DashProperty[],
   today: Date = new Date(),
 ): SalesDailyMetricsBundle {
   const ymd = todayJstYmd(today)
@@ -495,14 +529,11 @@ export function computeSalesDailyMetrics(
   )
   const avgOrderUnit = newOrderCases.length > 0 ? orderTotal / newOrderCases.length : null
 
-  // 相続税申告件数 = 本日新規受注のうち tax_filing_required='要'
-  const taxFilingCount = newOrderCases.filter(c => c.tax_filing_required === '要').length
+  // 相続税申告件数 = 本日新規受注のうち、他事業者紹介(税理士)で相続税申告ありの案件数
+  const taxFilingCount = newOrderCases.filter(c => c.has_tax_filing_referral).length
 
-  // 不動産査定件数 = 本日新規受注に紐づく不動産で appraisal_status IN ('対応中','完了') の物件数
-  const propertyAppraisalCount = properties.filter(p =>
-    newOrderCaseIds.has(p.case_id) &&
-    (p.appraisal_status === '対応中' || p.appraisal_status === '完了'),
-  ).length
+  // 不動産査定件数 = 本日新規受注のうち、他事業者紹介(不動産)にチェックがある案件数
+  const propertyAppraisalCount = newOrderCases.filter(c => c.has_real_estate_referral).length
 
   return {
     meetingsCount,
@@ -544,7 +575,7 @@ export function computeSalesMetricsForRange(
   statusChanges: DashStatusChange[],
   start: string,
   end: string,
-  properties: DashProperty[] = [],
+  _properties: DashProperty[] = [],
 ): SalesMetricsBundle {
   const startTs = `${start}T00:00:00`
   const endTs = `${end}T23:59:59.999`
@@ -577,15 +608,11 @@ export function computeSalesMetricsForRange(
   )
   const avgOrderUnit = newOrderCases.length > 0 ? orderTotal / newOrderCases.length : null
 
-  // 相続税申告件数 = 当月新規受注したうち tax_filing_required='要' の件数
-  const taxFilingCount = newOrderCases.filter(c => c.tax_filing_required === '要').length
+  // 相続税申告件数 = 当月新規受注したうち、他事業者紹介(税理士)で相続税申告ありの案件数
+  const taxFilingCount = newOrderCases.filter(c => c.has_tax_filing_referral).length
 
-  // 不動産査定件数 = 当月新規受注した案件に紐づく不動産のうち、
-  // 査定ステータスが '対応中' または '完了' の物件数
-  const propertyAppraisalCount = properties.filter(p =>
-    newOrderCaseIds.has(p.case_id) &&
-    (p.appraisal_status === '対応中' || p.appraisal_status === '完了'),
-  ).length
+  // 不動産査定件数 = 当月新規受注したうち、他事業者紹介(不動産)にチェックがある案件数
+  const propertyAppraisalCount = newOrderCases.filter(c => c.has_real_estate_referral).length
 
   // 業務完了予定件数 = expected_completion_date が当月、未完了
   const expectedCompletions = cases.filter(c =>

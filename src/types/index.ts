@@ -697,6 +697,7 @@ export type FinancialAssetRow = {
   // 調査・進捗（migration 068）
   all_branch_survey: string | null          // 全店調査要否（預金）
   balance_cert_required: string | null      // 残高証明要否（預金/証券）
+  transaction_detail_required: string | null // 取引明細要否（証券・migration 133）
   accrued_interest_required: string | null  // 経過利息要否（預金）
   share_cert_required: string | null        // 所有株式数証明要否（信託）
   unclaimed_dividend_required: string | null // 未受領配当金要否（信託）
