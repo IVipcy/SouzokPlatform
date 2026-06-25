@@ -11,9 +11,9 @@ import type { CaseRow, TaskRow } from '@/types'
 
 // 案件分類（相談案件 / 個別管理案件 / 管理案件）のラベルと色
 const CATEGORY_STYLE: Record<'consult' | 'referral' | 'management', { label: string; cls: string }> = {
-  consult:    { label: '相談案件',     cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  referral:   { label: '個別案件', cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-  management: { label: '管理案件',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  consult:    { label: '相談案件', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  referral:   { label: '個別案件', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  management: { label: '管理案件', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
 }
 
 type Props = {
