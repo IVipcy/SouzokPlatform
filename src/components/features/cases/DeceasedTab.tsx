@@ -98,14 +98,34 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     setShowAddHeir(true)
   }
 
-  // 相続人が0名のとき、依頼者（相続人の可能性が高い）を最初の1人として自動でプリセット表示する。
-  // 自動で開いた追加フォームを確認・調整して保存すればよい（不要ならキャンセル可）。
+  // 相続人が0名のとき、依頼者を最初の1人として「表に」自動投入する（法定相続人・申出人。本籍は空欄）。
+  // 以前は追加フォームを自動展開して保存が必要だったが、分かりづらいため最初から行として入れる。
+  const autoAddClientAsHeir = async () => {
+    const name = mainClient?.name ?? caseData.clients?.name ?? ''
+    if (!name.trim()) return
+    const supabase = createClient()
+    await supabase.from('heirs').insert({
+      case_id: caseData.id,
+      name,
+      furigana: mainClient?.furigana ?? null,
+      relationship_type: null,
+      birth_date: mainClient?.birth_date || null,
+      address: caseData.clients?.address ?? null,
+      registered_address: null,
+      phone: mainClient?.phone ?? null,
+      email: mainClient?.email ?? null,
+      is_legal_heir: true,
+      is_applicant: true,
+      sort_order: 0,
+    })
+    onRefresh()
+  }
   const autoAddedRef = useRef(false)
   useEffect(() => {
     if (autoAddedRef.current) return
-    if (heirs.length === 0 && !showAddHeir && (mainClient?.name || caseData.clients?.name)) {
+    if (heirs.length === 0 && (mainClient?.name || caseData.clients?.name)) {
       autoAddedRef.current = true
-      startAddFromClient()
+      autoAddClientAsHeir()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heirs.length])
@@ -261,7 +281,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <thead>
                   <tr>
                     {['氏名', '生年月日', '住所', '本籍', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200">{h}</th>
+                      <th key={h} className="text-left px-3 py-2 text-[11px] font-medium text-gray-400 tracking-[0.04em] bg-gray-50/70 border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -277,10 +297,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                             </span>
                           )}
                           {heir.is_legal_heir && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-600 border border-green-200">法定相続人</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">法定相続人</span>
                           )}
                           {heir.is_applicant && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">申出人</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">申出人</span>
                           )}
                         </div>
                       </td>
