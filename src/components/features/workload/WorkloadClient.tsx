@@ -157,7 +157,7 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, una
       <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
               {canAssign && <th className="px-3 py-2.5 w-10" />}
               <th className="px-3 py-2.5 text-left font-semibold">氏名</th>
               <th className="px-3 py-2.5 text-left font-semibold">所属チーム</th>

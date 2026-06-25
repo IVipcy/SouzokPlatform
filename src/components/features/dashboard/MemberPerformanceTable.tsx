@@ -156,7 +156,7 @@ export default function MemberPerformanceTable({
                 </th>
               ))}
             </tr>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
               {showCumulative && <SubHeaderGroup highlight />}
               {months.map((m, i) => (
                 <SubHeaderGroup key={m} highlight={i === 0 && !showCumulative} />

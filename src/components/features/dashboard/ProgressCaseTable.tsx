@@ -78,7 +78,7 @@ function CasesTable({ rows, showRoleBadge, hideFlagColumn = false }: {
     <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
       <table className="text-[13px] border-collapse w-full table-auto">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
+          <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 whitespace-nowrap">
             {!hideFlagColumn && <th className="px-2 py-2 text-center font-semibold">フラグ</th>}
             <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
             <th className="px-2.5 py-2 text-left font-semibold">案件名</th>

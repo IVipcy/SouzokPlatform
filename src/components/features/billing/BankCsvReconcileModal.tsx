@@ -191,7 +191,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
             <div className="border border-gray-200 rounded-lg overflow-x-auto max-h-[26rem] overflow-y-auto">
               <table className="w-full text-[12px] border-collapse">
                 <thead className="sticky top-0">
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
                     <th className="px-2 py-2 w-8"></th>
                     <th className="px-2 py-2 text-left font-semibold">取引（振込人・摘要）</th>
                     <th className="px-2 py-2 text-right font-semibold w-28">金額</th>

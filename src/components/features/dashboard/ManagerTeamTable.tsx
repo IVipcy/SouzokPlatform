@@ -41,7 +41,7 @@ export default function ManagerTeamTable({ groups, title = 'チーム別／個�
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="text-[13px] border-collapse w-full table-auto">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 whitespace-nowrap">
               <th className="px-2.5 py-2 text-left font-semibold">所属チーム</th>
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="担当件数">担当</th>

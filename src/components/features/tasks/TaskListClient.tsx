@@ -513,7 +513,7 @@ function ListView({
               {HEADERS.map(h => (
                 <th
                   key={h.key}
-                  className="relative text-left px-3.5 py-2.5 text-[12px] font-bold text-gray-500 tracking-wider uppercase bg-gray-50 border-b border-gray-200"
+                  className="relative text-left px-3.5 py-2.5 text-[12px] font-bold text-brand-700 tracking-wider uppercase bg-brand-50/60 border-b border-brand-100"
                 >
                   {h.key === 'select' ? (
                     <input

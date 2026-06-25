@@ -181,7 +181,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
       )}
       <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
       <table className="w-full text-[13px] table-auto">
-        <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+        <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
           <tr>
             {selectable && (
               <th className="px-3 py-2 text-center font-bold w-10">

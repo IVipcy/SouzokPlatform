@@ -149,7 +149,7 @@ export default function MonthlyMeetingsTable({ cases, title = '当月面談一�
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+            <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
               <tr>
                 <SortableTh label="管理番号"      sortKey="case_number"      currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="案件名"        sortKey="deal_name"        currentKey={sortKey} order={sortOrder} onClick={handleSort} />

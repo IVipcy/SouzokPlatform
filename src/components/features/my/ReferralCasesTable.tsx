@@ -49,7 +49,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+            <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
               <tr>
                 {selectable && (
                   <th className="px-3 py-2 text-center font-bold w-10">

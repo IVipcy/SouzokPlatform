@@ -81,7 +81,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col style={{ width: 130 }} />
             </colgroup>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+              <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
                 <th className="px-2.5 py-2 text-left font-semibold">番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>

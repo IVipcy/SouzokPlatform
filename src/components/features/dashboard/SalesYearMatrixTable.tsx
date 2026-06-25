@@ -94,7 +94,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
                 </th>
               ))}
             </tr>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
               {columns.map(c => (
                 <SubHeaderGroup key={c.key} highlight={c.isCumulative} />
               ))}

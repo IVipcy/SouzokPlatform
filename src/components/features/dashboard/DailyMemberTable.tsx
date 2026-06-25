@@ -46,7 +46,7 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="text-[13px] border-collapse w-full table-auto">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 whitespace-nowrap">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 whitespace-nowrap">
               <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>氏名</th>
               {showTeamColumn && <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>所属チーム</th>}
               <th className="px-2.5 py-2 text-left font-semibold" rowSpan={2}>職種</th>
@@ -54,7 +54,7 @@ export default function DailyMemberTable({ rows, today, showTeamColumn }: Props)
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-gray-100" colSpan={4}>当月累計</th>
               <th className="px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 bg-brand-50 text-brand-800" colSpan={4}>本日</th>
             </tr>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-[14px]">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 text-[14px]">
               <SubColHeader highlight={false} />
               <SubColHeader highlight={true} />
             </tr>
