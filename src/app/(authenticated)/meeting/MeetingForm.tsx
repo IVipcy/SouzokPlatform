@@ -78,8 +78,8 @@ function calcAge(birthday: string): number | null {
 // ── Shared UI helpers ──
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl p-4 mb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-gray-200">
-      <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2.5 flex items-center gap-1.5">
+    <div className="bg-white rounded p-4 mb-3 border border-gray-200">
+      <div className="text-[11.5px] font-medium text-gray-500 tracking-[0.02em] mb-2 flex items-center gap-1.5">
         {required && <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />}
         {label}
       </div>
@@ -180,7 +180,7 @@ function CellInput({ value, onChange, placeholder, type = 'text' }: { value: str
 function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-brand-600 to-brand-800 shadow-sm">
+      <div className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0 bg-brand-600">
         <Icon className="w-5 h-5 text-white" strokeWidth={2} />
       </div>
       <div>
