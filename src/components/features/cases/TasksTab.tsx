@@ -24,14 +24,14 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-const STATUS_PILLS = ['all', '着手前', '対応中', '完了'] as const
-const STATUS_LABEL: Record<string, string> = { all: 'すべて', '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
+const STATUS_PILLS = ['着手前', '対応中', '完了'] as const
+const STATUS_LABEL: Record<string, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
 
 export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
-  // 区分タブ（初期対応＝system / 事務管理＝case）とステータス絞り込み
-  const [kind, setKind] = useState<'all' | 'system' | 'case'>('all')
-  const [status, setStatus] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
+  // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
+  const [kind, setKind] = useState<'system' | 'case'>('case')
+  const [statuses, setStatuses] = useState<Set<string>>(new Set())
 
   // 進捗率
   const totalTasks = tasks.length
@@ -43,16 +43,15 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const systemCount = tasks.filter(t => t.task_kind === 'system').length
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
   const KIND_TABS = [
-    { key: 'all', label: `すべて ${totalTasks}` },
-    { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` },
     { key: 'case', label: `事務管理タスク ${caseCount}` },
+    { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` },
   ]
 
   const filtered = useMemo(() => tasks.filter(t => {
-    if (kind !== 'all' && t.task_kind !== kind) return false
-    if (status !== 'all' && normalizeStatus(t.status) !== status) return false
+    if (t.task_kind !== kind) return false
+    if (statuses.size > 0 && !statuses.has(normalizeStatus(t.status))) return false
     return true
-  }), [tasks, kind, status])
+  }), [tasks, kind, statuses])
 
   return (
     <div>
@@ -101,19 +100,26 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
         <div className="space-y-3">
           {/* 区分タブ＋ステータス絞り込み */}
           <div className="flex items-center gap-3 flex-wrap">
-            <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'all' | 'system' | 'case')} />
+            <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'system' | 'case')} />
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[12px] font-semibold text-gray-500">ステータス</span>
-              {STATUS_PILLS.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${status === s ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  {STATUS_LABEL[s]}
-                </button>
-              ))}
+              {STATUS_PILLS.map(s => {
+                const on = statuses.has(s)
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatuses(prev => {
+                      const next = new Set(prev)
+                      if (next.has(s)) next.delete(s); else next.add(s)
+                      return next
+                    })}
+                    className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -124,6 +130,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
             includeCompleted
             selectable
             hideCategory
+            showGyomu={kind === 'case'}
             currentMemberId={currentMemberId ?? undefined}
           />
         </div>

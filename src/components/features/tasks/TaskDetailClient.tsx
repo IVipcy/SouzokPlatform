@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
-import { getPhaseLabel, getPhaseColor, DB_PHASES } from '@/lib/phases'
+import { getPhaseLabel, DB_PHASES } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -178,15 +178,12 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
                     受注担当/管理担当タスク
                   </span>
-                ) : (
-                  <span
-                    className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white"
-                    style={{ backgroundColor: getPhaseColor(task.phase) }}
-                  >
-                    {getPhaseLabel(task.phase)}
+                ) : task.phase ? (
+                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-[5px] bg-brand-50 text-brand-700">
+                    {getPhaseLabel(task.phase).replace(/^Phase\d+[:：]\s*/, '')}
                   </span>
-                )}
-                {task.category && (
+                ) : null}
+                {task.category && task.category !== task.phase && (
                   <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                     {task.category}
                   </span>

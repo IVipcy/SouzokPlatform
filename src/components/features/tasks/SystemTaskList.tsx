@@ -8,7 +8,12 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Badge from '@/components/ui/Badge'
 import { getAssignRoleDef, CASE_STATUSES } from '@/lib/constants'
+import { getPhaseLabel } from '@/lib/phases'
 import type { TaskRow } from '@/types'
+
+// 業務ラベル: 事務管理タスクは phase に業務（戸籍/金融資産…）を保持。旧データの phase1〜6 は接頭辞を外す。
+const gyomuLabel = (phase: string | null | undefined) =>
+  phase ? getPhaseLabel(phase).replace(/^Phase\d+[:：]\s*/, '') : ''
 
 // お客様回答待ちのステータス（残り日数を出す対象）
 const AWAITING_ANSWER = new Set(['検討中', '検討中（契約書待ち）', '面談設定済'])
@@ -47,6 +52,8 @@ type Props = {
   showKindLabel?: boolean
   /** カテゴリ列自体を非表示にする（区分はタブで切り替える場合など） */
   hideCategory?: boolean
+  /** 最左に「業務」列（task.phase の業務名）を表示する（事務管理タスク一覧で使用） */
+  showGyomu?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -89,6 +96,7 @@ export default function SystemTaskList({
   selectable = false,
   showKindLabel = false,
   hideCategory = false,
+  showGyomu = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -202,6 +210,7 @@ export default function SystemTaskList({
                     <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-3.5 h-3.5 accent-brand-600 cursor-pointer" />
                   </th>
                 )}
+                {showGyomu && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">業務</th>}
                 {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
                 {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
@@ -235,6 +244,16 @@ export default function SystemTaskList({
                     {selectable && (
                       <td className="px-3 py-2.5 align-top text-center">
                         <input type="checkbox" checked={selected.has(task.id)} onChange={() => toggleOne(task.id)} className="w-3.5 h-3.5 accent-brand-600 cursor-pointer" />
+                      </td>
+                    )}
+                    {/* 業務（事務管理タスク） */}
+                    {showGyomu && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                        {task.phase ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-brand-50 text-brand-700">
+                            {gyomuLabel(task.phase)}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>}
                       </td>
                     )}
                     {/* 案件名 */}

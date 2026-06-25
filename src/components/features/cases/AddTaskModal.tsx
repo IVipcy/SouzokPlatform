@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
+import { gyomuForCategories } from '@/lib/serviceMaster'
+import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
 
 type Props = {
@@ -13,7 +14,7 @@ type Props = {
   caseId: string
   allMembers: MemberRow[]
   onSaved: () => void
-  /** 調査タブ等から開く際の初期フェーズ（例: 相続人調査=phase1 / 財産調査=phase2） */
+  /** 調査タブ等から開く際の初期業務（例: 戸籍 / 金融資産）。 */
   defaultPhase?: string
 }
 
@@ -25,12 +26,30 @@ const PRIORITIES = [
 export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved, defaultPhase }: Props) {
   const [form, setForm] = useState({
     title: '',
-    phase: (defaultPhase ?? 'phase1') as string,
+    gyomu: defaultPhase ?? '',
     dueDate: '',
     priority: '通常' as string,
   })
+  const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // 開いたら案件の受注区分から「業務」リストを用意（一括生成と同じ。役割分担の業務を優先）。
+  useEffect(() => {
+    if (!isOpen) return
+    let active = true
+    ;(async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from('cases').select('service_category, service_category_2, service_parts, intake_roles').eq('id', caseId).single()
+      if (!active || !data) return
+      const roles = (data.intake_roles ?? []) as Array<{ gyomu?: string | null }>
+      let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))]
+      if (gyomus.length === 0) gyomus = gyomuForCategories(activePartKeys(partsForCase(data)))
+      setGyomuOptions(gyomus)
+      setForm(p => ({ ...p, gyomu: (defaultPhase && gyomus.includes(defaultPhase)) ? defaultPhase : (gyomus[0] ?? '') }))
+    })()
+    return () => { active = false }
+  }, [isOpen, caseId, defaultPhase])
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -47,9 +66,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
       .from('tasks')
       .insert({
         case_id: caseId,
+        task_kind: 'case',
         title: form.title.trim(),
-        phase: form.phase,
-        category: '',
+        phase: form.gyomu,
+        category: form.gyomu,
         status: '着手前',
         priority: form.priority,
         due_date: form.dueDate || null,
@@ -63,7 +83,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
     }
 
     setSaving(false)
-    setForm({ title: '', phase: (defaultPhase ?? 'phase1'), dueDate: '', priority: '通常' })
+    setForm({ title: '', gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
     onSaved()
     onClose()
   }
@@ -100,16 +120,17 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Phase */}
+          {/* 業務（受注区分から決まる） */}
           <div>
-            <label className="block text-[13px] font-semibold text-gray-500 mb-1">フェーズ</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務</label>
             <select
-              value={form.phase}
-              onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
+              value={form.gyomu}
+              onChange={e => setForm(p => ({ ...p, gyomu: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
-              {DB_PHASES.map(p => (
-                <option key={p} value={p}>{getPhaseLabel(p)}</option>
+              {gyomuOptions.length === 0 && <option value="">（業務なし）</option>}
+              {gyomuOptions.map(g => (
+                <option key={g} value={g}>{g}</option>
               ))}
             </select>
           </div>
