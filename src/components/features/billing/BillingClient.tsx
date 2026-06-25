@@ -675,14 +675,14 @@ export default function BillingClient({ invoices, cases }: Props) {
                       {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
                       <td className="px-3.5 py-2.5">
                         <div className="flex flex-col items-start gap-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>{typeLabel}</span>
-                          {inv.firm_type === 'gyosei' && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200">行政書士</span>}
-                          {inv.firm_type === 'shiho' && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-red-50 text-red-700 border-red-200">司法書士</span>}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${typeStyle.bg} ${typeStyle.text}`}>{typeLabel}</span>
+                          {inv.firm_type === 'gyosei' && <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-blue-50 text-blue-800">行政書士</span>}
+                          {inv.firm_type === 'shiho' && <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-red-50 text-red-800">司法書士</span>}
                         </div>
                       </td>
                       {/* 案件ステータス */}
                       <td className="px-3.5 py-2.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[11px] font-bold bg-gray-50 text-gray-700 border-gray-200">{caseStatusLabel || '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-slate-100 text-slate-600">{caseStatusLabel || '—'}</span>
                       </td>
                       {/* 受注担当 */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
@@ -707,19 +707,19 @@ export default function BillingClient({ invoices, cases }: Props) {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {isUnissued || inv.status === '入金済' ? (
                             // 未請求・入金済は読み取り専用（入金済は入金消込／CSVでのみ確定）
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border ${st.bg} ${st.text} ${st.border}`} title={inv.status === '入金済' ? '入金済は入金消込／CSV突合で確定します' : undefined}>
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium ${st.bg} ${st.text}`} title={inv.status === '入金済' ? '入金済は入金消込／CSV突合で確定します' : undefined}>
                               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />{inv.status}
                             </span>
                           ) : (
-                            <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold border cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text} ${st.border}`} title="クリックでステータス変更">
+                            <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text}`} title="クリックでステータス変更">
                               {EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                           )}
                           {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-slate-100 text-slate-600" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
                           )}
                           {refundTotal > 0 && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title={`返金 ¥${refundTotal.toLocaleString()}`}>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-rose-50 text-rose-700" title={`返金 ¥${refundTotal.toLocaleString()}`}>
                               {paidAmount <= 0 ? '全額返金' : '一部返金'}
                             </span>
                           )}
@@ -732,7 +732,7 @@ export default function BillingClient({ invoices, cases }: Props) {
                         {od == null ? (
                           <span className="text-gray-300 text-xs">—</span>
                         ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">{od}日超過</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-red-50 text-red-700">{od}日超過</span>
                         )}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">{fmt(inv.amount)}</td>

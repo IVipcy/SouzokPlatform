@@ -487,10 +487,10 @@ export const INVOICE_STATUSES = [
 
 // 請求書のステータススタイル
 export const INVOICE_STATUS_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  '未請求': { bg: 'bg-gray-100', text: 'text-gray-500', border: 'border-gray-300', dot: '#9CA3AF' },
-  '作成済': { bg: 'bg-gray-50',  text: 'text-gray-700', border: 'border-gray-300', dot: '#6B7280' },
-  '入金待ち': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: '#D97706' },
-  '入金済': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: '#16A34A' },
+  '未請求': { bg: 'bg-slate-100', text: 'text-slate-500', border: 'border-transparent', dot: '#9AA1AC' },
+  '作成済': { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-transparent', dot: '#6B7280' },
+  '入金待ち': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-transparent', dot: '#D99A2B' },
+  '入金済': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-transparent', dot: '#3A9B72' },
 }
 
 // === 請求分類 (invoice_type) ===
@@ -501,8 +501,8 @@ export const INVOICE_TYPE_LABEL: Record<string, string> = {
   '確定請求': '確定売上',
 }
 export const INVOICE_TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  '前受金':   { bg: 'bg-sky-50',    text: 'text-sky-700',    border: 'border-sky-200' },
-  '確定請求': { bg: 'bg-brand-50',  text: 'text-brand-700',  border: 'border-brand-200' },
+  '前受金':   { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-transparent' },
+  '確定請求': { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-transparent' },
 }
 
 // === 不動産: 売却意向 ===
