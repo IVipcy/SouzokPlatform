@@ -266,6 +266,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone, kentouContractReady)}
         onStatusChange={s => patchCase({ status: s })}
         patchCase={patchCase}
+        referrals={caseReferrals ?? []}
+        onJumpToReferral={() => {
+          setActiveTab('orderSheet')
+          setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
+        }}
       />
 
       <div ref={navWrapRef} className="relative">

@@ -81,12 +81,12 @@ export default function OrderSheet({
     : null
   const showSec = (gate?: TabKey) => !gate || !allowedTabs || allowedTabs.has(gate)
 
-  const allOsSections: { title: string; gate?: TabKey; node: ReactNode }[] = [
+  const allOsSections: { title: string; gate?: TabKey; anchorId?: string; node: ReactNode }[] = [
     { title: '依頼者情報', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
     { title: '受注内容', node: <OrderContentTab caseData={caseData} patchCase={patchCase} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
     { title: '財産調査', gate: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} /> },
-    { title: '他事業者紹介', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
+    { title: '他事業者紹介', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" /> },
     { title: '相続登記', gate: 'registration', node: <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} contractDocuments={contractDocuments} /> },
@@ -130,16 +130,16 @@ export default function OrderSheet({
       </div>
 
       {osSections.map((s) => (
-        <OSSection key={s.title} title={s.title}>{s.node}</OSSection>
+        <OSSection key={s.title} title={s.title} id={s.anchorId}>{s.node}</OSSection>
       ))}
     </div>
   )
 }
 
 // 大セクション見出し（オーダーシートの親）。子の Section（カード）を束ねる上位の帯。番号は付けない。
-function OSSection({ title, children }: { title: string; children: React.ReactNode }) {
+function OSSection({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-24">
       <div className="flex items-center gap-2.5 mb-3 bg-brand-100/60 border-l-[3px] border-l-brand-600 rounded-r px-3.5 py-2">
         <h2 className="text-[14px] font-bold text-brand-800 tracking-[0.02em]">{title}</h2>
       </div>

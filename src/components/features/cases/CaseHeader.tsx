@@ -5,9 +5,9 @@ import Link from 'next/link'
 import Badge from '@/components/ui/Badge'
 import { FieldGrid, Field, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, LOCATIONS } from '@/lib/constants'
+import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, LOCATIONS, hasInheritanceTaxFiling } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, TaskRow } from '@/types'
+import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
 
 // 案件分類（相談案件 / 個別管理案件 / 管理案件）のラベルと色
 const CATEGORY_STYLE: Record<'consult' | 'referral' | 'management', { label: string; cls: string }> = {
@@ -30,6 +30,10 @@ type Props = {
   onStatusChange?: (status: string) => void
   // 基本情報（管理メタ情報）の編集用。渡すとヘッダーに「案件情報 ▾」が出る。
   patchCase?: (patch: Partial<CaseRow>) => Promise<void>
+  // 他事業者紹介（税理士の依頼内容から相続税申告あり/なしを判定）
+  referrals?: CaseReferralRow[]
+  // 相続税申告フラグのクリックでオーダーシートの他事業者紹介セクションへ移動
+  onJumpToReferral?: () => void
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -43,15 +47,14 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, patchCase }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, patchCase, referrals, onJumpToReferral }: Props) {
   const [detailOpen, setDetailOpen] = useState(false)
   const saveCaseField = async (field: string, value: unknown) => {
     if (patchCase) await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
-  const taxColors: Record<string, string> = { '要': '#DC2626', '不要': '#059669' }
-  const showTaxBadge = caseData.tax_filing_required === '要' || caseData.tax_filing_required === '不要'
+  const taxFiling = hasInheritanceTaxFiling(referrals)
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
   const category = getCaseCategory(caseData.status)
@@ -126,6 +129,23 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                 ))
               ) : <span className="text-[11px] text-gray-300">未設定</span>}
             </div>
+            {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+              <span className="text-[10px] font-medium text-gray-400 tracking-wide">相続税申告</span>
+              <button
+                type="button"
+                onClick={onJumpToReferral}
+                title="他事業者紹介（税理士）へ移動"
+                className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
+                  taxFiling
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                    : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
+                {taxFiling ? 'あり' : 'なし'}
+              </button>
+            </div>
             {caseData.deceased_name && (
               <p className="text-[12px] text-gray-500 mt-2">
                 被相続人：{caseData.deceased_name}{caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
@@ -148,9 +168,6 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             ))}
             {caseData.difficulty && (
               <Badge label={caseData.difficulty} color={difficultyColors[caseData.difficulty] ?? '#6B7280'} variant="solid" />
-            )}
-            {showTaxBadge && caseData.tax_filing_required && (
-              <Badge label={`相続税 ${caseData.tax_filing_required}`} color={taxColors[caseData.tax_filing_required] ?? '#6B7280'} />
             )}
           </div>
         </div>

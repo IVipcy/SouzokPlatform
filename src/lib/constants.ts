@@ -382,6 +382,17 @@ export const TAX_ADVISOR_BUSINESS_OPTIONS = [
   'その他申告あり',
 ] as const
 
+// 相続税申告の発生有無を他事業者紹介から判定する。
+// 「あり」＝税理士の紹介行があり、その依頼内容が「相続税申告」を含む選択肢
+//（相続税申告あり / 相続税申告・財産調査次第 / 相続税申告・準確定申告あり / 相続税申告あり・その他申告あり）。
+export function hasInheritanceTaxFiling(
+  referrals: { partner_type: string; content: string | null }[] | null | undefined
+): boolean {
+  return (referrals ?? []).some(
+    r => r.partner_type === '税理士' && !!r.content && r.content.includes('相続税申告')
+  )
+}
+
 // 案件番号の経路コード（YYMM + コード + 当日連番4桁）
 export const ORDER_ROUTE_CODES: Record<string, string> = {
   'LP経由': 'LP',
