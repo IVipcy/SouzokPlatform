@@ -219,9 +219,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone, allTasksDone })
   const jutakuNavVisible = caseState.status === '受注' && !navDismissed
   const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed
+  // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
+  // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
+  const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : ['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s
+  const kickoffNeeded = caseState.status === '対応中'
+    && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
-  const navHighlightTabs = activeNavSteps.filter(s => !s.done).map(s => s.tab)
+  const navHighlightTabs: TabKey[] = [
+    ...activeNavSteps.filter(s => !s.done).map(s => s.tab),
+    ...(kickoffNeeded ? ['basicInfo' as TabKey] : []),
+  ]
 
   // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）
   const selectedGyomu = [...new Set((caseState.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
