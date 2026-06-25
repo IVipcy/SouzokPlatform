@@ -1,18 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { StickyNote, ExternalLink } from 'lucide-react'
+import UserAvatar from '@/components/ui/UserAvatar'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
-
-// 進捗報告の確認ステータス表示色
-const PR_STATUS_BADGE: Record<string, string> = {
-  '依頼中': 'bg-amber-50 text-amber-700 border-amber-200',
-  '確認済': 'bg-green-50 text-green-700 border-green-200',
-}
 
 type Props = {
   caseData: CaseRow
@@ -37,10 +32,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
   const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
   const [loading, setLoading] = useState(true)
-  // 進捗確認の依頼：確認者は受注担当に固定（管理担当のみ依頼可）
-  const confirmerId = salesMemberId ?? ''
-  const confirmerName = allMembers.find(m => m.id === confirmerId)?.name ?? null
   const [requesting, setRequesting] = useState(false)
+  const [reviewPointInput, setReviewPointInput] = useState('')
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [confirmComment, setConfirmComment] = useState('')
+  const [confirmSaving, setConfirmSaving] = useState(false)
 
   const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
 
@@ -86,10 +82,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
-  // 進捗確認を依頼（管理担当のみ。確認者＝受注担当。progress_reports へ依頼中で登録＋通知）
+  // 進捗確認を開始（管理担当のみ）。確認者は事前指定せず、確認ポイントを添えて確認待ちにする。
   const handleRequestReview = async () => {
     if (!canRequestReview) { showToast('進捗確認の依頼は管理担当のみ可能です', 'error'); return }
-    if (!confirmerId) { showToast('受注担当が未設定のため依頼できません', 'error'); return }
     if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
     setRequesting(true)
     const supabase = createClient()
@@ -97,22 +92,39 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     const { error } = await supabase.from('progress_reports').insert({
       case_id: caseData.id,
       requester_id: currentMemberId,
-      confirmer_id: confirmerId,
+      confirmer_id: null,
       status: '依頼中',
       requested_date: today,
+      review_point: reviewPointInput.trim() || null,
     })
-    if (!error) {
-      await supabase.from('notifications').insert({
-        member_id: confirmerId,
-        type: 'progress_review_requested',
-        case_id: caseData.id,
-        title: '進捗確認の依頼',
-        body: `${caseData.case_number} ${caseData.deal_name} の進捗確認を依頼されました`,
-      })
-    }
     setRequesting(false)
     if (error) { showToast('依頼に失敗しました', 'error'); return }
-    showToast('進捗確認を依頼しました', 'success')
+    setReviewPointInput('')
+    showToast('進捗確認を依頼しました。その場で確認してもらいましょう', 'success')
+    fetchActivities()
+  }
+
+  // 確認済にする（依頼者“以外”がログイン中の自分として確認）。確認コメントを添えて確認者＝自分で確定。
+  const handleConfirm = async (pr: ProgressReportRow) => {
+    if (!currentMemberId) return
+    if (pr.requester_id === currentMemberId) { showToast('依頼した本人は確認できません', 'error'); return }
+    setConfirmSaving(true)
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const { error } = await supabase.from('progress_reports')
+      .update({ status: '確認済', confirmed_date: today, confirmer_id: currentMemberId, confirm_comment: confirmComment.trim() || null })
+      .eq('id', pr.id)
+    setConfirmSaving(false)
+    if (error) { showToast('確認に失敗しました', 'error'); return }
+    await supabase.from('notifications').insert({
+      member_id: pr.requester_id,
+      type: 'progress_review_confirmed',
+      case_id: caseData.id,
+      title: '進捗確認が完了しました',
+      body: `${caseData.case_number} ${caseData.deal_name} の進捗を ${memberName(currentMemberId)} さんが確認しました`,
+    })
+    setConfirmingId(null); setConfirmComment('')
+    showToast('確認済にしました', 'success')
     fetchActivities()
   }
 
@@ -126,52 +138,88 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     <div className="space-y-5">
       {/* 進捗報告 */}
       <div>
-        <div className="mb-2 flex items-center gap-2 flex-wrap">
+        <div className="mb-1.5 flex items-center gap-2 flex-wrap">
           <span className="text-[13px] font-bold text-gray-700">進捗報告</span>
           {canRequestReview && (
             <div className="ml-auto flex items-center gap-2">
-              {confirmerId ? (
-                <span className="text-[12px] text-gray-500">確認者：{confirmerName ?? '受注担当'}（受注担当）</span>
-              ) : (
-                <span className="text-[12px] text-amber-600">受注担当が未設定のため依頼できません</span>
-              )}
+              <input
+                type="text"
+                value={reviewPointInput}
+                onChange={e => setReviewPointInput(e.target.value)}
+                placeholder="確認ポイント（確認してほしい内容・任意）"
+                className="text-[12px] border border-gray-200 rounded-md px-2.5 py-1.5 w-72 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+              />
               <button
                 type="button"
                 onClick={handleRequestReview}
-                disabled={requesting || !confirmerId}
-                className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50"
+                disabled={requesting}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
               >
                 {requesting ? '依頼中...' : '進捗確認を依頼'}
               </button>
             </div>
           )}
         </div>
+        <p className="text-[11px] text-gray-400 mb-2">確認ポイントを書いて依頼→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認済」</span>を押します（依頼者本人は押せません）。</p>
         {progressReports.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
+            <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
+              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
-                  <th className="px-3 py-2 text-left font-bold">確認者</th>
-                  <th className="px-3 py-2 text-left font-bold">進捗確認依頼日</th>
-                  <th className="px-3 py-2 text-left font-bold">確認ステータス</th>
-                  <th className="px-3 py-2 text-left font-bold">確認日付</th>
+                  <th className="px-3 py-2 text-left font-medium">依頼者</th>
+                  <th className="px-3 py-2 text-left font-medium">進捗確認依頼日</th>
+                  <th className="px-3 py-2 text-left font-medium">確認ポイント</th>
+                  <th className="px-3 py-2 text-left font-medium">確認コメント</th>
+                  <th className="px-3 py-2 text-left font-medium">確認者</th>
+                  <th className="px-3 py-2 text-left font-medium">ステータス</th>
+                  <th className="px-3 py-2 text-left font-medium">確認日付</th>
+                  <th className="px-3 py-2 w-28" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {progressReports.map(pr => (
-                  <tr key={pr.id} className="hover:bg-gray-50/60">
-                    <td className="px-3 py-2.5 text-[13px] text-gray-700">{memberName(pr.confirmer_id)}</td>
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.requested_date}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${PR_STATUS_BADGE[pr.status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                        {pr.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
-                  </tr>
-                ))}
+                {progressReports.map(pr => {
+                  const confirmer = allMembers.find(m => m.id === pr.confirmer_id)
+                  const isRequester = !!currentMemberId && pr.requester_id === currentMemberId
+                  const canConfirm = pr.status === '依頼中' && !!currentMemberId && !isRequester
+                  return (
+                    <Fragment key={pr.id}>
+                      <tr className="hover:bg-gray-50/60">
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{memberName(pr.requester_id)}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.requested_date}</td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{pr.review_point || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{pr.confirm_comment || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5">
+                          {confirmer ? (
+                            <span className="inline-flex items-center gap-1.5"><UserAvatar name={confirmer.name} url={confirmer.avatar_url} size="sm" /><span className="text-[12px] text-gray-700">{confirmer.name}</span></span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${pr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{pr.status}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          {canConfirm && confirmingId !== pr.id && (
+                            <button type="button" onClick={() => { setConfirmingId(pr.id); setConfirmComment('') }} className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 whitespace-nowrap">確認済にする</button>
+                          )}
+                          {pr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                        </td>
+                      </tr>
+                      {confirmingId === pr.id && (
+                        <tr className="bg-brand-50/40">
+                          <td colSpan={8} className="px-3 py-2.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input type="text" value={confirmComment} onChange={e => setConfirmComment(e.target.value)} placeholder="確認コメント（任意）" className="flex-1 min-w-[200px] text-[12px] border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400" />
+                              <button type="button" onClick={() => handleConfirm(pr)} disabled={confirmSaving} className="inline-flex items-center px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50">{confirmSaving ? '確認中...' : '確認して完了'}</button>
+                              <button type="button" onClick={() => { setConfirmingId(null); setConfirmComment('') }} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">キャンセル</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

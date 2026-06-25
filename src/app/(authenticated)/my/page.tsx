@@ -8,7 +8,6 @@ import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
-import ProgressReviewTab, { type ReviewProgressRow } from '@/components/features/my/ProgressReviewTab'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
@@ -40,7 +39,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string }>
-type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'reviews' | 'tasks'
+type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'tasks'
 
 // 相談案件 = 受注担当が受託に至るまで（長期保留・紹介のみは個別管理案件へ移管）
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '失注'])
@@ -458,29 +457,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         reportId: rep?.id ?? null,
         status: (rep?.status ?? '未対応') as ManagerProgressRow['status'],
         confirmerId: rep?.confirmer_id ?? null,
-        confirmerName: rep ? memberById.get(rep.confirmer_id) ?? null : null,
+        confirmerName: rep?.confirmer_id ? memberById.get(rep.confirmer_id) ?? null : null,
         requestedDate: rep?.requested_date ?? null,
         confirmedDate: rep?.confirmed_date ?? null,
+        reviewPoint: rep?.review_point ?? null,
+        confirmComment: rep?.confirm_comment ?? null,
       }
     })
   // 確認者の候補（全アクティブメンバー）
   const confirmerCandidates = ((allMembersRaw ?? []) as Array<{ id: string; name: string }>)
     .map(m => ({ id: m.id, name: m.name }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-
-  // === 進捗確認依頼（確認者タブ） ===
-  const reviewRows: ReviewProgressRow[] = reviewReportsRaw.map(pr => ({
-    reportId: pr.id,
-    case_id: pr.case_id,
-    case_number: pr.cases?.case_number ?? '—',
-    deal_name: pr.cases?.deal_name ?? '—',
-    requesterId: pr.requester_id,
-    requesterName: memberById.get(pr.requester_id) ?? null,
-    requestedDate: pr.requested_date,
-    status: pr.status,
-    confirmedDate: pr.confirmed_date,
-  }))
-  const reviewPendingCount = reviewRows.filter(r => r.status === '依頼中').length
 
   // 請求タブ: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件。
   // 管理担当＝自分が管理担当の案件 / 受注担当＝自分が受注担当の案件。
@@ -496,7 +483,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // === タブ構成（役割 + 確認依頼の有無で決定） ===
   const showProgress = isManager
-  const showReviews = isSales || reviewRows.length > 0
   const validTabs: TabKey[] = []
   if (isSales) validTabs.push('meetings')
   validTabs.push('cases')
@@ -504,7 +490,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   if (isSales) validTabs.push('referrals')
   if (showProgress) validTabs.push('progress')
   validTabs.push('tasks')
-  if (showReviews) validTabs.push('reviews')
   const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
   const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
 
@@ -537,9 +522,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href="/my?tab=progress" label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
         <TabLink href="/my?tab=tasks" label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
-        {showReviews && (
-          <TabLink href="/my?tab=reviews" label={`進捗確認依頼 (${reviewPendingCount})`} Icon={ClipboardCheck} active={activeTab === 'reviews'} />
-        )}
       </div>
 
       {/* 当月面談（相談案件一覧） */}
@@ -605,10 +587,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         </div>
       )}
 
-      {/* 進捗確認依頼（確認者） */}
-      {activeTab === 'reviews' && showReviews && (
-        <ProgressReviewTab rows={reviewRows} currentMemberId={memberId} />
-      )}
 
       {/* 個別管理案件（紹介のみ・長期保留） */}
       {activeTab === 'referrals' && isSales && (

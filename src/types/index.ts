@@ -879,10 +879,12 @@ export type ProgressReportRow = {
   id: string
   case_id: string
   requester_id: string   // 依頼した管理担当
-  confirmer_id: string   // 確認者
+  confirmer_id: string | null   // 確認者（確認時にセット。依頼時はnull。migration 132）
   requested_date: string // 進捗確認依頼日
   status: ProgressReportStatus
   confirmed_date: string | null // 確認日付
+  review_point: string | null   // 確認ポイント（依頼時。migration 132）
+  confirm_comment: string | null // 確認コメント（確認時。migration 132）
   created_at: string
   updated_at: string
 }
