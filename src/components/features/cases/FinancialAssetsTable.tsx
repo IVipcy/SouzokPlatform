@@ -106,7 +106,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1340 : 980 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-gray-50/70 border-b border-gray-200 text-[11px] text-gray-400 tracking-[0.04em]">
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {multiPart && <th className="px-2 py-2 text-left font-semibold w-24">取得パート</th>}
