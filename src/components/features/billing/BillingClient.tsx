@@ -501,30 +501,30 @@ export default function BillingClient({ invoices, cases }: Props) {
       {showFirmSummary && (<>
       <div className="grid grid-cols-2 gap-3 mb-5">
         {([
-          { key: 'gyosei', label: '行政書士法人', sum: firmSummary.gyosei, ring: 'border-blue-200', head: 'bg-blue-50 text-blue-800', accent: 'text-blue-700' },
-          { key: 'shiho',  label: '司法書士法人', sum: firmSummary.shiho,  ring: 'border-red-200', head: 'bg-red-50 text-red-800', accent: 'text-red-700' },
+          { key: 'gyosei', label: '行政書士法人', sum: firmSummary.gyosei, ring: 'border-blue-100', head: 'bg-blue-50 border-blue-100 text-blue-800', accent: 'text-blue-800' },
+          { key: 'shiho',  label: '司法書士法人', sum: firmSummary.shiho,  ring: 'border-red-100', head: 'bg-red-50 border-red-100 text-red-800', accent: 'text-red-800' },
         ] as const).map(f => (
-          <div key={f.key} className={`bg-white border rounded-xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${f.ring}`}>
-            <div className={`px-4 py-2 flex items-center justify-between ${f.head}`}>
-              <span className="text-[13px] font-bold">{f.label}</span>
-              <span className="text-[11px] font-mono opacity-70">{f.sum.count}件発行済</span>
+          <div key={f.key} className={`bg-white border rounded overflow-hidden ${f.ring}`}>
+            <div className={`px-4 py-2.5 flex items-center justify-between border-b ${f.head}`}>
+              <span className="text-[13px] font-medium">{f.label}</span>
+              <span className="text-[11px] text-gray-500">{f.sum.count}件発行済</span>
             </div>
-            <div className="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="px-4 py-3.5 grid grid-cols-2 gap-x-4 gap-y-3">
               <div>
-                <div className="text-[11px] text-gray-400">請求合計</div>
-                <div className={`text-[18px] font-extrabold font-mono leading-none ${f.accent}`}>{fmt(f.sum.total)}</div>
+                <div className="text-[11px] text-gray-400 mb-0.5">請求合計</div>
+                <div className={`text-[19px] font-semibold font-mono leading-none ${f.accent}`}>{fmt(f.sum.total)}</div>
               </div>
               <div>
-                <div className="text-[11px] text-gray-400">入金済</div>
-                <div className="text-[18px] font-extrabold font-mono leading-none text-green-600">{fmt(f.sum.paid)}</div>
+                <div className="text-[11px] text-gray-400 mb-0.5">入金済</div>
+                <div className="text-[19px] font-semibold font-mono leading-none text-emerald-700">{fmt(f.sum.paid)}</div>
               </div>
               <div>
-                <div className="text-[11px] text-gray-400">前受金</div>
-                <div className="text-[14px] font-bold font-mono text-gray-700">{fmt(f.sum.advance)}</div>
+                <div className="text-[11px] text-gray-400 mb-0.5">前受金</div>
+                <div className="text-[13px] font-medium font-mono text-gray-600">{fmt(f.sum.advance)}</div>
               </div>
               <div>
-                <div className="text-[11px] text-gray-400">確定売上</div>
-                <div className="text-[14px] font-bold font-mono text-gray-700">{fmt(f.sum.confirmed)}</div>
+                <div className="text-[11px] text-gray-400 mb-0.5">確定売上</div>
+                <div className="text-[13px] font-medium font-mono text-gray-600">{fmt(f.sum.confirmed)}</div>
               </div>
             </div>
           </div>
