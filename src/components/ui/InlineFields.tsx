@@ -33,38 +33,35 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = collapsible ? open : true
 
-  // フラットな見出し（角丸の箱で囲まない）。見出し＋細い区切り線でセクションを表現。
+  // カード型セクション：白背景＋薄枠＋角丸（4px）。見出しは青い帯＋アクセントバーで境界を明確に。
   return (
-    <section>
-      <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-gray-200">
+    <section className="bg-white border border-gray-200 rounded overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100">
+        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0" />
         {collapsible ? (
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
             className="inline-flex items-center gap-1.5 text-left group"
           >
-            <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
-            <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em] group-hover:text-brand-700 transition-colors">{title}</h3>
+            <h3 className="text-[13px] font-semibold text-brand-800 tracking-[0.02em] group-hover:text-brand-900 transition-colors">{title}</h3>
             <svg
-              className={`w-4 h-4 text-gray-400 transition-transform group-hover:text-brand-600 ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-brand-400 transition-transform group-hover:text-brand-600 ${isOpen ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
             >
               <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-[11px] text-gray-400 group-hover:text-brand-600">{isOpen ? '閉じる' : '開く'}</span>
+            <span className="text-[11px] text-brand-400 group-hover:text-brand-600">{isOpen ? '閉じる' : '開く'}</span>
           </button>
         ) : (
-          <>
-            <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
-            <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">{title}</h3>
-          </>
+          <h3 className="text-[13px] font-semibold text-brand-800 tracking-[0.02em]">{title}</h3>
         )}
         {actionLabel && onAction && (
-          <button onClick={onAction} className="ml-auto text-[13px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
+          <button onClick={onAction} className="ml-auto text-[12.5px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
         )}
       </div>
       {isOpen && (
-        <div>
+        <div className="px-4 py-3.5">
           {children}
         </div>
       )}
@@ -78,8 +75,8 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
 export function SectionHeading({ title, right, className = '' }: { title: string; right?: React.ReactNode; className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
-      <h3 className="text-[12.5px] font-bold text-gray-700 tracking-[0.03em]">{title}</h3>
+      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+      <h3 className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{title}</h3>
       {right && <div className="ml-auto flex items-center">{right}</div>}
     </div>
   )

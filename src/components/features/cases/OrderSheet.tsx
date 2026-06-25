@@ -129,26 +129,21 @@ export default function OrderSheet({
         )}
       </div>
 
-      {osSections.map((s, i) => (
-        <OSSection key={s.title} index={i} title={s.title}>{s.node}</OSSection>
+      {osSections.map((s) => (
+        <OSSection key={s.title} title={s.title}>{s.node}</OSSection>
       ))}
     </div>
   )
 }
 
-// 大セクション見出し（オーダーシートの親）。
-// 子の Section（縦棒＋12.5px）と区別するため、番号バッジ＋ブランド背景帯にして一段上位に見せる。
-function OSSection({ title, index, children }: { title: string; index?: number; children: React.ReactNode }) {
-  const num = typeof index === 'number' ? String(index + 1).padStart(2, '0') : null
+// 大セクション見出し（オーダーシートの親）。子の Section（カード）を束ねる上位の帯。番号は付けない。
+function OSSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="flex items-center gap-2.5 mb-3 bg-brand-50 border border-brand-100 border-l-[3px] border-l-brand-600 rounded-lg px-3 py-2">
-        {num && (
-          <span className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-brand-600 text-white text-[11px] font-bold tabular-nums">{num}</span>
-        )}
+      <div className="flex items-center gap-2.5 mb-3 bg-brand-100/60 border-l-[3px] border-l-brand-600 rounded-r px-3.5 py-2">
         <h2 className="text-[14px] font-bold text-brand-800 tracking-[0.02em]">{title}</h2>
       </div>
-      {children}
+      <div className="space-y-4">{children}</div>
     </section>
   )
 }
