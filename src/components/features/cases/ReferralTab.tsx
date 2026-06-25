@@ -70,14 +70,14 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
     <div className="space-y-3.5">
       <Section title="紹介業者">
         {/* サブタブ：登録済み業者＋追加 */}
-        <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-3 flex-wrap">
+        <div className="inline-flex items-center gap-0.5 bg-gray-100 rounded p-0.5 mb-3 flex-wrap">
           {rows.map(r => (
             <button
               key={r.id}
               type="button"
               onClick={() => setActiveType(r.partner_type)}
-              className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-md transition-colors ${
-                active === r.partner_type ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+              className={`px-3.5 py-1.5 text-[13px] font-semibold rounded-[3px] transition-colors ${
+                active === r.partner_type ? 'bg-brand-600 text-white' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               {r.partner_type}

@@ -191,9 +191,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             <div className="mt-3 pt-3 border-t border-gray-100">
               <Link
                 href={`/billing?case=${caseData.id}`}
-                className="inline-flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-md transition w-full justify-center"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-brand-700 bg-brand-50/70 hover:bg-brand-100 border border-brand-100 rounded transition"
               >
-                <Receipt className="w-4 h-4" />
+                <Receipt className="w-3.5 h-3.5 text-brand-500" />
                 請求書発行・入金状況は「請求・入金」で管理
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </Link>
