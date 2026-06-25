@@ -427,6 +427,7 @@ export type CaseActivityRow = {
   task_id: string | null
   member_id: string | null
   activity_type: 'task_started' | 'task_completed' | 'status_change' | 'note'
+  title: string | null   // 進捗メモのタイトル（任意。migration 131）
   description: string
   activity_date: string
   created_at: string

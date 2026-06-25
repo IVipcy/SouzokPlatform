@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { StickyNote } from 'lucide-react'
+import Link from 'next/link'
+import { StickyNote, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -31,6 +32,7 @@ type Props = {
 export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false }: Props) {
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
+  const [newTitle, setNewTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
   const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
@@ -74,10 +76,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       case_id: caseData.id,
       member_id: currentMemberId,
       activity_type: 'note',
+      title: newTitle.trim() || null,
       description: newNote.trim(),
       activity_date: new Date().toISOString().split('T')[0],
     })
     setNewNote('')
+    setNewTitle('')
     setSaving(false)
     fetchActivities()
   }
@@ -178,15 +182,24 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <div>
         <div className="mb-2 text-[13px] font-bold text-gray-700">進捗メモ</div>
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newNote}
-              onChange={e => setNewNote(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-              placeholder="例：Aさんが戸籍請求中（□□市）"
-              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-            />
+          <div className="flex gap-2 items-start">
+            <div className="flex-1 space-y-2">
+              <input
+                type="text"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                placeholder="タイトル（任意）"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+              />
+              <input
+                type="text"
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                placeholder="例：Aさんが戸籍請求中（□□市）"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+              />
+            </div>
             <button
               onClick={handleAddNote}
               disabled={saving || !newNote.trim()}
@@ -202,17 +215,30 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               <div className="text-center text-sm text-gray-400 py-4">メモはまだありません</div>
             ) : (
               <div className="space-y-2.5">
-                {notes.map(n => (
-                  <div key={n.id} className="flex gap-2.5">
-                    <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                    <div className="flex-1">
-                      <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
-                      <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                        {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
+                {notes.map(n => {
+                  // タイトル＝任意文字 or タスク名（リンク）。タスクに紐づく場合は飛べる。
+                  const titleText = n.title?.trim() || n.tasks?.title || null
+                  return (
+                    <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
+                      <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                      <div className="flex-1 min-w-0">
+                        {titleText && (
+                          n.task_id ? (
+                            <Link href={`/tasks/${n.task_id}`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                              {titleText}<ExternalLink className="w-3 h-3 opacity-60" />
+                            </Link>
+                          ) : (
+                            <div className="text-[13px] font-semibold text-gray-800">{titleText}</div>
+                          )
+                        )}
+                        <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
+                        <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                          {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

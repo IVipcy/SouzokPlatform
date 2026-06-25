@@ -114,6 +114,15 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         }
         showToast(`「${task.title}」に着手しました`)
       } else if (currentStatus === '対応中') {
+        // 実施結果・引継ぎ事項の入力を必須化（システムタスクを除く）。直前の保存値を取りに行って判定。
+        if (task.task_kind !== 'system') {
+          const { data: fresh } = await supabase.from('tasks').select('ext_data').eq('id', task.id).single()
+          const exec = (fresh?.ext_data as { execution_result?: string } | null)?.execution_result
+          if (!exec || !exec.trim()) {
+            showToast('実施結果・引継ぎ事項を入力してから完了してください', 'error')
+            return
+          }
+        }
         const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
         if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
         if (memberId) {
@@ -478,43 +487,34 @@ function TaskWorkSection({
   }
 
   return (
-    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* セクションヘッダー */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-        <span className="text-base">📝</span>
-        <h2 className="text-[14px] font-bold text-gray-900">このタスクの作業内容</h2>
-      </div>
-
-      <div className="px-4 py-3 divide-y divide-gray-100">
-        {/* 1. 作業内容（テンプレートの手順。初期値入り・上書き可） */}
-        <div className="pb-3">
-          <InlineTextarea
-            label="作業内容"
-            value={task.procedure_text ?? ''}
-            onSave={v => saveField('procedure_text', v)}
-          />
-          <div className="text-[11px] text-gray-400 mt-0.5">
-            タスクテンプレートの内容が初期値で入っています。このタスク用に上書きできます。
-          </div>
+    <div className="space-y-3">
+      {/* このタスクの作業内容（テンプレートの手順。初期値入り・上書き可） */}
+      <Section title="このタスクの作業内容">
+        <InlineTextarea
+          label="作業内容"
+          value={task.procedure_text ?? ''}
+          onSave={v => saveField('procedure_text', v)}
+        />
+        <div className="text-[11px] text-gray-400 mt-1">
+          タスクテンプレートの内容が初期値で入っています。このタスク用に上書きできます。
         </div>
+      </Section>
 
-        {/* 2. 実施結果・引継ぎ事項 (システムタスクでは非表示) */}
-        {task.task_kind !== 'system' && (
-          <div className="py-3">
-            <InlineTextarea
-              label="実施結果・引継ぎ事項"
-              value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
-              onSave={handleSaveExecutionResult}
-            />
-            <div className="text-[11px] text-gray-400 mt-0.5">
-              次のタスクの作業者が「前段作業の実施結果・引継ぎ事項」としてここを読みます。
-            </div>
+      {/* 実施結果・引継ぎ事項（重要なので独立セクション。システムタスクでは非表示） */}
+      {task.task_kind !== 'system' && (
+        <Section title="実施結果・引継ぎ事項">
+          <InlineTextarea
+            label="実施結果・引継ぎ事項"
+            value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
+            onSave={handleSaveExecutionResult}
+          />
+          <div className="text-[11px] text-gray-400 mt-1">
+            タスク完了時に「案件進捗 → 進捗メモ」へ自動で追記されます（タスクへのリンク付き）。次の作業者もここを読みます。
+            <span className="text-amber-600 font-medium">※完了するには入力が必須です。</span>
           </div>
-        )}
-
-        {/* 作業進捗メモ(notes)は実施結果・引継ぎ事項に集約のため廃止（データ列は残置） */}
-      </div>
-    </section>
+        </Section>
+      )}
+    </div>
   )
 }
 

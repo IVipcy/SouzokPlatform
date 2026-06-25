@@ -156,6 +156,14 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         }
         showToast(`「${task.title}」に着手しました`)
       } else {
+        // 実施結果・引継ぎ事項が未入力なら完了させない（システムタスクを除く）。一覧では入力できないため詳細へ誘導。
+        if (task.task_kind !== 'system') {
+          const exec = (task.ext_data as { execution_result?: string } | null)?.execution_result
+          if (!exec || !exec.trim()) {
+            showToast('実施結果・引継ぎ事項が未入力です。タスク詳細で入力してから完了してください', 'error')
+            return
+          }
+        }
         const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
         if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
         if (memberId) {
