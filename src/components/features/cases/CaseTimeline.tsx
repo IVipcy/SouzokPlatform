@@ -221,9 +221,19 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
   return (
     <div className={embedded ? '' : 'bg-white border border-gray-200 rounded-xl p-4 lg:p-6 shadow-sm'}>
-      <div className={embedded ? 'flex items-center gap-2 mb-2.5 pb-1.5 border-b border-gray-200 flex-wrap' : 'mb-5'}>
-        <SectionHeading title={cardTitle} right={showDetail ? <Legend /> : undefined} />
-      </div>
+      {/* embedded（Section内に置かれるケース）では親の Section ヘッダーがタイトルを担うので
+          ここではタイトルを出さず、必要なら凡例だけ右上に出す。 */}
+      {embedded ? (
+        showDetail && (
+          <div className="flex items-center justify-end mb-2.5">
+            <Legend />
+          </div>
+        )
+      ) : (
+        <div className="mb-5">
+          <SectionHeading title={cardTitle} right={showDetail ? <Legend /> : undefined} />
+        </div>
+      )}
 
       {/* ① マイルストーン軸 */}
       {showMilestones && (
