@@ -7,6 +7,8 @@ import TrustInfo from './TrustInfo'
 import MediationParties from './MediationParties'
 import ProcedureDocsTable from './ProcedureDocsTable'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
+import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow, HeirRow, SagyoDocumentRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -43,7 +45,7 @@ type Props = {
  *   ② 資料（受領管理）… kind=doc の作業＝受領する資料を受信簿連動で管理
  * ※タスク（進捗）欄は廃止。タスクは事務管理タスク一覧で管理する。
  */
-export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, court, trust, mediation, heirs = [], embedded, sagyoDocuments = [], receipts = [], onRefresh }: Props) {
+export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title, description, court, trust, mediation, heirs = [], tasks = [], embedded, sagyoDocuments = [], receipts = [], onRefresh }: Props) {
   const roles: RoleRow[] = (caseData.intake_roles ?? []) as RoleRow[]
   const cats = categoriesOf(caseData.service_category, caseData.service_category_2)
   // 行の実効kind: 明示値 → マスタ初期値 → task
@@ -68,8 +70,13 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
 
   if (embedded) return body
   return (
-    <div>
+    <div className="space-y-3.5">
       <TabHeader title={title} description={description} />
+      <TabTasksSection
+        gyomus={[gyomu]}
+        tasks={tasks ?? []}
+        receipts={toReadinessReceipts(receipts)}
+      />
       {body}
     </div>
   )

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import Button from '@/components/ui/Button'
-import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import { toKatakana } from '@/lib/kana'
@@ -325,6 +325,7 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
 }
 
 function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onRefresh?: () => void }) {
+  const [taskizeOpen, setTaskizeOpen] = useState(false)
   const [editing, setEditing] = useState<{
     communicated_at: string
     communication_type: string
@@ -471,15 +472,112 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
         </select>
       </td>
       <td className="px-2 py-1.5 border border-gray-200 text-center">
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="text-gray-300 hover:text-red-500 transition-colors p-1"
-          title="削除"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setTaskizeOpen(true)}
+            className="text-gray-400 hover:text-brand-600 transition-colors p-1"
+            title="このやり取りから受注/管理担当タスクを作成"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="text-gray-300 hover:text-red-500 transition-colors p-1"
+            title="削除"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <ClientRequestTaskizeModal
+          isOpen={taskizeOpen}
+          onClose={() => setTaskizeOpen(false)}
+          caseId={row.case_id}
+          communicationId={row.id}
+          defaultTitle={(row.detail ?? row.communication_type ?? '').slice(0, 40)}
+          onCreated={() => { setTaskizeOpen(false); onRefresh?.() }}
+        />
       </td>
     </tr>
+  )
+}
+
+// お客様依頼やり取り → 受注/管理担当タスクを作成するモーダル。
+// 作成後は client_communication_id と origin='client_request' でリンク。
+function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, defaultTitle, onCreated }: {
+  isOpen: boolean
+  onClose: () => void
+  caseId: string
+  communicationId: string
+  defaultTitle: string
+  onCreated: () => void
+}) {
+  const [title, setTitle] = useState(defaultTitle)
+  const [dueDate, setDueDate] = useState('')
+  const [workRole, setWorkRole] = useState<'sales' | 'manager'>('sales')
+  const [busy, setBusy] = useState(false)
+
+  if (!isOpen) return null
+
+  const handleCreate = async () => {
+    if (!title.trim()) return
+    setBusy(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('tasks').insert({
+      case_id: caseId,
+      task_kind: 'system',
+      title: title.trim(),
+      category: 'お客様依頼',
+      status: '着手前',
+      priority: '通常',
+      work_role: workRole,
+      due_date: dueDate || null,
+      client_communication_id: communicationId,
+      origin: 'client_request',
+    })
+    setBusy(false)
+    if (error) {
+      showToast(`タスク作成に失敗: ${error.message}`, 'error')
+      return
+    }
+    showToast('お客様依頼タスクを作成しました', 'success')
+    onCreated()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 w-[440px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-3">
+          <ClipboardCheck className="w-4 h-4 text-brand-600" />
+          <h3 className="text-[14px] font-bold text-gray-900">お客様依頼をタスク化</h3>
+        </div>
+        <div className="space-y-2.5 text-left">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500">タスク名</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400" />
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-[11px] font-semibold text-gray-500">担当区分</label>
+              <select value={workRole} onChange={e => setWorkRole(e.target.value as 'sales' | 'manager')} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400 bg-white">
+                <option value="sales">受注担当</option>
+                <option value="manager">管理担当</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-[11px] font-semibold text-gray-500">期限</label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400" />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-500 hover:text-gray-700">キャンセル</button>
+          <button type="button" onClick={handleCreate} disabled={busy || !title.trim()} className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded hover:bg-brand-700 disabled:opacity-50">
+            {busy ? '作成中...' : 'タスク作成'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -21,6 +21,31 @@ export type ReadinessReceipt = {
   display_label?: string | null
 }
 
+// 受信簿（TimelineReceipt 形式）を Readiness 判定用に変換する。
+// started_task_id と item_tasks（複数タスク紐付け）を1行ずつに展開する。
+type TimelineReceiptShape = {
+  received_date: string | null
+  started_task_id?: string | null
+  items?: { item_name: string; item_tasks?: { task: { id: string } | null }[] | null }[] | null
+}
+export function toReadinessReceipts(receipts: TimelineReceiptShape[] | undefined | null): ReadinessReceipt[] {
+  if (!receipts) return []
+  const out: ReadinessReceipt[] = []
+  for (const r of receipts) {
+    const itemLabels = (r.items ?? []).map(i => i.item_name).filter(Boolean)
+    const label: string | null = itemLabels.length > 0 ? itemLabels.join(' / ') : null
+    const stids = new Set<string>()
+    if (r.started_task_id) stids.add(r.started_task_id)
+    for (const it of r.items ?? []) for (const itk of it.item_tasks ?? []) if (itk.task?.id) stids.add(itk.task.id)
+    if (stids.size === 0) {
+      out.push({ started_task_id: null, received_date: r.received_date, display_label: label })
+    } else {
+      for (const tid of stids) out.push({ started_task_id: tid, received_date: r.received_date, display_label: label })
+    }
+  }
+  return out
+}
+
 const normalize = (s: string) => {
   if (s === '未着手') return '着手前'
   if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'

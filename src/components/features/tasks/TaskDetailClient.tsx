@@ -3,7 +3,8 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2 } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink } from 'lucide-react'
+import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
@@ -315,6 +316,15 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         </div>
       </div>
 
+      {/* 案件サマリー — 他人が引き継いだとき、この案件と業務の現在地を10秒で把握 */}
+      {caseData && (
+        <CaseSummaryPanel
+          caseData={caseData}
+          taskPhase={task.phase}
+          caseTasks={caseTasks}
+        />
+      )}
+
       {/* 3カラムレイアウト
           左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
@@ -510,6 +520,78 @@ function TaskWorkSection({
             <span className="text-amber-600 font-medium">※完了するには入力が必須です。</span>
           </div>
         </Section>
+      )}
+    </div>
+  )
+}
+
+// タスク詳細の上部に表示する「案件サマリー」パネル。
+// 業務別タスク進捗（戸籍 8/12 等）＋ 関連の業務タブへのリンクで、
+// 別の人が引き継いだ時の10秒キャッチアップを実現する。
+function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
+  caseData: CaseRow
+  taskPhase: string | null
+  caseTasks: TaskRow[]
+}) {
+  const normalize = (s: string) => {
+    if (s === '未着手') return '着手前'
+    if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'
+    if (s === 'キャンセル') return '完了'
+    return s
+  }
+  // 業務ごとに完了/総数を集計（事務管理タスクのみ）
+  const byGyomu = new Map<string, { done: number; total: number }>()
+  for (const t of caseTasks) {
+    if (t.task_kind === 'system') continue
+    const g = (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '') || '未分類'
+    const e = byGyomu.get(g) ?? { done: 0, total: 0 }
+    e.total++
+    if (normalize(t.status) === '完了') e.done++
+    byGyomu.set(g, e)
+  }
+  const entries = [...byGyomu.entries()].sort((a, b) => b[1].total - a[1].total)
+  const targetTab = taskPhase ? GYOMU_TAB[taskPhase.replace(/^Phase\d+[:：]\s*/, '')] : null
+  const targetTabLabel: Record<string, string> = {
+    deceased: '相続人調査', assets: '財産調査', division: '遺産分割', will: '遺言',
+    registration: '相続登記', cancellation: '解約手続', trust: '信託契約',
+    renunciation: '相続放棄', mediation: '調停', probate: '遺言検認',
+    guardianship: '成年後見', referral: '他事業者紹介', contractProc: '契約残手続き',
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-[1px]" />
+        <span className="text-[13px] font-semibold text-brand-800">案件サマリー</span>
+        <span className="text-[11px] text-gray-400">引き継ぎ時の現状把握用</span>
+        {targetTab && (
+          <Link
+            href={`/cases/${caseData.id}?tab=${targetTab}`}
+            className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded border border-brand-200"
+          >
+            {targetTabLabel[targetTab] ?? targetTab} タブを開く
+            <ExternalLink className="w-3 h-3" strokeWidth={2.25} />
+          </Link>
+        )}
+      </div>
+      {entries.length === 0 ? (
+        <div className="text-[12px] text-gray-400">この案件にはまだ事務管理タスクがありません</div>
+      ) : (
+        <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {entries.map(([g, { done, total }]) => {
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            const isThis = taskPhase && g === taskPhase.replace(/^Phase\d+[:：]\s*/, '')
+            return (
+              <div key={g} className={`flex items-center gap-2 px-2.5 py-1 rounded ${isThis ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50'}`}>
+                <span className={`text-[12px] font-semibold ${isThis ? 'text-brand-800' : 'text-gray-700'} truncate w-20`}>{g}</span>
+                <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden">
+                  <div className="h-full bg-brand-600 rounded-full" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-[11px] font-mono text-gray-600 tabular-nums w-12 text-right">{done}/{total}</span>
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )

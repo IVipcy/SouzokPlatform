@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
-import { StickyNote, ExternalLink } from 'lucide-react'
+import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,8 @@ type Props = {
   salesMemberId?: string | null
   /** 進捗確認を依頼できるか（この案件の管理担当のときのみ true）。 */
   canRequestReview?: boolean
+  /** 進捗メモのタスクリンクで「完了」判定するために渡す（任意） */
+  tasks?: { id: string; status: string }[]
 }
 
 /**
@@ -25,7 +27,8 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [] }: Props) {
+  const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [newTitle, setNewTitle] = useState('')
@@ -264,14 +267,19 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             {notes.map(n => {
               // タイトル＝任意文字 or タスク名（リンク）。タスクに紐づく場合は飛べる。
               const titleText = n.title?.trim() || n.tasks?.title || null
+              const linkedTaskStatus = n.task_id ? taskStatusMap.get(n.task_id) : undefined
+              const isCompleted = linkedTaskStatus === '完了'
               return (
                 <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
-                  <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                  {isCompleted
+                    ? <CheckIcon className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+                    : <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />}
                   <div className="flex-1 min-w-0">
                     {titleText && (
                       n.task_id ? (
-                        <Link href={`/tasks/${n.task_id}`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                        <Link href={`/tasks/${n.task_id}`} className={`inline-flex items-center gap-1 text-[13px] font-semibold hover:underline ${isCompleted ? 'text-emerald-700' : 'text-brand-700'}`}>
                           {titleText}<ExternalLink className="w-3 h-3 opacity-60" />
+                          {isCompleted && <span className="ml-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1 rounded">完了</span>}
                         </Link>
                       ) : (
                         <div className="text-[13px] font-semibold text-gray-800">{titleText}</div>
