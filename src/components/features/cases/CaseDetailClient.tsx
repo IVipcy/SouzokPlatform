@@ -35,8 +35,7 @@ import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } f
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
-import { GYOMU_TAB, gyomuForCategories } from '@/lib/serviceMaster'
-import { partsForCase, isMultiPart } from '@/lib/serviceParts'
+import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone, isAllTasksDone } from '@/lib/constants'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow } from '@/types'
@@ -231,18 +230,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ...(kickoffNeeded ? ['basicInfo' as TabKey] : []),
   ]
 
-  // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）
+  // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）。
+  // 並行進行モデルのため段階表示は無し：選択業務に対応する全タブを最初から表示。
   const selectedGyomu = [...new Set((caseState.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
-  // パート制の段階表示：service_parts が明示的に入った複数パート案件のみ、
-  // 「到達済みパート（未着手以外）」の業務タブだけ出す。旧データ(service_parts無し)・単独は全業務。
-  const stagedParts = partsForCase(caseState)
-  const stagePartsActive = Array.isArray(caseState.service_parts) && caseState.service_parts.length > 0 && isMultiPart(stagedParts)
-  const reachedGyomu = stagePartsActive
-    ? new Set(gyomuForCategories(stagedParts.filter(p => p.status !== '未着手').map(p => p.key)))
-    : null
-  const visibleGyomu = reachedGyomu ? selectedGyomu.filter(g => reachedGyomu.has(g)) : selectedGyomu
   const allowedPracticeTabs = caseState.service_category
-    ? ([...new Set(visibleGyomu.map(g => GYOMU_TAB[g]).filter(Boolean))] as TabKey[])
+    ? ([...new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean))] as TabKey[])
     : undefined
 
   // ステータス連動＋業務連動のタブ表示制御

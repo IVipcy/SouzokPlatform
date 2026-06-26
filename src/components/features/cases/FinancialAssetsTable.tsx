@@ -59,13 +59,10 @@ type Props = {
   tasks?: TaskRow[]
   // 契約時にお客様から受領した金融関係書類（区分=財産のうち金融分）。表の先頭に受領済として表示。
   contractDocs?: ContractDocumentRow[]
-  // パート制：複数パート案件のとき「取得パート」バッジを表示。新規行は現在パートで記録。
-  multiPart?: boolean
-  currentPartKey?: string | null
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [], multiPart = false, currentPartKey = null }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
@@ -83,7 +80,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const addRow = async () => {
     setBusy(true)
     // 取得区分の既定は常に「自社取得」。役割分担には引っ張られない。
-    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社', acquired_part: multiPart ? currentPartKey : null }).select('*').single()
+    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as FinancialAssetRow])
@@ -98,8 +95,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除 (+取得パート)
-  const colCount = cols.length + 3 + (progressMode ? 5 : 0) + 1 + (multiPart ? 1 : 0)
+  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = cols.length + 3 + (progressMode ? 5 : 0) + 1
 
   return (
     <div>
@@ -111,7 +108,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
-              {multiPart && <th className="px-2 py-2 text-left font-semibold w-24">取得パート</th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着予定日</th>}
@@ -143,14 +139,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
                     </select>
                   </td>
-                  {/* 取得パート */}
-                  {multiPart && (
-                    <td className="px-2 py-1.5">
-                      {r.acquired_part
-                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200">{r.acquired_part}</span>
-                        : <span className="text-[11px] text-gray-300">—</span>}
-                    </td>
-                  )}
                   {/* 調査期間（任意指定の文字が潰れないよう固定幅＋折返し可） */}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1 flex-wrap">
