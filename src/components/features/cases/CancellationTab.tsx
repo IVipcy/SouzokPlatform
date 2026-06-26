@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
-import { SectionHeading } from '@/components/ui/InlineFields'
+import { Section } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
 import TabHeader from './TabHeader'
@@ -57,12 +57,13 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
       <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center text-[13px] text-gray-400">
-          財産調査タブで{SUBTABS.find(t => t.key === sub)?.label}を登録すると、ここで解約手続を管理できます。
-        </div>
+        <Section title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`}>
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">
+            財産調査タブで{SUBTABS.find(t => t.key === sub)?.label}を登録すると、ここで解約手続を管理できます。
+          </div>
+        </Section>
       ) : (
-        <div>
-          <SectionHeading title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`} className="mb-2.5" />
+        <Section title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`}>
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
             <thead>
@@ -106,7 +107,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
             </tbody>
           </table>
           </div>
-        </div>
+        </Section>
       )}
     </div>
   )

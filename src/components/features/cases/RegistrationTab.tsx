@@ -6,7 +6,7 @@ import { Plus, X, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '@/lib/constants'
-import { SectionHeading } from '@/components/ui/InlineFields'
+import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import TabHeader from './TabHeader'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
@@ -77,8 +77,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />}
-      <div>
-      <SectionHeading title="相続登記（物件ごとの手続き）" className="mb-2.5" />
+      <Section title="相続登記（物件ごとの手続き）">
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1360 }}>
           <thead>
@@ -142,11 +141,11 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
           </tbody>
         </table>
       </div>
-      </div>
       <p className="mt-2 text-[11px] text-gray-400">
         物件は財産調査タブの不動産から自動表示されます。登記情報・公図等の取得進捗は財産調査タブで管理します。
         「列を追加」で案件固有の項目（登録免許税・立会日 など）を追加できます。
       </p>
+      </Section>
       <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
     </div>
   )
