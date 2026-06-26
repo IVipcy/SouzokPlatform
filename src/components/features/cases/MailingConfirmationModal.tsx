@@ -60,11 +60,12 @@ export default function MailingConfirmationModal({ isOpen, onClose, caseData, co
   const [clientStaff, setClientStaff] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // 開いたら契約残手続きの返送分（不要以外）で初期化
+  // 開いたら契約残手続きの返送分（不要以外）で初期化。
+  // 契約残手続きが未登録 or 該当0件の場合は既定の4点を初期表示（ユーザー編集可）。
   useEffect(() => {
     if (!isOpen) return
     const names = contractDocuments.filter(d => d.status !== '不要').map(d => (d.name ?? '').trim()).filter(Boolean)
-    setReturnDocs(names.length ? names : [''])
+    setReturnDocs(names.length ? names : ['契約書', '委任状', '本人確認書類', '印鑑証明書'])
     setSendDocs(['契約書一式'])
     setShipDate(''); setClientStaff('')
   }, [isOpen, contractDocuments])
