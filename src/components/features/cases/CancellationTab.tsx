@@ -24,6 +24,8 @@ type Props = {
   onRefresh?: () => void
   // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
+  /** オーダーシート埋め込み時は TabHeader を出さない */
+  orderSheetMode?: boolean
 }
 
 /**
@@ -32,7 +34,7 @@ type Props = {
  * 「いつ解約するか（解約予定日）・終わったか（解約完了）」の進捗を管理する。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
-export default function CancellationTab({ financialAssets, onRefresh, receipts = [] }: Props) {
+export default function CancellationTab({ financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
@@ -51,7 +53,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
 
   return (
     <div>
-      <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />
+      {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />}
       <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (

@@ -72,7 +72,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など財産の調査と取得資料の管理" />
+      {!orderSheetMode && <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など財産の調査と取得資料の管理" />}
 
       {/* 財産調査条件 / 調査対象 のタブ切替 */}
       <SubTabs tabs={MAIN_TABS} active={mainTab} onChange={setMainTab} />

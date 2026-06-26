@@ -227,7 +227,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   return (
     <div>
-      <TabHeader title="相続人調査" description="被相続人・相続人の確定と、戸籍請求の管理" />
+      {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人の確定と、戸籍請求の管理" />}
 
       {/* 子タブ（相続人 / 戸籍請求） */}
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />

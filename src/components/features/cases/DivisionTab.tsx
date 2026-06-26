@@ -42,9 +42,11 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   /** 'division' = 遺産分割＋分割内容 / 'will' = 遺言＋信託 */
   mode?: 'division' | 'will'
+  /** オーダーシート埋め込み時は TabHeader を出さない */
+  orderSheetMode?: boolean
 }
 
-export default function DivisionTab({ caseData, divisionDetails, heirs, agreementDispatches = [], onRefresh, patchCase, mode = 'division' }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, heirs, agreementDispatches = [], onRefresh, patchCase, mode = 'division', orderSheetMode = false }: Props) {
   const [divSub, setDivSub] = useState<'plan' | 'mail'>('plan')
 
   const saveCaseField = async (field: string, value: string) => {
@@ -78,10 +80,12 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
 
   return (
     <div className="space-y-3.5">
-      <TabHeader
-        title={mode === 'will' ? '遺言' : '遺産分割'}
-        description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
-      />
+      {!orderSheetMode && (
+        <TabHeader
+          title={mode === 'will' ? '遺言' : '遺産分割'}
+          description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
+        />
+      )}
       {mode === 'division' && (() => {
         const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'
         // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ

@@ -15,6 +15,8 @@ import type { CaseRow } from '@/types'
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  /** オーダーシート埋め込み時は TabHeader を出さない（親のセクション見出しで足りる） */
+  orderSheetMode?: boolean
 }
 
 // 複数選択用ピル（受注区分パート）。
@@ -47,7 +49,7 @@ function MultiPills({ value, options, onChange }: { value: string[]; options: st
  *   区分は service_parts(JSONB) に順序で保持（status は形の互換性のため進行中固定・読み取らない）。
  *   完了案件で区分を追加した場合は、別途案件ステータスを手動で「対応中」に戻してください。
  */
-export default function OrderContentTab({ caseData, patchCase }: Props) {
+export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false }: Props) {
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
   // 途中（対応中）で区分を足したときに「役割分担を確認して」を促すナビ
@@ -95,7 +97,7 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="受注内容" description="受注区分・業務・作業の設計と役割分担" />
+      {!orderSheetMode && <TabHeader title="受注内容" description="受注区分・業務・作業の設計と役割分担" />}
       <Section title="受注内容">
         <div className="mb-3">
           <div className="text-[13px] text-gray-500 mb-1.5">受注区分（複数選択できます）</div>

@@ -18,6 +18,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // 契約残手続きの書類（区分=登記 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
+  /** オーダーシート埋め込み時は TabHeader を出さない */
+  orderSheetMode?: boolean
 }
 
 /**
@@ -27,7 +29,7 @@ type Props = {
  * 登記情報等の取得進捗は財産調査タブの不動産側で管理する。
  * 不動産の追加・削除は財産調査タブで行う。
  */
-export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [] }: Props) {
+export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => { setRows(properties) }, [properties])
@@ -74,7 +76,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />
+      {!orderSheetMode && <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />}
       <div>
       <SectionHeading title="相続登記（物件ごとの手続き）" className="mb-2.5" />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
