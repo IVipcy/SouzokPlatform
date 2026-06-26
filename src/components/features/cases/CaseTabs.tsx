@@ -51,19 +51,19 @@ const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
 
 type Group = 'main' | 'practice' | 'info' | 'header'
 const TAB_GROUP: Record<TabKey, Group> = {
-  basicInfo: 'main', orderSheet: 'main', tasks: 'main',
+  basicInfo: 'main', orderSheet: 'main', clientInfo: 'main', tasks: 'main',
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
-  ownerSales: 'info', orderContent: 'info', clientInfo: 'info', contract: 'info',
+  ownerSales: 'info', orderContent: 'info', contract: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',
 }
 
 const DEFAULT_TABS: TabKey[] = [
-  'basicInfo', 'orderSheet', 'tasks',
+  'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
-  'ownerSales', 'orderContent', 'clientInfo', 'contract', 'meeting', 'contractProc',
+  'ownerSales', 'orderContent', 'contract', 'meeting', 'contractProc',
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs }: Props) {

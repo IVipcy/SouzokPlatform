@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { ClipboardList, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import TaskKanbanView from '@/components/features/tasks/TaskKanbanView'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import TabHeader from './TabHeader'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -30,10 +34,40 @@ const STATUS_PILLS = ['着手前', '対応中', '完了'] as const
 const STATUS_LABEL: Record<string, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
 
 export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
   const [kind, setKind] = useState<'system' | 'case'>('case')
   const [statuses, setStatuses] = useState<Set<string>>(new Set())
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const today = new Date().toISOString().split('T')[0]
+
+  // カンバンの「着手→完了」アクション。事務管理タスクのカード操作用。
+  const handleAdvance = async (task: TaskRow) => {
+    if (busyId) return
+    const current = normalizeStatus(task.status)
+    if (current === '完了') return
+    setBusyId(task.id)
+    try {
+      const supabase = createClient()
+      const next = current === '着手前' ? '対応中' : '完了'
+      const patch: { status: string; started_by?: string; started_at?: string } = { status: next }
+      if (next === '対応中' && currentMemberId && !task.started_by) {
+        patch.started_by = currentMemberId
+        patch.started_at = new Date().toISOString()
+      }
+      const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
+      if (error) throw error
+      showToast(`「${task.title}」を${next === '対応中' ? '着手' : '完了'}しました`, 'success')
+      startTransition(() => router.refresh())
+    } catch (e) {
+      console.error(e)
+      showToast('エラーが発生しました', 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   // 進捗率
   const totalTasks = tasks.length
@@ -130,16 +164,27 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
             </div>
           </div>
 
-          <SystemTaskList
-            tasks={filtered}
-            title="タスク一覧"
-            showCase={false}
-            includeCompleted
-            selectable
-            hideCategory
-            showGyomu={kind === 'case'}
-            currentMemberId={currentMemberId ?? undefined}
-          />
+          {kind === 'case' ? (
+            <Section title="タスク（事務管理）">
+              <TaskKanbanView
+                tasks={filtered}
+                today={today}
+                onAdvance={handleAdvance}
+                loadingTaskId={busyId}
+                hideCase
+              />
+            </Section>
+          ) : (
+            <SystemTaskList
+              tasks={filtered}
+              title="タスク一覧"
+              showCase={false}
+              includeCompleted
+              selectable
+              hideCategory
+              currentMemberId={currentMemberId ?? undefined}
+            />
+          )}
         </div>
       )}
     </div>

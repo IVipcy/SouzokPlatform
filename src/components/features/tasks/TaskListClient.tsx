@@ -8,7 +8,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
-import CaseStatusBoard from './CaseStatusBoard'
+import TaskKanbanView from './TaskKanbanView'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -52,8 +52,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
   const [filterUrgent, setFilterUrgent] = useState(false)
   const [search, setSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
-  const [viewTab, setViewTab] = useState<'tasks' | 'cases'>('tasks')
+  // 既定はカンバン（Readiness基準で「次やる」が見つけやすい）
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
@@ -298,13 +298,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           }
         />
 
-        {/* サブタブ: タスク一覧 / 案件状況ボード */}
-        <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
-          <SubTabBtn active={viewTab === 'tasks'} onClick={() => setViewTab('tasks')} label="タスク一覧" />
-          <SubTabBtn active={viewTab === 'cases'} onClick={() => setViewTab('cases')} label="案件状況" />
-        </div>
-
-        {viewTab === 'tasks' && (<>
         {/* Quick filters: 自分のタスク / 要対応 */}
         <div className="flex gap-2 mb-3 items-center">
           <button
@@ -374,12 +367,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             </div>
           </div>
         </div>
-        </>)}
       </div>
 
-      {viewTab === 'cases' ? (
-        <CaseStatusBoard tasks={tasks} caseMap={caseMap} />
-      ) : (
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
       {selectedIds.size > 0 && viewMode === 'list' && (
@@ -408,18 +397,15 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           onToggleSelectAll={toggleSelectAll}
         />
       ) : (
-        <TaskKanban
+        <TaskKanbanView
           tasks={filtered}
           caseMap={caseMap}
-          allMembers={allMembers}
+          today={today}
           onAdvance={handleAdvance}
           loadingTaskId={loadingTaskId}
-          onDelete={setDeleteTask}
-          today={today}
         />
       )}
       </>
-      )}
 
       {editTask && (
         <EditTaskModal
@@ -816,96 +802,7 @@ function BulkActionBar({ count, busy, onClear, onStatus, onDelete }: {
   )
 }
 
-// ─── Task Kanban ───
-function TaskKanban({ tasks, caseMap, allMembers, onAdvance, loadingTaskId, onDelete, today }: {
-  tasks: TaskRow[]
-  caseMap: Record<string, CaseInfo>
-  allMembers: MemberRow[]
-  onAdvance: (task: TaskRow) => void
-  loadingTaskId: string | null
-  onDelete: (task: TaskRow) => void
-  today: string
-}) {
-  return (
-    <div className="overflow-x-auto pb-3">
-      <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-        {TASK_STATUSES.map(status => {
-          const columnTasks = tasks.filter(t => normalizeStatus(t.status) === status.key)
-          return (
-            <div key={status.key} className="w-[260px] flex-shrink-0">
-              <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 flex items-center gap-2 shadow-sm mb-2">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                <span className="text-xs font-semibold flex-1">{status.key}</span>
-                <span className="text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{columnTasks.length}</span>
-              </div>
-              <div className="flex flex-col gap-1.5" style={{ minHeight: 80 }}>
-                {columnTasks.length === 0 ? (
-                  <div className="text-center text-[13px] text-gray-300 py-5 border border-dashed border-gray-200 rounded-lg">なし</div>
-                ) : columnTasks.map(task => {
-                  const caseInfo = caseMap[task.case_id]
-                  const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
-                  const isOverdue = !!(task.due_date && task.due_date < today && normalizeStatus(task.status) !== '完了')
-                  const wr = getWorkRoleDef(task.work_role)
-                  return (
-                    <div
-                      key={task.id}
-                      className={`bg-white border border-gray-200 rounded-lg p-3 shadow-sm ${task.priority === '急ぎ' ? 'border-l-[3px] border-l-red-500' : ''}`}
-                      style={task.priority !== '急ぎ' && task.work_role ? { borderLeft: `3px solid ${wr?.bar ?? '#E5E7EB'}` } : undefined}
-                    >
-                      {wr && (() => {
-                        const WrIcon = wr.Icon
-                        return (
-                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold border mb-1 ${wr.pill}`}>
-                            <WrIcon className="w-3 h-3" strokeWidth={2.25} />
-                            {wr.shortLabel}
-                          </span>
-                        )
-                      })()}
-                      <a href={`/tasks/${task.id}`} className={`block text-xs font-semibold mb-1 leading-tight cursor-pointer hover:text-brand-600 ${normalizeStatus(task.status) === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                        {task.title}
-                      </a>
-                      {caseInfo && <div className="text-[12px] text-gray-400 mb-1.5">{caseInfo.case_number} {caseInfo.deal_name}</div>}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          {startedMember && (
-                            <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: startedMember.avatar_color }} title={startedMember.name}>
-                              {startedMember.name.charAt(0)}
-                            </span>
-                          )}
-                          <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loadingTaskId === task.id} />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {task.due_date && <span className={`text-[12px] font-mono ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>{task.due_date}</span>}
-                          <button onClick={() => onDelete(task)} className="w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition" title="削除">
-                            <Trash2 className="w-3 h-3" strokeWidth={1.75} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ─── Sub components ───
-function SubTabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
-    >
-      {label}
-    </button>
-  )
-}
-
 function FilterTab({ label, active, onClick, count, accent }: { label: string; active: boolean; onClick: () => void; count?: number; accent?: 'danger' }) {
   const activeCls = accent === 'danger'
     ? 'bg-red-600 text-white font-semibold shadow-sm'
