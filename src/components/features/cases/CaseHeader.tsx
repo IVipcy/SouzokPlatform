@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Inbox, FilePlus, ChevronDown } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import { FieldGrid, Field, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, LOCATIONS, hasInheritanceTaxFiling } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
+import type { TabKey } from './CaseTabs'
 import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
 
 // 案件分類（相談案件 / 個別管理案件 / 管理案件）のラベルと色
@@ -28,12 +30,21 @@ type Props = {
   // どのタブからでもステータス変更できるよう、ヘッダーに常時表示する
   selectableStatuses?: string[]
   onStatusChange?: (status: string) => void
-  // 基本情報（管理メタ情報）の編集用。渡すとヘッダーに「案件情報 ▾」が出る。
+  // 基本情報（管理メタ情報）の編集用。渡すとヘッダーに「管理情報 ▾」が出る。
   patchCase?: (patch: Partial<CaseRow>) => Promise<void>
   // 他事業者紹介（税理士の依頼内容から相続税申告あり/なしを判定）
   referrals?: CaseReferralRow[]
   // 相続税申告フラグのクリックでオーダーシートの他事業者紹介セクションへ移動
   onJumpToReferral?: () => void
+  // ヘッダー右上のアクションボタン（到着物・書類作成）
+  // 案件状態でこれらタブが表示可能なときだけ true にする（タブ表示制御と連動）。
+  showDocsAction?: boolean
+  showDocumentCreateAction?: boolean
+  docCount?: number
+  /** docs/documentCreate がナビ強調対象なら、それぞれのボタンに●を出す */
+  highlightTabs?: TabKey[]
+  /** ボタンクリックで該当タブへ遷移する */
+  onActivateTab?: (tab: TabKey) => void
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -47,7 +58,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, patchCase, referrals, onJumpToReferral }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, patchCase, referrals, onJumpToReferral, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
   const [detailOpen, setDetailOpen] = useState(false)
   const saveCaseField = async (field: string, value: unknown) => {
     if (patchCase) await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
@@ -158,8 +169,8 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             <MilestoneAxis caseData={caseData} tasks={tasks} statusHistory={statusHistory} compact />
           </div>
 
-          {/* 右上: アラート集約 */}
-          <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap justify-end" style={{ maxWidth: '30%' }}>
+          {/* 右上: アラート集約＋アクションボタン（到着物・書類作成） */}
+          <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap justify-end" style={{ maxWidth: '45%' }}>
             {alertChips.map((c, i) => (
               <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)]">
                 <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
@@ -169,10 +180,47 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             {caseData.difficulty && (
               <Badge label={caseData.difficulty} color={difficultyColors[caseData.difficulty] ?? '#6B7280'} variant="solid" />
             )}
+
+            {(showDocsAction || showDocumentCreateAction) && (
+              <>
+                {(alertChips.length > 0 || caseData.difficulty) && (
+                  <span className="w-px h-5 bg-gray-200 mx-0.5" aria-hidden="true" />
+                )}
+                {showDocsAction && (
+                  <button
+                    type="button"
+                    onClick={() => onActivateTab?.('docs')}
+                    title="到着物（受信簿）を開く"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
+                  >
+                    <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
+                    到着物
+                    {(highlightTabs ?? []).includes('docs') && (
+                      <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
+                    )}
+                    <span className="bg-white text-brand-700 border border-brand-200 rounded-full px-1.5 text-[11px] font-mono leading-tight">{docCount}</span>
+                  </button>
+                )}
+                {showDocumentCreateAction && (
+                  <button
+                    type="button"
+                    onClick={() => onActivateTab?.('documentCreate')}
+                    title="書類作成"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+                  >
+                    <FilePlus className="w-3.5 h-3.5" strokeWidth={2.25} />
+                    書類作成
+                    <ChevronDown className="w-3 h-3" strokeWidth={2.5} />
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* 案件情報（基本情報＝管理メタ。既定は閉じる。クリックで展開） */}
+        {/* 管理情報（LP番号・原本保管場所・受注日等のメタ）。既定は閉じる。
+            ※ タブ群の「案件情報」（担当ルート/受注内容/依頼者/報酬請求）とは別物のため
+              「管理情報」と表記して衝突回避。 */}
         {patchCase && (
           <div className="mt-2.5 pt-2.5 border-t border-gray-100">
             <button
@@ -180,7 +228,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
               onClick={() => setDetailOpen(o => !o)}
               className="text-[12px] font-semibold text-gray-500 hover:text-brand-600 inline-flex items-center gap-1"
             >
-              案件情報 <span className="text-[10px]">{detailOpen ? '▴' : '▾'}</span>
+              管理情報 <span className="text-[10px]">{detailOpen ? '▴' : '▾'}</span>
             </button>
             {detailOpen && (
               <div className="mt-1.5">

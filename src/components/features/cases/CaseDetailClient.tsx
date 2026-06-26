@@ -263,6 +263,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           setActiveTab('orderSheet')
           setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
         }}
+        showDocsAction={tabVis.visible.includes('docs')}
+        showDocumentCreateAction={tabVis.visible.includes('documentCreate')}
+        docCount={documents.length}
+        highlightTabs={navHighlightTabs}
+        onActivateTab={setActiveTab}
       />
 
       <div ref={navWrapRef} className="relative">
@@ -270,7 +275,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           activeTab={effectiveTab}
           onTabChange={setActiveTab}
           taskCount={tasks.length}
-          docCount={documents.length}
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
