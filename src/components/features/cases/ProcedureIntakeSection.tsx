@@ -108,10 +108,10 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
         <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
         <button type="button" onClick={applyBulk} disabled={!bulkStatus && !bulkDate} className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100 disabled:opacity-50">すべてに適用</button>
       </div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">到着予定日</th>
@@ -210,10 +210,10 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                 <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
                 <span className="text-[12.5px] font-bold text-gray-700">{g}</span>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+                    <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                       <th className="px-2.5 py-2 text-left font-semibold w-64">作業</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-28">作業区分</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-36">担当</th>

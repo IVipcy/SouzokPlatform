@@ -88,7 +88,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     <div>
       {/* 契約時に受領済の戸籍（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1240 : 820 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">

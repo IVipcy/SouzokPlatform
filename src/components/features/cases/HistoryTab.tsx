@@ -4,6 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { StickyNote, ExternalLink } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
+import { Section } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -135,36 +136,36 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
       {/* 進捗報告 */}
-      <div>
-        <div className="mb-1.5 flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] font-bold text-gray-700">進捗報告</span>
-          {canRequestReview && (
-            <div className="ml-auto flex items-center gap-2">
-              <input
-                type="text"
-                value={reviewPointInput}
-                onChange={e => setReviewPointInput(e.target.value)}
-                placeholder="確認ポイント（確認してほしい内容・任意）"
-                className="text-[12px] border border-gray-200 rounded-md px-2.5 py-1.5 w-72 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-              />
-              <button
-                type="button"
-                onClick={handleRequestReview}
-                disabled={requesting}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
-              >
-                {requesting ? '依頼中...' : '進捗確認を依頼'}
-              </button>
-            </div>
-          )}
-        </div>
-        <p className="text-[11px] text-gray-400 mb-2">確認ポイントを書いて依頼→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認済」</span>を押します（依頼者本人は押せません）。</p>
+      <Section
+        title="進捗報告"
+        actionLabel={canRequestReview ? undefined : undefined}
+      >
+        {canRequestReview && (
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+            <input
+              type="text"
+              value={reviewPointInput}
+              onChange={e => setReviewPointInput(e.target.value)}
+              placeholder="確認ポイント（確認してほしい内容・任意）"
+              className="flex-1 min-w-[200px] text-[12px] border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+            />
+            <button
+              type="button"
+              onClick={handleRequestReview}
+              disabled={requesting}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              {requesting ? '依頼中...' : '進捗確認を依頼'}
+            </button>
+          </div>
+        )}
+        <p className="text-[11px] text-gray-400 mb-2.5">確認ポイントを書いて依頼→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認済」</span>を押します（依頼者本人は押せません）。</p>
         {progressReports.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
@@ -224,74 +225,69 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             </table>
           </div>
         )}
-      </div>
+      </Section>
 
       {/* 進捗メモ */}
-      <div>
-        <div className="mb-2 text-[13px] font-bold text-gray-700">進捗メモ</div>
-        <div className="space-y-3">
-          <div className="flex gap-2 items-start">
-            <div className="flex-1 space-y-2">
-              <input
-                type="text"
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                placeholder="タイトル（任意）"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-              />
-              <input
-                type="text"
-                value={newNote}
-                onChange={e => setNewNote(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                placeholder="例：Aさんが戸籍請求中（□□市）"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-              />
-            </div>
-            <button
-              onClick={handleAddNote}
-              disabled={saving || !newNote.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-            >
-              {saving ? '追加中...' : '追加'}
-            </button>
+      <Section title="進捗メモ">
+        <div className="flex gap-2 items-start mb-3">
+          <div className="flex-1 space-y-2">
+            <input
+              type="text"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder="タイトル（任意）"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+            />
+            <input
+              type="text"
+              value={newNote}
+              onChange={e => setNewNote(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+              placeholder="例：Aさんが戸籍請求中（□□市）"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+            />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-            {loading ? (
-              <div className="text-center text-sm text-gray-400 py-4">読み込み中...</div>
-            ) : notes.length === 0 ? (
-              <div className="text-center text-sm text-gray-400 py-4">メモはまだありません</div>
-            ) : (
-              <div className="space-y-2.5">
-                {notes.map(n => {
-                  // タイトル＝任意文字 or タスク名（リンク）。タスクに紐づく場合は飛べる。
-                  const titleText = n.title?.trim() || n.tasks?.title || null
-                  return (
-                    <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
-                      <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                      <div className="flex-1 min-w-0">
-                        {titleText && (
-                          n.task_id ? (
-                            <Link href={`/tasks/${n.task_id}`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
-                              {titleText}<ExternalLink className="w-3 h-3 opacity-60" />
-                            </Link>
-                          ) : (
-                            <div className="text-[13px] font-semibold text-gray-800">{titleText}</div>
-                          )
-                        )}
-                        <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
-                        <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                          {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          <button
+            onClick={handleAddNote}
+            disabled={saving || !newNote.trim()}
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? '追加中...' : '追加'}
+          </button>
         </div>
-      </div>
+        {loading ? (
+          <div className="text-center text-sm text-gray-400 py-4">読み込み中...</div>
+        ) : notes.length === 0 ? (
+          <div className="text-center text-sm text-gray-400 py-4">メモはまだありません</div>
+        ) : (
+          <div className="space-y-2.5">
+            {notes.map(n => {
+              // タイトル＝任意文字 or タスク名（リンク）。タスクに紐づく場合は飛べる。
+              const titleText = n.title?.trim() || n.tasks?.title || null
+              return (
+                <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
+                  <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                  <div className="flex-1 min-w-0">
+                    {titleText && (
+                      n.task_id ? (
+                        <Link href={`/tasks/${n.task_id}`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                          {titleText}<ExternalLink className="w-3 h-3 opacity-60" />
+                        </Link>
+                      ) : (
+                        <div className="text-[13px] font-semibold text-gray-800">{titleText}</div>
+                      )
+                    )}
+                    <div className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">{n.description}</div>
+                    <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                      {n.activity_date}{n.members?.name ? ` · ${n.members.name}` : ''}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Section>
     </div>
   )
 }

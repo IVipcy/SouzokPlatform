@@ -60,7 +60,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
 
   return (
     <div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 940 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">

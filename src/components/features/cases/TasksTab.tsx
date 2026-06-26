@@ -4,8 +4,10 @@ import { useState, useMemo } from 'react'
 import { ClipboardList, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
+import { Section } from '@/components/ui/InlineFields'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import TabHeader from './TabHeader'
 import type { TaskRow, MemberRow } from '@/types'
 
 type Props = {
@@ -54,22 +56,27 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   }), [tasks, kind, statuses])
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-bold text-gray-900 flex-1">タスク管理</h2>
-        <Button variant="secondary" size="sm" leftIcon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onBulkGenerate}>
-          一括生成
-        </Button>
-        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={onAddTask}>
-          タスク追加
-        </Button>
-      </div>
+    <div className="space-y-3.5">
+      <TabHeader
+        title="タスク"
+        description="案件のタスク（事務管理・受注/管理担当）の進捗管理"
+        right={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" leftIcon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onBulkGenerate}>
+              一括生成
+            </Button>
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={onAddTask}>
+              タスク追加
+            </Button>
+          </div>
+        }
+      />
 
       {/* 進捗バー */}
       {totalTasks > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+        <Section title="案件進捗">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-gray-700">案件進捗</span>
+            <span className="text-sm font-semibold text-gray-700">タスク進捗</span>
             <span className="text-sm font-bold text-brand-600">{progressPercent}% <span className="text-gray-400 font-normal text-xs">({completedTasks}/{totalTasks})</span></span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -86,7 +93,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
             <span>対応中: {doingTasks}</span>
             <span>完了: {completedTasks}</span>
           </div>
-        </div>
+        </Section>
       )}
 
       {totalTasks === 0 ? (

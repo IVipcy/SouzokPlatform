@@ -115,8 +115,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           {/* 現在の状況・次やること（最新の実施結果＋次タスク＋着手ナビ）。翌日の作業者向け */}
           <CaseCurrentStatusCard tasks={tasks} caseId={caseData.id} status={caseData.status} />
 
-          {/* 作業の進捗（タスク・書類の線表）。カード枠で他セクションと統一 */}
-          <div className="bg-white border border-gray-200 rounded px-4 py-3.5">
+          {/* 作業の進捗（タスク・書類の線表） */}
+          <Section title="作業の進捗（タスク・書類）">
             <CaseTimeline
               caseData={caseData}
               tasks={tasks}
@@ -125,18 +125,13 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
               variant="detail"
               embedded
             />
-          </div>
+          </Section>
 
-          {/* 契約時にお客様から受け取った資料の一覧（戸籍/財産/不動産で散在するものを集約）。添付の確認も */}
+          {/* 契約時にお客様から受け取った資料の一覧（戸籍/財産/不動産で散在するものを集約） */}
           {contractDocuments.filter(d => d.status !== '不要').length > 0 && (
-            <div className="bg-white border border-gray-200 rounded px-4 py-3.5 mt-4">
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-                <h3 className="text-[13px] font-semibold text-brand-800">契約時に事前に受け取った資料</h3>
-                <span className="text-[12px] text-gray-400">タスクを考える前にここで確認</span>
-              </div>
+            <Section title="契約時に事前に受け取った資料">
               <ContractReceivedBlock docs={contractDocuments} caseId={caseData.id} onRefresh={() => router.refresh()} />
-            </div>
+            </Section>
           )}
         </div>
       )}

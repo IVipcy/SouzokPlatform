@@ -75,7 +75,7 @@ export default function SagyoDocumentsTable({ caseId, gyomu, sagyou, documents, 
 
   return (
     <div className="pl-1">
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[11.5px] text-gray-500">

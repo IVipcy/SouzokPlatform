@@ -75,10 +75,10 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     <div>
       {/* 契約時に受領済の不動産関係書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1100 : 720 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-32">取得物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">対象</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">請求先</th>

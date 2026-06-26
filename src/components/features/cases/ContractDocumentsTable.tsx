@@ -111,10 +111,10 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
           </button>
         ))}
       </div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 960 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>

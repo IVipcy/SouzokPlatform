@@ -48,10 +48,10 @@ export default function DivisionDetailsTable({ caseId, details, heirs, onRefresh
 
   return (
     <div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold">財産区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">分割方法</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">取得者</th>

@@ -78,7 +78,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />}
       <Section title="相続登記（物件ごとの手続き）">
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1360 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">

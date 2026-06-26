@@ -272,7 +272,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               相続人を追加してください
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-4 -mb-3">
+            <div className="overflow-x-auto">
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>

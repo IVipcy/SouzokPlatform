@@ -86,7 +86,7 @@ export default function ProcedureDocsTable({ caseId, gyomu, docRoles, documents,
   return (
     <div>
       <div className="mb-2 text-[12px] text-gray-500">受領 <span className="font-semibold text-green-600">{recvCount}</span> / {docRoles.length}</div>
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-[11.5px] text-gray-500">
