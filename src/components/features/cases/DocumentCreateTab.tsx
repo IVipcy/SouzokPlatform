@@ -5,6 +5,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, DocumentRow, KosekiRequestRow } from '@/types'
 import DocumentGenerators from './DocumentGenerators'
 import CreatedDocsList from './CreatedDocsList'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -22,7 +23,8 @@ export default function DocumentCreateTab({ caseData, tasks, heirs, properties, 
   const [sub, setSub] = useState<'create' | 'list'>('create')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
+      <TabHeader title="書類作成" description="戸籍請求書・委任状・契約書・領収書など、自社で作成する書類の生成と一覧" />
       <SubTabs
         tabs={[{ key: 'create', label: '書類作成' }, { key: 'list', label: `作成書類一覧 ${createdDocuments.length}` }]}
         active={sub}

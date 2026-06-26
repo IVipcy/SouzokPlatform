@@ -13,9 +13,6 @@ const ACCEPTED_EXT_LABEL = 'PDF / JPG / PNG / Word / Excel'
 type Props = {
   caseId: string
   rows: CaseDocumentRow[]
-  /** セクションタイトル（指定するとカード上部にアクセント付きヘッダー） */
-  title?: string
-  subtitle?: string
   /** 「+書類を追加」で挿入する行に紐づけるタスクID。
    *  タスク詳細から作成する際に渡すと、クロスタスクで参照可能になる。 */
   defaultTaskId?: string | null
@@ -50,7 +47,7 @@ function fmtDate(iso: string | null): string {
  *   - 書類名 / ファイル更新日 / ファイル(プレビュー or DL) の3列のみ
  *   - 状態フィルタや発送/受領カラムは廃止
  */
-export default function CaseDocumentTable({ caseId, rows, title, subtitle, defaultTaskId = null, noun = '書類' }: Props) {
+export default function CaseDocumentTable({ caseId, rows, defaultTaskId = null, noun = '書類' }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [adding, setAdding] = useState(false)
@@ -79,15 +76,7 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, defau
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      {title && (
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-          <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-          <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
-          {subtitle && <span className="text-[12px] font-normal text-gray-400">{subtitle}</span>}
-        </div>
-      )}
-
+    <div>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <colgroup>
@@ -97,7 +86,7 @@ export default function CaseDocumentTable({ caseId, rows, title, subtitle, defau
             <col style={{ width: 50 }} />
           </colgroup>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 text-[12px]">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-3 py-2 text-left font-semibold">{noun}名</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル更新日</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル</th>
