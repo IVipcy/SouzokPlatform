@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { Inbox, FilePlus, ChevronDown } from 'lucide-react'
-import Badge from '@/components/ui/Badge'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, hasInheritanceTaxFiling } from '@/lib/constants'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
@@ -56,16 +55,30 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
 
 export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, referrals, onJumpToReferral, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
-  const difficultyColors: Record<string, string> = { '易': '#059669', '普': '#D97706', '難': '#DC2626' }
   const taxFiling = hasInheritanceTaxFiling(referrals)
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
   const category = getCaseCategory(caseData.status)
   const categoryStyle = category ? CATEGORY_STYLE[category] : null
 
-  const alertChips: { dot: string; label: string }[] = [
-    ...(caseAlerts ?? []).map(a => ({ dot: ALERT_SEVERITY_STYLE[a.severity].dot, label: a.category })),
-    ...(followupNeeded ? [{ dot: 'bg-amber-500', label: '要進捗連絡' }] : []),
+  // アラートのジャンプ先（カテゴリ→タブ）。クリックで該当タブへ飛ばす。
+  const alertJump = (label: string): TabKey | null => {
+    if (label === '週次報告の漏れ') return 'basicInfo'                 // 進捗報告(HistoryTab)
+    if (label === '要進捗連絡') return 'clientInfo'                    // 依頼者・やり取り
+    if (label.startsWith('タスク期限超過')) return 'tasks'
+    if (label === 'クレーム') return 'basicInfo'
+    if (label === '書類到着（着手待ち）') return 'docs'
+    if (label === '書類 未処理（放置）') return 'docs'
+    if (label === 'アサイン未完了') return 'ownerSales'
+    if (label === '前受金 未入金') return 'contract'
+    if (label === '完了予定日 超過') return 'meeting'                  // 管理情報セクションへ
+    if (label === '面談メモ未記載') return 'meeting'
+    if (label === '回答予定日 超過' || label === '回答予定日 間近') return 'meeting'
+    return null
+  }
+  const alertChips: { dot: string; label: string; tab: TabKey | null }[] = [
+    ...(caseAlerts ?? []).map(a => ({ dot: ALERT_SEVERITY_STYLE[a.severity].dot, label: a.category, tab: alertJump(a.category) })),
+    ...(followupNeeded ? [{ dot: 'bg-amber-500', label: '要進捗連絡', tab: alertJump('要進捗連絡') }] : []),
   ]
 
   return (
@@ -164,18 +177,28 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
           {/* 右上: アラート集約＋アクションボタン（到着物・書類作成） */}
           <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap justify-end" style={{ maxWidth: '45%' }}>
             {alertChips.map((c, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)]">
-                <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                {c.label}
-              </span>
+              c.tab && onActivateTab ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onActivateTab(c.tab!)}
+                  title={`「${c.label}」の出元へ移動`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)] hover:bg-brand-50 hover:border-brand-200 hover:text-brand-800 transition-colors cursor-pointer"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                  {c.label}
+                </button>
+              ) : (
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)]">
+                  <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                  {c.label}
+                </span>
+              )
             ))}
-            {caseData.difficulty && (
-              <Badge label={caseData.difficulty} color={difficultyColors[caseData.difficulty] ?? '#6B7280'} variant="solid" />
-            )}
 
             {(showDocsAction || showDocumentCreateAction) && (
               <>
-                {(alertChips.length > 0 || caseData.difficulty) && (
+                {alertChips.length > 0 && (
                   <span className="w-px h-5 bg-gray-200 mx-0.5" aria-hidden="true" />
                 )}
                 {showDocsAction && (
