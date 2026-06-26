@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Check, Info } from 'lucide-react'
+import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
@@ -12,11 +12,9 @@ type Props = {
   onTabChange: (tab: TabKey) => void
   taskCount: number
   visibleTabs?: TabKey[]
-  // 互換のため受け取るが未使用（案件情報グループはドロップダウン化したため）
   collapsedTabs?: TabKey[]
-  // フロー・ナビゲーターが指し示すタブ（青outlineピル＋●で強調・複数可・順不同）
   highlightTabs?: TabKey[]
-  // 案件情報ドロップダウンの先頭「管理情報」クリックでこのコールバックを呼ぶ
+  /** 互換のため残置（管理情報は MeetingInfoTab の案件情報セクションへ統合済み） */
   onOpenManagementInfo?: () => void
 }
 
@@ -68,7 +66,7 @@ const DEFAULT_TABS: TabKey[] = [
   'ownerSales', 'orderContent', 'clientInfo', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, onOpenManagementInfo }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs }: Props) {
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
   const counts: Record<string, number> = { taskCount }
@@ -78,7 +76,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   const infoTabs = all.filter(t => TAB_GROUP[t] === 'info')
 
   return (
-    <div data-tabbar className="flex items-center gap-x-5 gap-y-1 flex-wrap border-b border-gray-200 mb-5 px-1">
+    <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
       {mainTabs.map(key => (
         <Tab key={key} tabKey={key}
           isActive={activeTab === key}
@@ -96,18 +94,22 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
       {(mainTabs.length > 0 || practiceTabs.length > 0) && infoTabs.length > 0 && <VDivider />}
       {infoTabs.length > 0 && (
         <InfoDropdown tabs={infoTabs} activeTab={activeTab} highlightSet={highlightSet}
-          onTabChange={onTabChange} onOpenManagementInfo={onOpenManagementInfo} />
+          onTabChange={onTabChange} />
       )}
     </div>
   )
 }
 
 function VDivider() {
-  return <span aria-hidden="true" className="w-px h-4 bg-gray-200 self-center" />
+  return <span aria-hidden="true" className="w-px h-5 bg-gray-300 self-center mx-1" />
 }
 
-// 通常タブ＝テキスト＋下線アクティブ。ナビ強調タブだけ青outlineピル形（現状踏襲）。
-// 両方の状態は、ピル形＋アクティブの強調（背景薄塗り＋太字）で表現する。
+// 各タブは独立した枠付きピル。コンテナ無し、グレー背景に直置き。
+//   通常       = 白bg + 1px灰border + 灰文字
+//   ホバー     = 薄ブランド色bg + ブランド色文字
+//   アクティブ = ブランド色solid + 白文字
+//   ナビ強調   = 白bg + 1.5px青outline + 青文字 + ●（現状踏襲）
+//   両方       = アクティブの上に薄青outlineをグロー（box-shadow）として乗せる
 function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
   tabKey: TabKey
   isActive: boolean
@@ -115,52 +117,46 @@ function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
   count?: number
   onClick: () => void
 }) {
-  // ナビ強調はピル形に切替。アクティブと両立する場合は薄塗り＋太字で重ねる。
-  if (isHighlight) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        data-nav-tab={tabKey}
-        className={`my-1.5 px-2.5 py-0.5 rounded-full border-[1.5px] border-brand-200 text-[12px] inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-          isActive ? 'bg-brand-50 text-brand-700 font-semibold' : 'bg-white text-brand-800 hover:bg-brand-50/60'
-        }`}
-      >
-        {TAB_LABELS[tabKey]}
-        <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
-        {count !== undefined && (
-          <span className="bg-white text-brand-700 border border-brand-200 rounded-full px-1.5 text-[11px] font-mono leading-tight">{count}</span>
-        )}
-      </button>
-    )
+  const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap transition-colors cursor-pointer'
+  let state: string
+  let extraStyle: React.CSSProperties = {}
+  if (isActive && isHighlight) {
+    state = 'bg-brand-600 text-white font-medium border border-brand-600'
+    extraStyle = { boxShadow: '0 0 0 2px rgba(182, 199, 244, 0.7)' }
+  } else if (isActive) {
+    state = 'bg-brand-600 text-white font-medium border border-brand-600'
+  } else if (isHighlight) {
+    state = 'bg-white text-brand-800 font-medium border-[1.5px] border-brand-200 hover:bg-brand-50/60'
+  } else {
+    state = 'bg-white text-gray-600 border border-gray-200 hover:bg-brand-50/60 hover:text-brand-700 hover:border-brand-200'
   }
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`py-2.5 text-[13px] border-b-2 -mb-px whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
-        isActive
-          ? 'text-brand-600 border-brand-600 font-semibold'
-          : 'text-gray-500 border-transparent hover:text-gray-800'
-      }`}
+      data-nav-tab={isHighlight ? tabKey : undefined}
+      style={extraStyle}
+      className={`${base} ${state}`}
     >
       {TAB_LABELS[tabKey]}
       {count !== undefined && (
-        <span className={`ml-1 text-[11px] font-mono px-1.5 rounded-full ${
-          isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-500'
+        <span className={`text-[11px] font-mono px-1.5 rounded-full ${
+          isActive ? 'bg-white/20 text-white' : isHighlight ? 'bg-white text-brand-700 border border-brand-200' : 'bg-gray-100 text-gray-500'
         }`}>{count}</span>
+      )}
+      {isHighlight && (
+        <span className={`font-bold text-[10px] leading-none ${isActive ? 'text-white' : 'text-brand-600'}`}>●</span>
       )}
     </button>
   )
 }
 
-// 案件情報グループのドロップダウン。先頭に「管理情報」、続いてグループ内のタブ。
-function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, onOpenManagementInfo }: {
+// 案件情報グループのドロップダウン。閉じてる時のボタンも他タブと同じ枠付きピル形。
+function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange }: {
   tabs: TabKey[]
   activeTab: TabKey
   highlightSet: Set<TabKey>
   onTabChange: (t: TabKey) => void
-  onOpenManagementInfo?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -181,19 +177,20 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, onOpenManage
 
   const isOnInfo = tabs.includes(activeTab)
   const hasHighlight = tabs.some(t => highlightSet.has(t))
-  // 案件情報タブを選択中なら、ボタンのラベルは選択中タブ名にする（今どこ判別のため）
   const buttonLabel = isOnInfo ? TAB_LABELS[activeTab] : '案件情報'
+  const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap transition-colors cursor-pointer'
+  const state = isOnInfo
+    ? 'bg-brand-600 text-white font-medium border border-brand-600'
+    : hasHighlight
+      ? 'bg-white text-brand-800 font-medium border-[1.5px] border-brand-200 hover:bg-brand-50/60'
+      : 'bg-white text-gray-600 border border-gray-200 hover:bg-brand-50/60 hover:text-brand-700 hover:border-brand-200'
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-flex">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`py-2.5 text-[13px] border-b-2 -mb-px whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
-          isOnInfo
-            ? 'text-brand-600 border-brand-600 font-semibold'
-            : 'text-gray-500 border-transparent hover:text-gray-800'
-        }`}
+        className={`${base} ${state}`}
       >
         {buttonLabel}
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2.25} />
@@ -203,20 +200,6 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, onOpenManage
       </button>
       {open && (
         <div className="absolute top-full mt-1.5 right-0 z-50 bg-white border border-gray-200 rounded-lg p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)] min-w-[220px]">
-          {onOpenManagementInfo && (
-            <>
-              <button
-                type="button"
-                onClick={() => { onOpenManagementInfo(); setOpen(false) }}
-                className="w-full px-3 py-2 text-[13px] rounded-md text-left flex items-center gap-2 text-gray-800 hover:bg-gray-50 transition-colors"
-              >
-                <Info className="w-4 h-4 text-gray-500" strokeWidth={1.75} />
-                <span>管理情報</span>
-                <span className="ml-auto text-[10px] text-gray-400">LP番号 / 場所 / 日付</span>
-              </button>
-              <div className="h-px bg-gray-200 my-1 mx-1.5" />
-            </>
-          )}
           {tabs.map(key => {
             const isItemActive = activeTab === key
             const isItemHighlight = highlightSet.has(key)

@@ -7,6 +7,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import TabHeader from './TabHeader'
 import type { FinancialAssetRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -50,6 +51,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
 
   return (
     <div>
+      <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />
       <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (
@@ -58,11 +60,11 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
         </div>
       ) : (
         <div>
-          <SectionHeading title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+          <SectionHeading title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`} className="mb-2.5" />
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+              <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>

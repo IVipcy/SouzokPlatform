@@ -9,6 +9,7 @@ import {
   Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineEdit, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS } from '@/lib/constants'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -68,6 +69,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
 
   return (
     <div className="space-y-3.5">
+      {!orderSheetMode && <TabHeader title="他事業者紹介" description="税理士・弁護士・不動産・遺品整理など、自社外への紹介と依頼内容の管理" />}
       <Section title="紹介業者">
         {/* サブタブ：登録済み業者＋追加 */}
         <div className="inline-flex items-center gap-0.5 bg-gray-100 rounded p-0.5 mb-3 flex-wrap">

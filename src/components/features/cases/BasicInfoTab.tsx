@@ -18,6 +18,7 @@ import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import CaseCurrentStatusCard from './CaseCurrentStatusCard'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -71,6 +72,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="案件進捗" description="案件全体のステータス・進捗・タスク・受信・履歴の俯瞰" />
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'history')} />
 
       {sub === 'progress' && (

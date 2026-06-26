@@ -8,6 +8,7 @@ import {
 import { ORDER_ROUTES, PAST_CLIENT_ROUTE } from '@/lib/constants'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
 import ReferralSourceLookup from './ReferralSourceLookup'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -33,6 +34,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="担当・受注ルート" description="案件の担当者（受注/管理）と受注経路の管理" />
       {/* 担当者 */}
       <Section title="担当者">
         <FieldGrid>

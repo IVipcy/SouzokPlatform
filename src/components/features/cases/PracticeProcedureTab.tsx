@@ -6,6 +6,7 @@ import CourtProcedureInfo from './CourtProcedureInfo'
 import TrustInfo from './TrustInfo'
 import MediationParties from './MediationParties'
 import ProcedureDocsTable from './ProcedureDocsTable'
+import TabHeader from './TabHeader'
 import type { RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow, HeirRow, SagyoDocumentRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -51,16 +52,14 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
   const docs = sagyoDocuments.filter(d => d.gyomu === gyomu)
 
   const body = (
-    <div className="space-y-4">
-      {description && <p className="text-[12px] text-gray-400">{description}</p>}
-
+    <div className="space-y-3.5">
       {court && <CourtProcedureInfo caseData={caseData} gyomu={gyomu} patchCase={patchCase} />}
       {mediation && <MediationParties caseData={caseData} gyomu={gyomu} heirs={heirs} patchCase={patchCase} />}
       {trust && <TrustInfo caseData={caseData} patchCase={patchCase} />}
 
       {/* 資料（受領管理）。doc-kindの作業がある場合のみ。 */}
       {docRoles.length > 0 && (
-        <Section title="請求・受領（受信簿連動）" icon="📥">
+        <Section title="請求・受領（受信簿連動）">
           <ProcedureDocsTable caseId={caseData.id} gyomu={gyomu} docRoles={docRoles} documents={docs} receipts={receipts} onRefresh={onRefresh} />
         </Section>
       )}
@@ -69,8 +68,9 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
 
   if (embedded) return body
   return (
-    <div className="space-y-3.5">
-      <Section title={title}>{body}</Section>
+    <div>
+      <TabHeader title={title} description={description} />
+      {body}
     </div>
   )
 }

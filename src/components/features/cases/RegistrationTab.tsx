@@ -8,6 +8,7 @@ import { showToast } from '@/components/ui/Toast'
 import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '@/lib/constants'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
+import TabHeader from './TabHeader'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
@@ -73,12 +74,13 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />
       <div>
-      <SectionHeading title="相続登記（物件ごとの手続き）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+      <SectionHeading title="相続登記（物件ごとの手続き）" className="mb-2.5" />
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1360 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-24">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">所在地</th>
               <th className="px-2.5 py-2 text-left font-semibold w-56">相続登記の種別</th>

@@ -2,6 +2,7 @@
 
 import { Section } from '@/components/ui/InlineFields'
 import ContractDocumentsTable from './ContractDocumentsTable'
+import TabHeader from './TabHeader'
 import type { ContractDocumentRow } from '@/types'
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
 export default function ContractProcTab({ caseId, contractDocuments, onRefresh }: Props) {
   return (
     <div className="space-y-3.5">
+      <TabHeader title="契約残手続き" description="契約関連書類（契約書・委任状・本人確認・印鑑証明等）の受領管理" />
       <Section title="契約残手続き（契約関連書類の受け取り）">
         <p className="text-[12px] text-gray-400 mb-2">契約関連書類を、いつお客様から受け取るかを管理します。書類受信簿で受信すると到着日が入り「受信済」になります。<span className="text-brand-600 font-semibold">未受信の書類が残っていると対応中に進めません。</span></p>
         <ContractDocumentsTable caseId={caseId} documents={contractDocuments} onRefresh={onRefresh} />

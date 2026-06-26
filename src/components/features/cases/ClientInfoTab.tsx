@@ -12,6 +12,7 @@ import { Plus, Trash2, Pencil, RotateCcw } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import { toKatakana } from '@/lib/kana'
+import TabHeader from './TabHeader'
 import type { CaseRow, ClientCommunicationRow, CaseClientRow } from '@/types'
 
 type Props = {
@@ -190,6 +191,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="依頼者" description="依頼者情報と連絡先・やり取り履歴の管理" />
       <SubTabs
         tabs={[{ key: 'info', label: '依頼者情報' }, { key: 'history', label: 'やり取り履歴' }]}
         active={sub}

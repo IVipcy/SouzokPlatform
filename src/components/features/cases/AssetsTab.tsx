@@ -11,6 +11,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import TabHeader from './TabHeader'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -71,6 +72,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など財産の調査と取得資料の管理" />
+
       {/* 財産調査条件 / 調査対象 のタブ切替 */}
       <SubTabs tabs={MAIN_TABS} active={mainTab} onChange={setMainTab} />
 

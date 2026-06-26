@@ -10,11 +10,12 @@ import {
 import {
   CONSIDERATION_DECLINE_REASONS, MEETING_PLACES, CONTRACT_TYPES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
+  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE, LOCATIONS,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
 import ProcedureIntakeSection, { type RoleRow } from './ProcedureIntakeSection'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -85,10 +86,13 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
 
   return (
     <div className="space-y-3.5">
-      {/* ① 案件情報 */}
+      <TabHeader title="面談情報" description="案件・面談・被相続人の基本情報と、面談時に聴取した内容の管理" />
+
+      {/* ① 案件情報（管理情報を統合：LP番号・保管場所・受注日・完了予定日・完了日） */}
       <Section title="案件情報">
         <FieldGrid>
           <InlineEdit label="案件管理番号" value={caseData.case_number} onSave={v => saveCaseField('case_number', v)} required />
+          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
           <InlineMemberSelect
             label="受注担当"
             roleKey="sales"
@@ -105,6 +109,10 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
             optionLabel={getCaseStatusLabel}
             onSave={v => saveCaseField('status', v)}
           />
+          <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
+          <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
+          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+          <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
           <Field label="案件作成日" value={caseData.created_at ? caseData.created_at.slice(0, 10) : null} mono />
         </FieldGrid>
       </Section>

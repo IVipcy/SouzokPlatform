@@ -10,6 +10,7 @@ import {
   InlineCurrency, InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
+import TabHeader from './TabHeader'
 
 type Props = {
   caseData: CaseRow
@@ -108,9 +109,10 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
   return (
     <div className="space-y-3.5">
+      {!orderSheetMode && <TabHeader title="報酬・請求" description="契約情報、報酬・実費、請求書の発行・入金確認の管理" />}
 
           {/* 1. 契約情報（契約形態は「担当・受注内容」タブへ移設） */}
-          <Section title="契約情報" icon="📄">
+          <Section title="契約情報">
             <FieldGrid>
               <InlineDate
                 label="契約日"

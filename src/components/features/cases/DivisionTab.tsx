@@ -19,6 +19,7 @@ import {
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
+import TabHeader from './TabHeader'
 
 // 署名方法は送付・調印に連動（矛盾する組合せを出さない）
 // ・オーシャンで調印＝対面そのもの → 対面固定（欄は出さない）
@@ -77,6 +78,10 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
 
   return (
     <div className="space-y-3.5">
+      <TabHeader
+        title={mode === 'will' ? '遺言' : '遺産分割'}
+        description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
+      />
       {mode === 'division' && (() => {
         const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'
         // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ

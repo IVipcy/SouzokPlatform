@@ -9,6 +9,7 @@ import {
 } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
+import TabHeader from './TabHeader'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -94,6 +95,7 @@ export default function OrderContentTab({ caseData, patchCase }: Props) {
 
   return (
     <div className="space-y-3.5">
+      <TabHeader title="受注内容" description="受注区分・業務・作業の設計と役割分担" />
       <Section title="受注内容">
         <div className="mb-3">
           <div className="text-[13px] text-gray-500 mb-1.5">受注区分（複数選択できます）</div>

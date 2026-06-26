@@ -7,7 +7,6 @@ import { showToast } from '@/components/ui/Toast'
 import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
-import CaseManagementInfoModal from './CaseManagementInfoModal'
 import BasicInfoTab from './BasicInfoTab'
 import MeetingInfoTab from './MeetingInfoTab'
 import ClientInfoTab from './ClientInfoTab'
@@ -93,7 +92,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
-  const [managementInfoOpen, setManagementInfoOpen] = useState(false)
   // タブ↔ナビのリードライン描画用ラッパ
   const navWrapRef = useRef<HTMLDivElement>(null)
 
@@ -279,7 +277,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
-          onOpenManagementInfo={() => setManagementInfoOpen(true)}
         />
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
@@ -432,12 +429,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onSaved={handleSaved}
       />
 
-      <CaseManagementInfoModal
-        isOpen={managementInfoOpen}
-        onClose={() => setManagementInfoOpen(false)}
-        caseData={caseState}
-        patchCase={patchCase}
-      />
     </div>
   )
 }
