@@ -68,8 +68,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 事務管理タスク一覧: 事務管理担当（work_role='assistant'）のタスクのみを対象とする
-  const assistantTasks = useMemo(() => tasks.filter(t => t.work_role === 'assistant'), [tasks])
+  // 事務管理タスク一覧: 案件タスク（task_kind='case'）を対象とする。
+  // 受注/管理担当の初期タスク(task_kind='system')はこの一覧から除外。
+  // 互換のため、work_role='assistant' のタスクも拾う（旧データ）。
+  const assistantTasks = useMemo(
+    () => tasks.filter(t => t.task_kind === 'case' || t.work_role === 'assistant'),
+    [tasks],
+  )
 
   const filtered = useMemo(() => {
     let result = assistantTasks
