@@ -118,7 +118,6 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ファイル</th>
@@ -128,7 +127,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
@@ -145,7 +144,6 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
                       {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </td>
-                  <DateCell value={r.expected_arrival_date} onCommit={v => commit(r.id, 'expected_arrival_date', v)} />
                   <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />
                   <td className="px-2.5 py-1.5">
                     {r.arrival_date

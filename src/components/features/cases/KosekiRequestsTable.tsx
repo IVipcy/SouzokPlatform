@@ -93,7 +93,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     onRefresh?.()
   }
 
-  const colCount = progressMode ? 13 : 8
+  const colCount = progressMode ? 12 : 8
 
   return (
     <div>
@@ -111,7 +111,6 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
-              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着予定日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
@@ -176,7 +175,6 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
         {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
-        {progressMode && <DateCell value={r.expected_arrival_date} onCommit={v => commit(r.id, 'expected_arrival_date', v)} />}
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
         {progressMode && <ReceivedCell received={!!r.arrival_date} />}
         {progressMode && (

@@ -91,22 +91,20 @@ export const DEFAULT_ROLES: RoleRow[] = []
 export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (next: DocRow[]) => void }) {
   const setDoc = (i: number, patch: Partial<DocRow>) => onSave(docs.map((d, idx) => idx === i ? { ...d, ...patch } : d))
   const [bulkStatus, setBulkStatus] = useState('')
-  const [bulkDate, setBulkDate] = useState('')
   const applyBulk = () => {
-    if (!bulkStatus && !bulkDate) return
-    onSave(docs.map(d => ({ ...d, status: bulkStatus || d.status, arrival_date: bulkDate || d.arrival_date })))
+    if (!bulkStatus) return
+    onSave(docs.map(d => ({ ...d, status: bulkStatus || d.status })))
   }
   return (
     <>
-      {/* 一括設定：受領状況・到着予定日をまとめて全行に適用 */}
+      {/* 一括設定：受領状況をまとめて全行に適用 */}
       <div className="mb-2 flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5">
         <span className="text-[11px] font-semibold text-gray-500">一括設定</span>
         <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
           <option value="">受領状況…</option>
           {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
-        <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
-        <button type="button" onClick={applyBulk} disabled={!bulkStatus && !bulkDate} className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100 disabled:opacity-50">すべてに適用</button>
+        <button type="button" onClick={applyBulk} disabled={!bulkStatus} className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100 disabled:opacity-50">すべてに適用</button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
@@ -114,7 +112,6 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-36">到着予定日</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
@@ -124,7 +121,6 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
               <tr key={i} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 <Cell value={d.name} onCommit={v => setDoc(i, { name: v })} placeholder="到着物名" />
                 <SelectCell value={d.status} options={DOC_STATUS} onChange={v => setDoc(i, { status: v })} noEmpty />
-                <DateCell value={d.arrival_date} onCommit={v => setDoc(i, { arrival_date: v || null })} />
                 <Cell value={d.note} onCommit={v => setDoc(i, { note: v })} placeholder="例：実印分は後日、料金 等" />
                 <td className="px-2.5 py-1.5 text-center">
                   <button type="button" onClick={() => onSave(docs.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -387,15 +383,3 @@ function SelectCell({ value, options, onChange, noEmpty }: { value: string; opti
   )
 }
 
-function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
-  return (
-    <td className="px-2.5 py-1.5">
-      <input
-        type="date"
-        defaultValue={value ?? ''}
-        onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
-      />
-    </td>
-  )
-}

@@ -96,7 +96,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   }
 
   // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = cols.length + 3 + (progressMode ? 5 : 0) + 1
+  const colCount = cols.length + 3 + (progressMode ? 4 : 0) + 1
 
   return (
     <div>
@@ -110,7 +110,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着予定日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">関連タスク</th>}
@@ -150,9 +149,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   </td>
                   {progressMode && (
                     <td className="px-2 py-1.5"><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
-                  )}
-                  {progressMode && (
-                    <td className="px-2 py-1.5"><input type="date" value={r.expected_arrival_date ?? ''} onChange={e => setLocal(r.id, 'expected_arrival_date', e.target.value)} onBlur={e => commit(r.id, 'expected_arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
                   {progressMode && (
                     <td className="px-2 py-1.5"><input type="date" value={r.arrival_date ?? ''} onChange={e => setLocal(r.id, 'arrival_date', e.target.value)} onBlur={e => commit(r.id, 'arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>

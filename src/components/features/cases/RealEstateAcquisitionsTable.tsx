@@ -83,7 +83,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               <th className="px-2.5 py-2 text-left font-semibold w-48">対象</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">請求先</th>
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>}
-              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着予定日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
               <th className="px-2.5 py-2 text-center font-semibold w-16">取得済</th>
@@ -92,7 +91,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 9 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={progressMode ? 8 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : rows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
@@ -129,7 +128,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                       : <input type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={meta?.office || '請求先'} className={dateCls} />}
                   </td>
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) save(r.id, 'request_date', e.target.value || null) }} className={dateCls} />}</td>}
-                  {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.expected_arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.expected_arrival_date ?? '')) save(r.id, 'expected_arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && (
                     <td className="px-2.5 py-1.5">

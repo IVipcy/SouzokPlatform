@@ -86,7 +86,8 @@ export function buildDeliverableOptions(
     for (const a of financialAssets) {
       const group = FA_GROUP[a.asset_type] ?? a.asset_type
       const name = a.institution_name || '(名称未入力)'
-      if (gate('金融資産')) {
+      // 受領日が入っている＝受信済は候補から除外
+      if (gate('金融資産') && !a.arrival_date) {
         opts.push({
           value: `financial_asset:${a.id}:arrival_date`,
           label: `${name} 残高証明等（調査）`,
@@ -96,8 +97,8 @@ export function buildDeliverableOptions(
           field: 'arrival_date',
         })
       }
-      // 解約書類の受領（解約有が選択されている機関のみ）
-      if (gate('解約') && a.cancellation_required === '有') {
+      // 解約書類の受領（解約有が選択され、かつ未受領の機関のみ）
+      if (gate('解約') && a.cancellation_required === '有' && !a.cancellation_arrival_date) {
         opts.push({
           value: `financial_asset:${a.id}:cancellation_arrival_date`,
           label: `${name} 解約書類`,
@@ -118,7 +119,8 @@ export function buildDeliverableOptions(
       return p ? (p.address || p.lot_number || p.property_type || '物件') : '物件'
     }
     for (const a of acquisitions) {
-      if (!a.item_type || a.item_type === '路線価') continue
+      // 路線価は参照のため除外。受領日が入っている＝受信済も除外。
+      if (!a.item_type || a.item_type === '路線価' || a.arrival_date) continue
       const where = a.target_property_id ? propLabel(a.target_property_id) : (a.target_municipality || '市区町村未入力')
       opts.push({
         value: `real_estate_acquisition:${a.id}:arrival_date`,
@@ -134,6 +136,8 @@ export function buildDeliverableOptions(
   // 戸籍
   if (gate('戸籍')) {
     for (const k of kosekiRequests) {
+      // 受領日が入っている＝受信済は候補から除外
+      if (k.arrival_date) continue
       const parts = [k.request_to, k.target_person, k.doc_types].filter(Boolean)
       const label = parts.length > 0 ? parts.join(' / ') : '戸籍請求'
       opts.push({

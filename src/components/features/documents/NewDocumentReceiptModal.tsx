@@ -342,6 +342,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
           <div className="space-y-2">
             {items.map(it => {
               const useSelect = deliverables.length > 0
+              // 他の行で既に選んだ受領待ちは、この行の候補から外す（同じ物を二重に紐づけない）
+              const usedByOthers = new Set(items.filter(x => x.key !== it.key && x.linked).map(x => x.linked))
+              const groupedForRow = groupedDeliverables
+                .map(([group, opts]) => [group, opts.filter(o => !usedByOthers.has(o.value))] as const)
+                .filter(([, opts]) => opts.length > 0)
               return (
                 <div key={it.key} className="border border-gray-200 rounded-md p-2.5">
                   <div className="grid grid-cols-[1fr_72px_1fr_28px] gap-2 items-center">
@@ -359,8 +364,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                         }}
                         className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
                       >
-                        <option value="">到着物を選択（受信待ちから）</option>
-                        {groupedDeliverables.map(([group, opts]) => (
+                        <option value="">受領待ちの到着物から選ぶ</option>
+                        {groupedForRow.map(([group, opts]) => (
                           <optgroup key={group} label={group}>
                             {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </optgroup>
