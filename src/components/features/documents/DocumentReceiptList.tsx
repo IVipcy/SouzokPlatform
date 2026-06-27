@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
-import { categoriesOf, kindForTask } from '@/lib/serviceMaster'
+import { categoriesOf, kindForTask, GYOMU_ALL } from '@/lib/serviceMaster'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -218,6 +218,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
   const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
   const [itemNew, setItemNew] = useState<Record<string, string>>({})
+  // 到着物(item)ごとに、自由入力で作る新規タスクの業務区分
+  const [itemGyomu, setItemGyomu] = useState<Record<string, string>>({})
   // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
   const [showAll, setShowAll] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
@@ -286,7 +288,6 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     await supabase.from('document_receipts').update({ started_by_member_id: currentMemberId, started_at: nowIso }).eq('id', receipt.id)
 
     const joinRows: { receipt_item_id: string; task_id: string }[] = []
-    const startExistingIds = new Set<string>()
     let firstTaskId: string | null = null
 
     // 実施タスク行のrid採番（作成時に更新）／既存タスクの rid→id（重複生成防止）
@@ -294,11 +295,13 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     let rolesChanged = false
     const ridToTaskId = new Map(tasks.filter(t => t.source_rid).map(t => [t.source_rid as string, t.id]))
 
-    // 到着物ごとに：新規タスク作成（実施タスク候補に一致すれば source_rid 連携）＋既存タスク紐付け
+    // 到着物ごとに：新規タスク作成（実施タスク候補に一致すれば source_rid 連携）＋既存タスク紐付け。
+    // ※ ここでは「着手」しない。紐付けた人と実際に着手する人が異なるため、未着手(着手前)で保存する。
     for (const it of items) {
       const newTitle = (itemNew[it.id] ?? '').trim()
       if (newTitle) {
-        // 実施タスク（作業）に一致したら rid を採番して紐付け
+        // 実施タスク（作業）に一致したら rid を採番して紐付け。一致時はその業務区分、
+        // 自由入力時はユーザーが選んだ業務区分を使う。
         const idx = roles.findIndex(r => r.sagyou === newTitle && r.owner !== '不要' && isTaskKind(r))
         let sourceRid: string | null = null
         let gyomu = ''
@@ -307,20 +310,21 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           let rid = roles[idx].rid
           if (!rid) { rid = crypto.randomUUID(); roles[idx] = { ...roles[idx], rid }; rolesChanged = true }
           sourceRid = rid
+        } else {
+          // ユーザー選択 → 無ければ到着物の種類から推定した既定業務区分
+          gyomu = (itemGyomu[it.id] ?? gyomuForItem(it)?.[0] ?? '').trim()
         }
         const existingId = sourceRid ? ridToTaskId.get(sourceRid) : undefined
         if (existingId) {
           // その実施タスクのタスクが既にある → 新規作成せず結ぶ
           joinRows.push({ receipt_item_id: it.id, task_id: existingId })
-          startExistingIds.add(existingId)
           firstTaskId = firstTaskId ?? existingId
         } else {
           const { data: nt, error } = await supabase.from('tasks')
-            .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: gyomu || 'phase1', category: gyomu || '', status: '対応中', priority: '通常', source_rid: sourceRid, started_by: currentMemberId, started_at: nowIso, sort_order: 99 })
+            .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: gyomu || 'phase1', category: gyomu || '', status: '着手前', priority: '通常', source_rid: sourceRid, sort_order: 99 })
             .select('id').single()
           if (!error && nt) {
             const id = (nt as { id: string }).id
-            await supabase.from('task_assignees').insert({ task_id: id, member_id: currentMemberId, role: 'primary' })
             if (sourceRid) ridToTaskId.set(sourceRid, id)
             joinRows.push({ receipt_item_id: it.id, task_id: id })
             firstTaskId = firstTaskId ?? id
@@ -329,15 +333,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       }
       for (const taskId of itemSel[it.id] ?? []) {
         joinRows.push({ receipt_item_id: it.id, task_id: taskId })
-        startExistingIds.add(taskId)
         firstTaskId = firstTaskId ?? taskId
       }
     }
 
     if (rolesChanged) await supabase.from('cases').update({ intake_roles: roles }).eq('id', receipt.case_id)
-    if (startExistingIds.size > 0) {
-      await supabase.from('tasks').update({ status: '対応中', started_by: currentMemberId, started_at: nowIso }).in('id', [...startExistingIds])
-    }
     if (joinRows.length > 0) {
       const { error } = await supabase.from('document_receipt_item_tasks').upsert(joinRows, { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
       if (error) { setSaving(false); showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
@@ -346,7 +346,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
 
     setSaving(false)
-    showToast(totalLinks > 0 ? `着手し、${totalLinks}件をタスクに紐付けました` : '着手しました', 'success')
+    showToast(totalLinks > 0 ? `${totalLinks}件のタスクに紐付けました（未着手）` : '処理済みにしました', 'success')
     // タスク詳細へは遷移しない（受信簿の流れを止めない）。
     onDone()
   }
@@ -361,14 +361,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving}>
-            {totalLinks > 0 ? `タスクを作成・着手 (${totalLinks})` : 'タスクなしで完了'}
+            {totalLinks > 0 ? `タスクを紐付け (${totalLinks})` : 'タスクなしで完了'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます（対応中前でもOK。タスクタブ表示後に出てきます）。契約書類などタスク不要なものは、何も選ばず<strong>「タスクなしで完了」</strong>（受信を処理済みとして閉じるだけ）でOK。
+          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます。紐付けたタスクは<strong>未着手のまま</strong>保存され、シフトの担当者があとから着手します。契約書類などタスク不要なものは、何も選ばず<strong>「タスクなしで完了」</strong>（受信を処理済みとして閉じるだけ）でOK。
         </p>
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
@@ -460,6 +460,25 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                       placeholder={cand.length > 0 ? '＋自由入力で作成（任意）' : '＋新規タスクを作成して結ぶ（任意）'}
                       className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
                     />
+                    {/* 自由入力で作る新規タスクの業務区分（候補一致時は自動なので不要） */}
+                    {(() => {
+                      const newVal = (itemNew[it.id] ?? '').trim()
+                      if (!newVal || cand.includes(newVal)) return null
+                      const defaultGy = gy?.[0] ?? ''
+                      return (
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <span className="text-[11px] text-gray-500">業務区分</span>
+                          <select
+                            value={itemGyomu[it.id] ?? defaultGy}
+                            onChange={e => setItemGyomu(prev => ({ ...prev, [it.id]: e.target.value }))}
+                            className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
+                          >
+                            <option value="">未設定</option>
+                            {GYOMU_ALL.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                        </div>
+                      )
+                    })()}
                   </>
                 )}
               </div>
