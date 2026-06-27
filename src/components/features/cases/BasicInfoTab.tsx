@@ -14,9 +14,7 @@ import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitial
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
-import { useRouter } from 'next/navigation'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
-import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
 import TabHeader from './TabHeader'
 import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument, getStartSignal } from '@/lib/taskReadiness'
@@ -48,8 +46,7 @@ const normGyomu = (phase: string | null | undefined): string => {
   return g
 }
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
-  const router = useRouter()
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -220,13 +217,6 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
               embedded
             />
           </Section>
-
-          {/* 契約時にお客様から受け取った資料の一覧（戸籍/財産/不動産で散在するものを集約） */}
-          {contractDocuments.filter(d => d.status !== '不要').length > 0 && (
-            <Section title="契約時に事前に受け取った資料">
-              <ContractReceivedBlock docs={contractDocuments} caseId={caseData.id} onRefresh={() => router.refresh()} />
-            </Section>
-          )}
         </div>
       )}
 

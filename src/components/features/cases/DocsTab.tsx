@@ -10,7 +10,6 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TabHeader from './TabHeader'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
-import ContractReceivedBlock from './ContractReceivedBlock'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -47,12 +46,10 @@ type FilterKey = 'all' | 'linked' | 'unlinked'
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [] }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [] }: Props) {
   const router = useRouter()
   const [filter, setFilter] = useState<FilterKey>('all')
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
-  // 契約時に受領した書類（不要を除く）。到着物タブでも見えるよう集約表示する。
-  const contractReceived = contractDocuments.filter(d => d.status !== '不要')
 
   // 受信簿 → 1 行 = 1 アイテム の表に展開
   const rows: ReceiptItemRow[] = useMemo(() => {
@@ -210,15 +207,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           </div>
         )}
       </Section>
-
-      {contractReceived.length > 0 && (
-        <Section title="契約時に受領した書類">
-          <p className="text-[11px] text-gray-400 mb-2">
-            契約時にお客様から受領済みの書類。編集は契約手続きタブ。ファイルはここでも添付・参照できます。
-          </p>
-          <ContractReceivedBlock docs={contractReceived} caseId={caseData.id} onRefresh={() => router.refresh()} />
-        </Section>
-      )}
 
       {orphanDocs.length > 0 && (
         <Section title="添付ファイル（受信簿外）">
