@@ -3,13 +3,15 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
+import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -43,6 +45,9 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
+// 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
+const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
+
 export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,6 +56,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
+  // 受注区分（概念が大きいので先）／業務区分 の複数選択フィルタ（OR条件・全空=絞り込みなし）
+  const [serviceFilter, setServiceFilter] = useState<Set<string>>(new Set())
+  const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -83,6 +91,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
     }
+    // 受注区分（OR）: 案件の service_category / service_category_2 のいずれかが選択集合に含まれる
+    if (serviceFilter.size > 0) {
+      result = result.filter(t => {
+        const c = caseMap[t.case_id]
+        return [c?.service_category, c?.service_category_2].some(s => !!s && serviceFilter.has(s))
+      })
+    }
+    // 業務区分（OR）: task.phase が選択集合に含まれる
+    if (gyomuFilter.size > 0) {
+      result = result.filter(t => gyomuFilter.has(gyomuOf(t)))
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -102,7 +121,25 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today])
+  }, [assistantTasks, statusFilter, filterMine, serviceFilter, gyomuFilter, search, caseMap, currentMemberId, today])
+
+  // フィルタ選択肢: 実データに存在するものだけを、正準順序で出す
+  const serviceOptions = useMemo(() => {
+    const present = new Set<string>()
+    for (const t of assistantTasks) {
+      const c = caseMap[t.case_id]
+      for (const s of [c?.service_category, c?.service_category_2]) if (s) present.add(s)
+    }
+    return ORDER_CATEGORIES.filter(c => present.has(c))
+  }, [assistantTasks, caseMap])
+  const gyomuOptions = useMemo(() => {
+    const present = new Set<string>()
+    for (const t of assistantTasks) { const g = gyomuOf(t); if (g) present.add(g) }
+    const ordered = GYOMU_ALL.filter(g => present.has(g))
+    // GYOMU_ALL に無い業務（旧データ等）は末尾に
+    const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
+    return [...ordered, ...extra]
+  }, [assistantTasks])
 
   const kpis = useMemo(() => ({
     total: assistantTasks.length,
@@ -285,7 +322,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           }
         />
 
-        {/* Toolbar: status pills + 自分のタスクトグル */}
+        {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="未着手"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
@@ -293,6 +330,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
           </div>
+
+          <span className="w-px h-6 bg-gray-200" />
+
+          {/* 受注区分（概念が大きいので先） → 業務区分 */}
+          <MultiSelectFilter label="受注区分" icon={Tag} options={serviceOptions} selected={serviceFilter} onChange={setServiceFilter} width={200} />
+          <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
+
+          {(serviceFilter.size > 0 || gyomuFilter.size > 0) && (
+            <button
+              onClick={() => { setServiceFilter(new Set()); setGyomuFilter(new Set()) }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[12px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={2} />クリア
+            </button>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -313,6 +365,25 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             </button>
           </div>
         </div>
+
+        {/* 選択中チップ */}
+        {(serviceFilter.size > 0 || gyomuFilter.size > 0) && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            <span className="text-[12px] text-gray-400">絞り込み中:</span>
+            {[...serviceFilter].map(s => (
+              <span key={`s-${s}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
+                <Tag className="w-3 h-3" strokeWidth={2} />{s}
+                <button onClick={() => setServiceFilter(prev => { const n = new Set(prev); n.delete(s); return n })} className="hover:text-brand-900"><X className="w-3 h-3" strokeWidth={2.5} /></button>
+              </span>
+            ))}
+            {[...gyomuFilter].map(g => (
+              <span key={`g-${g}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
+                <Briefcase className="w-3 h-3" strokeWidth={2} />{g}
+                <button onClick={() => setGyomuFilter(prev => { const n = new Set(prev); n.delete(g); return n })} className="hover:text-brand-900"><X className="w-3 h-3" strokeWidth={2.5} /></button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <>
