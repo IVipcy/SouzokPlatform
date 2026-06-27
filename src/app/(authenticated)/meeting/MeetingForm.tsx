@@ -668,8 +668,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                 onChange={async v => {
                   const z = v.replace(/[^0-9]/g, '')
                   update('postalCode', z)
-                  // 7桁入力で住所が空なら自動補完（番地・建物は追記）
-                  if (z.length === 7 && !data.address.trim()) {
+                  // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
+                  if (z.length === 7) {
                     const addr = await lookupPostalAddress(z)
                     if (addr) update('address', addr)
                   }
@@ -749,7 +749,14 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                 : <span className="text-gray-400 text-[13px]">生年月日と死亡日を入力すると自動計算されます</span>}
             </div>
           </Card>
-          <Card label="被相続人郵便番号"><Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="1000131" /></Card>
+          <Card label="被相続人郵便番号"><Input value={data.deceasedPostalCode} onChange={async v => {
+            const z = v.replace(/[^0-9]/g, '')
+            update('deceasedPostalCode', z)
+            if (z.length === 7) {
+              const addr = await lookupPostalAddress(z)
+              if (addr) update('deceasedAddress', addr)
+            }
+          }} placeholder="1000131（7桁入力で住所自動入力）" /></Card>
           <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">

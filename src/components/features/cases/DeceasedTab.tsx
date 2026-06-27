@@ -274,7 +274,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 onSave={async v => {
                   const z = v.replace(/[^0-9]/g, '')
                   await saveCaseField('deceased_postal_code', z)
-                  if (z.length === 7 && !caseData.deceased_address?.trim()) {
+                  // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
+                  if (z.length === 7) {
                     const addr = await lookupPostalAddress(z)
                     if (addr) await saveCaseField('deceased_address', addr)
                   }

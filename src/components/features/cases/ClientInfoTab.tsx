@@ -75,8 +75,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               onSave={async v => {
                 const z = v.replace(/[^0-9]/g, '')
                 await saveClientField('postal_code', z)
-                // 7桁かつ住所が空なら住所を自動補完（番地・建物は追記）
-                if (z.length === 7 && !client.address?.trim()) {
+                // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
+                if (z.length === 7) {
                   const addr = await lookupPostalAddress(z)
                   if (addr) await saveClientField('address', addr)
                 }
