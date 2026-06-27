@@ -574,8 +574,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               </Card>
             </>
           )}
-          {/* LP担当追いかけ運用: 検討中 のみで表示（検討中(契約書待ち)は受注確定済のため不要） */}
-          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && (
+          {/* LP担当追いかけ運用: 検討中 かつ LP経由 のときのみ表示。
+              HP経由など LP を経由していない案件は LP の追いかけ対象外なので出さない。 */}
+          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
             <>
               <Card label="LPによる追いかけ可否">
                 <Pills value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} />
