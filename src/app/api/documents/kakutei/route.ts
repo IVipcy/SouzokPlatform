@@ -33,8 +33,15 @@ function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string 
 function splitCaseNumber(caseNumber: string | null | undefined): [string, string, string, string] {
   const s = (caseNumber ?? '').trim()
   if (!s) return ['', '', '', '']
-  const parts = s.split(/[-－/／\s]+/).filter(Boolean)
-  return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? '', parts[3] ?? '']
+  // 区切りありの旧形式（例: 2606-HP-0008）はそのまま分割
+  if (/[-－/／\s]/.test(s)) {
+    const parts = s.split(/[-－/／\s]+/).filter(Boolean)
+    return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? '', parts[3] ?? '']
+  }
+  // 新形式: YYMM + 経路コード(英字) + 当日連番(数字)。例 2606HP0008 → 26 / 06 / HP / 0008
+  const m = s.match(/^(\d{2})(\d{2})([A-Za-z]{1,3})(\d+)$/)
+  if (m) return [m[1], m[2], m[3].toUpperCase(), m[4]]
+  return [s, '', '', '']
 }
 
 function cellToColRow(addr: string): { col: number; row: number } {
