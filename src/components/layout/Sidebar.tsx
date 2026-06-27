@@ -110,7 +110,6 @@ export default function Sidebar() {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm text-gray-900 tracking-tight">相続案件管理</div>
-              <div className="text-[11px] text-gray-400 tracking-wide">業務管理</div>
             </div>
           )}
         </div>
