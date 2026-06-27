@@ -8,6 +8,7 @@ export type UserWithRoles = {
   avatarColor: string | null
   avatarUrl: string | null
   primaryRole: string | null
+  teamId: string | null
   roles: string[]
   permissions: string[]
 }
@@ -25,7 +26,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
   // Find matching member by email
   const { data: member } = await supabase
     .from('members')
-    .select('id, name, email, avatar_color, avatar_url, primary_role')
+    .select('id, name, email, avatar_color, avatar_url, primary_role, team_id')
     .eq('email', user.email!)
     .eq('is_active', true)
     .single()
@@ -39,6 +40,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
       avatarColor: null,
       avatarUrl: null,
       primaryRole: null,
+      teamId: null,
       roles: [],
       permissions: [],
     }
@@ -71,6 +73,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
     avatarColor: member.avatar_color ?? null,
     avatarUrl: member.avatar_url ?? null,
     primaryRole: member.primary_role ?? null,
+    teamId: (member as { team_id?: string | null }).team_id ?? null,
     roles: [...new Set(roles)],
     permissions: [...new Set(permissions)],
   }
@@ -92,4 +95,27 @@ export function hasPermission(user: UserWithRoles | null, permission: string): b
 export function hasRole(user: UserWithRoles | null, ...roles: string[]): boolean {
   if (!user) return false
   return roles.some(r => user.roles.includes(r))
+}
+
+// ──────────────────────────────────────────────────────────
+// ロール別アクセス制御ヘルパー（manager全許可ショートカットを使わない明示版）
+// system_manager は全許可。それ以外はロールに応じて個別判定する。
+// ──────────────────────────────────────────────────────────
+
+/** システム管理者（全機能・全ダッシュボードのスーパーユーザー） */
+export function isSystemManager(user: UserWithRoles | null): boolean {
+  return !!user && user.roles.includes('system_manager')
+}
+
+/** マイページを持つのは 受注/管理/システム管理者のみ（事務管理・経理は無し） */
+export function canSeeMyPage(user: UserWithRoles | null): boolean {
+  if (!user) return false
+  if (isSystemManager(user)) return true
+  return user.primaryRole === 'sales' || user.primaryRole === 'manager' || user.primaryRole === 'sub_manager'
+}
+
+/** 銀行CSV入金突合ができるのは 経理 と システム管理者のみ（manager不可） */
+export function canReconcilePayments(user: UserWithRoles | null): boolean {
+  if (!user) return false
+  return user.roles.includes('system_manager') || user.roles.includes('accounting')
 }
