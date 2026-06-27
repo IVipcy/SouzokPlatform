@@ -33,12 +33,14 @@ export default function BirthdayPicker({ value, onChange, className }: Props) {
     onChange(iso)
   }
 
-  const sel = 'px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+  // テーブルの狭いセルでも折り返さず1行に収まるよう、各パーツを最小幅・余白詰めにする。
+  const sel = 'px-0.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+  const unit = 'text-[11px] text-gray-500 flex-shrink-0'
   const iso = fromWarekiParts(s.era, Number(s.year), Number(s.mo), Number(s.d))
   return (
     <div className={className}>
-      <div className="flex items-center gap-1 flex-wrap">
-        <select value={s.era} onChange={e => emit({ ...s, era: e.target.value })} className={sel} aria-label="元号">
+      <div className="flex items-center gap-0.5 flex-nowrap">
+        <select value={s.era} onChange={e => emit({ ...s, era: e.target.value })} className={`${sel} flex-shrink-0`} style={{ minWidth: 50 }} aria-label="元号">
           <option value="">元号</option>
           {ERA_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -47,23 +49,24 @@ export default function BirthdayPicker({ value, onChange, className }: Props) {
           min={1}
           value={s.year}
           onChange={e => emit({ ...s, year: e.target.value })}
-          className={`${sel} w-14`}
+          className={`${sel} flex-shrink-0 text-center`}
+          style={{ width: 34 }}
           aria-label="年"
           placeholder="年"
         />
-        <span className="text-[12px] text-gray-500">年</span>
-        <select value={s.mo} onChange={e => emit({ ...s, mo: e.target.value })} className={sel} aria-label="月">
+        <span className={unit}>年</span>
+        <select value={s.mo} onChange={e => emit({ ...s, mo: e.target.value })} className={`${sel} flex-shrink-0`} style={{ minWidth: 42 }} aria-label="月">
           <option value="">月</option>
           {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <span className="text-[12px] text-gray-500">月</span>
-        <select value={s.d} onChange={e => emit({ ...s, d: e.target.value })} className={sel} aria-label="日">
+        <span className={unit}>月</span>
+        <select value={s.d} onChange={e => emit({ ...s, d: e.target.value })} className={`${sel} flex-shrink-0`} style={{ minWidth: 42 }} aria-label="日">
           <option value="">日</option>
           {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
-        <span className="text-[12px] text-gray-500">日</span>
+        <span className={unit}>日</span>
       </div>
-      {iso && <div className="mt-0.5 text-[11px] text-gray-500">{toWareki(iso)}（西暦{iso}）</div>}
+      {iso && <div className="mt-0.5 text-[11px] text-gray-500 whitespace-nowrap">{toWareki(iso)}</div>}
     </div>
   )
 }
