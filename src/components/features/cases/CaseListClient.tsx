@@ -124,11 +124,19 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
+      // 電話番号はハイフン等を無視して数字だけで部分一致させる
+      const qDigits = q.replace(/[^0-9]/g, '')
+      const phoneHit = (v: string | null | undefined) =>
+        !!qDigits && !!v && v.replace(/[^0-9]/g, '').includes(qDigits)
       result = result.filter(c =>
         c.deal_name.toLowerCase().includes(q) ||
         c.case_number.toLowerCase().includes(q) ||
         c.deceased_name?.toLowerCase().includes(q) ||
-        c.clients?.name?.toLowerCase().includes(q)
+        c.deceased_furigana?.toLowerCase().includes(q) ||
+        c.clients?.name?.toLowerCase().includes(q) ||
+        c.clients?.furigana?.toLowerCase().includes(q) ||
+        phoneHit(c.clients?.phone) ||
+        phoneHit(c.clients?.mobile_phone)
       )
     }
     return result
@@ -159,7 +167,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="案件名・依頼者・番号で検索"
+                placeholder="案件名・番号・依頼者/被相続人名・ふりがな・電話番号で検索"
                 className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
               />
             </div>

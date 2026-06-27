@@ -82,7 +82,7 @@ export default async function CasesPage() {
   const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('*, clients(id,name), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
+      .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),
