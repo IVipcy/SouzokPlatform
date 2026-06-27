@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Link2, Plus, X, FileText, ExternalLink } from 'lucide-react'
+import { Loader2, Link2, Plus, X, FileText, ExternalLink, Paperclip } from 'lucide-react'
 import CaseDocumentTable from '@/components/features/documents/CaseDocumentTable'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
@@ -111,17 +111,24 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   // 自社が作成・発送した書類(outbound のみ。相続関係説明図など)はここには出さない（作成書類タブの管轄）。
   const usedDocIds = new Set(rows.map(r => r.caseDocumentId).filter((v): v is string => !!v))
   const orphanDocs = documents.filter(d => !usedDocIds.has(d.id) && !!d.received_file_path)
+  // 未添付＝受領済（受領日あり）だがスキャンファイル未添付
+  const unattachedCount = rows.filter(r => r.receivedDate && !r.file).length
 
   return (
     <div className="space-y-3.5">
       <TabHeader title="到着物" description="受信簿に登録された到着物のタスク紐付け管理＋添付ファイル管理" />
 
       <Section title="到着物一覧（受信簿）">
-        {/* フィルタ */}
-        <div className="flex items-center gap-1 mb-2.5">
+        {/* フィルタ＋未添付の注意 */}
+        <div className="flex items-center gap-1 mb-2.5 flex-wrap">
           <FilterPill label="すべて" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
           <FilterPill label="タスク紐づけ済" count={linkedCount} active={filter === 'linked'} onClick={() => setFilter('linked')} />
           <FilterPill label="未紐づけ" count={unlinkedCount} active={filter === 'unlinked'} onClick={() => setFilter('unlinked')} />
+          {unattachedCount > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
+              <Paperclip className="w-3 h-3" strokeWidth={2} />スキャン未添付 {unattachedCount}件
+            </span>
+          )}
         </div>
 
         {filtered.length === 0 ? (
@@ -155,11 +162,14 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                     <td className="px-3 py-2 text-gray-800 font-medium">{row.itemName}</td>
                     <td className="px-3 py-2 font-mono text-[12px] text-gray-600">{row.receivedDate ?? '—'}</td>
                     <td className="px-3 py-2">
-                      {row.file ? (
-                        <OpenStorageFile bucket={row.file.bucket} path={row.file.path} name={row.file.name} label="ファイル" />
-                      ) : (
-                        <span className="text-[11px] text-gray-300">未添付</span>
-                      )}
+                      <ReceivedFileCell
+                        caseId={caseData.id}
+                        itemId={row.itemId}
+                        caseDocumentId={row.caseDocumentId}
+                        itemName={row.itemName}
+                        file={row.file}
+                        onChanged={() => router.refresh()}
+                      />
                     </td>
                     <td className="px-3 py-2">
                       {row.linkedTasks.length === 0 ? (
@@ -228,6 +238,77 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
         />
       )}
     </div>
+  )
+}
+
+// 到着物アイテムの受領ファイル（スキャン）を添付/参照するセル。
+// 既に case_documents 行があればそこに、無ければ新規作成して受信簿アイテムに紐付ける。
+function ReceivedFileCell({ caseId, itemId, caseDocumentId, itemName, file, onChanged }: {
+  caseId: string
+  itemId: string
+  caseDocumentId: string | null
+  itemName: string
+  file: { bucket: string; path: string; name: string | null } | null
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const upload = async (f: File) => {
+    setBusy(true)
+    try {
+      const supabase = createClient()
+      const ext = f.name.split('.').pop()?.toLowerCase() ?? 'bin'
+      const path = `${caseId}/received/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: true })
+      if (upErr) throw upErr
+      const patch = {
+        received_file_path: path,
+        received_file_name: f.name,
+        received_file_type: f.type || ext.toUpperCase() || null,
+        received_file_bucket: 'documents',
+      }
+      let docId = caseDocumentId
+      if (docId) {
+        const { error } = await supabase.from('case_documents').update(patch).eq('id', docId)
+        if (error) throw error
+      } else {
+        // case_documents 行が無ければ作成し、受信簿アイテムに紐付ける
+        const { data, error } = await supabase.from('case_documents')
+          .insert({ case_id: caseId, document_name: itemName, quantity: 1, ...patch })
+          .select('id').single()
+        if (error || !data) throw error ?? new Error('作成失敗')
+        docId = (data as { id: string }).id
+        await supabase.from('document_receipt_items').update({ case_document_id: docId }).eq('id', itemId)
+      }
+      showToast('スキャンを添付しました', 'success')
+      onChanged()
+    } catch (e) {
+      console.error(e)
+      showToast(e instanceof Error ? `失敗: ${e.message}` : 'アップロードに失敗しました', 'error')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  if (file) {
+    return <OpenStorageFile bucket={file.bucket} path={file.path} name={file.name} label="ファイル" />
+  }
+  return (
+    <>
+      <input ref={inputRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }} />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 disabled:opacity-50"
+        title="スキャンしたPDF等を添付（任意）"
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Paperclip className="w-3 h-3" strokeWidth={2} />}
+        未添付・添付する
+      </button>
+    </>
   )
 }
 
