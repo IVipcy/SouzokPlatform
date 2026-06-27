@@ -207,17 +207,18 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         .from('documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true })
       if (upErr) throw upErr
-      const { error: dbErr } = await supabase.from('case_documents').insert({
+      // 相続関係説明図は「自社が作成する書類」なので作成書類(documents)へ保存する。
+      // → 書類作成タブの作成書類一覧に出る（到着物＝受領書類とは分ける）。
+      const { error: dbErr } = await supabase.from('documents').insert({
         case_id: caseData.id,
-        document_name: `相続関係説明図_${ymd}`,
-        outbound_file_path: path,
-        outbound_file_name: `相続関係説明図_${ymd}.png`,
-        outbound_file_type: 'PNG',
-        outbound_file_bucket: 'documents',
+        name: `相続関係説明図_${ymd}.png`,
+        file_path: path,
+        file_type: 'PNG',
+        status: '作成済',
         generated_by: 'system',
       })
       if (dbErr) throw dbErr
-      showToast('相続関係説明図を書類タブに保存しました', 'success')
+      showToast('相続関係説明図を作成書類に保存しました', 'success')
       onRefresh()
     } catch (e) {
       console.error(e)

@@ -101,9 +101,10 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   const unlinkedCount = rows.length - linkedCount
 
   // 受信簿外の case_documents（item.case_document_id に登録されていないもの）。
-  // 受信簿外で個別アップロードしたファイル管理用。
+  // 到着物タブは「受領した書類」だけを扱うので、受領ファイル(received_file)があるものに限る。
+  // 自社が作成・発送した書類(outbound のみ。相続関係説明図など)はここには出さない（作成書類タブの管轄）。
   const usedDocIds = new Set(rows.map(r => r.caseDocumentId).filter((v): v is string => !!v))
-  const orphanDocs = documents.filter(d => !usedDocIds.has(d.id))
+  const orphanDocs = documents.filter(d => !usedDocIds.has(d.id) && !!d.received_file_path)
 
   return (
     <div className="space-y-3.5">
