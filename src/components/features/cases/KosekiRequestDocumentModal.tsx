@@ -7,8 +7,10 @@ import { showToast } from '@/components/ui/Toast'
 import {
   KOSEKI_VARIANT_PRESETS,
   KOSEKI_PURPOSES,
+  KOSEKI_AGENT_OFFICES,
   defaultKosekiVariant,
   type KosekiVariant,
+  type KosekiAgentOfficeId,
 } from '@/lib/officeProfiles'
 import { KOSEKI_REQUEST_TYPES } from '@/lib/constants'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
@@ -64,6 +66,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [purpose, setPurpose] = useState<string>(KOSEKI_PURPOSES[0])  // 使用目的
+  const [agentOffice, setAgentOffice] = useState<KosekiAgentOfficeId>('kyodo')  // 上記代理人の所在地（拠点）
   const [rows, setRows] = useState<RequestRow[]>([])
   const [generating, setGenerating] = useState(false)
 
@@ -164,6 +167,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             rows: normalizedRows,
             rowIndex: i,
             taskId: defaultTaskId ?? null,
+            agentOffice,
           }),
         })
 
@@ -255,6 +259,16 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
             >
               {KOSEKI_PURPOSES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">請求者所在地（上記代理人）</label>
+            <select
+              value={agentOffice}
+              onChange={e => setAgentOffice(e.target.value as KosekiAgentOfficeId)}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+            >
+              {KOSEKI_AGENT_OFFICES.map(o => <option key={o.id} value={o.id}>{o.label}（{o.line1} {o.line2}）</option>)}
             </select>
           </div>
         </section>

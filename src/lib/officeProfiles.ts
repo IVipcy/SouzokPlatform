@@ -124,6 +124,17 @@ export function officesForContractType(contractType: string | null | undefined):
 }
 
 /**
+ * 戸籍請求書「上記代理人」の請求者所在地（事業所）。出力前に選択する。
+ * line1/line2 は請求書の代理人住所欄（F8/F9）にそのまま流し込む。
+ */
+export const KOSEKI_AGENT_OFFICES = [
+  { id: 'kureator', label: 'クレアトール', line1: '横浜市西区高島２－１４－１７', line2: 'クレアトール横浜ビル５階' },
+  { id: 'kyodo',    label: '共同ビル',     line1: '横浜市西区高島２－１３－２', line2: '横浜駅前共同ビル' },
+  { id: 'fujisawa', label: '藤沢',         line1: '神奈川県藤沢市鵠沼石上１丁目１−１', line2: '江ノ電第2ビル 4階' },
+] as const
+export type KosekiAgentOfficeId = typeof KOSEKI_AGENT_OFFICES[number]['id']
+
+/**
  * 戸籍請求書の用途バリエーション（行政／司法の2通り。いきいきは廃止）
  */
 export type KosekiVariant = 'gyosei' | 'shiho'

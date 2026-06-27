@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
-import { KOSEKI_VARIANT_PRESETS, type KosekiVariant } from '@/lib/officeProfiles'
+import { KOSEKI_VARIANT_PRESETS, KOSEKI_AGENT_OFFICES, type KosekiVariant, type KosekiAgentOfficeId } from '@/lib/officeProfiles'
 
 type RequestRow = {
   municipality: string
@@ -33,6 +33,7 @@ type Body = {
   rows: RequestRow[]
   rowIndex?: number  // どの請求先を出力するか（省略時は全件まとめて別xlsx化→未対応、0番で1件）
   taskId?: string | null  // 紐づける作成タスク（タスク詳細から作成時）
+  agentOffice?: KosekiAgentOfficeId  // 上記代理人の請求者所在地（拠点選択）。省略時はテンプレ既定（共同ビル）
 }
 
 /**
@@ -178,6 +179,15 @@ export async function POST(request: NextRequest) {
 
     if (map.requesterAddress) setCell(ws, map.requesterAddress, clientAddress)
     if (map.requesterName) setCell(ws, map.requesterName, clientName)
+
+    // 上記代理人の請求者所在地（拠点選択）。選択時は F8/F9 を上書き（未選択はテンプレ既定）。
+    if (body.agentOffice) {
+      const office = KOSEKI_AGENT_OFFICES.find(o => o.id === body.agentOffice)
+      if (office) {
+        ws.getCell('F8').value = office.line1
+        ws.getCell('F9').value = office.line2
+      }
+    }
 
     setCell(ws, map.copyCount, `${row.copyCount}　通`)
     setCell(ws, map.honseki, row.honseki)
