@@ -47,6 +47,8 @@ type CaseOption = { id: string; case_number: string; deal_name: string }
 type Props = {
   invoices: InvoiceWithRelations[]
   cases: CaseOption[]
+  /** 銀行CSV取込・入金突合ができるか（経理・システム管理者のみ） */
+  canReconcile?: boolean
 }
 
 // 手動で選べるステータス。入金済は「入金消込」／CSV突合で payments を伴って確定するためここには含めない。
@@ -99,7 +101,7 @@ function contractDot(contractType: string | null | undefined): { cls: string; la
   }
 }
 
-export default function BillingClient({ invoices, cases }: Props) {
+export default function BillingClient({ invoices, cases, canReconcile = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFromUrl = searchParams.get('case')
@@ -395,9 +397,11 @@ export default function BillingClient({ invoices, cases }: Props) {
             >
               {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
-              銀行CSV取込
-            </Button>
+            {canReconcile && (
+              <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
+                銀行CSV取込
+              </Button>
+            )}
             <Button
               variant="primary"
               size="sm"
@@ -957,12 +961,14 @@ export default function BillingClient({ invoices, cases }: Props) {
         />
       )}
 
-      {/* 銀行CSV突合（案件番号・振込人・金額キー／AI判定・要確認／入金確定通知） */}
-      <BankCsvReconcileModal
-        isOpen={csvOpen}
-        onClose={() => setCsvOpen(false)}
-        onSaved={() => { setCsvOpen(false); router.refresh() }}
-      />
+      {/* 銀行CSV突合（経理・システム管理者のみ。案件番号・振込人・金額キー／AI判定・要確認／入金確定通知） */}
+      {canReconcile && (
+        <BankCsvReconcileModal
+          isOpen={csvOpen}
+          onClose={() => setCsvOpen(false)}
+          onSaved={() => { setCsvOpen(false); router.refresh() }}
+        />
+      )}
 
       {/* Delete Confirm */}
       <DeleteConfirmModal

@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import BillingClient from '@/components/features/billing/BillingClient'
+import { getCurrentUser, canReconcilePayments } from '@/lib/auth'
 
 export default async function BillingPage() {
   const supabase = await createClient()
+  const user = await getCurrentUser()
 
   const [invoicesResult, casesResult] = await Promise.all([
     supabase
@@ -15,10 +17,14 @@ export default async function BillingPage() {
       .order('case_number'),
   ])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoices = (invoicesResult.data ?? []) as any
+
   return (
     <BillingClient
-      invoices={(invoicesResult.data ?? []) as any}
+      invoices={invoices}
       cases={casesResult.data ?? []}
+      canReconcile={canReconcilePayments(user)}
     />
   )
 }
