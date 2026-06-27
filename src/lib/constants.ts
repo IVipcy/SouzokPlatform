@@ -325,7 +325,6 @@ export const REGISTRATION_TYPES = [
   '登記名義人 住所・氏名変更',
   '抵当権抹消',
   '持分移転',
-  '数次相続',
   'その他',
 ] as const
 
