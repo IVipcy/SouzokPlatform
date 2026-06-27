@@ -46,6 +46,7 @@ export function computeCaseAlerts(
     overdueTaskCount: number              // 期限超過の未完了タスク数
     docArrivedUnstarted?: boolean         // ダブルチェック済みで未着手の書類があるか
     docUncheckedUnstarted?: boolean       // 受信簿に登録されたがダブルチェックも着手もされていない書類があるか
+    responseCheckDone?: boolean           // 「検討状況の確認」タスク(sys_review_status)が完了済みか
   },
   today: Date,
 ): CaseAlertChip[] {
@@ -67,7 +68,7 @@ export function computeCaseAlerts(
   if (c.expected_completion_date && c.expected_completion_date < ymd && c.status !== '完了' && c.status !== '失注') out.push({ severity: 'high', category: '完了予定日 超過' })
   if (active && !ctx.recentWeeklyConfirmed) out.push({ severity: 'mid', category: '週次報告の漏れ' })
   if (c.meeting_date && c.meeting_date < ymd && !c.meeting_executed_date && PENDING_ANSWER_A.has(c.status)) out.push({ severity: 'mid', category: '面談メモ未記載' })
-  if (PENDING_ANSWER_A.has(c.status) && c.client_response_due_date && c.client_response_due_date <= horizonStr) {
+  if (PENDING_ANSWER_A.has(c.status) && c.client_response_due_date && c.client_response_due_date <= horizonStr && !ctx.responseCheckDone) {
     out.push({ severity: 'mid', category: c.client_response_due_date < ymd ? '回答予定日 超過' : '回答予定日 間近' })
   }
   return out

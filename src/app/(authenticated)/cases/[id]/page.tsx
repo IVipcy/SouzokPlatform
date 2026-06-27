@@ -137,6 +137,8 @@ export default async function CaseDetailPage({ params }: Props) {
       overdueTaskCount: tasksForAlert.filter(t => t.due_date && t.due_date < nowStr && t.status !== '完了' && t.status !== 'キャンセル').length,
       docArrivedUnstarted: receiptRows.some(r => r.dual_checked_at && !r.started_by_member_id),
       docUncheckedUnstarted: receiptRows.some(r => !r.dual_checked_at && !r.started_by_member_id),
+      // 「検討状況の確認」(sys_review_status) が完了済みなら回答予定日アラートを出さない
+      responseCheckDone: tasksForAlert.some(t => (t as { template_key?: string | null }).template_key === 'sys_review_status' && (t.status === '完了' || t.status === 'キャンセル')),
     },
     now,
   )

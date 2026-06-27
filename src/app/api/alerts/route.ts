@@ -38,7 +38,7 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: receiptRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: receiptRaw }, { data: reviewDoneRaw }] = await Promise.all([
     supabase.from('cases')
       .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date')
       .in('id', myCaseIds),
@@ -51,6 +51,9 @@ export async function GET() {
     supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date').in('case_id', myCaseIds),
     // 書類受信簿：ダブルチェック済みで未着手＝着手待ち
     supabase.from('document_receipts').select('case_id,dual_checked_at,started_by_member_id').in('case_id', myCaseIds),
+    // 「検討状況の確認」(sys_review_status) が完了済みの案件 → 回答予定日アラートを抑制
+    supabase.from('tasks').select('case_id,status,template_key')
+      .in('case_id', myCaseIds).eq('template_key', 'sys_review_status').in('status', ['完了', 'キャンセル']),
   ])
 
   type CaseRow = {
@@ -70,6 +73,9 @@ export async function GET() {
   const docArrivedCaseIds = new Set(receipts2.filter(r => r.dual_checked_at && !r.started_by_member_id).map(r => r.case_id))
   // 受信簿に登録されたが、ダブルチェックも着手もされず放置されている案件
   const docUncheckedCaseIds = new Set(receipts2.filter(r => !r.dual_checked_at && !r.started_by_member_id).map(r => r.case_id))
+
+  // 「検討状況の確認」(sys_review_status) が完了済みの案件
+  const reviewDoneCaseIds = new Set(((reviewDoneRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
 
   const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
@@ -117,7 +123,7 @@ export async function GET() {
     if (isMySales && c.meeting_date && c.meeting_date < todayStr && !c.meeting_executed_date && PENDING_ANSWER.has(c.status)) {
       push({ id: `memo-${c.id}`, severity: 'mid', category: '面談メモ未記載', title: name, body: '面談予定日を超過・面談メモ未記載', href: `${caseHref}?tab=basicInfo` })
     }
-    if (isMySales && PENDING_ANSWER.has(c.status) && c.client_response_due_date && c.client_response_due_date <= horizonStr) {
+    if (isMySales && PENDING_ANSWER.has(c.status) && c.client_response_due_date && c.client_response_due_date <= horizonStr && !reviewDoneCaseIds.has(c.id)) {
       const over = c.client_response_due_date < todayStr
       push({ id: `due-${c.id}`, severity: 'mid', category: over ? 'お客様回答予定日 超過' : 'お客様回答予定日 間近', title: name, body: `回答予定日 ${c.client_response_due_date}`, href: `${caseHref}?tab=clientInfo` })
     }
