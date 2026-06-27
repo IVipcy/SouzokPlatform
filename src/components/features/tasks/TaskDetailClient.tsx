@@ -322,6 +322,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           caseData={caseData}
           taskPhase={task.phase}
           caseTasks={caseTasks}
+          currentTaskId={task.id}
         />
       )}
 
@@ -531,10 +532,12 @@ function TaskWorkSection({
 //   - 未着手・対応中のタスク
 // を出し、引き継ぎ時に「この戦場で何が起きてた？」を即把握できるようにする。
 // 必要なら「案件全体の直近の動き」を折りたたみで展開できる。
-function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
+function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
   caseData: CaseRow
   taskPhase: string | null
   caseTasks: TaskRow[]
+  /** 今開いているタスク。一覧から自分自身を除外するため。 */
+  currentTaskId: string
 }) {
   const [globalOpen, setGlobalOpen] = useState(false)
   const normalize = (s: string) => {
@@ -553,18 +556,17 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
     guardianship: '成年後見', referral: '他事業者紹介', contractProc: '契約残手続き',
   }
 
-  // 事務管理タスク（task_kind='case'）のみ対象
+  // 事務管理タスク（task_kind='case'）かつ同じ業務区分のもの。進捗カウントには現タスクも含める。
   const gyomuTasks = caseTasks
     .filter(t => t.task_kind !== 'system' && currentGyomu && stripPhasePrefix(t.phase ?? '') === currentGyomu)
 
-  // 業務のタスクを ステータス別 に分類
-  const doneTasks = gyomuTasks
+  // 一覧表示は「今開いているタスク」を除外（自分自身は出さない）
+  const otherTasks = gyomuTasks.filter(t => t.id !== currentTaskId)
+  const doneTasks = otherTasks
     .filter(t => normalize(t.status) === '完了')
     .sort((a, b) => (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? ''))
-  const doingTasks = gyomuTasks
-    .filter(t => normalize(t.status) === '対応中')
-  const todoTasks = gyomuTasks
-    .filter(t => normalize(t.status) === '着手前')
+  const doingTasks = otherTasks.filter(t => normalize(t.status) === '対応中')
+  const todoTasks = otherTasks.filter(t => normalize(t.status) === '着手前')
 
   // 案件全体（業務横断）の直近活動: 事務管理タスク（task_kind='case'）のみをタイムライン化。
   // 受注担当/管理担当の初期対応タスク（task_kind/phase='system'）は対象外。
@@ -608,7 +610,7 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
               <ul className="space-y-1.5">
                 {doneTasks.slice(0, 5).map(t => {
                   const ext = (t.ext_data ?? {}) as Record<string, unknown>
-                  const result = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+                  const result = typeof ext.execution_result === 'string' ? ext.execution_result.trim() : ''
                   return (
                     <li key={t.id} className="flex items-start gap-2 text-[12px]">
                       <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
@@ -618,8 +620,11 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
                           <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{(t.completed_at ?? '').slice(0, 10)}</span>
                           {t.started_by_member?.name && <span className="text-[10px] text-gray-500 truncate flex-shrink-0">{t.started_by_member.name}</span>}
                         </div>
-                        {result.trim() && (
-                          <div className="mt-0.5 text-[11px] text-gray-600 line-clamp-2 whitespace-pre-line bg-gray-50 px-2 py-1 rounded">{result}</div>
+                        {/* 実施結果・引継ぎ事項（空なら記載なしを明示） */}
+                        {result ? (
+                          <div className="mt-0.5 text-[11px] text-gray-600 line-clamp-3 whitespace-pre-line bg-gray-50 px-2 py-1 rounded">{result}</div>
+                        ) : (
+                          <div className="mt-0.5 text-[11px] text-gray-400 italic">実施結果・引継ぎ事項の記載なし</div>
                         )}
                       </div>
                     </li>
@@ -656,8 +661,8 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
             </div>
           )}
 
-          {gyomuTasks.length === 0 && (
-            <div className="text-[12px] text-gray-400">この業務にはまだタスクがありません</div>
+          {otherTasks.length === 0 && (
+            <div className="text-[12px] text-gray-400">この業務には、今開いているタスク以外のタスクはありません</div>
           )}
         </div>
       ) : (
