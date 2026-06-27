@@ -14,6 +14,9 @@ type Props = {
   visibleTabs?: TabKey[]
   collapsedTabs?: TabKey[]
   highlightTabs?: TabKey[]
+  /** info グループ（面談情報・契約残手続き等）をドロップダウンに畳むか。
+   *  対応中以降は true（案件情報にまとめる）、それ以前は false（タブが少ないので展開）。 */
+  groupInfoTabs?: boolean
   /** 互換のため残置（管理情報は MeetingInfoTab の案件情報セクションへ統合済み） */
   onOpenManagementInfo?: () => void
 }
@@ -66,7 +69,7 @@ const DEFAULT_TABS: TabKey[] = [
   'ownerSales', 'orderContent', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true }: Props) {
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
   const counts: Record<string, number> = { taskCount }
@@ -92,9 +95,19 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           onClick={() => onTabChange(key)} />
       ))}
       {(mainTabs.length > 0 || practiceTabs.length > 0) && infoTabs.length > 0 && <VDivider />}
+      {/* 対応中以降はドロップダウンに畳む。それ以前はタブが少ないのでフラット展開。 */}
       {infoTabs.length > 0 && (
-        <InfoDropdown tabs={infoTabs} activeTab={activeTab} highlightSet={highlightSet}
-          onTabChange={onTabChange} />
+        groupInfoTabs ? (
+          <InfoDropdown tabs={infoTabs} activeTab={activeTab} highlightSet={highlightSet}
+            onTabChange={onTabChange} />
+        ) : (
+          infoTabs.map(key => (
+            <Tab key={key} tabKey={key}
+              isActive={activeTab === key}
+              isHighlight={highlightSet.has(key)}
+              onClick={() => onTabChange(key)} />
+          ))
+        )
       )}
     </div>
   )

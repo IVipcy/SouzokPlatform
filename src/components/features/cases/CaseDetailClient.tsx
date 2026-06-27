@@ -277,6 +277,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
+          groupInfoTabs={caseState.status === '対応中' || caseState.status === '完了'}
         />
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
