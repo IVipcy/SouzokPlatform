@@ -95,7 +95,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
             <InlineDate label="財産調査禁止期間 終了日" value={caseData.financial_survey_prohibited_end} onSave={v => save('financial_survey_prohibited_end', v)} />
             <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
-            <InlineSelect label="不動産の評価方法" value={caseData.real_estate_evaluation_method} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={v => save('real_estate_evaluation_method', v)} />
             {showInventoryRange && (
               <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
             )}
@@ -110,6 +109,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
         <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
+          {/* 不動産の評価方法（財産調査条件から移設） */}
+          <FieldGrid>
+            <InlineSelect label="不動産の評価方法" value={caseData.real_estate_evaluation_method} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={v => save('real_estate_evaluation_method', v)} />
+          </FieldGrid>
           <div>
             <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
