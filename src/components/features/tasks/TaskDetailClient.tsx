@@ -566,42 +566,39 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
   const todoTasks = gyomuTasks
     .filter(t => normalize(t.status) === '着手前')
 
-  // 案件全体（業務横断）の直近活動: タスクの完了・着手をまとめてタイムライン化
+  // 案件全体（業務横断）の直近活動: 事務管理タスク（task_kind='case'）のみをタイムライン化。
+  // 受注担当/管理担当の初期対応タスク（task_kind/phase='system'）は対象外。
   type Event = { kind: 'completed' | 'started'; at: string; task: TaskRow }
   const events: Event[] = []
   for (const t of caseTasks) {
-    if (t.task_kind === 'system') continue
+    if (t.task_kind !== 'case') continue
     if (t.completed_at) events.push({ kind: 'completed', at: t.completed_at, task: t })
     if (t.started_at) events.push({ kind: 'started', at: t.started_at, task: t })
   }
   events.sort((a, b) => b.at.localeCompare(a.at))
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-[1px]" />
-        <span className="text-[13px] font-semibold text-brand-800">案件サマリー</span>
-        <span className="text-[11px] text-gray-400">引き継ぎ時の現状把握用</span>
-        {targetTab && (
-          <Link
-            href={`/cases/${caseData.id}?tab=${targetTab}`}
-            className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded border border-brand-200"
-          >
-            {targetTabLabel[targetTab] ?? targetTab} タブを開く
-            <ExternalLink className="w-3 h-3" strokeWidth={2.25} />
-          </Link>
-        )}
-      </div>
-
+    <div className="mb-5">
+    <Section title="案件サマリー">
       {/* 業務フォーカス */}
       {currentGyomu ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
             <span className="text-[13px] font-bold text-gray-900">{currentGyomu}</span>
             <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
               {doneTasks.length}/{gyomuTasks.length} 完了
             </span>
+            <span className="text-[11px] text-gray-400">この業務の事務管理タスク</span>
+            {targetTab && (
+              <Link
+                href={`/cases/${caseData.id}?tab=${targetTab}`}
+                className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded border border-brand-200"
+              >
+                {targetTabLabel[targetTab] ?? targetTab} タブを開く
+                <ExternalLink className="w-3 h-3" strokeWidth={2.25} />
+              </Link>
+            )}
           </div>
 
           {/* これまでの作業（完了タスク + 実施結果） */}
@@ -709,6 +706,7 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
           </div>
         )}
       </div>
+    </Section>
     </div>
   )
 }
