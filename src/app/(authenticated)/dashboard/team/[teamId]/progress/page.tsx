@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
-import { notFound } from 'next/navigation'
+import { getCurrentUser, isSystemManager } from '@/lib/auth'
+import { notFound, redirect } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -58,6 +58,10 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const { month, view: viewParam, member: memberParam } = await searchParams
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
+  // 自チーム以外の進捗ダッシュボードは閲覧不可（システム管理者は全チームOK）
+  if (!isSystemManager(currentUser) && currentUser?.teamId !== teamId) {
+    redirect('/')
+  }
   const currentMemberId = currentUser?.memberId ?? null
   const today = new Date()
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`

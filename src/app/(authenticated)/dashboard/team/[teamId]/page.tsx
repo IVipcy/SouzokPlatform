@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
-import { notFound } from 'next/navigation'
+import { getCurrentUser, isSystemManager } from '@/lib/auth'
+import { notFound, redirect } from 'next/navigation'
 import { Users } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
@@ -46,6 +46,11 @@ type Props = {
 
 export default async function TeamTodayDashboard({ params, searchParams }: Props) {
   const { teamId } = await params
+  // 自チーム以外の受注ダッシュボードは閲覧不可（システム管理者は全チームOK）
+  const guardUser = await getCurrentUser()
+  if (!isSystemManager(guardUser) && guardUser?.teamId !== teamId) {
+    redirect('/')
+  }
   const { member: selectedMemberId, period, view } = await searchParams
   const currentPeriod = parsePeriod(period)
   const currentView: 'stats' | 'meetings' = view === 'meetings' ? 'meetings' : 'stats'

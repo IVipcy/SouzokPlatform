@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser, isSystemManager } from '@/lib/auth'
 
 type Card = {
   href: string | null
@@ -44,6 +45,17 @@ export default async function DashboardTopPage() {
 
   const teams = (teamsRaw ?? []) as Array<{ id: string; name: string; sort_order: number }>
 
+  // ── ロール別の表示制御 ──
+  // 全員: 部全体 / 受注担当全体 / 管理担当全体
+  // 受注担当: 自チームの受注ボード / 管理担当: 自チームの進捗ボード（他チームは出さない）
+  // システム管理者: 全チーム・全ボード
+  const user = await getCurrentUser()
+  const sm = isSystemManager(user)
+  const role = user?.primaryRole ?? null
+  const myTeamId = user?.teamId ?? null
+  const salesTeams = sm ? teams : (role === 'sales' && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
+  const mgrTeams = sm ? teams : ((role === 'manager' || role === 'sub_manager') && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
+
   // マイページはサイドバー最上段へ移設したため、ダッシュボード一覧からは削除
   const sections: CardSection[] = [
     {
@@ -70,7 +82,7 @@ export default async function DashboardTopPage() {
           Icon: Megaphone,
           tone: 'green',
         },
-        ...teams.map(t => ({
+        ...salesTeams.map(t => ({
           href: `/dashboard/team/${t.id}`,
           title: `${t.name}（受注）`,
           description: `${t.name}の受注担当ダッシュボード。メンバー別の本日 / 当月 / 年度累計 / 月別。`,
@@ -90,7 +102,7 @@ export default async function DashboardTopPage() {
           Icon: Building2,
           tone: 'purple',
         },
-        ...teams.map(t => ({
+        ...mgrTeams.map(t => ({
           href: `/dashboard/team/${t.id}/progress`,
           title: `${t.name}（進捗）`,
           description: `${t.name}の月間進捗管理ボード。担当案件・青/黄/赤/紫 フラグ・完了割合・サイクル・請求件数。`,
