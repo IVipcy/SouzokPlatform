@@ -321,7 +321,7 @@ export type MemberRow = {
   team_id?: string | null
   job_type?: string | null
   joined_at?: string | null
-  primary_role?: 'sales' | 'manager' | 'assistant' | 'lp' | 'accounting' | null
+  primary_role?: 'sales' | 'manager' | 'assistant' | 'lp' | 'accounting' | 'system_manager' | null
   avatar_url?: string | null
   phone?: string | null
   bio?: string | null

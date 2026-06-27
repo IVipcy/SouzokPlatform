@@ -102,9 +102,13 @@ export function hasRole(user: UserWithRoles | null, ...roles: string[]): boolean
 // system_manager は全許可。それ以外はロールに応じて個別判定する。
 // ──────────────────────────────────────────────────────────
 
+// 実運用は primary_role 一本のため、primary_role を主に判定する。
+// member_roles（roles[]）が設定されている場合はそれも OR で見る（互換）。
+
 /** システム管理者（全機能・全ダッシュボードのスーパーユーザー） */
 export function isSystemManager(user: UserWithRoles | null): boolean {
-  return !!user && user.roles.includes('system_manager')
+  if (!user) return false
+  return user.primaryRole === 'system_manager' || user.roles.includes('system_manager')
 }
 
 /** マイページを持つのは 受注/管理/システム管理者のみ（事務管理・経理は無し） */
@@ -117,5 +121,5 @@ export function canSeeMyPage(user: UserWithRoles | null): boolean {
 /** 銀行CSV入金突合ができるのは 経理 と システム管理者のみ（manager不可） */
 export function canReconcilePayments(user: UserWithRoles | null): boolean {
   if (!user) return false
-  return user.roles.includes('system_manager') || user.roles.includes('accounting')
+  return isSystemManager(user) || user.primaryRole === 'accounting' || user.roles.includes('accounting')
 }

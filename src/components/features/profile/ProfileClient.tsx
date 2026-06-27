@@ -15,6 +15,7 @@ const ROLE_LABEL: Record<string, string> = {
   assistant: '事務管理',
   lp: 'LP担当',
   accounting: '経理担当',
+  system_manager: 'システム管理者',
 }
 
 type Props = {

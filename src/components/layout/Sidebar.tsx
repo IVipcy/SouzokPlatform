@@ -31,6 +31,7 @@ const ROLE_LABEL: Record<string, string> = {
   assistant: '事務管理',
   lp: 'LP担当',
   accounting: '経理担当',
+  system_manager: 'システム管理者',
 }
 
 type NavItem = {
@@ -131,7 +132,7 @@ export default function Sidebar() {
 
       {/* ナビゲーション（マイページは 受注/管理/システム管理者 のみ表示） */}
       {(() => {
-        const canMyPage = !!user && (user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
+        const canMyPage = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => it.href !== '/my' || canMyPage) }))
         return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
