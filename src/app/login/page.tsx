@@ -44,7 +44,6 @@ export default function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-ocean.svg" alt="オーシャン" className="h-14 w-auto mx-auto mb-4" />
           <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">相続案件管理</h1>
-          <p className="text-sm text-gray-500 mt-1.5 tracking-wide">業務管理システム</p>
         </div>
 
         {/* ログインフォーム */}
