@@ -99,15 +99,9 @@ export async function POST(request: NextRequest) {
 
     const f = def.fields
     setCell(ws, f.address, clientAddress)
-    setCell(ws, f.name, clientName)
+    // 甲（依頼者）署名欄の氏名は手書き署名のため空欄で出力する（住所・本文中の氏名は印字）。
     setCell(ws, f.deceased, deceasedName)
     setCell(ws, f.bodyClientName, clientName)
-    // 甲（依頼者）氏名はテンプレ既定の「縮小して全体を表示」で小さく潰れるため調整
-    if (f.name && clientName) {
-      const nameCell = ws.getCell(f.name)
-      nameCell.font = { ...(nameCell.font ?? {}), size: 14 }
-      nameCell.alignment = { ...(nameCell.alignment ?? {}), shrinkToFit: false, wrapText: false }
-    }
 
     // 契約日（任意。和暦で「令和○年○月○日」。元号もこのセル内に書く）
     if (body.date && f.dateCell) {
