@@ -150,12 +150,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   // dashboard_team_members からチーム編成を読む（migration 048 未適用環境でも動くようフォールバック）
   const teamMemberRows = (teamMembersRaw ?? []) as Array<{ id: string; member_id: string; kind: 'member' | 'mentor' }>
   const teamMemberMap = new Map(teamMemberRows.map(r => [r.member_id, r]))
-  // 「このチームのメンバー」
-  //   - dashboard_team_members が存在 (≥1行) するなら、そこに登録されている人
-  //   - 未マイグレーション or 未登録の場合は、members.team_id でフォールバック
-  const teamMembers = teamMemberRows.length > 0
-    ? allActiveMembers.filter(m => teamMemberMap.has(m.id))
-    : allActiveMembers.filter(m => m.team_id === teamId)
+  // 「このチームのメンバー」= dashboard_team_members の名簿 ∪ members.team_id 一致
+  //   名簿に未登録でも members.team_id がこのチームの人は表示に含める（kindは'member'扱い）。
+  //   これにより、members.team_id を設定しただけでチームダッシュボードに出る。
+  const teamMembers = allActiveMembers.filter(m => teamMemberMap.has(m.id) || m.team_id === teamId)
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
   const memberTargetByMember = new Map(
