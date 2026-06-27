@@ -11,7 +11,7 @@ import { AlertTriangle, Inbox } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
-import { getPhaseLabel } from '@/lib/phases'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 import { useRouter } from 'next/navigation'
@@ -41,7 +41,12 @@ type Props = {
   canRequestReview?: boolean
 }
 
-const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
+// 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
+const normGyomu = (phase: string | null | undefined): string => {
+  const g = (phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
+  if (!g || /^phase\d+$/i.test(g)) return '未分類'
+  return g
+}
 
 export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
   const router = useRouter()
@@ -57,13 +62,19 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
   const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
   const overdueCount = caseTasks.filter(t => t.status !== '完了' && t.due_date && t.due_date < todayYmd).length
 
-  // 現在フェーズ = タスクが残っている最初のPhase（全完了なら「完了」）
+  // 現在の業務 = 未完了タスクが残っている最初の業務区分（GYOMU_ALL順、全完了なら「完了」）
   const currentPhaseLabel = (() => {
     if (totalTasks === 0) return null
-    for (const p of PHASE_ORDER) {
-      const phaseTasks = caseTasks.filter(t => (t.phase || 'phase1') === p)
-      if (phaseTasks.length === 0) continue
-      if (phaseTasks.some(t => t.status !== '完了')) return getPhaseLabel(p)
+    const order = [...GYOMU_ALL, '未分類']
+    const byGyomu = new Map<string, TaskRow[]>()
+    for (const t of caseTasks) {
+      const k = normGyomu(t.phase)
+      if (!byGyomu.has(k)) byGyomu.set(k, [])
+      byGyomu.get(k)!.push(t)
+    }
+    const keys = [...order.filter(g => byGyomu.has(g)), ...[...byGyomu.keys()].filter(g => !order.includes(g))]
+    for (const g of keys) {
+      if (byGyomu.get(g)!.some(t => t.status !== '完了')) return g
     }
     return '完了'
   })()
@@ -146,7 +157,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
             <SummaryItem label="案件ステータス">
               <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} initialTasksDone={isInitialTasksDone(tasks)} contractProcDone={contractProcDone} onChange={s => saveCaseField('status', s)} />
             </SummaryItem>
-            <SummaryItem label="現在フェーズ">
+            <SummaryItem label="現在の業務">
               <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
             </SummaryItem>
             <SummaryItem label="タスク進捗">

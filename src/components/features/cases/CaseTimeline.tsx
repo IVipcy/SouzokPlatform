@@ -2,10 +2,17 @@
 
 import Link from 'next/link'
 import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, type LucideIcon } from 'lucide-react'
-import { getPhaseDefinition } from '@/lib/phases'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
+
+// 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
+function normGyomu(phase: string | null | undefined): string {
+  const g = (phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
+  if (!g || /^phase\d+$/i.test(g)) return '未分類'
+  return g
+}
 
 // 書類受信簿（タイムライン差し込み用の最小形）
 export type TimelineReceipt = {
@@ -85,7 +92,6 @@ function taskAssignee(t: TaskRow): string | null {
 }
 
 const STATUS_ORDER = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '対応中', '保留・長期', '完了', '失注', '紹介のみ']
-const PHASE_ORDER = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6']
 
 // マイルストーン定義（実際に通過したステータスのみ表示）
 // historyOnly=true のものは「ステータス遷移の実履歴に該当ステータスがある場合のみ」表示する
@@ -181,26 +187,31 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
   const systemTasks = tasks.filter(t => t.task_kind === 'system')
   const visibleProperties = properties.filter(p => p.appraisal_status !== '不要')
 
-  // フェーズ別タスク
-  const tasksByPhase = new Map<string, TaskRow[]>()
+  // 業務区分別タスク（Phase概念は廃止。task.phase を業務区分として扱う）
+  const tasksByGyomu = new Map<string, TaskRow[]>()
   for (const t of caseTasks) {
-    const k = t.phase || 'phase1'
-    if (!tasksByPhase.has(k)) tasksByPhase.set(k, [])
-    tasksByPhase.get(k)!.push(t)
+    const k = normGyomu(t.phase)
+    if (!tasksByGyomu.has(k)) tasksByGyomu.set(k, [])
+    tasksByGyomu.get(k)!.push(t)
   }
-  // 依存チェーン前提を緩め、フェーズ内は「完了 → 対応中/超過 → 未着手」でまとめる。
-  // これにより途中で追加・完了したタスクが末尾に浮かず、自然に見える。
+  // 業務内は「完了 → 対応中/超過 → 未着手」でまとめる。
   const statusRank = (t: TaskRow): number => {
     const s = classifyTask(t, todayYmd)
     return s === 'done' ? 0 : s === 'pending' ? 2 : 1
   }
-  const orderedPhases = PHASE_ORDER
-    .filter(p => (tasksByPhase.get(p)?.length ?? 0) > 0)
-    .map(p => ({
-      key: p,
-      label: getPhaseDefinition(p)?.label ?? p,
-      tasks: [...tasksByPhase.get(p)!].sort((a, b) => statusRank(a) - statusRank(b) || (a.sort_order ?? 0) - (b.sort_order ?? 0)),
-    }))
+  // 業務区分の表示順: GYOMU_ALL の順 → それ以外 → 「未分類」を最後に
+  const GYOMU_ORDER = [...GYOMU_ALL]
+  const presentGyomu = [...tasksByGyomu.keys()]
+  const orderedKeys = [
+    ...GYOMU_ORDER.filter(g => tasksByGyomu.has(g)),
+    ...presentGyomu.filter(g => g !== '未分類' && !GYOMU_ORDER.includes(g)),
+    ...(tasksByGyomu.has('未分類') ? ['未分類'] : []),
+  ]
+  const orderedPhases = orderedKeys.map(g => ({
+    key: g,
+    label: g,
+    tasks: [...tasksByGyomu.get(g)!].sort((a, b) => statusRank(a) - statusRank(b) || (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+  }))
 
   // 書類到着（実績）
   const receipts = documentReceipts

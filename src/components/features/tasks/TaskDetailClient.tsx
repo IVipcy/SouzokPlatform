@@ -546,7 +546,12 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
     if (s === 'キャンセル') return '完了'
     return s
   }
-  const stripPhasePrefix = (s: string) => s.replace(/^Phase\d+[:：]\s*/, '')
+  // 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
+  const stripPhasePrefix = (s: string) => {
+    const g = s.replace(/^Phase\d+[:：]\s*/, '').trim()
+    if (!g || /^phase\d+$/i.test(g)) return '未分類'
+    return g
+  }
   const currentGyomu = taskPhase ? stripPhasePrefix(taskPhase) : null
   const targetTab = currentGyomu ? GYOMU_TAB[currentGyomu] : null
   const targetTabLabel: Record<string, string> = {
