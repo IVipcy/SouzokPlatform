@@ -7,9 +7,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, PackageCheck } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
-import { normalizeTaskStatus, getTaskDocStatus, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import type { TaskRow } from '@/types'
 
 type Props = {
@@ -33,13 +33,13 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
   if (matched.length === 0) return null
 
   const counts: Record<Status, number> = { '着手前': 0, '対応中': 0, '完了': 0 }
-  let waitingDoc = 0
+  let readyCount = 0
   const classified = matched.map(t => {
     const s = normalizeTaskStatus(t.status) as Status
     counts[s] = (counts[s] ?? 0) + 1
-    const doc = getTaskDocStatus(t.id, receipts)
-    if (s === '着手前' && doc.state === 'waiting') waitingDoc++
-    return { task: t, status: s, doc }
+    const signal = getStartSignal(t, receipts)
+    if (signal.ready) readyCount++
+    return { task: t, status: s, signal }
   })
 
   return (
@@ -63,9 +63,9 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
             {LABEL[k]} {counts[k]}
           </span>
         ))}
-        {waitingDoc > 0 && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-            ⏳ うち書類受領待ち {waitingDoc}
+        {readyCount > 0 && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800">
+            <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK {readyCount}
           </span>
         )}
         {!open && (
@@ -79,23 +79,27 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
         <div className="space-y-1.5 border-t border-gray-100 pt-2.5">
           {classified
             .sort((a, b) => {
+              // 着手OK → 着手前 → 対応中 → 完了
+              const ra = a.signal.ready ? -1 : 0
+              const rb = b.signal.ready ? -1 : 0
+              if (ra !== rb) return ra - rb
               const rank: Record<Status, number> = { '着手前': 0, '対応中': 1, '完了': 2 }
               return rank[a.status] - rank[b.status]
             })
-            .map(({ task, status, doc }) => (
+            .map(({ task, status, signal }) => (
               <Link
                 key={task.id}
                 href={`/tasks/${task.id}`}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-gray-50 text-[12px]"
               >
-                <span className="w-12 text-center text-[10px] font-semibold text-gray-500">{LABEL[status]}</span>
+                {signal.ready
+                  ? <span className="inline-flex items-center gap-0.5 w-14 text-[10px] font-semibold text-amber-800"><PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK</span>
+                  : <span className="w-14 text-center text-[10px] font-semibold text-gray-500">{LABEL[status]}</span>}
                 <span className={`flex-1 font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                   {task.title}
                 </span>
-                {status !== '完了' && doc.state !== 'none' && (
-                  <span className={`text-[10px] truncate max-w-[200px] ${doc.state === 'waiting' ? 'text-gray-500' : 'text-amber-700'}`}>
-                    {doc.state === 'waiting' ? '⏳' : '📥'} {doc.label}
-                  </span>
+                {signal.ready && signal.reason && (
+                  <span className="text-[10px] text-amber-700 truncate max-w-[200px]">{signal.reason}</span>
                 )}
                 {task.due_date && <span className="text-[11px] font-mono text-gray-500">{task.due_date}</span>}
               </Link>

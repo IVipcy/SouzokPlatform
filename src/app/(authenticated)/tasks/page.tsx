@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import TaskListClient from '@/components/features/tasks/TaskListClient'
+import { toReadinessReceipts, type ReadinessReceipt } from '@/lib/taskReadiness'
 import type { TaskRow, MemberRow } from '@/types'
 
 export default async function TasksPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [tasksResult, casesResult, membersResult] = await Promise.all([
+  const [tasksResult, casesResult, membersResult, receiptsResult] = await Promise.all([
     supabase
       .from('tasks')
       .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
@@ -20,6 +21,10 @@ export default async function TasksPage() {
       .select('*')
       .eq('is_active', true)
       .order('name'),
+    // 着手OK（書類受領）判定用。全案件の受信簿をタスク紐付け＋受領日だけ取得。
+    supabase
+      .from('document_receipts')
+      .select('received_date, started_task_id, items:document_receipt_items(item_name, item_tasks:document_receipt_item_tasks(task:tasks(id)))'),
   ])
 
   // Build caseMap with case info and member info (sales, manager)
@@ -62,12 +67,17 @@ export default async function TasksPage() {
     }
   })
 
+  const receipts: ReadinessReceipt[] = toReadinessReceipts(
+    (receiptsResult.data ?? []) as unknown as Parameters<typeof toReadinessReceipts>[0],
+  )
+
   return (
     <TaskListClient
       tasks={(tasksResult.data ?? []) as TaskRow[]}
       caseMap={caseMap}
       allMembers={(membersResult.data ?? []) as MemberRow[]}
       currentMemberId={currentUser?.memberId ?? null}
+      receipts={receipts}
     />
   )
 }

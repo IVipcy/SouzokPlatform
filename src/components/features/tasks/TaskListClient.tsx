@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, PackageCheck } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -12,6 +12,7 @@ import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
+import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -34,6 +35,8 @@ type Props = {
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   currentMemberId: string | null
+  /** 受信簿（着手OK＝書類受領の判定に使う・1タスク1行に展開済み） */
+  receipts?: ReadinessReceipt[]
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -48,7 +51,7 @@ const normalizeStatus = (status: string) => {
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -59,6 +62,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 受注区分（概念が大きいので先）／業務区分 の複数選択フィルタ（OR条件・全空=絞り込みなし）
   const [serviceFilter, setServiceFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
+  // 「着手OKだけ」トグル（着手前の中の絞り込み。別ステータスではない）
+  const [readyOnly, setReadyOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -102,6 +107,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (gyomuFilter.size > 0) {
       result = result.filter(t => gyomuFilter.has(gyomuOf(t)))
     }
+    // 着手OKだけ（着手前の中の絞り込み）
+    if (readyOnly) {
+      result = result.filter(t => getStartSignal(t, receipts).ready)
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -112,8 +121,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                caseNumber.toLowerCase().includes(q)
       })
     }
-    // 自動ソート: 期限超過 → 期限近い順 → 期限なしは末尾
+    // 自動ソート: 着手OK → 期限超過 → 期限近い順 → 期限なしは末尾
     return [...result].sort((a, b) => {
+      const aReady = getStartSignal(a, receipts).ready ? 0 : 1
+      const bReady = getStartSignal(b, receipts).ready ? 0 : 1
+      if (aReady !== bReady) return aReady - bReady
       const aOver = !!(a.due_date && a.due_date < today && normalizeStatus(a.status) !== '完了')
       const bOver = !!(b.due_date && b.due_date < today && normalizeStatus(b.status) !== '完了')
       if (aOver !== bOver) return aOver ? -1 : 1
@@ -121,7 +133,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, serviceFilter, gyomuFilter, search, caseMap, currentMemberId, today])
+  }, [assistantTasks, statusFilter, filterMine, serviceFilter, gyomuFilter, readyOnly, search, caseMap, currentMemberId, today, receipts])
+
+  const readyCount = useMemo(
+    () => assistantTasks.filter(t => getStartSignal(t, receipts).ready).length,
+    [assistantTasks, receipts],
+  )
 
   // フィルタ選択肢: 実データに存在するものだけを、正準順序で出す
   const serviceOptions = useMemo(() => {
@@ -333,6 +350,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <span className="w-px h-6 bg-gray-200" />
 
+          {/* 着手OK（書類到着など、今すぐやれるもの）だけ */}
+          <button
+            onClick={() => setReadyOnly(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${
+              readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+            title="書類が届いた等で今すぐ着手できるタスクだけ表示"
+          >
+            <PackageCheck className="w-3.5 h-3.5" strokeWidth={2} />
+            着手OK
+            {readyCount > 0 && <span className="text-[12px] font-mono opacity-70">{readyCount}</span>}
+          </button>
+
+          <span className="w-px h-6 bg-gray-200" />
+
           {/* 受注区分（概念が大きいので先） → 業務区分 */}
           <MultiSelectFilter label="受注区分" icon={Tag} options={serviceOptions} selected={serviceFilter} onChange={setServiceFilter} width={200} />
           <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
@@ -404,6 +436,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         caseMap={caseMap}
         allMembers={allMembers}
         today={today}
+        receipts={receipts}
         onAdvance={handleAdvance}
         loadingTaskId={loadingTaskId}
         onEdit={setEditTask}
@@ -448,6 +481,7 @@ function ListView({
   caseMap,
   allMembers,
   today,
+  receipts,
   onAdvance,
   loadingTaskId,
   onEdit: _onEdit,
@@ -460,6 +494,7 @@ function ListView({
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
+  receipts: ReadinessReceipt[]
   onAdvance: (task: TaskRow) => void
   loadingTaskId: string | null
   onEdit: (task: TaskRow) => void
@@ -546,6 +581,7 @@ function ListView({
                 caseMap={caseMap}
                 allMembers={allMembers}
                 today={today}
+                signal={getStartSignal(task, receipts)}
                 onAdvance={onAdvance}
                 loading={loadingTaskId === task.id}
                 onDelete={onDelete}
@@ -561,11 +597,12 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete, selected, onToggleSelect }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, selected, onToggleSelect }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
+  signal: { ready: boolean; reason: string | null; source: 'doc' | 'manual' | null }
   onAdvance: (task: TaskRow) => void
   loading: boolean
   onDelete: (task: TaskRow) => void
@@ -617,6 +654,14 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
           {task.priority === '急ぎ' && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 flex-shrink-0">急ぎ</span>
           )}
+          {signal.ready && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 flex-shrink-0"
+              title={signal.reason ? `着手OK：${signal.reason}` : '着手OK'}
+            >
+              <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK
+            </span>
+          )}
           <a
             href={`/tasks/${task.id}`}
             className={`text-[13px] font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}
@@ -624,6 +669,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
             {task.title}
           </a>
         </div>
+        {signal.ready && signal.reason && (
+          <div className="text-[11px] text-amber-700 truncate pl-1 mt-0.5">{signal.reason}</div>
+        )}
       </td>
 
       {/* ステータス */}

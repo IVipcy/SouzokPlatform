@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Inbox } from 'lucide-react'
+import { AlertTriangle, Inbox, PackageCheck, Clock } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
@@ -19,7 +19,7 @@ import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
 import TabHeader from './TabHeader'
-import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument, getStartSignal } from '@/lib/taskReadiness'
 
 type Props = {
   caseData: CaseRow
@@ -89,9 +89,13 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
       {sub === 'progress' && (
         <div className="space-y-3.5">
-      {/* === ダッシュボード（書類受領待ち / タスク未割当の到着物） === */}
+      {/* === ダッシュボード（今すぐ着手できる / 書類受領待ち / タスク未割当の到着物） === */}
       {(() => {
         const readinessReceipts = toReadinessReceipts(documentReceipts)
+        // 今すぐ着手できる = 着手前 かつ 着手OKの旗が立っている（書類受領 or 手動）
+        const ready = caseTasks
+          .map(t => ({ task: t, signal: getStartSignal(t, readinessReceipts) }))
+          .filter(x => x.signal.ready)
         // 書類受領待ち = 着手前 かつ 紐付き書類のうち未受領のものがある
         const waitingDoc = caseTasks
           .filter(t => normalizeTaskStatus(t.status) === '着手前' && isWaitingForDocument(t, readinessReceipts))
@@ -104,15 +108,35 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           return true
         })
 
-        if (waitingDoc.length === 0 && unlinkedReceipts.length === 0) return null
+        if (ready.length === 0 && waitingDoc.length === 0 && unlinkedReceipts.length === 0) return null
 
         return (
           <div className="space-y-3.5">
+            {ready.length > 0 && (
+              <Section title={`今すぐ着手できる ・ ${ready.length}件`}>
+                <ul className="space-y-1.5">
+                  {ready.map(({ task, signal }) => (
+                    <li key={task.id} className="flex items-center gap-2 text-[12px]">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 flex-shrink-0">
+                        <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK
+                      </span>
+                      <Link href={`/tasks/${task.id}`} className="font-medium text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[240px]">
+                        {task.phase && <span className="text-brand-600 mr-1">[{task.phase.replace(/^Phase\d+[:：]\s*/, '')}]</span>}
+                        {task.title}
+                      </Link>
+                      {signal.reason && <span className="text-[11px] text-amber-700 truncate">{signal.reason}</span>}
+                      {task.due_date && <span className="text-[11px] font-mono text-gray-400 ml-auto flex-shrink-0">期限 {task.due_date}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
             {waitingDoc.length > 0 && (
-              <Section title={`⏳ 書類受領待ち ・ ${waitingDoc.length}件`}>
+              <Section title={`書類受領待ち ・ ${waitingDoc.length}件`}>
                 <ul className="space-y-1.5">
                   {waitingDoc.map(task => (
                     <li key={task.id} className="flex items-center gap-2 text-[12px]">
+                      <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" strokeWidth={2} />
                       <Link href={`/tasks/${task.id}`} className="font-medium text-gray-700 hover:text-brand-600 hover:underline truncate max-w-[280px]">
                         {task.phase && <span className="text-brand-600 mr-1">[{task.phase.replace(/^Phase\d+[:：]\s*/, '')}]</span>}
                         {task.title}
@@ -126,7 +150,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
               </Section>
             )}
             {unlinkedReceipts.length > 0 && (
-              <Section title={`📥 タスク未割当の到着物 ・ ${unlinkedReceipts.length}件`}>
+              <Section title={`タスク未割当の到着物 ・ ${unlinkedReceipts.length}件`}>
                 <ul className="space-y-2">
                   {unlinkedReceipts.map(r => {
                     const label = (r.items ?? []).map(i => i.item_name).filter(Boolean).join(' / ') || '到着物'

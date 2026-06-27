@@ -5,9 +5,9 @@
 // 1日替わりの事務管理担当が「次やる」を即決できる構造。
 
 import Link from 'next/link'
-import { Play, CheckCircle2, Loader2 } from 'lucide-react'
+import { Play, CheckCircle2, Loader2, PackageCheck, FileCheck } from 'lucide-react'
 import type { TaskRow } from '@/types'
-import { normalizeTaskStatus, getTaskDocStatus, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 
 export type KanbanCaseInfo = {
   case_number: string
@@ -40,6 +40,12 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
     const s = normalizeTaskStatus(t.status)
     if (s === '着手前' || s === '対応中' || s === '完了') grouped[s].push(t)
   }
+  // 着手前は「着手OK（書類受領/手動）」を上位に並べる
+  grouped['着手前'].sort((a, b) => {
+    const ra = getStartSignal(a, receipts).ready ? 0 : 1
+    const rb = getStartSignal(b, receipts).ready ? 0 : 1
+    return ra - rb || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
 
   return (
     <div className="overflow-x-auto pb-3">
@@ -60,14 +66,19 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                 ) : items.map(task => {
                   const caseInfo = caseMap[task.case_id]
                   const isOverdue = !!(task.due_date && task.due_date < today && col !== '完了')
-                  const doc = getTaskDocStatus(task.id, receipts)
+                  const signal = col === '着手前' ? getStartSignal(task, receipts) : { ready: false, reason: null as string | null, source: null }
                   return (
                     <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-2.5 hover:border-brand-200 transition-colors">
-                      {/* 業務チップ */}
-                      <div className="flex items-start gap-1.5 mb-1">
+                      {/* 業務チップ＋着手OK旗 */}
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                         {task.phase && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100 flex-shrink-0">
                             {task.phase.replace(/^Phase\d+[:：]\s*/, '')}
+                          </span>
+                        )}
+                        {signal.ready && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 flex-shrink-0">
+                            <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK
                           </span>
                         )}
                       </div>
@@ -84,10 +95,13 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                         </div>
                       )}
 
-                      {/* 書類状態（補助）: 着手前のときだけ意味があるので 着手前 / 対応中 で表示 */}
-                      {col !== '完了' && doc.state !== 'none' && (
-                        <div className={`mt-1.5 text-[11px] px-2 py-1 rounded ${doc.state === 'waiting' ? 'bg-gray-50 text-gray-600' : 'bg-amber-50 text-amber-700'}`}>
-                          {doc.state === 'waiting' ? '⏳' : '📥'} {doc.label}
+                      {/* 着手OKの理由（なぜ今やれるか） */}
+                      {signal.ready && signal.reason && (
+                        <div className="mt-1.5 text-[11px] px-2 py-1 rounded bg-amber-50 text-amber-800 inline-flex items-center gap-1">
+                          {signal.source === 'doc'
+                            ? <FileCheck className="w-3 h-3" strokeWidth={2} />
+                            : <PackageCheck className="w-3 h-3" strokeWidth={2} />}
+                          {signal.reason}
                         </div>
                       )}
 

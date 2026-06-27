@@ -92,3 +92,21 @@ export function isWaitingForDocument(task: TaskRow, receipts: ReadinessReceipt[]
   if (normalizeTaskStatus(task.status) !== '着手前') return false
   return getTaskDocStatus(task.id, receipts).state === 'waiting'
 }
+
+// 「着手OK」の合図。ステータスとは別レイヤーの"旗"で、着手前タスクにだけ立つ。
+//   source='doc'    : 紐付き書類が受領済（自動・第1層）
+//   source='manual' : 人が「次やれる」を付けた（任意・第2層。ext_data.ready_reason / ready）
+// reason は「なぜ着手OKか」を常に併記するための文言。
+export type StartSignal = { ready: boolean; reason: string | null; source: 'doc' | 'manual' | null }
+
+export function getStartSignal(task: TaskRow, receipts: ReadinessReceipt[] = []): StartSignal {
+  if (normalizeTaskStatus(task.status) !== '着手前') return { ready: false, reason: null, source: null }
+  // 第1層: 書類受領（自動）
+  const doc = getTaskDocStatus(task.id, receipts)
+  if (doc.state === 'received') return { ready: true, reason: doc.label, source: 'doc' }
+  // 第2層: 手動フラグ（任意）。ext_data.ready_reason（文言）or ready=true
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  const manual = typeof ext.ready_reason === 'string' ? ext.ready_reason.trim() : ''
+  if (manual || ext.ready === true) return { ready: true, reason: manual || '着手OK', source: 'manual' }
+  return { ready: false, reason: null, source: null }
+}
