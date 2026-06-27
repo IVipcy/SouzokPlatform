@@ -663,21 +663,24 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
             <Card label="郵便番号"><Input value={data.postalCode} onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))} placeholder="4600008" /></Card>
             <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
-            {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン */}
-            <Card label="振込名義人（カナ・最大3つ）">
-              <Input value={data.transferNameKana} onChange={v => update('transferNameKana', v)} placeholder="ヤマダ タロウ（カタカナ）／入金CSV突合に使用" />
-              {(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana && (
-                <button
-                  type="button"
-                  onClick={() => update('transferNameKana', toKatakana((data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana ?? ''))}
-                  className="mt-1.5 text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
-                >依頼者と同じ</button>
-              )}
-              <div className="mt-2 space-y-2">
-                <Input value={data.transferNameKana2} onChange={v => update('transferNameKana2', v)} placeholder="2つ目（任意）" />
-                <Input value={data.transferNameKana3} onChange={v => update('transferNameKana3', v)} placeholder="3つ目（任意）" />
-              </div>
-            </Card>
+            {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン。
+                「検討中」段階では入金が発生しないため表示しない（受注後に入力）。 */}
+            {data.caseStatus !== '検討中' && (
+              <Card label="振込名義人（カナ・最大3つ）">
+                <Input value={data.transferNameKana} onChange={v => update('transferNameKana', v)} placeholder="ヤマダ タロウ（カタカナ）／入金CSV突合に使用" />
+                {(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana && (
+                  <button
+                    type="button"
+                    onClick={() => update('transferNameKana', toKatakana((data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.kana ?? ''))}
+                    className="mt-1.5 text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
+                  >依頼者と同じ</button>
+                )}
+                <div className="mt-2 space-y-2">
+                  <Input value={data.transferNameKana2} onChange={v => update('transferNameKana2', v)} placeholder="2つ目（任意）" />
+                  <Input value={data.transferNameKana3} onChange={v => update('transferNameKana3', v)} placeholder="3つ目（任意）" />
+                </div>
+              </Card>
+            )}
 
             {/* 郵送・書類設定 */}
             <Card label="顧客郵送先"><Pills value={data.mailingDestination} options={[...MAILING_DESTINATIONS]} onChange={v => update('mailingDestination', v as string)} /></Card>
