@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -41,6 +41,17 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
+  // requests（DB再取得）と行集合を同期する。行の追加・削除はpropsに合わせつつ、
+  // 既存行は編集中のローカル値を保持する（onBlur前の入力やセル即時保存値を消さない）。
+  // これが無いと、行追加後の再取得などでローカルstateとDBが乖離し、最後に追加した行の
+  // 入力が画面/保存と食い違う原因になる。
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRows(prev => {
+      const prevById = new Map(prev.map(r => [r.id, r]))
+      return requests.map(r => prevById.get(r.id) ?? r)
+    })
+  }, [requests])
   const [expanded, setExpanded] = useState<string | null>(null)
   const progressMode = !orderSheetMode
   // 対象者の選択肢（被相続人＋相続人一覧の氏名）
