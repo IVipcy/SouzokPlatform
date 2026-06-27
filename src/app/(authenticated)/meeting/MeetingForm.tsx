@@ -598,20 +598,20 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         </div>
       )
       case 'client': return (
-        <div className="max-w-[1000px]">
+        <div className="max-w-[1240px]">
           <SectionHeader Icon={User} title="依頼者情報" sub="面談に来られた方を入力（同行者も追加できます）" />
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
+            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1180 }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
-                  <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
-                  <th className="px-2 py-2 text-left font-semibold">氏名</th>
-                  <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
-                  <th className="px-2 py-2 text-left font-semibold w-28">続柄</th>
-                  <th className="px-2 py-2 text-left font-semibold">固定電話</th>
-                  <th className="px-2 py-2 text-left font-semibold">携帯電話</th>
-                  <th className="px-2 py-2 text-left font-semibold">メール</th>
-                  <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 110 }}>優先度</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>氏名</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>ふりがな</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 90 }}>続柄</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>固定電話</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>携帯電話</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 130 }}>メール</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 270 }}>生年月日</th>
                   <th className="px-2 py-2 text-center font-semibold w-14">年齢</th>
                   <th className="px-2 py-2 w-8" />
                 </tr>

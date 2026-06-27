@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ERA_NAMES, toWarekiParts, fromWarekiParts, toWareki } from '@/lib/wareki'
+import { ERA_NAMES, toWarekiParts, fromWarekiParts } from '@/lib/wareki'
 
 // 生年月日・死亡日は役所申請で和暦が基準のため、和暦（元号＋年＋月＋日）で入力する。
 // DB には従来どおり西暦 ISO(YYYY-MM-DD) で保存する。
@@ -36,7 +36,6 @@ export default function BirthdayPicker({ value, onChange, className }: Props) {
   // テーブルの狭いセルでも折り返さず1行に収まるよう、各パーツを最小幅・余白詰めにする。
   const sel = 'px-0.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
   const unit = 'text-[11px] text-gray-500 flex-shrink-0'
-  const iso = fromWarekiParts(s.era, Number(s.year), Number(s.mo), Number(s.d))
   return (
     <div className={className}>
       <div className="flex items-center gap-0.5 flex-nowrap">
@@ -66,7 +65,6 @@ export default function BirthdayPicker({ value, onChange, className }: Props) {
         </select>
         <span className={unit}>日</span>
       </div>
-      {iso && <div className="mt-0.5 text-[11px] text-gray-500 whitespace-nowrap">{toWareki(iso)}</div>}
     </div>
   )
 }
