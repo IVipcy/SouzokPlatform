@@ -210,7 +210,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   onClose: () => void
   onDone: () => void
 }) {
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null }>>([])
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>>([])
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
   const [cats, setCats] = useState<string[]>([])
   // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
@@ -218,6 +218,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
   const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
   const [itemNew, setItemNew] = useState<Record<string, string>>({})
+  // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -227,11 +229,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     const supabase = createClient()
     ;(async () => {
       const [tk, cs, cd] = await Promise.all([
-        supabase.from('tasks').select('id,title,status,source_rid').eq('case_id', receipt.case_id).neq('status', '完了').order('sort_order'),
+        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).neq('status', '完了').order('sort_order'),
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
         supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
       ])
-      setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null }>)
+      setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>)
       const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
       setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
       setCats(categoriesOf(c?.service_category, c?.service_category_2))
@@ -246,19 +248,22 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 契約時受領書類の区分（戸籍/評価証明等は調査系）。区分=契約/その他のみタスク不要。
   const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
     CONTRACT_CATEGORY_GYOMU[contractCat.get(it.linked_id ?? '') ?? '']
+  // 到着物の種類 → 関係する業務区分の集合。判定できないときは undefined（＝絞り込み不可）。
+  const gyomuForItem = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined => {
+    if (it.linked_kind === 'contract_doc') return contractGyomuFor(it)
+    return it.linked_kind ? KIND_GYOMU[it.linked_kind] : undefined
+  }
   // 到着物ごとに、関係する業務の実施タスクだけ候補に出す。
-  // 契約書類は区分で出し分け（戸籍・評価証明など調査系は該当タスクに結べる／契約・その他はタスク不要）。
+  // 関係業務が判定できない到着物（自由入力等）は候補を出さず、自由入力に任せる（ダンプ防止）。
   const candidateNamesForItem = (it: { linked_kind: string | null; linked_id: string | null }): string[] => {
-    let gy: string[] | undefined
-    if (it.linked_kind === 'contract_doc') {
-      gy = contractGyomuFor(it)
-      if (!gy) return [] // 区分=契約/その他 ＝ タスク不要
-    } else {
-      gy = it.linked_kind ? KIND_GYOMU[it.linked_kind] : undefined
-    }
-    const rs = gy ? taskRoles.filter(r => gy!.includes(r.gyomu)) : taskRoles
+    if (it.linked_kind === 'contract_doc' && !contractGyomuFor(it)) return [] // 区分=契約/その他 ＝ タスク不要
+    const gy = gyomuForItem(it)
+    if (!gy) return []
+    const rs = taskRoles.filter(r => gy.includes(r.gyomu))
     return [...new Set(rs.map(r => r.sagyou))]
   }
+  // 既存タスクの業務区分（phase の "PhaseN:" 接頭辞を除く）
+  const gyomuOfTask = (t: { phase: string | null }) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
   // タスク不要＝区分が調査系にマップされない契約書類のみ。
   const isTaskFree = (it: { linked_kind: string | null; linked_id: string | null }): boolean =>
     it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
@@ -374,26 +379,59 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
             {items.map(it => {
               const cand = candidateNamesForItem(it)
               const isContract = isTaskFree(it)
+              // この到着物に関係する業務区分。判定できれば既存タスクを「関係する業務」だけに絞る。
+              const gy = gyomuForItem(it)
+              // 事務管理タスク(task_kind='case')のうち、関係業務に合うものを優先表示。
+              const caseTasks = tasks.filter(t => t.task_kind !== 'system')
+              const relevant = gy ? caseTasks.filter(t => gy.includes(gyomuOfTask(t))) : []
+              const relevantIds = new Set(relevant.map(t => t.id))
+              const others = tasks.filter(t => !relevantIds.has(t.id))
+              // 関係業務が判定できない（自由入力の到着物等）ときは絞り込めないので全件 others 扱いで畳む
+              const primary = relevant.length > 0 ? relevant : []
+              const showOthers = !!showAll[it.id]
+              const renderPill = (t: { id: string; title: string }) => {
+                const on = itemSel[it.id]?.has(t.id)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggle(it.id, t.id)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                  >
+                    {on && <Play className="w-3 h-3" strokeWidth={2.5} />}{t.title}
+                  </button>
+                )
+              }
               return (
               <div key={it.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
                 {tasks.length === 0 ? (
                   <p className="text-[11px] text-gray-400 mb-2">既存タスクはありません（下で作成できます）</p>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {tasks.map(t => {
-                      const on = itemSel[it.id]?.has(t.id)
-                      return (
+                  <div className="mb-2">
+                    {/* 関係する業務のタスク（優先表示） */}
+                    {primary.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {primary.map(renderPill)}
+                      </div>
+                    )}
+                    {/* それ以外のタスク（折りたたみ） */}
+                    {others.length > 0 && (
+                      showOthers ? (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {primary.length > 0 && <span className="w-full text-[10px] text-gray-400">その他のタスク</span>}
+                          {others.map(renderPill)}
+                        </div>
+                      ) : (
                         <button
-                          key={t.id}
                           type="button"
-                          onClick={() => toggle(it.id, t.id)}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                          onClick={() => setShowAll(prev => ({ ...prev, [it.id]: true }))}
+                          className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold"
                         >
-                          {on && <Play className="w-3 h-3" strokeWidth={2.5} />}{t.title}
+                          {primary.length > 0 ? `＋ 他の業務のタスクも表示（${others.length}）` : `既存タスクから選ぶ（${others.length}）`}
                         </button>
                       )
-                    })}
+                    )}
                   </div>
                 )}
                 {isContract ? (
