@@ -129,9 +129,13 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* ナビゲーション */}
+      {/* ナビゲーション（マイページは 受注/管理/システム管理者 のみ表示） */}
+      {(() => {
+        const canMyPage = !!user && (user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
+        const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => it.href !== '/my' || canMyPage) }))
+        return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
-        {navSections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label}>
             {!collapsed && (
               <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 tracking-[0.18em] uppercase">
@@ -169,6 +173,8 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+        )
+      })()}
 
       {/* プロフィール + ログアウト（通知/アラートはマイページに集約） */}
       <div className={`${collapsed ? 'p-2' : 'p-3'} border-t border-gray-100 space-y-1`}>

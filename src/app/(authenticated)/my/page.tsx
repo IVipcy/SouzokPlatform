@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
@@ -40,7 +40,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  * 管理担当 (manager) / その他: 管理案件一覧 + タスク
  */
 
-type SearchParams = Promise<{ tab?: string; period?: string }>
+type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
 type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'tasks'
 
 // 相談案件 = 受注担当が受託に至るまで（長期保留・紹介のみは個別管理案件へ移管）
@@ -66,17 +66,27 @@ function cumulativeSalesMetrics(perMonth: SalesMetricsBundle[]): Pick<SalesMetri
 }
 
 export default async function MyPage({ searchParams }: { searchParams: SearchParams }) {
-  const { tab, period } = await searchParams
+  const { tab, period, as } = await searchParams
 
   const user = await getCurrentUser()
   if (!user?.memberId) {
     redirect('/login')
   }
 
+  // マイページを持つのは 受注/管理/システム管理者のみ。事務管理・経理は持たない。
+  if (!canSeeMyPage(user)) {
+    redirect('/')
+  }
+
   const memberId = user.memberId
-  const role = user.primaryRole
+  // システム管理者は受注/管理の2ビューを ?as= で切替（既定は管理）。それ以外は自分の主ロール。
+  const sysMgr = isSystemManager(user)
+  const viewRole = sysMgr ? (as === 'sales' ? 'sales' : 'manager') : user.primaryRole
+  const role = viewRole
   const isSales = role === 'sales'
   const isManager = role === 'manager' || role === 'sub_manager'
+  // システム管理者が受注ビューのとき、タブ遷移で as=sales を引き継ぐ
+  const asSuffix = sysMgr && isSales ? '&as=sales' : ''
 
   const supabase = await createClient()
   const today = new Date()
@@ -513,25 +523,39 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         afterTitle={<MyAlertCenter />}
       />
 
+      {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
+      {sysMgr && (
+        <div className="flex gap-2 mb-4">
+          <a
+            href="/my?as=manager"
+            className={`px-4 py-2 rounded-lg text-[13px] font-semibold border transition-colors ${isManager ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >管理担当ビュー</a>
+          <a
+            href="/my?as=sales"
+            className={`px-4 py-2 rounded-lg text-[13px] font-semibold border transition-colors ${isSales ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >受注担当ビュー</a>
+        </div>
+      )}
+
       {/* タブ */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 flex-wrap">
         {isSales && (
-          <TabLink href="/my?tab=meetings" label={`相談案件一覧 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
+          <TabLink href={`/my?tab=meetings${asSuffix}`} label={`相談案件一覧 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
         )}
-        <TabLink href="/my?tab=cases" label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
+        <TabLink href={`/my?tab=cases${asSuffix}`} label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
         {isManager && (
-          <TabLink href="/my?tab=billing" label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
+          <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {isSales && (
-          <TabLink href="/my?tab=referrals" label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
+          <TabLink href={`/my?tab=referrals${asSuffix}`} label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
         )}
         {isSales && (
-          <TabLink href="/my?tab=billing" label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
+          <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {showProgress && (
-          <TabLink href="/my?tab=progress" label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
+          <TabLink href={`/my?tab=progress${asSuffix}`} label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
-        <TabLink href="/my?tab=tasks" label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        <TabLink href={`/my?tab=tasks${asSuffix}`} label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
       {/* 当月面談（相談案件一覧） */}
