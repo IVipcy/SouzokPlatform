@@ -25,8 +25,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "相続プラットフォーム",
-  description: "相続手続き業務管理システム",
+  title: "相続案件管理",
+  description: "相続手続き業務管理システム（オーシャン）",
 };
 
 export default function RootLayout({

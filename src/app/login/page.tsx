@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -42,10 +41,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative">
         {/* ロゴ・タイトル */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-gradient-to-br from-brand-600 to-brand-800 ring-1 ring-inset ring-white/10">
-            <Building2 className="w-8 h-8 text-white" strokeWidth={2.25} />
-          </div>
-          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">相続プラットフォーム</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-ocean.svg" alt="オーシャン" className="h-14 w-auto mx-auto mb-4" />
+          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">相続案件管理</h1>
           <p className="text-sm text-gray-500 mt-1.5 tracking-wide">業務管理システム</p>
         </div>
 
@@ -99,7 +97,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          © 2026 相続プラットフォーム
+          © 2026 オーシャン
         </p>
       </div>
     </div>

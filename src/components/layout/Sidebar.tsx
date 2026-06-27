@@ -14,7 +14,6 @@ import {
   BookOpen,
   Gauge,
   LogOut,
-  Building2,
   ChevronsLeft,
   ChevronsRight,
   Bell,
@@ -106,12 +105,11 @@ export default function Sidebar() {
       {/* ロゴ + 折りたたみトグル */}
       <div className={`border-b border-gray-100 ${collapsed ? 'p-3' : 'p-5'} relative`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shadow-sm bg-gradient-to-br from-brand-600 to-brand-800 ring-1 ring-inset ring-white/10 flex-shrink-0">
-            <Building2 className="w-5 h-5 text-white" strokeWidth={2.25} />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-ocean.svg" alt="オーシャン" className="h-9 w-auto flex-shrink-0" />
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm text-gray-900 tracking-tight">相続PF</div>
+              <div className="font-bold text-sm text-gray-900 tracking-tight">相続案件管理</div>
               <div className="text-[11px] text-gray-400 tracking-wide">業務管理</div>
             </div>
           )}
