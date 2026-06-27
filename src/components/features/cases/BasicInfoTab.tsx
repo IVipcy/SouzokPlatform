@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Play, Inbox } from 'lucide-react'
+import { AlertTriangle, Inbox } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
@@ -19,7 +19,7 @@ import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import HistoryTab from './HistoryTab'
 import TabHeader from './TabHeader'
-import { classifyTask, toReadinessReceipts } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument } from '@/lib/taskReadiness'
 
 type Props = {
   caseData: CaseRow
@@ -78,14 +78,14 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
       {sub === 'progress' && (
         <div className="space-y-3.5">
-      {/* === ダッシュボード3パネル（C案） === */}
+      {/* === ダッシュボード（書類受領待ち / タスク未割当の到着物） === */}
       {(() => {
         const readinessReceipts = toReadinessReceipts(documentReceipts)
-        const classified = caseTasks.map(t => ({ task: t, ...classifyTask(t, readinessReceipts) }))
-        const ready = classified.filter(x => x.readiness === 'ready' && x.task.status !== '完了')
-        const waiting = classified.filter(x => x.readiness === 'waiting')
+        // 書類受領待ち = 着手前 かつ 紐付き書類のうち未受領のものがある
+        const waitingDoc = caseTasks
+          .filter(t => normalizeTaskStatus(t.status) === '着手前' && isWaitingForDocument(t, readinessReceipts))
 
-        // 未紐付け到着物 = 受領済 (received_date あり) かつ どのタスクとも紐付いていない
+        // タスク未割当の到着物 = 受領済 (received_date あり) だが、どのタスクとも紐付いていない受信簿アイテム
         const unlinkedReceipts = (documentReceipts ?? []).filter(r => {
           if (!r.received_date) return false
           if (r.started_task_id) return false
@@ -93,51 +93,29 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           return true
         })
 
-        if (ready.length === 0 && waiting.length === 0 && unlinkedReceipts.length === 0) return null
+        if (waitingDoc.length === 0 && unlinkedReceipts.length === 0) return null
 
         return (
           <div className="space-y-3.5">
-            {ready.length > 0 && (
-              <Section title={`🔔 今すぐ着手できる ・ ${ready.length}件`}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {ready.map(({ task, waitingFor }) => (
-                    <Link key={task.id} href={`/tasks/${task.id}`} className="block bg-white border border-brand-100 rounded-lg p-2.5 hover:border-brand-300 transition-colors">
-                      <div className="flex items-start gap-2">
-                        {task.phase && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100 flex-shrink-0">
-                            {task.phase.replace(/^Phase\d+[:：]\s*/, '')}
-                          </span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold text-gray-900 truncate">{task.title}</div>
-                          {waitingFor && <div className="mt-1 text-[11px] text-amber-700 bg-amber-50 inline-block px-1.5 py-0.5 rounded">📥 {waitingFor}</div>}
-                          {task.due_date && <div className="mt-1 text-[11px] font-mono text-gray-500">期限 {task.due_date}</div>}
-                        </div>
-                        <Play className="w-4 h-4 text-brand-600 flex-shrink-0" strokeWidth={2.5} />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </Section>
-            )}
-            {waiting.length > 0 && (
-              <Section title={`⏳ 待ち ・ ${waiting.length}件`}>
+            {waitingDoc.length > 0 && (
+              <Section title={`⏳ 書類受領待ち ・ ${waitingDoc.length}件`}>
                 <ul className="space-y-1.5">
-                  {waiting.map(({ task, waitingFor }) => (
+                  {waitingDoc.map(task => (
                     <li key={task.id} className="flex items-center gap-2 text-[12px]">
                       <Link href={`/tasks/${task.id}`} className="font-medium text-gray-700 hover:text-brand-600 hover:underline truncate max-w-[280px]">
                         {task.phase && <span className="text-brand-600 mr-1">[{task.phase.replace(/^Phase\d+[:：]\s*/, '')}]</span>}
                         {task.title}
                       </Link>
-                      <span className="text-gray-400">─</span>
-                      <span className="text-gray-600">{waitingFor || '何待ち未指定'}</span>
+                      {task.due_date && (
+                        <span className="text-[11px] font-mono text-gray-400">期限 {task.due_date}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
               </Section>
             )}
             {unlinkedReceipts.length > 0 && (
-              <Section title={`📥 未紐付けの到着物 ・ ${unlinkedReceipts.length}件`}>
+              <Section title={`📥 タスク未割当の到着物 ・ ${unlinkedReceipts.length}件`}>
                 <ul className="space-y-2">
                   {unlinkedReceipts.map(r => {
                     const label = (r.items ?? []).map(i => i.item_name).filter(Boolean).join(' / ') || '到着物'
@@ -149,7 +127,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
                           <span className="text-[11px] font-mono text-amber-700">{r.received_date} 受領</span>
                         </div>
                         <Link href={`/cases/${caseData.id}?tab=docs`} className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold text-amber-800 bg-white border border-amber-300 rounded hover:bg-amber-50">
-                          受信簿で確認
+                          到着物タブで紐付け
                         </Link>
                       </li>
                     )

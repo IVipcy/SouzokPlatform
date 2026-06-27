@@ -8,7 +8,6 @@ import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
-import TaskKanbanView from './TaskKanbanView'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -48,12 +47,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
+  // 既定は「着手前」のみ。月数百件規模になるため、出社→次やる即発見の動線を最優先。
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
+  // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
-  const [filterUrgent, setFilterUrgent] = useState(false)
   const [search, setSearch] = useState('')
-  // 既定はカンバン（Readiness基準で「次やる」が見つけやすい）
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
@@ -85,12 +83,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
     }
-    if (filterUrgent) {
-      result = result.filter(t => {
-        if (normalizeStatus(t.status) === '完了') return false
-        return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
-      })
-    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -110,7 +102,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, filterUrgent, search, caseMap, currentMemberId, today])
+  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today])
 
   const kpis = useMemo(() => ({
     total: assistantTasks.length,
@@ -127,11 +119,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         ),
       ).length
     : 0
-
-  const urgentTaskCount = assistantTasks.filter(t => {
-    if (normalizeStatus(t.status) === '完了') return false
-    return (t.due_date && t.due_date < today) || t.priority === '急ぎ'
-  }).length
 
   const handleAdvance = useCallback(async (task: TaskRow) => {
     const current = normalizeStatus(task.status)
@@ -298,80 +285,39 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           }
         />
 
-        {/* Quick filters: 自分のタスク / 要対応 */}
-        <div className="flex gap-2 mb-3 items-center">
-          <button
-            onClick={() => setFilterMine(v => !v)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
-              filterMine
-                ? 'bg-brand-600 text-white border-brand-600 shadow-brand-200'
-                : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" strokeWidth={2} />
-            自分のタスク
-            <span className={`text-[12px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
-              {myTaskCount}
-            </span>
-          </button>
-          <button
-            onClick={() => setFilterUrgent(v => !v)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[14px] font-medium transition-all border shadow-sm ${
-              filterUrgent
-                ? 'bg-red-600 text-white border-red-600 shadow-red-200'
-                : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.25} />
-            要対応
-            <span className={`text-[12px] font-mono ml-0.5 ${filterUrgent ? 'opacity-80' : 'opacity-50'}`}>
-              {urgentTaskCount}
-            </span>
-          </button>
-          {(filterMine || filterUrgent) && (
-            <button
-              onClick={() => { setFilterMine(false); setFilterUrgent(false) }}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <X className="w-3.5 h-3.5" strokeWidth={2} />
-              クリア
-            </button>
-          )}
-        </div>
-
-        {/* Toolbar: status pills + view mode */}
+        {/* Toolbar: status pills + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
-            <FilterTab label="着手前"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
+            <FilterTab label="未着手"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
+            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex gap-0.5 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-                  viewMode === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                }`}
-                title="リスト"
-              >☰</button>
-              <button
-                onClick={() => setViewMode('kanban')}
-                className={`w-[30px] h-[26px] rounded flex items-center justify-center text-sm transition-all ${
-                  viewMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                }`}
-                title="カンバン"
-              >⊞</button>
-            </div>
+            <button
+              onClick={() => setFilterMine(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all border ${
+                filterMine
+                  ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                  : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+              title={filterMine ? '自分のタスクで絞り込み中（クリックで解除）' : '自分が対応中・完了のタスクだけに絞る'}
+            >
+              <User className="w-3.5 h-3.5" strokeWidth={2} />
+              自分のタスク
+              <span className={`text-[12px] font-mono ml-0.5 ${filterMine ? 'opacity-80' : 'opacity-50'}`}>
+                {myTaskCount}
+              </span>
+              {filterMine && <X className="w-3 h-3 ml-0.5" strokeWidth={2.5} />}
+            </button>
           </div>
         </div>
       </div>
 
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
-      {selectedIds.size > 0 && viewMode === 'list' && (
+      {selectedIds.size > 0 && (
         <BulkActionBar
           count={selectedIds.size}
           busy={bulkBusy}
@@ -381,30 +327,20 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         />
       )}
 
-      {/* Content */}
-      {viewMode === 'list' ? (
-        <ListView
-          tasks={filtered}
-          caseMap={caseMap}
-          allMembers={allMembers}
-          today={today}
-          onAdvance={handleAdvance}
-          loadingTaskId={loadingTaskId}
-          onEdit={setEditTask}
-          onDelete={setDeleteTask}
-          selectedIds={selectedIds}
-          onToggleSelect={toggleSelect}
-          onToggleSelectAll={toggleSelectAll}
-        />
-      ) : (
-        <TaskKanbanView
-          tasks={filtered}
-          caseMap={caseMap}
-          today={today}
-          onAdvance={handleAdvance}
-          loadingTaskId={loadingTaskId}
-        />
-      )}
+      {/* 月数百件規模になるためテーブル固定。カンバンは案件詳細タスクタブ側で。 */}
+      <ListView
+        tasks={filtered}
+        caseMap={caseMap}
+        allMembers={allMembers}
+        today={today}
+        onAdvance={handleAdvance}
+        loadingTaskId={loadingTaskId}
+        onEdit={setEditTask}
+        onDelete={setDeleteTask}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
+      />
       </>
 
       {editTask && (

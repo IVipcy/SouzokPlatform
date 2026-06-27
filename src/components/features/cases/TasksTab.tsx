@@ -12,6 +12,8 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import TabHeader from './TabHeader'
+import { toReadinessReceipts } from '@/lib/taskReadiness'
+import type { TimelineReceipt } from './CaseTimeline'
 import type { TaskRow, MemberRow } from '@/types'
 
 type Props = {
@@ -20,6 +22,7 @@ type Props = {
   currentMemberId: string | null
   onBulkGenerate: () => void
   onAddTask: () => void
+  documentReceipts?: TimelineReceipt[]
 }
 
 // ステータス正規化（進捗バーの集計用）
@@ -33,7 +36,7 @@ const normalizeStatus = (status: string) => {
 const STATUS_PILLS = ['着手前', '対応中', '完了'] as const
 const STATUS_LABEL: Record<string, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
 
-export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask }: Props) {
+export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -171,6 +174,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                 today={today}
                 onAdvance={handleAdvance}
                 loadingTaskId={busyId}
+                receipts={toReadinessReceipts(documentReceipts)}
                 hideCase
               />
             </Section>

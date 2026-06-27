@@ -2,14 +2,14 @@
 
 // 実務タブ（相続人調査・財産調査・遺産分割・相続登記・解約手続・遺言検認 等）の
 // 上部に表示する「このタブのタスク」セクション。
-// task.phase = 業務名（戸籍/財産/分割/...）でフィルタし、Ready/対応中/Waiting の件数バッジ＋
-// クリックで展開してミニリスト。タスク詳細へワンクリックで飛べる。
+// task.phase = 業務名（戸籍/財産/分割/...）でフィルタし、ステータス（未着手/対応中/完了）の
+// 件数バッジ＋クリックで展開してミニリスト。タスク詳細へワンクリックで飛べる。
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
-import { classifyTask, type ReadinessReceipt, type Readiness } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getTaskDocStatus, type ReadinessReceipt } from '@/lib/taskReadiness'
 import type { TaskRow } from '@/types'
 
 type Props = {
@@ -21,12 +21,8 @@ type Props = {
   title?: string
 }
 
-const LABEL: Record<Readiness, string> = {
-  ready:   '🔔 着手OK',
-  doing:   '🟡 対応中',
-  waiting: '⏳ 待ち',
-  done:    '✓ 完了',
-}
+type Status = '着手前' | '対応中' | '完了'
+const LABEL: Record<Status, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
 
 export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 'このタブのタスク' }: Props) {
   const [open, setOpen] = useState(false)
@@ -36,12 +32,14 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
   )
   if (matched.length === 0) return null
 
-  // Readiness 分類
-  const counts: Record<Readiness, number> = { ready: 0, doing: 0, waiting: 0, done: 0 }
+  const counts: Record<Status, number> = { '着手前': 0, '対応中': 0, '完了': 0 }
+  let waitingDoc = 0
   const classified = matched.map(t => {
-    const { readiness, waitingFor } = classifyTask(t, receipts)
-    counts[readiness]++
-    return { task: t, readiness, waitingFor }
+    const s = normalizeTaskStatus(t.status) as Status
+    counts[s] = (counts[s] ?? 0) + 1
+    const doc = getTaskDocStatus(t.id, receipts)
+    if (s === '着手前' && doc.state === 'waiting') waitingDoc++
+    return { task: t, status: s, doc }
   })
 
   return (
@@ -51,21 +49,25 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
       onAction={() => setOpen(o => !o)}
     >
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        {(['ready', 'doing', 'waiting', 'done'] as Readiness[]).map(k => (
+        {(['着手前', '対応中', '完了'] as Status[]).map(k => (
           <span
             key={k}
             className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
               counts[k] === 0
                 ? 'bg-gray-50 text-gray-400'
-                : k === 'ready'   ? 'bg-amber-50 text-amber-700'
-                : k === 'doing'   ? 'bg-brand-50 text-brand-700'
-                : k === 'waiting' ? 'bg-gray-100 text-gray-700'
+                : k === '着手前' ? 'bg-gray-100 text-gray-700'
+                : k === '対応中' ? 'bg-brand-50 text-brand-700'
                 : 'bg-emerald-50 text-emerald-700'
             }`}
           >
             {LABEL[k]} {counts[k]}
           </span>
         ))}
+        {waitingDoc > 0 && (
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+            ⏳ うち書類受領待ち {waitingDoc}
+          </span>
+        )}
         {!open && (
           <button type="button" onClick={() => setOpen(true)} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
             タスク一覧を見る <ChevronDown className="w-3.5 h-3.5" />
@@ -77,21 +79,24 @@ export default function TabTasksSection({ gyomus, tasks, receipts = [], title = 
         <div className="space-y-1.5 border-t border-gray-100 pt-2.5">
           {classified
             .sort((a, b) => {
-              // Ready → 対応中 → Waiting → 完了 の順
-              const rank: Record<Readiness, number> = { ready: 0, doing: 1, waiting: 2, done: 3 }
-              return rank[a.readiness] - rank[b.readiness]
+              const rank: Record<Status, number> = { '着手前': 0, '対応中': 1, '完了': 2 }
+              return rank[a.status] - rank[b.status]
             })
-            .map(({ task, readiness, waitingFor }) => (
+            .map(({ task, status, doc }) => (
               <Link
                 key={task.id}
                 href={`/tasks/${task.id}`}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-gray-50 text-[12px]"
               >
-                <span className="w-12 text-center text-[10px] font-semibold">{LABEL[readiness]}</span>
-                <span className={`flex-1 font-medium truncate ${readiness === 'done' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                <span className="w-12 text-center text-[10px] font-semibold text-gray-500">{LABEL[status]}</span>
+                <span className={`flex-1 font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                   {task.title}
                 </span>
-                {waitingFor && <span className="text-[10px] text-gray-500 truncate max-w-[200px]">{waitingFor}</span>}
+                {status !== '完了' && doc.state !== 'none' && (
+                  <span className={`text-[10px] truncate max-w-[200px] ${doc.state === 'waiting' ? 'text-gray-500' : 'text-amber-700'}`}>
+                    {doc.state === 'waiting' ? '⏳' : '📥'} {doc.label}
+                  </span>
+                )}
                 {task.due_date && <span className="text-[11px] font-mono text-gray-500">{task.due_date}</span>}
               </Link>
             ))}

@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText } from 'lucide-react'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -526,37 +526,55 @@ function TaskWorkSection({
 }
 
 // タスク詳細の上部に表示する「案件サマリー」パネル。
-// 業務別タスク進捗（戸籍 8/12 等）＋ 関連の業務タブへのリンクで、
-// 別の人が引き継いだ時の10秒キャッチアップを実現する。
+// このタスクが属する業務（gyomu）にフォーカスして、
+//   - 完了したタスクの実施結果（タイムライン）
+//   - 未着手・対応中のタスク
+// を出し、引き継ぎ時に「この戦場で何が起きてた？」を即把握できるようにする。
+// 必要なら「案件全体の直近の動き」を折りたたみで展開できる。
 function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
   caseData: CaseRow
   taskPhase: string | null
   caseTasks: TaskRow[]
 }) {
+  const [globalOpen, setGlobalOpen] = useState(false)
   const normalize = (s: string) => {
     if (s === '未着手') return '着手前'
     if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'
     if (s === 'キャンセル') return '完了'
     return s
   }
-  // 業務ごとに完了/総数を集計（事務管理タスクのみ）
-  const byGyomu = new Map<string, { done: number; total: number }>()
-  for (const t of caseTasks) {
-    if (t.task_kind === 'system') continue
-    const g = (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '') || '未分類'
-    const e = byGyomu.get(g) ?? { done: 0, total: 0 }
-    e.total++
-    if (normalize(t.status) === '完了') e.done++
-    byGyomu.set(g, e)
-  }
-  const entries = [...byGyomu.entries()].sort((a, b) => b[1].total - a[1].total)
-  const targetTab = taskPhase ? GYOMU_TAB[taskPhase.replace(/^Phase\d+[:：]\s*/, '')] : null
+  const stripPhasePrefix = (s: string) => s.replace(/^Phase\d+[:：]\s*/, '')
+  const currentGyomu = taskPhase ? stripPhasePrefix(taskPhase) : null
+  const targetTab = currentGyomu ? GYOMU_TAB[currentGyomu] : null
   const targetTabLabel: Record<string, string> = {
     deceased: '相続人調査', assets: '財産調査', division: '遺産分割', will: '遺言',
     registration: '相続登記', cancellation: '解約手続', trust: '信託契約',
     renunciation: '相続放棄', mediation: '調停', probate: '遺言検認',
     guardianship: '成年後見', referral: '他事業者紹介', contractProc: '契約残手続き',
   }
+
+  // 事務管理タスク（task_kind='case'）のみ対象
+  const gyomuTasks = caseTasks
+    .filter(t => t.task_kind !== 'system' && currentGyomu && stripPhasePrefix(t.phase ?? '') === currentGyomu)
+
+  // 業務のタスクを ステータス別 に分類
+  const doneTasks = gyomuTasks
+    .filter(t => normalize(t.status) === '完了')
+    .sort((a, b) => (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? ''))
+  const doingTasks = gyomuTasks
+    .filter(t => normalize(t.status) === '対応中')
+  const todoTasks = gyomuTasks
+    .filter(t => normalize(t.status) === '着手前')
+
+  // 案件全体（業務横断）の直近活動: タスクの完了・着手をまとめてタイムライン化
+  type Event = { kind: 'completed' | 'started'; at: string; task: TaskRow }
+  const events: Event[] = []
+  for (const t of caseTasks) {
+    if (t.task_kind === 'system') continue
+    if (t.completed_at) events.push({ kind: 'completed', at: t.completed_at, task: t })
+    if (t.started_at) events.push({ kind: 'started', at: t.started_at, task: t })
+  }
+  events.sort((a, b) => b.at.localeCompare(a.at))
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 mb-5">
@@ -574,25 +592,123 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks }: {
           </Link>
         )}
       </div>
-      {entries.length === 0 ? (
-        <div className="text-[12px] text-gray-400">この案件にはまだ事務管理タスクがありません</div>
-      ) : (
-        <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {entries.map(([g, { done, total }]) => {
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0
-            const isThis = taskPhase && g === taskPhase.replace(/^Phase\d+[:：]\s*/, '')
-            return (
-              <div key={g} className={`flex items-center gap-2 px-2.5 py-1 rounded ${isThis ? 'bg-brand-50 border border-brand-200' : 'bg-gray-50'}`}>
-                <span className={`text-[12px] font-semibold ${isThis ? 'text-brand-800' : 'text-gray-700'} truncate w-20`}>{g}</span>
-                <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden">
-                  <div className="h-full bg-brand-600 rounded-full" style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-[11px] font-mono text-gray-600 tabular-nums w-12 text-right">{done}/{total}</span>
-              </div>
-            )
-          })}
+
+      {/* 業務フォーカス */}
+      {currentGyomu ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+            <span className="text-[13px] font-bold text-gray-900">{currentGyomu}</span>
+            <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+              {doneTasks.length}/{gyomuTasks.length} 完了
+            </span>
+          </div>
+
+          {/* これまでの作業（完了タスク + 実施結果） */}
+          {doneTasks.length > 0 && (
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500 mb-1.5 tracking-wide">これまでの作業</div>
+              <ul className="space-y-1.5">
+                {doneTasks.slice(0, 5).map(t => {
+                  const ext = (t.ext_data ?? {}) as Record<string, unknown>
+                  const result = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+                  return (
+                    <li key={t.id} className="flex items-start gap-2 text-[12px]">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <Link href={`/tasks/${t.id}`} className="font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate">{t.title}</Link>
+                          <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{(t.completed_at ?? '').slice(0, 10)}</span>
+                          {t.started_by_member?.name && <span className="text-[10px] text-gray-500 truncate flex-shrink-0">{t.started_by_member.name}</span>}
+                        </div>
+                        {result.trim() && (
+                          <div className="mt-0.5 text-[11px] text-gray-600 line-clamp-2 whitespace-pre-line bg-gray-50 px-2 py-1 rounded">{result}</div>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+                {doneTasks.length > 5 && (
+                  <li className="text-[11px] text-gray-400 pl-5.5">ほか {doneTasks.length - 5} 件</li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* 進行中・残作業 */}
+          {(doingTasks.length > 0 || todoTasks.length > 0) && (
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500 mb-1.5 tracking-wide">進行中・残作業</div>
+              <ul className="space-y-1">
+                {doingTasks.map(t => (
+                  <li key={t.id} className="flex items-center gap-2 text-[12px]">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />
+                    <Link href={`/tasks/${t.id}`} className="text-gray-800 hover:text-brand-600 hover:underline truncate">{t.title}</Link>
+                    <span className="text-[10px] font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded">対応中</span>
+                    {t.due_date && <span className="text-[10px] font-mono text-gray-400 ml-auto flex-shrink-0">期限 {t.due_date}</span>}
+                  </li>
+                ))}
+                {todoTasks.map(t => (
+                  <li key={t.id} className="flex items-center gap-2 text-[12px]">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                    <Link href={`/tasks/${t.id}`} className="text-gray-700 hover:text-brand-600 hover:underline truncate">{t.title}</Link>
+                    {t.due_date && <span className="text-[10px] font-mono text-gray-400 ml-auto flex-shrink-0">期限 {t.due_date}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {gyomuTasks.length === 0 && (
+            <div className="text-[12px] text-gray-400">この業務にはまだタスクがありません</div>
+          )}
         </div>
+      ) : (
+        <div className="text-[12px] text-gray-400">業務が紐づいていません（システムタスク等）</div>
       )}
+
+      {/* 案件全体の直近の動き（折りたたみ） */}
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={() => setGlobalOpen(o => !o)}
+          className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700"
+        >
+          {globalOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          案件全体の直近の動きを{globalOpen ? '閉じる' : '見る'}
+          <span className="text-[10px] font-mono text-gray-400">（{events.length} 件）</span>
+        </button>
+        {globalOpen && (
+          <div className="mt-2">
+            {events.length === 0 ? (
+              <div className="text-[11px] text-gray-400">まだ動きはありません</div>
+            ) : (
+              <ul className="space-y-1">
+                {events.slice(0, 12).map((e, i) => (
+                  <li key={`${e.task.id}-${e.kind}-${i}`} className="flex items-center gap-2 text-[11px]">
+                    <span className="font-mono text-gray-400 w-20 flex-shrink-0">{e.at.slice(0, 10)}</span>
+                    {e.kind === 'completed' ? (
+                      <Check className="w-3 h-3 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />
+                    ) : (
+                      <FileText className="w-3 h-3 text-brand-500 flex-shrink-0" strokeWidth={2.25} />
+                    )}
+                    {e.task.phase && (
+                      <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded flex-shrink-0">{stripPhasePrefix(e.task.phase)}</span>
+                    )}
+                    <Link href={`/tasks/${e.task.id}`} className="text-gray-700 hover:text-brand-600 hover:underline truncate">
+                      {e.task.title}
+                    </Link>
+                    <span className="text-gray-400">{e.kind === 'completed' ? '完了' : '着手'}</span>
+                  </li>
+                ))}
+                {events.length > 12 && (
+                  <li className="text-[11px] text-gray-400 pl-22">ほか {events.length - 12} 件</li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

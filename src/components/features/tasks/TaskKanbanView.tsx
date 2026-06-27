@@ -1,13 +1,13 @@
 'use client'
 
-// 事務管理タスクのカンバンビュー。Readiness（Ready/対応中/Waiting/完了）で4列。
-// 各カードに案件コンテキスト（番号・案件名）と「着手条件 / 待ち事由」を表示。
+// 事務管理タスクのカンバンビュー。ステータス（着手前 / 対応中 / 完了）の3列。
+// 各カードに案件コンテキスト（番号・案件名）と、紐付き書類の状態を補助情報として表示する。
 // 1日替わりの事務管理担当が「次やる」を即決できる構造。
 
 import Link from 'next/link'
 import { Play, CheckCircle2, Loader2 } from 'lucide-react'
 import type { TaskRow } from '@/types'
-import { classifyTask, READINESS_META, type Readiness, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getTaskDocStatus, type ReadinessReceipt } from '@/lib/taskReadiness'
 
 export type KanbanCaseInfo = {
   case_number: string
@@ -17,7 +17,7 @@ export type KanbanCaseInfo = {
 type Props = {
   tasks: TaskRow[]
   caseMap?: Record<string, KanbanCaseInfo>
-  /** 受信簿。Readiness判定に使う */
+  /** 受信簿。書類状態の補助情報に使う */
   receipts?: ReadinessReceipt[]
   today: string
   onAdvance: (task: TaskRow) => void
@@ -26,15 +26,19 @@ type Props = {
   hideCase?: boolean
 }
 
-const COLUMNS: Readiness[] = ['ready', 'doing', 'waiting', 'done']
+type ColumnKey = '着手前' | '対応中' | '完了'
+const COLUMNS: ColumnKey[] = ['着手前', '対応中', '完了']
+const META: Record<ColumnKey, { label: string; dot: string; bg: string; text: string }> = {
+  '着手前': { label: '未着手', dot: 'bg-gray-400',    bg: 'bg-gray-50',    text: 'text-gray-700' },
+  '対応中': { label: '対応中', dot: 'bg-brand-500',   bg: 'bg-brand-50',   text: 'text-brand-700' },
+  '完了':   { label: '完了',   dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+}
 
 export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], today, onAdvance, loadingTaskId, hideCase }: Props) {
-  const grouped: Record<Readiness, { task: TaskRow; waitingFor?: string }[]> = {
-    ready: [], doing: [], waiting: [], done: [],
-  }
+  const grouped: Record<ColumnKey, TaskRow[]> = { '着手前': [], '対応中': [], '完了': [] }
   for (const t of tasks) {
-    const { readiness, waitingFor } = classifyTask(t, receipts)
-    grouped[readiness].push({ task: t, waitingFor })
+    const s = normalizeTaskStatus(t.status)
+    if (s === '着手前' || s === '対応中' || s === '完了') grouped[s].push(t)
   }
 
   return (
@@ -42,7 +46,7 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
       <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
         {COLUMNS.map(col => {
           const items = grouped[col]
-          const meta = READINESS_META[col]
+          const meta = META[col]
           return (
             <div key={col} className="w-[280px] flex-shrink-0">
               <div className={`rounded-lg px-3 py-2 mb-2 flex items-center gap-2 ${meta.bg}`}>
@@ -53,12 +57,13 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
               <div className="flex flex-col gap-1.5" style={{ minHeight: 60 }}>
                 {items.length === 0 ? (
                   <div className="text-center text-[12px] text-gray-300 py-4 border border-dashed border-gray-200 rounded-lg">なし</div>
-                ) : items.map(({ task, waitingFor }) => {
+                ) : items.map(task => {
                   const caseInfo = caseMap[task.case_id]
-                  const isOverdue = !!(task.due_date && task.due_date < today && col !== 'done')
+                  const isOverdue = !!(task.due_date && task.due_date < today && col !== '完了')
+                  const doc = getTaskDocStatus(task.id, receipts)
                   return (
                     <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-2.5 hover:border-brand-200 transition-colors">
-                      {/* 業務チップ＋タスク名 */}
+                      {/* 業務チップ */}
                       <div className="flex items-start gap-1.5 mb-1">
                         {task.phase && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100 flex-shrink-0">
@@ -66,7 +71,7 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                           </span>
                         )}
                       </div>
-                      <Link href={`/tasks/${task.id}`} className={`block text-[13px] font-semibold leading-tight hover:text-brand-600 ${col === 'done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      <Link href={`/tasks/${task.id}`} className={`block text-[13px] font-semibold leading-tight hover:text-brand-600 ${col === '完了' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                         {task.title}
                       </Link>
 
@@ -79,10 +84,10 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                         </div>
                       )}
 
-                      {/* 着手条件／待ち事由 */}
-                      {waitingFor && (
-                        <div className={`mt-1.5 text-[11px] px-2 py-1 rounded ${col === 'waiting' ? 'bg-gray-50 text-gray-600' : 'bg-amber-50 text-amber-700'}`}>
-                          {col === 'waiting' ? '⏳' : '📥'} {waitingFor}
+                      {/* 書類状態（補助）: 着手前のときだけ意味があるので 着手前 / 対応中 で表示 */}
+                      {col !== '完了' && doc.state !== 'none' && (
+                        <div className={`mt-1.5 text-[11px] px-2 py-1 rounded ${doc.state === 'waiting' ? 'bg-gray-50 text-gray-600' : 'bg-amber-50 text-amber-700'}`}>
+                          {doc.state === 'waiting' ? '⏳' : '📥'} {doc.label}
                         </div>
                       )}
 
@@ -92,24 +97,24 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                           {task.due_date ?? '期限なし'}
                           {isOverdue && ' ⚠'}
                         </span>
-                        {col !== 'done' && (
+                        {col !== '完了' && (
                           <button
                             type="button"
                             onClick={() => onAdvance(task)}
                             disabled={loadingTaskId === task.id}
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-                              col === 'doing'
+                              col === '対応中'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                                 : 'bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100'
                             }`}
-                            title={col === 'doing' ? '完了にする' : '着手する'}
+                            title={col === '対応中' ? '完了にする' : '着手する'}
                           >
                             {loadingTaskId === task.id
                               ? <Loader2 className="w-3 h-3 animate-spin" />
-                              : col === 'doing'
+                              : col === '対応中'
                                 ? <CheckCircle2 className="w-3 h-3" strokeWidth={2.25} />
                                 : <Play className="w-3 h-3" strokeWidth={2.5} />}
-                            {col === 'doing' ? '完了' : '着手'}
+                            {col === '対応中' ? '完了' : '着手'}
                           </button>
                         )}
                       </div>

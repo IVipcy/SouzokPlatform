@@ -1,17 +1,18 @@
-// 事務管理タスクの「Readiness」判定。
-// 着手前タスクを Ready（着手OK）／ Waiting（待ち） に分類する。
+// 事務管理タスクのステータス正規化と「書類状態」補助情報を提供するヘルパー。
 //
-// Phase 1（現状）：
-//   - 完了/対応中はそのまま
-//   - 着手前は既定 Ready（明示的に待ち事由がなければ着手可能）
-//   - 受信簿 (document_receipts) で started_task_id がタスクに紐づくが
-//     received_date が null のものがあれば「●●受領待ち」として Waiting
+// 設計方針:
+//   - ステータスは 着手前 / 対応中 / 完了 の 3 段階に正規化する（旧 Wチェック待ち・保留・差戻し は対応中、キャンセルは完了に吸収）。
+//   - 過去にあった「Ready / Waiting」の機械判定は廃止。
+//     書類関係ない待ち事由（人待ち・口頭確認待ち等）を機械では判定できないため、
+//     誤判定を避けて 着手前 の中に統合した。
+//   - 代わりに、紐づき書類の受領状況だけは自動で取れるので、
+//     getTaskDocStatus() で「受領済 / 受領待ち / 紐付けなし」を返し、
+//     カード等に補助情報として併記する用途で使う。
 //
-// 将来：前提タスク（dependsOn）が追加された時点で「●●完了待ち」も判定する。
+// 受信簿（document_receipts）のうち、started_task_id または item_tasks 経由でタスクに
+// 紐づくものを、toReadinessReceipts() で 1 行 1 タスクの形に展開する。
 
 import type { TaskRow } from '@/types'
-
-export type Readiness = 'ready' | 'doing' | 'waiting' | 'done'
 
 // 受信簿の最低限な行型（このヘルパーに必要なフィールドだけ）
 export type ReadinessReceipt = {
@@ -21,8 +22,8 @@ export type ReadinessReceipt = {
   display_label?: string | null
 }
 
-// 受信簿（TimelineReceipt 形式）を Readiness 判定用に変換する。
-// started_task_id と item_tasks（複数タスク紐付け）を1行ずつに展開する。
+// 受信簿（TimelineReceipt 形式）を ReadinessReceipt に変換する。
+// started_task_id と item_tasks（複数タスク紐付け）を 1 行ずつに展開する。
 type TimelineReceiptShape = {
   received_date: string | null
   started_task_id?: string | null
@@ -46,45 +47,48 @@ export function toReadinessReceipts(receipts: TimelineReceiptShape[] | undefined
   return out
 }
 
-const normalize = (s: string) => {
-  if (s === '未着手') return '着手前'
-  if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'
-  if (s === 'キャンセル') return '完了'
-  return s
+// タスクのステータスを 3 段階（着手前 / 対応中 / 完了）に正規化する。
+export function normalizeTaskStatus(status: string): string {
+  if (status === '未着手') return '着手前'
+  if (['Wチェック待ち', '保留', '差戻し'].includes(status)) return '対応中'
+  if (status === 'キャンセル') return '完了'
+  return status
 }
 
-export function classifyTask(task: TaskRow, receipts: ReadinessReceipt[] = []): { readiness: Readiness; waitingFor?: string } {
-  const s = normalize(task.status)
-  if (s === '完了') return { readiness: 'done' }
-  if (s === '対応中') return { readiness: 'doing' }
+// タスクの「書類状態」補助情報。
+//   - 'received'  : 紐付け書類があり、すべて受領済（着手の手がかり）
+//   - 'waiting'   : 紐付け書類のうち未受領のものがある（着手前なら書類受領待ち）
+//   - 'none'      : 紐付け書類なし（人待ち・自由スタート等は機械では判定できない）
+export type DocStatus =
+  | { state: 'none' }
+  | { state: 'received'; label: string }
+  | { state: 'waiting'; label: string }
 
-  // 着手前のとき：このタスクに紐づく受信簿アイテムを探す
-  const linked = receipts.filter(r => r.started_task_id === task.id)
+function summarizeLabels(labels: string[], suffix: string, fallbackCount: number): string {
+  const clean = labels.filter(v => v && v.trim() !== '')
+  if (clean.length === 0) return `${suffix}（${fallbackCount}件）`
+  return `${clean.slice(0, 2).join(' / ')}${clean.length > 2 ? ` ほか${clean.length - 2}件` : ''} ${suffix}`
+}
+
+export function getTaskDocStatus(taskId: string, receipts: ReadinessReceipt[] = []): DocStatus {
+  const linked = receipts.filter(r => r.started_task_id === taskId)
+  if (linked.length === 0) return { state: 'none' }
   const pending = linked.filter(r => !r.received_date)
   if (pending.length > 0) {
-    const labels = pending.map(r => r.display_label).filter((v): v is string => !!v && v.trim() !== '')
-    const waitingFor = labels.length > 0
-      ? `${labels.slice(0, 2).join(' / ')}${labels.length > 2 ? ` ほか${labels.length - 2}件` : ''} 受領待ち`
-      : `受領待ち（${pending.length}件）`
-    return { readiness: 'waiting', waitingFor }
+    return {
+      state: 'waiting',
+      label: summarizeLabels(pending.map(r => r.display_label ?? ''), '受領待ち', pending.length),
+    }
   }
-
-  // Ready：着手前 かつ 紐づく書類が無い or 全部受領済み
-  // received_date があるアイテムがあれば「届いた書類で着手可能」を示す
-  const arrived = linked.filter(r => r.received_date)
-  if (arrived.length > 0) {
-    const labels = arrived.map(r => r.display_label).filter((v): v is string => !!v && v.trim() !== '')
-    const arrivedNote = labels.length > 0
-      ? `${labels.slice(0, 2).join(' / ')}${labels.length > 2 ? ` ほか${labels.length - 2}件` : ''} 受領済`
-      : `受領済（${arrived.length}件）`
-    return { readiness: 'ready', waitingFor: arrivedNote }
+  return {
+    state: 'received',
+    label: summarizeLabels(linked.map(r => r.display_label ?? ''), '受領済', linked.length),
   }
-  return { readiness: 'ready' }
 }
 
-export const READINESS_META: Record<Readiness, { label: string; dot: string; bg: string; text: string }> = {
-  ready:   { label: '🔔 着手OK', dot: 'bg-amber-500',    bg: 'bg-amber-50',    text: 'text-amber-700' },
-  doing:   { label: '🟡 対応中', dot: 'bg-brand-500',    bg: 'bg-brand-50',    text: 'text-brand-700' },
-  waiting: { label: '⏳ 待ち',   dot: 'bg-gray-400',     bg: 'bg-gray-50',     text: 'text-gray-600' },
-  done:    { label: '✓ 完了',   dot: 'bg-emerald-500',  bg: 'bg-emerald-50',  text: 'text-emerald-700' },
+// タスクが「書類受領待ち」状態か（着手前 かつ 紐付き書類で未受領のものがある）。
+// 案件進捗ダッシュボード等のフィルタで使う。
+export function isWaitingForDocument(task: TaskRow, receipts: ReadinessReceipt[] = []): boolean {
+  if (normalizeTaskStatus(task.status) !== '着手前') return false
+  return getTaskDocStatus(task.id, receipts).state === 'waiting'
 }
