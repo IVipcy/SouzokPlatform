@@ -25,6 +25,8 @@ type Props = {
   onBulkGenerate: () => void
   onAddTask: () => void
   documentReceipts?: TimelineReceipt[]
+  /** 案件ステータス。対応中以降は事務管理タスクを先頭・既定にする */
+  caseStatus?: string
 }
 
 // ステータス正規化（進捗バーの集計用）
@@ -38,12 +40,14 @@ const normalizeStatus = (status: string) => {
 const STATUS_PILLS = ['着手前', '対応中', '完了'] as const
 const STATUS_LABEL: Record<string, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
 
-export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts }: Props) {
+export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
+  // 対応中以降（管理案件フェーズ）は事務管理タスク中心。それ以前は受注/管理担当タスク中心。
+  const isManagementPhase = caseStatus === '対応中' || caseStatus === '完了'
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
-  const [kind, setKind] = useState<'system' | 'case'>('case')
+  const [kind, setKind] = useState<'system' | 'case'>(isManagementPhase ? 'case' : 'system')
   const [statuses, setStatuses] = useState<Set<string>>(new Set())
   // 業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
@@ -85,10 +89,10 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
 
   const systemCount = tasks.filter(t => t.task_kind === 'system').length
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
-  const KIND_TABS = [
-    { key: 'case', label: `事務管理タスク ${caseCount}` },
-    { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` },
-  ]
+  // 対応中以降は事務管理タスクを先頭、それ以前は受注/管理担当タスクを先頭にする
+  const caseTab = { key: 'case', label: `事務管理タスク ${caseCount}` }
+  const systemTab = { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` }
+  const KIND_TABS = isManagementPhase ? [caseTab, systemTab] : [systemTab, caseTab]
 
   const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
   // 業務区分の選択肢（事務管理タスクに存在するものを正準順序で）
