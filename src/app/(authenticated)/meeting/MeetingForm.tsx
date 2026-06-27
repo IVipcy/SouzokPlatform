@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { toKatakana } from '@/lib/kana'
+import { lookupPostalAddress } from '@/lib/postal'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
@@ -661,7 +662,21 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {/* メイン依頼者の住所（書類・請求で使う正本） */}
           <div className="mt-6 max-w-[800px]">
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
-            <Card label="郵便番号"><Input value={data.postalCode} onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))} placeholder="4600008" /></Card>
+            <Card label="郵便番号">
+              <Input
+                value={data.postalCode}
+                onChange={async v => {
+                  const z = v.replace(/[^0-9]/g, '')
+                  update('postalCode', z)
+                  // 7桁入力で住所が空なら自動補完（番地・建物は追記）
+                  if (z.length === 7 && !data.address.trim()) {
+                    const addr = await lookupPostalAddress(z)
+                    if (addr) update('address', addr)
+                  }
+                }}
+                placeholder="4600008（7桁入力で住所自動入力）"
+              />
+            </Card>
             <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
             {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン。
                 「検討中」段階では入金が発生しないため表示しない（受注後に入力）。 */}
