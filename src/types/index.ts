@@ -799,6 +799,21 @@ export type DocumentReceiptItemRow = {
   linked_field: string | null   // 受領日を書き込む対象カラム名
   // 書類タブ(case_documents)の受領書類レコードへの紐づけ（migration 082）
   case_document_id: string | null
+  // 共有フォルダにアップ済かの手動フラグ（migration 137）。null=未アップ
+  uploaded_at: string | null
+  created_at: string
+}
+
+// === 案件フォルダのファイル（migration 137） ===
+export type CaseFileRow = {
+  id: string
+  case_id: string
+  file_path: string
+  file_bucket: string
+  file_name: string
+  file_type: string | null
+  file_size: number | null
+  uploaded_by: string | null
   created_at: string
 }
 

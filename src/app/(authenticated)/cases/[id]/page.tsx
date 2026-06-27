@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import { computeCaseAlerts } from '@/lib/alerts'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -15,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -82,7 +82,7 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
     supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
     supabase.from('document_receipts')
-      .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
+      .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id)
       .order('received_date', { ascending: true }),
     // 案件のステータス遷移履歴（マイルストーンを実績ベースで描くために使用）
@@ -104,6 +104,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
     // 遺産分割協議書の送付・受領。migration 106 未適用環境では error → 空配列で degrade。
     supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    // 案件フォルダのファイル。migration 137 未適用環境では error → 空配列で degrade。
+    supabase.from('case_files').select('*').eq('case_id', id).order('created_at', { ascending: false }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -169,6 +171,7 @@ export default async function CaseDetailPage({ params }: Props) {
       contractDocuments={(contractDocumentsResult.data ?? []) as ContractDocumentRow[]}
       sagyoDocuments={(sagyoDocumentsResult.data ?? []) as SagyoDocumentRow[]}
       createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
+      caseFiles={(caseFilesResult.data ?? []) as CaseFileRow[]}
     />
   )
 }
