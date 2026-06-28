@@ -6,7 +6,7 @@ import Modal from '@/components/ui/Modal'
 import {
   categoriesOf, gyomuForCategories, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
 } from '@/lib/serviceMaster'
-import type { TaskRow, TaskTemplateRow } from '@/types'
+import type { TaskRow, TaskTemplateRow, CaseReferralRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
@@ -20,6 +20,8 @@ type Props = {
   existingTasks: TaskRow[]
   // 手順テンプレ（task_templates）。生成元ではなく procedure_text 流用のためだけに使う。
   taskTemplates: TaskTemplateRow[]
+  // 他事業者紹介で登録した業者（各業者への「依頼」タスクを候補に出す）
+  caseReferrals?: CaseReferralRow[]
   onSaved: () => void
 }
 
@@ -31,7 +33,7 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, taskTemplates, onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, taskTemplates, caseReferrals = [], onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -47,11 +49,17 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       if (!r.sagyou?.trim() || r.owner === '不要') return
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
     })
+    // 経理のみ（相続税は使わないため除外）
     for (const c of CROSS_SERVICE_ROWS) {
+      if (c.gyomu === '相続税') continue
       out.push({ key: `cross:${c.gyomu}:${c.task}`, gyomu: c.gyomu, title: c.task, rid: `cross:${c.gyomu}:${c.task}` })
     }
+    // 他事業者紹介で登録した業者への「依頼」タスク
+    for (const r of caseReferrals) {
+      out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title: `${r.partner_type}に依頼`, rid: `referral:${r.id}` })
+    }
     return out
-  }, [intakeRoles])
+  }, [intakeRoles, caseReferrals])
 
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))

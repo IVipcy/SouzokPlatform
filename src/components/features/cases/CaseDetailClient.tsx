@@ -451,6 +451,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         serviceCategory2={caseState.service_category_2}
         taskTemplates={taskTemplates}
         existingTasks={tasks}
+        caseReferrals={caseReferrals ?? []}
         onSaved={handleSaved}
       />
 
