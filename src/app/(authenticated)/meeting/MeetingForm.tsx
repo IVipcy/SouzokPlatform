@@ -771,14 +771,17 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         <div className="max-w-[800px]">
           <SectionHeader Icon={FileText} title="面談内容" sub="面談で確認した内容・受注見込み" />
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder={HEARING_MEMO_SAMPLE} /></Card>
-          <Card label="受注区分（複数選択できます）">
-            <Pills value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} multi />
-            {data.serviceCategories.length > 1 && (
-              <p className="mt-2.5 text-[12px] text-gray-500">
-                進行順：{data.serviceCategories.map((k, i) => `${'①②③④⑤'[i] ?? `(${i + 1})`} ${k}`).join(' → ')}（先行→本体で自動・前から順に進みます）
-              </p>
-            )}
-          </Card>
+          {/* 受注区分は受注確定時に決まる情報。検討中では非表示（後で面談情報タブで入力） */}
+          {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (
+            <Card label="受注区分（複数選択できます）">
+              <Pills value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} multi />
+              {data.serviceCategories.length > 1 && (
+                <p className="mt-2.5 text-[12px] text-gray-500">
+                  進行順：{data.serviceCategories.map((k, i) => `${'①②③④⑤'[i] ?? `(${i + 1})`} ${k}`).join(' → ')}（先行→本体で自動・前から順に進みます）
+                </p>
+              )}
+            </Card>
+          )}
           {/* 受託確定前(検討中/不受託)では契約・業務関連項目を隠す。
               検討中→受託に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
           {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (

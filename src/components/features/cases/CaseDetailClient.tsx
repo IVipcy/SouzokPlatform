@@ -84,6 +84,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
+  // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
+  const [meetingGate, setMeetingGate] = useState<string | null>(null)
   // 初期対応タスク確認ポップアップ（契機となったステータス）。
   // 新規登録直後（?created=1）に検討中/受注で作成された場合も初回マウントで開く。
   const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(() => {
@@ -134,6 +136,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   /** 案件フィールドの楽観的更新 */
   const patchCase = async (patch: Partial<CaseRow>) => {
+    // ゲート：検討中 →（契約書待ち）/受託 へ進むには、面談情報を1回更新・保存しておく必要がある
+    if ((patch.status === '検討中（契約書待ち）' || patch.status === '受注')
+      && caseState.status === '検討中'
+      && !caseState.meeting_info_updated_at) {
+      setMeetingGate(patch.status)
+      return
+    }
     const prev = caseState
     setCaseState(c => ({ ...c, ...patch }))
     const supabase = createClient()
@@ -168,6 +177,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       router.refresh()
     }
   }
+
+  // 面談情報タブからの保存。ステータス変更以外は「面談情報を更新した」印を併せて立てる（ゲート解除用）。
+  const patchCaseFromMeeting = (patch: Partial<CaseRow>) =>
+    'status' in patch ? patchCase(patch) : patchCase({ ...patch, meeting_info_updated_at: new Date().toISOString() })
 
   /** 依頼者フィールドの楽観的更新 */
   const patchClient = async (patch: Record<string, unknown>) => {
@@ -341,7 +354,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} documentReceipts={documentReceipts} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'meeting' && (
-        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />
+        <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCaseFromMeeting} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />
       )}
       {effectiveTab === 'clientInfo' && (
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />
@@ -408,6 +421,24 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <p className="text-[14px] text-gray-700 leading-relaxed">
           続けて<strong>事務管理タスクを設定</strong>してください。<br />
           「タスクを設定する」を押すとタスクタブを開きます。
+        </p>
+      </Modal>
+
+      {/* 検討中→（契約書待ち）/受託 へ進む前に、面談情報の更新を促すゲート */}
+      <Modal
+        isOpen={!!meetingGate}
+        onClose={() => setMeetingGate(null)}
+        title="面談情報を入力してください"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setMeetingGate(null)}>キャンセル</Button>
+            <Button variant="primary" onClick={() => { setMeetingGate(null); setActiveTab('meeting') }}>面談情報タブを開く</Button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-gray-700 leading-relaxed">
+          「{meetingGate}」へ進むには、最新の<strong>面談情報</strong>の入力が必要です。<br />
+          お客様の回答を受けて確定した内容（受注区分など）を、<strong>面談情報タブで更新・保存</strong>してから進めてください。
         </p>
       </Modal>
 
