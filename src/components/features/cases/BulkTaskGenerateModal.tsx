@@ -7,6 +7,7 @@ import {
   categoriesOf, gyomuForCategories, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
+import { REFERRAL_TASK_LABEL } from '@/lib/constants'
 import type { TaskRow, TaskTemplateRow, CaseReferralRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
@@ -55,9 +56,10 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       if (c.gyomu === '相続税') continue
       out.push({ key: `cross:${c.gyomu}:${c.task}`, gyomu: c.gyomu, title: c.task, rid: `cross:${c.gyomu}:${c.task}` })
     }
-    // 他事業者紹介で登録した業者への「依頼」タスク
+    // 他事業者紹介で登録した業者への「依頼／引継ぎ」タスク
     for (const r of caseReferrals) {
-      out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title: `${r.partner_type}に依頼`, rid: `referral:${r.id}` })
+      const title = REFERRAL_TASK_LABEL[r.partner_type] ?? `${r.partner_type}依頼`
+      out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
     return out
   }, [intakeRoles, caseReferrals])

@@ -6,7 +6,7 @@
 export const KOTEI_ORDER = [
   '相続人調査', '財産調査', '遺産分割', '相続登記', '解約手続', '経理',
   '遺言', '信託契約', '相続放棄', '調停', '遺言検認', '成年後見',
-  '他事業者紹介', 'その他',
+  '相続税', '他事業者紹介', 'その他',
 ] as const
 
 export type Kotei = (typeof KOTEI_ORDER)[number]
@@ -25,7 +25,8 @@ export const KOTEI_GYOMU: Record<string, string[]> = {
   '調停': ['調停手続き'],
   '遺言検認': ['検認手続き'],
   '成年後見': ['後見手続き'],
-  '他事業者紹介': ['相続税', '他事業者紹介'],
+  '相続税': ['相続税'],
+  '他事業者紹介': ['他事業者紹介'],
   'その他': ['手紙', '執行通知', '契約書作成'],
 }
 
@@ -72,6 +73,7 @@ export const KOTEI_COLOR: Record<string, { bg: string; text: string }> = {
   '調停':       { bg: '#FBEAF0', text: '#72243E' },
   '遺言検認':   { bg: '#FBEAF0', text: '#72243E' },
   '成年後見':   { bg: '#FBEAF0', text: '#72243E' },
+  '相続税':     { bg: '#FCEBEB', text: '#791F1F' },
   '他事業者紹介': { bg: '#FBEAF0', text: '#72243E' },
   'その他':     { bg: '#F1EFE8', text: '#444441' },
 }

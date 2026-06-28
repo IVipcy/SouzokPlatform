@@ -143,7 +143,15 @@ export const isContractProcDone = (
 
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
-export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理'] as const
+export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理', '生命保険'] as const
+// 紹介先ごとの「依頼／引継ぎ」タスク名（タスク一括生成で使用）。不動産のみ社内事業部への引継ぎ。
+export const REFERRAL_TASK_LABEL: Record<string, string> = {
+  '税理士': '税理士依頼',
+  '不動産': '不動産事業部引継ぎ',
+  '弁護士': '弁護士依頼',
+  '遺品整理': '遺品整理業者依頼',
+  '生命保険': '生命保険会社依頼',
+}
 // 報酬請求状態の選択肢。
 export const REFERRAL_BILLING_STATUSES = ['未請求', '請求済', '入金済'] as const
 
