@@ -11,12 +11,15 @@ import { type StampLaw } from '@/lib/ininjoVariants'
 
 /** 全様式共通の流し込みセル */
 export const INVOICE_FIELDS = {
-  caseNo: ['B3', 'C3', 'E3', 'F3'] as [string, string, string, string],
+  caseNoCell: 'B3',                    // 案件番号は枠内に1セルでまとめて表示
+  caseNoClear: ['C3', 'D3', 'E3', 'F3'] as string[], // 旧テンプレの区切りセル等を消す
   clientName: 'B8',
   kenmei: ['D10', 'B18'] as string[], // 件名（ヘッダ・明細行）
   kubun: 'R18',                       // 請求/領収区分
   amount: ['V18', 'V23', 'V30', 'V31', 'D14'] as string[], // 前受金は合計＝入力額
-  sealCell: 'V10',                    // 社印アンカー（法人名「オーシャン」の行に重ねる。担当者名と被らないよう上げる）
+  address1: 'Q11',                    // 住所1行目（事務所選択で上書き）
+  address2: 'Q12',                    // 住所2行目（ビル名）
+  sealCell: 'O10',                    // 社印アンカー（法人名の左に置く）
 }
 
 export type InvoiceVariant = {

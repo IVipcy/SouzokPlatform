@@ -8,7 +8,7 @@ import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
-import { categoriesOf, kindForTask, GYOMU_ALL } from '@/lib/serviceMaster'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -215,7 +215,6 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 }) {
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>>([])
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
-  const [cats, setCats] = useState<string[]>([])
   // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
   const [contractCat, setContractCat] = useState<Map<string, string | null>>(new Map())
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
@@ -241,15 +240,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>)
       const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
       setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
-      setCats(categoriesOf(c?.service_category, c?.service_category_2))
       setContractCat(new Map(((cd.data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
       setLoading(false)
     })()
   }, [receipt.case_id])
 
-  // 実施タスク（作業区分=作業）の候補。datalistで提示し、選ぶ/一致すると source_rid で紐付ける。
-  const isTaskKind = (r: RoleRow) => (r.kind ?? kindForTask(cats, r.gyomu, r.sagyou)) === 'task'
-  const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要' && isTaskKind(r))
+  // タスク候補。役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部出す
+  // （戸籍請求書を作って請求する・名寄帳を請求する等、請求・受領も立派なタスクのため）。
+  const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要')
   // 契約時受領書類の区分（戸籍/評価証明等は調査系）。区分=契約/その他のみタスク不要。
   const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
     CONTRACT_CATEGORY_GYOMU[contractCat.get(it.linked_id ?? '') ?? '']
@@ -305,7 +303,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       if (newTitle) {
         // 実施タスク（作業）に一致したら rid を採番して紐付け。一致時はその業務区分、
         // 自由入力時はユーザーが選んだ業務区分を使う。
-        const idx = roles.findIndex(r => r.sagyou === newTitle && r.owner !== '不要' && isTaskKind(r))
+        const idx = roles.findIndex(r => r.sagyou === newTitle && r.owner !== '不要')
         let sourceRid: string | null = null
         let gyomu = ''
         if (idx >= 0) {

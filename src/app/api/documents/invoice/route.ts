@@ -13,6 +13,7 @@ import path from 'node:path'
 import ExcelJS from 'exceljs'
 import { getInvoiceVariant, INVOICE_FIELDS } from '@/lib/invoiceVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
+import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
 
 type Body = {
   caseId: string
@@ -22,26 +23,12 @@ type Body = {
   taskId?: string | null
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
   kubun?: string              // 区分セル（請求書=前受金、領収書=前受金/確定請求 等）。既定は前受金
+  officeId?: string           // 事務所住所（kureator/kyodo/fujisawa）。未指定はテンプレ既定
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
   if (!addr || value === null || value === undefined || value === '') return
   ws.getCell(addr).value = value
-}
-
-function splitCaseNumber(caseNumber: string | null | undefined): [string, string, string, string] {
-  const s = (caseNumber ?? '').trim()
-  if (!s) return ['', '', '', '']
-  // 区切りありの旧形式（例: 2606-HP-0008）はそのまま分割
-  if (/[-－/／\s]/.test(s)) {
-    const parts = s.split(/[-－/／\s]+/).filter(Boolean)
-    return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? '', parts[3] ?? '']
-  }
-  // 新形式: YYMM + 経路コード(英字) + 当日連番(数字)。例 2606HP0008 → 26 / 06 / HP / 0008
-  const m = s.match(/^(\d{2})(\d{2})([A-Za-z]{1,3})(\d+)$/)
-  if (m) return [m[1], m[2], m[3].toUpperCase(), m[4]]
-  // フォールバック: 分解できなければ全体を先頭セルに
-  return [s, '', '', '']
 }
 
 function cellToColRow(addr: string): { col: number; row: number } {
@@ -103,17 +90,21 @@ export async function POST(request: NextRequest) {
 
     const F = INVOICE_FIELDS
 
-    // 案件番号
-    const seg = splitCaseNumber(caseData.case_number)
-    setCell(ws, F.caseNo[0], seg[0])
-    setCell(ws, F.caseNo[1], seg[1])
-    setCell(ws, F.caseNo[2], seg[2])
-    setCell(ws, F.caseNo[3], seg[3])
+    // 案件番号（枠内に1セルでまとめて表示。旧テンプレの区切りセルは消す）
+    setCell(ws, F.caseNoCell, caseData.case_number ?? '')
+    for (const c of F.caseNoClear) ws.getCell(c).value = null
 
     // 依頼者・件名・区分
     setCell(ws, F.clientName, clientName)
     for (const c of F.kenmei) setCell(ws, c, kenmei || '')
     setCell(ws, F.kubun, body.kubun || '前受金')
+
+    // 事務所住所（選択された拠点で上書き。未指定はテンプレ既定のまま）
+    const office = KOSEKI_AGENT_OFFICES.find(o => o.id === body.officeId)
+    if (office) {
+      setCell(ws, F.address1, office.line1)
+      setCell(ws, F.address2, office.line2)
+    }
 
     // 金額（前受金は消費税対象外＝合計も同額）
     for (const c of F.amount) setCell(ws, c, amount)

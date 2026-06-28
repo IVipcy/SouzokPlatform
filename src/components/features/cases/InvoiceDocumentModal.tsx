@@ -9,6 +9,7 @@ import {
   type InvoiceVariant,
 } from '@/lib/invoiceVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
+import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
 import { advanceForFirm } from '@/lib/advancePayment'
 import type { CaseRow, TaskRow } from '@/types'
 
@@ -29,6 +30,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
   const recommendedOffice = useMemo(() => recommendInvoiceOffice(caseData.contract_type), [caseData.contract_type])
   const kubunLabel = kakutei ? '確定' : '前受金'
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
+  const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
   const [kenmei, setKenmei] = useState('')
   const [amount, setAmount] = useState<number | ''>('')
   const [taskId, setTaskId] = useState('')
@@ -70,7 +72,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
       const res = await fetch('/api/documents/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, kubun: kakutei ? '確定請求' : '前受金' }),
+        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, kubun: kakutei ? '確定請求' : '前受金', officeId }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
@@ -146,6 +148,20 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
               </button>
             ))}
           </div>
+        </section>
+
+        {/* 事務所住所（拠点） */}
+        <section>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">事務所住所</label>
+          <select
+            value={officeId}
+            onChange={e => setOfficeId(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+          >
+            {KOSEKI_AGENT_OFFICES.map(o => (
+              <option key={o.id} value={o.id}>{o.label}（{o.line1}）</option>
+            ))}
+          </select>
         </section>
 
         {/* 件名 */}

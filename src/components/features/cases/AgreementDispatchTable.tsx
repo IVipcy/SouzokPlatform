@@ -73,7 +73,7 @@ export default function AgreementDispatchTable({ caseId, heirs, dispatches, onRe
               <th className="px-2.5 py-2 text-left font-semibold w-40">相続人</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">送付日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">返送（受領）日</th>
-              <th className="px-2.5 py-2 text-center font-semibold w-16">受領済</th>
+              <th className="px-2.5 py-2 text-center font-semibold w-20">受領済</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
             </tr>
           </thead>
@@ -99,8 +99,8 @@ export default function AgreementDispatchTable({ caseId, heirs, dispatches, onRe
                   {/* 受領済＝返送(受領)日があるか。受信簿で受領すると received_date が入り自動で受領済に（戸籍・金融と統一） */}
                   <td className="px-2.5 py-1.5 text-center">
                     {isReceived(d)
-                      ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
-                      : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
+                      ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
+                      : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
                   </td>
                   <td className="px-2.5 py-1.5">
                     <input type="text" defaultValue={d?.notes ?? ''} key={`n-${h.id}`} onBlur={e => { if (e.target.value !== (d?.notes ?? '')) save(h, { notes: e.target.value || null }) }} placeholder="—" className={dateCls} />

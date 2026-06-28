@@ -71,7 +71,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
                 <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-36">解約書類</th>
+                {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-36">解約書類</th>}
                 <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                 <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
@@ -88,14 +88,16 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
                     </select>
                   </td>
                   <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
-                  {/* 解約書類の受領状況（read-only。請求・到着は財産調査／受信簿で管理） */}
-                  <td className="px-2.5 py-1.5">
-                    {r.cancellation_arrival_date ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title="解約書類の受領（財産調査・受信簿で管理）">受領済 {r.cancellation_arrival_date}</span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="解約書類は財産調査・受信簿で受領管理します">未受領</span>
-                    )}
-                  </td>
+                  {/* 解約書類の受領状況（read-only。請求・到着は財産調査／受信簿で管理）。オーダーシートでは非表示 */}
+                  {!orderSheetMode && (
+                    <td className="px-2.5 py-1.5">
+                      {r.cancellation_arrival_date ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title="解約書類の受領（財産調査・受信簿で管理）">受領済 {r.cancellation_arrival_date}</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="解約書類は財産調査・受信簿で受領管理します">未受領</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-2.5 py-1.5 text-center">
                     <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
                   </td>

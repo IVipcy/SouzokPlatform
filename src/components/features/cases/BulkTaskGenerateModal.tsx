@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import {
-  categoriesOf, gyomuForCategories, kindForTask, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
+  categoriesOf, gyomuForCategories, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
 } from '@/lib/serviceMaster'
 import type { TaskRow, TaskTemplateRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
@@ -40,20 +40,18 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   const procByKey = useMemo(() => new Map(taskTemplates.map(t => [t.key, t.procedure_text])), [taskTemplates])
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
 
-  // 候補（実施タスク kind=task ＋ 経理/相続税）。表示は業務グループ順。
+  // 候補：役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部＋経理/相続税。表示は業務グループ順。
   const candidates = useMemo<Candidate[]>(() => {
     const out: Candidate[] = []
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
-      const kind = r.kind ?? kindForTask(cats, r.gyomu, r.sagyou)
-      if (kind !== 'task') return
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
     })
     for (const c of CROSS_SERVICE_ROWS) {
       out.push({ key: `cross:${c.gyomu}:${c.task}`, gyomu: c.gyomu, title: c.task, rid: `cross:${c.gyomu}:${c.task}` })
     }
     return out
-  }, [intakeRoles, cats])
+  }, [intakeRoles])
 
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))

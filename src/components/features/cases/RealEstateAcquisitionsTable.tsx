@@ -86,13 +86,13 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
-              <th className="px-2.5 py-2 text-center font-semibold w-16">取得済</th>
+              {progressMode && <th className="px-2.5 py-2 text-center font-semibold w-16">受領</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 8 : 5} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={progressMode ? 8 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : rows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
@@ -128,14 +128,16 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                       </div>
                     </td>
                   )}
-                  {/* 取得済＝到着日があるか（受信簿で受領すると arrival_date が入り自動で受信済に）。戸籍・金融と統一。 */}
-                  <td className="px-2.5 py-1.5 text-center">
-                    {isRef
-                      ? <span className="text-gray-300 text-[11px]">—</span>
-                      : r.arrival_date
-                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
-                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
-                  </td>
+                  {/* 受領＝到着日があるか（受信簿で受領すると arrival_date が入り自動で受領済に）。オーダーシートでは非表示。 */}
+                  {progressMode && (
+                    <td className="px-2.5 py-1.5 text-center">
+                      {isRef
+                        ? <span className="text-gray-300 text-[11px]">—</span>
+                        : r.arrival_date
+                          ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
+                          : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
+                    </td>
+                  )}
                   <td className="px-2.5 py-1.5 text-center">
                     <button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>

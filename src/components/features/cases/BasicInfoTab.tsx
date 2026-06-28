@@ -98,10 +98,13 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
           .filter(t => normalizeTaskStatus(t.status) === '着手前' && isWaitingForDocument(t, readinessReceipts))
 
         // タスク未割当の到着物 = 受領済 (received_date あり) だが、どのタスクとも紐付いていない受信簿アイテム
+        // 契約書類(linked_kind='contract_doc')はタスク不要のため、それしか無い受信は対象外（受信簿の扱いと整合）。
         const unlinkedReceipts = (documentReceipts ?? []).filter(r => {
           if (!r.received_date) return false
           if (r.started_task_id) return false
-          if ((r.items ?? []).some(i => (i.item_tasks ?? []).some(t => t.task?.id))) return false
+          const items = r.items ?? []
+          if (items.filter(i => i.linked_kind !== 'contract_doc').length === 0) return false
+          if (items.some(i => (i.item_tasks ?? []).some(t => t.task?.id))) return false
           return true
         })
 
