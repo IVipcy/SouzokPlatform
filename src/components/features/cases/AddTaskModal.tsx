@@ -113,20 +113,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
         )}
 
-        {/* Task name */}
-        <div>
-          <label className="block text-[13px] font-semibold text-gray-500 mb-1">タスク名 *</label>
-          <input
-            type="text"
-            value={form.title}
-            onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-            placeholder="例：三菱UFJ銀行 残高証明取得"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          />
-        </div>
-
+        {/* 工程 → 業務（先に分類を選ぶ） */}
         <div className="grid grid-cols-2 gap-3">
-          {/* 工程（業務の1個上） */}
           <div>
             <label className="block text-[13px] font-semibold text-gray-500 mb-1">工程</label>
             <select
@@ -139,7 +127,6 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
             </select>
           </div>
 
-          {/* 業務（工程で絞り込み） */}
           <div>
             <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務区分</label>
             <select
@@ -153,6 +140,18 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Task name（分類のあとに入力） */}
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">タスク名 *</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+            placeholder="例：三菱UFJ銀行 残高証明取得"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          />
         </div>
 
         {/* Due date */}
