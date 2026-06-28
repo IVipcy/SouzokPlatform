@@ -11,7 +11,6 @@ import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } f
 import Badge from '@/components/ui/Badge'
 import CompleteTaskModal from './CompleteTaskModal'
 import { getPhaseLabel } from '@/lib/phases'
-import { koteiOf, koteiRank } from '@/lib/kotei'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -63,13 +62,12 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // システムタスクは前後関係を持たないので、関連セクションを非表示
   const isSystemTask = task.task_kind === 'system'
 
-  // 前段確認の表示判定：①完了ゲートでこのタスクを着手OKにした元タスクがある、
-  // または ②自分以前の工程（同工程含む）に完了タスクがある
+  // 前段確認の表示判定（実体のある前段だけ）：①完了ゲートでこのタスクを着手OKにした
+  // 元タスクがある、または ②同じ業務区分で完了したタスクがある
   const hasPrevContext = !isSystemTask && (() => {
     const readyFrom = (task.ext_data as { ready_from_task_id?: string } | null)?.ready_from_task_id
     if (readyFrom && caseTasks.some(t => t.id === readyFrom && t.status === '完了')) return true
-    const cur = koteiRank(koteiOf(task.phase))
-    return caseTasks.some(t => t.id !== task.id && t.status === '完了' && koteiRank(koteiOf(t.phase)) <= cur)
+    return caseTasks.some(t => t.id !== task.id && t.status === '完了' && t.phase === task.phase)
   })()
 
   const currentStatus = normalizeStatus(task.status)

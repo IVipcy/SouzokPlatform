@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { TaskRow } from '@/types'
 
 type Props = {
@@ -26,10 +25,10 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
   const router = useRouter()
   const ext = useMemo(() => (task.ext_data ?? {}) as Record<string, unknown>, [task.ext_data])
 
-  // 前段タスクの自動判定（自分自身は除外。完了日＝無ければ更新日 が新しい順）：
+  // 前段タスクの判定（実体のある前段だけ。自分自身は除外。完了日＝無ければ更新日 が新しい順）：
   //  ⓪ 完了ゲートでこのタスクを「着手OK」にした元タスク（明示的な前段）を最優先
-  //  ① 同じ業務区分で最新に完了したタスク
-  //  ② 無ければ、前の工程までで最後に完了したタスク
+  //  ① 同じ業務区分で最新に完了したタスク（同じ作業の流れ）
+  //  それ以外（前工程からの推測・書類到着きっかけ等）は前段なしとして非表示
   const prevTask = useMemo(() => {
     const byDesc = (a: TaskRow, b: TaskRow) =>
       (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? '')
@@ -40,12 +39,7 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
       if (src) return src
     }
     const samePhase = done.filter(t => t.phase === task.phase).sort(byDesc)
-    if (samePhase[0]) return samePhase[0]
-    const cur = koteiRank(koteiOf(task.phase))
-    const earlier = done
-      .filter(t => koteiRank(koteiOf(t.phase)) < cur)
-      .sort(byDesc)
-    return earlier[0] ?? null
+    return samePhase[0] ?? null
   }, [caseTasks, task.id, task.phase, ext.ready_from_task_id])
 
   const initialEval = (ext.prev_task_evaluation as string | undefined) ?? null
