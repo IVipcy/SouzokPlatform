@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Plus, Briefcase } from 'lucide-react'
+import { ClipboardList, Plus, Briefcase, Layers } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
@@ -17,6 +17,7 @@ import { showToast } from '@/components/ui/Toast'
 import TabHeader from './TabHeader'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { TimelineReceipt } from './CaseTimeline'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -51,9 +52,10 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
   const [kind, setKind] = useState<'system' | 'case'>(isManagementPhase ? 'case' : 'system')
   const [statuses, setStatuses] = useState<Set<string>>(new Set())
-  // 業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
+  // 工程／業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
+  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
-  const [caseView, setCaseView] = useState<'kanban' | 'table'>('kanban')
+  const [caseView, setCaseView] = useState<'kanban' | 'table'>('table')
   const [busyId, setBusyId] = useState<string | null>(null)
   const today = new Date().toISOString().split('T')[0]
 
@@ -106,13 +108,45 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
     return [...ordered, ...extra]
   }, [tasks])
+  // 工程の選択肢（事務管理タスクに存在する工程を工程順で）
+  const koteiOptions = useMemo(() => {
+    const present = new Set<string>()
+    for (const t of tasks) { if (t.task_kind === 'case') present.add(koteiOf(t.phase)) }
+    return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
+  }, [tasks])
 
   const filtered = useMemo(() => tasks.filter(t => {
     if (t.task_kind !== kind) return false
     if (statuses.size > 0 && !statuses.has(normalizeStatus(t.status))) return false
+    if (kind === 'case' && koteiFilter.size > 0 && !koteiFilter.has(koteiOf(t.phase))) return false
     if (kind === 'case' && gyomuFilter.size > 0 && !gyomuFilter.has(gyomuOf(t))) return false
     return true
-  }), [tasks, kind, statuses, gyomuFilter])
+  }).sort((a, b) => {
+    // 事務管理は工程順 → 業務 → sort_order で並べる（テーブルの基本順）
+    if (kind !== 'case') return 0
+    const kr = koteiRank(koteiOf(a.phase)) - koteiRank(koteiOf(b.phase))
+    if (kr !== 0) return kr
+    const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
+    if (gr !== 0) return gr
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  }), [tasks, kind, statuses, koteiFilter, gyomuFilter])
+
+  // タスク → 紐づく到着物名（受信簿の item_tasks リンク経由）
+  const docNamesByTask = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const r of documentReceipts ?? []) {
+      for (const it of (r.items ?? [])) {
+        for (const lt of (it.item_tasks ?? [])) {
+          const id = lt.task?.id
+          if (!id) continue
+          const arr = m.get(id) ?? []
+          if (!arr.includes(it.item_name)) arr.push(it.item_name)
+          m.set(id, arr)
+        }
+      }
+    }
+    return m
+  }, [documentReceipts])
 
   return (
     <div className="space-y-3.5">
@@ -187,7 +221,10 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                 )
               })}
             </div>
-            {/* 業務区分（事務管理タスクのときのみ。受注区分は案件で固定なので出さない） */}
+            {/* 工程・業務区分（事務管理タスクのときのみ。受注区分は案件で固定なので出さない） */}
+            {kind === 'case' && koteiOptions.length > 0 && (
+              <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
+            )}
             {kind === 'case' && gyomuOptions.length > 0 && (
               <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
             )}
@@ -209,11 +246,13 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                   onAdvance={handleAdvance}
                   loadingTaskId={busyId}
                   receipts={toReadinessReceipts(documentReceipts)}
+                  docNamesByTask={docNamesByTask}
                   hideCase
                 />
               ) : (
                 <CaseTaskTableView
                   tasks={filtered}
+                  docNamesByTask={docNamesByTask}
                   today={today}
                   onAdvance={handleAdvance}
                   loadingTaskId={busyId}

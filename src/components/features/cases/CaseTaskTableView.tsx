@@ -16,12 +16,13 @@ const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, ''
  * 列は事務管理タスク一覧と同じ思想（案件/担当は案件内なので省略）。
  * 期限はその場で編集でき、選択した複数タスクへ期限を一括設定できる。
  */
-export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTaskId, receipts, onRefresh }: {
+export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTaskId, receipts, docNamesByTask, onRefresh }: {
   tasks: TaskRow[]
   today: string
   onAdvance: (task: TaskRow) => void
   loadingTaskId: string | null
   receipts: ReadinessReceipt[]
+  docNamesByTask?: Map<string, string[]>
   onRefresh: () => void
 }) {
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -79,12 +80,13 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">実施結果</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-40">到着物</th>
               <th className="px-2.5 py-2 text-center font-semibold w-20">操作</th>
             </tr>
           </thead>
           <tbody>
             {tasks.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
+              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
             ) : tasks.map((t, i) => {
               const status = normalizeTaskStatus(t.status)
               const overdue = !!(t.due_date && t.due_date < today && status !== '完了')
@@ -110,6 +112,14 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                   </td>
                   <td className="px-2.5 py-2 align-top">
                     {result ? <span className="block text-[11.5px] text-gray-600 line-clamp-2" title={result}>{result}</span> : <span className="text-gray-300 text-[12px]">—</span>}
+                  </td>
+                  <td className="px-2.5 py-2 align-top">
+                    {(() => {
+                      const docs = docNamesByTask?.get(t.id) ?? []
+                      return docs.length > 0
+                        ? <div className="flex flex-wrap gap-1">{docs.map((d, k) => <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100">{d}</span>)}</div>
+                        : <span className="text-gray-300 text-[12px]">—</span>
+                    })()}
                   </td>
                   <td className="px-2.5 py-2 text-center">
                     {status === '完了' ? <span className="text-[11px] text-gray-400">—</span> : (

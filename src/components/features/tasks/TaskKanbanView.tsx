@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Play, CheckCircle2, Loader2, PackageCheck, FileCheck } from 'lucide-react'
 import type { TaskRow } from '@/types'
 import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { koteiOf } from '@/lib/kotei'
 
 export type KanbanCaseInfo = {
   case_number: string
@@ -24,6 +25,8 @@ type Props = {
   loadingTaskId: string | null
   /** 案件詳細から呼ばれる場合（caseMapなしで動かす）。案件名/番号は出さない */
   hideCase?: boolean
+  /** タスク→紐づく到着物名 */
+  docNamesByTask?: Map<string, string[]>
 }
 
 type ColumnKey = '着手前' | '対応中' | '完了'
@@ -34,7 +37,7 @@ const META: Record<ColumnKey, { label: string; dot: string; bg: string; text: st
   '完了':   { label: '完了',   dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' },
 }
 
-export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], today, onAdvance, loadingTaskId, hideCase }: Props) {
+export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], today, onAdvance, loadingTaskId, hideCase, docNamesByTask }: Props) {
   const grouped: Record<ColumnKey, TaskRow[]> = { '着手前': [], '対応中': [], '完了': [] }
   for (const t of tasks) {
     const s = normalizeTaskStatus(t.status)
@@ -67,10 +70,16 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                   const caseInfo = caseMap[task.case_id]
                   const isOverdue = !!(task.due_date && task.due_date < today && col !== '完了')
                   const signal = col === '着手前' ? getStartSignal(task, receipts) : { ready: false, reason: null as string | null, source: null }
+                  const docs = docNamesByTask?.get(task.id) ?? []
+                  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+                  const result = typeof ext.execution_result === 'string' ? ext.execution_result.trim() : ''
                   return (
                     <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-2.5 hover:border-brand-200 transition-colors">
-                      {/* 業務チップ＋着手OK旗 */}
+                      {/* 工程＋業務チップ＋着手OK旗 */}
                       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-100/70 text-brand-800 border border-brand-200 flex-shrink-0">
+                          {koteiOf(task.phase)}
+                        </span>
                         {task.phase && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100 flex-shrink-0">
                             {task.phase.replace(/^Phase\d+[:：]\s*/, '')}
@@ -103,6 +112,18 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                             : <PackageCheck className="w-3 h-3" strokeWidth={2} />}
                           {signal.reason}
                         </div>
+                      )}
+
+                      {/* 紐づく到着物 */}
+                      {docs.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {docs.map((d, k) => <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100">{d}</span>)}
+                        </div>
+                      )}
+
+                      {/* 実施結果（あれば。2行省略＋ホバー全文） */}
+                      {result && (
+                        <div className="mt-1.5 text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded px-2 py-1 line-clamp-2" title={result}>{result}</div>
                       )}
 
                       {/* 期限＋着手 */}
