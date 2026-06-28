@@ -53,7 +53,7 @@ export default async function TaskDetailPage({ params }: Props) {
       .or(`from_task_id.eq.${id},to_task_id.eq.${id}`),
     supabase
       .from('tasks')
-      .select('id, title, status, phase, category, priority, due_date, ext_data, template_key, started_by, started_at, completed_at, updated_at, started_by_member:members!tasks_started_by_fkey(id, name, avatar_color, avatar_url, primary_role)')
+      .select('id, title, status, phase, category, priority, due_date, ext_data, template_key, task_kind, started_by, started_at, completed_at, updated_at, started_by_member:members!tasks_started_by_fkey(id, name, avatar_color, avatar_url, primary_role)')
       .eq('case_id', caseId),
     // 案件全体の作成書類（documents テーブル。作成物セクションで全タスク横断表示）
     supabase
