@@ -70,11 +70,14 @@ export default async function WorkloadPage({ searchParams }: Props) {
     if (!dtmByTeam.has(r.team_id)) dtmByTeam.set(r.team_id, new Set())
     dtmByTeam.get(r.team_id)!.add(r.member_id)
   }
-  const useDtm = dtm.length > 0
+  // ロスター(dashboard_team_members)に居ればそのチーム。居ないメンバーは members.team_id で補完する
+  // （新規追加メンバーがロスター未登録でも稼働状況一覧に出るように）。
+  const memberInAnyDtm = new Set(dtm.map(r => r.member_id))
   const teamMembers = (teamId: string): MemberRow[] =>
-    useDtm && dtmByTeam.has(teamId)
-      ? members.filter(m => dtmByTeam.get(teamId)!.has(m.id))
-      : members.filter(m => m.team_id === teamId)
+    members.filter(m =>
+      (dtmByTeam.get(teamId)?.has(m.id) ?? false)
+      || (!memberInAnyDtm.has(m.id) && m.team_id === teamId),
+    )
 
   const yearsOf = (joined: string | null | undefined): number | null => {
     if (!joined) return null
@@ -99,16 +102,12 @@ export default async function WorkloadPage({ searchParams }: Props) {
       })),
   }))
 
-  // デフォルトチーム＝現在ユーザーの所属
+  // デフォルトチーム＝現在ユーザーの所属（ロスター優先、無ければ members.team_id）
   let defaultTeamId = teams[0]?.id ?? null
   if (currentUser?.memberId) {
-    if (useDtm) {
-      const found = dtm.find(r => r.member_id === currentUser.memberId)
-      if (found) defaultTeamId = found.team_id
-    } else {
-      const me = members.find(m => m.id === currentUser.memberId)
-      if (me?.team_id) defaultTeamId = me.team_id
-    }
+    const dtmTeam = dtm.find(r => r.member_id === currentUser.memberId)?.team_id
+    const me = members.find(m => m.id === currentUser.memberId)
+    defaultTeamId = dtmTeam ?? me?.team_id ?? defaultTeamId
   }
 
   return (
