@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import {
   categoriesOf, gyomuForCategories, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
 } from '@/lib/serviceMaster'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { TaskRow, TaskTemplateRow, CaseReferralRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
@@ -72,6 +73,13 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       .map(gyomu => ({ gyomu, items: candidates.filter(c => c.gyomu === gyomu) }))
       .filter(g => g.items.length > 0)
   }, [candidates, cats])
+
+  // 工程 ＞ 業務 でまとめる（工程見出し＋業務ボックス）
+  const koteiGrouped = useMemo(() => {
+    const m = new Map<string, typeof groups>()
+    for (const g of groups) { const k = koteiOf(g.gyomu); if (!m.has(k)) m.set(k, []); m.get(k)!.push(g) }
+    return [...m.entries()].sort((a, b) => koteiRank(a[0]) - koteiRank(b[0]))
+  }, [groups])
 
   const toggle = (key: string) => setSelected(prev => {
     const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next
@@ -157,8 +165,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
               {selected.size === selectable.length ? '全解除' : '全選択'}
             </button>
           </div>
-          <div className="space-y-3">
-            {groups.map(group => {
+          <div className="space-y-4">
+            {koteiGrouped.map(([kotei, gyomuGroups]) => (
+            <div key={kotei} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px]" />
+                <span className="text-[13px] font-bold text-brand-800">{kotei}</span>
+              </div>
+              {gyomuGroups.map(group => {
               const sel = group.items.filter(c => !isGenerated(c))
               const selectedInGyomu = sel.filter(c => selected.has(c.key)).length
               return (
@@ -184,7 +198,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
                   </div>
                 </div>
               )
-            })}
+              })}
+            </div>
+            ))}
           </div>
         </>
       )}
