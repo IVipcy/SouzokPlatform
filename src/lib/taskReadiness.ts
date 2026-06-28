@@ -94,19 +94,24 @@ export function isWaitingForDocument(task: TaskRow, receipts: ReadinessReceipt[]
 }
 
 // 「着手OK」の合図。ステータスとは別レイヤーの"旗"で、着手前タスクにだけ立つ。
-//   source='doc'    : 紐付き書類が受領済（自動・第1層）
-//   source='manual' : 人が「次やれる」を付けた（任意・第2層。ext_data.ready_reason / ready）
-// reason は「なぜ着手OKか」を常に併記するための文言。
+// 事務管理/管理担当が人の判断で付ける。自動では立てない（書類が届いた＝着手可とは限らないため）。
+// 付け方は2通り:
+//   1) 受信簿で到着物をタスクに紐づけるとき「着手OKにする」をチェック → reason='必要書類受領済'
+//   2) タスク完了時に「次に着手できるタスク」を選び着手OK理由を記載
+// いずれも ext_data.ready_reason（文言）に保存する。reason は「なぜ着手OKか」の併記。
+//   source='doc'    : 必要書類受領済（書類由来）
+//   source='manual' : 前段作業の完了など人の判断
 export type StartSignal = { ready: boolean; reason: string | null; source: 'doc' | 'manual' | null }
 
-export function getStartSignal(task: TaskRow, receipts: ReadinessReceipt[] = []): StartSignal {
+export const READY_REASON_DOC = '必要書類受領済'
+
+export function getStartSignal(task: TaskRow, _receipts: ReadinessReceipt[] = []): StartSignal {
   if (normalizeTaskStatus(task.status) !== '着手前') return { ready: false, reason: null, source: null }
-  // 第1層: 書類受領（自動）
-  const doc = getTaskDocStatus(task.id, receipts)
-  if (doc.state === 'received') return { ready: true, reason: doc.label, source: 'doc' }
-  // 第2層: 手動フラグ（任意）。ext_data.ready_reason（文言）or ready=true
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
-  const manual = typeof ext.ready_reason === 'string' ? ext.ready_reason.trim() : ''
-  if (manual || ext.ready === true) return { ready: true, reason: manual || '着手OK', source: 'manual' }
+  const reason = typeof ext.ready_reason === 'string' ? ext.ready_reason.trim() : ''
+  if (reason || ext.ready === true) {
+    const r = reason || '着手OK'
+    return { ready: true, reason: r, source: r === READY_REASON_DOC ? 'doc' : 'manual' }
+  }
   return { ready: false, reason: null, source: null }
 }

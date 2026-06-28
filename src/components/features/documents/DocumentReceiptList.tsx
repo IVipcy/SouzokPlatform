@@ -10,6 +10,7 @@ import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
+import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -224,6 +225,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物(item)ごとに、自由入力で作る新規タスクの工程・業務区分
   const [itemKotei, setItemKotei] = useState<Record<string, string>>({})
   const [itemGyomu, setItemGyomu] = useState<Record<string, string>>({})
+  // 到着物(item)ごとに「結んだタスクを着手OKにする（必要書類受領済）」
+  const [itemReady, setItemReady] = useState<Record<string, boolean>>({})
   // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
   const [showAll, setShowAll] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
@@ -296,6 +299,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 
     const joinRows: { receipt_item_id: string; task_id: string }[] = []
     let firstTaskId: string | null = null
+    // 「着手OKにする」がチェックされた到着物に結んだタスク（必要書類受領済として着手OK旗を立てる）
+    const readyTaskIds = new Set<string>()
 
     // 実施タスク行のrid採番（作成時に更新）／既存タスクの rid→id（重複生成防止）
     const roles = [...intakeRoles]
@@ -305,6 +310,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     // 到着物ごとに：新規タスク作成（実施タスク候補に一致すれば source_rid 連携）＋既存タスク紐付け。
     // ※ ここでは「着手」しない。紐付けた人と実際に着手する人が異なるため、未着手(着手前)で保存する。
     for (const it of items) {
+      const linkedThisItem: string[] = []
       const newTitle = (itemNew[it.id] ?? '').trim()
       if (newTitle) {
         // 実施タスク（作業）に一致したら rid を採番して紐付け。一致時はその業務区分、
@@ -326,6 +332,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           // その実施タスクのタスクが既にある → 新規作成せず結ぶ
           joinRows.push({ receipt_item_id: it.id, task_id: existingId })
           firstTaskId = firstTaskId ?? existingId
+          linkedThisItem.push(existingId)
         } else {
           const { data: nt, error } = await supabase.from('tasks')
             .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: gyomu || 'phase1', category: gyomu || '', status: '着手前', priority: '通常', source_rid: sourceRid, sort_order: 99 })
@@ -335,13 +342,16 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
             if (sourceRid) ridToTaskId.set(sourceRid, id)
             joinRows.push({ receipt_item_id: it.id, task_id: id })
             firstTaskId = firstTaskId ?? id
+            linkedThisItem.push(id)
           }
         }
       }
       for (const taskId of itemSel[it.id] ?? []) {
         joinRows.push({ receipt_item_id: it.id, task_id: taskId })
         firstTaskId = firstTaskId ?? taskId
+        linkedThisItem.push(taskId)
       }
+      if (itemReady[it.id]) for (const id of linkedThisItem) readyTaskIds.add(id)
     }
 
     if (rolesChanged) await supabase.from('cases').update({ intake_roles: roles }).eq('id', receipt.case_id)
@@ -351,6 +361,18 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     }
     // 後方互換：受信単位の代表タスク
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
+
+    // 「着手OKにする」がチェックされたタスクに着手OK旗を立てる（ext_dataにmerge）
+    if (readyTaskIds.size > 0) {
+      const ids = [...readyTaskIds]
+      const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', ids)
+      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
+        // 完了・対応中のタスクには立てない（着手前のみ着手OKの概念がある）
+        if (normalizeTaskStatus(row.status) !== '着手前') continue
+        const ext = { ...(row.ext_data ?? {}), ready_reason: READY_REASON_DOC }
+        await supabase.from('tasks').update({ ext_data: ext }).eq('id', row.id)
+      }
+    }
 
     setSaving(false)
     showToast(totalLinks > 0 ? `${totalLinks}件のタスクに紐付けました（未着手）` : '処理済みにしました', 'success')
@@ -498,6 +520,19 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                       )
                     })()}
                   </>
+                )}
+                {/* 着手OKにする（この到着物に結んだタスクを「必要書類受領済」で着手OKに） */}
+                {((itemSel[it.id]?.size ?? 0) > 0 || (itemNew[it.id] ?? '').trim()) && !isContract && (
+                  <label className={`mt-2 flex items-center gap-2 text-[12px] rounded-lg px-2.5 py-1.5 cursor-pointer border transition-colors ${itemReady[it.id] ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!itemReady[it.id]}
+                      onChange={e => setItemReady(prev => ({ ...prev, [it.id]: e.target.checked }))}
+                      className="w-4 h-4 accent-amber-500"
+                    />
+                    結んだタスクを<span className="font-semibold">着手OK</span>にする
+                    <span className="ml-auto text-[10.5px] text-gray-400">理由：{READY_REASON_DOC}</span>
+                  </label>
                 )}
               </div>
             )})}
