@@ -9,6 +9,8 @@ import { Section } from '@/components/ui/InlineFields'
 import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import TaskKanbanView from '@/components/features/tasks/TaskKanbanView'
+import CaseTaskTableView from './CaseTaskTableView'
+import { LayoutGrid, List } from 'lucide-react'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -51,6 +53,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const [statuses, setStatuses] = useState<Set<string>>(new Set())
   // 業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
+  const [caseView, setCaseView] = useState<'kanban' | 'table'>('kanban')
   const [busyId, setBusyId] = useState<string | null>(null)
   const today = new Date().toISOString().split('T')[0]
 
@@ -188,18 +191,36 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
             {kind === 'case' && gyomuOptions.length > 0 && (
               <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
             )}
+            {/* カンバン⇄テーブル切替（事務管理タスクのみ） */}
+            {kind === 'case' && (
+              <div className="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                <button type="button" onClick={() => setCaseView('kanban')} className={`inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${caseView === 'kanban' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}><LayoutGrid className="w-3.5 h-3.5" />カンバン</button>
+                <button type="button" onClick={() => setCaseView('table')} className={`inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold border-l border-gray-200 ${caseView === 'table' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}><List className="w-3.5 h-3.5" />テーブル</button>
+              </div>
+            )}
           </div>
 
           {kind === 'case' ? (
             <Section title="タスク（事務管理）">
-              <TaskKanbanView
-                tasks={filtered}
-                today={today}
-                onAdvance={handleAdvance}
-                loadingTaskId={busyId}
-                receipts={toReadinessReceipts(documentReceipts)}
-                hideCase
-              />
+              {caseView === 'kanban' ? (
+                <TaskKanbanView
+                  tasks={filtered}
+                  today={today}
+                  onAdvance={handleAdvance}
+                  loadingTaskId={busyId}
+                  receipts={toReadinessReceipts(documentReceipts)}
+                  hideCase
+                />
+              ) : (
+                <CaseTaskTableView
+                  tasks={filtered}
+                  today={today}
+                  onAdvance={handleAdvance}
+                  loadingTaskId={busyId}
+                  receipts={toReadinessReceipts(documentReceipts)}
+                  onRefresh={() => startTransition(() => router.refresh())}
+                />
+              )}
             </Section>
           ) : (
             <SystemTaskList
