@@ -23,9 +23,10 @@ export function getJutakuFlowSteps(args: {
   contractProcDone: boolean
 }): FlowStep[] {
   return [
+    // ナビの線が上のタブと交差しないよう、タブの並び順（オーダーシート→タスク→担当・受注ルート→契約残手続き）に合わせる
     { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
-    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当・受注ルート', done: args.managerAssigned },
     { key: 'initialTasks', label: '初期対応タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.initialTasksDone },
+    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当・受注ルート', done: args.managerAssigned },
     { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
   ]
 }
