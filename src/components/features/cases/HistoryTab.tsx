@@ -11,10 +11,13 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { koteiOf, koteiRank, KOTEI_ORDER, KOTEI_GYOMU } from '@/lib/kotei'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
 // 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
 const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
+// 進捗メモの工程（業務区分から導出）
+const noteKotei = (n: CaseActivityRow): string => { const g = noteGyomu(n); return g ? koteiOf(g) : '' }
 
 type Props = {
   caseData: CaseRow
@@ -38,7 +41,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [newTitle, setNewTitle] = useState('')
+  const [newKotei, setNewKotei] = useState('')
   const [newGyomu, setNewGyomu] = useState('')
+  const [koteiFilter, setKoteiFilter] = useState('')
   const [gyomuFilter, setGyomuFilter] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
@@ -92,6 +97,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     })
     setNewNote('')
     setNewTitle('')
+    setNewKotei('')
     setNewGyomu('')
     setSaving(false)
     fetchActivities()
@@ -148,12 +154,15 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   // タイムラインに統合したため、ここでは表示しない）
   const notes = activities
     .filter(a => a.activity_type === 'note')
+    .filter(a => !koteiFilter || noteKotei(a) === koteiFilter)
     .filter(a => !gyomuFilter || noteGyomu(a) === gyomuFilter)
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
 
-  // フィルタ用の業務区分候補（メモに存在するもの＋正準順）
+  // フィルタ用の工程・業務区分候補（メモに存在するもの＋正準順）
+  const allNotes = activities.filter(a => a.activity_type === 'note')
+  const noteKoteiOptions = [...new Set(allNotes.map(noteKotei).filter(Boolean))].sort((a, b) => koteiRank(a) - koteiRank(b))
   const noteGyomuOptions = (() => {
-    const present = new Set(activities.filter(a => a.activity_type === 'note').map(noteGyomu).filter(Boolean))
+    const present = new Set(allNotes.map(noteGyomu).filter(Boolean))
     return [...GYOMU_ALL.filter(g => present.has(g)), ...[...present].filter(g => !GYOMU_ALL.includes(g))]
   })()
 
@@ -227,22 +236,32 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <Section title="進捗メモ">
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <select
+                value={newKotei}
+                onChange={e => { const k = e.target.value; setNewKotei(k); setNewGyomu((KOTEI_GYOMU[k] ?? [])[0] ?? '') }}
+                className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:border-brand-400"
+                style={{ minWidth: 130 }}
+              >
+                <option value="">工程（任意）</option>
+                {KOTEI_ORDER.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
               <select
                 value={newGyomu}
                 onChange={e => setNewGyomu(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:border-brand-400"
-                style={{ minWidth: 140 }}
+                disabled={!newKotei}
+                className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:border-brand-400 disabled:bg-gray-50 disabled:text-gray-400"
+                style={{ minWidth: 120 }}
               >
-                <option value="">業務区分（任意）</option>
-                {GYOMU_ALL.map(g => <option key={g} value={g}>{g}</option>)}
+                <option value="">業務区分</option>
+                {(KOTEI_GYOMU[newKotei] ?? []).map(g => <option key={g} value={g}>{g}</option>)}
               </select>
               <input
                 type="text"
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 placeholder="タイトル（任意）"
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+                className="flex-1 min-w-[140px] text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
               />
             </div>
             <input
@@ -263,6 +282,16 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </button>
         </div>
 
+        {/* 工程フィルタ */}
+        {noteKoteiOptions.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+            <span className="text-[12px] font-semibold text-gray-500">工程</span>
+            <button type="button" onClick={() => { setKoteiFilter(''); setGyomuFilter('') }} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${!koteiFilter ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>すべて</button>
+            {noteKoteiOptions.map(k => (
+              <button key={k} type="button" onClick={() => { setKoteiFilter(k); setGyomuFilter('') }} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${koteiFilter === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{k}</button>
+            ))}
+          </div>
+        )}
         {/* 業務区分フィルタ */}
         {noteGyomuOptions.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3 flex-wrap">
@@ -285,12 +314,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               const linkedTaskStatus = n.task_id ? taskStatusMap.get(n.task_id) : undefined
               const isCompleted = linkedTaskStatus === '完了'
               const gy = noteGyomu(n)
+              const ko = noteKotei(n)
               return (
                 <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
                   {isCompleted
                     ? <CheckIcon className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
                     : <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />}
                   <div className="flex-1 min-w-0">
+                    {ko && <span className="inline-block mb-0.5 mr-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200">{ko}</span>}
                     {gy && <span className="inline-block mb-0.5 mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-brand-700 bg-brand-50 border border-brand-100">{gy}</span>}
                     {titleText && (
                       n.task_id ? (
