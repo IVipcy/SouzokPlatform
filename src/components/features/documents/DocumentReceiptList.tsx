@@ -233,7 +233,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     const supabase = createClient()
     ;(async () => {
       const [tk, cs, cd] = await Promise.all([
-        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).neq('status', '完了').order('sort_order'),
+        // 全件取得（完了含む）。完了は候補に出さないが、「＋作成」候補の重複判定に使う。
+        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).order('sort_order'),
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
         supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
       ])
@@ -248,6 +249,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // タスク候補。役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部出す
   // （戸籍請求書を作って請求する・名寄帳を請求する等、請求・受領も立派なタスクのため）。
   const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要')
+  // 既にタスク化済みの作業名（完了/対応中問わず）。「＋作成」候補から除外して二重作成・完了済の再掲を防ぐ。
+  const existingTaskTitles = new Set(tasks.map(t => t.title))
   // 契約時受領書類の区分（戸籍/評価証明等は調査系）。区分=契約/その他のみタスク不要。
   const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
     CONTRACT_CATEGORY_GYOMU[contractCat.get(it.linked_id ?? '') ?? '']
@@ -262,7 +265,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     if (it.linked_kind === 'contract_doc' && !contractGyomuFor(it)) return [] // 区分=契約/その他 ＝ タスク不要
     const gy = gyomuForItem(it)
     if (!gy) return []
-    const rs = taskRoles.filter(r => gy.includes(r.gyomu))
+    // 既にタスク化済みの作業は除外（対応中＝既存ピルで選ぶ／完了＝再掲しない）。
+    const rs = taskRoles.filter(r => gy.includes(r.gyomu) && !existingTaskTitles.has(r.sagyou))
     return [...new Set(rs.map(r => r.sagyou))]
   }
   // 既存タスクの業務区分（phase の "PhaseN:" 接頭辞を除く）
@@ -382,11 +386,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               const isContract = isTaskFree(it)
               // この到着物に関係する業務区分。判定できれば既存タスクを「関係する業務」だけに絞る。
               const gy = gyomuForItem(it)
-              // 事務管理タスク(task_kind='case')のうち、関係業務に合うものを優先表示。
-              const caseTasks = tasks.filter(t => t.task_kind !== 'system')
-              const relevant = gy ? caseTasks.filter(t => gy.includes(gyomuOfTask(t))) : []
+              // 事務管理タスク(task_kind='case')のうち、未完了のものだけ候補に（完了/キャンセルは出さない）。
+              const linkable = tasks.filter(t => t.task_kind !== 'system' && t.status !== '完了' && t.status !== 'キャンセル')
+              const relevant = gy ? linkable.filter(t => gy.includes(gyomuOfTask(t))) : []
               const relevantIds = new Set(relevant.map(t => t.id))
-              const others = tasks.filter(t => !relevantIds.has(t.id))
+              const others = linkable.filter(t => !relevantIds.has(t.id))
               // 関係業務が判定できない（自由入力の到着物等）ときは絞り込めないので全件 others 扱いで畳む
               const primary = relevant.length > 0 ? relevant : []
               const showOthers = !!showAll[it.id]
@@ -406,8 +410,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               return (
               <div key={it.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
-                {tasks.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 mb-2">既存タスクはありません（下で作成できます）</p>
+                {linkable.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 mb-2">未完了の既存タスクはありません（下で作成できます）</p>
                 ) : (
                   <div className="mb-2">
                     {/* 関係する業務のタスク（優先表示） */}
