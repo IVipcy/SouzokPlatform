@@ -10,7 +10,8 @@ import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
 import CompleteTaskModal from './CompleteTaskModal'
-import { getPhaseLabel, DB_PHASES } from '@/lib/phases'
+import { getPhaseLabel } from '@/lib/phases'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -62,17 +63,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // システムタスクは前後関係を持たないので、関連セクションを非表示
   const isSystemTask = task.task_kind === 'system'
 
-  // 前段作業（task_completed 型依存の from_task）を抽出
-  // 前段確認の表示判定：自分以前のフェーズ（同フェーズ含む）に完了タスクがあるか
+  // 前段確認の表示判定：自分以前の工程（同工程含む）に完了タスクがあるか
   const hasPrevContext = !isSystemTask && (() => {
-    const ranks = DB_PHASES as readonly string[]
-    const cur = ranks.indexOf(task.phase ?? '')
-    if (cur < 0) return false
-    return caseTasks.some(t => {
-      if (t.id === task.id || t.status !== '完了') return false
-      const r = ranks.indexOf(t.phase ?? '')
-      return r >= 0 && r <= cur
-    })
+    const cur = koteiRank(koteiOf(task.phase))
+    return caseTasks.some(t => t.id !== task.id && t.status === '完了' && koteiRank(koteiOf(t.phase)) <= cur)
   })()
 
   const currentStatus = normalizeStatus(task.status)
