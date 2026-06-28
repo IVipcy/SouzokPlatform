@@ -651,11 +651,11 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
         <div className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-            <span className="text-[13px] font-bold text-gray-900">{currentGyomu}</span>
+            <span className="text-[13px] font-bold text-gray-900">{currentGyomu === 'system' ? '受注/管理担当' : currentGyomu}</span>
             <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
               {doneTasks.length}/{gyomuTasks.length} 完了
             </span>
-            <span className="text-[11px] text-gray-400">この業務の事務管理タスク</span>
+            <span className="text-[11px] text-gray-400">{currentGyomu === 'system' ? '受注/管理担当の初期対応タスク' : 'この業務の事務管理タスク'}</span>
             {targetTab && (
               <Link
                 href={`/cases/${caseData.id}?tab=${targetTab}`}

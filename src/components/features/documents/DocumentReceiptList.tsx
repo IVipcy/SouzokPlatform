@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play, Link2, Paperclip } from 'lucide-react'
-import OpenStorageFile from './OpenStorageFile'
+import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
@@ -33,7 +33,7 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
   return `${mm}${dd}/${String(seq).padStart(3, '0')}`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, fileByDocId, onChanged }: Props) {
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
 
@@ -77,6 +77,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col />
               <col style={{ width: 70 }} />
               <col style={{ width: 180 }} />
+              <col style={{ width: 150 }} />
               <col style={{ width: 130 }} />
               <col style={{ width: 130 }} />
             </colgroup>
@@ -87,6 +88,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
+                <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold">対応</th>
               </tr>
@@ -99,7 +101,6 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                   rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
                   currentMemberId={currentMemberId}
                   currentMember={currentMember}
-                  fileByDocId={fileByDocId}
                   onChanged={onChanged}
                   onStartRequest={setStartingReceipt}
                 />
@@ -121,49 +122,51 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
   )
 }
 
-// 到着物ごとの受領ファイル（case_documents の received_file）を添付/開く。
-function ItemFileCell({ caseId, caseDocumentId, file, onChanged }: {
-  caseId: string
-  caseDocumentId: string
-  file: { bucket: string; path: string; name: string | null } | null
+// 受信1件まとめて案件フォルダにアップ(A)＋案件フォルダを開く(B)。
+// アップすると、この受信の到着物アイテムをすべて「アップ済」にする。
+function ReceiptFolderActions({ receipt, currentMemberId, onChanged }: {
+  receipt: DocumentReceiptRow
+  currentMemberId: string | null
   onChanged: () => void
 }) {
   const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const upload = async (f: File) => {
+
+  const upload = async (files: FileList) => {
+    const arr = Array.from(files)
+    if (arr.length === 0) return
     setBusy(true)
-    const supabase = createClient()
-    const ext = f.name.split('.').pop()?.toLowerCase() ?? 'bin'
-    const path = `${caseId}/${caseDocumentId}/received-${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('documents').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: true })
-    if (upErr) { setBusy(false); showToast(`アップロードに失敗しました: ${upErr.message}`, 'error'); return }
-    const { error: dbErr } = await supabase.from('case_documents').update({
-      received_file_path: path,
-      received_file_name: f.name,
-      received_file_type: f.type || f.name.split('.').pop()?.toUpperCase() || null,
-      received_file_bucket: 'documents',
-    }).eq('id', caseDocumentId)
+    const { ok, failed } = await uploadFilesToCaseFolder(receipt.case_id, arr, currentMemberId)
+    if (failed > 0) showToast(`${failed}件のアップロードに失敗しました`, 'error')
+    if (ok > 0) {
+      // この受信の到着物アイテムをまとめてアップ済に
+      const ids = (receipt.items ?? []).map(i => i.id).filter(Boolean)
+      if (ids.length > 0) {
+        const supabase = createClient()
+        await supabase.from('document_receipt_items').update({ uploaded_at: new Date().toISOString() }).in('id', ids)
+      }
+      showToast(`${ok}件を案件フォルダにアップしました`, 'success')
+      onChanged()
+    }
     setBusy(false)
-    if (dbErr) { showToast(`保存に失敗しました: ${dbErr.message}`, 'error'); return }
-    showToast('ファイルを添付しました', 'success')
-    onChanged()
   }
-  if (file) {
-    return <OpenStorageFile bucket={file.bucket} path={file.path} name={file.name} label="ファイル" />
-  }
+
   return (
-    <>
-      <input ref={inputRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+    <div className="flex flex-col items-center gap-1">
+      <input ref={inputRef} type="file" multiple className="hidden" onChange={e => { if (e.target.files) upload(e.target.files); e.target.value = '' }} />
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
-        title="受領ファイルを添付（各調査表・到着物一覧から参照できます）"
+        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 disabled:opacity-50"
+        title="この受信の書類をまとめて案件フォルダにアップ"
       >
-        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Paperclip className="w-3 h-3" />}添付
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderUp className="w-3 h-3" />}フォルダにアップ
       </button>
-    </>
+      <Link href={`/cases/${receipt.case_id}?tab=docs`} className="inline-flex items-center gap-1 text-[10.5px] text-gray-500 hover:text-brand-700">
+        <Folder className="w-3 h-3" />フォルダを開く
+      </Link>
+    </div>
   )
 }
 
@@ -495,7 +498,6 @@ function ReceiptRow({
   rowBg,
   currentMemberId,
   currentMember,
-  fileByDocId,
   onChanged,
   onStartRequest,
 }: {
@@ -503,7 +505,6 @@ function ReceiptRow({
   rowBg: string
   currentMemberId: string | null
   currentMember: MemberRow | null
-  fileByDocId: ReceiptFileMap
   onChanged: () => void
   onStartRequest: (r: DocumentReceiptRow) => void
 }) {
@@ -639,14 +640,6 @@ function ReceiptRow({
                     {deliverableLinkLabel(it.linked_kind, it.linked_field)}
                   </span>
                 )}
-                {it?.case_document_id && (
-                  <ItemFileCell
-                    caseId={receipt.case_id}
-                    caseDocumentId={it.case_document_id}
-                    file={fileByDocId[it.case_document_id] ?? null}
-                    onChanged={onChanged}
-                  />
-                )}
               </div>
             </td>
             <td className="px-2.5 py-1.5 text-right font-mono text-gray-700">
@@ -655,6 +648,13 @@ function ReceiptRow({
             <td className="px-2.5 py-1.5 text-gray-700">
               {it?.received_from ?? <span className="text-gray-300">-</span>}
             </td>
+
+            {/* ファイル：受信1件まとめて案件フォルダにアップ／開く（行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2 py-2 text-center align-middle border-l border-gray-100">
+                <ReceiptFolderActions receipt={receipt} currentMemberId={currentMemberId} onChanged={onChanged} />
+              </td>
+            )}
 
             {/* W-Check（行統合） */}
             {isFirst && (

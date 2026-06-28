@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, UploadCloud, FileText, Sheet, Image as ImageIcon, File as FileIcon, Trash2, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
@@ -50,28 +51,9 @@ export default function CaseFolderSection({ caseId, files, pendingItems, current
     const arr = Array.from(fileList)
     if (arr.length === 0) return
     setBusy(true)
-    const supabase = createClient()
-    let ok = 0
-    for (let i = 0; i < arr.length; i++) {
-      const f = arr[i]
-      const ext = extOf(f.name) || 'bin'
-      const safe = f.name.replace(/[^\w.\-]+/g, '_')
-      const path = `${caseId}/folder/${Date.now()}-${i}-${safe}`
-      const { error: upErr } = await supabase.storage.from('documents').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: true })
-      if (upErr) { showToast(`${f.name} のアップロードに失敗: ${upErr.message}`, 'error'); continue }
-      const { error: dbErr } = await supabase.from('case_files').insert({
-        case_id: caseId,
-        file_path: path,
-        file_bucket: 'documents',
-        file_name: f.name,
-        file_type: f.type || ext.toUpperCase() || null,
-        file_size: f.size,
-        uploaded_by: currentMemberId,
-      })
-      if (dbErr) { showToast(`${f.name} の保存に失敗: ${dbErr.message}`, 'error'); continue }
-      ok++
-    }
+    const { ok, failed } = await uploadFilesToCaseFolder(caseId, arr, currentMemberId)
     setBusy(false)
+    if (failed > 0) showToast(`${failed}件のアップロードに失敗しました`, 'error')
     if (ok > 0) {
       showToast(`${ok}件アップロードしました`, 'success')
       refresh()

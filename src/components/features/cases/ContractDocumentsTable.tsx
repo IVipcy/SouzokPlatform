@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, Check, CloudOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { ContractDocumentRow } from '@/types'
-import ContractDocFileCell from './ContractDocFileCell'
+import type { TimelineReceipt } from './CaseTimeline'
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
 // 区分。戸籍/財産/登記は各調査タブに「契約時受領」として受領済/未受領で表示される。
@@ -18,6 +18,7 @@ const DEFAULT_DOCS = ['契約書', '委任状', '本人確認書類', '印鑑証
 type Props = {
   caseId: string
   documents: ContractDocumentRow[]
+  documentReceipts?: TimelineReceipt[]
   onRefresh?: () => void
 }
 
@@ -26,9 +27,16 @@ type Props = {
  * 受領状況・到着予定日を管理し、書類受信簿で受信すると到着日が入り「受信済」になる。
  * （JSONBではなくテーブルなので、受信簿から linked_kind='contract_doc' で各行に紐づく）
  */
-export default function ContractDocumentsTable({ caseId, documents, onRefresh }: Props) {
+export default function ContractDocumentsTable({ caseId, documents, documentReceipts = [], onRefresh }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<ContractDocumentRow[]>(documents)
+  // 契約書類→受信簿アイテムの「アップ済」状況。linked_kind='contract_doc' で各契約書類行に紐づく。
+  const uploadedByContractDoc = new Map<string, boolean>()
+  for (const r of documentReceipts) {
+    for (const it of (r.items ?? [])) {
+      if (it.linked_kind === 'contract_doc' && it.linked_id && it.uploaded_at) uploadedByContractDoc.set(it.linked_id, true)
+    }
+  }
   const [busy, setBusy] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
   const [recvFilter, setRecvFilter] = useState<'all' | 'received' | 'pending'>('all')
@@ -120,7 +128,7 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-24">ファイル</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">アップ状況</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
@@ -151,7 +159,11 @@ export default function ContractDocumentsTable({ caseId, documents, onRefresh }:
                       : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
                   </td>
                   <td className="px-2.5 py-1.5">
-                    <ContractDocFileCell caseId={caseId} docId={r.id} filePath={r.file_path} fileBucket={r.file_bucket} fileName={r.file_name} onChanged={onRefresh} />
+                    {!r.arrival_date
+                      ? <span className="text-[11px] text-gray-300">—</span>
+                      : (uploadedByContractDoc.get(r.id) || r.file_path)
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><CloudOff className="w-3 h-3" strokeWidth={2} />未アップ</span>}
                   </td>
                   <Cell value={r.notes} onCommit={v => saveNow(r.id, 'notes', v)} placeholder="例：実印分は後日、料金 等" />
                   <td className="px-2.5 py-1.5 text-center">
