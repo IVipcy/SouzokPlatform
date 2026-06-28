@@ -167,13 +167,25 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     const ordered = GYOMU_ALL.filter(g => present.has(g))
     // GYOMU_ALL に無い業務（旧データ等）は末尾に
     const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
-    return [...ordered, ...extra]
-  }, [assistantTasks])
+    let all = [...ordered, ...extra]
+    // 工程を選んでいるときは、その工程に紐づく業務だけに絞る
+    if (koteiFilter.size > 0) all = all.filter(g => koteiFilter.has(koteiOf(g)))
+    return all
+  }, [assistantTasks, koteiFilter])
   const koteiOptions = useMemo(() => {
     const present = new Set<string>()
     for (const t of assistantTasks) present.add(koteiOf(t.phase))
     return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
   }, [assistantTasks])
+
+  // 工程の選択が変わったら、その工程に属さない業務区分の選択は外す
+  useEffect(() => {
+    if (koteiFilter.size === 0) return
+    setGyomuFilter(prev => {
+      const next = new Set([...prev].filter(g => koteiFilter.has(koteiOf(g))))
+      return next.size === prev.size ? prev : next
+    })
+  }, [koteiFilter])
 
   const kpis = useMemo(() => ({
     total: assistantTasks.length,
@@ -366,25 +378,28 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="未着手"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
-            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
-            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
-            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setReadyOnly(false) }} />
+            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => { setStatusFilter('完了'); setReadyOnly(false) }} />
+            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => { setStatusFilter('all'); setReadyOnly(false) }} />
           </div>
 
-          <span className="w-px h-6 bg-gray-200" />
-
-          {/* 着手OK（書類到着など、今すぐやれるもの）だけ */}
-          <button
-            onClick={() => setReadyOnly(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${
-              readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-            }`}
-            title="書類が届いた等で今すぐ着手できるタスクだけ表示"
-          >
-            <PackageCheck className="w-3.5 h-3.5" strokeWidth={2} />
-            着手OK
-            {readyCount > 0 && <span className="text-[12px] font-mono opacity-70">{readyCount}</span>}
-          </button>
+          {/* 着手OK（今すぐやれるもの）だけ。未着手のときのみ意味があるので未着手選択時に表示 */}
+          {statusFilter === '着手前' && (
+            <>
+              <span className="w-px h-6 bg-gray-200" />
+              <button
+                onClick={() => setReadyOnly(v => !v)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors whitespace-nowrap ${
+                  readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+                title="書類が届いた等で今すぐ着手できるタスクだけ表示"
+              >
+                <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
+                着手OK
+                {readyCount > 0 && <span className="text-[12px] font-mono opacity-70">{readyCount}</span>}
+              </button>
+            </>
+          )}
 
           <span className="w-px h-6 bg-gray-200" />
 
@@ -710,10 +725,10 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
       {/* ステータス（未着手 / 着手OK / 対応中 / 完了） */}
       <td className="px-3.5 py-2.5">
-        {status === '完了' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
-          : status === '対応中' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
-          : signal.ready ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK</span>
-          : <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
+        {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
+          : status === '対応中' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
+          : signal.ready ? <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><PackageCheck className="w-3 h-3 flex-shrink-0" strokeWidth={2} />着手OK</span>
+          : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
       </td>
 
       {/* 着手OK理由 */}

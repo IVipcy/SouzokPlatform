@@ -100,10 +100,10 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                   <td className="px-2.5 py-2"><GyomuBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className="text-gray-800 hover:text-brand-700 hover:underline">{t.title}</Link></td>
                   <td className="px-2.5 py-2">
-                    {status === '完了' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
-                      : status === '対応中' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
-                      : signal.ready ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">着手OK</span>
-                      : <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
+                    {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
+                      : status === '対応中' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
+                      : signal.ready ? <span className="inline-flex whitespace-nowrap items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">着手OK</span>
+                      : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
                   </td>
                   <td className="px-2.5 py-2 align-top">
                     {signal.ready && signal.reason

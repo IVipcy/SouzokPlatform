@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClipboardList, Plus, Briefcase, Layers, PackageCheck } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -112,14 +112,26 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     for (const t of tasks) { if (t.task_kind !== 'case') continue; const g = gyomuOf(t); if (g) present.add(g) }
     const ordered = GYOMU_ALL.filter(g => present.has(g))
     const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
-    return [...ordered, ...extra]
-  }, [tasks])
+    let all = [...ordered, ...extra]
+    // 工程を選んでいるときは、その工程に紐づく業務だけに絞る
+    if (koteiFilter.size > 0) all = all.filter(g => koteiFilter.has(koteiOf(g)))
+    return all
+  }, [tasks, koteiFilter])
   // 工程の選択肢（事務管理タスクに存在する工程を工程順で）
   const koteiOptions = useMemo(() => {
     const present = new Set<string>()
     for (const t of tasks) { if (t.task_kind === 'case') present.add(koteiOf(t.phase)) }
     return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
   }, [tasks])
+
+  // 工程の選択が変わったら、その工程に属さない業務区分の選択は外す
+  useEffect(() => {
+    if (koteiFilter.size === 0) return
+    setGyomuFilter(prev => {
+      const next = new Set([...prev].filter(g => koteiFilter.has(koteiOf(g))))
+      return next.size === prev.size ? prev : next
+    })
+  }, [koteiFilter])
 
   const receipts = useMemo(() => toReadinessReceipts(documentReceipts), [documentReceipts])
 
@@ -229,7 +241,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setStatusFilter(key)}
+                    onClick={() => { setStatusFilter(key); if (key !== '着手前') setReadyOnly(false) }}
                     className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                   >
                     {label}{cnt > 0 && <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{cnt}</span>}
@@ -237,15 +249,15 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                 )
               })}
             </div>
-            {/* 着手OK（事務管理タスクのみ） */}
-            {kind === 'case' && (
+            {/* 着手OK（事務管理タスク・未着手選択時のみ意味がある） */}
+            {kind === 'case' && statusFilter === '着手前' && (
               <button
                 type="button"
                 onClick={() => setReadyOnly(v => !v)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors whitespace-nowrap ${readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                 title="今すぐ着手できるタスクだけ表示"
               >
-                <PackageCheck className="w-3.5 h-3.5" strokeWidth={2} />着手OK
+                <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />着手OK
                 {readyCount > 0 && <span className="text-[11px] font-mono opacity-70">{readyCount}</span>}
               </button>
             )}
