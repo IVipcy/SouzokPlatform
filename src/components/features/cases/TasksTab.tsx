@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Plus, Briefcase, Layers } from 'lucide-react'
+import { ClipboardList, Plus, Briefcase, Layers, PackageCheck } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
@@ -16,7 +16,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import TabHeader from './TabHeader'
-import { toReadinessReceipts } from '@/lib/taskReadiness'
+import { toReadinessReceipts, getStartSignal } from '@/lib/taskReadiness'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -41,9 +41,6 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-const STATUS_PILLS = ['着手前', '対応中', '完了'] as const
-const STATUS_LABEL: Record<string, string> = { '着手前': '未着手', '対応中': '対応中', '完了': '完了' }
-
 export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -52,7 +49,9 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const isManagementPhase = caseStatus === '対応中' || caseStatus === '完了'
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
   const [kind, setKind] = useState<'system' | 'case'>(isManagementPhase ? 'case' : 'system')
-  const [statuses, setStatuses] = useState<Set<string>>(new Set())
+  // ステータス絞り込み（/tasks と同じ：単一選択 'all'/着手前/対応中/完了）＋着手OKトグル
+  const [statusFilter, setStatusFilter] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
+  const [readyOnly, setReadyOnly] = useState(false)
   // 工程／業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
   const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
@@ -122,9 +121,12 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
   }, [tasks])
 
+  const receipts = useMemo(() => toReadinessReceipts(documentReceipts), [documentReceipts])
+
   const filtered = useMemo(() => tasks.filter(t => {
     if (t.task_kind !== kind) return false
-    if (statuses.size > 0 && !statuses.has(normalizeStatus(t.status))) return false
+    if (statusFilter !== 'all' && normalizeStatus(t.status) !== statusFilter) return false
+    if (readyOnly && !getStartSignal(t, receipts).ready) return false
     if (kind === 'case' && koteiFilter.size > 0 && !koteiFilter.has(koteiOf(t.phase))) return false
     if (kind === 'case' && gyomuFilter.size > 0 && !gyomuFilter.has(gyomuOf(t))) return false
     return true
@@ -136,7 +138,17 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
     if (gr !== 0) return gr
     return (a.sort_order ?? 0) - (b.sort_order ?? 0)
-  }), [tasks, kind, statuses, koteiFilter, gyomuFilter])
+  }), [tasks, kind, statusFilter, readyOnly, receipts, koteiFilter, gyomuFilter])
+
+  // ステータス別件数・着手OK件数（現在の区分タブのタスクに対して）
+  const kindTasks = useMemo(() => tasks.filter(t => t.task_kind === kind), [tasks, kind])
+  const counts = useMemo(() => ({
+    all: kindTasks.length,
+    着手前: kindTasks.filter(t => normalizeStatus(t.status) === '着手前').length,
+    対応中: kindTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
+    完了: kindTasks.filter(t => normalizeStatus(t.status) === '完了').length,
+  }), [kindTasks])
+  const readyCount = useMemo(() => kindTasks.filter(t => getStartSignal(t, receipts).ready).length, [kindTasks, receipts])
 
   // タスク → 紐づく到着物名（受信簿の item_tasks リンク経由）
   const docNamesByTask = useMemo(() => {
@@ -208,26 +220,35 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
           {/* 区分タブ＋ステータス＋業務区分絞り込み */}
           <div className="flex items-center gap-3 flex-wrap">
             <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'system' | 'case')} />
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[12px] font-semibold text-gray-500">ステータス</span>
-              {STATUS_PILLS.map(s => {
-                const on = statuses.has(s)
+            {/* ステータス（/tasks と同じ：単一選択＋件数＋すべて） */}
+            <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+              {([['着手前', '未着手'], ['対応中', '対応中'], ['完了', '完了'], ['all', 'すべて']] as const).map(([key, label]) => {
+                const active = statusFilter === key
+                const cnt = counts[key as keyof typeof counts]
                 return (
                   <button
-                    key={s}
+                    key={key}
                     type="button"
-                    onClick={() => setStatuses(prev => {
-                      const next = new Set(prev)
-                      if (next.has(s)) next.delete(s); else next.add(s)
-                      return next
-                    })}
-                    className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    onClick={() => setStatusFilter(key)}
+                    className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                   >
-                    {STATUS_LABEL[s]}
+                    {label}{cnt > 0 && <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{cnt}</span>}
                   </button>
                 )
               })}
             </div>
+            {/* 着手OK（事務管理タスクのみ） */}
+            {kind === 'case' && (
+              <button
+                type="button"
+                onClick={() => setReadyOnly(v => !v)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                title="今すぐ着手できるタスクだけ表示"
+              >
+                <PackageCheck className="w-3.5 h-3.5" strokeWidth={2} />着手OK
+                {readyCount > 0 && <span className="text-[11px] font-mono opacity-70">{readyCount}</span>}
+              </button>
+            )}
             {/* 工程・業務区分（事務管理タスクのときのみ。受注区分は案件で固定なので出さない） */}
             {kind === 'case' && koteiOptions.length > 0 && (
               <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
@@ -252,7 +273,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                   today={today}
                   onAdvance={handleAdvance}
                   loadingTaskId={busyId}
-                  receipts={toReadinessReceipts(documentReceipts)}
+                  receipts={receipts}
                   docNamesByTask={docNamesByTask}
                   hideCase
                 />
@@ -263,7 +284,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
                   today={today}
                   onAdvance={handleAdvance}
                   loadingTaskId={busyId}
-                  receipts={toReadinessReceipts(documentReceipts)}
+                  receipts={receipts}
                   onRefresh={() => startTransition(() => router.refresh())}
                 />
               )}
