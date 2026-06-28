@@ -1,11 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, type LucideIcon } from 'lucide-react'
+import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
+
+// この案件ステータスでは「受注/管理担当タスク」レーンを既定で折りたたむ（主役が事務管理タスクに移るため）
+const SYSTEM_LANE_COLLAPSED = new Set(['対応中', '保留・長期', '完了', '失注'])
 
 // 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
 function normGyomu(phase: string | null | undefined): string {
@@ -255,15 +259,15 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       )}
 
       {showDetail && (<>
-      {/* ② 受注/管理担当タスク（系統タスク） */}
+      {/* ② 受注/管理担当タスク（系統タスク）。対応中以降は主役が事務管理タスクになるので既定で折りたたむ */}
       {sortedSystem.length > 0 && (
-        <TaskLane title="受注/管理担当タスク" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} />
+        <TaskLane title="受注/管理担当タスク" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} collapsible defaultCollapsed={SYSTEM_LANE_COLLAPSED.has(caseData.status)} />
       )}
 
       {/* ③ 書類到着（実績ベース） */}
       {receipts.length > 0 && (
         <div className={sepCls('receipts')}>
-          <h4 className="text-[13px] font-bold text-gray-800 mb-3">書類到着（実績）</h4>
+          <LaneHeading title="書類到着（実績）" />
           <div className="overflow-x-auto pb-1">
             <div className="inline-flex items-start gap-0">
               {receipts.map((r, idx) => {
@@ -296,7 +300,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       {/* ④ フェーズ別タスク */}
       {orderedPhases.length > 0 && (
         <div className={`${sepCls('phases')} space-y-4`}>
-          <h4 className="text-[13px] font-bold text-gray-800">事務管理担当タスク</h4>
+          <LaneHeading title="事務管理担当タスク" />
           {orderedPhases.map(p => {
             const total = p.tasks.length
             const done = p.tasks.filter(t => t.status === '完了').length
@@ -304,8 +308,9 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
               <div key={p.key}>
                 {/* フェーズ見出し（ノードは他セクションと左端を揃えるため、見出しは上に置く） */}
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[12.5px] font-bold text-gray-700 leading-tight">{p.label}</span>
-                  <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
+                  <span className="inline-block w-[3px] h-3 bg-brand-400 rounded-[1px]" />
+                  <span className="text-[12.5px] font-bold text-brand-800 leading-tight">{p.label}</span>
+                  <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-100">{done}/{total}</span>
                 </div>
                 <div className="overflow-x-auto pb-1">
                   <div className="inline-flex items-start gap-0">
@@ -323,7 +328,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       {/* ⑤ 不動産査定 */}
       {visibleProperties.length > 0 && (
         <div className={sepCls('props')}>
-          <h4 className="text-[13px] font-bold text-gray-800 mb-3">不動産査定</h4>
+          <LaneHeading title="不動産査定" />
           <div className="space-y-3">
             {visibleProperties.map((p, i) => <PropertyRow key={p.id} property={p} index={i + 1} />)}
           </div>
@@ -340,16 +345,40 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
   )
 }
 
-// ───────── タスクレーン（横並び） ─────────
-function TaskLane({ title, tasks, todayYmd, sepCls }: { title: string; tasks: TaskRow[]; todayYmd: string; sepCls: string }) {
+// ───────── レーン見出し（青・左バー） ─────────
+function LaneHeading({ title, count, collapsible, collapsed, onToggle }: { title: string; count?: string; collapsible?: boolean; collapsed?: boolean; onToggle?: () => void }) {
+  const inner = (
+    <>
+      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+      <h4 className="text-[13px] font-bold text-brand-800">{title}</h4>
+      {count && <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-100">{count}</span>}
+    </>
+  )
+  if (collapsible) {
+    return (
+      <button type="button" onClick={onToggle} className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80">
+        {collapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+        {inner}
+      </button>
+    )
+  }
+  return <div className="flex items-center gap-2 mb-3">{inner}</div>
+}
+
+// ───────── タスクレーン（横並び。任意で折りたたみ） ─────────
+function TaskLane({ title, tasks, todayYmd, sepCls, collapsible, defaultCollapsed }: { title: string; tasks: TaskRow[]; todayYmd: string; sepCls: string; collapsible?: boolean; defaultCollapsed?: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false)
+  const done = tasks.filter(t => t.status === '完了').length
   return (
     <div className={sepCls}>
-      <h4 className="text-[13px] font-bold text-gray-800 mb-3">{title}</h4>
-      <div className="overflow-x-auto pb-1">
-        <div className="inline-flex items-start gap-0">
-          {tasks.map((t, idx) => <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === tasks.length - 1} />)}
+      <LaneHeading title={title} count={`${done}/${tasks.length}`} collapsible={collapsible} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+      {!collapsed && (
+        <div className="overflow-x-auto pb-1">
+          <div className="inline-flex items-start gap-0">
+            {tasks.map((t, idx) => <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === tasks.length - 1} />)}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -388,7 +417,7 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
           title={hasResult ? `「${task.title}」を開く（実施結果あり）` : `「${task.title}」を開く`}
         >
           {task.title}
-          {hasResult && <span className="ml-0.5" title="実施結果あり">📝</span>}
+          {hasResult && <FileText className="inline-block w-3 h-3 ml-0.5 text-brand-500 align-[-1px]" />}
         </Link>
         <div className="mt-1.5">
           <div className="h-[15px] leading-[15px] text-[11px] text-gray-400 truncate">{dateText}</div>
@@ -398,6 +427,12 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
               <span className="inline-block text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{od}日超過</span>
             )}
           </div>
+          {/* 実施結果（進捗メモ）。長文は2行省略＋ホバーで全文 */}
+          {hasResult && (
+            <div className="mt-1 text-left text-[10.5px] leading-[14px] text-gray-600 bg-gray-50 border border-gray-100 rounded px-1.5 py-1 line-clamp-2" title={(ext.execution_result as string).trim()}>
+              {(ext.execution_result as string).trim()}
+            </div>
+          )}
         </div>
       </div>
     </div>
