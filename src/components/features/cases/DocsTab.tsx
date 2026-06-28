@@ -289,7 +289,8 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
   const [newTitle, setNewTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const linkedIds = new Set(item.linkedTasks.map(t => t.id))
-  const candidates = tasks.filter(t => !linkedIds.has(t.id))
+  // 紐付け候補は未完了のみ（完了・キャンセルは出さない）。受注/管理担当の初期対応タスクも対象外。
+  const candidates = tasks.filter(t => !linkedIds.has(t.id) && t.status !== '完了' && t.status !== 'キャンセル' && t.task_kind !== 'system')
 
   const toggle = (id: string) => setSelected(prev => {
     const next = new Set(prev)
