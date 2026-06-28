@@ -6,6 +6,7 @@ import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
 // この案件ステータスでは「受注/管理担当タスク」レーンを既定で折りたたむ（主役が事務管理タスクに移るため）
@@ -217,6 +218,19 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     label: g,
     tasks: [...tasksByGyomu.get(g)!].sort((a, b) => statusRank(a) - statusRank(b) || (a.sort_order ?? 0) - (b.sort_order ?? 0)),
   }))
+  // 工程 ＞ 業務 でグループ化（矢羽根の3階層）。工程は業務区分から導出。
+  type GyomuGroup = (typeof orderedPhases)[number]
+  const koteiGroups = (() => {
+    const m = new Map<string, GyomuGroup[]>()
+    for (const p of orderedPhases) {
+      const k = koteiOf(p.key)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(p)
+    }
+    return [...m.entries()]
+      .sort((a, b) => koteiRank(a[0]) - koteiRank(b[0]))
+      .map(([kotei, gyomus]) => ({ kotei, gyomus }))
+  })()
 
   // 書類到着（実績）
   const receipts = documentReceipts
@@ -297,28 +311,42 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         </div>
       )}
 
-      {/* ④ フェーズ別タスク */}
-      {orderedPhases.length > 0 && (
-        <div className={`${sepCls('phases')} space-y-4`}>
+      {/* ④ 事務管理担当タスク（工程 ＞ 業務 ＞ 作業の3階層） */}
+      {koteiGroups.length > 0 && (
+        <div className={`${sepCls('phases')} space-y-5`}>
           <LaneHeading title="事務管理担当タスク" />
-          {orderedPhases.map(p => {
-            const total = p.tasks.length
-            const done = p.tasks.filter(t => t.status === '完了').length
+          {koteiGroups.map(kg => {
+            const allTasks = kg.gyomus.flatMap(g => g.tasks)
+            const koteiDone = allTasks.filter(t => t.status === '完了').length
             return (
-              <div key={p.key}>
-                {/* フェーズ見出し（ノードは他セクションと左端を揃えるため、見出しは上に置く） */}
-                <div className="flex items-center gap-1.5 mb-2 pl-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-300" />
-                  <span className="text-[12px] font-semibold text-gray-700 leading-tight">{p.label}</span>
-                  <span className="inline-flex items-center text-[11px] font-mono px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
+              <div key={kg.kotei} className="space-y-3">
+                {/* 工程見出し（中・青） */}
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px]" />
+                  <span className="text-[13px] font-bold text-brand-800">{kg.kotei}</span>
+                  <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-100">{koteiDone}/{allTasks.length}</span>
                 </div>
-                <div className="overflow-x-auto pb-1">
-                  <div className="inline-flex items-start gap-0">
-                    {p.tasks.map((t, idx) => (
-                      <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === p.tasks.length - 1} />
-                    ))}
-                  </div>
-                </div>
+                {kg.gyomus.map(p => {
+                  const total = p.tasks.length
+                  const done = p.tasks.filter(t => t.status === '完了').length
+                  return (
+                    <div key={p.key} className="pl-3">
+                      {/* 業務見出し（小・ドット） */}
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-300" />
+                        <span className="text-[12px] font-semibold text-gray-700 leading-tight">{p.label}</span>
+                        <span className="inline-flex items-center text-[11px] font-mono px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
+                      </div>
+                      <div className="overflow-x-auto pb-1">
+                        <div className="inline-flex items-start gap-0">
+                          {p.tasks.map((t, idx) => (
+                            <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === p.tasks.length - 1} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
