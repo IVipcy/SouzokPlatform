@@ -13,7 +13,7 @@ import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import CaseFolderSection from './CaseFolderSection'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow, DocumentRow } from '@/types'
+import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
@@ -25,8 +25,6 @@ type Props = {
   contractDocuments?: ContractDocumentRow[]
   /** 案件フォルダのファイル（まとめてアップロード方式） */
   caseFiles?: CaseFileRow[]
-  /** 作成書類（書類作成タブで生成・アップロードした書類。案件フォルダで読み取り表示する） */
-  createdDocuments?: DocumentRow[]
   currentMemberId?: string | null
 }
 
@@ -54,7 +52,7 @@ type FilterKey = 'all' | 'linked' | 'unlinked'
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], caseFiles = [], createdDocuments = [], currentMemberId = null }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], caseFiles = [], currentMemberId = null }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [filter, setFilter] = useState<FilterKey>('all')
@@ -145,26 +143,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
       <TabHeader title="到着物" description="案件フォルダへのアップロード＋受信簿（受領台帳）の管理" />
 
       <CaseFolderSection caseId={caseData.id} files={caseFiles} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
-
-      {createdDocuments.filter(d => d.file_path).length > 0 && (
-        <Section title="作成書類（書類作成タブで生成・アップロード）">
-          <p className="text-[11px] text-gray-400 mb-2">自社で作成した書類。編集・追加は書類作成タブ。ここでは参照のみ。</p>
-          <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-            {createdDocuments.filter(d => d.file_path).map(d => (
-              <div key={d.id} className="border border-gray-200 rounded-md p-2.5 flex gap-2.5 items-start">
-                <FileText className="w-5 h-5 text-brand-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] text-gray-800 truncate" title={d.name}>{d.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {d.tasks?.title && <span className="text-[10.5px] text-gray-400 truncate">{d.tasks.title}</span>}
-                    <OpenStorageFile bucket="documents" path={d.file_path!} name={d.name} label="プレビュー / DL" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
 
       <Section title="到着物一覧（受信簿）">
         {/* フィルタ＋未添付の注意 */}

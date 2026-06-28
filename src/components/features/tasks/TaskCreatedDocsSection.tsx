@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Sparkles, Upload, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -26,7 +27,6 @@ const ACCEPTED = 'application/pdf,image/jpeg,image/png,image/jpg,application/msw
 export default function TaskCreatedDocsSection({ task, caseData, documents, tasks, heirs, properties, contractDocuments = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
-  const [filter, setFilter] = useState<'this_task' | 'all'>('this_task')
   const [aiOpen, setAiOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -35,7 +35,6 @@ export default function TaskCreatedDocsSection({ task, caseData, documents, task
 
   const thisTaskDocs = documents.filter(d => d.task_id === task.id)
   const otherDocs = documents.filter(d => d.task_id !== task.id)
-  const shown = filter === 'this_task' ? thisTaskDocs : documents
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -75,23 +74,8 @@ export default function TaskCreatedDocsSection({ task, caseData, documents, task
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
         <span className="text-base">📎</span>
         <h2 className="text-[14px] font-bold text-gray-900">作成物</h2>
-        <span className="text-[12px] text-gray-400">このタスクで作成・アップロードした書類。次タスクからも参照できます</span>
-        <div className="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden text-[12px]">
-          <button
-            type="button"
-            onClick={() => setFilter('this_task')}
-            className={`px-3 py-1 transition-colors ${filter === 'this_task' ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-          >
-            このタスク（{thisTaskDocs.length}）
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1 border-l border-gray-200 transition-colors ${filter === 'all' ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-          >
-            案件全体（{documents.length}）
-          </button>
-        </div>
+        <span className="text-[12px] text-gray-400">このタスクで作成・アップロードした書類。案件全体は書類作成タブで確認できます</span>
+        <span className="ml-auto text-[11px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">{thisTaskDocs.length}件</span>
       </div>
 
       {/* アクション: AI書類作成 / アップロード */}
@@ -118,11 +102,11 @@ export default function TaskCreatedDocsSection({ task, caseData, documents, task
       </div>
 
       <div className="p-3">
-        <CreatedDocsList documents={shown} onRefresh={refresh} />
-        {filter === 'this_task' && otherDocs.length > 0 && (
+        <CreatedDocsList documents={thisTaskDocs} onRefresh={refresh} />
+        {otherDocs.length > 0 && (
           <div className="mt-2 text-[12px] text-gray-500">
             他タスクで作成された書類が {otherDocs.length} 件あります。
-            <button type="button" onClick={() => setFilter('all')} className="ml-1 text-brand-600 hover:underline font-semibold">すべて表示</button>
+            <Link href={`/cases/${caseData.id}?tab=documentCreate`} className="ml-1 text-brand-600 hover:underline font-semibold">書類作成タブで見る</Link>
           </div>
         )}
       </div>

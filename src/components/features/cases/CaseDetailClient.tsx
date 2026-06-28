@@ -390,7 +390,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'docs' && (
-        <DocsTab caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />
+        <DocsTab caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} currentMemberId={currentMemberId} />
       )}
       {effectiveTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} createdDocuments={createdDocuments} onRefresh={handleSaved} />
