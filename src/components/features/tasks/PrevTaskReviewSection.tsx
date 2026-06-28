@@ -27,12 +27,18 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
   const ext = useMemo(() => (task.ext_data ?? {}) as Record<string, unknown>, [task.ext_data])
 
   // 前段タスクの自動判定（自分自身は除外。完了日＝無ければ更新日 が新しい順）：
+  //  ⓪ 完了ゲートでこのタスクを「着手OK」にした元タスク（明示的な前段）を最優先
   //  ① 同じ業務区分で最新に完了したタスク
   //  ② 無ければ、前の工程までで最後に完了したタスク
   const prevTask = useMemo(() => {
     const byDesc = (a: TaskRow, b: TaskRow) =>
       (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? '')
     const done = caseTasks.filter(t => t.id !== task.id && t.status === '完了')
+    const fromId = typeof ext.ready_from_task_id === 'string' ? ext.ready_from_task_id : ''
+    if (fromId) {
+      const src = done.find(t => t.id === fromId)
+      if (src) return src
+    }
     const samePhase = done.filter(t => t.phase === task.phase).sort(byDesc)
     if (samePhase[0]) return samePhase[0]
     const cur = koteiRank(koteiOf(task.phase))
@@ -40,7 +46,7 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
       .filter(t => koteiRank(koteiOf(t.phase)) < cur)
       .sort(byDesc)
     return earlier[0] ?? null
-  }, [caseTasks, task.id, task.phase])
+  }, [caseTasks, task.id, task.phase, ext.ready_from_task_id])
 
   const initialEval = (ext.prev_task_evaluation as string | undefined) ?? null
   const [confirmed, setConfirmed] = useState<boolean>(initialEval === '不備なし')

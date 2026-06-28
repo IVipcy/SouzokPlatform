@@ -90,7 +90,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
         if (normalizeTaskStatus(row.status) !== '着手前') continue
         const reason = (reasons[row.id] ?? '').trim() || `${task.title}が完了したため`
-        const next = { ...(row.ext_data ?? {}), ready_reason: reason }
+        // 着手OKにした元タスク（このタスクを完了したことで着手可になった）を記録。
+        // 後続タスクを開いたとき、前段作業の確認でこの元タスクを優先表示する。
+        const next = { ...(row.ext_data ?? {}), ready_reason: reason, ready_from_task_id: task.id }
         await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
       }
     }

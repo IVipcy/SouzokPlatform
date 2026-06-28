@@ -63,8 +63,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // システムタスクは前後関係を持たないので、関連セクションを非表示
   const isSystemTask = task.task_kind === 'system'
 
-  // 前段確認の表示判定：自分以前の工程（同工程含む）に完了タスクがあるか
+  // 前段確認の表示判定：①完了ゲートでこのタスクを着手OKにした元タスクがある、
+  // または ②自分以前の工程（同工程含む）に完了タスクがある
   const hasPrevContext = !isSystemTask && (() => {
+    const readyFrom = (task.ext_data as { ready_from_task_id?: string } | null)?.ready_from_task_id
+    if (readyFrom && caseTasks.some(t => t.id === readyFrom && t.status === '完了')) return true
     const cur = koteiRank(koteiOf(task.phase))
     return caseTasks.some(t => t.id !== task.id && t.status === '完了' && koteiRank(koteiOf(t.phase)) <= cur)
   })()
