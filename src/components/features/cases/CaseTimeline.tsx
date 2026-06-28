@@ -307,10 +307,10 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
             return (
               <div key={p.key}>
                 {/* フェーズ見出し（ノードは他セクションと左端を揃えるため、見出しは上に置く） */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-block w-[3px] h-3 bg-brand-400 rounded-[1px]" />
-                  <span className="text-[12.5px] font-bold text-brand-800 leading-tight">{p.label}</span>
-                  <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-100">{done}/{total}</span>
+                <div className="flex items-center gap-1.5 mb-2 pl-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-300" />
+                  <span className="text-[12px] font-semibold text-gray-700 leading-tight">{p.label}</span>
+                  <span className="inline-flex items-center text-[11px] font-mono px-1.5 py-0.5 rounded border bg-gray-50 text-gray-500 border-gray-200">{done}/{total}</span>
                 </div>
                 <div className="overflow-x-auto pb-1">
                   <div className="inline-flex items-start gap-0">
@@ -349,8 +349,8 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 function LaneHeading({ title, count, collapsible, collapsed, onToggle }: { title: string; count?: string; collapsible?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const inner = (
     <>
-      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-      <h4 className="text-[13px] font-bold text-brand-800">{title}</h4>
+      <span className="inline-block w-1 h-4 bg-brand-600 rounded-[1px]" />
+      <h4 className="text-[14px] font-bold text-brand-900">{title}</h4>
       {count && <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded border bg-brand-50 text-brand-700 border-brand-100">{count}</span>}
     </>
   )
@@ -385,6 +385,7 @@ function TaskLane({ title, tasks, todayYmd, sepCls, collapsible, defaultCollapse
 
 // ───────── タスクノード（ドット中央・中央下にタスク名/日付/担当/超過） ─────────
 function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd: string; isFirst: boolean; isLast: boolean }) {
+  const [resultOpen, setResultOpen] = useState(false)
   const state = classifyTask(task, todayYmd)
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
   const hasResult = typeof ext.execution_result === 'string' && ext.execution_result.trim() !== ''
@@ -427,11 +428,16 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
               <span className="inline-block text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{od}日超過</span>
             )}
           </div>
-          {/* 実施結果（進捗メモ）。長文は2行省略＋ホバーで全文 */}
+          {/* 実施結果（進捗メモ）。既定は2行省略、クリックで全文展開 */}
           {hasResult && (
-            <div className="mt-1 text-left text-[10.5px] leading-[14px] text-gray-600 bg-gray-50 border border-gray-100 rounded px-1.5 py-1 line-clamp-2" title={(ext.execution_result as string).trim()}>
+            <button
+              type="button"
+              onClick={() => setResultOpen(o => !o)}
+              className={`mt-1 w-full text-left text-[10.5px] leading-[14px] text-gray-600 bg-gray-50 border border-gray-100 rounded px-1.5 py-1 hover:bg-gray-100 transition-colors ${resultOpen ? '' : 'line-clamp-2'}`}
+              title={resultOpen ? 'クリックで折りたたむ' : 'クリックで全文表示'}
+            >
               {(ext.execution_result as string).trim()}
-            </div>
+            </button>
           )}
         </div>
       </div>
