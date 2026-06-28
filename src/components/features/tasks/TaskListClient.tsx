@@ -541,7 +541,7 @@ function ListView({
   onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, kotei: 110, gyomu: 90, title: 220, status: 96, readyReason: 150, caseCol: 190, sales: 100, manager: 100, due: 100,
+    select: 40, kotei: 104, gyomu: 124, title: 220, status: 96, readyReason: 150, caseCol: 190, sales: 100, manager: 100, due: 100,
     execResult: 200,
     action: 110, ops: 40,
   })
@@ -699,14 +699,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           {task.priority === '急ぎ' && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 flex-shrink-0">急ぎ</span>
           )}
-          {signal.ready && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 flex-shrink-0"
-              title={signal.reason ? `着手OK：${signal.reason}` : '着手OK'}
-            >
-              <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK
-            </span>
-          )}
           <a
             href={`/tasks/${task.id}`}
             className={`text-[13px] font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}
@@ -714,9 +706,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
             {task.title}
           </a>
         </div>
-        {signal.ready && signal.reason && (
-          <div className="text-[11px] text-amber-700 truncate pl-1 mt-0.5">{signal.reason}</div>
-        )}
       </td>
 
       {/* ステータス（未着手 / 着手OK / 対応中 / 完了） */}
