@@ -67,8 +67,6 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
     if (label === '要進捗連絡') return 'clientInfo'                    // 依頼者・やり取り
     if (label.startsWith('タスク期限超過')) return 'tasks'
     if (label === 'クレーム') return 'basicInfo'
-    if (label === '書類到着（着手待ち）') return 'docs'
-    if (label === '書類 未処理（放置）') return 'docs'
     if (label === 'アサイン未完了') return 'ownerSales'
     if (label === '前受金 未入金') return 'contract'
     if (label === '完了予定日 超過') return 'meeting'                  // 管理情報セクションへ
