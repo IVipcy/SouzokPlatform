@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { gyomuForCategories } from '@/lib/serviceMaster'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
 
@@ -26,11 +27,15 @@ const PRIORITIES = [
 export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved, defaultPhase }: Props) {
   const [form, setForm] = useState({
     title: '',
+    kotei: defaultPhase ? koteiOf(defaultPhase) : '',
     gyomu: defaultPhase ?? '',
     dueDate: '',
     priority: '通常' as string,
   })
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
+  // 工程の選択肢（この案件の業務から導出）／選択中工程の業務
+  const koteiOptions = [...new Set(gyomuOptions.map(koteiOf))].sort((a, b) => koteiRank(a) - koteiRank(b))
+  const gyomusInKotei = gyomuOptions.filter(g => koteiOf(g) === form.kotei)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -46,7 +51,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
       let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))]
       if (gyomus.length === 0) gyomus = gyomuForCategories(activePartKeys(partsForCase(data)))
       setGyomuOptions(gyomus)
-      setForm(p => ({ ...p, gyomu: (defaultPhase && gyomus.includes(defaultPhase)) ? defaultPhase : (gyomus[0] ?? '') }))
+      const g0 = (defaultPhase && gyomus.includes(defaultPhase)) ? defaultPhase : (gyomus[0] ?? '')
+      setForm(p => ({ ...p, gyomu: g0, kotei: koteiOf(g0) }))
     })()
     return () => { active = false }
   }, [isOpen, caseId, defaultPhase])
@@ -83,7 +89,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
     }
 
     setSaving(false)
-    setForm({ title: '', gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
+    setForm({ title: '', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
     onSaved()
     onClose()
   }
@@ -120,31 +126,44 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* 業務（受注区分から決まる） */}
+          {/* 工程（業務の1個上） */}
           <div>
-            <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務</label>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">工程</label>
+            <select
+              value={form.kotei}
+              onChange={e => { const k = e.target.value; const first = gyomuOptions.find(g => koteiOf(g) === k) ?? ''; setForm(p => ({ ...p, kotei: k, gyomu: first })) }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+            >
+              {koteiOptions.length === 0 && <option value="">（工程なし）</option>}
+              {koteiOptions.map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+
+          {/* 業務（工程で絞り込み） */}
+          <div>
+            <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務区分</label>
             <select
               value={form.gyomu}
               onChange={e => setForm(p => ({ ...p, gyomu: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
             >
-              {gyomuOptions.length === 0 && <option value="">（業務なし）</option>}
-              {gyomuOptions.map(g => (
+              {gyomusInKotei.length === 0 && <option value="">（業務なし）</option>}
+              {gyomusInKotei.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
           </div>
+        </div>
 
-          {/* Due date */}
-          <div>
-            <label className="block text-[13px] font-semibold text-gray-500 mb-1">期限</label>
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
-          </div>
+        {/* Due date */}
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">期限</label>
+          <input
+            type="date"
+            value={form.dueDate}
+            onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          />
         </div>
 
         {/* Priority */}

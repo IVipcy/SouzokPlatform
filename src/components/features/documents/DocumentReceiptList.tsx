@@ -9,6 +9,7 @@ import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -220,7 +221,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
   const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
   const [itemNew, setItemNew] = useState<Record<string, string>>({})
-  // 到着物(item)ごとに、自由入力で作る新規タスクの業務区分
+  // 到着物(item)ごとに、自由入力で作る新規タスクの工程・業務区分
+  const [itemKotei, setItemKotei] = useState<Record<string, string>>({})
   const [itemGyomu, setItemGyomu] = useState<Record<string, string>>({})
   // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
   const [showAll, setShowAll] = useState<Record<string, boolean>>({})
@@ -470,8 +472,19 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                       const newVal = (itemNew[it.id] ?? '').trim()
                       if (!newVal || cand.includes(newVal)) return null
                       const defaultGy = gy?.[0] ?? ''
+                      const curKotei = itemKotei[it.id] ?? koteiOf(itemGyomu[it.id] ?? defaultGy)
+                      const koteiList = KOTEI_ORDER
+                      const gyomuList = curKotei ? (KOTEI_GYOMU[curKotei] ?? GYOMU_ALL) : GYOMU_ALL
                       return (
-                        <div className="flex items-center gap-1.5 mt-1.5">
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          <span className="text-[11px] text-gray-500">工程</span>
+                          <select
+                            value={curKotei}
+                            onChange={e => { const k = e.target.value; setItemKotei(prev => ({ ...prev, [it.id]: k })); setItemGyomu(prev => ({ ...prev, [it.id]: (KOTEI_GYOMU[k] ?? [])[0] ?? '' })) }}
+                            className="px-2 py-1 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
+                          >
+                            {koteiList.map(k => <option key={k} value={k}>{k}</option>)}
+                          </select>
                           <span className="text-[11px] text-gray-500">業務区分</span>
                           <select
                             value={itemGyomu[it.id] ?? defaultGy}
@@ -479,7 +492,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                             className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
                           >
                             <option value="">未設定</option>
-                            {GYOMU_ALL.map(g => <option key={g} value={g}>{g}</option>)}
+                            {gyomuList.map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
                         </div>
                       )
