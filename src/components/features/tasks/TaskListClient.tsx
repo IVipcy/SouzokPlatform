@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import EditTaskModal from './EditTaskModal'
@@ -542,8 +541,8 @@ function ListView({
   onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, kotei: 110, gyomu: 110, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
-    execResult: 220,
+    select: 40, kotei: 110, gyomu: 90, title: 220, status: 96, readyReason: 150, caseCol: 190, sales: 100, manager: 100, due: 100,
+    execResult: 200,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
@@ -552,6 +551,7 @@ function ListView({
     { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
     { key: 'status',     label: 'ステータス' },
+    { key: 'readyReason', label: '着手OK理由' },
     { key: 'caseCol',    label: '案件' },
     { key: 'sales',      label: '受注担当' },
     { key: 'manager',    label: '管理担当' },
@@ -650,7 +650,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
   onToggleSelect: () => void
 }) {
   const status = normalizeStatus(task.status)
-  const statusDef = TASK_STATUSES.find(s => s.key === status)
   const caseInfo = caseMap[task.case_id]
   const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
   const workRole = getWorkRoleDef(task.work_role)
@@ -720,9 +719,19 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         )}
       </td>
 
-      {/* ステータス */}
+      {/* ステータス（未着手 / 着手OK / 対応中 / 完了） */}
       <td className="px-3.5 py-2.5">
-        {statusDef && <Badge label={statusDef.key} color={statusDef.color} />}
+        {status === '完了' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
+          : status === '対応中' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
+          : signal.ready ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK</span>
+          : <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
+      </td>
+
+      {/* 着手OK理由 */}
+      <td className="px-3.5 py-2.5">
+        {signal.ready && signal.reason
+          ? <span className="text-[12px] text-amber-800 line-clamp-2" title={signal.reason}>{signal.reason}</span>
+          : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
       {/* 案件 */}

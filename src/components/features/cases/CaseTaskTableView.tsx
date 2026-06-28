@@ -66,7 +66,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 w-9 text-center">
@@ -76,6 +76,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">業務区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">タスク名</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-36">着手OK理由</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">実施結果</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">到着物</th>
@@ -84,7 +85,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
           </thead>
           <tbody>
             {tasks.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
             ) : tasks.map((t, i) => {
               const status = normalizeTaskStatus(t.status)
               const overdue = !!(t.due_date && t.due_date < today && status !== '完了')
@@ -103,6 +104,11 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                       : status === '対応中' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
                       : signal.ready ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">着手OK</span>
                       : <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
+                  </td>
+                  <td className="px-2.5 py-2 align-top">
+                    {signal.ready && signal.reason
+                      ? <span className="block text-[11.5px] text-amber-800 line-clamp-2" title={signal.reason}>{signal.reason}</span>
+                      : <span className="text-gray-300 text-[12px]">—</span>}
                   </td>
                   <td className="px-2.5 py-2">
                     <input type="date" defaultValue={t.due_date ?? ''} key={`d-${t.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (t.due_date ?? '')) saveDue(t.id, e.target.value) }} className={`w-full px-1.5 py-1 text-[12px] border rounded outline-none focus:border-brand-500 ${overdue ? 'border-red-300 bg-red-50/40 text-red-700' : 'border-gray-200 bg-gray-50'}`} />
