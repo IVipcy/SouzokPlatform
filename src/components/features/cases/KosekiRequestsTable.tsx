@@ -7,6 +7,7 @@ import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
+import SelectOrTextField from './SelectOrTextField'
 import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, receiptFilesFor, type RelatedTask, type ReceiptFile } from '@/lib/relatedTasks'
@@ -170,7 +171,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         </td>
         <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="例: 名古屋市中区役所" />
         <TargetCell value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
-        <ComboCell value={r.range_text} options={KOSEKI_RANGES} listId={`koseki-range-${r.id}`} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" />
+        <td className="px-2.5 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></td>
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
@@ -215,24 +216,6 @@ function SelectCell({ value, options, onSave }: { value: string | null; options:
   )
 }
 
-// 選択肢＋自由入力の両対応セル（datalist）。プリセットから選べるが任意の文字列も入力できる。
-function ComboCell({ value, options, listId, onSave, placeholder }: { value: string | null; options: readonly string[]; listId: string; onSave: (v: string) => void; placeholder?: string }) {
-  return (
-    <td className="px-2.5 py-1.5">
-      <input
-        type="text"
-        list={listId}
-        defaultValue={value ?? ''}
-        onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }}
-        placeholder={placeholder}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
-      />
-      <datalist id={listId}>
-        {options.map(o => <option key={o} value={o} />)}
-      </datalist>
-    </td>
-  )
-}
 
 // 対象者（誰の戸籍か）。被相続人＋相続人一覧から選択。既存の自由入力値があれば末尾に保持。
 function TargetCell({ value, options, onSave }: { value: string | null; options: string[]; onSave: (v: string) => void }) {

@@ -11,6 +11,7 @@ import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
+import SelectOrTextField from './SelectOrTextField'
 
 type Props = {
   caseId: string
@@ -99,18 +100,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-1.5">
-                    {/* プリセットから選択も、自由入力（例: 所有者事項以外の任意書類）も可能 */}
-                    <input
-                      type="text"
-                      list="acquisition-item-list"
-                      defaultValue={r.item_type ?? ''}
-                      onBlur={e => { if (e.target.value !== (r.item_type ?? '')) changeItem(r.id, e.target.value) }}
-                      placeholder="取得物"
-                      className={selCls}
-                    />
-                    <datalist id="acquisition-item-list">
-                      {ACQUISITION_ITEM_KEYS.map(k => <option key={k} value={k} />)}
-                    </datalist>
+                    {/* プリセットから選択／自由入力に切替（所有者事項以外の任意書類など） */}
+                    <SelectOrTextField value={r.item_type} options={ACQUISITION_ITEM_KEYS} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
                     {meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>}
                   </td>
                   <td className="px-2.5 py-1.5">
