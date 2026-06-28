@@ -504,12 +504,13 @@ function ListView({
   onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
+    select: 40, gyomu: 120, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
     execResult: 220,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
     { key: 'select',     label: '' },
+    { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
     { key: 'status',     label: 'ステータス' },
     { key: 'caseCol',    label: '案件' },
@@ -629,6 +630,13 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           aria-label={`タスク「${task.title}」を選択`}
           className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
         />
+      </td>
+
+      {/* 業務区分 */}
+      <td className="px-3.5 py-2.5">
+        {gyomuOf(task)
+          ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 truncate max-w-full">{gyomuOf(task)}</span>
+          : <span className="text-gray-300 text-[12px]">—</span>}
       </td>
 
       {/* タスク名 */}
