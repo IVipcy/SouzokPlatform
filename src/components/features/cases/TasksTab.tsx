@@ -10,6 +10,7 @@ import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import TaskKanbanView from '@/components/features/tasks/TaskKanbanView'
 import CaseTaskTableView from './CaseTaskTableView'
+import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import { LayoutGrid, List } from 'lucide-react'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { createClient } from '@/lib/supabase/client'
@@ -57,6 +58,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
   const [caseView, setCaseView] = useState<'kanban' | 'table'>('table')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [completeTask, setCompleteTask] = useState<TaskRow | null>(null)
   const today = new Date().toISOString().split('T')[0]
 
   // カンバンの「着手→完了」アクション。事務管理タスクのカード操作用。
@@ -64,6 +66,11 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     if (busyId) return
     const current = normalizeStatus(task.status)
     if (current === '完了') return
+    // 事務管理タスクの完了は完了ゲートを通す
+    if (current === '対応中' && task.task_kind !== 'system') {
+      setCompleteTask(task)
+      return
+    }
     setBusyId(task.id)
     try {
       const supabase = createClient()
@@ -273,6 +280,13 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
             />
           )}
         </div>
+      )}
+      {completeTask && (
+        <CompleteTaskModal
+          task={completeTask}
+          onClose={() => setCompleteTask(null)}
+          onCompleted={() => { setCompleteTask(null); startTransition(() => router.refresh()) }}
+        />
       )}
     </div>
   )

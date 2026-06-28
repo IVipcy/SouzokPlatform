@@ -9,6 +9,7 @@ import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import EditTaskModal from './EditTaskModal'
+import CompleteTaskModal from './CompleteTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
@@ -70,6 +71,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
+  const [completeTask, setCompleteTask] = useState<TaskRow | null>(null)
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
   // 一括操作用の選択状態
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -194,6 +196,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     const current = normalizeStatus(task.status)
     if (current === '完了') return
     if (loadingTaskId) return
+
+    // 事務管理タスクの完了は完了ゲート（実施結果＋次の着手OK選択）を必ず通す
+    if (current === '対応中' && task.task_kind !== 'system') {
+      setCompleteTask(task)
+      return
+    }
 
     setLoadingTaskId(task.id)
     try {
@@ -478,6 +486,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           caseMap={caseMap}
           allMembers={allMembers}
           onSaved={() => { setEditTask(null); router.refresh() }}
+        />
+      )}
+      {completeTask && (
+        <CompleteTaskModal
+          task={completeTask}
+          onClose={() => setCompleteTask(null)}
+          onCompleted={() => { setCompleteTask(null); router.refresh() }}
         />
       )}
       <DeleteConfirmModal

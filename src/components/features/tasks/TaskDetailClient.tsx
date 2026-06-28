@@ -8,9 +8,8 @@ import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
-import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
-import { PackageCheck } from 'lucide-react'
+import CompleteTaskModal from './CompleteTaskModal'
 import { getPhaseLabel, DB_PHASES } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
@@ -90,36 +89,16 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
 
   // ─── ステータス進行 ───
   const [advancing, setAdvancing] = useState(false)
-  // 第2層: 完了時に「次に着手できるタスク」を任意で指す
-  const [nextPickerOpen, setNextPickerOpen] = useState(false)
-  const [markingId, setMarkingId] = useState<string | null>(null)
-  // 同じ案件の着手前・事務管理タスク（自分以外・まだ手動着手OK旗が立っていないもの）
-  const nextCandidates = caseTasks.filter(t =>
-    t.id !== task.id && t.task_kind === 'case' && normalizeStatus(t.status) === '着手前' &&
-    !((t.ext_data as { ready_reason?: string; ready?: boolean } | null)?.ready_reason || (t.ext_data as { ready?: boolean } | null)?.ready),
-  )
-
-  // 指したタスクに「着手OK（手動）」の旗を立てる
-  const markNextReady = useCallback(async (nextId: string) => {
-    setMarkingId(nextId)
-    try {
-      const supabase = createClient()
-      const target = caseTasks.find(t => t.id === nextId)
-      const ext = { ...((target?.ext_data ?? {}) as Record<string, unknown>), ready_reason: `前作業: ${task.title} 完了` }
-      const { error } = await supabase.from('tasks').update({ ext_data: ext }).eq('id', nextId)
-      if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
-      showToast('着手OKの目印を付けました', 'success')
-      setNextPickerOpen(false)
-      router.refresh()
-    } catch {
-      showToast('通信エラーが発生しました', 'error')
-    } finally {
-      setMarkingId(null)
-    }
-  }, [caseTasks, task.title, router])
+  // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
+  const [completeOpen, setCompleteOpen] = useState(false)
 
   const handleAdvance = useCallback(async () => {
     if (advancing) return
+    // 事務管理タスクの完了は完了ゲートを通す
+    if (currentStatus === '対応中' && task.task_kind !== 'system') {
+      setCompleteOpen(true)
+      return
+    }
     setAdvancing(true)
 
     try {
@@ -144,15 +123,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         }
         showToast(`「${task.title}」に着手しました`)
       } else if (currentStatus === '対応中') {
-        // 実施結果・引継ぎ事項の入力を必須化（システムタスクを除く）。直前の保存値を取りに行って判定。
-        if (task.task_kind !== 'system') {
-          const { data: fresh } = await supabase.from('tasks').select('ext_data').eq('id', task.id).single()
-          const exec = (fresh?.ext_data as { execution_result?: string } | null)?.execution_result
-          if (!exec || !exec.trim()) {
-            showToast('実施結果・引継ぎ事項を入力してから完了してください', 'error')
-            return
-          }
-        }
+        // ここに来るのは受注/管理担当(system)タスクのみ（事務管理タスクは完了ゲートへ）
         const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
         if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
         if (memberId) {
@@ -164,8 +135,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           })
         }
         showToast(`「${task.title}」を完了しました`)
-        // 第2層: 次に着手できるタスクがあれば、任意で目印を付けてもらう
-        if (nextCandidates.length > 0) setNextPickerOpen(true)
       }
       router.refresh()
     } catch {
@@ -173,7 +142,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     } finally {
       setAdvancing(false)
     }
-  }, [advancing, currentMemberId, currentStatus, task, router, nextCandidates.length])
+  }, [advancing, currentMemberId, currentStatus, task, router])
 
   // ─── 着手者情報 ───
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
@@ -497,33 +466,14 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         </aside>
       </div>
 
-      {/* 第2層: 完了時に「次に着手できるタスク」へ目印を付ける（任意・スキップOK） */}
-      <Modal
-        isOpen={nextPickerOpen}
-        onClose={() => setNextPickerOpen(false)}
-        title="次に着手できるタスクはありますか？"
-        maxWidth="max-w-md"
-        footer={<button onClick={() => setNextPickerOpen(false)} className="px-4 py-2 text-[13px] font-semibold text-gray-500 hover:text-gray-700">スキップ</button>}
-      >
-        <p className="text-[13px] text-gray-600 mb-3">
-          この作業が終わって着手できるようになったタスクがあれば、目印（着手OK）を付けておくと、次の担当者が迷いません。<span className="text-gray-400">任意です。</span>
-        </p>
-        <div className="space-y-1.5 max-h-[18rem] overflow-y-auto">
-          {nextCandidates.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => markNextReady(t.id)}
-              disabled={markingId !== null}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50/50 text-left disabled:opacity-50"
-            >
-              <PackageCheck className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" strokeWidth={2} />
-              {t.phase && <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded flex-shrink-0">{t.phase.replace(/^Phase\d+[:：]\s*/, '')}</span>}
-              <span className="text-[13px] text-gray-800 truncate flex-1">{t.title}</span>
-            </button>
-          ))}
-        </div>
-      </Modal>
+      {/* 完了ゲート（実施結果＋次に着手OKにするタスク選択） */}
+      {completeOpen && (
+        <CompleteTaskModal
+          task={task}
+          onClose={() => setCompleteOpen(false)}
+          onCompleted={() => { setCompleteOpen(false); router.refresh() }}
+        />
+      )}
     </div>
   )
 }
