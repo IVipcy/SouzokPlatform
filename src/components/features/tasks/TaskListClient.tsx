@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, PackageCheck } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -12,7 +12,7 @@ import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
-import { koteiOf } from '@/lib/kotei'
+import { koteiOf, koteiRank } from '@/lib/kotei'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
@@ -60,6 +60,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
+  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
   // 受注区分（概念が大きいので先）／業務区分 の複数選択フィルタ（OR条件・全空=絞り込みなし）
   const [serviceFilter, setServiceFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
@@ -104,6 +105,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         return [c?.service_category, c?.service_category_2].some(s => !!s && serviceFilter.has(s))
       })
     }
+    // 工程（OR）: task.phase の導出工程が選択集合に含まれる
+    if (koteiFilter.size > 0) {
+      result = result.filter(t => koteiFilter.has(koteiOf(t.phase)))
+    }
     // 業務区分（OR）: task.phase が選択集合に含まれる
     if (gyomuFilter.size > 0) {
       result = result.filter(t => gyomuFilter.has(gyomuOf(t)))
@@ -122,8 +127,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                caseNumber.toLowerCase().includes(q)
       })
     }
-    // 自動ソート: 着手OK → 期限超過 → 期限近い順 → 期限なしは末尾
+    // 並び: 工程順 → 業務 → 着手OK → 期限超過 → 期限近い順
     return [...result].sort((a, b) => {
+      const kr = koteiRank(koteiOf(a.phase)) - koteiRank(koteiOf(b.phase))
+      if (kr !== 0) return kr
+      const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
+      if (gr !== 0) return gr
       const aReady = getStartSignal(a, receipts).ready ? 0 : 1
       const bReady = getStartSignal(b, receipts).ready ? 0 : 1
       if (aReady !== bReady) return aReady - bReady
@@ -134,7 +143,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, serviceFilter, gyomuFilter, readyOnly, search, caseMap, currentMemberId, today, receipts])
+  }, [assistantTasks, statusFilter, filterMine, serviceFilter, koteiFilter, gyomuFilter, readyOnly, search, caseMap, currentMemberId, today, receipts])
 
   const readyCount = useMemo(
     () => assistantTasks.filter(t => getStartSignal(t, receipts).ready).length,
@@ -157,6 +166,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     // GYOMU_ALL に無い業務（旧データ等）は末尾に
     const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
     return [...ordered, ...extra]
+  }, [assistantTasks])
+  const koteiOptions = useMemo(() => {
+    const present = new Set<string>()
+    for (const t of assistantTasks) present.add(koteiOf(t.phase))
+    return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
   }, [assistantTasks])
 
   const kpis = useMemo(() => ({
@@ -366,13 +380,14 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <span className="w-px h-6 bg-gray-200" />
 
-          {/* 受注区分（概念が大きいので先） → 業務区分 */}
+          {/* 受注区分（概念が大きいので先） → 工程 → 業務区分 */}
           <MultiSelectFilter label="受注区分" icon={Tag} options={serviceOptions} selected={serviceFilter} onChange={setServiceFilter} width={200} />
+          <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
           <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
 
-          {(serviceFilter.size > 0 || gyomuFilter.size > 0) && (
+          {(serviceFilter.size > 0 || koteiFilter.size > 0 || gyomuFilter.size > 0) && (
             <button
-              onClick={() => { setServiceFilter(new Set()); setGyomuFilter(new Set()) }}
+              onClick={() => { setServiceFilter(new Set()); setKoteiFilter(new Set()); setGyomuFilter(new Set()) }}
               className="inline-flex items-center gap-1 px-2 py-1 text-[12px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
               <X className="w-3.5 h-3.5" strokeWidth={2} />クリア
@@ -400,13 +415,19 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
 
         {/* 選択中チップ */}
-        {(serviceFilter.size > 0 || gyomuFilter.size > 0) && (
+        {(serviceFilter.size > 0 || koteiFilter.size > 0 || gyomuFilter.size > 0) && (
           <div className="flex items-center gap-1.5 flex-wrap mt-2">
             <span className="text-[12px] text-gray-400">絞り込み中:</span>
             {[...serviceFilter].map(s => (
               <span key={`s-${s}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
                 <Tag className="w-3 h-3" strokeWidth={2} />{s}
                 <button onClick={() => setServiceFilter(prev => { const n = new Set(prev); n.delete(s); return n })} className="hover:text-brand-900"><X className="w-3 h-3" strokeWidth={2.5} /></button>
+              </span>
+            ))}
+            {[...koteiFilter].map(k => (
+              <span key={`k-${k}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
+                <Layers className="w-3 h-3" strokeWidth={2} />{k}
+                <button onClick={() => setKoteiFilter(prev => { const n = new Set(prev); n.delete(k); return n })} className="hover:text-brand-900"><X className="w-3 h-3" strokeWidth={2.5} /></button>
               </span>
             ))}
             {[...gyomuFilter].map(g => (
