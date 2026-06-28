@@ -12,6 +12,7 @@ import EditTaskModal from './EditTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
+import { koteiOf } from '@/lib/kotei'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
@@ -504,12 +505,13 @@ function ListView({
   onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, gyomu: 120, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
+    select: 40, kotei: 110, gyomu: 110, title: 240, status: 100, caseCol: 200, sales: 110, manager: 110, due: 100,
     execResult: 220,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
     { key: 'select',     label: '' },
+    { key: 'kotei',      label: '工程' },
     { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
     { key: 'status',     label: 'ステータス' },
@@ -630,6 +632,11 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           aria-label={`タスク「${task.title}」を選択`}
           className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
         />
+      </td>
+
+      {/* 工程 */}
+      <td className="px-3.5 py-2.5">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200 truncate max-w-full">{koteiOf(task.phase)}</span>
       </td>
 
       {/* 業務区分 */}
