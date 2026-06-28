@@ -10,7 +10,11 @@ import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
+
+// 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
+const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
 
 type Props = {
   caseData: CaseRow
@@ -34,6 +38,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
   const [newTitle, setNewTitle] = useState('')
+  const [newGyomu, setNewGyomu] = useState('')
+  const [gyomuFilter, setGyomuFilter] = useState('')
   const [saving, setSaving] = useState(false)
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
   const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
@@ -51,7 +57,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     const supabase = createClient()
     const { data } = await supabase
       .from('case_activities')
-      .select('*, members(*), tasks(id, title)')
+      .select('*, members(*), tasks(id, title, phase)')
       .eq('case_id', caseData.id)
       .order('created_at', { ascending: false })
       .limit(100)
@@ -81,10 +87,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       activity_type: 'note',
       title: newTitle.trim() || null,
       description: newNote.trim(),
+      gyomu: newGyomu || null,
       activity_date: new Date().toISOString().split('T')[0],
     })
     setNewNote('')
     setNewTitle('')
+    setNewGyomu('')
     setSaving(false)
     fetchActivities()
   }
@@ -140,7 +148,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   // タイムラインに統合したため、ここでは表示しない）
   const notes = activities
     .filter(a => a.activity_type === 'note')
+    .filter(a => !gyomuFilter || noteGyomu(a) === gyomuFilter)
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
+
+  // フィルタ用の業務区分候補（メモに存在するもの＋正準順）
+  const noteGyomuOptions = (() => {
+    const present = new Set(activities.filter(a => a.activity_type === 'note').map(noteGyomu).filter(Boolean))
+    return [...GYOMU_ALL.filter(g => present.has(g)), ...[...present].filter(g => !GYOMU_ALL.includes(g))]
+  })()
 
   return (
     <div className="space-y-3.5">
@@ -212,13 +227,24 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <Section title="進捗メモ">
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
-            <input
-              type="text"
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              placeholder="タイトル（任意）"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-            />
+            <div className="flex gap-2">
+              <select
+                value={newGyomu}
+                onChange={e => setNewGyomu(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:border-brand-400"
+                style={{ minWidth: 140 }}
+              >
+                <option value="">業務区分（任意）</option>
+                {GYOMU_ALL.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                placeholder="タイトル（任意）"
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+              />
+            </div>
             <input
               type="text"
               value={newNote}
@@ -236,6 +262,17 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             {saving ? '追加中...' : '追加'}
           </button>
         </div>
+
+        {/* 業務区分フィルタ */}
+        {noteGyomuOptions.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+            <span className="text-[12px] font-semibold text-gray-500">業務区分</span>
+            <button type="button" onClick={() => setGyomuFilter('')} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${!gyomuFilter ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>すべて</button>
+            {noteGyomuOptions.map(g => (
+              <button key={g} type="button" onClick={() => setGyomuFilter(g)} className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${gyomuFilter === g ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{g}</button>
+            ))}
+          </div>
+        )}
         {loading ? (
           <div className="text-center text-sm text-gray-400 py-4">読み込み中...</div>
         ) : notes.length === 0 ? (
@@ -247,12 +284,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               const titleText = n.title?.trim() || n.tasks?.title || null
               const linkedTaskStatus = n.task_id ? taskStatusMap.get(n.task_id) : undefined
               const isCompleted = linkedTaskStatus === '完了'
+              const gy = noteGyomu(n)
               return (
                 <div key={n.id} className="flex gap-2.5 border-b border-gray-50 last:border-b-0 pb-2.5 last:pb-0">
                   {isCompleted
                     ? <CheckIcon className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
                     : <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />}
                   <div className="flex-1 min-w-0">
+                    {gy && <span className="inline-block mb-0.5 mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-brand-700 bg-brand-50 border border-brand-100">{gy}</span>}
                     {titleText && (
                       n.task_id ? (
                         <Link href={`/tasks/${n.task_id}`} className={`inline-flex items-center gap-1 text-[13px] font-semibold hover:underline ${isCompleted ? 'text-emerald-700' : 'text-brand-700'}`}>

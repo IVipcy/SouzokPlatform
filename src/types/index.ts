@@ -431,9 +431,10 @@ export type CaseActivityRow = {
   title: string | null   // 進捗メモのタイトル（任意。migration 131）
   description: string
   activity_date: string
+  gyomu: string | null   // 進捗メモの業務区分（migration 139。タスク紐づきはタスクのphaseで補完）
   created_at: string
   members?: MemberRow
-  tasks?: { id: string; title: string }
+  tasks?: { id: string; title: string; phase?: string | null }
 }
 
 // === ドキュメント ===
