@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
+import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
@@ -656,16 +657,10 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
       </td>
 
       {/* 工程 */}
-      <td className="px-3.5 py-2.5">
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200 truncate max-w-full">{koteiOf(task.phase)}</span>
-      </td>
+      <td className="px-3.5 py-2.5"><KoteiBadge phase={task.phase} /></td>
 
       {/* 業務区分 */}
-      <td className="px-3.5 py-2.5">
-        {gyomuOf(task)
-          ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 truncate max-w-full">{gyomuOf(task)}</span>
-          : <span className="text-gray-300 text-[12px]">—</span>}
-      </td>
+      <td className="px-3.5 py-2.5"><GyomuBadge phase={task.phase} /></td>
 
       {/* タスク名 */}
       <td className="px-3.5 py-2.5 relative">

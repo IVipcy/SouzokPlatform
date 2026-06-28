@@ -52,3 +52,32 @@ export function koteiRank(kotei: string): number {
   const i = (KOTEI_ORDER as readonly string[]).indexOf(kotei)
   return i === -1 ? KOTEI_ORDER.length : i
 }
+
+// 工程番号（手続き一式の主流れ1〜6のみ。別系統・横断は番号なし）
+export const KOTEI_NUMBER: Record<string, number> = {
+  '相続人調査': 1, '財産調査': 2, '遺産分割': 3, '相続登記': 4, '解約手続': 5, '経理': 6,
+}
+
+// 工程の色（バッジ用 bg/text）。主流れは固有色、別系統はピンク系、その他はグレー。
+export const KOTEI_COLOR: Record<string, { bg: string; text: string }> = {
+  '相続人調査': { bg: '#E6F1FB', text: '#0C447C' },
+  '財産調査':   { bg: '#E1F5EE', text: '#0F6E56' },
+  '遺産分割':   { bg: '#EEEDFE', text: '#3C3489' },
+  '相続登記':   { bg: '#FAECE7', text: '#993C1D' },
+  '解約手続':   { bg: '#FAEEDA', text: '#854F0B' },
+  '経理':       { bg: '#EAF3DE', text: '#27500A' },
+  '遺言':       { bg: '#FBEAF0', text: '#72243E' },
+  '信託契約':   { bg: '#FBEAF0', text: '#72243E' },
+  '相続放棄':   { bg: '#FBEAF0', text: '#72243E' },
+  '調停':       { bg: '#FBEAF0', text: '#72243E' },
+  '遺言検認':   { bg: '#FBEAF0', text: '#72243E' },
+  '成年後見':   { bg: '#FBEAF0', text: '#72243E' },
+  '他事業者紹介': { bg: '#FBEAF0', text: '#72243E' },
+  'その他':     { bg: '#F1EFE8', text: '#444441' },
+}
+
+// 工程ラベル（番号付き。番号なしの工程はそのまま）
+export function koteiLabel(kotei: string): string {
+  const n = KOTEI_NUMBER[kotei]
+  return n ? `${n} ${kotei}` : kotei
+}

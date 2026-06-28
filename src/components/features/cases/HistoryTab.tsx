@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { koteiOf, koteiRank, KOTEI_ORDER, KOTEI_GYOMU } from '@/lib/kotei'
+import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
 import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
 
 // 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
@@ -321,8 +321,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                     ? <CheckIcon className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
                     : <StickyNote className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" strokeWidth={2} />}
                   <div className="flex-1 min-w-0">
-                    {ko && <span className="inline-block mb-0.5 mr-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200">{ko}</span>}
-                    {gy && <span className="inline-block mb-0.5 mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-brand-700 bg-brand-50 border border-brand-100">{gy}</span>}
+                    {ko && <span className="inline-block mb-0.5 mr-1 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: (KOTEI_COLOR[ko] ?? { bg: '#F1EFE8' }).bg, color: (KOTEI_COLOR[ko] ?? { text: '#444441' }).text }}>{koteiLabel(ko)}</span>}
+                    {gy && <span className="inline-block mb-0.5 mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-gray-600 bg-gray-100/80 border border-gray-200">{gy}</span>}
                     {titleText && (
                       n.task_id ? (
                         <Link href={`/tasks/${n.task_id}`} className={`inline-flex items-center gap-1 text-[13px] font-semibold hover:underline ${isCompleted ? 'text-emerald-700' : 'text-brand-700'}`}>

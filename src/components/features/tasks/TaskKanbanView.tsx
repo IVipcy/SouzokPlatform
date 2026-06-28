@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Play, CheckCircle2, Loader2, PackageCheck, FileCheck } from 'lucide-react'
 import type { TaskRow } from '@/types'
 import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
-import { koteiOf } from '@/lib/kotei'
+import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 
 export type KanbanCaseInfo = {
   case_number: string
@@ -77,14 +77,8 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
                     <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-2.5 hover:border-brand-200 transition-colors">
                       {/* 工程＋業務チップ＋着手OK旗 */}
                       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-100/70 text-brand-800 border border-brand-200 flex-shrink-0">
-                          {koteiOf(task.phase)}
-                        </span>
-                        {task.phase && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-100 flex-shrink-0">
-                            {task.phase.replace(/^Phase\d+[:：]\s*/, '')}
-                          </span>
-                        )}
+                        <KoteiBadge phase={task.phase} width={96} />
+                        <GyomuBadge phase={task.phase} width={56} />
                         {signal.ready && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 flex-shrink-0">
                             <PackageCheck className="w-3 h-3" strokeWidth={2} />着手OK

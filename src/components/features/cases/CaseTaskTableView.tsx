@@ -6,10 +6,8 @@ import { Loader2, Play, Check, CalendarPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
-import { koteiOf } from '@/lib/kotei'
+import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import type { TaskRow } from '@/types'
-
-const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
 /**
  * 案件詳細・タスクタブの事務管理タスクのテーブルビュー。
@@ -91,15 +89,14 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               const status = normalizeTaskStatus(t.status)
               const overdue = !!(t.due_date && t.due_date < today && status !== '完了')
               const signal = getStartSignal(t, receipts)
-              const gy = gyomuOf(t)
               const ext = (t.ext_data ?? {}) as Record<string, unknown>
               const result = typeof ext.execution_result === 'string' ? ext.execution_result.trim() : ''
               const checked = sel.has(t.id)
               return (
                 <tr key={t.id} className={`border-b border-gray-100 last:border-b-0 ${checked ? 'bg-brand-50/50' : overdue ? 'bg-red-50/30' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-2 text-center"><input type="checkbox" checked={checked} onChange={() => toggle(t.id)} className="w-4 h-4 accent-brand-600 cursor-pointer" aria-label={`${t.title}を選択`} /></td>
-                  <td className="px-2.5 py-2"><span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200">{koteiOf(t.phase)}</span></td>
-                  <td className="px-2.5 py-2">{gy ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-100">{gy}</span> : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-2.5 py-2"><KoteiBadge phase={t.phase} /></td>
+                  <td className="px-2.5 py-2"><GyomuBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className="text-gray-800 hover:text-brand-700 hover:underline">{t.title}</Link></td>
                   <td className="px-2.5 py-2">
                     {status === '完了' ? <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
