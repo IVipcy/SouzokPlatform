@@ -13,6 +13,7 @@ import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import CaseFolderSection from './CaseFolderSection'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { isItemNotRequired } from '@/lib/receiptLink'
 import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -39,9 +40,11 @@ type ReceiptItemRow = {
   caseDocumentId: string | null
   file: { bucket: string; path: string; name: string | null } | null
   linkedTasks: { id: string; title: string }[]
+  notRequired: boolean        // タスク紐づけ不要（契約書類の自動判定 or 手動フラグ）
+  manualFlag: boolean | null  // link_not_required の生値（null=自動判定）
 }
 
-type FilterKey = 'all' | 'linked' | 'unlinked'
+type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
 
 /**
  * 案件詳細「到着物」タブ。
@@ -52,11 +55,17 @@ type FilterKey = 'all' | 'linked' | 'unlinked'
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], caseFiles = [], currentMemberId = null }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], currentMemberId = null }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [filter, setFilter] = useState<FilterKey>('all')
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
+
+  // 契約時受領書類の区分（id → category）。紐づけ不要の自動判定に使う。
+  const contractCat = useMemo(
+    () => new Map((contractDocuments ?? []).map(d => [d.id, d.category ?? ''])),
+    [contractDocuments],
+  )
 
   // 受信簿 → 1 行 = 1 アイテム の表に展開
   const rows: ReceiptItemRow[] = useMemo(() => {
@@ -79,6 +88,9 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           if (t) linked.push({ id: t.id, title: t.title })
         }
         const cd = it.case_document
+        // 紐づけ不要の判定：手動フラグ優先、無ければ契約書類のタスク不要カテゴリを自動判定
+        const manualFlag = it.link_not_required ?? null
+        const notRequired = isItemNotRequired(it, contractCat)
         out.push({
           receiptId: r.id,
           itemId: it.id ?? `${r.id}-${it.sort_order}`,
@@ -92,6 +104,8 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
             ? { bucket: cd.received_file_bucket, path: cd.received_file_path, name: cd.received_file_name }
             : null,
           linkedTasks: linked,
+          notRequired,
+          manualFlag,
         })
       }
     }
@@ -101,16 +115,19 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
       a.sortOrder - b.sortOrder,
     )
     return out
-  }, [documentReceipts, tasks])
+  }, [documentReceipts, tasks, contractCat])
 
   const filtered = useMemo(() => rows.filter(r => {
-    if (filter === 'linked') return r.linkedTasks.length > 0
-    if (filter === 'unlinked') return r.linkedTasks.length === 0
+    const linked = r.linkedTasks.length > 0
+    if (filter === 'linked') return linked
+    if (filter === 'notrequired') return !linked && r.notRequired
+    if (filter === 'unlinked') return !linked && !r.notRequired
     return true
   }), [rows, filter])
 
   const linkedCount = rows.filter(r => r.linkedTasks.length > 0).length
-  const unlinkedCount = rows.length - linkedCount
+  const notRequiredCount = rows.filter(r => r.linkedTasks.length === 0 && r.notRequired).length
+  const unlinkedCount = rows.length - linkedCount - notRequiredCount
 
   // 受信簿外の case_documents（item.case_document_id に登録されていないもの）。
   // 到着物タブは「受領した書類」だけを扱うので、受領ファイル(received_file)があるものに限る。
@@ -138,6 +155,20 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
     })
   }
 
+  // タスク紐づけ不要フラグの設定（true=不要 / false=必要に戻す）
+  const setNotRequired = (itemId: string | null, value: boolean) => {
+    if (!itemId) return
+    startTransition(async () => {
+      const supabase = createClient()
+      const { error } = await supabase.from('document_receipt_items')
+        .update({ link_not_required: value })
+        .eq('id', itemId)
+      if (error) { showToast(`更新に失敗: ${error.message}`, 'error'); return }
+      showToast(value ? 'タスク紐づけ不要にしました' : '紐づけ必要に戻しました', 'success')
+      router.refresh()
+    })
+  }
+
   return (
     <div className="space-y-3.5">
       <TabHeader title="到着物" description="案件フォルダへのアップロード＋受信簿（受領台帳）の管理" />
@@ -150,6 +181,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           <FilterPill label="すべて" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
           <FilterPill label="タスク紐づけ済" count={linkedCount} active={filter === 'linked'} onClick={() => setFilter('linked')} />
           <FilterPill label="未紐づけ" count={unlinkedCount} active={filter === 'unlinked'} onClick={() => setFilter('unlinked')} />
+          <FilterPill label="紐づけ不要" count={notRequiredCount} active={filter === 'notrequired'} onClick={() => setFilter('notrequired')} />
           {unuploadedCount > 0 && (
             <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
               <CloudOff className="w-3 h-3" strokeWidth={2} />未アップ {unuploadedCount}件
@@ -200,11 +232,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      {row.linkedTasks.length === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 italic">
-                          未紐づけ
-                        </span>
-                      ) : (
+                      {row.linkedTasks.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-1">
                           {row.linkedTasks.map(t => (
                             <Link
@@ -218,18 +246,47 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                             </Link>
                           ))}
                         </div>
+                      ) : row.notRequired ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 rounded">紐づけ不要</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 italic">未紐づけ</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setLinkingItem(row)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded"
-                        title="この到着物にタスクを紐付ける"
-                      >
-                        <Plus className="w-3 h-3" />
-                        紐付け
-                      </button>
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setLinkingItem(row)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded"
+                          title="この到着物にタスクを紐付ける"
+                        >
+                          <Plus className="w-3 h-3" />
+                          紐付け
+                        </button>
+                        {row.linkedTasks.length === 0 && (
+                          row.notRequired ? (
+                            <button
+                              type="button"
+                              onClick={() => setNotRequired(row.realItemId, false)}
+                              disabled={!row.realItemId}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-50"
+                              title="タスク紐づけが必要なものに戻す"
+                            >
+                              必要に戻す
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setNotRequired(row.realItemId, true)}
+                              disabled={!row.realItemId}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-50"
+                              title="タスク紐づけ不要にする（未紐づけの催促を消す）"
+                            >
+                              紐づけ不要
+                            </button>
+                          )
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

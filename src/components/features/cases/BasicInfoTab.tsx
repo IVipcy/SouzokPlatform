@@ -18,6 +18,7 @@ import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
 import TabHeader from './TabHeader'
 import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument, getStartSignal } from '@/lib/taskReadiness'
+import { itemNeedsTaskLink } from '@/lib/receiptLink'
 
 type Props = {
   caseData: CaseRow
@@ -46,7 +47,9 @@ const normGyomu = (phase: string | null | undefined): string => {
   return g
 }
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
+  // 契約時受領書類の区分（id → category）。到着物の紐づけ不要の自動判定に使う。
+  const contractCat = new Map((contractDocuments ?? []).map(d => [d.id, d.category ?? '']))
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -97,15 +100,12 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         const waitingDoc = caseTasks
           .filter(t => normalizeTaskStatus(t.status) === '着手前' && isWaitingForDocument(t, readinessReceipts))
 
-        // タスク未割当の到着物 = 受領済 (received_date あり) だが、どのタスクとも紐付いていない受信簿アイテム
-        // 契約書類(linked_kind='contract_doc')はタスク不要のため、それしか無い受信は対象外（受信簿の扱いと整合）。
+        // タスク未割当の到着物 = 受領済 (received_date あり) だが、紐づけ待ちのアイテムが残っている受信簿。
+        // 契約時受領書類など「タスク紐づけ不要」のものは催促から除外する（到着物タブの扱いと整合）。
         const unlinkedReceipts = (documentReceipts ?? []).filter(r => {
           if (!r.received_date) return false
           if (r.started_task_id) return false
-          const items = r.items ?? []
-          if (items.filter(i => i.linked_kind !== 'contract_doc').length === 0) return false
-          if (items.some(i => (i.item_tasks ?? []).some(t => t.task?.id))) return false
-          return true
+          return (r.items ?? []).some(it => itemNeedsTaskLink(it, contractCat))
         })
 
         if (ready.length === 0 && waitingDoc.length === 0 && unlinkedReceipts.length === 0) return null

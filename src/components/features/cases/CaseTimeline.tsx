@@ -30,6 +30,7 @@ export type TimelineReceipt = {
     item_name: string
     sort_order: number
     uploaded_at?: string | null
+    link_not_required?: boolean | null
     linked_id?: string | null
     linked_kind?: string | null
     linked_field?: string | null
