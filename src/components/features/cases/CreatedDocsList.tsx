@@ -23,7 +23,12 @@ export default function CreatedDocsList({ documents, onRefresh }: Props) {
   const openFile = async (d: DocumentRow) => {
     if (!d.file_path) { showToast('ファイルがありません', 'error'); return }
     setBusy(d.id)
-    const { data, error } = await createClient().storage.from('documents').createSignedUrl(d.file_path, 3600)
+    // PDF・画像はプレビュー、それ以外(Excel等)は書類名でDL（保存名がストレージキーになるのを防ぐ）
+    const ext = (d.file_path.split('.').pop() ?? '').toLowerCase()
+    const previewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg'].includes(ext)
+    const base = (d.name?.trim()) || d.file_path.split('/').pop() || 'file'
+    const downloadName = base.includes('.') ? base : (ext ? `${base}.${ext}` : base)
+    const { data, error } = await createClient().storage.from('documents').createSignedUrl(d.file_path, 3600, previewable ? undefined : { download: downloadName })
     setBusy(null)
     if (error || !data?.signedUrl) { showToast('ファイルを開けませんでした', 'error'); return }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')

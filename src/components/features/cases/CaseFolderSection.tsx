@@ -64,7 +64,10 @@ export default function CaseFolderSection({ caseId, files, pendingItems, current
 
   const openFile = async (f: CaseFileRow) => {
     const supabase = createClient()
-    const { data, error } = await supabase.storage.from(f.file_bucket).createSignedUrl(f.file_path, 3600)
+    // PDF・画像はプレビュー、それ以外は元のファイル名でダウンロード（保存名がストレージキーになるのを防ぐ）
+    const ext = (f.file_path.split('.').pop() ?? '').toLowerCase()
+    const previewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg'].includes(ext)
+    const { data, error } = await supabase.storage.from(f.file_bucket).createSignedUrl(f.file_path, 3600, previewable ? undefined : { download: f.file_name })
     if (error || !data?.signedUrl) { showToast(`ファイルを開けませんでした: ${error?.message ?? ''}`, 'error'); return }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }

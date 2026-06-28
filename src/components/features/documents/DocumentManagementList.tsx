@@ -238,7 +238,12 @@ function FilePreviewCell({
     if (!file.path || !file.bucket) return
     setBusy(true)
     try {
-      const { data, error } = await supabase.storage.from(file.bucket).createSignedUrl(file.path, 3600)
+      // PDF・画像はプレビュー、それ以外は分かりやすい名前でDL（保存名がストレージキーになるのを防ぐ）
+      const ext = (file.path.split('.').pop() ?? '').toLowerCase()
+      const previewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg'].includes(ext)
+      const base = (file.name?.trim()) || file.path.split('/').pop() || 'file'
+      const downloadName = base.includes('.') ? base : (ext ? `${base}.${ext}` : base)
+      const { data, error } = await supabase.storage.from(file.bucket).createSignedUrl(file.path, 3600, previewable ? undefined : { download: downloadName })
       if (error || !data?.signedUrl) throw error ?? new Error('signed url empty')
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
     } catch (e) {

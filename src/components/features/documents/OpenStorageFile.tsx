@@ -12,7 +12,13 @@ export default function OpenStorageFile({ bucket, path, name, label }: { bucket:
     if (busy) return
     setBusy(true)
     const supabase = createClient()
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600)
+    // PDF・画像はブラウザでプレビュー。それ以外(Excel等)は分かりやすいファイル名でダウンロードさせる
+    // （署名URLにdownload名を渡さないと、保存名がストレージのキー＝意味不明な文字列になる）
+    const ext = (path.split('.').pop() ?? '').toLowerCase()
+    const previewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg'].includes(ext)
+    const base = (name?.trim()) || path.split('/').pop() || 'file'
+    const downloadName = base.includes('.') ? base : (ext ? `${base}.${ext}` : base)
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600, previewable ? undefined : { download: downloadName })
     setBusy(false)
     if (error || !data?.signedUrl) { showToast(`ファイルを開けませんでした: ${error?.message ?? ''}`, 'error'); return }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
