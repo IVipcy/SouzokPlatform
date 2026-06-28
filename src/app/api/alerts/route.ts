@@ -98,9 +98,9 @@ export async function GET() {
     if (c.has_complaint && active) {
       push({ id: `claim-${c.id}`, severity: 'claim', category: 'クレーム案件', title: name, body: '依頼者からのクレーム。最優先で対応', href: caseHref })
     }
-    if (active && docArrivedCaseIds.has(c.id)) {
+    if (isMyManager && active && docArrivedCaseIds.has(c.id)) {
       push({ id: `docarrive-${c.id}`, severity: 'high', category: '書類到着（着手待ち）', title: name, body: 'ダブルチェック済みの原本が届いています。タスクに着手できます', href: `/documents?case=${c.id}` })
-    } else if (active && docUncheckedCaseIds.has(c.id)) {
+    } else if (isMyManager && active && docUncheckedCaseIds.has(c.id)) {
       push({ id: `docunchecked-${c.id}`, severity: 'high', category: '書類 未処理（放置）', title: name, body: '受信簿に登録された書類がダブルチェック・着手されていません', href: `/documents?case=${c.id}` })
     }
     if (isMySales && c.status === '受注' && !managerExists.has(c.id) && c.order_received_date && c.order_received_date <= assignCutoffStr) {
