@@ -153,7 +153,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
               <Section title={`タスク未割当の到着物 ・ ${unlinkedReceipts.length}件`}>
                 <ul className="space-y-2">
                   {unlinkedReceipts.map(r => {
-                    const label = (r.items ?? []).map(i => i.item_name).filter(Boolean).join(' / ') || '到着物'
+                    // 催促ラベルは「紐づけ待ちの到着物」だけ並べる（契約時受領などは出さない）
+                    const label = (r.items ?? []).filter(it => itemNeedsTaskLink(it, contractCat)).map(i => i.item_name).filter(Boolean).join(' / ') || '到着物'
                     return (
                       <li key={r.id} className="flex items-center justify-between gap-2 bg-amber-50/60 border border-amber-200 rounded px-2.5 py-1.5">
                         <div className="flex items-center gap-2 min-w-0">

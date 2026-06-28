@@ -88,7 +88,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           if (t) linked.push({ id: t.id, title: t.title })
         }
         const cd = it.case_document
-        // 紐づけ不要の判定：手動フラグ優先、無ければ契約書類のタスク不要カテゴリを自動判定
+        // 紐づけ不要の判定：手動フラグ優先、無ければ契約書類のタスク不要カテゴリ(契約/その他)を自動判定
         const manualFlag = it.link_not_required ?? null
         const notRequired = isItemNotRequired(it, contractCat)
         out.push({
