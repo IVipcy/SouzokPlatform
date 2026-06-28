@@ -105,14 +105,14 @@ function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | D
 
 /**
  * 「戸籍　・　除籍　・　原戸籍」のような '・' 区切りラベルのうち、
- * 選択された種別を 〇 で囲って分かるようにする（Excel図形の□囲い相当をテキストで表現）。
+ * 選択された種別を【】で囲って分かるようにする（Excel図形の□囲い相当をテキストで表現）。
  */
 function markTypes(ws: ExcelJS.Worksheet, addr: string, selected: Set<string>) {
   const cur = ws.getCell(addr).value
   if (typeof cur !== 'string' || !cur.includes('・')) return
   const marked = cur.split('・').map(tok => {
     const t = tok.trim()
-    return selected.has(t) ? tok.replace(t, `〇${t}〇`) : tok
+    return selected.has(t) ? tok.replace(t, `【${t}】`) : tok
   }).join('・')
   ws.getCell(addr).value = marked
 }
