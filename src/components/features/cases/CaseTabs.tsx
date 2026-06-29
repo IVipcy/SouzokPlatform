@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -41,6 +41,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   mediation: '調停',
   probate: '遺言検認',
   guardianship: '成年後見',
+  succession: '遺産承継',
   contract: '請求',
   docs: '到着物',
   documentCreate: '書類作成',
@@ -58,7 +59,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
-  contract: 'practice',
+  succession: 'practice', contract: 'practice',
   ownerSales: 'info', orderContent: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',

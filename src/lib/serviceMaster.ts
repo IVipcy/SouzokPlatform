@@ -4,7 +4,7 @@
 import type { TabKey } from '@/components/features/cases/CaseTabs'
 
 // 「紹介のみ」は自社手続きなしの区分（業務・作業は持たず、他事業者紹介で紹介先を埋める）。
-export const ORDER_CATEGORIES = ['手続き一式','登記','遺言','信託','放棄','調停','検認','後見','契約書','執行','紹介のみ'] as const
+export const ORDER_CATEGORIES = ['手続き一式','遺産承継','登記','遺言','信託','放棄','調停','検認','後見','契約書','執行','紹介のみ'] as const
 // 自社で行う相続手続きが無い区分（業務・作業を出さず、紹介先入力に切り替える）
 export const REFERRAL_ONLY_CATEGORY = '紹介のみ'
 export type OrderCategory = (typeof ORDER_CATEGORIES)[number]
@@ -28,8 +28,10 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '後見手続き': 'guardianship',
   '契約書作成': 'contractProc',
   '執行通知': undefined,
+  '精算書作成': 'succession',
+  '指図書作成': 'succession',
 }
-export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知']
+export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知', '精算書作成', '指図書作成']
 
 // kind: 作業の性質。
 //   'task'（既定）= やる作業＝タスクで進捗管理。
@@ -65,6 +67,28 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '手続き一式', gyomu: '解約', task: '自動車名義変更', owner: '自社', hint: '既存テンプレより（細かい手順）' },
   { category: '手続き一式', gyomu: '解約', task: '保険金請求手続き', owner: '自社', hint: '既存テンプレより（細かい手順）' },
   { category: '手続き一式', gyomu: '手紙', task: '各相続人への通知・案内文の送付', owner: '自社' },
+  // === 遺産承継（換価・分配まで包括代行。手続き一式＋精算書/指図書） ===
+  { category: '遺産承継', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社' },
+  { category: '遺産承継', gyomu: '戸籍', task: '戸籍到着確認・チェック', owner: '自社' },
+  { category: '遺産承継', gyomu: '戸籍', task: '追加戸籍請求', owner: '自社' },
+  { category: '遺産承継', gyomu: '相関図', task: '相関図作成', owner: '自社' },
+  { category: '遺産承継', gyomu: '法定相続情報取得', task: '法定相続情報一覧図の申出・取得', owner: '自社' },
+  { category: '遺産承継', gyomu: '不動産', task: '名寄帳請求', owner: '自社' },
+  { category: '遺産承継', gyomu: '不動産', task: '登記事項証明の取得', owner: '自社' },
+  { category: '遺産承継', gyomu: '不動産', task: '固定資産評価証明の取得', owner: '自社' },
+  { category: '遺産承継', gyomu: '金融資産', task: '全店調査', owner: '自社' },
+  { category: '遺産承継', gyomu: '金融資産', task: '残高証明取得', owner: '自社' },
+  { category: '遺産承継', gyomu: '金融資産', task: '取引履歴取得', owner: '自社' },
+  { category: '遺産承継', gyomu: '解約', task: '預貯金の解約', owner: '自社' },
+  { category: '遺産承継', gyomu: '解約', task: '証券の移管・売却', owner: '自社' },
+  { category: '遺産承継', gyomu: '解約', task: '投資信託の解約', owner: '自社' },
+  { category: '遺産承継', gyomu: '協議書', task: '遺産分割協議書の作成', owner: '自社' },
+  { category: '遺産承継', gyomu: '登記', task: '相続登記の申請', owner: '自社' },
+  { category: '遺産承継', gyomu: '手紙', task: '各相続人への通知・案内文の送付', owner: '自社' },
+  { category: '遺産承継', gyomu: '精算書作成', task: '精算書作成', owner: '自社' },
+  { category: '遺産承継', gyomu: '精算書作成', task: '精算書送付', owner: '自社' },
+  { category: '遺産承継', gyomu: '指図書作成', task: '指図書作成', owner: '自社' },
+  { category: '遺産承継', gyomu: '指図書作成', task: '指図書送付', owner: '自社' },
   { category: '登記', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社', hint: '依頼者がやることが多い / 発生することはあまりない' },
   { category: '登記', gyomu: '戸籍', task: '戸籍到着確認・チェック', owner: '自社', hint: 'オーシャン' },
   { category: '登記', gyomu: '戸籍', task: '追加戸籍請求', owner: '自社', hint: '既存テンプレより（細かい手順）' },

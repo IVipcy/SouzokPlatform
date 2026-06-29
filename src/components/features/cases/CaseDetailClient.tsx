@@ -13,6 +13,7 @@ import ClientInfoTab from './ClientInfoTab'
 import TasksTab from './TasksTab'
 import DeceasedTab from './DeceasedTab'
 import ContractTab from './ContractTab'
+import SuccessionTab from './SuccessionTab'
 import AssetsTab from './AssetsTab'
 import DivisionTab from './DivisionTab'
 import type { RoleRow } from './ProcedureIntakeSection'
@@ -73,7 +74,7 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [] }: Props) {
   const router = useRouter()
@@ -368,6 +369,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />
+      )}
+      {effectiveTab === 'succession' && (
+        <SuccessionTab caseData={caseState} heirs={heirs} assetInventory={assetInventory} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'assets' && (
         <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} assetInventory={assetInventory} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
