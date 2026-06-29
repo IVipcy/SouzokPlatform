@@ -105,6 +105,21 @@ export type StartSignal = { ready: boolean; reason: string | null; source: 'doc'
 
 export const READY_REASON_DOC = '必要書類受領済'
 
+// 「受領次第OK」状態か（着手前 かつ ext_data.ready_on_receipt=true かつ まだ着手OKでない）。
+// 完了ゲートで「資料が届いたら着手OK」と指定したタスク。受信簿で受領が紐づくと着手OKへ昇格する。
+export function isWaitingReceipt(task: TaskRow): boolean {
+  if (normalizeTaskStatus(task.status) !== '着手前') return false
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  if (ext.ready_on_receipt !== true) return false
+  const reason = typeof ext.ready_reason === 'string' ? ext.ready_reason.trim() : ''
+  return !(reason || ext.ready === true)
+}
+// 受領待ちの内容（何の受領待ちか）。
+export function receiptWaitNote(task: TaskRow): string {
+  const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  return typeof ext.ready_wait_note === 'string' ? ext.ready_wait_note : ''
+}
+
 export function getStartSignal(task: TaskRow, _receipts: ReadinessReceipt[] = []): StartSignal {
   if (normalizeTaskStatus(task.status) !== '着手前') return { ready: false, reason: null, source: null }
   const ext = (task.ext_data ?? {}) as Record<string, unknown>

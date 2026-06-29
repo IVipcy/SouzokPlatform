@@ -1,13 +1,16 @@
 'use client'
 
-// タスク完了ゲート。事務管理タスク(task_kind!=='system')を完了するとき必ず通す。
+// タスク完了ゲート（v3）。事務管理タスク(task_kind!=='system')を完了するとき必ず通す。
 //   1) 実施結果・引継ぎ事項（必須）
-//   2) 次に着手できるタスクを1つ以上選んで着手OK理由を記載（無ければ「該当なし」）
-// 選んだ次タスクには ext_data.ready_reason を立て、着手OKにする。
-// 着手は別（このモーダルは完了のみ）。
+//   2) 次に着手できるタスクを指定（無ければ「該当なし」）。各タスクは経路を選ぶ:
+//        ・今すぐ着手OK   → ext_data.ready_reason（着手OK理由）
+//        ・受領次第OK     → ext_data.ready_on_receipt=true + ready_wait_note（何の受領待ちか）
+//      候補に無ければその場で新規タスクを追加（区分=事務/管理 も選ぶ）。
+//   3) 次が判断できないときは「管理担当に確認」→ 管理担当確認タスクを起票し通知。
+//   いずれの次タスクにも ext_data.ready_from_task_id（このタスク）を記録し前段表示に使う。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
@@ -16,9 +19,20 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
+import { createManagerReviewTask } from '@/lib/managerReviewTask'
 import type { TaskRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string }
+type Mode = 'now' | 'receipt'
+
+// 着手OK経路に応じた ext_data を作る
+function extForMode(base: Record<string, unknown>, mode: Mode, note: string, fromTaskId: string): Record<string, unknown> {
+  const n = note.trim()
+  if (mode === 'receipt') {
+    return { ...base, ready_on_receipt: true, ready_wait_note: n, ready_reason: null, ready_from_task_id: fromTaskId }
+  }
+  return { ...base, ready_reason: n || '着手OK', ready_on_receipt: false, ready_wait_note: null, ready_from_task_id: fromTaskId }
+}
 
 export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   task: TaskRow
@@ -36,9 +50,20 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   })()
   const [result, setResult] = useState(initialResult)
   const [sel, setSel] = useState<Record<string, boolean>>({})
-  const [reasons, setReasons] = useState<Record<string, string>>({})
+  const [mode, setMode] = useState<Record<string, Mode>>({})
+  const [note, setNote] = useState<Record<string, string>>({})
   const [noNext, setNoNext] = useState(false)
   const [showOthers, setShowOthers] = useState(false)
+
+  // 新規追加タスク
+  const [newTitle, setNewTitle] = useState('')
+  const [newRole, setNewRole] = useState<'assistant' | 'manager'>('assistant')
+  const [newMode, setNewMode] = useState<Mode>('now')
+  const [newNote, setNewNote] = useState('')
+
+  // 管理担当確認
+  const [mgrOn, setMgrOn] = useState(false)
+  const [mgrContent, setMgrContent] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -54,7 +79,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     })()
   }, [task.case_id, task.id])
 
-  // 同じ工程＋次工程を「おすすめ」、それ以外を折りたたみ
   const curRank = koteiRank(koteiOf(task.phase))
   const { recommend, others } = useMemo(() => {
     const rec: Cand[] = [], oth: Cand[] = []
@@ -67,12 +91,14 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   }, [cands, curRank])
 
   const selectedIds = Object.keys(sel).filter(id => sel[id])
-  const canSubmit = result.trim().length > 0 && (noNext || selectedIds.length > 0)
+  const modeOf = (id: string): Mode => mode[id] ?? 'now'
+  const selectedOk = selectedIds.every(id => (note[id] ?? '').trim().length > 0)
+  const newOk = !newTitle.trim() || newNote.trim().length > 0
+  const mgrOk = !mgrOn || mgrContent.trim().length > 0
+  const hasAction = noNext || selectedIds.length > 0 || newTitle.trim().length > 0 || (mgrOn && mgrContent.trim().length > 0)
+  const canSubmit = result.trim().length > 0 && selectedOk && newOk && mgrOk && hasAction
 
-  const toggle = (id: string) => {
-    setNoNext(false)
-    setSel(prev => ({ ...prev, [id]: !prev[id] }))
-  }
+  const toggle = (id: string) => { setNoNext(false); setSel(prev => ({ ...prev, [id]: !prev[id] })) }
 
   const submit = async () => {
     if (!canSubmit || saving) return
@@ -84,20 +110,32 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     const { error } = await supabase.from('tasks').update({ status: '完了', ext_data: ext }).eq('id', task.id)
     if (error) { setSaving(false); showToast(`完了に失敗しました: ${error.message}`, 'error'); return }
 
-    // 2) 選んだ次タスクに着手OK旗（理由をmerge）。着手前のものだけ。
-    if (!noNext && selectedIds.length > 0) {
+    // 2) 選んだ既存タスクに着手OK / 受領次第OK を付与（着手前のものだけ）
+    if (selectedIds.length > 0) {
       const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', selectedIds)
       for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
         if (normalizeTaskStatus(row.status) !== '着手前') continue
-        const reason = (reasons[row.id] ?? '').trim() || `${task.title}が完了したため`
-        // 着手OKにした元タスク（このタスクを完了したことで着手可になった）を記録。
-        // 後続タスクを開いたとき、前段作業の確認でこの元タスクを優先表示する。
-        const next = { ...(row.ext_data ?? {}), ready_reason: reason, ready_from_task_id: task.id }
+        const next = extForMode(row.ext_data ?? {}, modeOf(row.id), note[row.id] ?? '', task.id)
         await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
       }
     }
 
-    // 3) 活動履歴
+    // 3) 新規タスクを追加して着手OK / 受領次第OK
+    if (newTitle.trim()) {
+      const newExt = extForMode({}, newMode, newNote, task.id)
+      await supabase.from('tasks').insert({
+        case_id: task.case_id, title: newTitle.trim(), task_kind: 'case', work_role: newRole,
+        phase: task.phase ?? '', category: task.phase ?? '', status: '着手前', priority: '通常',
+        ext_data: newExt, sort_order: 99,
+      })
+    }
+
+    // 4) 管理担当確認タスク
+    if (mgrOn && mgrContent.trim()) {
+      await createManagerReviewTask({ caseId: task.case_id, content: mgrContent.trim(), fromTaskTitle: task.title, requestedBy: memberId })
+    }
+
+    // 5) 活動履歴
     if (memberId) {
       await supabase.from('case_activities').insert({
         case_id: task.case_id, task_id: task.id, member_id: memberId,
@@ -112,6 +150,25 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     onCompleted()
   }
 
+  // 着手OK / 受領次第OK のトグル＋理由欄（既存・新規で共用）。
+  // ※ コンポーネントではなく関数として呼ぶ（入力中のフォーカス喪失を防ぐ）
+  const renderModePicker = ({ value, onChange, note: nv, onNote, idKey }: { value: Mode; onChange: (m: Mode) => void; note: string; onNote: (v: string) => void; idKey: string }) => (
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        <button type="button" onClick={() => onChange('now')} className={`flex-1 text-center text-[12px] py-1 rounded-md border transition-colors ${value === 'now' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>今すぐ着手OK</button>
+        <button type="button" onClick={() => onChange('receipt')} className={`flex-1 inline-flex items-center justify-center gap-1 text-[12px] py-1 rounded-md border transition-colors ${value === 'receipt' ? 'bg-amber-50 text-amber-800 border-amber-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}><Package className="w-3 h-3" strokeWidth={2} />受領次第OK</button>
+      </div>
+      <input
+        type="text"
+        value={nv}
+        onChange={e => onNote(e.target.value)}
+        placeholder={value === 'receipt' ? '何の受領待ちか（例：戸籍一式が届いたら）' : '着手OK理由（例：相続人が確定したため）'}
+        className={`w-full px-2.5 py-1.5 text-[12px] border rounded-lg outline-none ${value === 'receipt' ? 'border-amber-200 bg-amber-50/40 focus:border-amber-400' : 'border-emerald-200 bg-emerald-50/30 focus:border-emerald-400'}`}
+        data-key={idKey}
+      />
+    </div>
+  )
+
   const renderCand = (c: Cand) => {
     const on = !!sel[c.id]
     return (
@@ -124,13 +181,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         </label>
         {on && (
           <div className="px-2.5 pb-2">
-            <input
-              type="text"
-              value={reasons[c.id] ?? ''}
-              onChange={e => setReasons(prev => ({ ...prev, [c.id]: e.target.value }))}
-              placeholder="着手OK理由（例：相続人が確定したため）"
-              className="w-full px-2.5 py-1.5 text-[12px] border border-amber-200 bg-amber-50/40 rounded-lg outline-none focus:border-amber-400"
-            />
+            {renderModePicker({ value: modeOf(c.id), onChange: m => setMode(prev => ({ ...prev, [c.id]: m })), note: note[c.id] ?? '', onNote: v => setNote(prev => ({ ...prev, [c.id]: v })), idKey: c.id })}
           </div>
         )}
       </div>
@@ -167,13 +218,11 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
 
         <div>
           <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">
-            <ArrowRight className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />次に着手できるタスク <span className="text-red-500">*</span>
-            <span className="ml-1 font-normal text-gray-400">（1つ以上 / 無ければ「該当なし」）</span>
+            <ArrowRight className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />次に着手できるタスク
+            <span className="ml-1 font-normal text-gray-400">（経路を選んで指定 / 無ければ「該当なし」）</span>
           </label>
           {loading ? (
             <div className="py-5 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
-          ) : cands.length === 0 ? (
-            <p className="text-[12px] text-gray-400 mb-2">この案件に他の未完了タスクはありません。</p>
           ) : (
             <div className="space-y-1.5">
               {recommend.length > 0 && <div className="text-[10.5px] text-gray-400">同じ工程・次の工程</div>}
@@ -184,6 +233,47 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
               )}
             </div>
           )}
+
+          {/* 候補に無い → 新規追加（区分＋経路） */}
+          <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-2.5 py-2 space-y-2">
+            <div className="text-[11.5px] text-gray-500 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" />候補に無い → タスクを追加</div>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder="追加するタスク名（任意）"
+              className="w-full px-2.5 py-1.5 text-[12.5px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+            />
+            {newTitle.trim() && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-500">区分</span>
+                  <button type="button" onClick={() => setNewRole('manager')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'manager' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200'}`}><Compass className="w-3 h-3" />管理担当</button>
+                  <button type="button" onClick={() => setNewRole('assistant')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'assistant' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200'}`}><Puzzle className="w-3 h-3" />事務管理</button>
+                </div>
+                {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
+              </>
+            )}
+          </div>
+
+          {/* 管理担当に確認 */}
+          <div className={`mt-2 rounded-lg border px-2.5 py-2 transition-colors ${mgrOn ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={mgrOn} onChange={e => setMgrOn(e.target.checked)} className="w-4 h-4 accent-amber-500" />
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+              <span className="text-[12.5px] font-semibold text-amber-800">次が判断できない → 管理担当に確認</span>
+            </label>
+            {mgrOn && (
+              <textarea
+                value={mgrContent}
+                onChange={e => setMgrContent(e.target.value)}
+                rows={2}
+                placeholder="確認してほしい内容（例：相続人に未成年がいる。次の進め方を確認したい）"
+                className="mt-2 w-full px-2.5 py-1.5 text-[12px] border border-amber-200 bg-white rounded-lg outline-none focus:border-amber-400"
+              />
+            )}
+          </div>
+
           <label className={`mt-2 flex items-center gap-2 text-[12.5px] rounded-lg px-2.5 py-1.5 cursor-pointer border transition-colors ${noNext ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-white border-dashed border-gray-300 text-gray-500 hover:bg-gray-50'}`}>
             <input type="checkbox" checked={noNext} onChange={e => { setNoNext(e.target.checked); if (e.target.checked) setSel({}) }} className="w-4 h-4 accent-gray-500" />
             該当なし（次に進められるタスクはまだ無い）

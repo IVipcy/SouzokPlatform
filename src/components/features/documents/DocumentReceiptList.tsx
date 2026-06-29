@@ -362,15 +362,20 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     // 後方互換：受信単位の代表タスク
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
 
-    // 「着手OKにする」がチェックされたタスクに着手OK旗を立てる（ext_dataにmerge）
-    if (readyTaskIds.size > 0) {
-      const ids = [...readyTaskIds]
-      const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', ids)
+    // 着手OK旗を立てる（着手前のみ）。対象は2通り:
+    //   ・「着手OKにする」がチェックされたタスク
+    //   ・「受領次第OK」で待っていたタスク（受領が紐づいた＝着手OKへ自動昇格）
+    const linkedTaskIds = [...new Set(joinRows.map(j => j.task_id))]
+    if (linkedTaskIds.length > 0) {
+      const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', linkedTaskIds)
       for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
-        // 完了・対応中のタスクには立てない（着手前のみ着手OKの概念がある）
         if (normalizeTaskStatus(row.status) !== '着手前') continue
-        const ext = { ...(row.ext_data ?? {}), ready_reason: READY_REASON_DOC }
-        await supabase.from('tasks').update({ ext_data: ext }).eq('id', row.id)
+        const ext = (row.ext_data ?? {}) as Record<string, unknown>
+        const checked = readyTaskIds.has(row.id)
+        const waitingReceipt = ext.ready_on_receipt === true && !(typeof ext.ready_reason === 'string' && ext.ready_reason.trim())
+        if (!checked && !waitingReceipt) continue
+        const next = { ...ext, ready_reason: READY_REASON_DOC, ready_on_receipt: false, ready_wait_note: null }
+        await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
       }
     }
 
