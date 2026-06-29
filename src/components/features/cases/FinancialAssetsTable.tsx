@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, Lock, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { useIsManager } from '@/components/providers/AuthProvider'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -64,9 +66,23 @@ type Props = {
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
 export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
+  const isManager = useIsManager()  // 凍結確認のチェックは管理担当のみ
+  const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
+
+  // 凍結確認のトグル（管理担当のみ）。確認済→調査・解約タスクが着手可になる。
+  const toggleFreeze = async (row: FinancialAssetRow) => {
+    if (!isManager) return
+    const next = !row.freeze_confirmed
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, freeze_confirmed: next } : r))
+    const { error } = await supabase.from('financial_assets')
+      .update({ freeze_confirmed: next, freeze_confirmed_by: next ? memberId : null, freeze_confirmed_at: next ? new Date().toISOString() : null })
+      .eq('id', row.id)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -95,17 +111,18 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = cols.length + 3 + (progressMode ? 4 : 0) + 1
+  // 凍結確認 +列 +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = 1 + cols.length + 3 + (progressMode ? 4 : 0) + 1
 
   return (
     <div>
       {/* 契約時にお客様から受領済の書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1340 : 980 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1440 : 1080 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
@@ -122,7 +139,21 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
               rows.map(r => (
-                <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${r.freeze_confirmed ? '' : 'bg-amber-50/30'}`}>
+                  {/* 凍結確認済（一番左・管理担当のみチェック可） */}
+                  <td className="px-2 py-1.5 text-center">
+                    {r.freeze_confirmed ? (
+                      <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} title={isManager ? '凍結確認を取消' : '凍結確認は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
+                        <Check className="w-3 h-3" strokeWidth={2.5} />確認済
+                      </button>
+                    ) : isManager ? (
+                      <button type="button" onClick={() => toggleFreeze(r)} title="口座凍結を確認したらチェック（調査・解約タスクが着手可になる）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
+                        <Lock className="w-3 h-3" strokeWidth={2} />未確認
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結未確認のため調査不可">調査不可</span>
+                    )}
+                  </td>
                   {cols.map(c => (
                     <td key={c.key} className="px-2 py-1.5">
                       {c.type === 'text' ? (

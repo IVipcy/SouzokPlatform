@@ -8,7 +8,7 @@ export default async function ManagerTasksPage() {
   const user = await getCurrentUser()
   if (!canSeeManagerTasks(user)) redirect('/tasks')
 
-  const { tasks, caseMap, allMembers, currentMemberId, receipts } = await loadTaskListData()
+  const { tasks, caseMap, allMembers, currentMemberId, receipts, financeBlockedCaseIds } = await loadTaskListData()
   return (
     <TaskListClient
       tasks={tasks}
@@ -16,6 +16,7 @@ export default async function ManagerTasksPage() {
       allMembers={allMembers}
       currentMemberId={currentMemberId}
       receipts={receipts}
+      financeBlockedCaseIds={financeBlockedCaseIds}
       roleScope="manager"
     />
   )

@@ -26,11 +26,13 @@ export async function loadTaskListData(): Promise<{
   allMembers: MemberRow[]
   currentMemberId: string | null
   receipts: ReadinessReceipt[]
+  /** 金融凍結が未確認の口座を持つ案件ID（金融タスクの着手不可判定用） */
+  financeBlockedCaseIds: string[]
 }> {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [tasksResult, casesResult, membersResult, receiptsResult] = await Promise.all([
+  const [tasksResult, casesResult, membersResult, receiptsResult, financeResult] = await Promise.all([
     supabase
       .from('tasks')
       .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
@@ -46,7 +48,17 @@ export async function loadTaskListData(): Promise<{
     supabase
       .from('document_receipts')
       .select('received_date, started_task_id, items:document_receipt_items(item_name, item_tasks:document_receipt_item_tasks(task:tasks(id)))'),
+    supabase
+      .from('financial_assets')
+      .select('case_id, freeze_confirmed'),
   ])
+
+  // 凍結未確認の口座を持つ案件ID
+  const financeBlockedCaseIds = [...new Set(
+    ((financeResult.data ?? []) as Array<{ case_id: string; freeze_confirmed: boolean | null }>)
+      .filter(a => a.freeze_confirmed !== true)
+      .map(a => a.case_id),
+  )]
 
   type RawCaseRow = {
     id: string
@@ -85,5 +97,6 @@ export async function loadTaskListData(): Promise<{
     allMembers: (membersResult.data ?? []) as MemberRow[],
     currentMemberId: currentUser?.memberId ?? null,
     receipts,
+    financeBlockedCaseIds,
   }
 }

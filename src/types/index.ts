@@ -710,6 +710,9 @@ export type FinancialAssetRow = {
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
   expected_arrival_date: string | null       // 到着予定日（見込み。migration 085）
   acquired_part: string | null               // 取得した受注区分パート（パート制。migration 129）
+  freeze_confirmed: boolean                   // 凍結確認済（migration 142。未確認だと金融タスク着手不可）
+  freeze_confirmed_by: string | null          // 凍結確認した管理担当
+  freeze_confirmed_at: string | null          // 凍結確認日時
   created_at: string
 }
 

@@ -15,6 +15,7 @@ import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { isFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -41,6 +42,8 @@ type Props = {
   receipts?: ReadinessReceipt[]
   /** 担当区分スコープ。'assistant'=事務管理タスク一覧（既定）/ 'manager'=管理担当タスク一覧 */
   roleScope?: 'assistant' | 'manager'
+  /** 金融凍結が未確認の口座を持つ案件ID（金融タスク着手不可） */
+  financeBlockedCaseIds?: string[]
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -55,7 +58,8 @@ const normalizeStatus = (status: string) => {
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant' }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [] }: Props) {
+  const financeBlockedSet = useMemo(() => new Set(financeBlockedCaseIds), [financeBlockedCaseIds])
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -228,6 +232,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       setCompleteTask(task)
       return
     }
+    // 金融凍結が未確認なら金融資産調査・解約タスクは着手不可（ハード制限）
+    if (current === '着手前' && task.task_kind !== 'system' && !getStartSignal(task, receipts).ready) {
+      showToast('まだ着手OKになっていません', 'error'); return
+    }
+    if (current === '着手前' && isFreezeBlocked(task, financeBlockedSet)) {
+      showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error'); return
+    }
 
     setLoadingTaskId(task.id)
     try {
@@ -278,7 +289,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     } finally {
       setLoadingTaskId(null)
     }
-  }, [currentMemberId, loadingTaskId, router])
+  }, [currentMemberId, loadingTaskId, router, receipts, financeBlockedSet])
 
   const handleDelete = async () => {
     if (!deleteTask) return

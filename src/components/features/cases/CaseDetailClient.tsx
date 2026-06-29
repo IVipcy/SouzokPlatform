@@ -360,7 +360,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeFreezeBlocked={financialAssets.some(a => a.freeze_confirmed !== true)} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />

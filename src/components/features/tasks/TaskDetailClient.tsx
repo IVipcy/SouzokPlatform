@@ -13,6 +13,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
+import { isFinanceFreezeTask } from '@/lib/financeFreeze'
 import { getPhaseLabel } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
@@ -40,6 +41,8 @@ type Props = {
   heirs?: HeirRow[]
   properties?: RealEstatePropertyRow[]
   contractDocuments?: ContractDocumentRow[]
+  /** 案件に凍結未確認の金融資産があるか（金融タスクの着手ハード制限） */
+  financeFreezeBlocked?: boolean
 }
 
 const PRIORITIES = [
@@ -56,7 +59,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TaskDetailClient({ task, allMembers, documents, createdDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [], heirs = [], properties = [], contractDocuments = [] }: Props) {
+export default function TaskDetailClient({ task, allMembers, documents, createdDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [], heirs = [], properties = [], contractDocuments = [], financeFreezeBlocked = false }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
   const caseData = task.cases
@@ -91,7 +94,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [completeOpen, setCompleteOpen] = useState(false)
   // 着手OK判定（事務管理タスクは着手OKでないと着手不可＝ハード制限）
   const startSignal = getStartSignal(task)
-  const canStart = isSystemTask || startSignal.ready
+  // 金融資産調査・解約タスクは、案件の口座凍結が未確認だと着手不可
+  const freezeBlocked = !isSystemTask && financeFreezeBlocked && isFinanceFreezeTask(task)
+  const canStart = !freezeBlocked && (isSystemTask || startSignal.ready)
   const waiting = !isSystemTask && isWaitingReceipt(task)
   // 未着手の事務管理タスクを開いたら「着手しますか？」を出す
   const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && !isSystemTask)
@@ -101,6 +106,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     // 事務管理タスクの完了は完了ゲートを通す
     if (currentStatus === '対応中' && task.task_kind !== 'system') {
       setCompleteOpen(true)
+      return
+    }
+    // 金融資産調査・解約タスクは、口座凍結が未確認だと着手不可（ハード制限）
+    if (currentStatus === '着手前' && financeFreezeBlocked && isFinanceFreezeTask(task)) {
+      showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error')
       return
     }
     // 着手（着手前→対応中）は着手OKのときだけ（事務管理タスクのハード制限）
@@ -151,7 +161,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     } finally {
       setAdvancing(false)
     }
-  }, [advancing, currentMemberId, currentStatus, task, router])
+  }, [advancing, currentMemberId, currentStatus, task, router, financeFreezeBlocked])
 
   // ─── 着手者情報 ───
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
@@ -512,8 +522,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
                 <span>
-                  まだ<strong className="font-semibold">着手OKになっていません</strong>。
-                  {waiting ? `受領待ち${receiptWaitNote(task) ? `（${receiptWaitNote(task)}）` : ''}。資料の受領後に着手できます。` : '受信簿で資料を受領するか、前段タスクの完了で着手OKになります。'}
+                  {freezeBlocked
+                    ? <>口座の<strong className="font-semibold">凍結確認が未完了</strong>です。財産調査タブで管理担当が凍結確認すると着手できます。</>
+                    : <>まだ<strong className="font-semibold">着手OKになっていません</strong>。{waiting ? `受領待ち${receiptWaitNote(task) ? `（${receiptWaitNote(task)}）` : ''}。資料の受領後に着手できます。` : '受信簿で資料を受領するか、前段タスクの完了で着手OKになります。'}</>}
                 </span>
               </div>
             )}
