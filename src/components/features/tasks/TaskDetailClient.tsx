@@ -3,13 +3,16 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck } from 'lucide-react'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
 import Badge from '@/components/ui/Badge'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
+import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
 import { getPhaseLabel } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import { WORK_ROLES } from '@/lib/constants'
@@ -86,12 +89,23 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [advancing, setAdvancing] = useState(false)
   // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
   const [completeOpen, setCompleteOpen] = useState(false)
+  // 着手OK判定（事務管理タスクは着手OKでないと着手不可＝ハード制限）
+  const startSignal = getStartSignal(task)
+  const canStart = isSystemTask || startSignal.ready
+  const waiting = !isSystemTask && isWaitingReceipt(task)
+  // 未着手の事務管理タスクを開いたら「着手しますか？」を出す
+  const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && !isSystemTask)
 
   const handleAdvance = useCallback(async () => {
     if (advancing) return
     // 事務管理タスクの完了は完了ゲートを通す
     if (currentStatus === '対応中' && task.task_kind !== 'system') {
       setCompleteOpen(true)
+      return
+    }
+    // 着手（着手前→対応中）は着手OKのときだけ（事務管理タスクのハード制限）
+    if (currentStatus === '着手前' && task.task_kind !== 'system' && !getStartSignal(task).ready) {
+      showToast('まだ着手OKになっていません。受信簿で資料を受領するか、前段の完了で着手OKにしてください', 'error')
       return
     }
     setAdvancing(true)
@@ -226,14 +240,15 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 <div className="flex flex-col items-end">
                   <button
                     onClick={handleAdvance}
-                    disabled={advancing}
+                    disabled={advancing || !canStart}
+                    title={canStart ? undefined : 'まだ着手OKになっていません'}
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                      ${advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
+                      ${!canStart ? 'bg-gray-300 cursor-not-allowed' : advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
                   >
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Play className="w-4 h-4" strokeWidth={2.5} />}
                     {advancing ? '処理中...' : '着手する'}
                   </button>
-                  <span className="text-[12px] text-gray-400 mt-0.5">作業を始める前に押す</span>
+                  <span className="text-[12px] text-gray-400 mt-0.5">{canStart ? '作業を始める前に押す' : waiting ? '受領待ち（着手OK後に押せます）' : '着手OK後に押せます'}</span>
                 </div>
               )}
               {currentStatus === '対応中' && (
@@ -468,6 +483,42 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           onClose={() => setCompleteOpen(false)}
           onCompleted={() => { setCompleteOpen(false); router.refresh() }}
         />
+      )}
+
+      {/* 着手ポップアップ（未着手の事務管理タスクを開いたとき） */}
+      {startPromptOpen && (
+        <Modal
+          isOpen
+          onClose={() => setStartPromptOpen(false)}
+          title="このタスクに着手しますか？"
+          maxWidth="max-w-sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setStartPromptOpen(false)}>着手しない（あとで）</Button>
+              <Button variant="primary" disabled={!canStart || advancing} onClick={async () => { await handleAdvance(); setStartPromptOpen(false) }}>
+                <Play className="w-4 h-4" /> 着手する
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <div className="text-[13px] font-semibold text-gray-800">「{task.title}」</div>
+            {canStart ? (
+              <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <PackageCheck className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                <span>着手OK{startSignal.reason ? `：${startSignal.reason}` : ''}。着手すると「対応中」になります。</span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
+                <span>
+                  まだ<strong className="font-semibold">着手OKになっていません</strong>。
+                  {waiting ? `受領待ち${receiptWaitNote(task) ? `（${receiptWaitNote(task)}）` : ''}。資料の受領後に着手できます。` : '受信簿で資料を受領するか、前段タスクの完了で着手OKになります。'}
+                </span>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   )
