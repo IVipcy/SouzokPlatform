@@ -646,6 +646,7 @@ export type RealEstatePropertyRow = {
   registration_notes: string | null                // 備考
   notes: string | null
   acquired_part: string | null                     // 取得した受注区分パート（パート制。migration 129）
+  appraisal_value: number | null                   // 評価額（migration 143。目録・精算書へ）
   created_at: string
 }
 
@@ -713,7 +714,39 @@ export type FinancialAssetRow = {
   freeze_confirmed: boolean                   // 凍結確認済（migration 142。未確認だと金融タスク着手不可）
   freeze_confirmed_by: string | null          // 凍結確認した管理担当
   freeze_confirmed_at: string | null          // 凍結確認日時
+  balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
+  oc_transferred: boolean                      // オーシャンへ残高移管済（預金。精算書）
   created_at: string
+}
+
+// === 財産目録・請求・精算書・指図書（migration 143） ===
+export type AssetInventoryRow = {
+  id: string; case_id: string
+  asset_class: string | null   // 金融 / 不動産 / その他
+  detail: string | null; amount: number | null; sort_order: number; created_at: string
+}
+export type RewardItemRow = {
+  id: string; case_id: string
+  shigyo: string               // 司法 / 行政
+  label: string | null; amount: number; discount: number; note: string | null; sort_order: number; created_at: string
+}
+export type BillingExpenseItemRow = {
+  id: string; case_id: string; shigyo: string | null
+  label: string | null; amount: number; sort_order: number; created_at: string
+}
+export type SettlementIncomeItemRow = {
+  id: string; case_id: string
+  asset_class: string | null; detail: string | null; amount: number; oc_transferred: boolean; sort_order: number; created_at: string
+}
+export type SettlementExpenseItemRow = {
+  id: string; case_id: string
+  kind: string | null          // 報酬 / 立替 / 代理支払
+  label: string | null; amount: number; source: string | null; ref_id: string | null; sort_order: number; created_at: string
+}
+export type InstructionItemRow = {
+  id: string; case_id: string; heir_id: string | null; heir_name: string | null
+  bank_name: string | null; branch_name: string | null; account_no: string | null
+  amount: number | null; transferred: boolean; sort_order: number; created_at: string
 }
 
 // === 分割内容 ===

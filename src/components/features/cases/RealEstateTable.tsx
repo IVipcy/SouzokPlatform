@@ -8,6 +8,7 @@ import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } f
 import {
   SELLING_INTENTIONS, OCCUPANCY_STATUSES, PROPERTY_RANKS, PROPERTY_EVALUATION_METHODS,
 } from '@/lib/constants'
+import { MoneyInput } from './FinancialAssetsTable'
 import type { RealEstatePropertyRow } from '@/types'
 
 const PROPERTY_TYPES = ['戸建', 'マンション', '土地', '収益物件', 'その他']
@@ -61,7 +62,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 940 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1040 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-1 py-2 w-7" />
@@ -71,13 +72,14 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
               <th className="px-2.5 py-2 text-left font-semibold w-28">売却意向</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">評価ランク</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">査定状況</th>
+              <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
             ) : (
               rows.map(r => (
                 <RealRow
@@ -134,6 +136,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
         {sel('sale_intention', SELLING_INTENTIONS)}
         {sel('rank', PROPERTY_RANKS)}
         {sel('appraisal_status', APPRAISAL_STATUSES)}
+        <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" />
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -141,7 +144,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
       </tr>
       {open && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
-          <td colSpan={9} className="px-4 py-3 space-y-3">
+          <td colSpan={10} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
             <div>
               <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />

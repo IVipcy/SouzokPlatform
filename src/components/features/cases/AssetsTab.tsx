@@ -11,10 +11,11 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import InventoryTab from './InventoryTab'
 import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
@@ -29,6 +30,8 @@ type Props = {
   contractDocuments?: ContractDocumentRow[]
   // 不動産の取得資料管理
   acquisitions?: RealEstateAcquisitionRow[]
+  // 財産目録（migration 143）
+  assetInventory?: AssetInventoryRow[]
   // 受信簿＋タスク（金融資産の「関連タスク」リンク用）
   documentReceipts?: TimelineReceipt[]
   tasks?: TaskRow[]
@@ -42,6 +45,7 @@ type Props = {
 const MAIN_TABS: { key: string; label: string }[] = [
   { key: 'conditions', label: '財産調査条件' },
   { key: 'targets', label: '調査対象' },
+  { key: 'inventory', label: '財産目録' },
 ]
 
 const ASSET_SUBTABS: { key: string; label: string }[] = [
@@ -52,7 +56,7 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'insurance', label: '生命保険' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -142,6 +146,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, onRef
           </FieldGrid>
         </div>
         {/* 契約時受領の財産書類は不動産/金融の各表の先頭に「契約時受領」として取り込み表示（二重登録防止）。 */}
+      </div>
+
+      {/* 財産目録タブ */}
+      <div className={mainTab === 'inventory' ? '' : 'hidden'}>
+        <Section title="財産目録（協議書・精算書へ反映）">
+          <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} onRefresh={onRefresh} />
+        </Section>
       </div>
     </div>
   )

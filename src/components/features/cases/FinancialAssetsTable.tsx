@@ -111,8 +111,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結確認 +列 +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = 1 + cols.length + 3 + (progressMode ? 4 : 0) + 1
+  // 凍結確認 +列 +残高 +取得区分 +調査期間 +備考 (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = 1 + cols.length + 1 + 3 + (progressMode ? 4 : 0) + 1
 
   return (
     <div>
@@ -124,6 +124,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
+              <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
@@ -163,6 +164,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       )}
                     </td>
                   ))}
+                  {/* 残高/評価額（目録・精算書の収入の源泉） */}
+                  <td className="px-2 py-1.5">
+                    <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />
+                  </td>
                   {/* 取得区分 */}
                   <td className="px-2 py-1.5">
                     <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
@@ -229,6 +234,21 @@ function TextInput({ value, onChange, onCommit, placeholder }: { value: string |
       onBlur={e => onCommit(e.target.value)}
       placeholder={placeholder}
       className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
+    />
+  )
+}
+
+export function MoneyInput({ value, onCommit, placeholder }: { value: number | null | undefined; onCommit: (v: string) => void; placeholder?: string }) {
+  const [text, setText] = useState(value != null ? String(value) : '')
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={text}
+      onChange={e => setText(e.target.value.replace(/[^\d.]/g, ''))}
+      onBlur={() => onCommit(text)}
+      placeholder={placeholder ?? '0'}
+      className="w-full px-1.5 py-1.5 text-[12px] text-right bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition tabular-nums"
     />
   )
 }
