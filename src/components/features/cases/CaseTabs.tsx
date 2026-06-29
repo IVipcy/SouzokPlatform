@@ -41,7 +41,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   mediation: '調停',
   probate: '遺言検認',
   guardianship: '成年後見',
-  contract: '報酬・請求',
+  contract: '請求',
   docs: '到着物',
   documentCreate: '書類作成',
   tasks: 'タスク',
@@ -58,7 +58,8 @@ const TAB_GROUP: Record<TabKey, Group> = {
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
-  ownerSales: 'info', orderContent: 'info', contract: 'info',
+  contract: 'practice',
+  ownerSales: 'info', orderContent: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',
 }

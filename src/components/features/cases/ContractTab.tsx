@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt } from 'lucide-react'
+import { ExternalLink, Receipt, Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
 import {
   Section, FieldGrid, Field,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/InlineFields'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
+import RewardBreakdownSection from './RewardBreakdownSection'
 
 type Props = {
   caseData: CaseRow
@@ -86,6 +88,30 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
+  // 立替実費の追加・削除（請求タブで直接管理）
+  const [expForm, setExpForm] = useState<{ item: string; amount: string; date: string } | null>(null)
+  const addExpense = async () => {
+    if (!expForm?.item || !expForm.amount) return
+    const supabase = createClient()
+    const { error } = await supabase.from('expenses').insert({ case_id: caseData.id, item_name: expForm.item, amount: Number(expForm.amount), expense_date: expForm.date || null })
+    if (error) { showToast(`追加に失敗: ${error.message}`, 'error'); return }
+    setExpForm(null); _onRefresh()
+  }
+  const deleteExpense = async (id: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('expenses').delete().eq('id', id)
+    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    _onRefresh()
+  }
+
+  // 報酬内訳の合計 → cases.fee_judicial / fee_administrative へ反映（確定報酬）
+  const applyRewardTotals = async (shihou: number, gyousei: number) => {
+    const patch: Partial<CaseRow> = {}
+    if ((caseData.fee_judicial ?? 0) !== shihou) patch.fee_judicial = shihou
+    if ((caseData.fee_administrative ?? 0) !== gyousei) patch.fee_administrative = gyousei
+    if (Object.keys(patch).length > 0) await patchCase(patch)
+  }
+
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = feeSubtotal - advanceTotal(caseData)
@@ -109,7 +135,14 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="報酬・請求" description="契約情報、報酬・実費、請求書の発行・入金確認の管理" />}
+      {!orderSheetMode && <TabHeader title="請求" description="報酬の内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理" />}
+
+      {/* 報酬内訳（司法/行政。割引後合計＝確定報酬） */}
+      <Section title="報酬内訳（司法／行政）">
+        <RewardBreakdownSection caseId={caseData.id} onTotals={applyRewardTotals} />
+        <p className="text-[11px] text-gray-400 mt-2">各士業の「割引後」合計が確定報酬になり、前受金・確定請求の発行金額に反映されます。</p>
+      </Section>
+
 
           {/* 1. 契約情報（契約形態は「担当・受注内容」タブへ移設） */}
           <Section title="契約情報">
@@ -130,19 +163,11 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             </FieldGrid>
           </Section>
 
-          {/* 2. 報酬（契約条件） */}
-          <Section title="報酬（契約条件）" icon="💳">
+          {/* 2. 報酬・前受金（報酬金額は上の内訳から自動） */}
+          <Section title="報酬・前受金" icon="💳">
             <FieldGrid cols={1}>
-              <InlineCurrency
-                label="報酬金額（行政）"
-                value={caseData.fee_administrative}
-                onSave={v => save('fee_administrative', v)}
-              />
-              <InlineCurrency
-                label="報酬金額（司法）"
-                value={caseData.fee_judicial}
-                onSave={v => save('fee_judicial', v)}
-              />
+              <Field label="確定報酬（行政）＝内訳合計" value={yen(caseData.fee_administrative)} mono />
+              <Field label="確定報酬（司法）＝内訳合計" value={yen(caseData.fee_judicial)} mono />
               <Field label="報酬小計" value={yen(feeSubtotal)} mono />
               <InlineCurrency
                 label="前受金（行政）"
@@ -274,6 +299,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                       <th className="pb-1.5 font-medium">発生日</th>
                       <th className="pb-1.5 font-medium">備考</th>
                       <th className="pb-1.5 font-medium text-[11px]">請求</th>
+                      <th className="pb-1.5 w-7" />
                     </tr>
                   </thead>
                   <tbody>
@@ -292,6 +318,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                             <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">未請求</span>
                           )}
                         </td>
+                        <td className="py-1.5 text-center">
+                          {!e.billed_invoice_id && <button type="button" onClick={() => deleteExpense(e.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -299,15 +328,27 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                     <tr className="border-t border-gray-200">
                       <td className="pt-2 font-medium text-gray-700 text-xs">合計</td>
                       <td className="pt-2 text-right font-bold text-gray-900 font-mono text-xs">¥{expenseTotal.toLocaleString()}</td>
-                      <td colSpan={3}></td>
+                      <td colSpan={4}></td>
                     </tr>
                   </tfoot>
                 </table>
               ) : (
                 <p className="text-gray-400 text-center py-3 text-xs">立替実費はありません</p>
               )}
+              {/* 立替の追加（請求タブで直接） */}
+              {expForm ? (
+                <div className="mt-2 flex items-center gap-2 flex-wrap border-t border-gray-100 pt-2">
+                  <input value={expForm.item} onChange={e => setExpForm({ ...expForm, item: e.target.value })} placeholder="費目 *" className="px-2 py-1 text-[12px] border border-gray-200 rounded w-40 outline-none focus:border-brand-400" />
+                  <input value={expForm.amount} onChange={e => setExpForm({ ...expForm, amount: e.target.value.replace(/[^\d]/g, '') })} placeholder="金額 *" inputMode="numeric" className="px-2 py-1 text-[12px] border border-gray-200 rounded w-28 text-right outline-none focus:border-brand-400" />
+                  <input type="date" value={expForm.date} onChange={e => setExpForm({ ...expForm, date: e.target.value })} className="px-2 py-1 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-400" />
+                  <button type="button" onClick={addExpense} disabled={!expForm.item || !expForm.amount} className="px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 rounded hover:bg-brand-700 disabled:opacity-50">追加</button>
+                  <button type="button" onClick={() => setExpForm(null)} className="px-2 py-1 text-[12px] text-gray-500 hover:text-gray-700">取消</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setExpForm({ item: '', amount: '', date: '' })} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 立替実費を追加</button>
+              )}
               <p className="text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100">
-                立替実費の追加・編集は<Link href={`/billing?case=${caseData.id}`} className="text-brand-600 hover:underline mx-0.5">請求・入金</Link>の請求書発行時に行えます。
+                請求書の発行・入金確認は<Link href={`/billing?case=${caseData.id}`} className="text-brand-600 hover:underline mx-0.5">請求・入金</Link>で行えます（報酬・立替はこの内訳から発行）。
               </p>
             </div>
           </Section>
