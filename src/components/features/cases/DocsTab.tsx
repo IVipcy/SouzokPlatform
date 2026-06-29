@@ -43,6 +43,8 @@ type ReceiptItemRow = {
   linkedTasks: { id: string; title: string }[]
   notRequired: boolean        // タスク紐づけ不要（契約書類の自動判定 or 手動フラグ）
   manualFlag: boolean | null  // link_not_required の生値（null=自動判定）
+  settlementReflect: boolean  // 精算書(代理支払)へ反映
+  settlementAmount: number | null
 }
 
 type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
@@ -108,6 +110,8 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           linkedTasks: linked,
           notRequired,
           manualFlag,
+          settlementReflect: it.settlement_reflect === true,
+          settlementAmount: it.settlement_amount ?? null,
         })
       }
     }
@@ -152,6 +156,19 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
       const { error } = await supabase.from('document_receipt_items')
         .update({ uploaded_at: makeUploaded ? new Date().toISOString() : null })
         .eq('id', itemId)
+      if (error) { showToast(`更新に失敗: ${error.message}`, 'error'); return }
+      router.refresh()
+    })
+  }
+
+  // 精算書（代理支払）への反映フラグ＋金額（お客様宛の支払請求書をオーシャンが支払う分）
+  const setSettlement = (itemId: string | null, reflect: boolean, amount?: number | null) => {
+    if (!itemId) return
+    startTransition(async () => {
+      const supabase = createClient()
+      const patch: Record<string, unknown> = { settlement_reflect: reflect }
+      if (amount !== undefined) patch.settlement_amount = amount
+      const { error } = await supabase.from('document_receipt_items').update(patch).eq('id', itemId)
       if (error) { showToast(`更新に失敗: ${error.message}`, 'error'); return }
       router.refresh()
     })
@@ -290,6 +307,15 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                               紐づけ不要
                             </button>
                           )
+                        )}
+                        {/* 精算書（代理支払）へ反映：お客様宛の支払請求書をオーシャンが支払う分 */}
+                        {row.settlementReflect ? (
+                          <span className="inline-flex items-center gap-1">
+                            <input type="number" defaultValue={row.settlementAmount ?? ''} onBlur={e => setSettlement(row.realItemId, true, e.target.value === '' ? null : Number(e.target.value))} placeholder="金額" className="w-20 px-1 py-0.5 text-[11px] text-right border border-emerald-200 bg-emerald-50/40 rounded outline-none focus:border-emerald-400" />
+                            <button type="button" onClick={() => setSettlement(row.realItemId, false)} className="text-[11px] text-emerald-700 font-semibold" title="精算反映を解除">精算反映✓</button>
+                          </span>
+                        ) : (
+                          <button type="button" onClick={() => setSettlement(row.realItemId, true)} disabled={!row.realItemId} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded disabled:opacity-50" title="精算書（代理支払）に反映する">精算反映</button>
                         )}
                       </div>
                       )}

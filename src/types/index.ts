@@ -754,6 +754,7 @@ export type DivisionDetailRow = {
   id: string
   case_id: string
   asset_category: string
+  amount: number | null            // 金額（migration 144。目録から反映）
   division_method: string | null
   recipient: string | null
   share_ratio: string | null

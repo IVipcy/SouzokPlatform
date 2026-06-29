@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import DivisionDetailsTable from './DivisionDetailsTable'
 import AgreementDispatchTable from './AgreementDispatchTable'
-import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow } from '@/types'
+import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow, AssetInventoryRow } from '@/types'
 import {
   WILL_CREATION_PLACES,
   WILL_TYPES,
@@ -37,6 +37,7 @@ type Props = {
   caseData: CaseRow
   divisionDetails: DivisionDetailRow[]
   heirs: HeirRow[]
+  assetInventory?: AssetInventoryRow[]
   agreementDispatches?: AgreementDispatchRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
@@ -46,7 +47,7 @@ type Props = {
   orderSheetMode?: boolean
 }
 
-export default function DivisionTab({ caseData, divisionDetails, heirs, agreementDispatches = [], onRefresh, patchCase, mode = 'division', orderSheetMode = false }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, heirs, assetInventory = [], agreementDispatches = [], onRefresh, patchCase, mode = 'division', orderSheetMode = false }: Props) {
   const [divSub, setDivSub] = useState<'plan' | 'mail'>('plan')
 
   const saveCaseField = async (field: string, value: string) => {
@@ -122,7 +123,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, agreemen
 
             {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
             <Section title="分割内容">
-              <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} onRefresh={onRefresh} />
+              <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} assetInventory={assetInventory} onRefresh={onRefresh} />
             </Section>
           </div>
         )

@@ -87,13 +87,18 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     if (gy > 0) rows.push({ case_id: caseData.id, kind: '報酬', label: 'オーシャン報酬（行政）', amount: gy, source: 'reward', sort_order: order++ })
     const expTotal = ((exp.data ?? []) as Array<{ amount: number }>).reduce((n, e) => n + (e.amount ?? 0), 0)
     if (expTotal > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費', amount: expTotal, source: 'expense', sort_order: order++ })
-    if (rows.length === 0) { showToast('取り込む報酬・立替がありません（請求タブで入力してください）', 'info'); return }
-    // 既存の reward/expense 由来は作り直す（重複防止）
-    await supabase.from('settlement_expense_items').delete().eq('case_id', caseData.id).in('source', ['reward', 'expense'])
+    // 受信簿で「精算書に反映」した代理支払（介護施設・葬儀費用等）
+    const rec = await supa.from('document_receipts').select('items:document_receipt_items(item_name, settlement_amount, settlement_reflect)').eq('case_id', caseData.id)
+    const payItems = ((rec.data ?? []) as Array<{ items: Array<{ item_name: string; settlement_amount: number | null; settlement_reflect: boolean }> | null }>)
+      .flatMap(r => r.items ?? []).filter(i => i.settlement_reflect)
+    for (const p of payItems) rows.push({ case_id: caseData.id, kind: '代理支払', label: p.item_name, amount: p.settlement_amount ?? 0, source: 'receipt', sort_order: order++ })
+    if (rows.length === 0) { showToast('取り込む報酬・立替・代理支払がありません', 'info'); return }
+    // 既存の reward/expense/receipt 由来は作り直す（重複防止。手動の代理支払は残す）
+    await supabase.from('settlement_expense_items').delete().eq('case_id', caseData.id).in('source', ['reward', 'expense', 'receipt'])
     const { data, error } = await supabase.from('settlement_expense_items').insert(rows).select('*')
     if (error) { showToast(`取込に失敗: ${error.message}`, 'error'); return }
-    setExpense(prev => [...prev.filter(r => r.source !== 'reward' && r.source !== 'expense'), ...((data ?? []) as SettlementExpenseItemRow[])])
-    showToast('請求タブから報酬・立替を取り込みました', 'success')
+    setExpense(prev => [...prev.filter(r => !['reward', 'expense', 'receipt'].includes(r.source ?? '')), ...((data ?? []) as SettlementExpenseItemRow[])])
+    showToast('請求タブ・受信簿から取り込みました', 'success')
   }
   const addExpense = async () => {
     const { data, error } = await supabase.from('settlement_expense_items').insert({ case_id: caseData.id, kind: '代理支払', source: 'manual', sort_order: expense.length }).select('*').single()
@@ -152,8 +157,8 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
         <Section title="支出（報酬・立替・代理支払）">
           <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={importExpense} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 請求タブから報酬・立替を取込</button>
-            <span className="text-[11px] text-gray-400">代理支払（介護施設・葬儀等）は受信簿から反映 or 手動追加</span>
+            <button type="button" onClick={importExpense} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 請求・受信簿から取込</button>
+            <span className="text-[11px] text-gray-400">報酬・立替（請求タブ）＋代理支払（受信簿で精算反映した分）を取込</span>
           </div>
           <table className="w-full text-[12px] border-collapse" style={{ minWidth: 560 }}>
             <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-24">区分</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 w-7" /></tr></thead>

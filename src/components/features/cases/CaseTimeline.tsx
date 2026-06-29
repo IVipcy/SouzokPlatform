@@ -31,6 +31,8 @@ export type TimelineReceipt = {
     sort_order: number
     uploaded_at?: string | null
     link_not_required?: boolean | null
+    settlement_reflect?: boolean | null
+    settlement_amount?: number | null
     linked_id?: string | null
     linked_kind?: string | null
     linked_field?: string | null

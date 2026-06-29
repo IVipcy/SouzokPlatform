@@ -377,7 +377,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} assetInventory={assetInventory} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
       )}
       {effectiveTab === 'division' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} assetInventory={assetInventory} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
       )}
       {effectiveTab === 'will' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
