@@ -14,6 +14,7 @@ import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { useIsManager } from '@/components/providers/AuthProvider'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
 import type { RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
@@ -36,6 +37,7 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
 }
 
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
+  const canManage = useIsManager()  // 受信確定(W-Check)・タスク紐づけ等は管理担当のみ
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
 
@@ -105,6 +107,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                   currentMember={currentMember}
                   onChanged={onChanged}
                   onStartRequest={setStartingReceipt}
+                  canManage={canManage}
                 />
               ))}
             </tbody>
@@ -555,6 +558,7 @@ function ReceiptRow({
   currentMember,
   onChanged,
   onStartRequest,
+  canManage,
 }: {
   receipt: DocumentReceiptRow
   rowBg: string
@@ -562,6 +566,7 @@ function ReceiptRow({
   currentMember: MemberRow | null
   onChanged: () => void
   onStartRequest: (r: DocumentReceiptRow) => void
+  canManage: boolean
 }) {
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
@@ -730,6 +735,8 @@ function ReceiptRow({
                       size="xs"
                     />
                   </button>
+                ) : !canManage ? (
+                  <span className="text-[11px] text-gray-300" title="受信確定(W-Check)は管理担当のみ">未確認</span>
                 ) : (
                   <button
                     type="button"
@@ -769,6 +776,8 @@ function ReceiptRow({
                   <span className="text-[11px] text-gray-400" title="W-Check（受信確定）後にタスク着手できます">
                     W-Check待ち
                   </span>
+                ) : !canManage ? (
+                  <span className="text-[11px] text-gray-300" title="到着物の紐づけ・対応は管理担当のみ">管理担当</span>
                 ) : (
                   <button
                     type="button"

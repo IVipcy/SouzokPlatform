@@ -39,3 +39,16 @@ export function useHasPermission(permission: string) {
   if (user.roles.includes('manager')) return true
   return user.permissions.includes(permission)
 }
+
+// 管理担当系アカウントか（受信・到着物紐づけ・凍結確認など管理担当限定操作の判定用）。
+export function useIsManager() {
+  const user = useAuth()
+  if (!user) return false
+  return (
+    user.primaryRole === 'manager' ||
+    user.primaryRole === 'sub_manager' ||
+    user.primaryRole === 'system_manager' ||
+    user.roles.includes('manager') ||
+    user.roles.includes('system_manager')
+  )
+}

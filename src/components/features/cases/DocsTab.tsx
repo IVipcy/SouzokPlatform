@@ -14,6 +14,7 @@ import CaseFolderSection from './CaseFolderSection'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isItemNotRequired } from '@/lib/receiptLink'
+import { useIsManager } from '@/components/providers/AuthProvider'
 import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -57,6 +58,7 @@ type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
  */
 export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], currentMemberId = null }: Props) {
   const router = useRouter()
+  const isManager = useIsManager()  // 到着物のタスク紐づけ・受信操作は管理担当のみ
   const [, startTransition] = useTransition()
   const [filter, setFilter] = useState<FilterKey>('all')
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
@@ -253,6 +255,9 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                       )}
                     </td>
                     <td className="px-3 py-2 text-center">
+                      {!isManager ? (
+                        <span className="text-[11px] text-gray-300" title="到着物の紐づけは管理担当のみ">—</span>
+                      ) : (
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
@@ -287,6 +292,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                           )
                         )}
                       </div>
+                      )}
                     </td>
                   </tr>
                 ))}

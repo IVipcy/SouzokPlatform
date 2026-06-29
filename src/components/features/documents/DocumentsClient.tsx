@@ -6,6 +6,7 @@ import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
+import { useIsManager } from '@/components/providers/AuthProvider'
 import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
 
 type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
@@ -20,6 +21,7 @@ type Props = {
 
 export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember }: Props) {
   const router = useRouter()
+  const isManager = useIsManager()  // 受信登録・受信確定は管理担当のみ
   const [, startTransition] = useTransition()
   const refresh = () => startTransition(() => router.refresh())
   // case_document_id → 受領ファイル。受信簿の各到着物から開く/未添付判定に使う。
@@ -73,16 +75,24 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
                 className="pl-8 pr-3 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none w-64"
               />
             </div>
-            <button
-              onClick={() => setReceiptModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              新規作成
-            </button>
+            {isManager && (
+              <button
+                onClick={() => setReceiptModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                新規作成
+              </button>
+            )}
           </>
         }
       />
+
+      {!isManager && (
+        <div className="mb-3 text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+          到着物の受信登録・受信確定（W-Check）・タスク紐づけは<strong className="font-semibold">管理担当のみ</strong>が操作できます（閲覧は可能）。
+        </div>
+      )}
 
       {/* 案件絞り込み */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
