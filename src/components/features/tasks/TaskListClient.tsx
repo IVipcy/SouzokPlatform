@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck, Compass } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
@@ -39,6 +39,8 @@ type Props = {
   currentMemberId: string | null
   /** 受信簿（着手OK＝書類受領の判定に使う・1タスク1行に展開済み） */
   receipts?: ReadinessReceipt[]
+  /** 担当区分スコープ。'assistant'=事務管理タスク一覧（既定）/ 'manager'=管理担当タスク一覧 */
+  roleScope?: 'assistant' | 'manager'
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -53,7 +55,7 @@ const normalizeStatus = (status: string) => {
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [] }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant' }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -83,12 +85,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 事務管理タスク一覧: 案件タスク（task_kind='case'）を対象とする。
-  // 受注/管理担当の初期タスク(task_kind='system')はこの一覧から除外。
-  // 互換のため、work_role='assistant' のタスクも拾う（旧データ）。
+  // 案件タスク（task_kind='case'）を担当区分(work_role)で振り分ける。
+  // 受注/管理担当の初期タスク(task_kind='system')はどちらの一覧からも除外。
+  //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
+  //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
   const assistantTasks = useMemo(
-    () => tasks.filter(t => t.task_kind === 'case' || t.work_role === 'assistant'),
-    [tasks],
+    () => tasks.filter(t => {
+      if (t.task_kind !== 'case' && t.work_role !== 'assistant' && t.work_role !== 'manager') return false
+      if (t.task_kind === 'system') return false
+      return roleScope === 'manager' ? t.work_role === 'manager' : t.work_role !== 'manager'
+    }),
+    [tasks, roleScope],
   )
 
   const filtered = useMemo(() => {
@@ -357,9 +364,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
         <PageHeader
           eyebrow="Tasks"
-          title="事務管理タスク一覧"
-          icon={ListChecks}
-          description="事務管理担当のタスクを管理"
+          title={roleScope === 'manager' ? '管理担当タスク一覧' : '事務管理タスク一覧'}
+          icon={roleScope === 'manager' ? Compass : ListChecks}
+          description={roleScope === 'manager' ? '管理担当が行う作業タスクを管理' : '事務管理担当のタスクを管理'}
           right={
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
               <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />

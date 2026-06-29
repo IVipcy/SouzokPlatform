@@ -9,6 +9,7 @@ import {
   Briefcase,
   PenSquare,
   ListChecks,
+  Compass,
   FileText,
   Receipt,
   BookOpen,
@@ -48,6 +49,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
       { href: '/meeting',  label: '新規案件登録', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
+      { href: '/manager-tasks', label: '管理担当タスク一覧', Icon: Compass },
     ],
   },
   {
@@ -130,7 +132,13 @@ export default function Sidebar() {
       {/* ナビゲーション（マイページは 受注/管理/システム管理者 のみ表示） */}
       {(() => {
         const canMyPage = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
-        const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => it.href !== '/my' || canMyPage) }))
+        // 管理担当タスク一覧は 管理担当系 / システム管理者のみ（事務管理アカウントには出さない）
+        const canManagerTasks = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || user.roles.includes('manager') || ['manager', 'sub_manager'].includes(user.primaryRole ?? ''))
+        const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
+          if (it.href === '/my') return canMyPage
+          if (it.href === '/manager-tasks') return canManagerTasks
+          return true
+        }) }))
         return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
         {visibleSections.map((section) => (

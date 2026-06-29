@@ -118,6 +118,13 @@ export function canSeeMyPage(user: UserWithRoles | null): boolean {
   return user.primaryRole === 'sales' || user.primaryRole === 'manager' || user.primaryRole === 'sub_manager'
 }
 
+/** 管理担当タスク一覧を見られるのは 管理担当系 と システム管理者のみ（事務管理アカウントには出さない） */
+export function canSeeManagerTasks(user: UserWithRoles | null): boolean {
+  if (!user) return false
+  if (isSystemManager(user)) return true
+  return user.primaryRole === 'manager' || user.primaryRole === 'sub_manager' || user.roles.includes('manager')
+}
+
 /** 銀行CSV入金突合ができるのは 経理 と システム管理者のみ（manager不可） */
 export function canReconcilePayments(user: UserWithRoles | null): boolean {
   if (!user) return false
