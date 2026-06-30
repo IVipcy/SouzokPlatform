@@ -13,6 +13,7 @@ import RelatedTaskChips from './RelatedTaskChips'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import SelectOrTextField from './SelectOrTextField'
+import { municipalityOf } from './RealEstateSection'
 
 type Props = {
   caseId: string
@@ -58,16 +59,24 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   // scope に応じて取得物の選択肢を絞る（市区町村単位＝評価証明/名寄帳、物件単位＝登記情報 等）
   const scopeTarget = scope === 'municipality' ? '市区町村' : scope === 'property' ? '物件' : null
   const itemKeys = scopeTarget ? ACQUISITION_ITEMS.filter(i => i.target === scopeTarget).map(i => i.key) : ACQUISITION_ITEM_KEYS
-  // この市区町村に属する物件（物件単位の対象を絞る）
-  const muniProps = municipalityFilter != null ? properties.filter(p => (p.municipality ?? '') === municipalityFilter) : properties
+  // この市区町村に属する物件（物件単位の対象を絞る）。タブキーは municipalityOf（住所からの派生）なので揃える。
+  const muniProps = municipalityFilter != null ? properties.filter(p => municipalityOf(p) === municipalityFilter) : properties
   const muniPropIds = new Set(muniProps.map(p => p.id))
-  // 表示行：scope（取得物の対象種別）＋市区町村でフィルタ
-  const visibleRows = rows.filter(r => {
+  // 表示行：scope列（①市区町村/②物件）＋市区町村でフィルタ。
+  // scope列が未設定のレガシー行は取得物(item_type)の対象種別から推定。
+  const rowScopeOf = (r: RealEstateAcquisitionRow): 'municipality' | 'property' | null => {
+    if (r.scope) return r.scope
     const meta = itemMeta(r.item_type)
-    if (scopeTarget && meta && meta.target !== scopeTarget) return false
+    return meta ? (meta.target === '物件' ? 'property' : 'municipality') : null
+  }
+  const visibleRows = rows.filter(r => {
+    if (scopeTarget) {
+      const rs = rowScopeOf(r)
+      if (rs == null || rs !== scope) return false   // scope不明 or 別scope行は出さない（①②の混在を防ぐ）
+    }
     if (municipalityFilter == null) return true
-    if (scope === 'municipality') return (r.target_municipality ?? '') === municipalityFilter || !r.item_type
-    if (scope === 'property') return r.target_property_id == null || muniPropIds.has(r.target_property_id)
+    if (scope === 'municipality') return (r.target_municipality ?? '') === municipalityFilter
+    if (scope === 'property') return (r.target_property_id != null && muniPropIds.has(r.target_property_id)) || (r.target_property_id == null && (r.target_municipality ?? '') === municipalityFilter)
     return true
   })
 
@@ -87,7 +96,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
 
   const addRow = async () => {
     const init: Partial<RealEstateAcquisitionRow> = { case_id: caseId, sort_order: rows.length }
-    if (scope === 'municipality' && municipalityFilter != null) init.target_municipality = municipalityFilter
+    if (scope === 'municipality' || scope === 'property') init.scope = scope
+    // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）
+    if (municipalityFilter != null) init.target_municipality = municipalityFilter
     const { error } = await supabase.from('real_estate_acquisitions').insert(init)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
@@ -145,7 +156,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     {meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>}
                   </td>
                   <td className="px-2.5 py-1.5">
-                    {isProp ? (
+                    {(scope === 'property' || (scope === 'all' && isProp)) ? (
                       <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={selCls}>
                         <option value="">— 物件を選択 —</option>
                         {muniProps.map(p => <option key={p.id} value={p.id}>{propLabel(p)}</option>)}
