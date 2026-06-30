@@ -86,15 +86,37 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
 
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
-  // 相関図：対象者ごとの状態ロールアップ（追加調査中 > 対応中/未着手 > 完了）
-  const persons = [...new Set(requests.map(r => (r.target_person ?? '').trim()).filter(Boolean))]
-  const personStatus = (p: string) => {
-    const sts = requests.filter(r => (r.target_person ?? '').trim() === p).map(r => statuses[r.id] ?? '未着手')
+  // 相関図：人（被相続人＋相続人）ごとの戸籍取得状況。請求が無ければ未着手。
+  const statusForName = (name: string) => {
+    const sts = requests.filter(r => (r.target_person ?? '').trim() === name.trim()).map(r => statuses[r.id] ?? '未着手')
+    if (!sts.length) return '未着手'
     if (sts.some(s => s === '追加調査中')) return '追加調査中'
-    if (sts.length && sts.every(s => s === '完了')) return '完了'
+    if (sts.every(s => s === '完了')) return '完了'
     if (sts.some(s => s === '対応中')) return '対応中'
     return '未着手'
   }
+  const jumpToPerson = (name: string) => { const r = requests.find(x => (x.target_person ?? '').trim() === name.trim()); if (r) setSub(r.id) }
+  // 相続人を続柄で段組み（尊属／配偶者／子／孫／傍系）
+  const rel = (h: HeirRow) => (h.relationship_type || h.relationship || '').trim()
+  const grp = (...keys: string[]) => heirs.filter(h => keys.includes(rel(h)))
+  const ancestors = grp('父', '母', '祖父', '祖母')
+  const spouses = grp('配偶者')
+  const children = grp('長男', '長女', '次男', '次女', '三男', '三女', '養子')
+  const grandchildren = grp('孫', 'ひ孫')
+  const collateral = grp('兄', '姉', '弟', '妹', '甥', '姪')
+  const placed = new Set([...ancestors, ...spouses, ...children, ...grandchildren, ...collateral])
+  const others = heirs.filter(h => !placed.has(h))
+  const pnode = (name: string, relLabel: string) => {
+    const st = statusForName(name)
+    return (
+      <button key={`${relLabel}-${name}`} type="button" onClick={() => jumpToPerson(name)} className="rounded-md border border-gray-200 px-2.5 py-1.5 text-center bg-white hover:border-brand-300 min-w-[92px]">
+        {relLabel && <div className="text-[10px] text-gray-400">{relLabel}</div>}
+        <div className="text-[12px] font-medium">{name}</div>
+        <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${summaryStatusClass(st)}`}>{st}</span>
+      </button>
+    )
+  }
+  const conn = <div className="w-px h-3 bg-gray-300" />
 
   const tabs = [{ id: 'top', label: '一覧（TOP）' }, ...requests.map(r => ({ id: r.id, label: reqLabel(r) }))]
   const active = requests.find(r => r.id === sub)
@@ -163,25 +185,34 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
               </div>
             </div>
 
-            {/* 相続相関図（状態反映・簡略版：被相続人＋対象者ノード） */}
+            {/* 相続相関図（被相続人＋相続人を続柄で配置・状態を反映） */}
             <div>
-              <SectionHeading title="相続相関図（状態を反映）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="rounded-md border-2 border-brand-300 px-3 py-1.5 text-center bg-white">
-                  <div className="text-[10px] text-gray-400">被相続人</div>
-                  <div className="text-[12.5px] font-semibold">{deceasedName || '—'}</div>
+              <SectionHeading title="相続相関図（戸籍の取得状況）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <div className="flex flex-col items-center gap-2">
+                {ancestors.length > 0 && (<>
+                  <div className="flex flex-wrap justify-center gap-2">{ancestors.map(h => pnode(h.name, rel(h)))}</div>
+                  {conn}
+                </>)}
+                <div className="flex items-end gap-2">
+                  <button type="button" onClick={() => jumpToPerson(deceasedName || '')} className="rounded-md border-2 border-brand-300 px-3 py-1.5 text-center bg-white hover:border-brand-400 min-w-[92px]">
+                    <div className="text-[10px] text-gray-400">被相続人</div>
+                    <div className="text-[12.5px] font-semibold">{deceasedName || '—'}</div>
+                    <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${summaryStatusClass(statusForName(deceasedName || ''))}`}>{statusForName(deceasedName || '')}</span>
+                  </button>
+                  {spouses.map(h => pnode(h.name, rel(h)))}
                 </div>
-                {persons.length > 0 && <div className="w-px h-3 bg-gray-300" />}
-                <div className="flex flex-wrap justify-center gap-2">
-                  {persons.filter(p => p !== deceasedName).map(p => (
-                    <button key={p} type="button" onClick={() => { const r = requests.find(x => (x.target_person ?? '').trim() === p); if (r) setSub(r.id) }} className="rounded-md border border-gray-200 px-2.5 py-1.5 text-center bg-white hover:border-brand-300">
-                      <div className="text-[12px] font-medium">{p}</div>
-                      <span className={`inline-flex items-center mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${summaryStatusClass(personStatus(p))}`}>{personStatus(p)}</span>
-                    </button>
-                  ))}
-                </div>
+                {(children.length > 0 || grandchildren.length > 0) && conn}
+                {children.length > 0 && <div className="flex flex-wrap justify-center gap-2">{children.map(h => pnode(h.name, rel(h)))}</div>}
+                {grandchildren.length > 0 && (<>{conn}<div className="flex flex-wrap justify-center gap-2">{grandchildren.map(h => pnode(h.name, rel(h)))}</div></>)}
               </div>
-              <p className="mt-2 text-[11px] text-gray-400">ノードをクリックでその請求タブへ。状態は各請求の進捗サマリーから集計（代襲・数次など複雑な家系は簡略表示）。</p>
+              {(collateral.length > 0 || others.length > 0) && (
+                <div className="mt-3 pt-2 border-t border-gray-100">
+                  <div className="text-[10.5px] text-gray-400 mb-1.5">兄弟姉妹・その他</div>
+                  <div className="flex flex-wrap gap-2">{[...collateral, ...others].map(h => pnode(h.name, rel(h)))}</div>
+                </div>
+              )}
+              {heirs.length === 0 && <p className="text-[12px] text-gray-400 text-center py-3">相続人が未登録です。「相続人」タブで登録すると、ここに続柄で並びます。</p>}
+              <p className="mt-2 text-[11px] text-gray-400">被相続人＋相続人を続柄で配置。色＝戸籍取得状況（各人の請求の進捗サマリーから集計／請求なし＝未着手）。ノードクリックでその人の請求タブへ。代襲・数次など複雑な家系は簡略表示。</p>
             </div>
           </div>
         ) : active ? (
