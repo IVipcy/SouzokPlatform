@@ -111,8 +111,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結確認(progressMode時のみ) +列 +残高 +取得区分 +調査期間 +備考 +調査結果 (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + 3 + (progressMode ? 4 : 0) + 1 + 1
+  // 凍結確認(progressMode時のみ) +列 +残高 +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + 3 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   return (
     <div>
@@ -132,7 +132,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">関連タスク</th>}
               <th className="px-2 py-2 text-left font-semibold">備考</th>
-              <th className="px-2 py-2 text-left font-semibold w-56">調査結果</th>
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-56">備考・結果</th>}
               <th className="px-2 py-2 w-8" />
             </tr>
           </thead>
@@ -210,7 +210,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
-                  <td className="px-2 py-1.5"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></td>
+                  {progressMode && <td className="px-2 py-1.5"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></td>}
                   <td className="px-2 py-1.5 text-center">
                     <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>

@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineMultiSelect, InlineEdit, InlineDate, InlineCheckbox, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, INVENTORY_CATEGORIES, REAL_ESTATE_EVAL_METHODS,
+  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, REAL_ESTATE_EVAL_METHODS,
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
@@ -43,11 +43,13 @@ type Props = {
  *   財産調査（調査条件・財産目録）／不動産（表）／金融機関（表）／生命保険提案
  *   不動産・金融機関は表形式で行追加できる（RealEstateTable / FinancialAssetsTable）。
  */
-const MAIN_TABS: { key: string; label: string }[] = [
+const MAIN_TABS_FULL: { key: string; label: string }[] = [
   { key: 'conditions', label: '財産調査条件' },
   { key: 'targets', label: '調査対象' },
   { key: 'inventory', label: '財産目録' },
 ]
+// オーダーシートは調査前の設計情報のみ。財産目録（調査後の集計）はOSでは出さない。
+const MAIN_TABS_OS = MAIN_TABS_FULL.filter(t => t.key !== 'inventory')
 
 const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'realestate', label: '不動産' },
@@ -62,13 +64,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
   const progressMode = !orderSheetMode
+  const MAIN_TABS = orderSheetMode ? MAIN_TABS_OS : MAIN_TABS_FULL
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
-
-  // 財産目録の記載範囲は、受注区分に紐づく業務で「目録（財産目録）」を選択した案件のみ表示。
-  // 受注区分（service_category）未設定の旧案件は後方互換で常に表示。
-  const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
-  const showInventoryRange = !caseData.service_category || selectedGyomu.includes('目録')
 
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
@@ -100,9 +98,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineDate label="財産調査禁止期間 終了日" value={caseData.financial_survey_prohibited_end} onSave={v => save('financial_survey_prohibited_end', v)} />
             <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
-            {showInventoryRange && (
-              <InlineMultiSelect label="財産目録 記載範囲" value={caseData.inventory_categories} options={[...INVENTORY_CATEGORIES]} onSave={v => save('inventory_categories', v.length > 0 ? v : null)} fullWidth />
-            )}
           </FieldGrid>
         </Section>
       </div>
@@ -121,12 +116,15 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           </FieldGrid>
           <div>
             <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} />
           </div>
-          <div>
-            <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
-          </div>
+          {/* 取得資料管理は調査後の進捗。オーダーシート（調査前の設計）では出さない。 */}
+          {!orderSheetMode && (
+            <div>
+              <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
+            </div>
+          )}
         </div>
         <div className={sub === 'deposit' ? 'space-y-3' : 'hidden'}>
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_deposit" title="進捗サマリー（預金調査）" />}
@@ -154,8 +152,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         {/* 契約時受領の財産書類は不動産/金融の各表の先頭に「契約時受領」として取り込み表示（二重登録防止）。 */}
       </div>
 
-      {/* 財産目録タブ */}
-      <div className={mainTab === 'inventory' ? '' : 'hidden'}>
+      {/* 財産目録タブ（オーダーシートでは非表示） */}
+      <div className={mainTab === 'inventory' && !orderSheetMode ? '' : 'hidden'}>
         <Section title="財産目録（協議書・精算書へ反映）">
           <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} onRefresh={onRefresh} />
         </Section>

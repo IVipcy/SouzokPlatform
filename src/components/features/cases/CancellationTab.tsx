@@ -78,7 +78,7 @@ export default function CancellationTab({ caseId, financialAssets, onRefresh, re
                 <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                 <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-56">実施結果</th>
+                {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
               </tr>
             </thead>
             <tbody>
@@ -108,7 +108,7 @@ export default function CancellationTab({ caseId, financialAssets, onRefresh, re
                   {/* 解約書類(cancellation_arrival_date)の受領→着手した解約タスク */}
                   <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                   <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
-                  <TextCell value={r.cancellation_result} onSave={v => save(r.id, 'cancellation_result', v)} placeholder="この解約で分かったこと・結果" />
+                  {!orderSheetMode && <TextCell value={r.cancellation_result} onSave={v => save(r.id, 'cancellation_result', v)} placeholder="この解約で分かったこと・結果" />}
                 </tr>
               ))}
             </tbody>

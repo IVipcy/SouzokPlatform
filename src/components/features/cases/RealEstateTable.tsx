@@ -16,10 +16,12 @@ type Props = {
   caseId: string
   properties: RealEstatePropertyRow[]
   onRefresh?: () => void
+  /** オーダーシート（調査前）では備考・結果列を出さない */
+  orderSheetMode?: boolean
 }
 
 /** 不動産を表形式でインライン編集・行追加。行展開で詳細項目も編集できる（財産調査） */
-export default function RealEstateTable({ caseId, properties, onRefresh }: Props) {
+export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
@@ -67,13 +69,13 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-56">調査結果</th>
+              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+              <tr><td colSpan={orderSheetMode ? 6 : 7} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
             ) : (
               rows.map(r => (
                 <RealRow
@@ -85,6 +87,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
                   commit={commit}
                   saveField={saveField}
                   onDelete={() => delRow(r)}
+                  orderSheetMode={orderSheetMode}
                 />
               ))
             )}
@@ -98,7 +101,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh }: Props
   )
 }
 
-function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
+function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode }: {
   r: RealEstatePropertyRow
   open: boolean
   onToggle: () => void
@@ -106,6 +109,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
   onDelete: () => void
+  orderSheetMode: boolean
 }) {
   const sel = (field: keyof RealEstatePropertyRow, options: readonly string[]) => (
     <td className="px-2.5 py-1.5">
@@ -128,14 +132,14 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete }: {
         <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地" />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
-        <CellInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この物件で分かったこと" />
+        {!orderSheetMode && <CellInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この物件で分かったこと" />}
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
         </td>
       </tr>
       {open && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
-          <td colSpan={7} className="px-4 py-3 space-y-3">
+          <td colSpan={orderSheetMode ? 6 : 7} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
             <div>
               <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />

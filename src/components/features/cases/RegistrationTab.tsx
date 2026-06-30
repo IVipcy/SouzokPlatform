@@ -93,7 +93,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">申請日</th>}
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">完了日</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-40">備考</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-56">実施結果</th>
+              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
               {columns.map(col => (
                 <th key={col} className="px-2.5 py-2 text-left font-semibold w-40">
                   <span className="inline-flex items-center gap-1">
@@ -135,7 +135,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                 {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_apply_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_apply_date ?? '')) saveField(r.id, 'registration_apply_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
                 {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_complete_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_complete_date ?? '')) saveField(r.id, 'registration_complete_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
                 <td className="px-2.5 py-1.5"><CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" /></td>
-                <td className="px-2.5 py-1.5"><CustomCell value={r.registration_result ?? ''} onCommit={v => saveField(r.id, 'registration_result', v || null)} placeholder="この登記で分かったこと・結果" /></td>
+                {!orderSheetMode && <td className="px-2.5 py-1.5"><CustomCell value={r.registration_result ?? ''} onCommit={v => saveField(r.id, 'registration_result', v || null)} placeholder="この登記で分かったこと・結果" /></td>}
                 {columns.map(col => (
                   <td key={col} className="px-2.5 py-1.5">
                     <CustomCell value={r.registration_data?.[col] ?? ''} onCommit={v => saveCustom(r, col, v)} />
