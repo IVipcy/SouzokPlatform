@@ -8,7 +8,7 @@ import { Section } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
 import TabHeader from './TabHeader'
-import ProgressSummary from './ProgressSummary'
+import CancellationSection from './CancellationSection'
 import type { FinancialAssetRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -56,7 +56,12 @@ export default function CancellationTab({ caseId, financialAssets, onRefresh, re
   return (
     <div>
       {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />}
-      {!orderSheetMode && caseId && <div className="mb-3"><ProgressSummary caseId={caseId} scopeKey="cancellation" title="進捗サマリー（解約手続）" /></div>}
+
+      {!orderSheetMode && caseId ? (
+        // 案件詳細（実務）：金融機関単位の左レール＋カード
+        <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} />
+      ) : (
+      <>
       <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (
@@ -115,6 +120,8 @@ export default function CancellationTab({ caseId, financialAssets, onRefresh, re
           </table>
           </div>
         </Section>
+      )}
+      </>
       )}
     </div>
   )
