@@ -138,13 +138,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   /** 案件フィールドの楽観的更新 */
   const patchCase = async (patch: Partial<CaseRow>) => {
-    // ゲート：検討中 →（契約書待ち）/受託 へ進むには、面談情報を1回更新・保存しておく必要がある
-    if ((patch.status === '検討中（契約書待ち）' || patch.status === '受注')
-      && caseState.status === '検討中'
-      && !caseState.meeting_info_updated_at) {
-      setMeetingGate(patch.status)
-      return
-    }
+    // 検討中→受託の「面談情報を更新せよ」ゲートは撤去（面談登録の簡素化に伴い）
     const prev = caseState
     setCaseState(c => ({ ...c, ...patch }))
     const supabase = createClient()

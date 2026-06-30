@@ -5,16 +5,16 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
-  InlineDate, InlineMemberSelect, InlineTextarea, InlineNumber, InlineCheckbox,
+  InlineDate, InlineMemberSelect, InlineTextarea, InlineCheckbox,
 } from '@/components/ui/InlineFields'
 import {
-  CONSIDERATION_DECLINE_REASONS, MEETING_PLACES, CONTRACT_TYPES,
+  CONSIDERATION_DECLINE_REASONS,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE, LOCATIONS,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
-import ProcedureIntakeSection, { type RoleRow } from './ProcedureIntakeSection'
+import { type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
 
 type Props = {
@@ -44,7 +44,7 @@ type Props = {
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
  * ※ 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）は「他事業者紹介」タブで管理。
  */
-export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractDocuments = [], contractProcDone = true }: Props) {
+export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRefresh, patchCase, referrals = [], tasks = [], contractProcDone = true }: Props) {
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -88,92 +88,49 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
     <div className="space-y-3.5">
       <TabHeader title="面談情報" description="案件・面談・被相続人の基本情報と、面談時に聴取した内容の管理" />
 
-      {/* ① 案件情報（管理情報を統合：LP番号・保管場所・受注日・完了予定日・完了日） */}
-      <Section title="案件情報">
+      {/* 面談結果（報告書式の項目をそのまま） */}
+      <Section title="面談結果">
+        <FieldGrid>
+          <InlineEdit label="紹介元" value={caseData.order_route_detail} onSave={v => saveCaseField('order_route_detail', v)} />
+          <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
+          <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
+          <InlineEdit label="面談内容" value={caseData.meeting_type} onSave={v => saveCaseField('meeting_type', v)} />
+          <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
+          <InlineSelect label="手続内容（受注区分）" value={caseData.service_category} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} />
+          {caseData.service_category === KENIN_CATEGORY && (
+            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 py-1.5">
+              <input type="checkbox" checked={caseData.service_category_2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFull(e.target.checked)} className="w-4 h-4 accent-brand-600" />
+              手続き一式へ移行する（検認① → 手続き一式②）
+            </label>
+          )}
+          <InlineSelect label="検討期間" value={caseData.consideration_period} options={[...CONSIDERATION_PERIODS]} onSave={v => selectPeriod(v)} />
+          <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
+          <InlineEdit label="提案金額" value={caseData.proposal_note} onSave={v => saveCaseField('proposal_note', v)} />
+          <InlineCheckbox label="LPによる追いかけ可" value={caseData.lp_followup_allowed ?? false} onSave={v => saveCaseField('lp_followup_allowed', v)} />
+          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
+          <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
+          <InlineTextarea label="検討・不受託の理由（詳細）" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
+          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth placeholder={HEARING_MEMO_SAMPLE} />
+          <InlineTextarea label="その他備考" value={caseData.meeting_other_notes} onSave={v => saveCaseField('meeting_other_notes', v)} fullWidth />
+        </FieldGrid>
+        {/* 不動産売却・税理士などの他事業者紹介（ON＝紹介タブに業者サブタブ作成） */}
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <ReferralToggles caseId={caseData.id} referrals={referrals} onRefresh={onRefresh} />
+          <p className="text-[11px] text-gray-400 mt-1.5">不動産売却・税理士もここでONにし、依頼内容は「他事業者紹介」タブの詳細内容に記載します。</p>
+        </div>
+      </Section>
+
+      {/* 案件基本情報（旧「案件情報」。被相続人情報・手続詳細はオーダーシートで入力） */}
+      <Section title="案件基本情報" collapsible defaultOpen={false}>
         <FieldGrid>
           <InlineEdit label="案件管理番号" value={caseData.case_number} onSave={v => saveCaseField('case_number', v)} required />
           <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
-          <InlineMemberSelect
-            label="受注担当"
-            roleKey="sales"
-            assigned={salesMembers}
-            allMembers={allMembers}
-            caseId={caseData.id}
-            onRefresh={onRefresh}
-            multi={false}
-          />
-          <InlineSelect
-            label="案件ステータス"
-            value={caseData.status}
-            options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)}
-            optionLabel={getCaseStatusLabel}
-            onSave={v => saveCaseField('status', v)}
-          />
           <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
           <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
           <Field label="案件作成日" value={caseData.created_at ? caseData.created_at.slice(0, 10) : null} mono />
         </FieldGrid>
       </Section>
-
-      {/* ② 面談概要 */}
-      <Section title="面談概要">
-        <FieldGrid>
-          <InlineDate label="面談予定日"        value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
-          <InlineDate label="面談実施日"        value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
-          <InlineSelect label="面談場所"        value={caseData.meeting_place}            options={[...MEETING_PLACES]} onSave={v => saveCaseField('meeting_place', v)} />
-          <InlineSelect label="検討期間" value={caseData.consideration_period} options={[...CONSIDERATION_PERIODS]} onSave={v => selectPeriod(v)} />
-          <InlineDate label="お客様回答予定日"  value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
-          <InlineEdit label="伺い先住所"        value={caseData.visit_address}            onSave={v => saveCaseField('visit_address', v)} fullWidth />
-          <InlineEdit label="伺い先補足"        value={caseData.visit_notes}              onSave={v => saveCaseField('visit_notes', v)} fullWidth />
-        </FieldGrid>
-      </Section>
-
-      {/* ②-b 被相続人情報（連携①受信＋面談入力。"deceased"タブとは別に常時表示） */}
-      <Section title="被相続人情報">
-        <FieldGrid>
-          <InlineEdit label="被相続人氏名"      value={caseData.deceased_name}                  onSave={v => saveCaseField('deceased_name', v)} />
-          <InlineEdit label="被相続人ふりがな"  value={caseData.deceased_furigana}              onSave={v => saveCaseField('deceased_furigana', v)} />
-          <InlineDate label="被相続人生年月日"  value={caseData.deceased_birth_date}            onSave={v => saveCaseField('deceased_birth_date', v || null)} wareki />
-          <InlineNumber label="被相続人年齢"    value={caseData.deceased_age}                   onSave={v => saveCaseField('deceased_age', v)} suffix="歳" />
-          <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death}               onSave={v => saveCaseField('date_of_death', v || null)} />
-          <InlineEdit label="被相続人住所"      value={caseData.deceased_address}               onSave={v => saveCaseField('deceased_address', v)} fullWidth />
-          <InlineEdit label="被相続人本籍"      value={caseData.deceased_registered_address}    onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
-          <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
-        </FieldGrid>
-      </Section>
-
-      {/* ③ 面談内容 */}
-      <Section title="面談内容">
-        <FieldGrid>
-          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth placeholder={HEARING_MEMO_SAMPLE} />
-          <InlineSelect
-            label="受注区分"
-            value={caseData.service_category}
-            options={[...ORDER_CATEGORIES]}
-            onSave={v => selectCategory(v)}
-            fullWidth
-          />
-          {caseData.service_category === KENIN_CATEGORY && (
-            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 py-1.5">
-              <input type="checkbox" checked={caseData.service_category_2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFull(e.target.checked)} className="w-4 h-4 accent-brand-600" />
-              手続き一式へ移行する（検認① → 手続き一式②。重複する業務は表示しません）
-            </label>
-          )}
-          <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => saveCaseField('contract_type', v)} />
-          <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
-          <InlineTextarea label="その他備考" value={caseData.meeting_other_notes} onSave={v => saveCaseField('meeting_other_notes', v)} fullWidth />
-        </FieldGrid>
-
-        {/* 他事業者紹介要否（チェック＝「他事業者紹介」タブに業者サブタブを作成） */}
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <ReferralToggles caseId={caseData.id} referrals={referrals} onRefresh={onRefresh} />
-        </div>
-      </Section>
-
-      {/* 手続き詳細（受領書類・役割分担） */}
-      <ProcedureIntakeSection caseData={caseData} patchCase={patchCase} contractDocuments={contractDocuments} onRefresh={onRefresh} />
 
       {/* ④ 相談事前情報（LP連携の面談前ヒアリング。LP経由でない案件は空のため既定で閉じる） */}
       <Section title="相談事前情報" collapsible defaultOpen={false}>
@@ -181,6 +138,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineTextarea label="ヒアリング内容"      value={caseData.hearing_content} onSave={v => saveCaseField('hearing_content', v)} fullWidth />
           <InlineTextarea label="特記事項（社内のみ）" value={caseData.special_notes}   onSave={v => saveCaseField('special_notes', v)} fullWidth />
           <InlineTextarea label="その他ニーズ"        value={caseData.other_needs}     onSave={v => saveCaseField('other_needs', v)} fullWidth />
+          <InlineEdit label="伺い先住所" value={caseData.visit_address} onSave={v => saveCaseField('visit_address', v)} fullWidth />
+          <InlineEdit label="伺い先補足" value={caseData.visit_notes}   onSave={v => saveCaseField('visit_notes', v)} fullWidth />
         </FieldGrid>
       </Section>
     </div>
