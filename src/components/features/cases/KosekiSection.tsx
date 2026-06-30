@@ -13,7 +13,8 @@ import { FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineTextarea, Sectio
 import { KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import ProgressSummary, { summaryStatusClass } from './ProgressSummary'
 import { CostBlock, DoubleCheck } from './CostAndCheck'
-import type { KosekiRequestRow, HeirRow } from '@/types'
+import InheritanceDiagramV2 from './InheritanceDiagramV2'
+import type { KosekiRequestRow, HeirRow, CaseRow } from '@/types'
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 const ACQUIRERS = ['自社', '依頼者']
@@ -21,29 +22,35 @@ const ACQUIRERS = ['自社', '依頼者']
 const effConfirmed = (r: KosekiRequestRow) => (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : null)
 const reqLabel = (r: KosekiRequestRow) => [r.request_to, r.target_person].filter(Boolean).join('・') || '新規請求'
 
-export default function KosekiSection({ caseId, requests, heirs = [], deceasedName, onRefresh }: {
+export default function KosekiSection({ caseId, caseData, requests, heirs = [], onRefresh }: {
   caseId: string
+  caseData: CaseRow
   requests: KosekiRequestRow[]
   heirs?: HeirRow[]
-  deceasedName?: string | null
   onRefresh?: () => void
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
   const memberId = useCurrentMember(null)
   const [sub, setSub] = useState('top')
-  const [statuses, setStatuses] = useState<Record<string, string>>({})
+  const [statuses, setStatuses] = useState<Record<string, { status: string; body: string }>>({})
+  const deceasedName = caseData.deceased_name
 
   const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
+  // 氏名→続柄（相続人タブの relationship_type を参照）
+  const relForName = (name: string) => {
+    const h = heirs.find(x => x.name.trim() === name.trim())
+    return (h?.relationship_type || h?.relationship || '').trim()
+  }
 
-  // 各請求の状態（進捗サマリー scope=koseki_req_<id>）を読み込み、TOP表・相関図に反映
+  // 各請求の状態＋サマリー本文（scope=koseki_req_<id>）を読み込み、TOP表・取得状況図に反映
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', 'koseki_req_%')
+      const { data } = await supabase.from('progress_summaries').select('scope_key, status, body').eq('case_id', caseId).like('scope_key', 'koseki_req_%')
       if (!alive || !data) return
-      const map: Record<string, string> = {}
-      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace('koseki_req_', '')] = d.status ?? '未着手'
+      const map: Record<string, { status: string; body: string }> = {}
+      for (const d of data as { scope_key: string; status: string | null; body: string | null }[]) map[d.scope_key.replace('koseki_req_', '')] = { status: d.status ?? '未着手', body: d.body ?? '' }
       setStatuses(map)
     })()
     return () => { alive = false }
@@ -86,37 +93,26 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
 
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
-  // 相関図：人（被相続人＋相続人）ごとの戸籍取得状況。請求が無ければ未着手。
+  // 人（被相続人＋相続人）ごとの戸籍取得状況。請求が無ければ未着手。
+  const reqsForName = (name: string) => requests.filter(r => (r.target_person ?? '').trim() === name.trim())
   const statusForName = (name: string) => {
-    const sts = requests.filter(r => (r.target_person ?? '').trim() === name.trim()).map(r => statuses[r.id] ?? '未着手')
+    const sts = reqsForName(name).map(r => statuses[r.id]?.status ?? '未着手')
     if (!sts.length) return '未着手'
     if (sts.some(s => s === '追加調査中')) return '追加調査中'
     if (sts.every(s => s === '完了')) return '完了'
     if (sts.some(s => s === '対応中')) return '対応中'
     return '未着手'
   }
-  const jumpToPerson = (name: string) => { const r = requests.find(x => (x.target_person ?? '').trim() === name.trim()); if (r) setSub(r.id) }
-  // 相続人を続柄で段組み（尊属／配偶者／子／孫／傍系）
-  const rel = (h: HeirRow) => (h.relationship_type || h.relationship || '').trim()
-  const grp = (...keys: string[]) => heirs.filter(h => keys.includes(rel(h)))
-  const ancestors = grp('父', '母', '祖父', '祖母')
-  const spouses = grp('配偶者')
-  const children = grp('長男', '長女', '次男', '次女', '三男', '三女', '養子')
-  const grandchildren = grp('孫', 'ひ孫')
-  const collateral = grp('兄', '姉', '弟', '妹', '甥', '姪')
-  const placed = new Set([...ancestors, ...spouses, ...children, ...grandchildren, ...collateral])
-  const others = heirs.filter(h => !placed.has(h))
-  const pnode = (name: string, relLabel: string) => {
-    const st = statusForName(name)
-    return (
-      <button key={`${relLabel}-${name}`} type="button" onClick={() => jumpToPerson(name)} className="rounded-md border border-gray-200 px-2.5 py-1.5 text-center bg-white hover:border-brand-300 min-w-[92px]">
-        {relLabel && <div className="text-[10px] text-gray-400">{relLabel}</div>}
-        <div className="text-[12px] font-medium">{name}</div>
-        <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${summaryStatusClass(st)}`}>{st}</span>
-      </button>
-    )
+  const bodyForName = (name: string) => {
+    for (const r of reqsForName(name)) { const b = statuses[r.id]?.body; if (b && b.trim()) return b.trim() }
+    return ''
   }
-  const conn = <div className="w-px h-3 bg-gray-300" />
+  const jumpToPerson = (name: string) => { const r = requests.find(x => (x.target_person ?? '').trim() === name.trim()); if (r) setSub(r.id) }
+  // 取得状況リスト：被相続人＋相続人（続柄付き）
+  const peopleRows = [
+    { name: deceasedName ?? '', rel: '被相続人' },
+    ...heirs.map(h => ({ name: h.name, rel: (h.relationship_type || h.relationship || '').trim() || '相続人' })),
+  ].filter(p => p.name.trim())
 
   const tabs = [{ id: 'top', label: '一覧（TOP）' }, ...requests.map(r => ({ id: r.id, label: reqLabel(r) }))]
   const active = requests.find(r => r.id === sub)
@@ -127,7 +123,7 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
       <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
         {tabs.map(t => {
           const r = requests.find(x => x.id === t.id)
-          const st = r ? (statuses[r.id] ?? '未着手') : null
+          const st = r ? (statuses[r.id]?.status ?? '未着手') : null
           const pending = r?.is_additional && !r.additional_approved_at
           return (
             <button key={t.id} type="button" onClick={() => setSub(t.id)}
@@ -170,7 +166,7 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
-                        <td className="px-2.5 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${summaryStatusClass(statuses[r.id])}`}>{statuses[r.id] ?? '未着手'}</span></td>
+                        <td className="px-2.5 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${summaryStatusClass(statuses[r.id]?.status)}`}>{statuses[r.id]?.status ?? '未着手'}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -185,34 +181,31 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
               </div>
             </div>
 
-            {/* 相続相関図（被相続人＋相続人を続柄で配置・状態を反映） */}
+            {/* 戸籍取得状況図：相続関係説明図（相続人タブと同じ図）＋人ごとの取得状況 */}
             <div>
-              <SectionHeading title="相続相関図（戸籍の取得状況）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <div className="flex flex-col items-center gap-2">
-                {ancestors.length > 0 && (<>
-                  <div className="flex flex-wrap justify-center gap-2">{ancestors.map(h => pnode(h.name, rel(h)))}</div>
-                  {conn}
-                </>)}
-                <div className="flex items-end gap-2">
-                  <button type="button" onClick={() => jumpToPerson(deceasedName || '')} className="rounded-md border-2 border-brand-300 px-3 py-1.5 text-center bg-white hover:border-brand-400 min-w-[92px]">
-                    <div className="text-[10px] text-gray-400">被相続人</div>
-                    <div className="text-[12.5px] font-semibold">{deceasedName || '—'}</div>
-                    <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${summaryStatusClass(statusForName(deceasedName || ''))}`}>{statusForName(deceasedName || '')}</span>
-                  </button>
-                  {spouses.map(h => pnode(h.name, rel(h)))}
-                </div>
-                {(children.length > 0 || grandchildren.length > 0) && conn}
-                {children.length > 0 && <div className="flex flex-wrap justify-center gap-2">{children.map(h => pnode(h.name, rel(h)))}</div>}
-                {grandchildren.length > 0 && (<>{conn}<div className="flex flex-wrap justify-center gap-2">{grandchildren.map(h => pnode(h.name, rel(h)))}</div></>)}
-              </div>
-              {(collateral.length > 0 || others.length > 0) && (
-                <div className="mt-3 pt-2 border-t border-gray-100">
-                  <div className="text-[10.5px] text-gray-400 mb-1.5">兄弟姉妹・その他</div>
-                  <div className="flex flex-wrap gap-2">{[...collateral, ...others].map(h => pnode(h.name, rel(h)))}</div>
-                </div>
+              <SectionHeading title="戸籍の取得状況（相続関係説明図）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {heirs.length === 0 ? (
+                <p className="text-[12px] text-gray-400 text-center py-4">相続人が未登録です。「相続人」タブで登録すると、ここに相続関係説明図が表示されます。</p>
+              ) : (
+                <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} /></div>
               )}
-              {heirs.length === 0 && <p className="text-[12px] text-gray-400 text-center py-3">相続人が未登録です。「相続人」タブで登録すると、ここに続柄で並びます。</p>}
-              <p className="mt-2 text-[11px] text-gray-400">被相続人＋相続人を続柄で配置。色＝戸籍取得状況（各人の請求の進捗サマリーから集計／請求なし＝未着手）。ノードクリックでその人の請求タブへ。代襲・数次など複雑な家系は簡略表示。</p>
+              <div className="mt-3 space-y-1.5">
+                {peopleRows.map(p => {
+                  const st = statusForName(p.name)
+                  const body = bodyForName(p.name)
+                  const hasReq = reqsForName(p.name).length > 0
+                  return (
+                    <button key={`${p.rel}-${p.name}`} type="button" onClick={() => jumpToPerson(p.name)} disabled={!hasReq}
+                      className={`w-full flex items-start gap-2.5 text-left rounded-md border border-gray-200 px-3 py-2 ${hasReq ? 'hover:border-brand-300 cursor-pointer' : 'cursor-default'}`}>
+                      <span className="text-[10.5px] text-gray-400 w-16 flex-none pt-0.5">{p.rel}</span>
+                      <span className="text-[12.5px] font-medium text-gray-800 w-24 flex-none">{p.name}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border flex-none ${summaryStatusClass(st)}`}>{st}</span>
+                      <span className="text-[11.5px] text-gray-500 flex-1 min-w-0 truncate">{body || (hasReq ? '—' : '請求なし')}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-gray-400">図は相続人タブと同じ相続関係説明図。下の一覧で「誰の戸籍がどこまで取得済か」＋進捗サマリーを確認（行クリックでその人の請求タブへ）。</p>
             </div>
           </div>
         ) : active ? (
@@ -222,6 +215,7 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
             caseId={caseId}
             isManager={isManager}
             targetOptions={targetOptions}
+            relLabel={relForName(active.target_person ?? '')}
             saveField={saveField}
             saveMany={saveMany}
             approveAdditional={() => approveAdditional(active)}
@@ -233,11 +227,12 @@ export default function KosekiSection({ caseId, requests, heirs = [], deceasedNa
   )
 }
 
-function RequestDetail({ r, caseId, isManager, targetOptions, saveField, saveMany, approveAdditional, onDelete }: {
+function RequestDetail({ r, caseId, isManager, targetOptions, relLabel, saveField, saveMany, approveAdditional, onDelete }: {
   r: KosekiRequestRow
   caseId: string
   isManager: boolean
   targetOptions: string[]
+  relLabel: string
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   approveAdditional: () => void
@@ -273,6 +268,10 @@ function RequestDetail({ r, caseId, isManager, targetOptions, saveField, saveMan
         <FieldGrid>
           <InlineEdit label="請求先" value={r.request_to} onSave={v => saveField(r.id, 'request_to', v)} />
           <InlineSelect label="対象者" value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] text-gray-400">続柄（相続人タブ参照）</span>
+            <span className="px-2 py-1.5 text-[12.5px] bg-gray-50 border border-gray-200 rounded text-gray-700">{relLabel || '—'}</span>
+          </div>
           <InlineSelect label="範囲" value={r.range_text} options={[...KOSEKI_RANGES]} onSave={v => saveField(r.id, 'range_text', v)} />
           <InlineSelect label="種別" value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onSave={v => saveField(r.id, 'doc_types', v)} />
           <InlineSelect label="取得目的" value={r.purpose} options={[...KOSEKI_PURPOSES]} onSave={v => saveField(r.id, 'purpose', v)} />
