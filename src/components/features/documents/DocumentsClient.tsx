@@ -2,9 +2,8 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Plus, Inbox, LayoutList, ListChecks } from 'lucide-react'
+import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
-import ReceiptQueue from './ReceiptQueue'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -38,7 +37,6 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
   const [search, setSearch] = useState('')
   const [caseFilter, setCaseFilter] = useState<string>(searchParams.get('case') ?? '')
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
-  const [view, setView] = useState<'queue' | 'list'>('queue')
 
   // ── 書類受信簿の絞り込み ──
   const filteredReceipts = useMemo(() => {
@@ -96,16 +94,6 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         </div>
       )}
 
-      {/* 表示切替：処理キュー / 受信簿一覧 */}
-      <div className="mb-3 flex items-center gap-2">
-        <button type="button" onClick={() => setView('queue')} className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] rounded-md border ${view === 'queue' ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}><ListChecks className="w-3.5 h-3.5" />処理キュー</button>
-        <button type="button" onClick={() => setView('list')} className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] rounded-md border ${view === 'list' ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}><LayoutList className="w-3.5 h-3.5" />受信簿一覧</button>
-      </div>
-
-      {view === 'queue' ? (
-        <ReceiptQueue receipts={receipts} onJumpToCase={cid => { setCaseFilter(cid); setView('list') }} />
-      ) : (
-      <>
       {/* 案件絞り込み */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
         <select
@@ -132,8 +120,6 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         fileByDocId={fileByDocId}
         onChanged={refresh}
       />
-      </>
-      )}
 
       <NewDocumentReceiptModal
         isOpen={receiptModalOpen}

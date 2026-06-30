@@ -880,10 +880,6 @@ export type DocumentReceiptItemRow = {
   case_document_id: string | null
   // 共有フォルダにアップ済かの手動フラグ（migration 137）。null=未アップ
   uploaded_at: string | null
-  // タスク紐づけ不要（migration 140）。true=紐づけ対象外
-  link_not_required?: boolean | null
-  // 到着物ごとに結ばれたタスク（多対多。migration 111）。空=未紐づけ（=未着手OK）
-  item_tasks?: { task_id: string }[] | null
   created_at: string
 }
 

@@ -43,7 +43,7 @@ export default async function DocumentsPage() {
       .order('sequence_no', { ascending: false }),
     supabase
       .from('document_receipt_items')
-      .select('*, item_tasks(task_id)')
+      .select('*')
       .order('sort_order'),
     currentMemberId
       ? supabase.from('members').select('*').eq('id', currentMemberId).maybeSingle()
