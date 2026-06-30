@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
+import { User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
@@ -187,7 +187,6 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
 export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [data, setData] = useState<FormData>(() => {
@@ -495,7 +494,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       }
     }
     setSaveError('')
-    setCompletedSteps(prev => new Set(prev).add(step))
     if (step < STEPS.length - 1) {
       setStep(step + 1)
       window.scrollTo(0, 0)
@@ -516,13 +514,12 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     }
   }, [step])
 
-  const progressPct = ((step + 1) / STEPS.length) * 100
 
   const renderStep = () => {
     switch (STEPS[step].id) {
       case 'basic': return (
         <div className="max-w-[800px]">
-          <SectionHeader Icon={ClipboardList} title="新規面談登録" sub="面談報告の項目（案件番号は自動採番。詳細はオーダーシートで入力）" />
+          <p className="text-[12px] text-gray-400 mb-3">面談報告の項目（案件番号は自動採番。詳細はオーダーシートで入力）</p>
           <Card label="面談ルート（紹介元）">
             <Pills value={data.orderRoute} options={[...ORDER_ROUTES]} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} />
             {data.orderRoute && (
@@ -916,29 +913,7 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
 
   return (
     <div>
-      {/* Step tabs */}
-      <div className="bg-white border border-gray-200 rounded-xl p-1 flex gap-0.5 overflow-x-auto mb-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        {STEPS.map((s, i) => (
-          <button
-            key={s.id}
-            onClick={() => setStep(i)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition relative ${
-              i === step ? 'bg-brand-600 text-white font-semibold' :
-              completedSteps.has(i) ? 'text-green-600 hover:bg-gray-50' :
-              'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {s.label}{completedSteps.has(i) && i !== step ? ' ✓' : ''}
-          </button>
-        ))}
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-4">
-        <div className="h-full bg-brand-600 rounded-full transition-all duration-400" style={{ width: `${progressPct}%` }} />
-      </div>
-
-      {/* Form content */}
+      {/* 1ページ構成（ステップバー・プログレスは廃止） */}
       {renderStep()}
 
       {/* Bottom nav */}
