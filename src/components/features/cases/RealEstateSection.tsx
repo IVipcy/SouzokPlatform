@@ -32,14 +32,23 @@ type Props = {
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
 const collator = new Intl.Collator('ja')
 
+// 市区町村キー：明示の municipality があればそれ、無ければ所在地から「都道府県＋市区町村」を抽出。
+export function municipalityOf(p: { municipality: string | null; address: string | null }): string {
+  const m = (p.municipality ?? '').trim()
+  if (m) return m
+  const a = (p.address ?? '').trim()
+  const match = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
+  return match ? `${match[1] ?? ''}${match[2]}` : ''
+}
+
 export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
   const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   // 市区町村の一覧（空は「未設定」に集約）
-  const munis = [...new Set(properties.map(p => (p.municipality ?? '').trim()).filter(Boolean))].sort(collator.compare)
-  const hasUnset = properties.some(p => !(p.municipality ?? '').trim())
+  const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
+  const hasUnset = properties.some(p => !municipalityOf(p))
 
   useEffect(() => {
     let alive = true
@@ -107,7 +116,7 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
                     <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
                   ) : properties.map((p, i) => (
                     <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                      <td className="px-2.5 py-2 text-gray-700">{(p.municipality ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
+                      <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
                       <td className="px-2.5 py-2">{p.property_type || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 text-right">{yen(p.appraisal_value)}</td>

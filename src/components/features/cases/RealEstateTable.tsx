@@ -35,8 +35,16 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const showMuni = !municipalityFilter   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）
+  // 明示の市区町村が無ければ所在地から抽出（RealEstateSection と同一ロジック）
+  const muniOf = (r: RealEstatePropertyRow) => {
+    const m = (r.municipality ?? '').trim()
+    if (m) return m
+    const a = (r.address ?? '').trim()
+    const x = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
+    return x ? `${x[1] ?? ''}${x[2]}` : ''
+  }
   const visibleRows = municipalityFilter != null
-    ? rows.filter(r => (r.municipality ?? '') === municipalityFilter)
+    ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
   // toggle +[市区町村] +物件種別 +所在地 +評価額 +[確定済] +備考 +[備考・結果] +削除
   const colCount = 1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1

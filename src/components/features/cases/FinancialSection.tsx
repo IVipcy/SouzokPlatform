@@ -37,7 +37,9 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
   const [sub, setSub] = useState('top')
   const [statuses, setStatuses] = useState<Record<string, string>>({})
 
-  const kindAssets = assets.filter(a => a.asset_type === kind)
+  // 完全な空行（機関名・支店・銘柄・残高すべて無し）はノイズなので一覧から除外
+  const isEmpty = (a: FinancialAssetRow) => !(a.institution_name ?? '').trim() && !(a.branch_name ?? '').trim() && !(a.stock_name ?? '').trim() && a.balance_amount == null
+  const kindAssets = assets.filter(a => a.asset_type === kind && !isEmpty(a))
   const banks = [...new Set(kindAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = kindAssets.some(a => !(a.institution_name ?? '').trim())
 
@@ -93,17 +95,23 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                   <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-40">支店/銘柄</th>
                   <th className="px-2.5 py-2 text-right font-semibold w-36">残高/評価額</th>
+                  <th className="px-2.5 py-2 text-center font-semibold w-20">受信済</th>
                   <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
                 </tr>
               </thead>
               <tbody>
                 {kindAssets.length === 0 ? (
-                  <tr><td colSpan={4} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
                 ) : kindAssets.map((a, i) => (
                   <tr key={a.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                     <td className="px-2.5 py-2 font-medium text-gray-800">{(a.institution_name ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
                     <td className="px-2.5 py-2 text-gray-700">{a.branch_name || a.stock_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-2.5 py-2 text-right">{yen(a.balance_amount)}</td>
+                    <td className="px-2.5 py-2 text-center">
+                      {a.arrival_date
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />受信済</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
+                    </td>
                     <td className="px-2.5 py-2 text-center">
                       {a.balance_confirmed
                         ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />確定済</span>
