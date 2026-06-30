@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'caseBasic' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -24,6 +24,7 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
+  caseBasic: '案件基本情報',
   ownerSales: '担当・受注ルート',
   orderContent: '受注内容',
   contractProc: '契約残手続き',
@@ -61,14 +62,14 @@ const TAB_GROUP: Record<TabKey, Group> = {
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
   succession: 'practice', contract: 'practice',
   ownerSales: 'info', orderContent: 'info',
-  meeting: 'info', contractProc: 'info', history: 'info',
+  meeting: 'info', caseBasic: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',
 }
 
 const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
-  'ownerSales', 'orderContent', 'contract', 'meeting', 'contractProc',
+  'ownerSales', 'orderContent', 'contract', 'meeting', 'caseBasic', 'contractProc',
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true }: Props) {

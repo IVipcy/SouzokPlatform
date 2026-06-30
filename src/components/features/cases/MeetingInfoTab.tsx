@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect,
+  Section, FieldGrid, InlineEdit, InlineSelect,
   InlineDate, InlineMemberSelect, InlineTextarea, InlineCheckbox,
 } from '@/components/ui/InlineFields'
 import {
   CONSIDERATION_DECLINE_REASONS,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE, LOCATIONS,
+  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -120,17 +120,6 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
         </div>
       </Section>
 
-      {/* 案件基本情報（旧「案件情報」。被相続人情報・手続詳細はオーダーシートで入力） */}
-      <Section title="案件基本情報" collapsible defaultOpen={false}>
-        <FieldGrid>
-          <InlineEdit label="案件管理番号" value={caseData.case_number} onSave={v => saveCaseField('case_number', v)} required />
-          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => saveCaseField('lp_case_number', v)} />
-          <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => saveCaseField('location', v)} required />
-          <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => saveCaseField('order_received_date', v || null)} />
-          <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
-          <Field label="案件作成日" value={caseData.created_at ? caseData.created_at.slice(0, 10) : null} mono />
-        </FieldGrid>
-      </Section>
 
       {/* ④ 相談事前情報（LP連携の面談前ヒアリング。LP経由でない案件は空のため既定で閉じる） */}
       <Section title="相談事前情報" collapsible defaultOpen={false}>

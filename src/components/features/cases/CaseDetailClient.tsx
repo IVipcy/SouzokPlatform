@@ -8,6 +8,7 @@ import { useModal } from '@/hooks/useModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
+import CaseBasicInfoTab from './CaseBasicInfoTab'
 import MeetingInfoTab from './MeetingInfoTab'
 import ClientInfoTab from './ClientInfoTab'
 import TasksTab from './TasksTab'
@@ -74,7 +75,7 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'caseBasic', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [] }: Props) {
   const router = useRouter()
@@ -174,9 +175,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     }
   }
 
-  // 面談情報タブからの保存。ステータス変更以外は「面談情報を更新した」印を併せて立てる（ゲート解除用）。
-  const patchCaseFromMeeting = (patch: Partial<CaseRow>) =>
-    'status' in patch ? patchCase(patch) : patchCase({ ...patch, meeting_info_updated_at: new Date().toISOString() })
+  // 面談情報タブからの保存。ステータス変更以外は「面談情報を更新した」印を立てる。
+  // 面談担当が未設定なら、最初に面談情報を更新した人（＝今のログイン者）を自動で面談担当に設定。
+  const patchCaseFromMeeting = (patch: Partial<CaseRow>) => {
+    if ('status' in patch) return patchCase(patch)
+    const ownerPatch = !caseState.meeting_owner_id && currentMemberId ? { meeting_owner_id: currentMemberId } : {}
+    return patchCase({ ...patch, ...ownerPatch, meeting_info_updated_at: new Date().toISOString() })
+  }
 
   /** 依頼者フィールドの楽観的更新 */
   const patchClient = async (patch: Record<string, unknown>) => {
@@ -348,6 +353,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'contractProc' && (
         <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} documentReceipts={documentReceipts} onRefresh={handleSaved} />
+      )}
+      {effectiveTab === 'caseBasic' && (
+        <CaseBasicInfoTab caseData={caseState} patchCase={patchCase} />
       )}
       {effectiveTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCaseFromMeeting} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />
