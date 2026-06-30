@@ -4,11 +4,11 @@
 // TOP（一覧）＝この種別の全口座を集計（残高・確定済バッジ）。財産目録へ反映は確定済のみ。
 // 各金融機関タブ＝進捗サマリー／口座表（残高入力・確定済は管理担当）。
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Check, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { SubTabs } from '@/components/ui/SubTabs'
+import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import FinancialAssetsTable from './FinancialAssetsTable'
@@ -35,15 +35,33 @@ const collator = new Intl.Collator('ja')
 export default function FinancialSection({ caseId, kind, scopePrefix, assets, onRefresh, roles = [], receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
+  const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   const kindAssets = assets.filter(a => a.asset_type === kind)
   const banks = [...new Set(kindAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = kindAssets.some(a => !(a.institution_name ?? '').trim())
 
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', `${scopePrefix}_%`)
+      if (!alive || !data) return
+      const map: Record<string, string> = {}
+      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace(`${scopePrefix}_`, '')] = d.status ?? '未着手'
+      setStatuses(map)
+    })()
+    return () => { alive = false }
+  }, [caseId, supabase, scopePrefix, kindAssets.length])
+
   const tabs = [
     { key: 'top', label: '一覧' },
     ...banks.map(b => ({ key: b, label: b })),
     ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定' }] : []),
+  ]
+  const railItems = [
+    { key: 'top', label: '一覧（TOP）' },
+    ...banks.map(b => ({ key: b, label: b, status: statuses[b] })),
+    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses['unset'] }] : []),
   ]
 
   const addBank = async () => {
@@ -56,13 +74,13 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
   }
 
   return (
-    <div className="space-y-3.5">
-      <div className="flex items-center gap-2">
-        <SubTabs tabs={tabs} active={sub} onChange={setSub} />
-        <button type="button" onClick={addBank} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 whitespace-nowrap">
-          <Plus className="w-3.5 h-3.5" /> 金融機関
+    <div className="flex gap-3 items-start">
+      <LeftRail items={railItems} active={sub} onChange={setSub} extra={
+        <button type="button" onClick={addBank} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
+          <Plus className="w-3 h-3" /> 金融機関
         </button>
-      </div>
+      } />
+      <div className="flex-1 min-w-0 space-y-3.5">
 
       {/* TOP（一覧）：この種別の全口座を確定済バッジ付きで集計（読み取り専用） */}
       {sub === 'top' && (
@@ -111,6 +129,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

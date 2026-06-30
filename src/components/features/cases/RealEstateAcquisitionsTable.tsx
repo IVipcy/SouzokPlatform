@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useState, useEffect, Fragment } from 'react'
+import { Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
+import { CostBlock, DoubleCheck } from './CostAndCheck'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
@@ -45,6 +46,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const costMode = scope === 'property' ? 'confirmedOnly' : 'full'  // 物件取得=印紙(確定のみ)、市区町村請求=小為替(予算/返金/確定)
+
+  const saveMany = async (id: string, patch: Partial<RealEstateAcquisitionRow>) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } as RealEstateAcquisitionRow : r)))
+    const { error } = await supabase.from('real_estate_acquisitions').update(patch).eq('id', id)
+    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
 
   // scope に応じて取得物の選択肢を絞る（市区町村単位＝評価証明/名寄帳、物件単位＝登記情報 等）
   const scopeTarget = scope === 'municipality' ? '市区町村' : scope === 'property' ? '物件' : null
@@ -102,6 +111,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1100 : 720 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              {progressMode && <th className="px-1 py-2 w-7" />}
               <th className="px-2.5 py-2 text-left font-semibold w-32">取得物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">対象</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">請求先</th>
@@ -114,13 +124,21 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 8 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={progressMode ? 9 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : visibleRows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
               const isProp = meta?.target === '物件'
               return (
-                <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <Fragment key={r.id}>
+                <tr className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  {progressMode && (
+                    <td className="px-1 py-1.5 text-center">
+                      <button type="button" onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="text-gray-400 hover:text-brand-600" title="費用・ダブルチェック">
+                        {expanded === r.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </button>
+                    </td>
+                  )}
                   <td className="px-2.5 py-1.5">
                     {/* プリセットから選択／自由入力に切替（所有者事項以外の任意書類など） */}
                     <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
@@ -164,6 +182,21 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     <button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
+                {progressMode && expanded === r.id && (
+                  <tr className="border-b border-gray-100 bg-gray-50/40">
+                    <td colSpan={9} className="px-4 py-3 space-y-2.5">
+                      <CostBlock budget={r.cost_budget} refund={r.cost_refund} confirmed={r.cost_confirmed} mode={costMode}
+                        onSave={(field, v) => saveMany(r.id, { [field]: v === '' ? null : Number(v) })} />
+                      <div className="flex gap-2.5 flex-wrap">
+                        <DoubleCheck label="請求時ダブルチェック（自分以外）" name={r.request_check_name} at={r.request_check_at}
+                          onSet={(name, at) => saveMany(r.id, { request_check_name: name, request_check_at: at })} />
+                        <DoubleCheck label="受信時ダブルチェック（自分以外）" name={r.receipt_check_name} at={r.receipt_check_at}
+                          onSet={(name, at) => saveMany(r.id, { receipt_check_name: name, receipt_check_at: at })} />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>

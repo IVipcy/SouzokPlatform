@@ -4,11 +4,11 @@
 // TOP（一覧）＝各市区町村タブの物件を集計（確定済バッジ）。財産目録へ反映されるのは確定済のみ。
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Check, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { SubTabs } from '@/components/ui/SubTabs'
+import { LeftRail } from './LeftRail'
 import { SectionHeading, FieldGrid, InlineSelect } from '@/components/ui/InlineFields'
 import { REAL_ESTATE_EVAL_METHODS } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
@@ -35,15 +35,33 @@ const collator = new Intl.Collator('ja')
 export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
+  const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => (p.municipality ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !(p.municipality ?? '').trim())
 
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', 'asset_re_%')
+      if (!alive || !data) return
+      const map: Record<string, string> = {}
+      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace('asset_re_', '')] = d.status ?? '未着手'
+      setStatuses(map)
+    })()
+    return () => { alive = false }
+  }, [caseId, supabase, properties.length])
+
   const tabs = [
     { key: 'top', label: '一覧' },
     ...munis.map(m => ({ key: m, label: m })),
     ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定' }] : []),
+  ]
+  const railItems = [
+    { key: 'top', label: '一覧（TOP）' },
+    ...munis.map(m => ({ key: m, label: m, status: statuses[m] })),
+    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', status: statuses['unset'] }] : []),
   ]
 
   // 「＋市区町村」：名称を受け取り、その市区町村の空物件を1件作成 → タブが増える
@@ -57,13 +75,13 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
   }
 
   return (
-    <div className="space-y-3.5">
-      <div className="flex items-center gap-2">
-        <SubTabs tabs={tabs} active={sub} onChange={setSub} />
-        <button type="button" onClick={addMunicipality} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 whitespace-nowrap">
-          <Plus className="w-3.5 h-3.5" /> 市区町村
+    <div className="flex gap-3 items-start">
+      <LeftRail items={railItems} active={sub} onChange={setSub} extra={
+        <button type="button" onClick={addMunicipality} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
+          <Plus className="w-3 h-3" /> 市区町村
         </button>
-      </div>
+      } />
+      <div className="flex-1 min-w-0 space-y-3.5">
 
       {/* TOP（一覧）：評価方法＋確定済を集計した読み取り専用一覧 */}
       {sub === 'top' && (
@@ -130,6 +148,7 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
