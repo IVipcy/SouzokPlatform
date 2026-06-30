@@ -14,6 +14,7 @@ import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/l
 import ProgressSummary, { summaryStatusClass } from './ProgressSummary'
 import { CostBlock, DoubleCheck } from './CostAndCheck'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
+import Modal from '@/components/ui/Modal'
 import type { KosekiRequestRow, HeirRow, CaseRow } from '@/types'
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
@@ -33,6 +34,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const isManager = useIsManager()
   const memberId = useCurrentMember(null)
   const [sub, setSub] = useState('top')
+  const [addOpen, setAddOpen] = useState(false)
   const [statuses, setStatuses] = useState<Record<string, { status: string; body: string }>>({})
   const deceasedName = caseData.deceased_name
 
@@ -65,17 +67,28 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
-  const addRequest = async (additional: boolean) => {
-    let reason: string | null = null
-    if (additional) {
-      reason = window.prompt('追加請求の理由（必要な戸籍・転籍先など）')?.trim() || null
-      if (!reason) return
-    }
+  // 通常請求は即作成。追加請求は専用モーダル（理由必須）→管理担当へ通知。
+  const addRequest = async () => {
     const { data, error } = await supabase.from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: requests.length, is_additional: additional, additional_reason: reason })
+      .insert({ case_id: caseId, sort_order: requests.length, is_additional: false })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
     setSub((data as { id: string }).id)
+    onRefresh?.()
+  }
+
+  const submitAdditional = async (form: { target_person: string; request_to: string; reason: string }) => {
+    const { data, error } = await supabase.from('koseki_requests')
+      .insert({ case_id: caseId, sort_order: requests.length, is_additional: true, additional_reason: form.reason, target_person: form.target_person || null, request_to: form.request_to || null })
+      .select('id').single()
+    if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+    // 管理担当へ通知（承認依頼）
+    const { data: mgrs } = await supabase.from('members').select('id').eq('primary_role', 'manager').eq('is_active', true)
+    const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
+    if (rows.length) await supabase.from('notifications').insert(rows)
+    setAddOpen(false)
+    setSub((data as { id: string }).id)
+    showToast('追加請求を申請しました（管理担当へ通知）', 'success')
     onRefresh?.()
   }
 
@@ -139,8 +152,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             </button>
           )
         })}
-        <button type="button" onClick={() => addRequest(false)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1"><Plus className="w-3 h-3" />請求を追加</button>
-        <button type="button" onClick={() => addRequest(true)} className="text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-amber-300 text-amber-600 hover:bg-amber-50 inline-flex items-center gap-1"><Plus className="w-3 h-3" />追加請求（承認要）</button>
+        <button type="button" onClick={addRequest} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1"><Plus className="w-3 h-3" />請求を追加</button>
+        <button type="button" onClick={() => setAddOpen(true)} className="text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-amber-300 text-amber-600 hover:bg-amber-50 inline-flex items-center gap-1"><Plus className="w-3 h-3" />追加請求（承認要）</button>
       </div>
 
       {/* 本文 */}
@@ -213,7 +226,40 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           />
         ) : null}
       </div>
+      {addOpen && <AdditionalRequestModal targetOptions={targetOptions} onClose={() => setAddOpen(false)} onSubmit={submitAdditional} />}
     </div>
+  )
+}
+
+function AdditionalRequestModal({ targetOptions, onClose, onSubmit }: {
+  targetOptions: string[]
+  onClose: () => void
+  onSubmit: (form: { target_person: string; request_to: string; reason: string }) => void
+}) {
+  const [target, setTarget] = useState('')
+  const [reqTo, setReqTo] = useState('')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
+  return (
+    <Modal isOpen onClose={onClose} title="追加戸籍請求の申請">
+      <div className="space-y-3">
+        <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">
+          <ShieldCheck className="w-4 h-4 flex-none mt-0.5" />
+          <span>追加請求は<strong>管理担当の承認（追加OK）後</strong>に請求内容を入力できます。申請すると管理担当へ通知が飛びます。</span>
+        </div>
+        <div><label className="block text-[11px] text-gray-500 mb-1">対象者</label>
+          <select value={target} onChange={e => setTarget(e.target.value)} className={inp}><option value="">選択…</option>{targetOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
+          <p className="text-[10.5px] text-gray-400 mt-1">一覧にない場合は「相続人」タブで追加してください。</p>
+        </div>
+        <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所" className={inp} /></div>
+        <div><label className="block text-[11px] text-gray-500 mb-1">追加が必要な理由 <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="転籍・除籍など追加が必要な戸籍と理由" className={`${inp} resize-none`} /></div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
+          <button type="button" disabled={busy || !reason.trim()} onClick={() => { setBusy(true); onSubmit({ target_person: target, request_to: reqTo, reason: reason.trim() }) }} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold text-white bg-amber-500 rounded-md hover:bg-amber-600 disabled:opacity-50"><ShieldCheck className="w-3.5 h-3.5" />申請する（管理担当へ通知）</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
