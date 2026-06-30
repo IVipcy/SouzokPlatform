@@ -30,58 +30,45 @@ type Props = {
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
-const collator = new Intl.Collator('ja')
 
 export default function FinancialSection({ caseId, kind, scopePrefix, assets, onRefresh, roles = [], receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
   const [statuses, setStatuses] = useState<Record<string, string>>({})
 
-  // 完全な空行（機関名・支店・銘柄・残高すべて無し）はノイズなので一覧から除外
-  const isEmpty = (a: FinancialAssetRow) => !(a.institution_name ?? '').trim() && !(a.branch_name ?? '').trim() && !(a.stock_name ?? '').trim() && a.balance_amount == null
-  const kindAssets = assets.filter(a => a.asset_type === kind && !isEmpty(a))
-  const banks = [...new Set(kindAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
-  const hasUnset = kindAssets.some(a => !(a.institution_name ?? '').trim())
+  // 口座単位（1口座＝1タブ）。この種別の口座をそのまま並べる。
+  const kindAssets = assets.filter(a => a.asset_type === kind)
+  const acctLabel = (a: FinancialAssetRow) => [a.institution_name?.trim(), (a.branch_name || a.stock_name || '').trim()].filter(Boolean).join(' ') || '新規口座'
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', `${scopePrefix}_%`)
+      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', `${scopePrefix}_acct_%`)
       if (!alive || !data) return
       const map: Record<string, string> = {}
-      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace(`${scopePrefix}_`, '')] = d.status ?? '未着手'
+      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace(`${scopePrefix}_acct_`, '')] = d.status ?? '未着手'
       setStatuses(map)
     })()
     return () => { alive = false }
   }, [caseId, supabase, scopePrefix, kindAssets.length])
 
-  const tabs = [
-    { key: 'top', label: '一覧' },
-    ...banks.map(b => ({ key: b, label: b })),
-    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定' }] : []),
-  ]
-  // 受信済＝その機関の口座に受信簿の受領(arrival_date)が入っている
-  const bankReceived = (b: string) => kindAssets.some(a => (a.institution_name ?? '').trim() === b && !!a.arrival_date)
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
-    ...banks.map(b => ({ key: b, label: b, status: statuses[b], received: bankReceived(b) })),
-    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses['unset'], received: kindAssets.some(a => !(a.institution_name ?? '').trim() && !!a.arrival_date) }] : []),
+    ...kindAssets.map(a => ({ key: a.id, label: acctLabel(a), status: statuses[a.id], received: !!a.arrival_date })),
   ]
 
-  const addBank = async () => {
-    const name = window.prompt('追加する金融機関名（例: みずほ銀行）')?.trim()
-    if (!name) return
-    const { error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: name, acquirer: '自社' })
-    if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
-    setSub(name)
+  const addAccount = async () => {
+    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社' }).select('id').single()
+    if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    setSub((data as { id: string }).id)
     onRefresh?.()
   }
 
   return (
     <div className="flex gap-3 items-start">
       <LeftRail items={railItems} active={sub} onChange={setSub} extra={
-        <button type="button" onClick={addBank} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
-          <Plus className="w-3 h-3" /> 金融機関
+        <button type="button" onClick={addAccount} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
+          <Plus className="w-3 h-3" /> 口座
         </button>
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
@@ -124,18 +111,17 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[11px] text-gray-400">財産目録へ反映されるのは「確定済」の口座のみです。残高の入力・確定は各金融機関タブで行います。</p>
+          <p className="mt-2 text-[11px] text-gray-400">財産目録へ反映されるのは「確定済」の口座のみです。残高の入力・確定は各口座タブで行います。</p>
         </div>
       )}
 
-      {/* 金融機関タブ */}
-      {tabs.filter(t => t.key !== 'top').map(t => {
-        const bankKey = t.key === '__unset__' ? '' : t.key
-        if (sub !== t.key) return null
+      {/* 口座タブ（1口座＝1カード） */}
+      {kindAssets.map(a => {
+        if (sub !== a.id) return null
         return (
-          <div key={t.key} className="space-y-3">
-            <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_${bankKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
-            <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={bankKey} showConfirmed />
+          <div key={a.id} className="space-y-3">
+            <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_acct_${a.id}`} title={`進捗/結果（${acctLabel(a)}）`} />
+            <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} accountId={a.id} cardLayout showConfirmed />
           </div>
         )
       })}
