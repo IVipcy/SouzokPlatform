@@ -141,6 +141,23 @@ export const isContractProcDone = (
 ): boolean =>
   !docs.some(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date)
 
+// === 立替実費の名目（請求タブ。名目選択で課税/非課税を自動セット） ===
+export const EXPENSE_NONTAX_ITEMS = [
+  '市役所等で取得した戸籍や住民票', '収入印紙代', 'JTN', '家庭裁判所', '定款認証手数料',
+  '民事法務協会', '登録免許税', '事前調査費用', '古物営業許可費用',
+] as const
+export const EXPENSE_TAX_ITEMS = [
+  '金融機関で取得した残高証明・取引履歴・経過利息等', '郵送料', '切手代', '交通費', '小為替手数料',
+  'その他立替実費', '証券保管振替機構手数料', '全国銀行個人信用情報センター手数料',
+  '日本信用情報機構（JICC）手数料', '指定信用情報機関（CIC）手数料', '官報広告費',
+] as const
+// 名目 → 課税か（true=課税/false=非課税/undefined=未知）
+export const expenseItemTaxable = (label: string): boolean | undefined => {
+  if ((EXPENSE_TAX_ITEMS as readonly string[]).includes(label)) return true
+  if ((EXPENSE_NONTAX_ITEMS as readonly string[]).includes(label)) return false
+  return undefined
+}
+
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
 export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理', '生命保険'] as const

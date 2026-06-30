@@ -732,7 +732,10 @@ export type RewardItemRow = {
 }
 export type BillingExpenseItemRow = {
   id: string; case_id: string; shigyo: string | null
-  label: string | null; amount: number; sort_order: number; created_at: string
+  label: string | null; amount: number
+  taxable: boolean             // 課税=true / 非課税=false（migration 145）
+  quantity: number | null; unit_price: number | null; note: string | null
+  sort_order: number; created_at: string
 }
 export type SettlementIncomeItemRow = {
   id: string; case_id: string

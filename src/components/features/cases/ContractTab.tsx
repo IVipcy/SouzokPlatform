@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt, Trash2, Plus } from 'lucide-react'
+import { ExternalLink, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
 import {
   Section, FieldGrid, Field,
-  InlineCurrency, InlineDate, InlineTextarea,
+  InlineDate, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
 import RewardBreakdownSection from './RewardBreakdownSection'
+import BillingExpensesSection from './BillingExpensesSection'
 
 type Props = {
   caseData: CaseRow
@@ -29,7 +29,7 @@ type Props = {
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
+export default function ContractTab({ caseData, expenses, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
   // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
   const [referralRate, setReferralRate] = useState<number | null>(null)
   useEffect(() => {
@@ -88,22 +88,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
 
-  // 立替実費の追加・削除（請求タブで直接管理）
-  const [expForm, setExpForm] = useState<{ item: string; amount: string; date: string } | null>(null)
-  const addExpense = async () => {
-    if (!expForm?.item || !expForm.amount) return
-    const supabase = createClient()
-    const { error } = await supabase.from('expenses').insert({ case_id: caseData.id, item_name: expForm.item, amount: Number(expForm.amount), expense_date: expForm.date || null })
-    if (error) { showToast(`追加に失敗: ${error.message}`, 'error'); return }
-    setExpForm(null); _onRefresh()
-  }
-  const deleteExpense = async (id: string) => {
-    const supabase = createClient()
-    const { error } = await supabase.from('expenses').delete().eq('id', id)
-    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
-    _onRefresh()
-  }
-
   // 報酬内訳の合計 → cases.fee_judicial / fee_administrative へ反映（確定報酬）
   const applyRewardTotals = async (shihou: number, gyousei: number) => {
     const patch: Partial<CaseRow> = {}
@@ -125,22 +109,25 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
   const totalRevenue = feeSubtotal + referralFeeTotal
 
-  const getRelatedTaskName = (expense: ExpenseRow) => {
-    if (expense.related_task_id) {
-      const task = tasks.find(t => t.id === expense.related_task_id)
-      if (task) return task.title
-    }
-    return expense.related_task ?? '—'
-  }
-
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="請求" description="報酬の内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理" />}
 
-      {/* 報酬内訳（司法/行政。割引後合計＝確定報酬） */}
-      <Section title="報酬内訳（司法／行政）">
-        <RewardBreakdownSection caseId={caseData.id} onTotals={applyRewardTotals} />
-        <p className="text-[11px] text-gray-400 mt-2">各士業の「割引後」合計が確定報酬になり、前受金・確定請求の発行金額に反映されます。</p>
+      {/* 請求料金内訳（司法/行政。割引後合計＝確定報酬・前受金組込） */}
+      <Section title="請求料金内訳（司法／行政）">
+        <RewardBreakdownSection
+          caseId={caseData.id}
+          onTotals={applyRewardTotals}
+          advance={{ 司法: caseData.advance_payment_judicial, 行政: caseData.advance_payment_administrative }}
+          onAdvanceChange={(shigyo, v) => save(shigyo === '司法' ? 'advance_payment_judicial' : 'advance_payment_administrative', v)}
+        />
+        <p className="text-[11px] text-gray-400 mt-2">各士業の「割引後」合計が確定報酬になり、前受金を差し引いた額が確定請求になります。</p>
+      </Section>
+
+      {/* 立替実費（司法/行政・課税/非課税） */}
+      <Section title="立替実費（司法／行政・課税/非課税）">
+        <BillingExpensesSection caseId={caseData.id} />
+        <p className="text-[11px] text-gray-400 mt-2">名目を選ぶと課税/非課税が自動。金額＝数量×単価（空欄なら直接入力）。請求書はこの内訳から生成します。</p>
       </Section>
 
 
@@ -163,24 +150,14 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             </FieldGrid>
           </Section>
 
-          {/* 2. 報酬・前受金（報酬金額は上の内訳から自動） */}
-          <Section title="報酬・前受金" icon="💳">
+          {/* 2. 請求サマリー（報酬・前受金は上の内訳から自動） */}
+          <Section title="請求サマリー" icon="💳">
             <FieldGrid cols={1}>
               <Field label="確定報酬（行政）＝内訳合計" value={yen(caseData.fee_administrative)} mono />
               <Field label="確定報酬（司法）＝内訳合計" value={yen(caseData.fee_judicial)} mono />
               <Field label="報酬小計" value={yen(feeSubtotal)} mono />
-              <InlineCurrency
-                label="前受金（行政）"
-                value={caseData.advance_payment_administrative}
-                onSave={v => save('advance_payment_administrative', v)}
-              />
-              <InlineCurrency
-                label="前受金（司法）"
-                value={caseData.advance_payment_judicial}
-                onSave={v => save('advance_payment_judicial', v)}
-              />
               <Field label="前受金小計" value={yen(advanceTotal(caseData))} mono />
-              <Field label="請求金額（確定）" value={yen(confirmedAmount)} mono />
+              <Field label="請求金額（確定＝報酬−前受金）" value={yen(confirmedAmount)} mono />
               <InlineTextarea
                 label="メモ"
                 value={caseData.invoice_memo}
@@ -284,75 +261,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               </div>
             </div>
           </div>
-
-          {/* 立替実費明細（読み取り専用・入力は /billing の請求書発行モーダルで）。
-              オーダーシート作成時は不要（対応結果で発生する費用のため）→ OS時は非表示 */}
-          {!orderSheetMode && (
-          <Section title="立替実費明細">
-            <div className="text-sm">
-              {expenses.length > 0 ? (
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[13px] text-gray-400 border-b border-gray-100">
-                      <th className="pb-1.5 font-medium">費目</th>
-                      <th className="pb-1.5 font-medium text-right">金額</th>
-                      <th className="pb-1.5 font-medium">発生日</th>
-                      <th className="pb-1.5 font-medium">備考</th>
-                      <th className="pb-1.5 font-medium text-[11px]">請求</th>
-                      <th className="pb-1.5 w-7" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map(e => (
-                      <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        <td className="py-1.5 text-xs">{e.category || e.item_name}</td>
-                        <td className="py-1.5 text-right font-mono text-xs">¥{e.amount.toLocaleString()}</td>
-                        <td className="py-1.5 text-gray-500 text-xs">{e.expense_date ?? '—'}</td>
-                        <td className="py-1.5 text-gray-500 text-xs truncate max-w-[80px]">
-                          {getRelatedTaskName(e) !== '—' ? getRelatedTaskName(e) : (e.notes ?? '—')}
-                        </td>
-                        <td className="py-1.5">
-                          {e.billed_invoice_id ? (
-                            <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">請求済</span>
-                          ) : (
-                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">未請求</span>
-                          )}
-                        </td>
-                        <td className="py-1.5 text-center">
-                          {!e.billed_invoice_id && <button type="button" onClick={() => deleteExpense(e.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-gray-200">
-                      <td className="pt-2 font-medium text-gray-700 text-xs">合計</td>
-                      <td className="pt-2 text-right font-bold text-gray-900 font-mono text-xs">¥{expenseTotal.toLocaleString()}</td>
-                      <td colSpan={4}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              ) : (
-                <p className="text-gray-400 text-center py-3 text-xs">立替実費はありません</p>
-              )}
-              {/* 立替の追加（請求タブで直接） */}
-              {expForm ? (
-                <div className="mt-2 flex items-center gap-2 flex-wrap border-t border-gray-100 pt-2">
-                  <input value={expForm.item} onChange={e => setExpForm({ ...expForm, item: e.target.value })} placeholder="費目 *" className="px-2 py-1 text-[12px] border border-gray-200 rounded w-40 outline-none focus:border-brand-400" />
-                  <input value={expForm.amount} onChange={e => setExpForm({ ...expForm, amount: e.target.value.replace(/[^\d]/g, '') })} placeholder="金額 *" inputMode="numeric" className="px-2 py-1 text-[12px] border border-gray-200 rounded w-28 text-right outline-none focus:border-brand-400" />
-                  <input type="date" value={expForm.date} onChange={e => setExpForm({ ...expForm, date: e.target.value })} className="px-2 py-1 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-400" />
-                  <button type="button" onClick={addExpense} disabled={!expForm.item || !expForm.amount} className="px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 rounded hover:bg-brand-700 disabled:opacity-50">追加</button>
-                  <button type="button" onClick={() => setExpForm(null)} className="px-2 py-1 text-[12px] text-gray-500 hover:text-gray-700">取消</button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setExpForm({ item: '', amount: '', date: '' })} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 立替実費を追加</button>
-              )}
-              <p className="text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100">
-                請求書の発行・入金確認は<Link href={`/billing?case=${caseData.id}`} className="text-brand-600 hover:underline mx-0.5">請求・入金</Link>で行えます（報酬・立替はこの内訳から発行）。
-              </p>
-            </div>
-          </Section>
-          )}
 
       {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示。フラット＝ブランド淡色＋枠線 ─── */}
       {!orderSheetMode && (

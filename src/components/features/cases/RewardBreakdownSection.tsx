@@ -20,10 +20,14 @@ const SHIGYO = [
   { key: '行政', label: '行政（行政書士）', Icon: Stamp, color: '#0F6E56', feeField: 'fee_administrative' as const },
 ]
 
-export default function RewardBreakdownSection({ caseId, onTotals }: {
+export default function RewardBreakdownSection({ caseId, onTotals, advance, onAdvanceChange }: {
   caseId: string
   /** 司法/行政の確定報酬合計が変わったら通知（cases.fee_* へ書き戻し用） */
   onTotals?: (shihou: number, gyousei: number) => void
+  /** 前受金の現在値（司法/行政）。表に組み込んで表示・編集する */
+  advance?: { 司法: number | null; 行政: number | null }
+  /** 前受金の変更（cases.advance_payment_* へ） */
+  onAdvanceChange?: (shigyo: '司法' | '行政', value: number | null) => void
 }) {
   const supabase = createClient()
   const [rows, setRows] = useState<RewardItemRow[]>([])
@@ -133,8 +137,15 @@ export default function RewardBreakdownSection({ caseId, onTotals }: {
                 )}
               </table>
             </div>
-            <div className="px-2 py-1.5">
+            <div className="px-2 py-1.5 flex items-center gap-2 flex-wrap">
               <button type="button" onClick={() => addRow(s.key)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 行を追加</button>
+              {advance && onAdvanceChange && (
+                <span className="ml-auto inline-flex items-center gap-2 text-[12px]">
+                  <span className="text-gray-500">前受金（{s.key}）</span>
+                  <MoneyInput value={advance[s.key as '司法' | '行政']} onCommit={v => onAdvanceChange(s.key as '司法' | '行政', v === '' ? null : Number(v))} />
+                  <span className="text-gray-400">差引後 {yen(sum - (advance[s.key as '司法' | '行政'] ?? 0))}</span>
+                </span>
+              )}
             </div>
           </div>
         )
