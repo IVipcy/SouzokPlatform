@@ -120,6 +120,20 @@ function Pills({ value, options, onChange, multi }: { value: string | string[]; 
   )
 }
 
+function Select({ value, options, onChange, placeholder, noEmpty }: { value: string; options: readonly (string | { key: string; label: string })[]; onChange: (v: string) => void; placeholder?: string; noEmpty?: boolean }) {
+  const opts = options.map(o => (typeof o === 'string' ? { key: o, label: o } : o))
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition"
+    >
+      {!noEmpty && <option value="">{placeholder ?? '選択…'}</option>}
+      {opts.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+    </select>
+  )
+}
+
 function Input({ value, onChange, placeholder, type = 'text', max }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; max?: string }) {
   return (
     <input
@@ -141,28 +155,6 @@ function Textarea({ value, onChange, placeholder }: { value: string; onChange: (
       placeholder={placeholder}
       className="w-full bg-gray-50 border-[1.5px] border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 focus:bg-white transition resize-y min-h-[160px] max-h-[60vh] overflow-y-auto leading-relaxed"
     />
-  )
-}
-
-function StatusPills({ value, onChange }: { value: string; onChange: (key: string) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {STATUS_OPTIONS.map(o => {
-        const selected = value === o.key
-        return (
-          <button
-            key={o.key}
-            type="button"
-            onClick={() => onChange(o.key)}
-            className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${
-              selected ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
-            }`}
-          >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
   )
 }
 
@@ -557,22 +549,28 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <Input value={data.clients[0]?.name ?? ''} onChange={v => updateClient(0, { name: v })} placeholder="例: 服部 雅弘" />
           </Card>
           <Card label="面談内容"><Input value={data.meetingType} onChange={v => update('meetingType', v)} placeholder="新規面談" /></Card>
-          <Card label="面談結果" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          <Card label="面談結果" required><Select value={data.caseStatus} options={STATUS_OPTIONS} onChange={v => update('caseStatus', v)} noEmpty /></Card>
           <Card label="手続内容（受注区分）">
             <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
           <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="不動産売却（他事業者紹介・不動産）">
-            <Input value={data.realEstateRegistrationType} onChange={v => { update('realEstateRegistrationType', v); update('referralPartners', v.trim() ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産')) }} placeholder="なし / 依頼内容を記載" />
+            <div className="flex gap-2 items-start">
+              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
+              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
+            </div>
           </Card>
           <Card label="税理士（他事業者紹介・税理士）">
-            <Input value={data.taxAdvisorBusinessType} onChange={v => { update('taxAdvisorBusinessType', v); update('referralPartners', v.trim() ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士')) }} placeholder="なし / 依頼内容を記載" />
+            <div className="flex gap-2 items-start">
+              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士'))} /></div>
+              <div className="flex-1"><Input value={data.taxAdvisorBusinessType} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="備考を記載" /></div>
+            </div>
           </Card>
           {/* 検討期間・お客様回答予定日: 検討中 / 検討中(契約書待ち) で表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
-              <Card label="検討期間" required><Pills value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v as string)} /></Card>
+              <Card label="検討期間" required><Select value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v)} placeholder="検討期間を選択" /></Card>
               {data.considerationPeriod && data.considerationPeriod !== '見込み不明' && (
                 <Card label="お客様回答予定日" required>
                   <Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} max={considerationDueMax(data.considerationPeriod) ?? undefined} />
@@ -597,13 +595,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
             <>
               <Card label="LPによる追いかけ可否">
-                <Pills value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} />
+                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
                 <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
               </Card>
               {data.lpFollowupAllowed === '可' && (
                 <>
                   <Card label="連絡方法">
-                    <Pills value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v as string)} />
+                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
                   </Card>
                   <Card label="追いかけ期限日">
                     <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
