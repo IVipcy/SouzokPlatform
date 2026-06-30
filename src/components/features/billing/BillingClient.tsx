@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Plus, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -402,16 +402,7 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
                 銀行CSV取込
               </Button>
             )}
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />}
-              onClick={() => setCreateOpen(true)}
-            >
-              {checkedInvoice
-                ? `選択した案件で請求書発行（${checkedInvoice.cases?.case_number ?? ''}）`
-                : '請求書発行'}
-            </Button>
+            {/* 請求書の発行は各案件の「請求」タブに一本化（ここでは作成しない） */}
           </>
         }
       />

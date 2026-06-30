@@ -13,6 +13,9 @@ import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
 import RewardBreakdownSection from './RewardBreakdownSection'
 import BillingExpensesSection from './BillingExpensesSection'
+import KakuteiInvoiceModal from './KakuteiInvoiceModal'
+import InvoiceDocumentModal from './InvoiceDocumentModal'
+import { FileText } from 'lucide-react'
 
 type Props = {
   caseData: CaseRow
@@ -29,7 +32,9 @@ type Props = {
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
+export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
+  const [kakuteiOpen, setKakuteiOpen] = useState(false)
+  const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
   const [referralRate, setReferralRate] = useState<number | null>(null)
   useEffect(() => {
@@ -111,7 +116,18 @@ export default function ContractTab({ caseData, expenses, onRefresh: _onRefresh,
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="請求" description="報酬の内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理" />}
+      {!orderSheetMode && (
+        <TabHeader title="請求" description="請求料金内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理"
+          right={
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setAdvanceInvoiceOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
+              <button type="button" onClick={() => setKakuteiOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
+            </div>
+          }
+        />
+      )}
+      {kakuteiOpen && <KakuteiInvoiceModal isOpen onClose={() => setKakuteiOpen(false)} caseData={caseData} tasks={tasks} onSaved={_onRefresh} />}
+      {advanceInvoiceOpen && <InvoiceDocumentModal isOpen onClose={() => setAdvanceInvoiceOpen(false)} caseData={caseData} tasks={tasks} docType="請求書" onSaved={_onRefresh} />}
 
       {/* 請求料金内訳（司法/行政。割引後合計＝確定報酬・前受金組込） */}
       <Section title="請求料金内訳（司法／行政）">
@@ -198,11 +214,11 @@ export default function ContractTab({ caseData, expenses, onRefresh: _onRefresh,
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-brand-700 bg-brand-50/70 hover:bg-brand-100 border border-brand-100 rounded transition"
               >
                 <Receipt className="w-3.5 h-3.5 text-brand-500" />
-                請求書発行・入金状況は「請求・入金」で管理
+                入金状況は「請求・入金」で管理
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </Link>
               <p className="text-[11px] text-gray-400 mt-1.5 px-1">
-                請求書ステータス・請求日・入金ステータス・入金確認日・入金額は <span className="font-mono">/billing</span> で一元管理しています。
+                請求書の<strong className="font-medium">発行はこの請求タブ</strong>。請求日・入金ステータス・入金確認日・入金額は <span className="font-mono">/billing</span> で管理します。
               </p>
             </div>
             )}

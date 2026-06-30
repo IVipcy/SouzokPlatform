@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
@@ -36,31 +35,30 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
   useEffect(() => {
     if (!isOpen) return
     setOffice(recommendedOffice)
-    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き 確定請求`)
-    setFee('')
-    setAdvance('')
-    setRows([{ id: NEW_ID(), name: '', amount: '', taxable: false }])
     setTaskId(defaultTaskId ?? '')
-    // 案件に登録済みの立替実費を初期表示（空欄になる問題の解消）。課税フラグも引き継ぐ。
+  }, [isOpen, recommendedOffice, defaultTaskId])
+
+  // 発行主体（司法/行政）に合わせて、請求タブの内訳から報酬・前受金・立替を自動反映。
+  useEffect(() => {
+    if (!isOpen) return
+    const shigyo = office === 'shiho' ? '司法' : '行政'
+    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き 確定請求`)
+    setFee((office === 'shiho' ? caseData.fee_judicial : caseData.fee_administrative) ?? '')
+    setAdvance((office === 'shiho' ? caseData.advance_payment_judicial : caseData.advance_payment_administrative) ?? '')
     ;(async () => {
       const { data } = await createClient()
-        .from('expenses')
-        .select('item_name, amount, taxable, expense_date')
+        .from('billing_expense_items')
+        .select('label, amount, taxable, sort_order')
         .eq('case_id', caseData.id)
-        .order('expense_date', { ascending: true })
-      const exp = (data ?? []) as Array<{ item_name: string | null; amount: number | null; taxable: boolean | null }>
-      if (exp.length > 0) {
-        setRows(exp.map(e => ({ id: NEW_ID(), name: e.item_name ?? '', amount: e.amount ?? 0, taxable: e.taxable !== false })))
-      }
+        .eq('shigyo', shigyo)
+        .order('sort_order', { ascending: true })
+      const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null }>
+      setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true })))
     })()
-  }, [isOpen, recommendedOffice, caseData.deceased_name, caseData.id, defaultTaskId])
+  }, [isOpen, office, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
 
   const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable }))
   const calc = computeKakutei(Number(fee) || 0, Number(advance) || 0, expenses)
-
-  const addRow = () => setRows(r => [...r, { id: NEW_ID(), name: '', amount: '', taxable: false }])
-  const updateRow = (id: string, patch: Partial<Row>) => setRows(r => r.map(x => x.id === id ? { ...x, ...patch } : x))
-  const delRow = (id: string) => setRows(r => r.filter(x => x.id !== id))
 
   const handleGenerate = async () => {
     if (fee === '' || Number(fee) < 0) { showToast('報酬額を入力してください', 'error'); return }
@@ -133,38 +131,35 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
           <input type="text" value={kenmei} onChange={e => setKenmei(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
         </section>
 
-        {/* 報酬・前受金 */}
+        {/* 報酬・前受金（請求タブの内訳から自動。必要なら上書き可） */}
         <section className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">報酬額（税込）</label>
-            <input type="number" min={0} value={fee} onChange={e => setFee(e.target.value === '' ? '' : Number(e.target.value))} placeholder="例: 330000" className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
+            <label className="block text-xs font-semibold text-gray-700 mb-1">報酬額（税込）<span className="ml-1 text-[11px] font-normal text-brand-500">請求タブから自動</span></label>
+            <input type="number" min={0} value={fee} onChange={e => setFee(e.target.value === '' ? '' : Number(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">前受金（受領済・差引）</label>
-            <input type="number" min={0} value={advance} onChange={e => setAdvance(e.target.value === '' ? '' : Number(e.target.value))} placeholder="例: 110000" className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
+            <label className="block text-xs font-semibold text-gray-700 mb-1">前受金（受領済・差引）<span className="ml-1 text-[11px] font-normal text-brand-500">請求タブから自動</span></label>
+            <input type="number" min={0} value={advance} onChange={e => setAdvance(e.target.value === '' ? '' : Number(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
           </div>
         </section>
 
-        {/* 立替実費明細 */}
+        {/* 立替実費明細（請求タブの立替から自動・読み取り専用） */}
         <section>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-gray-700">立替実費明細（立替実費明細シートに反映）</label>
-            <button type="button" onClick={addRow} className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded"><Plus className="w-3 h-3" />明細を追加</button>
-          </div>
-          <div className="space-y-1.5">
-            {rows.map(row => (
-              <div key={row.id} className="flex items-center gap-2">
-                <input type="text" value={row.name} onChange={e => updateRow(row.id, { name: e.target.value })} placeholder="名目（例: 戸籍取得手数料）" className="flex-1 text-[13px] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand-400" />
-                <input type="number" min={0} value={row.amount} onChange={e => updateRow(row.id, { amount: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="金額(税込)" className="w-28 text-[13px] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand-400" />
-                <label className="inline-flex items-center gap-1 text-[12px] text-gray-600 whitespace-nowrap">
-                  <input type="checkbox" checked={row.taxable} onChange={e => updateRow(row.id, { taxable: e.target.checked })} />
-                  課税
-                </label>
-                <button type="button" onClick={() => delRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-gray-400 mt-1">課税にチェックすると課税分（税込）として集計、未チェックは非課税（官公署手数料等）として集計します。</p>
+          <label className="block text-xs font-semibold text-gray-700 mb-1.5">立替実費明細<span className="ml-2 text-[11px] font-normal text-brand-500">請求タブの立替（{office === 'shiho' ? '司法' : '行政'}）から自動</span></label>
+          {rows.length === 0 ? (
+            <p className="text-[12px] text-gray-400 border border-dashed border-gray-200 rounded px-3 py-3 text-center">この士業の立替実費はありません（請求タブで入力してください）</p>
+          ) : (
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-50">
+              {rows.map(row => (
+                <div key={row.id} className="flex items-center gap-2 px-3 py-1.5 text-[12.5px]">
+                  <span className="flex-1 text-gray-700 truncate">{row.name || '（名目未設定）'}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${row.taxable ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>{row.taxable ? '課税' : '非課税'}</span>
+                  <span className="w-24 text-right font-mono text-gray-800">{yen(Number(row.amount) || 0)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-gray-400 mt-1">立替の追加・編集は請求タブの「立替実費」で行います。</p>
         </section>
 
         {/* 計算プレビュー */}
