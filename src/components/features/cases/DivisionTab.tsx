@@ -20,6 +20,7 @@ import {
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 
 // 署名方法は送付・調印に連動（矛盾する組合せを出さない）
@@ -87,6 +88,11 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
           title={mode === 'will' ? '遺言' : '遺産分割'}
           description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
         />
+      )}
+      {!orderSheetMode && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+          <WorkContentField caseData={caseData} gyomu={mode} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+        </div>
       )}
       {mode === 'division' && (() => {
         const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'

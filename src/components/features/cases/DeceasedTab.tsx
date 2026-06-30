@@ -15,6 +15,7 @@ import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
 import { SubTabs } from '@/components/ui/SubTabs'
@@ -233,6 +234,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   return (
     <div>
       {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人の確定と、戸籍請求の管理" />}
+      {!orderSheetMode && (
+        <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+          <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+        </div>
+      )}
       {!orderSheetMode && (
         <div className="mb-3.5">
           <TabTasksSection

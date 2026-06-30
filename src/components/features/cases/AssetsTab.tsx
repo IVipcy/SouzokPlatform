@@ -15,6 +15,7 @@ import RealEstateSection from './RealEstateSection'
 import InventoryTab from './InventoryTab'
 import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow } from '@/types'
@@ -78,6 +79,11 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など財産の調査と取得資料の管理" />}
+      {!orderSheetMode && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+          <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+        </div>
+      )}
       {!orderSheetMode && (
         <TabTasksSection
           gyomus={['金融資産', '不動産', '目録']}

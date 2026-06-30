@@ -8,8 +8,9 @@ import { Section } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
-import type { FinancialAssetRow } from '@/types'
+import type { FinancialAssetRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 const CANCEL = ['有', '無', '確認中']
@@ -22,6 +23,7 @@ const SUBTABS: { key: string; kind: string; label: string }[] = [
 
 type Props = {
   caseId?: string
+  caseData?: CaseRow
   financialAssets: FinancialAssetRow[]
   onRefresh?: () => void
   // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
@@ -36,7 +38,7 @@ type Props = {
  * 「いつ解約するか（解約予定日）・終わったか（解約完了）」の進捗を管理する。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
-export default function CancellationTab({ caseId, financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
+export default function CancellationTab({ caseId, caseData, financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
@@ -56,6 +58,11 @@ export default function CancellationTab({ caseId, financialAssets, onRefresh, re
   return (
     <div>
       {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />}
+      {!orderSheetMode && caseData && (
+        <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+          <WorkContentField caseData={caseData} gyomu="cancellation" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" />
+        </div>
+      )}
 
       {!orderSheetMode && caseId ? (
         // 案件詳細（実務）：金融機関単位の左レール＋カード

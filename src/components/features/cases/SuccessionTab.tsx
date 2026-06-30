@@ -12,6 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 import { MoneyInput } from './FinancialAssetsTable'
 import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow } from '@/types'
@@ -134,6 +135,9 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   return (
     <div className="space-y-3.5">
       <TabHeader title="遺産承継" description="精算書（収入−支出＝残余）と指図書（相続人への振込）の管理" />
+      <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+        <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" />
+      </div>
       <SubTabs tabs={[{ key: 'settlement', label: '精算書作成' }, { key: 'instruction', label: '指図書作成' }]} active={sub} onChange={k => setSub(k as 'settlement' | 'instruction')} />
 
       {/* 精算書 */}
