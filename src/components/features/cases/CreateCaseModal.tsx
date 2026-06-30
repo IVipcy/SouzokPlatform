@@ -1,212 +1,156 @@
 'use client'
 
+// 新規面談登録（報告書式の項目・1行1項目のシンプル縦リスト）。
+// 詳細は案件詳細（面談タブ／オーダーシート）で入力する前提で、ここは面談報告の最小項目だけ。
+
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
+import { useAuth } from '@/components/providers/AuthProvider'
+import { generateCaseNumber } from '@/lib/stationIntegration'
 
-type Props = {
-  isOpen: boolean
-  onClose: () => void
-  onSaved: () => void
-}
+type Props = { isOpen: boolean; onClose: () => void; onSaved: () => void }
+
+const MEETING_RESULTS = ['検討中', '受託', '不受託'] as const
+const RESULT_TO_STATUS: Record<string, string> = { '検討中': '検討中', '受託': '受注', '不受託': '失注' }
+const CONSIDERATION_PERIODS = ['1週間', '2週間', '1ヶ月', '見込み不明'] as const
+const PROCEDURES = ['相続登記', '遺産整理（預貯金等）', '遺言', '相続放棄・限定承認', 'その他'] as const
+const LP_FOLLOWUP = [{ k: '', label: '—' }, { k: 'yes', label: '可' }, { k: 'no', label: '否' }]
 
 export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
+  const user = useAuth()
   const [form, setForm] = useState({
-    case_number: '',
-    deal_name: '',
-    deceased_name: '',
-    date_of_death: '',
-    difficulty: '普' as string,
-    client_name: '',
-    client_phone: '',
-    client_email: '',
+    referrer: '',                 // 紹介元（必須）
+    client_name: '',              // 顧客名（＝依頼者名）
+    meeting_type: '新規面談',      // 面談内容（フリー）
+    meeting_result: '検討中' as string,
+    procedures: [] as string[],   // 手続内容（受注区分の暫定）
+    consideration_period: '',
+    response_due: '',
+    proposal_note: '',
+    lp_followup: '',
+    expected_completion: '',
+    realestate_sale: '',          // 不動産売却（フリー）→他事業者紹介(不動産)
+    tax_advisor: '',              // 税理士（フリー）→他事業者紹介(税理士)
+    decline_reason: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(p => ({ ...p, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.deal_name.trim()) {
-      setError('案件名は必須です')
-      return
-    }
-    if (!form.case_number.trim()) {
-      setError('管理番号は必須です')
-      return
-    }
-
-    setSaving(true)
-    setError('')
-
+    if (!form.referrer.trim()) { setError('紹介元は必須です'); return }
+    if (!form.client_name.trim()) { setError('顧客名は必須です'); return }
+    setSaving(true); setError('')
     const supabase = createClient()
 
-    // Create client first if name provided
-    let clientId: string | null = null
-    if (form.client_name.trim()) {
-      const { data: client, error: clientErr } = await supabase
-        .from('clients')
-        .insert({
-          name: form.client_name.trim(),
-          phone: form.client_phone.trim() || null,
-          email: form.client_email.trim() || null,
-        })
-        .select('id')
-        .single()
+    // 依頼者（顧客）作成
+    const { data: client, error: clientErr } = await supabase.from('clients').insert({ name: form.client_name.trim() }).select('id').single()
+    if (clientErr) { setError(`顧客作成に失敗: ${clientErr.message}`); setSaving(false); return }
 
-      if (clientErr) {
-        setError(`顧客作成に失敗: ${clientErr.message}`)
-        setSaving(false)
-        return
-      }
-      clientId = client.id
-    }
+    // 案件番号の自動採番（YYMM + LP + 当日連番）
+    const now = new Date()
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const { count } = await supabase.from('cases').select('id', { count: 'exact', head: true }).gte('created_at', dayStart)
+    const caseNumber = generateCaseNumber(now, count ?? 0)
 
-    // Create case
-    const { error: caseErr } = await supabase
-      .from('cases')
-      .insert({
-        case_number: form.case_number.trim(),
-        deal_name: form.deal_name.trim(),
-        deceased_name: form.deceased_name.trim() || null,
-        date_of_death: form.date_of_death || null,
-        difficulty: form.difficulty,
-        client_id: clientId,
-        // 新規作成時は必ず「面談設定済」（相談案件）から開始。「新規（架電案件化）」は廃止。
-        status: '面談設定済',
-      })
+    const { data: created, error: caseErr } = await supabase.from('cases').insert({
+      case_number: caseNumber,
+      deal_name: form.client_name.trim(),
+      client_id: client.id,
+      status: RESULT_TO_STATUS[form.meeting_result] ?? '面談設定済',
+      order_route_detail: form.referrer.trim(),         // 紹介元（葬儀社名等）
+      meeting_owner_id: user?.memberId ?? null,          // 面談担当＝ログイン者を自動設定
+      meeting_type: form.meeting_type.trim() || null,
+      order_category: form.procedures.length ? form.procedures : null,
+      consideration_period: form.consideration_period || null,
+      client_response_due_date: form.response_due || null,
+      proposal_note: form.proposal_note.trim() || null,
+      lp_followup_allowed: form.lp_followup === 'yes' ? true : form.lp_followup === 'no' ? false : null,
+      expected_completion_date: form.expected_completion || null,
+      consideration_decline_reason_detail: form.decline_reason.trim() || null,
+    }).select('id').single()
+    if (caseErr || !created) { setError(`案件作成に失敗: ${caseErr?.message ?? ''}`); setSaving(false); return }
+
+    // 不動産売却・税理士 → 他事業者紹介（依頼内容詳細にフリーテキスト）
+    const refs: { case_id: string; partner_type: string; content_detail: string }[] = []
+    if (form.realestate_sale.trim()) refs.push({ case_id: created.id, partner_type: '不動産', content_detail: form.realestate_sale.trim() })
+    if (form.tax_advisor.trim()) refs.push({ case_id: created.id, partner_type: '税理士', content_detail: form.tax_advisor.trim() })
+    if (refs.length) await supabase.from('case_referrals').insert(refs)
 
     setSaving(false)
-
-    if (caseErr) {
-      setError(`案件作成に失敗: ${caseErr.message}`)
-      return
-    }
-
-    setForm({ case_number: '', deal_name: '', deceased_name: '', date_of_death: '', difficulty: '普', client_name: '', client_phone: '', client_email: '' })
-    showToast('案件を作成しました', 'success')
+    showToast('面談を登録しました', 'success')
     onSaved()
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="＋ 新規案件登録"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={saving}>
-            {saving ? '作成中...' : '作成'}
-          </Button>
-        </>
-      }
-    >
-      <form onSubmit={handleSubmit} className="space-y-3 relative">
-        {saving && (
-          <div className="absolute inset-0 bg-white/70 z-20 flex flex-col items-center justify-center rounded-lg">
-            <div className="w-10 h-10 border-[3px] border-brand-200 border-t-brand-600 rounded-full animate-spin mb-2" />
-            <div className="text-xs font-semibold text-brand-600">案件を作成中...</div>
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="管理番号" required>
-            <input
-              type="text"
-              value={form.case_number}
-              onChange={e => setForm(p => ({ ...p, case_number: e.target.value }))}
-              placeholder="R7-A00129"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
-          </FormField>
-          <FormField label="難易度">
-            <div className="flex gap-2 pt-1">
-              {(['易', '普', '難'] as const).map(d => (
-                <label key={d} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input type="radio" name="diff" value={d} checked={form.difficulty === d} onChange={() => setForm(p => ({ ...p, difficulty: d }))} className="accent-brand-600" />
-                  {d}
-                </label>
+    <Modal isOpen={isOpen} onClose={onClose} title="＋ 新規面談登録" footer={
+      <>
+        <Button variant="secondary" onClick={onClose}>キャンセル</Button>
+        <Button variant="primary" onClick={handleSubmit} loading={saving}>{saving ? '登録中...' : '登録'}</Button>
+      </>
+    }>
+      <form onSubmit={handleSubmit} className="relative">
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-lg p-2.5 mb-2">{error}</div>}
+        <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+          <Row label="紹介元" required hint="連携で自動。手入力可">
+            <input value={form.referrer} onChange={e => set('referrer', e.target.value)} placeholder="例: お仏壇のはせがわ" className={inp} />
+          </Row>
+          <Row label="面談担当"><div className="px-2 py-1.5 text-[12.5px] text-gray-500 bg-gray-50 border border-gray-200 rounded">{user?.memberName ?? 'ログイン者を自動設定'}</div></Row>
+          <Row label="顧客名" required><input value={form.client_name} onChange={e => set('client_name', e.target.value)} placeholder="例: 服部 雅弘" className={inp} /></Row>
+          <Row label="面談内容"><input value={form.meeting_type} onChange={e => set('meeting_type', e.target.value)} placeholder="新規面談" className={inp} /></Row>
+          <Row label="面談結果">
+            <select value={form.meeting_result} onChange={e => set('meeting_result', e.target.value)} className={inp}>
+              {MEETING_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </Row>
+          <Row label="手続内容" hint="受注区分（暫定）">
+            <div className="flex flex-wrap gap-1.5">
+              {PROCEDURES.map(p => {
+                const on = form.procedures.includes(p)
+                return <button key={p} type="button" onClick={() => set('procedures', on ? form.procedures.filter(x => x !== p) : [...form.procedures, p])}
+                  className={`px-2.5 py-1 rounded-full text-[11.5px] border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{p}</button>
+              })}
+            </div>
+          </Row>
+          <Row label="検討期間">
+            <div className="flex flex-wrap gap-1.5">
+              {CONSIDERATION_PERIODS.map(p => (
+                <button key={p} type="button" onClick={() => set('consideration_period', form.consideration_period === p ? '' : p)}
+                  className={`px-2.5 py-1 rounded-full text-[11.5px] border ${form.consideration_period === p ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{p}</button>
               ))}
             </div>
-          </FormField>
-        </div>
-
-        <FormField label="案件名（依頼者名）" required>
-          <input
-            type="text"
-            value={form.deal_name}
-            onChange={e => setForm(p => ({ ...p, deal_name: e.target.value }))}
-            placeholder="山田 花子"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-          />
-        </FormField>
-
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="被相続人名">
-            <input
-              type="text"
-              value={form.deceased_name}
-              onChange={e => setForm(p => ({ ...p, deceased_name: e.target.value }))}
-              placeholder="山田 太郎"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
-          </FormField>
-          <FormField label="相続開始日">
-            <input
-              type="date"
-              value={form.date_of_death}
-              onChange={e => setForm(p => ({ ...p, date_of_death: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
-          </FormField>
-        </div>
-
-        <div className="border-t border-gray-100 pt-3 mt-3">
-          <p className="text-[13px] font-semibold text-gray-400 mb-2">依頼者情報（任意）</p>
-          <FormField label="依頼者氏名">
-            <input
-              type="text"
-              value={form.client_name}
-              onChange={e => setForm(p => ({ ...p, client_name: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            />
-          </FormField>
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <FormField label="電話番号">
-              <input
-                type="tel"
-                value={form.client_phone}
-                onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-              />
-            </FormField>
-            <FormField label="メール">
-              <input
-                type="email"
-                value={form.client_email}
-                onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-              />
-            </FormField>
-          </div>
+          </Row>
+          <Row label="お客様回答予定日"><input type="date" value={form.response_due} onChange={e => set('response_due', e.target.value)} className={inp} /></Row>
+          <Row label="提案金額"><input value={form.proposal_note} onChange={e => set('proposal_note', e.target.value)} placeholder="例: 提案せず / 330,000円" className={inp} /></Row>
+          <Row label="LPによる追いかけの可否">
+            <select value={form.lp_followup} onChange={e => set('lp_followup', e.target.value)} className={inp}>
+              {LP_FOLLOWUP.map(o => <option key={o.k} value={o.k}>{o.label}</option>)}
+            </select>
+          </Row>
+          <Row label="完了予定日"><input type="date" value={form.expected_completion} onChange={e => set('expected_completion', e.target.value)} className={inp} /></Row>
+          <Row label="不動産売却" hint="他事業者紹介(不動産)へ"><input value={form.realestate_sale} onChange={e => set('realestate_sale', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>
+          <Row label="税理士" hint="他事業者紹介(税理士)へ"><input value={form.tax_advisor} onChange={e => set('tax_advisor', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>
+          <Row label="検討・不受託の理由" top><textarea value={form.decline_reason} onChange={e => set('decline_reason', e.target.value)} rows={3} placeholder="理由・面談メモ" className={`${inp} resize-none`} /></Row>
         </div>
       </form>
     </Modal>
   )
 }
 
-function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+const inp = 'w-full border border-gray-300 rounded px-2 py-1.5 text-[12.5px] focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white'
+
+function Row({ label, required, hint, top, children }: { label: string; required?: boolean; hint?: string; top?: boolean; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {children}
+    <div className={`flex gap-3 px-3 py-2 ${top ? 'items-start' : 'items-center'}`}>
+      <div className="flex-none w-32 pt-0.5">
+        <div className="text-[11.5px] text-gray-600">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
+        {hint && <div className="text-[10px] text-gray-400">{hint}</div>}
+      </div>
+      <div className="flex-1 min-w-0">{children}</div>
     </div>
   )
 }
