@@ -4,7 +4,7 @@
 // 名目は定型リスト（課税/非課税）から選択 or 自由入力。金額＝数量×単価（空欄なら直接）。
 
 import { useEffect, useState } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
@@ -18,6 +18,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   const supabase = createClient()
   const [rows, setRows] = useState<BillingExpenseItemRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -49,6 +50,45 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     const { error } = await supabase.from('billing_expense_items').delete().eq('id', id)
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
     setRows(prev => prev.filter(r => r.id !== id))
+  }
+
+  // 各実務タブで確定した立替実費を取り込む（戸籍の小為替・不動産の取得資料・登録免許税）。
+  // 既存の取り込み分は入れ替え、手入力分(source_kind=null)は残す。
+  const importFromTabs = async () => {
+    if (rows.some(r => r.source_kind) && !confirm('実務タブから立替実費を取り込みます。前回取り込んだ分は最新の内容に入れ替わります（手入力分は残ります）。よろしいですか？')) return
+    setImporting(true)
+    const [{ data: kos }, { data: rea }, { data: props }] = await Promise.all([
+      supabase.from('koseki_requests').select('id, target_person, request_to, acquirer, cost_budget, cost_refund, cost_confirmed').eq('case_id', caseId),
+      supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, cost_confirmed').eq('case_id', caseId),
+      supabase.from('real_estate_properties').select('id, address, lot_number, registration_cost').eq('case_id', caseId),
+    ])
+    type Imp = { shigyo: string; taxable: boolean; label: string; amount: number; source_kind: string; source_id: string }
+    const items: Imp[] = []
+    for (const k of (kos ?? []) as Record<string, unknown>[]) {
+      if (k.acquirer === '依頼者') continue  // 依頼者負担は立替に含めない
+      const b = k.cost_budget as number | null, rf = k.cost_refund as number | null, c = k.cost_confirmed as number | null
+      const amt = (b != null || rf != null) ? (b ?? 0) - (rf ?? 0) : (c ?? 0)
+      if (amt > 0) items.push({ shigyo: '司法', taxable: false, label: `戸籍等取得（${(k.target_person as string) || (k.request_to as string) || '戸籍'}）`, amount: amt, source_kind: 'koseki', source_id: k.id as string })
+    }
+    for (const a of (rea ?? []) as Record<string, unknown>[]) {
+      const amt = (a.cost_confirmed as number | null) ?? 0
+      if (amt > 0) items.push({ shigyo: '司法', taxable: false, label: `${(a.item_type as string) || '取得資料'}${a.target_municipality ? `（${a.target_municipality}）` : ''}`, amount: amt, source_kind: 'real_estate_acq', source_id: a.id as string })
+    }
+    for (const p of (props ?? []) as Record<string, unknown>[]) {
+      const amt = (p.registration_cost as number | null) ?? 0
+      if (amt > 0) items.push({ shigyo: '司法', taxable: false, label: `登録免許税（${(p.address as string) || (p.lot_number as string) || '物件'}）`, amount: amt, source_kind: 'registration', source_id: p.id as string })
+    }
+    // 既存の取り込み分を削除 → 再挿入
+    await supabase.from('billing_expense_items').delete().eq('case_id', caseId).not('source_kind', 'is', null)
+    const base = rows.filter(r => !r.source_kind).length
+    if (items.length) {
+      const { error } = await supabase.from('billing_expense_items').insert(items.map((it, i) => ({ case_id: caseId, sort_order: base + i, quantity: null, unit_price: null, note: null, ...it })))
+      if (error) { showToast(`取り込みに失敗: ${error.message}`, 'error'); setImporting(false); return }
+    }
+    const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order')
+    setRows((data ?? []) as BillingExpenseItemRow[])
+    setImporting(false)
+    showToast(items.length ? `実務タブから${items.length}件の立替実費を取り込みました（すべて司法／非課税。区分は必要に応じて調整してください）` : '取り込める確定済の立替実費がありませんでした', items.length ? 'success' : 'info')
   }
 
   if (loading) return <div className="text-[12px] text-gray-400 py-3">読み込み中…</div>
@@ -89,6 +129,13 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
       {/* 名目の候補（datalist） */}
       <datalist id="exp-tax">{EXPENSE_TAX_ITEMS.map(o => <option key={o} value={o} />)}</datalist>
       <datalist id="exp-non">{EXPENSE_NONTAX_ITEMS.map(o => <option key={o} value={o} />)}</datalist>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] text-gray-400">各実務タブ（戸籍の小為替・不動産の取得資料・登録免許税）で確定した立替実費を取り込めます。手入力分はそのまま残ります。</p>
+        <button type="button" onClick={importFromTabs} disabled={importing}
+          className="flex-none inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50">
+          <Download className="w-3.5 h-3.5" />{importing ? '取り込み中…' : '実務タブから取り込み'}
+        </button>
+      </div>
       {SHIGYO.map(s => (
         <div key={s} className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-gray-50 text-[12.5px] font-semibold text-gray-800">立替実費（{s}）</div>
