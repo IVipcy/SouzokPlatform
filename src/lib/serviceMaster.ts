@@ -26,7 +26,7 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '調停手続き': 'mediation',
   '検認手続き': 'probate',
   '後見手続き': 'guardianship',
-  '契約書作成': 'contractProc',
+  '契約書作成': 'contractCreate',
   '執行通知': 'execution',
   '精算書作成': 'succession',
   '指図書作成': 'succession',

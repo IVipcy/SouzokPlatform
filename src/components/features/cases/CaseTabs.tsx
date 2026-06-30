@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'caseBasic' | 'letter' | 'execution' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'caseBasic' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -45,6 +45,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   succession: '遺産承継',
   letter: '手紙',
   execution: '執行通知',
+  contractCreate: '契約書作成',
   contract: '請求',
   docs: '到着物',
   documentCreate: '書類作成',
@@ -62,7 +63,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
-  succession: 'practice', contract: 'practice', letter: 'practice', execution: 'practice',
+  succession: 'practice', contract: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
   ownerSales: 'info', orderContent: 'info',
   meeting: 'info', caseBasic: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',
@@ -71,7 +72,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
 const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
-  'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'letter', 'execution', 'succession',
+  'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'letter', 'execution', 'contractCreate', 'succession',
   'ownerSales', 'orderContent', 'contract', 'meeting', 'caseBasic', 'contractProc',
 ]
 
