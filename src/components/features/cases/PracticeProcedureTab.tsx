@@ -1,12 +1,13 @@
 'use client'
 
 import { Section } from '@/components/ui/InlineFields'
-import { categoriesOf, kindForTask } from '@/lib/serviceMaster'
+import { categoriesOf, kindForTask, GYOMU_TAB } from '@/lib/serviceMaster'
 import CourtProcedureInfo from './CourtProcedureInfo'
 import TrustInfo from './TrustInfo'
 import MediationParties from './MediationParties'
 import ProcedureDocsTable from './ProcedureDocsTable'
 import TabHeader from './TabHeader'
+import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { RoleRow } from './ProcedureIntakeSection'
@@ -72,6 +73,9 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
   return (
     <div className="space-y-3.5">
       <TabHeader title={title} description={description} />
+      <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
+        <WorkContentField caseData={caseData} gyomu={GYOMU_TAB[gyomu] ?? gyomu} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+      </div>
       <TabTasksSection
         gyomus={[gyomu]}
         tasks={tasks ?? []}
