@@ -533,6 +533,20 @@ export type KosekiRequestRow = {
   notes: string | null
   acquired_part: string | null    // 取得した受注区分パート（パート制。migration 128）
   read_result: string | null      // 読込結果（migration 146）
+  // 費用（migration 148。確定費用＝予算−返金＝立替実費の実績）
+  cost_budget: number | null
+  cost_refund: number | null
+  cost_confirmed: number | null
+  // ダブルチェック（自分以外。確認者名＋日時。migration 148）
+  request_check_name: string | null
+  request_check_at: string | null
+  receipt_check_name: string | null
+  receipt_check_at: string | null
+  // 追加請求（管理担当の承認ゲート。migration 148）
+  is_additional: boolean
+  additional_reason: string | null
+  additional_approved_by: string | null
+  additional_approved_at: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -654,6 +668,9 @@ export type RealEstatePropertyRow = {
   confirmed: boolean                               // 確定済（管理担当のみ。TOP・目録へ反映。migration 147）
   confirmed_by: string | null
   confirmed_at: string | null
+  registration_cost: number | null                 // 相続登記 確定費用＝登録免許税（migration 148）
+  registration_check_name: string | null           // 相続登記 申請時ダブルチェック（migration 148）
+  registration_check_at: string | null
   created_at: string
 }
 
@@ -671,6 +688,14 @@ export type RealEstateAcquisitionRow = {
   received: boolean
   amount: number | null
   notes: string | null
+  // 費用＋ダブルチェック（migration 148）
+  cost_budget: number | null
+  cost_refund: number | null
+  cost_confirmed: number | null
+  request_check_name: string | null
+  request_check_at: string | null
+  receipt_check_name: string | null
+  receipt_check_at: string | null
   sort_order: number
   created_at: string
   updated_at: string

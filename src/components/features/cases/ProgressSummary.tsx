@@ -1,7 +1,7 @@
 'use client'
 
 // 各タブ/サブタブ共通の「進捗サマリー」（手動）。scope_key でどこのサマリーかを区別する。
-// 画面を見れば現状が分かるように、サブタブ見出しの直下に置く。誰でも編集可。
+// 状態（未着手/対応中/追加調査中/完了）＋文章をワンセットで管理。戸籍相関図など他UIからも参照する。
 
 import { useEffect, useState } from 'react'
 import { Pencil, Check, X } from 'lucide-react'
@@ -9,17 +9,33 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 
-export default function ProgressSummary({ caseId, scopeKey, title }: {
+export const SUMMARY_STATUSES = ['未着手', '対応中', '追加調査中', '完了'] as const
+export type SummaryStatus = (typeof SUMMARY_STATUSES)[number]
+
+// 状態バッジの配色（相関図・TOP表など他コンポーネントからも使う）
+export function summaryStatusClass(status: string | null | undefined): string {
+  switch (status) {
+    case '完了': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    case '対応中': return 'text-amber-700 bg-amber-50 border-amber-200'
+    case '追加調査中': return 'text-brand-700 bg-brand-50 border-brand-200'
+    default: return 'text-gray-400 bg-gray-50 border-gray-200'  // 未着手 / 未設定
+  }
+}
+
+export default function ProgressSummary({ caseId, scopeKey, title, showStatus = true }: {
   caseId: string
   scopeKey: string
   title: string
+  showStatus?: boolean
 }) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const [body, setBody] = useState('')
+  const [status, setStatus] = useState<string>('未着手')
   const [meta, setMeta] = useState<{ name: string | null; at: string | null }>({ name: null, at: null })
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [draftStatus, setDraftStatus] = useState<string>('未着手')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -27,11 +43,12 @@ export default function ProgressSummary({ caseId, scopeKey, title }: {
     ;(async () => {
       const { data } = await supabase
         .from('progress_summaries')
-        .select('body, updated_at, member:members!progress_summaries_updated_by_fkey(name)')
+        .select('body, status, updated_at, member:members!progress_summaries_updated_by_fkey(name)')
         .eq('case_id', caseId).eq('scope_key', scopeKey).maybeSingle()
       if (!alive || !data) return
-      const d = data as { body: string | null; updated_at: string | null; member: { name: string } | { name: string }[] | null }
+      const d = data as { body: string | null; status: string | null; updated_at: string | null; member: { name: string } | { name: string }[] | null }
       setBody(d.body ?? '')
+      setStatus(d.status ?? '未着手')
       const m = Array.isArray(d.member) ? d.member[0] : d.member
       setMeta({ name: m?.name ?? null, at: d.updated_at ? d.updated_at.slice(0, 16).replace('T', ' ') : null })
     })()
@@ -41,12 +58,13 @@ export default function ProgressSummary({ caseId, scopeKey, title }: {
   const save = async () => {
     setSaving(true)
     const { error } = await supabase.from('progress_summaries').upsert(
-      { case_id: caseId, scope_key: scopeKey, body: draft, updated_by: memberId, updated_at: new Date().toISOString() },
+      { case_id: caseId, scope_key: scopeKey, body: draft, status: draftStatus, updated_by: memberId, updated_at: new Date().toISOString() },
       { onConflict: 'case_id,scope_key' },
     )
     setSaving(false)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
     setBody(draft)
+    setStatus(draftStatus)
     setMeta({ name: null, at: new Date().toISOString().slice(0, 16).replace('T', ' ') })
     setEditing(false)
   }
@@ -56,14 +74,24 @@ export default function ProgressSummary({ caseId, scopeKey, title }: {
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
         <span className="text-[12.5px] font-semibold text-brand-800">{title}</span>
+        {showStatus && !editing && (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${summaryStatusClass(status)}`}>{status || '未着手'}</span>
+        )}
         {!editing && (
-          <button type="button" onClick={() => { setDraft(body); setEditing(true) }} className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-brand-600 hover:text-brand-700 font-semibold">
+          <button type="button" onClick={() => { setDraft(body); setDraftStatus(status || '未着手'); setEditing(true) }} className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-brand-600 hover:text-brand-700 font-semibold">
             <Pencil className="w-3 h-3" /> 編集
           </button>
         )}
       </div>
       {editing ? (
         <div>
+          {showStatus && (
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+              {SUMMARY_STATUSES.map(s => (
+                <button key={s} type="button" onClick={() => setDraftStatus(s)} className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${draftStatus === s ? summaryStatusClass(s) : 'text-gray-400 bg-white border-gray-200 hover:border-gray-300'}`}>{s}</button>
+              ))}
+            </div>
+          )}
           <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="現時点で分かったこと・現状をまとめて記入" className="w-full px-2.5 py-1.5 text-[12.5px] border border-brand-200 rounded-lg outline-none focus:border-brand-400 bg-white" />
           <div className="flex justify-end gap-2 mt-1.5">
             <button type="button" onClick={() => setEditing(false)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] text-gray-500 hover:text-gray-700"><X className="w-3 h-3" />取消</button>
