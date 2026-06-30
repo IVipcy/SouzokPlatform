@@ -9,7 +9,7 @@ import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '
 import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import TabHeader from './TabHeader'
-import ProgressSummary from './ProgressSummary'
+import RegistrationSection from './RegistrationSection'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
@@ -64,6 +64,17 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
     onRefresh?.()
   }
 
+  // 案件詳細（実務）：市区町村単位の左レール＋カード（空でもTOPを表示）
+  if (!orderSheetMode) {
+    return (
+      <div className="space-y-3.5">
+        <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日・登録免許税の管理" />
+        <RegistrationSection caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+        <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
+      </div>
+    )
+  }
+
   if (rows.length === 0) {
     return (
       <div className="space-y-3.5">
@@ -77,8 +88,6 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日の管理" />}
-      {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="registration" title="進捗サマリー（相続登記）" />}
       <Section title="相続登記（物件ごとの手続き）">
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1580 }}>
