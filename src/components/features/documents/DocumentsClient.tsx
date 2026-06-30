@@ -103,7 +103,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
       </div>
 
       {view === 'queue' ? (
-        <ReceiptQueue receipts={receipts} onJumpToCase={cid => { setCaseFilter(cid); setView('list') }} />
+        <ReceiptQueue receipts={receipts} onJumpToCase={cid => { setCaseFilter(cid); setView('list') }} onChanged={refresh} />
       ) : (
       <>
       {/* 案件絞り込み */}
