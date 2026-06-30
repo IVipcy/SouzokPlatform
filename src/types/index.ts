@@ -532,6 +532,7 @@ export type KosekiRequestRow = {
   expected_arrival_date: string | null // 到着予定日（見込み。migration 085）
   notes: string | null
   acquired_part: string | null    // 取得した受注区分パート（パート制。migration 128）
+  read_result: string | null      // 読込結果（migration 146）
   sort_order: number
   created_at: string
   updated_at: string
@@ -647,6 +648,8 @@ export type RealEstatePropertyRow = {
   notes: string | null
   acquired_part: string | null                     // 取得した受注区分パート（パート制。migration 129）
   appraisal_value: number | null                   // 評価額（migration 143。目録・精算書へ）
+  survey_result: string | null                     // 調査結果（migration 146）
+  registration_result: string | null               // 相続登記 実施結果（migration 146）
   created_at: string
 }
 
@@ -716,6 +719,8 @@ export type FinancialAssetRow = {
   freeze_confirmed_at: string | null          // 凍結確認日時
   balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
   oc_transferred: boolean                      // オーシャンへ残高移管済（預金。精算書）
+  survey_result: string | null                // 調査結果（migration 146）
+  cancellation_result: string | null          // 解約 実施結果（migration 146）
   created_at: string
 }
 

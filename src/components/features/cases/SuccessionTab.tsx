@@ -12,6 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
+import ProgressSummary from './ProgressSummary'
 import { MoneyInput } from './FinancialAssetsTable'
 import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow } from '@/types'
 
@@ -184,7 +185,8 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
       </div>
 
       {/* 指図書 */}
-      <div className={sub === 'instruction' ? '' : 'hidden'}>
+      <div className={sub === 'instruction' ? 'space-y-3.5' : 'hidden'}>
+        <ProgressSummary caseId={caseData.id} scopeKey="succession_instruction" title="進捗サマリー（指図書）" />
         <Section title="指図書（相続人への振込）">
           <div className="flex items-center gap-2 mb-2">
             <button type="button" onClick={importHeirs} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 相続人一覧から取込</button>

@@ -196,6 +196,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
             <FieldGrid>
               <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} fullWidth />
               <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} fullWidth />
+              <InlineTextarea label="読込結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} fullWidth />
               <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />
             </FieldGrid>
           </td>

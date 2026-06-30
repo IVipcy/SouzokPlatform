@@ -20,6 +20,7 @@ import {
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import TabHeader from './TabHeader'
+import ProgressSummary from './ProgressSummary'
 
 // 署名方法は送付・調印に連動（矛盾する組合せを出さない）
 // ・オーシャンで調印＝対面そのもの → 対面固定（欄は出さない）
@@ -120,6 +121,8 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
                 <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
               </FieldGrid>
             </Section>
+
+            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗サマリー（遺産分割）" />}
 
             {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
             <Section title="分割内容">

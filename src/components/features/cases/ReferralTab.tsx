@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS } from '@/lib/constants'
 import TabHeader from './TabHeader'
+import ProgressSummary from './ProgressSummary'
 
 type Props = {
   caseData: CaseRow
@@ -100,7 +101,8 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
         </div>
 
         {activeRow ? (
-          <div>
+          <div className="space-y-3">
+            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${activeRow.partner_type}`} title={`進捗サマリー（${activeRow.partner_type}）`} />}
             <div className="flex justify-end mb-1">
               <button
                 type="button"

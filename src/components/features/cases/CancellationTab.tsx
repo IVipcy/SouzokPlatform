@@ -8,6 +8,7 @@ import { Section } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
 import TabHeader from './TabHeader'
+import ProgressSummary from './ProgressSummary'
 import type { FinancialAssetRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -20,6 +21,7 @@ const SUBTABS: { key: string; kind: string; label: string }[] = [
 ]
 
 type Props = {
+  caseId?: string
   financialAssets: FinancialAssetRow[]
   onRefresh?: () => void
   // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
@@ -34,7 +36,7 @@ type Props = {
  * 「いつ解約するか（解約予定日）・終わったか（解約完了）」の進捗を管理する。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
-export default function CancellationTab({ financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
+export default function CancellationTab({ caseId, financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
@@ -54,6 +56,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
   return (
     <div>
       {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />}
+      {!orderSheetMode && caseId && <div className="mb-3"><ProgressSummary caseId={caseId} scopeKey="cancellation" title="進捗サマリー（解約手続）" /></div>}
       <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
 
       {list.length === 0 ? (
@@ -65,7 +68,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
       ) : (
         <Section title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`}>
           <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1200 }}>
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
@@ -75,6 +78,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
                 <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                 <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-56">実施結果</th>
               </tr>
             </thead>
             <tbody>
@@ -104,6 +108,7 @@ export default function CancellationTab({ financialAssets, onRefresh, receipts =
                   {/* 解約書類(cancellation_arrival_date)の受領→着手した解約タスク */}
                   <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                   <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
+                  <TextCell value={r.cancellation_result} onSave={v => save(r.id, 'cancellation_result', v)} placeholder="この解約で分かったこと・結果" />
                 </tr>
               ))}
             </tbody>

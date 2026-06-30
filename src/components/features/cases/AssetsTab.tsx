@@ -12,6 +12,7 @@ import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import InventoryTab from './InventoryTab'
+import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
@@ -113,6 +114,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_realestate" title="進捗サマリー（不動産調査）" />}
           {/* 不動産の評価方法（財産調査条件から移設） */}
           <FieldGrid>
             <InlineSelect label="不動産の評価方法" value={caseData.real_estate_evaluation_method} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={v => save('real_estate_evaluation_method', v)} />
@@ -126,19 +128,23 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
           </div>
         </div>
-        <div className={sub === 'deposit' ? '' : 'hidden'}>
+        <div className={sub === 'deposit' ? 'space-y-3' : 'hidden'}>
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_deposit" title="進捗サマリー（預金調査）" />}
           <SectionHeading title="預金口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
         </div>
-        <div className={sub === 'securities' ? '' : 'hidden'}>
+        <div className={sub === 'securities' ? 'space-y-3' : 'hidden'}>
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_securities" title="進捗サマリー（証券調査）" />}
           <SectionHeading title="証券口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
-        <div className={sub === 'trust' ? '' : 'hidden'}>
+        <div className={sub === 'trust' ? 'space-y-3' : 'hidden'}>
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_trust" title="進捗サマリー（信託調査）" />}
           <SectionHeading title="信託口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
           <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
         </div>
-        <div className={sub === 'insurance' ? '' : 'hidden'}>
+        <div className={sub === 'insurance' ? 'space-y-3' : 'hidden'}>
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗サマリー（生命保険）" />}
           <FieldGrid>
             <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
             <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />

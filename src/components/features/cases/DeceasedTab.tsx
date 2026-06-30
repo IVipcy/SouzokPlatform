@@ -18,6 +18,7 @@ import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
 import { SubTabs } from '@/components/ui/SubTabs'
+import ProgressSummary from './ProgressSummary'
 import {
   Section,
   FieldGrid,
@@ -247,6 +248,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
       {sub === 'koseki' && (
         <div className="space-y-3.5">
+          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="koseki" title="戸籍読込サマリー（現時点で分かったこと）" />}
           {/* 戸籍請求（請求単位の管理表）。契約時に受領済の戸籍は表の先頭に受領済として取り込み表示。 */}
           <Section title="戸籍請求一覧" icon="🗂️">
             <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode={orderSheetMode} roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
