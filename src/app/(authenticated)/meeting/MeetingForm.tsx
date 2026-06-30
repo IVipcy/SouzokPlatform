@@ -582,8 +582,13 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           {/* 検討中・不受託理由: 検討中 / 不受託 で表示（旧 失注理由の置換） */}
           {DECLINE_REASON_REQUIRED.has(data.caseStatus) && (
             <>
-              <Card label="検討中・不受託理由">
-                <Pills value={data.considerationDeclineReason} options={[...CONSIDERATION_DECLINE_REASONS]} onChange={v => update('considerationDeclineReason', v as string)} />
+              <Card label={data.caseStatus === '失注' ? '不受託理由' : '検討中理由'}>
+                <Select
+                  value={data.considerationDeclineReason}
+                  options={CONSIDERATION_DECLINE_REASONS.filter(r => r.startsWith(data.caseStatus === '失注' ? '【不受託】' : '【検討】'))}
+                  onChange={v => update('considerationDeclineReason', v)}
+                  placeholder="理由を選択"
+                />
               </Card>
               <Card label="その他理由詳細">
                 <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="理由の詳細を自由に入力（任意）" />
