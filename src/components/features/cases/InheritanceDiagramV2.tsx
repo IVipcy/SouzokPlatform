@@ -1,6 +1,11 @@
 'use client'
 
+import { createContext, useContext } from 'react'
 import type { CaseRow, HeirRow } from '@/types'
+
+// 戸籍の取得状況オーバーレイ（氏名→状態＋進捗/結果）。指定時のみ枠色＋ホバーを表示。
+export type PersonStatus = { status: string; body: string }
+const StatusCtx = createContext<Record<string, PersonStatus>>({})
 
 /**
  * 相続関係説明図 V2（法務局様式準拠・3パターン対応）
@@ -19,9 +24,11 @@ type Pattern = 'spouse_children' | 'children_only' | 'parents' | 'siblings'
 export default function InheritanceDiagramV2({
   deceased,
   heirs,
+  statusByName = {},
 }: {
   deceased: CaseRow
   heirs: HeirRow[]
+  statusByName?: Record<string, PersonStatus>
 }) {
   // 続柄を相関図のカテゴリ（配偶者/子/父/母/兄弟姉妹/その他）に正規化。
   // relationship_type（長男・次男・孫 等）も relationship（フリー）も同じ判定に通す。
@@ -67,17 +74,17 @@ export default function InheritanceDiagramV2({
 
   // ─── パターン別レイアウト ───
   if (pattern === 'parents') {
-    return <ParentsLayout
+    return <StatusCtx.Provider value={statusByName}><ParentsLayout
       deceased={deceased} spouse={spouse} father={father} mother={mother} others={others}
       BOX_W={BOX_W} BOX_H={BOX_H} SPOUSE_GAP={SPOUSE_GAP} CHILD_GAP={CHILD_GAP} V_GAP={V_GAP}
-    />
+    /></StatusCtx.Provider>
   }
 
   if (pattern === 'siblings') {
-    return <SiblingsLayout
+    return <StatusCtx.Provider value={statusByName}><SiblingsLayout
       deceased={deceased} spouse={spouse} siblings={siblings} others={others}
       BOX_W={BOX_W} BOX_H={BOX_H} SPOUSE_GAP={SPOUSE_GAP} CHILD_GAP={CHILD_GAP} V_GAP={V_GAP}
-    />
+    /></StatusCtx.Provider>
   }
 
   // パターン1 & 2 は共通（配偶者の有無で分岐）
@@ -102,6 +109,7 @@ export default function InheritanceDiagramV2({
   const siblingBarY = topY + BOX_H + V_GAP / 2
 
   return (
+    <StatusCtx.Provider value={statusByName}>
     <div className="overflow-auto bg-white print:overflow-visible" style={{ minHeight: 300 }}>
       <div className="relative mx-auto" style={{ width: canvasWidth, height: canvasHeight }}>
         <svg className="absolute top-0 left-0 pointer-events-none" width={canvasWidth} height={canvasHeight} style={{ zIndex: 1 }}>
@@ -181,6 +189,7 @@ export default function InheritanceDiagramV2({
         ))}
       </div>
     </div>
+    </StatusCtx.Provider>
   )
 }
 
@@ -468,11 +477,24 @@ function PersonBox({
   isLegalHeir?: boolean
   isApplicant?: boolean
 }) {
+  // 戸籍取得状況オーバーレイ（指定時のみ）：完了=太緑/対応中=青/追加調査中=オレンジ/未着手=既定枠
+  const statusMap = useContext(StatusCtx)
+  const ps = name ? statusMap[name.trim()] : undefined
+  const statusBorder = ps?.status === '完了' ? 'border-[3px] border-emerald-600'
+    : ps?.status === '対応中' ? 'border-2 border-blue-500'
+    : ps?.status === '追加調査中' ? 'border-2 border-amber-500'
+    : borderClass
+  const statusBadge = ps && ps.status !== '未着手' ? ps.status : (ps ? '未着手' : null)
+  const badgeCls = ps?.status === '完了' ? 'bg-emerald-50 text-emerald-700'
+    : ps?.status === '対応中' ? 'bg-blue-50 text-blue-600'
+    : ps?.status === '追加調査中' ? 'bg-amber-50 text-amber-600'
+    : 'bg-gray-100 text-gray-400'
   return (
-    <div className="absolute" style={{ left: x, top: y, width, zIndex: 2 }}>
-      <div className={`${borderClass} bg-white text-center`}>
-        <div className={`text-[11px] tracking-widest py-1 border-b border-black font-semibold ${labelBg}`}>
+    <div className="absolute" style={{ left: x, top: y, width, zIndex: 2 }} title={ps?.body ? `【${ps.status}】${ps.body}` : undefined}>
+      <div className={`${ps ? statusBorder : borderClass} bg-white text-center`}>
+        <div className={`text-[11px] tracking-widest py-1 border-b border-black font-semibold ${labelBg} relative`}>
           {label}
+          {statusBadge && <span className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-semibold px-1.5 rounded-full ${badgeCls}`}>{statusBadge}</span>}
         </div>
         <div className="p-2 flex flex-col items-center gap-1">
           <div className="text-[13px] font-bold tracking-wider flex items-center gap-1">

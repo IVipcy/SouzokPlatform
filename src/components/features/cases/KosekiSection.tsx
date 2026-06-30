@@ -107,12 +107,13 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     for (const r of reqsForName(name)) { const b = statuses[r.id]?.body; if (b && b.trim()) return b.trim() }
     return ''
   }
-  const jumpToPerson = (name: string) => { const r = requests.find(x => (x.target_person ?? '').trim() === name.trim()); if (r) setSub(r.id) }
   // 取得状況リスト：被相続人＋相続人（続柄付き）
   const peopleRows = [
     { name: deceasedName ?? '', rel: '被相続人' },
     ...heirs.map(h => ({ name: h.name, rel: (h.relationship_type || h.relationship || '').trim() || '相続人' })),
   ].filter(p => p.name.trim())
+  // 相続関係説明図の枠色＋ホバー用（氏名→状態＋進捗/結果）
+  const statusByName = Object.fromEntries(peopleRows.map(p => [p.name.trim(), { status: statusForName(p.name), body: bodyForName(p.name) }]))
 
   const tabs = [{ id: 'top', label: '一覧（TOP）' }, ...requests.map(r => ({ id: r.id, label: reqLabel(r) }))]
   const active = requests.find(r => r.id === sub)
@@ -186,31 +187,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
               </div>
             </div>
 
-            {/* 戸籍取得状況図：相続関係説明図（相続人タブと同じ図）＋人ごとの取得状況 */}
+            {/* 戸籍取得状況図：相続関係説明図に状態を枠色で反映＋ホバーで進捗/結果 */}
             <div>
               <SectionHeading title="戸籍の取得状況（相続関係説明図）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {heirs.length === 0 ? (
                 <p className="text-[12px] text-gray-400 text-center py-4">相続人が未登録です。「相続人」タブで登録すると、ここに相続関係説明図が表示されます。</p>
               ) : (
-                <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} /></div>
+                <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} statusByName={statusByName} /></div>
               )}
-              <div className="mt-3 space-y-1.5">
-                {peopleRows.map(p => {
-                  const st = statusForName(p.name)
-                  const body = bodyForName(p.name)
-                  const hasReq = reqsForName(p.name).length > 0
-                  return (
-                    <button key={`${p.rel}-${p.name}`} type="button" onClick={() => jumpToPerson(p.name)} disabled={!hasReq}
-                      className={`w-full flex items-start gap-2.5 text-left rounded-md border border-gray-200 px-3 py-2 ${hasReq ? 'hover:border-brand-300 cursor-pointer' : 'cursor-default'}`}>
-                      <span className="text-[10.5px] text-gray-400 w-16 flex-none pt-0.5">{p.rel}</span>
-                      <span className="text-[12.5px] font-medium text-gray-800 w-24 flex-none">{p.name}</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border flex-none ${summaryStatusClass(st)}`}>{st}</span>
-                      <span className="text-[11.5px] text-gray-500 flex-1 min-w-0 truncate">{body || (hasReq ? '—' : '請求なし')}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="mt-2 text-[11px] text-gray-400">図は相続人タブと同じ相続関係説明図。下の一覧で「誰の戸籍がどこまで取得済か」＋進捗サマリーを確認（行クリックでその人の請求タブへ）。</p>
+              <p className="mt-2 text-[11px] text-gray-400">枠色＝戸籍の取得状況（<span className="text-emerald-700">緑=完了</span>／<span className="text-blue-600">青=対応中</span>／<span className="text-amber-600">橙=追加調査中</span>／灰=未着手）。ノードにマウスを乗せると進捗/結果を表示。</p>
             </div>
           </div>
         ) : active ? (
