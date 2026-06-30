@@ -25,6 +25,10 @@ type Props = {
   tasks?: TaskRow[]
   // 契約時にお客様から受領した不動産関係書類（区分=財産のうち不動産分）。表の先頭に受領済として表示。
   contractDocs?: ContractDocumentRow[]
+  // 業務順に表を分割：'municipality'=市区町村単位の請求(名寄帳/評価証明)、'property'=物件単位の取得(登記情報/公図 等)
+  scope?: 'all' | 'municipality' | 'property'
+  // 市区町村タブで使用：この市区町村に紐づく行だけ表示し、新規行もこの市区町村にする
+  municipalityFilter?: string
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -36,11 +40,27 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [] }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
+
+  // scope に応じて取得物の選択肢を絞る（市区町村単位＝評価証明/名寄帳、物件単位＝登記情報 等）
+  const scopeTarget = scope === 'municipality' ? '市区町村' : scope === 'property' ? '物件' : null
+  const itemKeys = scopeTarget ? ACQUISITION_ITEMS.filter(i => i.target === scopeTarget).map(i => i.key) : ACQUISITION_ITEM_KEYS
+  // この市区町村に属する物件（物件単位の対象を絞る）
+  const muniProps = municipalityFilter != null ? properties.filter(p => (p.municipality ?? '') === municipalityFilter) : properties
+  const muniPropIds = new Set(muniProps.map(p => p.id))
+  // 表示行：scope（取得物の対象種別）＋市区町村でフィルタ
+  const visibleRows = rows.filter(r => {
+    const meta = itemMeta(r.item_type)
+    if (scopeTarget && meta && meta.target !== scopeTarget) return false
+    if (municipalityFilter == null) return true
+    if (scope === 'municipality') return (r.target_municipality ?? '') === municipalityFilter || !r.item_type
+    if (scope === 'property') return r.target_property_id == null || muniPropIds.has(r.target_property_id)
+    return true
+  })
 
   const save = async (id: string, field: keyof RealEstateAcquisitionRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstateAcquisitionRow : r)))
@@ -57,7 +77,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   }
 
   const addRow = async () => {
-    const { error } = await supabase.from('real_estate_acquisitions').insert({ case_id: caseId, sort_order: rows.length })
+    const init: Partial<RealEstateAcquisitionRow> = { case_id: caseId, sort_order: rows.length }
+    if (scope === 'municipality' && municipalityFilter != null) init.target_municipality = municipalityFilter
+    const { error } = await supabase.from('real_estate_acquisitions').insert(init)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
@@ -91,9 +113,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr><td colSpan={progressMode ? 8 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
-            ) : rows.map((r, i) => {
+            ) : visibleRows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
               const isProp = meta?.target === '物件'
@@ -101,14 +123,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-1.5">
                     {/* プリセットから選択／自由入力に切替（所有者事項以外の任意書類など） */}
-                    <SelectOrTextField value={r.item_type} options={ACQUISITION_ITEM_KEYS} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
+                    <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
                     {meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>}
                   </td>
                   <td className="px-2.5 py-1.5">
                     {isProp ? (
                       <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={selCls}>
                         <option value="">— 物件を選択 —</option>
-                        {properties.map(p => <option key={p.id} value={p.id}>{propLabel(p)}</option>)}
+                        {muniProps.map(p => <option key={p.id} value={p.id}>{propLabel(p)}</option>)}
                       </select>
                     ) : (
                       <input type="text" defaultValue={r.target_municipality ?? ''} onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }} placeholder="例: 名古屋市中区" className={dateCls} />

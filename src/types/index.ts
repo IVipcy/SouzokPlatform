@@ -650,6 +650,10 @@ export type RealEstatePropertyRow = {
   appraisal_value: number | null                   // 評価額（migration 143。目録・精算書へ）
   survey_result: string | null                     // 調査結果（migration 146）
   registration_result: string | null               // 相続登記 実施結果（migration 146）
+  municipality: string | null                      // 都道府県＋市区町村（migration 147。タブのキー）
+  confirmed: boolean                               // 確定済（管理担当のみ。TOP・目録へ反映。migration 147）
+  confirmed_by: string | null
+  confirmed_at: string | null
   created_at: string
 }
 
@@ -721,6 +725,9 @@ export type FinancialAssetRow = {
   oc_transferred: boolean                      // オーシャンへ残高移管済（預金。精算書）
   survey_result: string | null                // 調査結果（migration 146）
   cancellation_result: string | null          // 解約 実施結果（migration 146）
+  balance_confirmed: boolean                  // 残高確定（管理担当のみ。TOP・目録へ反映。migration 147）
+  balance_confirmed_by: string | null
+  balance_confirmed_at: string | null
   created_at: string
 }
 

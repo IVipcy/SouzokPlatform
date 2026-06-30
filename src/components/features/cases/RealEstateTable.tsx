@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
+import { Trash2, Plus, ChevronRight, ChevronDown, Lock, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
 import { PROPERTY_EVALUATION_METHODS } from '@/lib/constants'
+import { useIsManager } from '@/components/providers/AuthProvider'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
 import type { RealEstatePropertyRow } from '@/types'
 
@@ -18,14 +20,36 @@ type Props = {
   onRefresh?: () => void
   /** オーダーシート（調査前）では備考・結果列を出さない */
   orderSheetMode?: boolean
+  /** 市区町村タブで使用：この市区町村の物件だけ表示し、新規行もこの市区町村にする */
+  municipalityFilter?: string
+  /** 市区町村タブで使用：確定済トグル列を表示（管理担当のみ操作可） */
+  showConfirmed?: boolean
 }
 
 /** 不動産を表形式でインライン編集・行追加。行展開で詳細項目も編集できる（財産調査） */
-export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false }: Props) {
+export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false }: Props) {
   const supabase = createClient()
+  const isManager = useIsManager()
+  const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const showMuni = !municipalityFilter   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）
+  const visibleRows = municipalityFilter != null
+    ? rows.filter(r => (r.municipality ?? '') === municipalityFilter)
+    : rows
+  // toggle +[市区町村] +物件種別 +所在地 +評価額 +[確定済] +備考 +[備考・結果] +削除
+  const colCount = 1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1
+
+  const toggleConfirmed = async (row: RealEstatePropertyRow) => {
+    const next = !row.confirmed
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, confirmed: next } : r))
+    const { error } = await supabase.from('real_estate_properties')
+      .update({ confirmed: next, confirmed_by: next ? memberId : null, confirmed_at: next ? new Date().toISOString() : null })
+      .eq('id', row.id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    else onRefresh?.()
+  }
 
   const setLocal = (id: string, field: keyof RealEstatePropertyRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
@@ -43,7 +67,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   const addRow = async () => {
     setBusy(true)
-    const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId }).select('*').single()
+    const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: municipalityFilter ?? null }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as RealEstatePropertyRow])
@@ -65,19 +89,21 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-1 py-2 w-7" />
+              {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
+              {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={orderSheetMode ? 6 : 7} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+            {visibleRows.length === 0 ? (
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
             ) : (
-              rows.map(r => (
+              visibleRows.map(r => (
                 <RealRow
                   key={r.id}
                   r={r}
@@ -88,6 +114,10 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
                   saveField={saveField}
                   onDelete={() => delRow(r)}
                   orderSheetMode={orderSheetMode}
+                  showMuni={showMuni}
+                  showConfirmed={showConfirmed}
+                  isManager={isManager}
+                  onToggleConfirmed={() => toggleConfirmed(r)}
                 />
               ))
             )}
@@ -101,7 +131,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   )
 }
 
-function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode }: {
+function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, isManager, onToggleConfirmed }: {
   r: RealEstatePropertyRow
   open: boolean
   onToggle: () => void
@@ -110,6 +140,10 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
   saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
   onDelete: () => void
   orderSheetMode: boolean
+  showMuni: boolean
+  showConfirmed: boolean
+  isManager: boolean
+  onToggleConfirmed: () => void
 }) {
   const sel = (field: keyof RealEstatePropertyRow, options: readonly string[]) => (
     <td className="px-2.5 py-1.5">
@@ -128,9 +162,25 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
             {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         </td>
+        {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
         {sel('property_type', PROPERTY_TYPES)}
         <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地" />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
+        {showConfirmed && (
+          <td className="px-2.5 py-1.5 text-center">
+            {r.confirmed ? (
+              <button type="button" onClick={onToggleConfirmed} disabled={!isManager} title={isManager ? '確定を取消' : '確定は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
+                <Check className="w-3 h-3" strokeWidth={2.5} />確定済
+              </button>
+            ) : isManager ? (
+              <button type="button" onClick={onToggleConfirmed} title="評価額を確定したらチェック（TOP一覧・財産目録へ反映）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
+                <Lock className="w-3 h-3" strokeWidth={2} />未確定
+              </button>
+            ) : (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
+            )}
+          </td>
+        )}
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
         {!orderSheetMode && <CellInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この物件で分かったこと" />}
         <td className="px-2.5 py-1.5 text-center">
@@ -139,7 +189,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
       </tr>
       {open && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
-          <td colSpan={orderSheetMode ? 6 : 7} className="px-4 py-3 space-y-3">
+          <td colSpan={1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
             <div>
               <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />

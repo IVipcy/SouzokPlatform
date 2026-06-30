@@ -5,12 +5,12 @@ import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, REAL_ESTATE_EVAL_METHODS,
+  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS,
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
-import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import RealEstateSection from './RealEstateSection'
 import InventoryTab from './InventoryTab'
 import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
@@ -109,21 +109,25 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />
 
         <div className={sub === 'realestate' ? 'space-y-4' : 'hidden'}>
-          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_realestate" title="進捗サマリー（不動産調査）" />}
-          {/* 不動産の評価方法（財産調査条件から移設） */}
-          <FieldGrid>
-            <InlineSelect label="不動産の評価方法" value={caseData.real_estate_evaluation_method} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={v => save('real_estate_evaluation_method', v)} />
-          </FieldGrid>
-          <div>
-            <SectionHeading title="物件一覧（どういう物件があるか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} />
-          </div>
-          {/* 取得資料管理は調査後の進捗。オーダーシート（調査前の設計）では出さない。 */}
-          {!orderSheetMode && (
+          {orderSheetMode ? (
+            // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。市区町村を入力。
             <div>
-              <SectionHeading title="取得資料管理（どこに何をいつ請求し、受け取れたか）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateAcquisitionsTable caseId={caseData.id} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} orderSheetMode={orderSheetMode} receipts={documentReceipts} tasks={tasks} contractDocs={reContractDocs} />
+              <SectionHeading title="物件一覧（どこに物件があるか／市区町村を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode />
             </div>
+          ) : (
+            // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計
+            <RealEstateSection
+              caseId={caseData.id}
+              evalMethod={caseData.real_estate_evaluation_method}
+              onSaveEvalMethod={v => save('real_estate_evaluation_method', v)}
+              properties={properties}
+              acquisitions={acquisitions}
+              onRefresh={onRefresh}
+              receipts={documentReceipts}
+              tasks={tasks}
+              contractDocs={reContractDocs}
+            />
           )}
         </div>
         <div className={sub === 'deposit' ? 'space-y-3' : 'hidden'}>
