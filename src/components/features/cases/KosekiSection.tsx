@@ -4,13 +4,13 @@
 // 各請求はカード形式。費用（予算/返金/確定）＋ダブルチェック（自分以外）。追加請求は管理担当の承認ゲート。
 
 import { useState, useEffect } from 'react'
-import { Plus, Table2, Lock, ShieldCheck, Trash2 } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineTextarea, SectionHeading } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
+import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import ProgressSummary, { summaryStatusClass } from './ProgressSummary'
 import { CostBlock, DoubleCheck } from './CostAndCheck'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
@@ -125,11 +125,16 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           const r = requests.find(x => x.id === t.id)
           const st = r ? (statuses[r.id]?.status ?? '未着手') : null
           const pending = r?.is_additional && !r.additional_approved_at
+          const received = !!r?.arrival_date
+          const isClient = r?.acquirer === '依頼者'
           return (
             <button key={t.id} type="button" onClick={() => setSub(t.id)}
-              className={`text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
+              className={`text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : `text-gray-600 hover:bg-gray-50 ${r && !received ? 'opacity-70' : ''}`}`}>
               {t.id === 'top' ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className={`w-1.5 h-1.5 rounded-full flex-none border ${summaryStatusClass(st)}`} />}
-              <span className="truncate">{t.label}</span>
+              <span className="truncate flex-1">{t.label}</span>
+              {r && <span className={`text-[9px] font-semibold px-1 rounded flex-none ${isClient ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700'}`}>{isClient ? '依' : '自'}</span>}
+              {r?.is_additional && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-amber-500 text-white">追</span>}
+              {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済" />}
             </button>
           )
         })}
@@ -141,7 +146,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗サマリー（戸籍調査 全体）" />
+            <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
             <div>
               <SectionHeading title="戸籍の取得状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
@@ -257,15 +262,15 @@ function RequestDetail({ r, caseId, isManager, targetOptions, relLabel, saveFiel
     )
   }
 
+  const isClient = r.acquirer === '依頼者'  // 依頼者取得＝請求日/費用/ダブルチェックなし
   return (
     <div className="space-y-3.5">
-      <div className="flex items-center justify-between">
-        <ProgressSummary caseId={caseId} scopeKey={`koseki_req_${r.id}`} title={`進捗サマリー（${reqLabel(r)}）`} />
-      </div>
+      <ProgressSummary caseId={caseId} scopeKey={`koseki_req_${r.id}`} title={`進捗/結果（${reqLabel(r)}）`} />
 
       <div>
         <SectionHeading title="請求内容" className="mb-2.5 pb-1.5 border-b border-gray-200" />
         <FieldGrid>
+          <InlineSelect label="取得区分" value={r.acquirer} options={ACQUIRERS} onSave={v => saveField(r.id, 'acquirer', v)} />
           <InlineEdit label="請求先" value={r.request_to} onSave={v => saveField(r.id, 'request_to', v)} />
           <InlineSelect label="対象者" value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
           <div className="flex flex-col gap-1">
@@ -274,24 +279,29 @@ function RequestDetail({ r, caseId, isManager, targetOptions, relLabel, saveFiel
           </div>
           <InlineSelect label="範囲" value={r.range_text} options={[...KOSEKI_RANGES]} onSave={v => saveField(r.id, 'range_text', v)} />
           <InlineSelect label="種別" value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onSave={v => saveField(r.id, 'doc_types', v)} />
-          <InlineSelect label="取得目的" value={r.purpose} options={[...KOSEKI_PURPOSES]} onSave={v => saveField(r.id, 'purpose', v)} />
-          <InlineSelect label="取得区分" value={r.acquirer} options={ACQUIRERS} onSave={v => saveField(r.id, 'acquirer', v)} />
-          <InlineDate label="請求日" value={r.request_date} onSave={v => saveField(r.id, 'request_date', v)} />
-          <InlineDate label="到着日" value={r.arrival_date} onSave={v => saveField(r.id, 'arrival_date', v)} />
+          {/* 依頼者取得は依頼者が請求するため請求日は持たない */}
+          {!isClient && <InlineDate label="請求日" value={r.request_date} onSave={v => saveField(r.id, 'request_date', v)} />}
+          <InlineDate label={isClient ? '到着日（受信簿で依頼者から受領）' : '到着日'} value={r.arrival_date} onSave={v => saveField(r.id, 'arrival_date', v)} />
           <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} />
           <InlineTextarea label="特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />
         </FieldGrid>
       </div>
 
-      <CostBlock budget={r.cost_budget} refund={r.cost_refund} confirmed={effConfirmed(r)} mode="full"
-        onSave={(field, v) => saveField(r.id, field, v === '' ? null : Number(v))} />
-
-      <div className="flex gap-2.5 flex-wrap">
-        <DoubleCheck label="請求時ダブルチェック（自分以外）" name={r.request_check_name} at={r.request_check_at}
-          onSet={(name, at) => saveMany(r.id, { request_check_name: name, request_check_at: at })} />
-        <DoubleCheck label="受信時ダブルチェック（自分以外）" name={r.receipt_check_name} at={r.receipt_check_at}
-          onSet={(name, at) => saveMany(r.id, { receipt_check_name: name, receipt_check_at: at })} />
-      </div>
+      {/* 費用・ダブルチェックは自社取得（＝自社が小為替を立替）のときのみ。依頼者取得は依頼者負担。 */}
+      {isClient ? (
+        <div className="rounded-md border border-gray-200 bg-gray-50/60 px-3 py-2.5 text-[12px] text-gray-500">費用・ダブルチェックは依頼者負担のため表示しません（小為替＝依頼者）。</div>
+      ) : (
+        <>
+          <CostBlock budget={r.cost_budget} refund={r.cost_refund} confirmed={effConfirmed(r)} mode="full"
+            onSave={(field, v) => saveField(r.id, field, v === '' ? null : Number(v))} />
+          <div className="flex gap-2.5 flex-wrap">
+            <DoubleCheck label="請求時ダブルチェック（同梱額・自分以外）" name={r.request_check_name} at={r.request_check_at}
+              onSet={(name, at) => saveMany(r.id, { request_check_name: name, request_check_at: at })} />
+            <DoubleCheck label="受信時ダブルチェック（返金額・自分以外）" name={r.receipt_check_name} at={r.receipt_check_at}
+              onSet={(name, at) => saveMany(r.id, { receipt_check_name: name, receipt_check_at: at })} />
+          </div>
+        </>
+      )}
 
       <div className="flex justify-end">
         <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />この請求を削除</button>
