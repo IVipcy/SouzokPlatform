@@ -190,7 +190,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
       {/* 指図書 */}
       <div className={sub === 'instruction' ? 'space-y-3.5' : 'hidden'}>
-        <ProgressSummary caseId={caseData.id} scopeKey="succession_instruction" title="進捗サマリー（指図書）" />
+        <ProgressSummary caseId={caseData.id} scopeKey="succession_instruction" title="進捗/結果（指図書）" />
         <Section title="指図書（相続人への振込）">
           <div className="flex items-center gap-2 mb-2">
             <button type="button" onClick={importHeirs} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 相続人一覧から取込</button>

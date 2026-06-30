@@ -67,10 +67,15 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
     ...munis.map(m => ({ key: m, label: m })),
     ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定' }] : []),
   ]
+  // 受信済＝その市区町村の取得資料を受信簿で受領（acquisition.arrival_date）
+  const propMuniById = new Map(properties.map(p => [p.id, municipalityOf(p)]))
+  const muniReceived = (m: string) => acquisitions.some(a => !!a.arrival_date && (
+    (a.target_municipality ?? '').trim() === m || (a.target_property_id != null && propMuniById.get(a.target_property_id) === m)
+  ))
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
-    ...munis.map(m => ({ key: m, label: m, status: statuses[m] })),
-    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', status: statuses['unset'] }] : []),
+    ...munis.map(m => ({ key: m, label: m, status: statuses[m], received: muniReceived(m) })),
+    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', status: statuses['unset'], received: muniReceived('') }] : []),
   ]
 
   // 「＋市区町村」：名称を受け取り、その市区町村の空物件を1件作成 → タブが増える
@@ -141,7 +146,7 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
         if (sub !== t.key) return null
         return (
           <div key={t.key} className="space-y-4">
-            <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗サマリー（${t.label}）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             <div>
               <SectionHeading title="物件一覧（評価額の入力・確定）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />

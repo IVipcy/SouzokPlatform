@@ -63,7 +63,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="registration" title="進捗サマリー（相続登記 全体）" />
+            <ProgressSummary caseId={caseId} scopeKey="registration" title="進捗/結果（相続登記 全体）" />
             <div>
               <SectionHeading title="相続登記の状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
@@ -102,7 +102,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`registration_${activeMuni}`} title={`進捗サマリー（${sub === '__unset__' ? '市区町村 未設定' : activeMuni}）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`registration_${activeMuni}`} title={`進捗/結果（${sub === '__unset__' ? '市区町村 未設定' : activeMuni}）`} />
             {muniProps(activeMuni).map(p => (
               <div key={p.id} className="rounded-md border border-gray-200 px-3.5 py-3 space-y-3">
                 <div className="text-[12.5px] font-semibold text-gray-800">{p.property_type || '物件'}・{p.address || '—'}</div>

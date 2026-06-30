@@ -123,7 +123,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
             </Section>
 
             {/* 分割内容・進捗サマリーはオーダーシートでは非表示（実務タブで表示） */}
-            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗サマリー（遺産分割）" />}
+            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗/結果（遺産分割）" />}
             {!orderSheetMode && (
               <Section title="分割内容">
                 <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} assetInventory={assetInventory} onRefresh={onRefresh} />

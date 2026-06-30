@@ -52,10 +52,12 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
 
   const instRows = (inst: string) => rows.filter(r => (r.institution_name ?? '').trim() === inst)
 
+  // 受信済＝解約書類を受信簿で受領（cancellation_arrival_date）
+  const instReceived = (inst: string) => instRows(inst).some(r => !!r.cancellation_arrival_date)
   const items = [
     { key: 'top', label: '一覧（TOP）' },
-    ...institutions.map(i => ({ key: i, label: i, status: statuses[i] })),
-    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses[''] }] : []),
+    ...institutions.map(i => ({ key: i, label: i, status: statuses[i], received: instReceived(i) })),
+    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses[''], received: rows.some(r => !(r.institution_name ?? '').trim() && !!r.cancellation_arrival_date) }] : []),
   ]
   const activeInst = sub === '__unset__' ? '' : sub
 
@@ -65,7 +67,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="cancellation" title="進捗サマリー（解約 全体）" />
+            <ProgressSummary caseId={caseId} scopeKey="cancellation" title="進捗/結果（解約 全体）" />
             <div>
               <SectionHeading title="解約の状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
@@ -100,7 +102,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗サマリー（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗/結果（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
             {instRows(activeInst).map(r => (
               <div key={r.id} className="rounded-md border border-gray-200 px-3.5 py-3">
                 <div className="text-[12.5px] font-semibold text-gray-800 mb-2.5">{r.institution_name || '—'} {r.branch_name || r.stock_name || ''}</div>

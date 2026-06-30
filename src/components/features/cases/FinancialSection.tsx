@@ -60,10 +60,12 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
     ...banks.map(b => ({ key: b, label: b })),
     ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定' }] : []),
   ]
+  // 受信済＝その機関の口座に受信簿の受領(arrival_date)が入っている
+  const bankReceived = (b: string) => kindAssets.some(a => (a.institution_name ?? '').trim() === b && !!a.arrival_date)
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
-    ...banks.map(b => ({ key: b, label: b, status: statuses[b] })),
-    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses['unset'] }] : []),
+    ...banks.map(b => ({ key: b, label: b, status: statuses[b], received: bankReceived(b) })),
+    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses['unset'], received: kindAssets.some(a => !(a.institution_name ?? '').trim() && !!a.arrival_date) }] : []),
   ]
 
   const addBank = async () => {
@@ -132,7 +134,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
         if (sub !== t.key) return null
         return (
           <div key={t.key} className="space-y-3">
-            <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_${bankKey || 'unset'}`} title={`進捗サマリー（${t.label}）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_${bankKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={bankKey} showConfirmed />
           </div>
         )

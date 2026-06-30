@@ -102,7 +102,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
 
         {activeRow ? (
           <div className="space-y-3">
-            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${activeRow.partner_type}`} title={`進捗サマリー（${activeRow.partner_type}）`} />}
+            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${activeRow.partner_type}`} title={`進捗/結果（${activeRow.partner_type}）`} />}
             <div className="flex justify-end mb-1">
               <button
                 type="button"
