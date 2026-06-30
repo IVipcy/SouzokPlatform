@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, CaseReferralRow } from '@/types'
 import {
-  Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineEdit, InlineTextarea,
+  Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS } from '@/lib/constants'
 import TabHeader from './TabHeader'
@@ -113,7 +113,6 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
               </button>
             </div>
             <FieldGrid>
-              <InlineEdit label="紹介先法人名" value={activeRow.firm_name} onSave={saveReferralField(activeRow.id, 'firm_name')} fullWidth />
               <InlineDate label="紹介日付" value={activeRow.referred_date} onSave={saveReferralField(activeRow.id, 'referred_date')} />
               {!orderSheetMode && (
                 <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
@@ -123,20 +122,15 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
                 <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
               )}
               {/* 依頼内容（旧称：紹介内容）。税理士/不動産は選択肢、それ以外はフリー入力。
-                  この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
-              {activeRow.partner_type === '税理士' ? (
-                <>
-                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
-                  <InlineTextarea label="依頼内容詳細" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth />
-                </>
-              ) : activeRow.partner_type === '不動産' ? (
-                <>
-                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
-                  <InlineTextarea label="依頼内容詳細" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth />
-                </>
-              ) : (
-                <InlineTextarea label="依頼内容" value={activeRow.content} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                  この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。
+                  詳細内容には、具体的な依頼内容や、お客様から紹介先の指定がある場合に記載する。 */}
+              {activeRow.partner_type === '税理士' && (
+                <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
               )}
+              {activeRow.partner_type === '不動産' && (
+                <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+              )}
+              <InlineTextarea label="詳細内容" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth placeholder="詳細の依頼内容や、紹介先はお客様から指定がある場合はこちらに記載してください。" />
             </FieldGrid>
           </div>
         ) : (

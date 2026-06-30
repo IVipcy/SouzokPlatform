@@ -111,8 +111,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結確認 +列 +残高 +取得区分 +調査期間 +備考 +調査結果 (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = 1 + cols.length + 1 + 3 + (progressMode ? 4 : 0) + 1 + 1
+  // 凍結確認(progressMode時のみ) +列 +残高 +取得区分 +調査期間 +備考 +調査結果 (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + 3 + (progressMode ? 4 : 0) + 1 + 1
 
   return (
     <div>
@@ -122,7 +122,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1660 : 1300 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
@@ -141,8 +141,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
               rows.map(r => (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${r.freeze_confirmed ? '' : 'bg-amber-50/30'}`}>
-                  {/* 凍結確認済（一番左・管理担当のみチェック可） */}
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
+                  {/* 凍結確認済（一番左・管理担当のみチェック可。オーダーシートでは非表示） */}
+                  {progressMode && (
                   <td className="px-2 py-1.5 text-center">
                     {r.freeze_confirmed ? (
                       <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} title={isManager ? '凍結確認を取消' : '凍結確認は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
@@ -156,6 +157,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結未確認のため調査不可">調査不可</span>
                     )}
                   </td>
+                  )}
                   {cols.map(c => (
                     <td key={c.key} className="px-2 py-1.5">
                       {c.type === 'text' ? (

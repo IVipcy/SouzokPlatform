@@ -89,9 +89,9 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
               <th className="px-2.5 py-2 text-left font-semibold w-56">相続登記の種別</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">登記原因</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">管轄法務局</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">ステータス</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">申請日</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">完了日</th>
+              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">ステータス</th>}
+              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">申請日</th>}
+              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">完了日</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-40">備考</th>
               <th className="px-2.5 py-2 text-left font-semibold w-56">実施結果</th>
               {columns.map(col => (
@@ -124,14 +124,16 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                   </select>
                 </td>
                 <td className="px-2.5 py-1.5"><CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 名古屋法務局" /></td>
-                <td className="px-2.5 py-1.5">
-                  <select value={r.registration_status ?? ''} onChange={e => saveField(r.id, 'registration_status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                    <option value="">—</option>
-                    {REGISTRATION_STATUSES.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </td>
-                <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_apply_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_apply_date ?? '')) saveField(r.id, 'registration_apply_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>
-                <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_complete_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_complete_date ?? '')) saveField(r.id, 'registration_complete_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>
+                {!orderSheetMode && (
+                  <td className="px-2.5 py-1.5">
+                    <select value={r.registration_status ?? ''} onChange={e => saveField(r.id, 'registration_status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                      <option value="">—</option>
+                      {REGISTRATION_STATUSES.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </td>
+                )}
+                {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_apply_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_apply_date ?? '')) saveField(r.id, 'registration_apply_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
+                {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_complete_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_complete_date ?? '')) saveField(r.id, 'registration_complete_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
                 <td className="px-2.5 py-1.5"><CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" /></td>
                 <td className="px-2.5 py-1.5"><CustomCell value={r.registration_result ?? ''} onCommit={v => saveField(r.id, 'registration_result', v || null)} placeholder="この登記で分かったこと・結果" /></td>
                 {columns.map(col => (

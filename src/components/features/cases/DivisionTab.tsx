@@ -90,8 +90,8 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
       )}
       {mode === 'division' && (() => {
         const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'
-        // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ
-        const showMail = caseData.agreement_dispatch_method === 'OCから各相続人へ' && caseData.agreement_signing_method === '一斉郵送'
+        // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ（オーダーシートでは非表示）
+        const showMail = !orderSheetMode && caseData.agreement_dispatch_method === 'OCから各相続人へ' && caseData.agreement_signing_method === '一斉郵送'
         const activeSub = showMail ? divSub : 'plan'
 
         const planContent = (
@@ -122,12 +122,13 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
               </FieldGrid>
             </Section>
 
+            {/* 分割内容・進捗サマリーはオーダーシートでは非表示（実務タブで表示） */}
             {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗サマリー（遺産分割）" />}
-
-            {/* 分割内容 — 表形式（取得者は相続人の選択リスト） */}
-            <Section title="分割内容">
-              <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} assetInventory={assetInventory} onRefresh={onRefresh} />
-            </Section>
+            {!orderSheetMode && (
+              <Section title="分割内容">
+                <DivisionDetailsTable caseId={caseData.id} details={divisionDetails} heirs={heirs} assetInventory={assetInventory} onRefresh={onRefresh} />
+              </Section>
+            )}
           </div>
         )
 

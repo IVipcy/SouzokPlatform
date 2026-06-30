@@ -12,7 +12,6 @@ import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
-import ContractTab from './ContractTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
@@ -55,12 +54,19 @@ type Props = {
  */
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
-  heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, agreementDispatches = [], expenses, tasks, clientCommunications, referrals, caseClients, contractDocuments,
+  heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
   sagyoDocuments = [], receipts = [],
 }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const completed = !!caseData.order_sheet_completed_at
+
+  const saveAndRefresh = async () => {
+    setSaving(true)
+    onRefresh()
+    setSaving(false)
+    showToast('オーダーシートを保存しました', 'success')
+  }
 
   const markComplete = async () => {
     setSaving(true)
@@ -96,7 +102,7 @@ export default function OrderSheet({
       gate: p.tab,
       node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
     })),
-    { title: '契約・報酬・請求', node: <ContractTab caseData={caseData} expenses={expenses} tasks={tasks} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode referrals={referrals} /> },
+    // 契約・報酬・請求はオーダーシートでは扱わない（請求タブで管理）
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))
 
@@ -132,6 +138,31 @@ export default function OrderSheet({
       {osSections.map((s) => (
         <OSSection key={s.title} title={s.title} id={s.anchorId}>{s.node}</OSSection>
       ))}
+
+      {/* 最下部の保存／完成アクション（各項目は入力時に自動保存されます） */}
+      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
+        <p className="flex-1 text-[12px] text-gray-500">各項目は入力した時点で自動保存されます。最後にこのボタンで保存を確定できます。</p>
+        <button
+          type="button"
+          onClick={saveAndRefresh}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors disabled:opacity-50"
+        >
+          <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+          オーダーシートを保存
+        </button>
+        {!completed && (
+          <button
+            type="button"
+            onClick={markComplete}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50"
+          >
+            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+            {saving ? '保存中...' : 'オーダーシートを完成'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
