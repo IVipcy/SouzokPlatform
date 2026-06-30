@@ -232,10 +232,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       setCompleteTask(task)
       return
     }
-    // 金融凍結が未確認なら金融資産調査・解約タスクは着手不可（ハード制限）
-    if (current === '着手前' && task.task_kind !== 'system' && !getStartSignal(task, receipts).ready) {
-      showToast('まだ着手OKになっていません', 'error'); return
-    }
+    // 着手OKは目印（ソフト）。着手不可（ハード）は口座凍結未確認の金融タスクのみ。
     if (current === '着手前' && isFreezeBlocked(task, financeBlockedSet)) {
       showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error'); return
     }
@@ -289,7 +286,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     } finally {
       setLoadingTaskId(null)
     }
-  }, [currentMemberId, loadingTaskId, router, receipts, financeBlockedSet])
+  }, [currentMemberId, loadingTaskId, router, financeBlockedSet])
 
   const handleDelete = async () => {
     if (!deleteTask) return

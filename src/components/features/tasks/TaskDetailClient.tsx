@@ -92,11 +92,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [advancing, setAdvancing] = useState(false)
   // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
   const [completeOpen, setCompleteOpen] = useState(false)
-  // 着手OK判定（事務管理タスクは着手OKでないと着手不可＝ハード制限）
+  // 着手OKは「次やる目印」（ソフト）。着手OKでなくても着手はできる。
+  // 着手不可（ハード制限）は口座凍結未確認の金融タスクのみ。
   const startSignal = getStartSignal(task)
-  // 金融資産調査・解約タスクは、案件の口座凍結が未確認だと着手不可
   const freezeBlocked = !isSystemTask && financeFreezeBlocked && isFinanceFreezeTask(task)
-  const canStart = !freezeBlocked && (isSystemTask || startSignal.ready)
+  const canStart = !freezeBlocked
   const waiting = !isSystemTask && isWaitingReceipt(task)
   // 未着手の事務管理タスクを開いたら「着手しますか？」を出す
   const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && !isSystemTask)
@@ -111,11 +111,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     // 金融資産調査・解約タスクは、口座凍結が未確認だと着手不可（ハード制限）
     if (currentStatus === '着手前' && financeFreezeBlocked && isFinanceFreezeTask(task)) {
       showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error')
-      return
-    }
-    // 着手（着手前→対応中）は着手OKのときだけ（事務管理タスクのハード制限）
-    if (currentStatus === '着手前' && task.task_kind !== 'system' && !getStartSignal(task).ready) {
-      showToast('まだ着手OKになっていません。受信簿で資料を受領するか、前段の完了で着手OKにしてください', 'error')
       return
     }
     setAdvancing(true)
@@ -251,14 +246,14 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   <button
                     onClick={handleAdvance}
                     disabled={advancing || !canStart}
-                    title={canStart ? undefined : 'まだ着手OKになっていません'}
+                    title={canStart ? undefined : '口座の凍結確認が未完了です'}
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
                       ${!canStart ? 'bg-gray-300 cursor-not-allowed' : advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
                   >
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Play className="w-4 h-4" strokeWidth={2.5} />}
                     {advancing ? '処理中...' : '着手する'}
                   </button>
-                  <span className="text-[12px] text-gray-400 mt-0.5">{canStart ? '作業を始める前に押す' : waiting ? '受領待ち（着手OK後に押せます）' : '着手OK後に押せます'}</span>
+                  <span className="text-[12px] text-gray-400 mt-0.5">{canStart ? '作業を始める前に押す' : '口座の凍結確認後に押せます'}</span>
                 </div>
               )}
               {currentStatus === '対応中' && (
@@ -513,7 +508,12 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         >
           <div className="space-y-3">
             <div className="text-[13px] font-semibold text-gray-800">「{task.title}」</div>
-            {canStart ? (
+            {freezeBlocked ? (
+              <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
+                <span>口座の<strong className="font-semibold">凍結確認が未完了</strong>です。財産調査タブで管理担当が凍結確認すると着手できます。</span>
+              </div>
+            ) : startSignal.ready ? (
               <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <PackageCheck className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={2} />
                 <span>着手OK{startSignal.reason ? `：${startSignal.reason}` : ''}。着手すると「対応中」になります。</span>
@@ -521,11 +521,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             ) : (
               <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
-                <span>
-                  {freezeBlocked
-                    ? <>口座の<strong className="font-semibold">凍結確認が未完了</strong>です。財産調査タブで管理担当が凍結確認すると着手できます。</>
-                    : <>まだ<strong className="font-semibold">着手OKになっていません</strong>。{waiting ? `受領待ち${receiptWaitNote(task) ? `（${receiptWaitNote(task)}）` : ''}。資料の受領後に着手できます。` : '受信簿で資料を受領するか、前段タスクの完了で着手OKになります。'}</>}
-                </span>
+                <span>{waiting ? <>受領次第OK{receiptWaitNote(task) ? `（${receiptWaitNote(task)}）` : ''}の目印が付いています。</> : <>着手OKの目印は付いていません。</>}そのまま着手しても問題ありません。</span>
               </div>
             )}
           </div>
