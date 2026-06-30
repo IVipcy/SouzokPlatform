@@ -158,6 +158,8 @@ export type CaseRow = {
     opponent_heir_ids?: string[]
     claim?: string
   }> | null
+  // 業務ごとのフリー作業内容（migration 150。業務キー→自由記述。OS・各実務タブで共有）
+  work_content: Record<string, string> | null
   meeting_place: string | null
   lawyer_name: string | null
   lawyer_office: string | null

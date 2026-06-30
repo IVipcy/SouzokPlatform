@@ -19,7 +19,7 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '協議書': 'division',
   '登記': 'registration',
   '解約': 'cancellation',
-  '手紙': undefined,
+  '手紙': 'letter',
   '遺言作成': 'will',
   '信託契約書作成': 'trust',
   '放棄手続き': 'renunciation',
@@ -27,7 +27,7 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '検認手続き': 'probate',
   '後見手続き': 'guardianship',
   '契約書作成': 'contractProc',
-  '執行通知': undefined,
+  '執行通知': 'execution',
   '精算書作成': 'succession',
   '指図書作成': 'succession',
 }

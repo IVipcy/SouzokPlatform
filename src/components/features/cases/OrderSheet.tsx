@@ -13,6 +13,7 @@ import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
+import { WorkContentField } from './WorkContentField'
 import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
@@ -102,6 +103,9 @@ export default function OrderSheet({
       gate: p.tab,
       node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
     })),
+    // 専用の管理項目が無い業務（手紙・執行通知）は作業内容（フリー）のみ
+    { title: '手紙', gate: 'letter', node: <p className="text-[12px] text-gray-400">作業内容を下欄に記載してください（詳細な管理項目は今後追加予定）。</p> },
+    { title: '執行通知', gate: 'execution', node: <p className="text-[12px] text-gray-400">作業内容を下欄に記載してください（詳細な管理項目は今後追加予定）。</p> },
     // 契約・報酬・請求はオーダーシートでは扱わない（請求タブで管理）
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))
@@ -136,7 +140,12 @@ export default function OrderSheet({
       </div>
 
       {osSections.map((s) => (
-        <OSSection key={s.title} title={s.title} id={s.anchorId}>{s.node}</OSSection>
+        <OSSection key={s.title} title={s.title} id={s.anchorId}>
+          {s.node}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容（フリー・補足）" />
+          </div>
+        </OSSection>
       ))}
 
       {/* 最下部の保存／完成アクション（各項目は入力時に自動保存されます） */}
