@@ -22,6 +22,8 @@ export const EMPTY_CLIENT: ClientPerson = {
 export type FormData = {
   // 基本情報（案件番号は自動採番のため入力欄なし）
   caseStatus: string        // 面談結果（旧・案件ステータス。key）
+  meetingType: string       // 面談内容（フリーテキスト。既定「新規面談」）
+  proposalNote: string      // 提案金額（フリーテキスト。例「提案せず」）
   meetingDate: string       // 面談実施日
   orderRoute: string        // 面談ルート（＝受注ルート）
   orderRouteDetail: string  // 詳細（紹介元名 or 過去客の依頼者名）
@@ -77,6 +79,8 @@ export type FormData = {
 
 export const INITIAL_DATA: FormData = {
   caseStatus: '検討中',
+  meetingType: '新規面談',
+  proposalNote: '',
   meetingDate: '',
   orderRoute: '',
   orderRouteDetail: '',
@@ -123,10 +127,7 @@ export const INITIAL_DATA: FormData = {
   intakeDocuments: DEFAULT_DOCS.map(d => ({ ...d })),
 }
 
+// 新規面談登録は1ページ（報告書式の項目のみ）。詳細はオーダーシート／各タブで入力。
 export const STEPS = [
-  { id: 'basic', label: '基本情報', icon: '📋' },
-  { id: 'client', label: '依頼者', icon: '👤' },
-  { id: 'deceased', label: '被相続人', icon: '🏛️' },
-  { id: 'meeting', label: '面談内容', icon: '📝' },
-  { id: 'confirm', label: '確認', icon: '✅' },
+  { id: 'basic', label: '新規面談登録', icon: '📋' },
 ]

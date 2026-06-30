@@ -348,6 +348,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
         client_id: clientId,
         deal_name: mainName || '無題',
         status: formData.caseStatus || '検討中',
+        meeting_type: formData.meetingType || null,
+        proposal_note: formData.proposalNote || null,
+        meeting_owner_id: currentMemberId || null,
         difficulty,
         service_category: formData.serviceCategories[0] || null,
         service_category_2: formData.serviceCategories[1] || null,
@@ -473,9 +476,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       //    税理士/不動産は依頼内容(content)も同時に保存（LP案件一覧の該当列のソースとなる）
       if (formData.referralPartners.length > 0) {
         const rows = formData.referralPartners.map(p => {
-          const row: { case_id: string; partner_type: string; content?: string | null } = { case_id: caseId, partner_type: p }
-          if (p === '税理士' && formData.taxAdvisorBusinessType) row.content = formData.taxAdvisorBusinessType
-          if (p === '不動産' && formData.realEstateRegistrationType) row.content = formData.realEstateRegistrationType
+          const row: { case_id: string; partner_type: string; content?: string | null; content_detail?: string | null } = { case_id: caseId, partner_type: p }
+          if (p === '税理士' && formData.taxAdvisorBusinessType) { row.content = formData.taxAdvisorBusinessType; row.content_detail = formData.taxAdvisorBusinessType }
+          if (p === '不動産' && formData.realEstateRegistrationType) { row.content = formData.realEstateRegistrationType; row.content_detail = formData.realEstateRegistrationType }
           return row
         })
         await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type' })
@@ -527,9 +530,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
     switch (STEPS[step].id) {
       case 'basic': return (
         <div className="max-w-[800px]">
-          <SectionHeader Icon={ClipboardList} title="基本情報" sub="面談開始時に確認する項目（案件番号は自動採番）" />
-          <Card label="面談実施日" required><Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} /></Card>
-          <Card label="面談ルート">
+          <SectionHeader Icon={ClipboardList} title="新規面談登録" sub="面談報告の項目（案件番号は自動採番。詳細はオーダーシートで入力）" />
+          <Card label="面談ルート（紹介元）">
             <Pills value={data.orderRoute} options={[...ORDER_ROUTES]} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} />
             {data.orderRoute && (
               <div className="mt-3">
@@ -551,7 +553,22 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               </div>
             )}
           </Card>
+          <Card label="顧客名（依頼者名）" required>
+            <Input value={data.clients[0]?.name ?? ''} onChange={v => updateClient(0, { name: v })} placeholder="例: 服部 雅弘" />
+          </Card>
+          <Card label="面談内容"><Input value={data.meetingType} onChange={v => update('meetingType', v)} placeholder="新規面談" /></Card>
           <Card label="面談結果" required><StatusPills value={data.caseStatus} onChange={v => update('caseStatus', v)} /></Card>
+          <Card label="手続内容（受注区分）">
+            <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
+          </Card>
+          <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
+          <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+          <Card label="不動産売却（他事業者紹介・不動産）">
+            <Input value={data.realEstateRegistrationType} onChange={v => { update('realEstateRegistrationType', v); update('referralPartners', v.trim() ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産')) }} placeholder="なし / 依頼内容を記載" />
+          </Card>
+          <Card label="税理士（他事業者紹介・税理士）">
+            <Input value={data.taxAdvisorBusinessType} onChange={v => { update('taxAdvisorBusinessType', v); update('referralPartners', v.trim() ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士')) }} placeholder="なし / 依頼内容を記載" />
+          </Card>
           {/* 検討期間・お客様回答予定日: 検討中 / 検討中(契約書待ち) で表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
