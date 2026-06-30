@@ -77,7 +77,8 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     const supa = supabase
     const [rew, exp] = await Promise.all([
       supa.from('reward_items').select('shigyo, amount, discount').eq('case_id', caseData.id),
-      supa.from('expenses').select('item_name, amount').eq('case_id', caseData.id),
+      // 立替実費は請求タブの billing_expense_items（司法/行政・課税/非課税）から取り込む
+      supa.from('billing_expense_items').select('shigyo, amount').eq('case_id', caseData.id),
     ])
     const rows: Array<{ case_id: string; kind: string; label: string; amount: number; source: string; sort_order: number }> = []
     let order = expense.length
@@ -86,8 +87,11 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     const gy = rewardRows.filter(r => r.shigyo === '行政').reduce((n, r) => n + ((r.amount ?? 0) - (r.discount ?? 0)), 0)
     if (sh > 0) rows.push({ case_id: caseData.id, kind: '報酬', label: 'オーシャン報酬（司法）', amount: sh, source: 'reward', sort_order: order++ })
     if (gy > 0) rows.push({ case_id: caseData.id, kind: '報酬', label: 'オーシャン報酬（行政）', amount: gy, source: 'reward', sort_order: order++ })
-    const expTotal = ((exp.data ?? []) as Array<{ amount: number }>).reduce((n, e) => n + (e.amount ?? 0), 0)
-    if (expTotal > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費', amount: expTotal, source: 'expense', sort_order: order++ })
+    const expRows = (exp.data ?? []) as Array<{ shigyo: string; amount: number }>
+    const expSh = expRows.filter(r => r.shigyo === '司法').reduce((n, e) => n + (e.amount ?? 0), 0)
+    const expGy = expRows.filter(r => r.shigyo === '行政').reduce((n, e) => n + (e.amount ?? 0), 0)
+    if (expSh > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費（司法）', amount: expSh, source: 'expense', sort_order: order++ })
+    if (expGy > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費（行政）', amount: expGy, source: 'expense', sort_order: order++ })
     // 受信簿で「精算書に反映」した代理支払（介護施設・葬儀費用等）
     const rec = await supa.from('document_receipts').select('items:document_receipt_items(item_name, settlement_amount, settlement_reflect)').eq('case_id', caseData.id)
     const payItems = ((rec.data ?? []) as Array<{ items: Array<{ item_name: string; settlement_amount: number | null; settlement_reflect: boolean }> | null }>)
