@@ -300,7 +300,7 @@ function RequestDetail({ r, caseId, isManager, targetOptions, relLabel, saveFiel
 
       <div>
         <SectionHeading title="請求内容" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-        <FieldGrid>
+        <FieldGrid cols={1}>
           <InlineSelect label="取得区分" value={r.acquirer} options={ACQUIRERS} onSave={v => saveField(r.id, 'acquirer', v)} />
           <InlineEdit label="請求先" value={r.request_to} onSave={v => saveField(r.id, 'request_to', v)} />
           <InlineSelect label="対象者" value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
