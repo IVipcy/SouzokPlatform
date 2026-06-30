@@ -61,16 +61,33 @@ type Props = {
   tasks?: TaskRow[]
   // 契約時にお客様から受領した金融関係書類（区分=財産のうち金融分）。表の先頭に受領済として表示。
   contractDocs?: ContractDocumentRow[]
+  /** 金融機関タブで使用：この金融機関の口座だけ表示し、新規行もこの金融機関にする */
+  institutionFilter?: string
+  /** 金融機関タブで使用：残高確定トグル列を表示（管理担当のみ操作可） */
+  showConfirmed?: boolean
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [] }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [], institutionFilter, showConfirmed = false }: Props) {
   const supabase = createClient()
-  const isManager = useIsManager()  // 凍結確認のチェックは管理担当のみ
+  const isManager = useIsManager()  // 凍結確認・残高確定のチェックは管理担当のみ
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
+  const visibleRows = institutionFilter != null ? rows.filter(r => (r.institution_name ?? '') === institutionFilter) : rows
+
+  // 残高確定のトグル（管理担当のみ）。確定→TOP一覧・財産目録へ反映。
+  const toggleBalanceConfirmed = async (row: FinancialAssetRow) => {
+    if (!isManager) return
+    const next = !row.balance_confirmed
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, balance_confirmed: next } : r))
+    const { error } = await supabase.from('financial_assets')
+      .update({ balance_confirmed: next, balance_confirmed_by: next ? memberId : null, balance_confirmed_at: next ? new Date().toISOString() : null })
+      .eq('id', row.id)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
 
   // 凍結確認のトグル（管理担当のみ）。確認済→調査・解約タスクが着手可になる。
   const toggleFreeze = async (row: FinancialAssetRow) => {
@@ -96,7 +113,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const addRow = async () => {
     setBusy(true)
     // 取得区分の既定は常に「自社取得」。役割分担には引っ張られない。
-    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single()
+    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: institutionFilter ?? '', acquirer: '自社' }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as FinancialAssetRow])
@@ -111,8 +128,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結確認(progressMode時のみ) +列 +残高 +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + 3 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
+  // 凍結確認(progressMode時のみ) +列 +残高 +確定済(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 3 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   return (
     <div>
@@ -125,6 +142,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
+              {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
@@ -137,10 +155,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
-              rows.map(r => (
+              visibleRows.map(r => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
                   {/* 凍結確認済（一番左・管理担当のみチェック可。オーダーシートでは非表示） */}
                   {progressMode && (
@@ -171,6 +189,21 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   <td className="px-2 py-1.5">
                     <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />
                   </td>
+                  {showConfirmed && (
+                    <td className="px-2 py-1.5 text-center">
+                      {r.balance_confirmed ? (
+                        <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} title={isManager ? '確定を取消' : '確定は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
+                          <Check className="w-3 h-3" strokeWidth={2.5} />確定済
+                        </button>
+                      ) : isManager ? (
+                        <button type="button" onClick={() => toggleBalanceConfirmed(r)} title="残高を確定したらチェック（TOP一覧・財産目録へ反映）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
+                          <Lock className="w-3 h-3" strokeWidth={2} />未確定
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
+                      )}
+                    </td>
+                  )}
                   {/* 取得区分 */}
                   <td className="px-2 py-1.5">
                     <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">

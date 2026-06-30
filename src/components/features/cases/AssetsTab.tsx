@@ -10,6 +10,7 @@ import {
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import FinancialSection from './FinancialSection'
 import RealEstateSection from './RealEstateSection'
 import InventoryTab from './InventoryTab'
 import ProgressSummary from './ProgressSummary'
@@ -63,7 +64,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
-  const progressMode = !orderSheetMode
   const MAIN_TABS = orderSheetMode ? MAIN_TABS_OS : MAIN_TABS_FULL
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
@@ -131,19 +131,34 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={sub === 'deposit' ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_deposit" title="進捗サマリー（預金調査）" />}
-          <SectionHeading title="預金口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+          {orderSheetMode ? (
+            <>
+              <SectionHeading title="預金口座（金融機関名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+            </>
+          ) : (
+            <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+          )}
         </div>
         <div className={sub === 'securities' ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_securities" title="進捗サマリー（証券調査）" />}
-          <SectionHeading title="証券口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          {orderSheetMode ? (
+            <>
+              <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+            </>
+          ) : (
+            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          )}
         </div>
         <div className={sub === 'trust' ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_trust" title="進捗サマリー（信託調査）" />}
-          <SectionHeading title="信託口座（請求・受領の管理）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-          <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={progressMode} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          {orderSheetMode ? (
+            <>
+              <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+            </>
+          ) : (
+            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+          )}
         </div>
         <div className={sub === 'insurance' ? 'space-y-3' : 'hidden'}>
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗サマリー（生命保険）" />}

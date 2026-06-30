@@ -54,19 +54,20 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     const existing = new Set(rows.map(r => `${r.asset_class}|${r.detail}`))
     const newRows: Array<{ case_id: string; asset_class: string; detail: string; amount: number | null; sort_order: number }> = []
     let order = rows.length
+    // 財産目録へ反映するのは「確定済」（管理担当が残高・評価額を確定したもの）のみ。
     for (const a of financialAssets) {
-      if (a.balance_amount == null) continue
+      if (!a.balance_confirmed || a.balance_amount == null) continue
       const detail = [a.institution_name, a.branch_name].filter(Boolean).join(' ') || a.asset_type || '金融資産'
       if (existing.has(`金融|${detail}`)) continue
       newRows.push({ case_id: caseId, asset_class: '金融', detail, amount: a.balance_amount, sort_order: order++ })
     }
     for (const p of properties) {
-      if (p.appraisal_value == null) continue
+      if (!p.confirmed || p.appraisal_value == null) continue
       const detail = p.address || p.property_type || '不動産'
       if (existing.has(`不動産|${detail}`)) continue
       newRows.push({ case_id: caseId, asset_class: '不動産', detail, amount: p.appraisal_value, sort_order: order++ })
     }
-    if (newRows.length === 0) { setBusy(false); showToast('取り込む金額がありません（財産表で残高・評価額を入力してください）', 'info'); return }
+    if (newRows.length === 0) { setBusy(false); showToast('取り込む金額がありません（各タブで残高・評価額を入力し「確定済」にしてください）', 'info'); return }
     const { data, error } = await supabase.from('asset_inventory').insert(newRows).select('*')
     setBusy(false)
     if (error) { showToast(`取込に失敗しました: ${error.message}`, 'error'); return }
@@ -81,7 +82,7 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
         <button type="button" onClick={importFromAssets} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-50">
           <DownloadCloud className="w-3.5 h-3.5" /> 財産表から取込
         </button>
-        <span className="text-[11px] text-gray-400">預金・証券・信託の残高、不動産の評価額を取り込みます</span>
+        <span className="text-[11px] text-gray-400">各タブで「確定済」にした預金・証券・信託の残高、不動産の評価額のみ取り込みます</span>
       </div>
 
       <div className="overflow-x-auto">
