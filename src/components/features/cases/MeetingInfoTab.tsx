@@ -10,7 +10,7 @@ import {
 import {
   CONSIDERATION_DECLINE_REASONS,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
+  CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -109,7 +109,6 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
           <InlineTextarea label="備考" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
-          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth placeholder={HEARING_MEMO_SAMPLE} />
         </FieldGrid>
         {/* 不動産売却・税理士などの他事業者紹介（ON＝紹介タブに業者サブタブ作成） */}
         <div className="mt-3 pt-3 border-t border-gray-100">
