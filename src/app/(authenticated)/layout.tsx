@@ -18,7 +18,7 @@ export default async function AuthenticatedLayout({
           <Sidebar />
           {/* min-w-0: 幅広テーブル等を内側の overflow-x-auto でスクロールさせ、
               ページ全体（サマリ含む）が押し広げられないようにする */}
-          <main className="flex-1 min-w-0 ml-60 p-6">
+          <main className="flex-1 min-w-0 ml-0 md:ml-60 p-3 md:p-6">
             {children}
           </main>
           <ToastContainer />

@@ -101,7 +101,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`${widthCls} bg-white border-r border-gray-200 flex flex-col h-screen fixed left-0 top-0 transition-[width] duration-200 ease-out z-10`}
+      className={`${widthCls} bg-white border-r border-gray-200 hidden md:flex flex-col h-screen fixed left-0 top-0 transition-[width] duration-200 ease-out z-10`}
       data-collapsed={collapsed ? '1' : '0'}
     >
       {/* ロゴ + 折りたたみトグル */}

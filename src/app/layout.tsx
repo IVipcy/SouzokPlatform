@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_JP, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import PwaRegister from "@/components/PwaRegister";
 
 // 英数字: Inter（数字や英字を端正に）
 const inter = Inter({
@@ -27,6 +28,19 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "相続案件管理",
   description: "相続手続き業務管理システム（オーシャン）",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "相談案件登録", statusBarStyle: "default" },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#185FA5",
 };
 
 export default function RootLayout({
@@ -39,7 +53,7 @@ export default function RootLayout({
       lang="ja"
       className={`${inter.variable} ${notoSansJP.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-gray-50">{children}</body>
+      <body className="min-h-full bg-gray-50">{children}<PwaRegister /></body>
     </html>
   );
 }
