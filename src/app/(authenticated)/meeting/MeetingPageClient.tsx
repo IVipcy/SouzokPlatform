@@ -60,7 +60,7 @@ export default function MeetingPageClient({ cases, currentMemberId }: Props) {
         eyebrow="Meeting"
         title="相談案件登録"
         icon={PenSquare}
-        description="面談情報の入力・相談案件の登録"
+        description="面談情報の入力"
         right={
           selectedCase ? (
             <button

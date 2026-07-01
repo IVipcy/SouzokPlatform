@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getCaseStatusLabel } from '@/lib/constants'
 import type { CaseRow, ClientRow } from '@/types'
 import type { SelectedCase } from './MeetingPageClient'
 
@@ -62,15 +61,13 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">案件番号</th>
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">案件名</th>
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">依頼者</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">電話番号</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">ステータス</th>
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em] w-20">操作</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-gray-400">
+                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-gray-400">
                   {cases.length === 0 ? '面談設定済の案件がありません' : '検索条件に一致する案件がありません'}
                 </td>
               </tr>
@@ -100,13 +97,6 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   </td>
                   <td className="px-3.5 py-2.5 text-xs font-semibold text-gray-900">{c.deal_name}</td>
                   <td className="px-3.5 py-2.5 text-xs text-gray-600">{c.clients?.name ?? '—'}</td>
-                  <td className="px-3.5 py-2.5 text-xs font-mono text-gray-500">{c.clients?.phone ?? '—'}</td>
-                  <td className="px-3.5 py-2.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold bg-brand-50 text-brand-600 border border-brand-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {getCaseStatusLabel(c.status)}
-                    </span>
-                  </td>
                   <td className="px-3.5 py-2.5">
                     <button
                       onClick={e => { e.stopPropagation(); onSelect({
