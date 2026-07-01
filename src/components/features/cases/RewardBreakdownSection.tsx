@@ -5,19 +5,21 @@
 // 書き戻し、既存の請求書発行（前受金/確定）とつなげる。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Trash2, Plus, Scale, Stamp } from 'lucide-react'
+import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
+import SelectOrTextField from './SelectOrTextField'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import type { RewardItemRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 const ITEM_OPTIONS = ['基本料金', ...GYOMU_ALL]
 
+// 司法=青 / 行政=緑（アイコン・ドットは付けず、文字色で区別）
 const SHIGYO = [
-  { key: '司法', label: '司法（司法書士）', Icon: Scale, color: '#185FA5', feeField: 'fee_judicial' as const },
-  { key: '行政', label: '行政（行政書士）', Icon: Stamp, color: '#0F6E56', feeField: 'fee_administrative' as const },
+  { key: '司法', label: '司法（司法書士）', color: '#185FA5', feeField: 'fee_judicial' as const },
+  { key: '行政', label: '行政（行政書士）', color: '#0F6E56', feeField: 'fee_administrative' as const },
 ]
 
 export default function RewardBreakdownSection({ caseId, onTotals, advance, onAdvanceChange }: {
@@ -85,10 +87,9 @@ export default function RewardBreakdownSection({ caseId, onTotals, advance, onAd
         const discSum = items.reduce((n, r) => n + (r.discount ?? 0), 0)
         return (
           <div key={s.key} className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-3 py-2 bg-gray-50 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-              <s.Icon className="w-3.5 h-3.5" style={{ color: s.color }} strokeWidth={2} />
-              <span className="text-[12.5px] font-semibold text-gray-800">{s.label} 報酬の内訳</span>
+            <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 border-l-4" style={{ borderColor: s.color }}>
+              <span className="text-[12.5px] font-semibold" style={{ color: s.color }}>{s.label}</span>
+              <span className="text-[12.5px] text-gray-500">報酬の内訳</span>
               <span className="ml-auto text-[12.5px] font-semibold" style={{ color: s.color }}>確定報酬 {yen(sum)}</span>
             </div>
             <div className="overflow-x-auto">
@@ -109,10 +110,7 @@ export default function RewardBreakdownSection({ caseId, onTotals, advance, onAd
                   ) : items.map(r => (
                     <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
                       <td className="px-2 py-1.5">
-                        <select value={r.label ?? ''} onChange={e => { setLocal(r.id, 'label', e.target.value); commit(r.id, 'label', e.target.value) }} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                          {!ITEM_OPTIONS.includes(r.label ?? '') && r.label && <option value={r.label}>{r.label}</option>}
-                          {ITEM_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <SelectOrTextField value={r.label} options={ITEM_OPTIONS} onSave={v => { setLocal(r.id, 'label', v); commit(r.id, 'label', v) }} placeholder="項目名を入力" />
                       </td>
                       <td className="px-2 py-1.5"><MoneyInput value={r.amount} onCommit={v => { setLocal(r.id, 'amount', v === '' ? 0 : Number(v)); commit(r.id, 'amount', v === '' ? 0 : Number(v)) }} /></td>
                       <td className="px-2 py-1.5"><MoneyInput value={r.discount} onCommit={v => { setLocal(r.id, 'discount', v === '' ? 0 : Number(v)); commit(r.id, 'discount', v === '' ? 0 : Number(v)) }} /></td>

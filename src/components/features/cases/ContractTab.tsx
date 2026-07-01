@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { advanceTotal } from '@/lib/advancePayment'
 import {
   Section, FieldGrid, Field,
-  InlineDate, InlineTextarea,
+  InlineTextarea,
 } from '@/components/ui/InlineFields'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
@@ -101,9 +101,18 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     if (Object.keys(patch).length > 0) await patchCase(patch)
   }
 
+  // 立替実費（billing_expense_items）の合計。確定請求＝報酬＋立替実費−前受金 に含める。
+  const [billingExpTotal, setBillingExpTotal] = useState(0)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('billing_expense_items').select('amount').eq('case_id', caseData.id).then(({ data }) => {
+      setBillingExpTotal(((data ?? []) as { amount: number }[]).reduce((n, r) => n + (r.amount ?? 0), 0))
+    })
+  }, [caseData.id])
+
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
-  const confirmedAmount = feeSubtotal - advanceTotal(caseData)
+  const confirmedAmount = feeSubtotal + billingExpTotal - advanceTotal(caseData)
   const partnerName = caseData.order_route_detail
   const partnerCompensation = referralRate != null
     ? (caseData.fee_administrative ?? 0) * referralRate / 100
@@ -147,33 +156,15 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
       </Section>
 
 
-          {/* 1. 契約情報（契約形態は「担当・受注内容」タブへ移設） */}
-          <Section title="契約情報">
-            <FieldGrid>
-              <InlineDate
-                label="契約日"
-                value={caseData.contract_date}
-                onSave={v => save('contract_date', v)}
-              />
-            </FieldGrid>
-            <FieldGrid cols={1}>
-              <InlineTextarea
-                label="特記事項"
-                value={caseData.notes}
-                onSave={v => save('notes', v)}
-                fullWidth
-              />
-            </FieldGrid>
-          </Section>
-
-          {/* 2. 請求サマリー（報酬・前受金は上の内訳から自動） */}
+          {/* 請求サマリー（報酬・前受金は上の内訳から自動。契約日は受注内容へ・特記事項は廃止） */}
           <Section title="請求サマリー" icon="💳">
             <FieldGrid cols={1}>
               <Field label="確定報酬（行政）＝内訳合計" value={yen(caseData.fee_administrative)} mono />
               <Field label="確定報酬（司法）＝内訳合計" value={yen(caseData.fee_judicial)} mono />
               <Field label="報酬小計" value={yen(feeSubtotal)} mono />
               <Field label="前受金小計" value={yen(advanceTotal(caseData))} mono />
-              <Field label="請求金額（確定＝報酬−前受金）" value={yen(confirmedAmount)} mono />
+              <Field label="立替実費 小計" value={yen(billingExpTotal)} mono />
+              <Field label="請求金額（確定＝報酬＋立替実費−前受金）" value={yen(confirmedAmount)} mono />
               <InlineTextarea
                 label="メモ"
                 value={caseData.invoice_memo}

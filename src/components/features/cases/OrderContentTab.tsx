@@ -105,6 +105,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
         </div>
         <FieldGrid>
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
+          <InlineDate label="契約日" value={caseData.contract_date} onSave={v => save('contract_date', v)} />
           <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>

@@ -8,11 +8,16 @@ import { Trash2, Plus, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
+import SelectOrTextField from './SelectOrTextField'
 import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS } from '@/lib/constants'
 import type { BillingExpenseItemRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
-const SHIGYO = ['司法', '行政'] as const
+// 司法=青 / 行政=緑（請求料金内訳と統一。アイコン・ドットは付けず文字色で区別）
+const SHIGYO = [
+  { key: '司法', color: '#185FA5' },
+  { key: '行政', color: '#0F6E56' },
+] as const
 
 export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   const supabase = createClient()
@@ -96,23 +101,22 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   const renderBlock = (shigyo: string, taxable: boolean) => {
     const items = rows.filter(r => r.shigyo === shigyo && r.taxable === taxable)
     const subtotal = items.reduce((n, r) => n + (r.amount ?? 0), 0)
+    const options = taxable ? EXPENSE_TAX_ITEMS : EXPENSE_NONTAX_ITEMS
     return (
       <div className="mt-2">
-        <div className="text-[11px] text-gray-500 mb-1">{taxable ? '課税（税込）' : '非課税'}</div>
-        <table className="w-full text-[11.5px] border-collapse" style={{ minWidth: 560 }}>
+        <span className={`inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-full mb-1.5 ${taxable ? 'bg-amber-50 text-amber-800' : 'bg-brand-50 text-brand-700'}`}>{taxable ? '課税（税込）' : '非課税'}</span>
+        <table className="w-full text-[12px] border-collapse" style={{ minWidth: 520 }}>
           <thead><tr className="text-[10.5px] text-gray-500 border-b border-gray-100">
-            <th className="px-1.5 py-1 text-left font-medium w-[38%]">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価</th><th className="px-1.5 py-1 text-right font-medium">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1 w-6" />
+            <th className="px-1.5 py-1 text-left font-medium w-56">名目</th><th className="px-1.5 py-1 text-right font-medium w-16">数量</th><th className="px-1.5 py-1 text-right font-medium w-20">単価</th><th className="px-1.5 py-1 text-right font-medium w-20">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1 w-6" />
           </tr></thead>
           <tbody>
             {items.map(r => (
               <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
-                <td className="px-1.5 py-1">
-                  <input list={`exp-${taxable ? 'tax' : 'non'}`} defaultValue={r.label ?? ''} onBlur={e => commit(r.id, { label: e.target.value })} placeholder="選択 or 入力" className="w-full px-1.5 py-1.5 text-[11.5px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" />
-                </td>
+                <td className="px-1.5 py-1"><SelectOrTextField value={r.label} options={options} onSave={v => { setLocal(r.id, { label: v }); commit(r.id, { label: v }) }} placeholder="名目を入力" /></td>
                 <td className="px-1.5 py-1"><MoneyInput value={r.quantity} onCommit={v => { const q = v === '' ? null : Number(v); setLocal(r.id, { quantity: q }); commit(r.id, { quantity: q, amount: recalcAmount(r, q, r.unit_price) }) }} /></td>
                 <td className="px-1.5 py-1"><MoneyInput value={r.unit_price} onCommit={v => { const u = v === '' ? null : Number(v); setLocal(r.id, { unit_price: u }); commit(r.id, { unit_price: u, amount: recalcAmount(r, r.quantity, u) }) }} /></td>
                 <td className="px-1.5 py-1"><MoneyInput value={r.amount} onCommit={v => commit(r.id, { amount: v === '' ? 0 : Number(v) })} /></td>
-                <td className="px-1.5 py-1"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commit(r.id, { note: e.target.value })} placeholder="備考" className="w-full px-1.5 py-1.5 text-[11.5px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                <td className="px-1.5 py-1"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commit(r.id, { note: e.target.value })} placeholder="備考" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                 <td className="px-1.5 py-1 text-center"><button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button></td>
               </tr>
             ))}
@@ -126,9 +130,6 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* 名目の候補（datalist） */}
-      <datalist id="exp-tax">{EXPENSE_TAX_ITEMS.map(o => <option key={o} value={o} />)}</datalist>
-      <datalist id="exp-non">{EXPENSE_NONTAX_ITEMS.map(o => <option key={o} value={o} />)}</datalist>
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] text-gray-400">各実務タブ（戸籍の小為替・不動産の取得資料・登録免許税）で確定した立替実費を取り込めます。手入力分はそのまま残ります。</p>
         <button type="button" onClick={importFromTabs} disabled={importing}
@@ -136,15 +137,21 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
           <Download className="w-3.5 h-3.5" />{importing ? '取り込み中…' : '実務タブから取り込み'}
         </button>
       </div>
-      {SHIGYO.map(s => (
-        <div key={s} className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-gray-50 text-[12.5px] font-semibold text-gray-800">立替実費（{s}）</div>
-          <div className="px-3 pb-3">
-            {renderBlock(s, false)}
-            {renderBlock(s, true)}
+      {SHIGYO.map(s => {
+        const firmTotal = rows.filter(r => r.shigyo === s.key).reduce((n, r) => n + (r.amount ?? 0), 0)
+        return (
+          <div key={s.key} className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 border-l-4" style={{ borderColor: s.color }}>
+              <span className="text-[12.5px] font-semibold" style={{ color: s.color }}>立替実費（{s.key}）</span>
+              <span className="ml-auto text-[12.5px] font-semibold" style={{ color: s.color }}>小計 {yen(firmTotal)}</span>
+            </div>
+            <div className="px-3 pb-3">
+              {renderBlock(s.key, false)}
+              {renderBlock(s.key, true)}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
