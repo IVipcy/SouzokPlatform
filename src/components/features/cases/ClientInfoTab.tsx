@@ -72,6 +72,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
             <InlineEdit
               label="郵便番号"
               value={client.postal_code}
+              hint="7桁の郵便番号を入力すると住所の候補を自動入力します"
               onSave={async v => {
                 const z = v.replace(/[^0-9]/g, '')
                 await saveClientField('postal_code', z)
@@ -93,13 +94,15 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                   onSave={v => saveClientField('transfer_name_kana', toKatakana(v))}
                   mono
                   fullWidth
-                  action={mainFurigana ? (
+                  hint={mainFurigana ? undefined : 'メイン依頼者にフリガナが未登録です（依頼者一覧で入力すると取得できます）'}
+                  action={
                     <button
                       type="button"
-                      onClick={() => saveClientField('transfer_name_kana', toKatakana(mainFurigana))}
-                      className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
+                      disabled={!mainFurigana}
+                      onClick={() => mainFurigana && saveClientField('transfer_name_kana', toKatakana(mainFurigana))}
+                      className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >メイン依頼者のフリガナを取得</button>
-                  ) : null}
+                  }
                 />
                 <InlineEdit label="振込名義人 候補②（カナ）" value={client.transfer_name_kana_2} onSave={v => saveClientField('transfer_name_kana_2', toKatakana(v))} mono fullWidth />
                 <InlineEdit label="振込名義人 候補③（カナ）" value={client.transfer_name_kana_3} onSave={v => saveClientField('transfer_name_kana_3', toKatakana(v))} mono fullWidth />

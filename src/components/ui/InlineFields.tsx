@@ -120,7 +120,7 @@ export function QIRow({ label, children }: { label: string; children: React.Reac
 }
 
 // ─── InlineEdit (text) ───
-export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action }: {
+export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -128,6 +128,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   fullWidth?: boolean
   required?: boolean
   action?: React.ReactNode  // ラベル横に置く補助ボタン（例: 「依頼者と同じ」自動入力）
+  hint?: string             // 値の下に出す補助説明（例: 郵便番号で住所自動入力）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -192,6 +193,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
+      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
     </div>
   )
 }

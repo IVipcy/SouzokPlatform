@@ -31,14 +31,14 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-gray-400">{label}</span>
+      <span className="text-[12px] font-semibold text-amber-700">{label}</span>
       <textarea
         value={val}
         onChange={e => setVal(e.target.value)}
         onBlur={save}
-        rows={large ? 4 : 2}
-        placeholder={placeholder ?? '作業内容を記載してください（システムで未定義の運用はここに自由記載）'}
-        className={`w-full px-2.5 py-2 border border-gray-200 rounded-lg outline-none focus:border-brand-400 bg-white ${large ? 'text-[14px] leading-relaxed' : 'text-[12.5px]'}`}
+        rows={large ? 8 : 5}
+        placeholder={placeholder ?? '作業内容や備考を自由に記載してください'}
+        className={`w-full px-3 py-2.5 border-2 border-amber-300 bg-amber-50/50 rounded-lg outline-none focus:border-amber-400 focus:bg-amber-50 placeholder:text-amber-700/40 ${large ? 'text-[14px] leading-relaxed' : 'text-[13px] leading-relaxed'}`}
       />
     </div>
   )

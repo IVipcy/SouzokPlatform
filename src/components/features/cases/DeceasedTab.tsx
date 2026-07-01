@@ -24,10 +24,20 @@ import {
   Section,
   FieldGrid,
   InlineEdit,
-  InlineDate,
   InlineCheckbox,
   FormField,
 } from '@/components/ui/InlineFields'
+
+// 享年（生年月日→死亡日）。どちらか欠けたら null。
+function ageAtDeath(birthday: string | null, deathDate: string | null): number | null {
+  if (!birthday || !deathDate) return null
+  const b = new Date(birthday), d = new Date(deathDate)
+  if (Number.isNaN(b.getTime()) || Number.isNaN(d.getTime())) return null
+  let age = d.getFullYear() - b.getFullYear()
+  const m = d.getMonth() - b.getMonth()
+  if (m < 0 || (m === 0 && d.getDate() < b.getDate())) age--
+  return age >= 0 ? age : null
+}
 
 type Props = {
   caseData: CaseRow
@@ -276,12 +286,23 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
               <div className="py-1.5">
                 <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人生年月日</div>
-                <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => saveCaseField('deceased_birth_date', v)} />
+                <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => patchCase({ deceased_birth_date: v || null, deceased_age: ageAtDeath(v, caseData.date_of_death) })} />
               </div>
-              <InlineEdit label="被相続人年齢" value={caseData.deceased_age != null ? String(caseData.deceased_age) : null} onSave={v => patchCase({ deceased_age: v.trim() === '' ? null : Number(v) })} />
-              <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => saveCaseField('date_of_death', v)} required />
+              <div className="py-1.5">
+                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">相続開始日（死亡日）<span className="text-red-500 ml-0.5">*</span></div>
+                <BirthdayPicker value={caseData.date_of_death} onChange={v => patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) })} />
+              </div>
+              <div className="py-1.5">
+                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人年齢（享年・自動計算）</div>
+                <div className="text-[13px] text-gray-700 font-medium min-h-[24px]">
+                  {ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death) != null
+                    ? `${ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death)} 歳`
+                    : <span className="text-gray-300 italic text-xs">生年月日と死亡日から自動計算</span>}
+                </div>
+              </div>
               <InlineEdit
                 label="被相続人郵便番号"
+                hint="7桁の郵便番号を入力すると住所の候補を自動入力します"
                 value={caseData.deceased_postal_code}
                 onSave={async v => {
                   const z = v.replace(/[^0-9]/g, '')
