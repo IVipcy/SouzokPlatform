@@ -787,12 +787,14 @@ export type BillingExpenseItemRow = {
 }
 export type SettlementIncomeItemRow = {
   id: string; case_id: string
-  asset_class: string | null; detail: string | null; amount: number; oc_transferred: boolean; sort_order: number; created_at: string
+  asset_class: string | null; detail: string | null; amount: number; oc_transferred: boolean; note: string | null; sort_order: number; created_at: string
 }
 export type SettlementExpenseItemRow = {
   id: string; case_id: string
   kind: string | null          // 報酬 / 立替 / 代理支払
-  label: string | null; amount: number; source: string | null; ref_id: string | null; sort_order: number; created_at: string
+  label: string | null; amount: number; source: string | null; ref_id: string | null
+  paid: boolean; note: string | null   // 振込済（ミトラ残高からの支払確定）・備考（migration 154）
+  sort_order: number; created_at: string
 }
 export type InstructionItemRow = {
   id: string; case_id: string; heir_id: string | null; heir_name: string | null
