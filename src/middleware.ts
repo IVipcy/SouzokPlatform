@@ -34,17 +34,21 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 未ログインで /login 以外にアクセス → ログインページへリダイレクト
+  // 未ログインで /login 以外にアクセス → ログインページへ（元のパスを next で保持）
   if (!user && !request.nextUrl.pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.search = ''
+    url.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
-  // ログイン済みで /login にアクセス → ダッシュボードへ
+  // ログイン済みで /login にアクセス → next があればそこへ、無ければダッシュボード
   if (user && request.nextUrl.pathname.startsWith('/login')) {
+    const next = request.nextUrl.searchParams.get('next')
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = next && next.startsWith('/') && !next.startsWith('/login') ? next : '/'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 

@@ -9,7 +9,8 @@ export default function StandaloneTopBar() {
   const router = useRouter()
   const logout = async () => {
     await createClient().auth.signOut()
-    router.push('/login')
+    // 再ログイン後もこの相談案件登録画面に戻す
+    router.push('/login?next=/register')
     router.refresh()
   }
   return (

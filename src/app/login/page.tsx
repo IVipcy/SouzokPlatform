@@ -28,7 +28,11 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/')
+    // ?next=/register 等があればそこへ戻す（PWAの相談案件登録からのログアウト→再ログイン対応）。
+    // オープンリダイレクト防止のため同一オリジンのパス(/始まり・/login以外)のみ許可。
+    const next = new URLSearchParams(window.location.search).get('next')
+    const dest = next && next.startsWith('/') && !next.startsWith('/login') ? next : '/'
+    router.push(dest)
     router.refresh()
   }
 
