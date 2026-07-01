@@ -1,10 +1,25 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { ChevronRight } from 'lucide-react'
 import type { CaseRow, ClientRow } from '@/types'
 import type { SelectedCase } from './MeetingPageClient'
 
 type CaseData = CaseRow & { clients?: ClientRow | null }
+
+// 検索一致部分をハイライト（小文字で位置判定・表示は原文）。
+function highlight(text: string, q: string) {
+  if (!q) return text
+  const i = text.toLowerCase().indexOf(q)
+  if (i < 0) return text
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="bg-brand-100 text-brand-700 rounded-[3px] px-0.5">{text.slice(i, i + q.length)}</span>
+      {text.slice(i + q.length)}
+    </>
+  )
+}
 
 type Props = {
   cases: CaseData[]
@@ -29,6 +44,23 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
       (c.clients?.mobile_phone ?? '').includes(q)
     )
   }, [cases, q, hasQuery])
+
+  // 選択時に MeetingForm へ渡すペイロード（連携の初期値を引き継ぐ）。
+  const pick = (c: CaseData) => onSelect({
+    id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '',
+    orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
+    deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
+    deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
+    deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
+    clientFurigana: c.clients?.furigana ?? null,
+    clientRelation: c.clients?.relationship_to_deceased ?? null,
+    clientMobilePhone: c.clients?.mobile_phone ?? null,
+    clientEmail: c.clients?.email ?? null,
+    clientAddress: c.clients?.address ?? null,
+    clientPostalCode: c.clients?.postal_code ?? null,
+    clientNotes: c.clients?.notes ?? null,
+    hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
+  })
 
   return (
     <div>
@@ -65,78 +97,30 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
           <p className="text-[13px] text-gray-500">LP案件管理番号・依頼者名・電話番号で検索してください</p>
           <p className="text-[11.5px] text-gray-400 mt-1">連携案件から該当の面談案件を探して選択します。新規はこの上の「相談案件登録」から。</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl px-4 py-8 text-center text-[13px] text-gray-400">
+          {cases.length === 0 ? '面談設定済の案件がありません' : '検索条件に一致する案件がありません'}
+        </div>
       ) : (
-      <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">LP案件管理番号</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">依頼者名</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">電話番号</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em] w-20">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-gray-400">
-                  {cases.length === 0 ? '面談設定済の案件がありません' : '検索条件に一致する案件がありません'}
-                </td>
-              </tr>
-            ) : (
-              filtered.map(c => (
-                <tr
-                  key={c.id}
-                  className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => onSelect({
-                    id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '',
-                    orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
-                    deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
-                    deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
-                    deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
-                    clientFurigana: c.clients?.furigana ?? null,
-                    clientRelation: c.clients?.relationship_to_deceased ?? null,
-                    clientMobilePhone: c.clients?.mobile_phone ?? null,
-                    clientEmail: c.clients?.email ?? null,
-                    clientAddress: c.clients?.address ?? null,
-                    clientPostalCode: c.clients?.postal_code ?? null,
-                    clientNotes: c.clients?.notes ?? null,
-                    hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
-                  })}
-                >
-                  <td className="px-3.5 py-2.5">
-                    <span className="font-mono text-[12px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 break-all">{c.lp_case_number || c.case_number || '—'}</span>
-                  </td>
-                  <td className="px-3.5 py-2.5 text-xs font-semibold text-gray-900">{c.clients?.name ?? '—'}</td>
-                  <td className="px-3.5 py-2.5 text-xs font-mono text-gray-600">{c.clients?.phone || c.clients?.mobile_phone || '—'}</td>
-                  <td className="px-3.5 py-2.5">
-                    <button
-                      onClick={e => { e.stopPropagation(); onSelect({
-                    id: c.id, name: c.deal_name, client: c.clients?.name ?? '', phone: c.clients?.phone ?? '',
-                    orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
-                    deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
-                    deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
-                    deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
-                    clientFurigana: c.clients?.furigana ?? null,
-                    clientRelation: c.clients?.relationship_to_deceased ?? null,
-                    clientMobilePhone: c.clients?.mobile_phone ?? null,
-                    clientEmail: c.clients?.email ?? null,
-                    clientAddress: c.clients?.address ?? null,
-                    clientPostalCode: c.clients?.postal_code ?? null,
-                    clientNotes: c.clients?.notes ?? null,
-                    hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
-                  }) }}
-                      className="px-2.5 py-1 rounded-md bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition"
-                    >
-                      選択
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+        <div className="space-y-2">
+          {filtered.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => pick(c)}
+              className="w-full text-left flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-brand-300 hover:bg-brand-50/30 active:scale-[0.99] transition"
+            >
+              <span className="flex-1 min-w-0">
+                <span className="block font-mono text-[11px] text-gray-400 mb-0.5 break-all">{highlight(c.lp_case_number || c.case_number || '—', q)}</span>
+                <span className="block text-[15px] font-semibold text-gray-900 truncate">{c.clients?.name ?? '—'}</span>
+                <span className="block font-mono text-[12.5px] text-gray-500 mt-0.5">{highlight(c.clients?.phone || c.clients?.mobile_phone || '—', q)}</span>
+              </span>
+              <span className="flex-none inline-flex items-center gap-0.5 px-3 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold">
+                選択<ChevronRight className="w-4 h-4" strokeWidth={2.25} />
+              </span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
