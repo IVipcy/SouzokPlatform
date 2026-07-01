@@ -41,9 +41,11 @@ export type CaseData = CaseRow & { clients?: ClientRow | null }
 type Props = {
   cases: CaseData[]
   currentMemberId: string | null
+  /** スマホ独立ルート（/register）：登録後に案件詳細へ遷移せず完了画面を出す */
+  standalone?: boolean
 }
 
-export default function MeetingPageClient({ cases, currentMemberId }: Props) {
+export default function MeetingPageClient({ cases, currentMemberId, standalone = false }: Props) {
   const [selectedCase, setSelectedCase] = useState<SelectedCase>(null)
 
   const handleSelectCase = useCallback((c: SelectedCase) => {
@@ -76,7 +78,7 @@ export default function MeetingPageClient({ cases, currentMemberId }: Props) {
       {!selectedCase ? (
         <CaseSelectScreen cases={cases} onSelect={handleSelectCase} />
       ) : (
-        <MeetingForm selectedCase={selectedCase} currentMemberId={currentMemberId} />
+        <MeetingForm selectedCase={selectedCase} currentMemberId={currentMemberId} standalone={standalone} onBack={handleBack} />
       )}
     </div>
   )

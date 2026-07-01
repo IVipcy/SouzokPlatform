@@ -14,16 +14,21 @@ type Props = {
 export default function CaseSelectScreen({ cases, onSelect }: Props) {
   const [search, setSearch] = useState('')
 
+  // 相続ステーション連携で件数が多い（月200件規模）ため、未検索時はリストを出さず検索を促す。
+  // 連携直後はこのシステムの案件番号が未採番なので、LP案件管理番号・電話番号でも検索できるようにする。
+  const q = search.trim().toLowerCase()
+  const hasQuery = q.length > 0
   const filtered = useMemo(() => {
-    if (!search) return cases
-    const q = search.toLowerCase()
+    if (!hasQuery) return []
     return cases.filter(c =>
-      c.case_number.toLowerCase().includes(q) ||
+      (c.case_number ?? '').toLowerCase().includes(q) ||
+      (c.lp_case_number ?? '').toLowerCase().includes(q) ||
       c.deal_name.toLowerCase().includes(q) ||
       (c.clients?.name ?? '').toLowerCase().includes(q) ||
-      (c.clients?.phone ?? '').includes(q)
+      (c.clients?.phone ?? '').includes(q) ||
+      (c.clients?.mobile_phone ?? '').includes(q)
     )
-  }, [cases, search])
+  }, [cases, q, hasQuery])
 
   return (
     <div>
@@ -46,14 +51,21 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="案件名・依頼者名・電話番号で検索"
+            placeholder="LP案件管理番号・依頼者名・電話番号で検索"
             className="w-full py-2.5 px-9 border-[1.5px] border-gray-200 rounded-lg text-[13px] text-gray-900 bg-white outline-none focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/10 transition"
           />
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">🔍</span>
         </div>
-        <div className="flex items-center text-xs text-gray-400">{filtered.length} 件</div>
+        {hasQuery && <div className="flex items-center text-xs text-gray-400 whitespace-nowrap">{filtered.length} 件</div>}
       </div>
 
+      {!hasQuery ? (
+        <div className="bg-white border border-dashed border-gray-200 rounded-xl px-4 py-10 text-center">
+          <div className="text-2xl mb-1.5">🔍</div>
+          <p className="text-[13px] text-gray-500">LP案件管理番号・依頼者名・電話番号で検索してください</p>
+          <p className="text-[11.5px] text-gray-400 mt-1">連携案件から該当の面談案件を探して選択します。新規はこの上の「相談案件登録」から。</p>
+        </div>
+      ) : (
       <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
@@ -125,6 +137,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

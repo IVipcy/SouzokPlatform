@@ -32,6 +32,10 @@ type Props = {
   selectedCase: NonNullable<SelectedCase>
   // 案件作成者（受注担当として自動セット）
   currentMemberId: string | null
+  // スマホ独立ルート（/register）用：登録後に案件詳細へ遷移せず「完了画面」を出す
+  standalone?: boolean
+  // 完了画面「案件選択に戻る」用
+  onBack?: () => void
 }
 
 // 案件作成は面談完了後のため「面談設定済」は選択肢から除外
@@ -184,11 +188,12 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
+export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [done, setDone] = useState(false)  // スマホ独立ルート：登録完了画面
   const [data, setData] = useState<FormData>(() => {
     const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
     if (selectedCase.id !== 'new') {
@@ -498,11 +503,17 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       const caseId = await saveToDatabase(data)
       if (caseId) {
         showToast('案件を保存しました', 'success')
-        // created=1 で案件詳細を開くと、初期タスク確認ポップアップが表示される
-        router.push(`/cases/${caseId}?created=1`)
+        if (standalone) {
+          // スマホ独立ルート：案件詳細（初期対応タスクのポップアップ）には遷移せず完了画面を出す
+          setDone(true)
+          window.scrollTo(0, 0)
+        } else {
+          // created=1 で案件詳細を開くと、初期タスク確認ポップアップが表示される
+          router.push(`/cases/${caseId}?created=1`)
+        }
       }
     }
-  }, [step, data, saveToDatabase, router])
+  }, [step, data, saveToDatabase, router, standalone])
 
   const prevStep = useCallback(() => {
     if (step > 0) {
@@ -910,6 +921,35 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       )
       default: return null
     }
+  }
+
+  // スマホ独立ルートの登録完了画面
+  if (done) {
+    return (
+      <div className="max-w-[520px] mx-auto text-center py-10">
+        <div className="w-16 h-16 mx-auto rounded-full bg-green-50 border border-green-200 flex items-center justify-center mb-4">
+          <CheckCircle2 className="w-9 h-9 text-green-600" strokeWidth={2} />
+        </div>
+        <div className="text-lg font-bold text-gray-900 mb-1">登録が完了しました</div>
+        <p className="text-[13px] text-gray-500 mb-7">相談案件を登録しました。続けて登録する場合は案件選択へ戻ってください。</p>
+        <div className="flex flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={() => { onBack?.(); window.scrollTo(0, 0) }}
+            className="w-full py-3 rounded-lg bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition"
+          >
+            案件選択画面に戻る
+          </button>
+          <button
+            type="button"
+            onClick={() => { window.close(); window.location.href = '/register' }}
+            className="w-full py-3 rounded-lg border-[1.5px] border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50 transition"
+          >
+            アプリを閉じる
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

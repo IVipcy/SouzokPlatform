@@ -13,5 +13,5 @@ export default async function RegisterPage() {
     .eq('status', '面談設定済')
     .order('created_at', { ascending: false })
 
-  return <MeetingPageClient cases={(cases ?? []) as unknown as CaseData[]} currentMemberId={currentUser?.memberId ?? null} />
+  return <MeetingPageClient cases={(cases ?? []) as unknown as CaseData[]} currentMemberId={currentUser?.memberId ?? null} standalone />
 }
