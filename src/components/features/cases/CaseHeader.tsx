@@ -203,11 +203,11 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <button
                     type="button"
                     onClick={() => onActivateTab?.('docs')}
-                    title="到着物（受信簿）を開く"
+                    title="案件フォルダ（書類一式・受信簿）を開く"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
                   >
                     <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
-                    到着物
+                    案件フォルダ
                     {(highlightTabs ?? []).includes('docs') && (
                       <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
                     )}

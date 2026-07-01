@@ -190,7 +190,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="到着物" description="案件フォルダへのアップロード＋受信簿（受領台帳）の管理" />
+      <TabHeader title="案件フォルダ" description="書類一式のアップロード・AI作成書類＋受信簿（受領台帳）の管理" />
 
       <CaseFolderSection caseId={caseData.id} files={caseFiles} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
 

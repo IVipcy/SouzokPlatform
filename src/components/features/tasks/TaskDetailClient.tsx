@@ -632,7 +632,7 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
     deceased: '相続人調査', assets: '財産調査', division: '遺産分割', will: '遺言',
     registration: '相続登記', cancellation: '解約手続', trust: '信託契約',
     renunciation: '相続放棄', mediation: '調停', probate: '遺言検認',
-    guardianship: '成年後見', referral: '他事業者紹介', contractProc: '契約残手続き',
+    guardianship: '成年後見', referral: '他事業者紹介', contractProc: '郵送書類確認',
   }
 
   // 事務管理タスク（task_kind='case'）かつ同じ業務区分のもの。進捗カウントには現タスクも含める。
