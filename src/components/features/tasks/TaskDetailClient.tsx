@@ -52,6 +52,9 @@ const PRIORITIES = [
 
 // ステータス正規化: 旧ステータスを新3段階に変換
 // （差戻しは廃止済み。既存データの差戻しは「対応中」として扱う）
+// 作業内容エリアは現時点では全タスクで非表示（今後、管理項目が固まったら再開予定）
+const SHOW_WORK_CONTENT = false
+
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
   if (['Wチェック待ち', '保留', '差戻し'].includes(status)) return '対応中'
@@ -453,11 +456,13 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             )}
           </Section>
 
-          {/* 3. このタスクの作業内容 — 作業内容(procedure_text) + 実施結果 + 進捗メモ */}
-          <TaskWorkSection
-            task={task}
-            saveField={saveField}
-          />
+          {/* 3. このタスクの作業内容 — 現時点では全タスク（初期対応・事務管理とも）で非表示（今後再開予定） */}
+          {SHOW_WORK_CONTENT && (
+            <TaskWorkSection
+              task={task}
+              saveField={saveField}
+            />
+          )}
 
           {/* 4. 作成物（documents テーブル。AI作成・アップロードともこのタスクに紐づく） */}
           <TaskCreatedDocsSection

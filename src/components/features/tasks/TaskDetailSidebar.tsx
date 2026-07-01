@@ -16,93 +16,9 @@ type Props = {
 
 export default function TaskDetailSidebar({ task, documents }: Props) {
   const caseData = task.cases
-  const ext = (task.ext_data ?? {}) as Record<string, unknown>
-
-  // タイムラインイベント構築
-  const timelineEvents: { date: string; label: string; color: string }[] = []
-  if (task.created_at) {
-    timelineEvents.push({ date: task.created_at.slice(0, 10), label: 'タスク起票', color: '#2563EB' })
-  }
-
-  // 戸籍請求書作成・提出（市区町村ごと）はsubmissions配列から最小/最大提出日を取得
-  if (task.template_key === 'koseki_request_create' && Array.isArray(ext.submissions)) {
-    type SubEntry = { sent_date?: string | null; method?: string }
-    const subs = ext.submissions as SubEntry[]
-    const sentDates = subs.map(s => s.sent_date).filter(Boolean) as string[]
-    if (sentDates.length > 0) {
-      const earliest = [...sentDates].sort()[0]
-      timelineEvents.push({ date: earliest, label: '戸籍請求書 初回提出', color: '#EA580C' })
-      if (sentDates.length === subs.length && subs.length > 1) {
-        const latest = [...sentDates].sort().reverse()[0]
-        if (latest !== earliest) {
-          timelineEvents.push({ date: latest, label: `全${subs.length}件 提出完了`, color: '#059669' })
-        }
-      }
-    }
-  } else if (task.template_key === 'bank_balance_request' && Array.isArray(ext.banks)) {
-    type BankEntry = { reqDate?: string | null; arrDate?: string | null }
-    const banks = ext.banks as BankEntry[]
-    const reqDates = banks.map(b => b.reqDate).filter(Boolean) as string[]
-    const arrDates = banks.map(b => b.arrDate).filter(Boolean) as string[]
-    if (reqDates.length > 0) {
-      const earliest = reqDates.sort()[0]
-      timelineEvents.push({ date: earliest, label: '残高証明 初回請求', color: '#7C3AED' })
-    }
-    if (arrDates.length > 0) {
-      const latest = arrDates.sort().reverse()[0]
-      timelineEvents.push({ date: latest, label: `書類到着 (${arrDates.length}/${banks.length}件)`, color: '#059669' })
-    }
-  } else {
-    const dateFields: { key: string; label: string; color: string }[] = [
-      { key: 'reqDate', label: '書類請求', color: '#7C3AED' },
-      { key: 'sendDate', label: '郵送発送', color: '#EA580C' },
-      { key: 'arrDate', label: '書類到着', color: '#059669' },
-      { key: 'contactDate', label: '税理士連絡', color: '#D97706' },
-      { key: 'processDate', label: '手続実施', color: '#2563EB' },
-      { key: 'completeDate', label: '完了', color: '#059669' },
-      { key: 'agentReqDate', label: '査定依頼', color: '#7C3AED' },
-      { key: 'applyDate', label: '登記申請', color: '#EA580C' },
-      { key: 'deliveryDate', label: '原本納品', color: '#059669' },
-    ]
-    dateFields.forEach(df => {
-      const v = ext[df.key]
-      if (v && typeof v === 'string') {
-        timelineEvents.push({ date: v, label: df.label, color: df.color })
-      }
-    })
-  }
-
-  if (task.status === '完了' && task.updated_at) {
-    timelineEvents.push({ date: task.updated_at.slice(0, 10), label: 'タスク完了', color: '#059669' })
-  }
-  timelineEvents.sort((a, b) => a.date.localeCompare(b.date))
 
   return (
     <div className="sticky top-[90px] flex flex-col gap-4">
-      {/* タイムライン */}
-      {timelineEvents.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-          <h4 className="text-[13px] font-semibold text-gray-500 mb-2">タイムライン</h4>
-          <div className="relative">
-            {timelineEvents.map((ev, i) => (
-              <div key={i} className="flex gap-3 mb-3 last:mb-0 relative">
-                {i < timelineEvents.length - 1 && (
-                  <div className="absolute left-[5px] top-[14px] bottom-[-8px] w-px bg-gray-200" />
-                )}
-                <div
-                  className="w-[11px] h-[11px] rounded-full flex-shrink-0 mt-0.5 relative z-10 border-2 border-white"
-                  style={{ backgroundColor: ev.color }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-gray-700">{ev.label}</div>
-                  <div className="text-[12px] font-mono text-gray-400">{ev.date}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* 関連ドキュメント */}
       {documents.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
