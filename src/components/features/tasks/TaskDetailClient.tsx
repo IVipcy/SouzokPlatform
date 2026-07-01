@@ -52,8 +52,8 @@ const PRIORITIES = [
 
 // ステータス正規化: 旧ステータスを新3段階に変換
 // （差戻しは廃止済み。既存データの差戻しは「対応中」として扱う）
-// 作業内容エリアは現時点では全タスクで非表示（今後、管理項目が固まったら再開予定）
-const SHOW_WORK_CONTENT = false
+// 作業内容エリア（テンプレ流し込みは廃止。空欄から自由記入）
+const SHOW_WORK_CONTENT = true
 
 const normalizeStatus = (status: string) => {
   if (status === '未着手') return '着手前'
@@ -570,7 +570,7 @@ function TaskWorkSection({
 
   return (
     <div className="space-y-3">
-      {/* このタスクの作業内容（テンプレートの手順。初期値入り・上書き可） */}
+      {/* このタスクの作業内容（空欄から自由記入。テンプレの自動流し込みは廃止） */}
       <Section title="このタスクの作業内容">
         <InlineTextarea
           label="作業内容"
@@ -578,7 +578,7 @@ function TaskWorkSection({
           onSave={v => saveField('procedure_text', v)}
         />
         <div className="text-[11px] text-gray-400 mt-1">
-          タスクテンプレートの内容が初期値で入っています。このタスク用に上書きできます。
+          このタスクの作業内容・備考を自由に記入してください。
         </div>
       </Section>
 

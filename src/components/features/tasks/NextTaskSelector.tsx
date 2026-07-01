@@ -459,7 +459,7 @@ function CreateTaskForm({
       if (matchedTemplate) {
         newTask.template_key = matchedTemplate.key
         newTask.category = matchedTemplate.category ?? null
-        newTask.procedure_text = matchedTemplate.procedure_text ?? null
+        // procedure_text（作業内容）はテンプレを流し込まず空欄。作業内容は手入力。
         if (matchedTemplate.default_role) {
           newTask.work_role = matchedTemplate.default_role
         }

@@ -35,7 +35,7 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, taskTemplates, caseReferrals = [], onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // タスクごとの担当区分（既定=事務管理。相関図作成など判断系は管理担当へ手動で切替）
   const [roleByKey, setRoleByKey] = useState<Record<string, 'assistant' | 'manager'>>({})
@@ -45,7 +45,6 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   const setRole = (key: string, role: 'assistant' | 'manager') => setRoleByKey(prev => ({ ...prev, [key]: role }))
 
   const cats = categoriesOf(serviceCategory, serviceCategory2)
-  const procByKey = useMemo(() => new Map(taskTemplates.map(t => [t.key, t.procedure_text])), [taskTemplates])
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
 
   // 候補：役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部＋経理/相続税。表示は業務グループ順。
@@ -132,7 +131,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       priority: '通常',
       source_rid: ridByKey[c.key] ?? null,
       work_role: roleOf(c.key),
-      procedure_text: procByKey.get(PROCEDURE_TEMPLATE_KEY[c.title] ?? '') ?? null,
+      procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
       sort_order: i,
     }))
     const { error: e2 } = await supabase.from('tasks').insert(rows)

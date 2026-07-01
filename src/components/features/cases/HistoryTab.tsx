@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check } from 'lucide-react'
+import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
@@ -55,6 +55,13 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [confirmTarget, setConfirmTarget] = useState<ProgressReportRow | null>(null)
   const [confirmComment, setConfirmComment] = useState('')
   const [confirmSaving, setConfirmSaving] = useState(false)
+  // 確認結果をタスク化（受注/管理担当タスク。担当＝依頼者）
+  const [taskModalPr, setTaskModalPr] = useState<ProgressReportRow | null>(null)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDue, setTaskDue] = useState('')
+  const [taskPriority, setTaskPriority] = useState<'通常' | '急ぎ'>('通常')
+  const [taskWork, setTaskWork] = useState('')
+  const [taskSaving, setTaskSaving] = useState(false)
 
   const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
 
@@ -150,6 +157,59 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
+  // 「確認してタスク化」→ 確認モーダルからタスク作成モーダルへ
+  const openTaskModal = (pr: ProgressReportRow) => {
+    setTaskModalPr(pr)
+    setTaskTitle('')
+    setTaskDue('')
+    setTaskPriority('通常')
+    setTaskWork('')
+    setConfirmTarget(null)  // 確認モーダルは閉じる（confirmComment は保持してタスク作成時に確認済へ反映）
+  }
+
+  // 確認結果をタスク化：受注/管理担当タスク（task_kind='system'）を作成し担当＝依頼者に割当。同時に確認済へ。
+  const handleCreateTask = async () => {
+    const pr = taskModalPr
+    if (!pr || !currentMemberId || !taskTitle.trim()) return
+    setTaskSaving(true)
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const requesterRole = allMembers.find(m => m.id === pr.requester_id)?.primary_role
+    const workRole = requesterRole === 'sales' ? 'sales' : 'manager'
+    const { data: nt, error: e1 } = await supabase.from('tasks').insert({
+      case_id: caseData.id,
+      title: taskTitle.trim(),
+      task_kind: 'system',       // 受注/管理担当タスク（事務管理タスクではない）
+      work_role: workRole,
+      status: '着手前',
+      priority: taskPriority,
+      due_date: taskDue || null,
+      procedure_text: taskWork.trim() || null,
+      sort_order: 99,
+    }).select('id').single()
+    if (e1 || !nt) { setTaskSaving(false); showToast(`タスク作成に失敗: ${e1?.message ?? ''}`, 'error'); return }
+    const taskId = (nt as { id: string }).id
+    // 担当＝依頼者（レビューを依頼した人）を割り当て
+    await supabase.from('task_assignees').insert({ task_id: taskId, member_id: pr.requester_id })
+    // 進捗確認を確認済に
+    await supabase.from('progress_reports')
+      .update({ status: '確認済', confirmed_date: today, confirmer_id: currentMemberId, confirm_comment: confirmComment.trim() || null })
+      .eq('id', pr.id)
+    // 依頼者へ通知（タスク割当）
+    await supabase.from('notifications').insert({
+      member_id: pr.requester_id,
+      type: 'task_assigned',
+      case_id: caseData.id,
+      task_id: taskId,
+      title: 'レビュー結果がタスク化されました',
+      body: `${caseData.case_number} ${caseData.deal_name}：「${taskTitle.trim()}」が割り当てられました`,
+    })
+    setTaskSaving(false)
+    setTaskModalPr(null); setConfirmComment('')
+    showToast('確認し、受注/管理担当タスクを作成しました', 'success')
+    fetchActivities()
+  }
+
   // メモ一覧（活動履歴のうち手入力メモのみ。タスク着手/完了・ステータス変更は
   // タイムラインに統合したため、ここでは表示しない）
   const notes = activities
@@ -187,7 +247,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">依頼者</th>
                   <th className="px-3 py-2 text-left font-medium">進捗確認依頼日</th>
-                  <th className="px-3 py-2 text-left font-medium">確認ポイント</th>
+                  <th className="px-3 py-2 text-left font-medium">報連相</th>
                   <th className="px-3 py-2 text-left font-medium">確認コメント</th>
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
                   <th className="px-3 py-2 text-left font-medium">ステータス</th>
@@ -358,11 +418,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         }
       >
         <div className="space-y-2">
-          <label className="block text-[13px] font-semibold text-gray-600">確認してほしい内容 <span className="font-normal text-gray-400">（任意）</span></label>
+          <label className="block text-[13px] font-semibold text-gray-600">報連相 <span className="font-normal text-gray-400">（任意）</span></label>
           <textarea
             value={reviewPointInput}
             onChange={e => setReviewPointInput(e.target.value)}
-            placeholder="例：相続人の確定内容を一緒に確認してほしい"
+            placeholder="例：相続人の確定内容を一緒に確認してほしい／◯◯を報告・相談したい"
             rows={4}
             className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
           />
@@ -378,6 +438,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         footer={
           <>
             <Button variant="secondary" onClick={() => { setConfirmTarget(null); setConfirmComment('') }} disabled={confirmSaving}>キャンセル</Button>
+            <Button variant="secondary" onClick={() => confirmTarget && openTaskModal(confirmTarget)} disabled={confirmSaving} leftIcon={<ListPlus className="w-3.5 h-3.5" strokeWidth={2} />}>確認してタスク化</Button>
             <Button variant="primary" onClick={() => confirmTarget && handleConfirm(confirmTarget)} loading={confirmSaving} leftIcon={<Check className="w-3.5 h-3.5" strokeWidth={2.25} />}>確認した</Button>
           </>
         }
@@ -385,7 +446,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         {confirmTarget && (
           <div className="space-y-3">
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div className="text-[11px] text-gray-400 mb-0.5">依頼者からの確認ポイント</div>
+              <div className="text-[11px] text-gray-400 mb-0.5">依頼者からの報連相</div>
               <div className="text-[13px] text-gray-700 whitespace-pre-wrap">{confirmTarget.review_point || <span className="text-gray-400">（指定なし）</span>}</div>
               <div className="text-[11px] text-gray-400 mt-1">{memberName(confirmTarget.requester_id)} ・ {confirmTarget.requested_date} 依頼</div>
             </div>
@@ -399,6 +460,51 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                 className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
               />
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* タスク化モーダル（受注/管理担当タスク。担当＝依頼者） */}
+      <Modal
+        isOpen={!!taskModalPr}
+        onClose={() => setTaskModalPr(null)}
+        title="タスク化（受注/管理担当タスク）"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTaskModalPr(null)} disabled={taskSaving}>キャンセル</Button>
+            <Button variant="primary" onClick={handleCreateTask} loading={taskSaving} disabled={!taskTitle.trim()} leftIcon={<ListPlus className="w-3.5 h-3.5" strokeWidth={2} />}>タスクを作成</Button>
+          </>
+        }
+      >
+        {taskModalPr && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-[12px] text-brand-800">
+              <UserAvatar name={memberName(taskModalPr.requester_id)} size="sm" />
+              担当：{memberName(taskModalPr.requester_id)}（レビューを依頼した人）
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[12px] font-semibold text-gray-600">タスク名 <span className="text-red-500">*</span></label>
+              <input type="text" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="例：残高相違の確認・銀行へ再照会" className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[12px] font-semibold text-gray-600">期限</label>
+                <input type="date" value={taskDue} onChange={e => setTaskDue(e.target.value)} className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400" />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[12px] font-semibold text-gray-600">優先度</label>
+                <div className="flex gap-1.5">
+                  {(['通常', '急ぎ'] as const).map(p => (
+                    <button key={p} type="button" onClick={() => setTaskPriority(p)} className={`flex-1 text-[12.5px] py-2 rounded-lg border transition-colors ${taskPriority === p ? (p === '急ぎ' ? 'bg-red-600 text-white border-red-600 font-semibold' : 'bg-brand-600 text-white border-brand-600 font-semibold') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{p}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[12px] font-semibold text-gray-600">作業内容</label>
+              <textarea value={taskWork} onChange={e => setTaskWork(e.target.value)} rows={4} placeholder="確認した内容・依頼したい作業を記入" className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+            </div>
+            <p className="text-[11px] text-gray-400">作成すると進捗確認も「確認済」になり、依頼者に通知されます。</p>
           </div>
         )}
       </Modal>
