@@ -71,15 +71,16 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
           <thead>
             <tr>
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">LP案件管理番号</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">案件名</th>
-              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">依頼者</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">依頼者名</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">電話番号</th>
+              <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em]">面談予定日</th>
               <th className="bg-brand-50/60 border-b border-brand-100 px-3.5 py-2.5 text-left text-[11px] font-medium text-brand-700 tracking-[0.04em] w-20">操作</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-gray-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-gray-400">
                   {cases.length === 0 ? '面談設定済の案件がありません' : '検索条件に一致する案件がありません'}
                 </td>
               </tr>
@@ -107,8 +108,9 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
                   <td className="px-3.5 py-2.5">
                     <span className="font-mono text-[12px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 break-all">{c.lp_case_number || c.case_number || '—'}</span>
                   </td>
-                  <td className="px-3.5 py-2.5 text-xs font-semibold text-gray-900">{c.deal_name}</td>
-                  <td className="px-3.5 py-2.5 text-xs text-gray-600">{c.clients?.name ?? '—'}</td>
+                  <td className="px-3.5 py-2.5 text-xs font-semibold text-gray-900">{c.clients?.name ?? '—'}</td>
+                  <td className="px-3.5 py-2.5 text-xs font-mono text-gray-600">{c.clients?.phone || c.clients?.mobile_phone || '—'}</td>
+                  <td className="px-3.5 py-2.5 text-xs font-mono text-gray-600">{c.meeting_date ?? '—'}</td>
                   <td className="px-3.5 py-2.5">
                     <button
                       onClick={e => { e.stopPropagation(); onSelect({

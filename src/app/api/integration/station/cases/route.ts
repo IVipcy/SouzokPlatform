@@ -112,7 +112,9 @@ export async function POST(req: NextRequest) {
   // cases を作成（一意制約違反したら連番を進めてリトライ）
   const dealName = caseFields.deceased_name
     ? `${caseFields.deceased_name} 様 相続手続`
-    : `相続案件（${payload.case_number}）`
+    : clientFields.name
+      ? `${clientFields.name} 様 ご相続`
+      : `相続案件（${payload.case_number}）`
 
   let caseRow: { id: string; case_number: string; lp_case_number: string } | null = null
   let lastErr: unknown = null

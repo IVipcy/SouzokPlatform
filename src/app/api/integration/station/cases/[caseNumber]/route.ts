@@ -86,7 +86,9 @@ export async function PUT(
 
   const dealName = caseFields.deceased_name
     ? `${caseFields.deceased_name} 様 相続手続`
-    : `相続案件（${payload.case_number}）`
+    : clientFields.name
+      ? `${clientFields.name} 様 ご相続`
+      : `相続案件（${payload.case_number}）`
 
   if (existing) {
     // ── 既存案件あり: 全項目上書き ──
