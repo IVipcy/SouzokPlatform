@@ -92,8 +92,10 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
 
   const selectedIds = Object.keys(sel).filter(id => sel[id])
   const modeOf = (id: string): Mode => mode[id] ?? 'now'
-  const selectedOk = selectedIds.every(id => (note[id] ?? '').trim().length > 0)
-  const newOk = !newTitle.trim() || newNote.trim().length > 0
+  // 複数選択OK。「今すぐ着手OK」は理由を任意（空なら「着手OK」）、
+  // 「受領次第OK」だけ何の受領待ちかの入力を必須にする。
+  const selectedOk = selectedIds.every(id => modeOf(id) !== 'receipt' || (note[id] ?? '').trim().length > 0)
+  const newOk = !newTitle.trim() || newMode !== 'receipt' || newNote.trim().length > 0
   const mgrOk = !mgrOn || mgrContent.trim().length > 0
   const hasAction = noNext || selectedIds.length > 0 || newTitle.trim().length > 0 || (mgrOn && mgrContent.trim().length > 0)
   const canSubmit = result.trim().length > 0 && selectedOk && newOk && mgrOk && hasAction
@@ -162,7 +164,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         type="text"
         value={nv}
         onChange={e => onNote(e.target.value)}
-        placeholder={value === 'receipt' ? '何の受領待ちか（例：戸籍一式が届いたら）' : '着手OK理由（例：相続人が確定したため）'}
+        placeholder={value === 'receipt' ? '何の受領待ちか（例：戸籍一式が届いたら）' : '着手OK理由（任意・例：相続人が確定したため）'}
         className={`w-full px-2.5 py-1.5 text-[12px] border rounded-lg outline-none ${value === 'receipt' ? 'border-amber-200 bg-amber-50/40 focus:border-amber-400' : 'border-emerald-200 bg-emerald-50/30 focus:border-emerald-400'}`}
         data-key={idKey}
       />
@@ -219,7 +221,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         <div>
           <label className="block text-[12px] font-semibold text-gray-500 mb-1.5">
             <ArrowRight className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />次に着手できるタスク
-            <span className="ml-1 font-normal text-gray-400">（経路を選んで指定 / 無ければ「該当なし」）</span>
+            <span className="ml-1 font-normal text-gray-400">（複数選択できます / 無ければ「該当なし」）</span>
           </label>
           {loading ? (
             <div className="py-5 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
