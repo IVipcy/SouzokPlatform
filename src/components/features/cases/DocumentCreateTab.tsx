@@ -1,10 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { SubTabs } from '@/components/ui/SubTabs'
-import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, DocumentRow, KosekiRequestRow } from '@/types'
+import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, KosekiRequestRow } from '@/types'
 import DocumentGenerators from './DocumentGenerators'
-import CreatedDocsList from './CreatedDocsList'
 import TabHeader from './TabHeader'
 
 type Props = {
@@ -14,38 +11,24 @@ type Props = {
   properties: RealEstatePropertyRow[]
   kosekiRequests?: KosekiRequestRow[]
   contractDocuments?: ContractDocumentRow[]
-  /** この案件で作成した書類（documents テーブル）。作成書類一覧サブタブで表示。 */
-  createdDocuments?: DocumentRow[]
   onRefresh?: () => void
 }
 
-export default function DocumentCreateTab({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], createdDocuments = [], onRefresh }: Props) {
-  const [sub, setSub] = useState<'create' | 'list'>('create')
-
+// 作成した書類の一覧は「案件フォルダ」タブの AI作成 サブタブに集約したため、
+// このタブは「書類作成（生成）」のみを担当する。
+export default function DocumentCreateTab({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], onRefresh }: Props) {
   return (
     <div className="space-y-3.5">
-      <TabHeader title="書類作成" description="戸籍請求書・委任状・契約書・領収書など、自社で作成する書類の生成と一覧" />
-      <SubTabs
-        tabs={[{ key: 'create', label: '書類作成' }, { key: 'list', label: `作成書類一覧 ${createdDocuments.length}` }]}
-        active={sub}
-        onChange={k => setSub(k as 'create' | 'list')}
+      <TabHeader title="書類作成" description="戸籍請求書・委任状・契約書・領収書など、自社で作成する書類の生成。作成したファイルは「案件フォルダ」のAI作成タブに表示されます。" />
+      <DocumentGenerators
+        caseData={caseData}
+        tasks={tasks}
+        heirs={heirs}
+        properties={properties}
+        kosekiRequests={kosekiRequests}
+        contractDocuments={contractDocuments}
+        onGenerated={onRefresh}
       />
-
-      {sub === 'create' && (
-        <DocumentGenerators
-          caseData={caseData}
-          tasks={tasks}
-          heirs={heirs}
-          properties={properties}
-          kosekiRequests={kosekiRequests}
-          contractDocuments={contractDocuments}
-          onGenerated={onRefresh}
-        />
-      )}
-
-      {sub === 'list' && (
-        <CreatedDocsList documents={createdDocuments} onRefresh={onRefresh} />
-      )}
     </div>
   )
 }

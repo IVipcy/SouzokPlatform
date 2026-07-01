@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isItemNotRequired } from '@/lib/receiptLink'
 import { useIsManager } from '@/components/providers/AuthProvider'
-import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow } from '@/types'
+import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow, DocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
   contractDocuments?: ContractDocumentRow[]
   /** 案件フォルダのファイル（まとめてアップロード方式） */
   caseFiles?: CaseFileRow[]
+  /** AI書類作成で作成した書類（documents テーブル）。案件フォルダの「AI作成」タブに表示。 */
+  createdDocuments?: DocumentRow[]
   currentMemberId?: string | null
 }
 
@@ -58,11 +60,12 @@ type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], currentMemberId = null }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], createdDocuments = [], currentMemberId = null }: Props) {
   const router = useRouter()
   const isManager = useIsManager()  // 到着物のタスク紐づけ・受信操作は管理担当のみ
   const [, startTransition] = useTransition()
   const [filter, setFilter] = useState<FilterKey>('all')
+  const [fileFilter, setFileFilter] = useState<'all' | 'uploaded' | 'notuploaded'>('all')
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
 
   // 契約時受領書類の区分（id → category）。紐づけ不要の自動判定に使う。
@@ -125,21 +128,29 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
 
   const filtered = useMemo(() => rows.filter(r => {
     const linked = r.linkedTasks.length > 0
-    if (filter === 'linked') return linked
-    if (filter === 'notrequired') return !linked && r.notRequired
-    if (filter === 'unlinked') return !linked && !r.notRequired
+    // タスク紐づけフィルタ
+    if (filter === 'linked' && !linked) return false
+    if (filter === 'notrequired' && !(!linked && r.notRequired)) return false
+    if (filter === 'unlinked' && !(!linked && !r.notRequired)) return false
+    // ファイルアップフィルタ
+    const uploaded = !!r.uploadedAt || !!r.file
+    if (fileFilter === 'uploaded' && !uploaded) return false
+    if (fileFilter === 'notuploaded' && uploaded) return false
     return true
-  }), [rows, filter])
+  }), [rows, filter, fileFilter])
 
   const linkedCount = rows.filter(r => r.linkedTasks.length > 0).length
   const notRequiredCount = rows.filter(r => r.linkedTasks.length === 0 && r.notRequired).length
   const unlinkedCount = rows.length - linkedCount - notRequiredCount
+  const uploadedCount = rows.filter(r => !!r.uploadedAt || !!r.file).length
 
   // 受信簿外の case_documents（item.case_document_id に登録されていないもの）。
   // 到着物タブは「受領した書類」だけを扱うので、受領ファイル(received_file)があるものに限る。
   // 自社が作成・発送した書類(outbound のみ。相続関係説明図など)はここには出さない（作成書類タブの管轄）。
   const usedDocIds = new Set(rows.map(r => r.caseDocumentId).filter((v): v is string => !!v))
   const orphanDocs = documents.filter(d => !usedDocIds.has(d.id) && !!d.received_file_path)
+  // AI書類作成で作成した書類（documents テーブル・ファイルつき）＝案件フォルダの「AI作成」タブに表示
+  const aiDocs = createdDocuments.filter(d => !!d.file_path)
   // アップ済＝アップ済フラグが立っている or 旧方式で受領ファイルが添付済
   const isUploaded = (r: ReceiptItemRow) => !!r.uploadedAt || !!r.file
   // 未アップ＝受領済（受領日あり）だが共有フォルダに未アップ
@@ -192,20 +203,29 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
     <div className="space-y-3.5">
       <TabHeader title="案件フォルダ" description="書類一式のアップロード・AI作成書類＋受信簿（受領台帳）の管理" />
 
-      <CaseFolderSection caseId={caseData.id} files={caseFiles} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
+      <CaseFolderSection caseId={caseData.id} files={caseFiles} aiDocs={aiDocs} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
 
       <Section title="到着物一覧（受信簿）">
-        {/* フィルタ＋未添付の注意 */}
-        <div className="flex items-center gap-1 mb-2.5 flex-wrap">
-          <FilterPill label="すべて" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
-          <FilterPill label="タスク紐づけ済" count={linkedCount} active={filter === 'linked'} onClick={() => setFilter('linked')} />
-          <FilterPill label="未紐づけ" count={unlinkedCount} active={filter === 'unlinked'} onClick={() => setFilter('unlinked')} />
-          <FilterPill label="紐づけ不要" count={notRequiredCount} active={filter === 'notrequired'} onClick={() => setFilter('notrequired')} />
-          {unuploadedCount > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
-              <CloudOff className="w-3 h-3" strokeWidth={2} />未アップ {unuploadedCount}件
-            </span>
-          )}
+        {/* フィルタ（タスク紐づけ系＋ファイルアップ系の2系統） */}
+        <div className="space-y-1.5 mb-2.5">
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[11px] text-gray-400 w-14 flex-shrink-0">タスク</span>
+            <FilterPill label="すべて" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
+            <FilterPill label="タスク紐づけ済" count={linkedCount} active={filter === 'linked'} onClick={() => setFilter('linked')} />
+            <FilterPill label="タスク未紐づけ" count={unlinkedCount} active={filter === 'unlinked'} onClick={() => setFilter('unlinked')} />
+            <FilterPill label="タスク紐づけ不要" count={notRequiredCount} active={filter === 'notrequired'} onClick={() => setFilter('notrequired')} />
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[11px] text-gray-400 w-14 flex-shrink-0">ファイル</span>
+            <FilterPill label="すべて" count={rows.length} active={fileFilter === 'all'} onClick={() => setFileFilter('all')} />
+            <FilterPill label="ファイルアップ済" count={uploadedCount} active={fileFilter === 'uploaded'} onClick={() => setFileFilter('uploaded')} />
+            <FilterPill label="ファイル未アップ" count={unuploadedCount} active={fileFilter === 'notuploaded'} onClick={() => setFileFilter('notuploaded')} />
+            {unuploadedCount > 0 && (
+              <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
+                <CloudOff className="w-3 h-3" strokeWidth={2} />未アップ {unuploadedCount}件
+              </span>
+            )}
+          </div>
         </div>
 
         {filtered.length === 0 ? (
