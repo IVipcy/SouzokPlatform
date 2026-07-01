@@ -250,9 +250,6 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
       next = justAddedReferral ? [REFERRAL_ONLY_CATEGORY] : next.filter(k => k !== REFERRAL_ONLY_CATEGORY)
     }
     const ordered = next.sort((a, b) => partRank(a) - partRank(b))
-    // 区分を外す（業務が消える）ときだけ確認
-    const removing = data.serviceCategories.some(k => !ordered.includes(k))
-    if (removing && data.intakeRoles.length > 0 && !confirm('受注区分を外すと、その区分の業務が役割分担から消えます。よろしいですか？')) return
     const seeded = (ordered.length ? seedRolesForCategories(ordered) : []) as RoleRow[]
     const prevByKey = new Map(data.intakeRoles.map(r => [`${r.gyomu}|||${r.sagyou}`, r]))
     const merged = seeded.map(s => {
@@ -547,44 +544,8 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
           </Card>
           <Card label="面談内容"><Input value={data.meetingType} onChange={v => update('meetingType', v)} placeholder="新規面談" /></Card>
           <Card label="面談結果" required><Select value={data.caseStatus} options={STATUS_OPTIONS} onChange={v => update('caseStatus', v)} noEmpty /></Card>
-          <Card label="手続内容（受注区分）">
-            <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
-          </Card>
-          <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
-          {/* LP担当追いかけ運用: 検討中 かつ LP経由 のときのみ表示。
-              HP経由など LP を経由していない案件は LP の追いかけ対象外なので出さない。 */}
-          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
-            <>
-              <Card label="LPによる追いかけ可否">
-                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
-                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
-              </Card>
-              {data.lpFollowupAllowed === '可' && (
-                <>
-                  <Card label="連絡方法">
-                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
-                  </Card>
-                  <Card label="追いかけ期限日">
-                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
-                  </Card>
-                </>
-              )}
-            </>
-          )}
-          <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
-          <Card label="不動産売却（他事業者紹介・不動産）">
-            <div className="flex gap-2 items-start">
-              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
-              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
-            </div>
-          </Card>
-          <Card label="税理士（他事業者紹介・税理士）">
-            <div className="flex gap-2 items-start">
-              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士'))} /></div>
-              <div className="flex-1"><Input value={data.taxAdvisorBusinessType} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="備考を記載" /></div>
-            </div>
-          </Card>
-          {/* 検討期間・お客様回答予定日: 検討中 / 検討中(契約書待ち) で表示 */}
+
+          {/* 検討中・検討中(契約書待ち)のときだけ、面談結果の直下に検討期間→理由→(LP経由なら)追いかけ を表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
               <Card label="検討期間" required><Select value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v)} placeholder="検討期間を選択" /></Card>
@@ -612,6 +573,43 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
               </Card>
             </>
           )}
+          {/* LP担当追いかけ運用: 検討中系 かつ LP経由 のときだけ。理由の下に表示。 */}
+          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
+            <>
+              <Card label="LPによる追いかけ可否">
+                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
+                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
+              </Card>
+              {data.lpFollowupAllowed === '可' && (
+                <>
+                  <Card label="連絡方法">
+                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
+                  </Card>
+                  <Card label="追いかけ期限日">
+                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
+                  </Card>
+                </>
+              )}
+            </>
+          )}
+
+          <Card label="手続内容（受注区分）">
+            <Pills multi value={data.serviceCategories} options={data.caseStatus === '検討中' ? [...ORDER_CATEGORIES, '提案できず'] : [...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
+          </Card>
+          <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
+          <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+          <Card label="不動産売却（他事業者紹介・不動産）">
+            <div className="flex gap-2 items-start">
+              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
+              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
+            </div>
+          </Card>
+          <Card label="税理士（他事業者紹介・税理士）">
+            <div className="flex gap-2 items-start">
+              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士'))} /></div>
+              <div className="flex-1"><Input value={data.taxAdvisorBusinessType} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="備考を記載" /></div>
+            </div>
+          </Card>
         </div>
       )
       case 'client': return (

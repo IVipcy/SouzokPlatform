@@ -133,6 +133,8 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                 <th className="px-3 py-2 text-right font-bold">前受金額</th>
                 <th className="px-3 py-2 text-right font-bold">確定売上金額</th>
                 <th className="px-3 py-2 text-left font-bold">LPによる<br />追いかけ可否</th>
+                <th className="px-3 py-2 text-left font-bold">連絡方法</th>
+                <th className="px-3 py-2 text-left font-bold">追いかけ<br />期限日</th>
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
                 <th className="px-3 py-2 text-left font-bold">税理士業務</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
@@ -231,6 +233,12 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">
                       {c.lp_followup_allowed === true ? '可' : c.lp_followup_allowed === false ? '不可' : <span className="text-gray-300">—</span>}
                     </td>
+                    {/* 連絡方法 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700">
+                      {c.lp_followup_method ? (c.lp_followup_method === 'その他' ? (c.lp_followup_method_other || 'その他') : c.lp_followup_method) : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* 追いかけ期限日 */}
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-700">{c.lp_followup_due_date ?? <span className="text-gray-300">—</span>}</td>
                     {/* 完了予定日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
                     {/* 税理士業務（case_referrals(税理士).content） */}

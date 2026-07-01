@@ -47,7 +47,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/my',       label: 'マイページ',     Icon: UserCircle },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
-      { href: '/meeting',  label: '新規案件登録', Icon: PenSquare },
+      { href: '/meeting',  label: '相談案件登録', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
       { href: '/manager-tasks', label: '管理担当タスク一覧', Icon: Compass },
     ],

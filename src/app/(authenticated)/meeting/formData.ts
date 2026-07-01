@@ -129,5 +129,5 @@ export const INITIAL_DATA: FormData = {
 
 // 新規面談登録は1ページ（報告書式の項目のみ）。詳細はオーダーシート／各タブで入力。
 export const STEPS = [
-  { id: 'basic', label: '新規面談登録', icon: '📋' },
+  { id: 'basic', label: '相談案件登録', icon: '📋' },
 ]
