@@ -551,6 +551,26 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
             <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
           <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
+          {/* LP担当追いかけ運用: 検討中 かつ LP経由 のときのみ表示。
+              HP経由など LP を経由していない案件は LP の追いかけ対象外なので出さない。 */}
+          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
+            <>
+              <Card label="LPによる追いかけ可否">
+                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
+                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
+              </Card>
+              {data.lpFollowupAllowed === '可' && (
+                <>
+                  <Card label="連絡方法">
+                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
+                  </Card>
+                  <Card label="追いかけ期限日">
+                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
+                  </Card>
+                </>
+              )}
+            </>
+          )}
           <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           <Card label="不動産売却（他事業者紹介・不動産）">
             <div className="flex gap-2 items-start">
@@ -587,29 +607,9 @@ export default function MeetingForm({ selectedCase, currentMemberId }: Props) {
                   placeholder="理由を選択"
                 />
               </Card>
-              <Card label="その他理由詳細">
+              <Card label="備考">
                 <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="理由の詳細を自由に入力（任意）" />
               </Card>
-            </>
-          )}
-          {/* LP担当追いかけ運用: 検討中 かつ LP経由 のときのみ表示。
-              HP経由など LP を経由していない案件は LP の追いかけ対象外なので出さない。 */}
-          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
-            <>
-              <Card label="LPによる追いかけ可否">
-                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
-                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
-              </Card>
-              {data.lpFollowupAllowed === '可' && (
-                <>
-                  <Card label="連絡方法">
-                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
-                  </Card>
-                  <Card label="追いかけ期限日">
-                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
-                  </Card>
-                </>
-              )}
             </>
           )}
         </div>
