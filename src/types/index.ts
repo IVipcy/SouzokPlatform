@@ -276,6 +276,7 @@ export type ClientCommunicationRow = {
   case_id: string
   communicated_at: string  // YYYY-MM-DD
   communication_type: string
+  contact_method: string | null  // 電話/LINE/メール/手紙（migration 153）
   detail: string | null
   status: 'お客様待ち' | '完了'
   created_at: string

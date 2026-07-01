@@ -35,6 +35,8 @@ const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label:
 ]
 
 const COMMUNICATION_TYPE_OPTIONS = ['進捗連絡', '書類依頼', '質問対応', 'クレーム対応', 'その他']
+const CONTACT_METHOD_OPTIONS = ['電話', 'LINE', 'メール', '手紙']
+const CLAIM_TYPE = 'クレーム対応'
 
 export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false, caseClients = [] }: Props) {
   const client = caseData.clients
@@ -179,35 +181,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
     </div>
   )
 
-  // クレーム（やり取り履歴サブタブの先頭に表示。オーダーシート埋め込み時は出さない）
-  const claimSection = (
-    <Section title="クレーム">
-      <div className="space-y-3">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={caseData.has_complaint}
-            onChange={e => saveCaseField('has_complaint', e.target.checked)}
-            className="w-4 h-4 accent-purple-600 cursor-pointer"
-          />
-          <span className="text-[13px] font-semibold text-gray-700">クレーム有</span>
-          {caseData.has_complaint && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
-              <span className="w-2 h-2 rounded-full bg-purple-600" />
-              紫フラグ案件
-            </span>
-          )}
-        </label>
-        <TextAreaField
-          label="クレーム内容"
-          value={caseData.complaint_detail ?? ''}
-          placeholder="クレームの内容を記載"
-          onSave={v => saveCaseField('complaint_detail', v || null)}
-          disabled={!caseData.has_complaint}
-        />
-      </div>
-    </Section>
-  )
+  // クレーム案件フラグ(has_complaint)は、やり取り履歴の連絡内容「クレーム対応」から自動判定。
+  // 手動のクレーム欄は廃止（紫フラグはやり取りに「クレーム対応」があると自動で立つ）。
 
   // オーダーシート埋め込み時はサブタブなし（やり取り履歴も非表示）
   if (orderSheetMode) return infoSections
@@ -223,7 +198,6 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       {sub === 'info' && infoSections}
       {sub === 'history' && (
         <div className="space-y-3.5">
-          {claimSection}
           <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
         </div>
       )}
@@ -286,6 +260,15 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
 }) {
   const [adding, setAdding] = useState(false)
 
+  // クレーム案件フラグを最新のやり取りから再計算（連絡内容に「クレーム対応」があれば紫フラグ）。
+  const syncClaim = async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from('client_communications').select('communication_type').eq('case_id', caseId)
+    const hasClaim = ((data ?? []) as { communication_type: string }[]).some(r => r.communication_type === CLAIM_TYPE)
+    await supabase.from('cases').update({ has_complaint: hasClaim }).eq('id', caseId)
+    onRefresh?.()
+  }
+
   const handleAdd = async () => {
     setAdding(true)
     const supabase = createClient()
@@ -294,6 +277,7 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
       case_id: caseId,
       communicated_at: today,
       communication_type: '進捗連絡',
+      contact_method: '電話',
       detail: '',
       status: 'お客様待ち',
     })
@@ -330,6 +314,7 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
               <tr className="bg-brand-700">
                 <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 130 }}>日付</th>
                 <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 180 }}>連絡内容</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 110 }}>連絡方法</th>
                 <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600">やり取り詳細</th>
                 <th className="px-2 py-1.5 text-center font-semibold text-white border border-brand-600" style={{ width: 130 }}>ステータス</th>
                 <th className="px-2 py-1.5 text-center font-semibold text-white border border-brand-600" style={{ width: 40 }} />
@@ -337,7 +322,7 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
             </thead>
             <tbody>
               {rows.map(row => (
-                <CommunicationRow key={row.id} row={row} onRefresh={onRefresh} />
+                <CommunicationRow key={row.id} row={row} onRefresh={onRefresh} onClaimSync={syncClaim} />
               ))}
             </tbody>
           </table>
@@ -347,16 +332,18 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
   )
 }
 
-function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onRefresh?: () => void }) {
+function CommunicationRow({ row, onRefresh, onClaimSync }: { row: ClientCommunicationRow; onRefresh?: () => void; onClaimSync?: () => void }) {
   const [taskizeOpen, setTaskizeOpen] = useState(false)
   const [editing, setEditing] = useState<{
     communicated_at: string
     communication_type: string
+    contact_method: string
     detail: string
     status: 'お客様待ち' | '完了'
   }>({
     communicated_at: row.communicated_at,
     communication_type: row.communication_type,
+    contact_method: row.contact_method ?? '',
     detail: row.detail ?? '',
     status: row.status,
   })
@@ -375,6 +362,7 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
       .update({
         communicated_at: next.communicated_at,
         communication_type: next.communication_type,
+        contact_method: next.contact_method || null,
         detail: next.detail || null,
         status: next.status,
       })
@@ -383,6 +371,8 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
+    // 連絡内容が変わったらクレーム案件フラグを再計算
+    if (patch.communication_type !== undefined) onClaimSync?.()
   }
 
   const handleDelete = async () => {
@@ -393,6 +383,7 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
       showToast(`削除に失敗しました: ${error.message}`, 'error')
       return
     }
+    onClaimSync?.()
     onRefresh?.()
   }
 
@@ -465,6 +456,16 @@ function CommunicationRow({ row, onRefresh }: { row: ClientCommunicationRow; onR
             </button>
           </div>
         )}
+      </td>
+      <td className="px-2 py-1.5 border border-gray-200">
+        <select
+          value={editing.contact_method}
+          onChange={e => { const v = e.target.value; setEditing(p => ({ ...p, contact_method: v })); save({ contact_method: v }) }}
+          className="w-full px-1.5 py-1 text-[13px] border border-gray-200 rounded outline-none bg-white focus:border-brand-400 focus:ring-1 focus:ring-brand-200"
+        >
+          <option value="">—</option>
+          {CONTACT_METHOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
       </td>
       <td className="px-2 py-1.5 border border-gray-200">
         <input
