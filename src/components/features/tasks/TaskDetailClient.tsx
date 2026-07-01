@@ -98,8 +98,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const freezeBlocked = !isSystemTask && financeFreezeBlocked && isFinanceFreezeTask(task)
   const canStart = !freezeBlocked
   const waiting = !isSystemTask && isWaitingReceipt(task)
-  // 未着手の事務管理タスクを開いたら「着手しますか？」を出す
-  const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && !isSystemTask)
+  // 未着手のタスクを開いたら「着手しますか？（着手する/閲覧だけ）」を出す。
+  // 事務管理タスクに加え、初期対応タスク（受注時に生成される system タスク）も対象。
+  const isInitialTask = task.category === '初期対応'
+  const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && (!isSystemTask || isInitialTask))
 
   const handleAdvance = useCallback(async () => {
     if (advancing) return
@@ -499,7 +501,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           maxWidth="max-w-sm"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setStartPromptOpen(false)}>着手しない（あとで）</Button>
+              <Button variant="secondary" onClick={() => setStartPromptOpen(false)}>着手しない（閲覧だけ）</Button>
               <Button variant="primary" disabled={!canStart || advancing} onClick={async () => { await handleAdvance(); setStartPromptOpen(false) }}>
                 <Play className="w-4 h-4" /> 着手する
               </Button>
@@ -512,6 +514,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
                 <span>口座の<strong className="font-semibold">凍結確認が未完了</strong>です。財産調査タブで管理担当が凍結確認すると着手できます。</span>
+              </div>
+            ) : isInitialTask ? (
+              <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <PackageCheck className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                <span>着手すると「対応中」になり、担当として記録されます。内容の確認だけなら「着手しない（閲覧だけ）」で閉じてください。</span>
               </div>
             ) : startSignal.ready ? (
               <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
