@@ -94,7 +94,6 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineEdit label="紹介元" value={caseData.order_route_detail} onSave={v => saveCaseField('order_route_detail', v)} />
           <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
-          <InlineEdit label="面談内容" value={caseData.meeting_type} onSave={v => saveCaseField('meeting_type', v)} />
           <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
           <InlineSelect label="手続内容（受注区分）" value={caseData.service_category} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} />
           {caseData.service_category === KENIN_CATEGORY && (
@@ -109,9 +108,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineCheckbox label="LPによる追いかけ可" value={caseData.lp_followup_allowed ?? false} onSave={v => saveCaseField('lp_followup_allowed', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
-          <InlineTextarea label="検討・不受託の理由（詳細）" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
+          <InlineTextarea label="備考" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
           <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth placeholder={HEARING_MEMO_SAMPLE} />
-          <InlineTextarea label="その他備考" value={caseData.meeting_other_notes} onSave={v => saveCaseField('meeting_other_notes', v)} fullWidth />
         </FieldGrid>
         {/* 不動産売却・税理士などの他事業者紹介（ON＝紹介タブに業者サブタブ作成） */}
         <div className="mt-3 pt-3 border-t border-gray-100">

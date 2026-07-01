@@ -86,20 +86,24 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}
             {caseData.status !== '検討中' && (
-              <InlineEdit
-                label="振込名義人（カナ）"
-                value={client.transfer_name_kana}
-                onSave={v => saveClientField('transfer_name_kana', toKatakana(v))}
-                mono
-                fullWidth
-                action={mainFurigana ? (
-                  <button
-                    type="button"
-                    onClick={() => saveClientField('transfer_name_kana', toKatakana(mainFurigana))}
-                    className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
-                  >依頼者と同じ</button>
-                ) : null}
-              />
+              <>
+                <InlineEdit
+                  label="振込名義人 候補①（カナ）"
+                  value={client.transfer_name_kana}
+                  onSave={v => saveClientField('transfer_name_kana', toKatakana(v))}
+                  mono
+                  fullWidth
+                  action={mainFurigana ? (
+                    <button
+                      type="button"
+                      onClick={() => saveClientField('transfer_name_kana', toKatakana(mainFurigana))}
+                      className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50"
+                    >メイン依頼者のフリガナを取得</button>
+                  ) : null}
+                />
+                <InlineEdit label="振込名義人 候補②（カナ）" value={client.transfer_name_kana_2} onSave={v => saveClientField('transfer_name_kana_2', toKatakana(v))} mono fullWidth />
+                <InlineEdit label="振込名義人 候補③（カナ）" value={client.transfer_name_kana_3} onSave={v => saveClientField('transfer_name_kana_3', toKatakana(v))} mono fullWidth />
+              </>
             )}
           </FieldGrid>
         ) : (
