@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Section, FieldGrid, InlineEdit, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
+import { Check } from 'lucide-react'
+import { Section, FieldGrid, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
-  gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
+  gyomuForCategories, seedRolesForCategories,
 } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
-import { IntakeRolesEditor, DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
+import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
 import type { CaseRow } from '@/types'
 
@@ -51,14 +52,12 @@ function MultiPills({ value, options, onChange }: { value: string[]; options: st
  */
 export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false }: Props) {
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
+  // 業務トラッキング用に intake_roles は保持するが、作業ごとの役割分担UIは廃止（担当は各実務タブで定義）。
   const [roles, setRoles] = useState<RoleRow[]>(caseData.intake_roles ?? DEFAULT_ROLES)
-  // 途中（対応中）で区分を足したときに「役割分担を確認して」を促すナビ
-  const [addedNotice, setAddedNotice] = useState<string[]>([])
 
   const selectedKeys = activePartKeys(parts)
   const isReferralOnly = selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
   const save = async (field: string, value: unknown) => { await patchCase({ [field]: value ?? null } as Partial<CaseRow>) }
-  const saveRoles = (next: RoleRow[]) => { setRoles(next); patchCase({ intake_roles: next }) }
 
   // 受注区分（複数選択・並行進行）。追加=並び順に挿入、削除=確認。紹介のみは排他。
   const setCategories = async (rawKeys: string[]) => {
@@ -86,10 +85,6 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     const prevByKey = new Map(roles.map(r => [`${r.gyomu}|||${r.sagyou}`, r]))
     const merged = seeded.map(s => { const p = prevByKey.get(`${s.gyomu}|||${s.sagyou}`); return p ? { ...s, owner: p.owner, note: p.note } : s })
 
-    // 対応中（=途中）で区分を足したら、役割分担の確認を促す
-    const addedKeys = newKeys.filter(k => !selectedKeys.includes(k))
-    if (addedKeys.length > 0 && caseData.status === '対応中') setAddedNotice(addedKeys)
-
     setParts(nextParts); setRoles(merged)
     await patchCase({ service_parts: nextParts, service_category: newKeys[0] ?? null, service_category_2: newKeys[1] ?? null, procedure_type: newKeys, intake_roles: merged })
   }
@@ -109,36 +104,25 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
           )}
         </div>
         <FieldGrid>
-          <InlineEdit label="その他手続" value={caseData.other_procedure} onSave={v => save('other_procedure', v)} />
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
           <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>
       </Section>
 
-      {addedNotice.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-          <span className="flex-1">「{addedNotice.join('・')}」を追加しました。下の<span className="font-semibold">役割分担</span>で、増えた業務・担当（自社/依頼者）を確認してください。</span>
-          <button type="button" onClick={() => setAddedNotice([])} className="text-amber-500 hover:text-amber-700 font-bold leading-none">×</button>
-        </div>
-      )}
-
-      <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '業務・役割分担（自社 / 依頼者 どちらが行うか）'}>
+      <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '実施予定業務'}>
         {isReferralOnly ? (
           <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は「他事業者紹介」タブで入力してください。</p>
         ) : selectedKeys.length > 0 ? (
           <>
-            <p className="text-[12px] text-gray-400 mb-2">
-              {selectedKeys.length > 1 ? '選んだ区分の業務がまとめて表示されます（重複する業務は1つ）。' : '受注区分の業務が全選択で表示されます。'}やらない業務は外してください。作業ごとに担当（既定=自社）を変更できます。
-            </p>
-            <IntakeRolesEditor
-              roles={roles}
-              onSave={saveRoles}
-              gyomuOptions={gyomuForCategories(selectedKeys)}
-              presetFor={g => tasksForCategories(selectedKeys, g).filter(t => !isOptionalTask(t.task)).map(t => t.task)}
-              addableFor={g => tasksForCategories(selectedKeys, g).map(t => ({ task: t.task, kind: kindForTask(selectedKeys, g, t.task) }))}
-              kindFor={(g, s) => kindForTask(selectedKeys, g, s)}
-            />
+            <div className="flex flex-wrap gap-2">
+              {gyomuForCategories(selectedKeys).map(g => (
+                <span key={g} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-[12.5px] text-gray-800">
+                  <Check className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />{g}
+                </span>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">受注区分から自動で表示されます。自社／依頼者などの担当は各実務タブで管理します（細かい作業ごとの役割分担は行いません）。</p>
           </>
         ) : (
           <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
