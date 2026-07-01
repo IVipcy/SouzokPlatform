@@ -94,8 +94,8 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
       {!hasQuery ? (
         <div className="bg-white border border-dashed border-gray-200 rounded-xl px-4 py-10 text-center">
           <div className="text-2xl mb-1.5">🔍</div>
-          <p className="text-[13px] text-gray-500">LP案件管理番号・依頼者名・電話番号で検索してください</p>
-          <p className="text-[11.5px] text-gray-400 mt-1">連携案件から該当の面談案件を探して選択します。新規はこの上の「相談案件登録」から。</p>
+          <p className="text-[13px] text-gray-500">検索すると候補が表示されます</p>
+          <p className="text-[11.5px] text-gray-400 mt-1">番号・名前・電話の一部だけでも検索できます（例：SKN0）</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl px-4 py-8 text-center text-[13px] text-gray-400">
