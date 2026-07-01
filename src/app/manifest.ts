@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: '相続案件管理（相談案件登録）',
     short_name: '相談案件登録',
     description: '面談後の相談案件をその場で登録',
-    start_url: '/meeting',
+    start_url: '/register',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',

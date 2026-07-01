@@ -31,13 +31,13 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex-1 min-w-[200px]">
           <div className="text-base font-bold tracking-tight mb-1">面談設定済 案件一覧</div>
-          <div className="text-[13px] text-gray-500">案件を選択するか、新規で面談を作成してください</div>
+          <div className="text-[13px] text-gray-500">案件を選択するか、新規で相談案件を登録してください</div>
         </div>
         <button
           onClick={() => onSelect({ id: 'new', name: '新規案件', client: '', phone: '' })}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition flex-shrink-0"
         >
-          ＋ 新規案件作成
+          ＋ 相談案件登録
         </button>
       </div>
 
