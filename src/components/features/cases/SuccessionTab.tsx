@@ -178,8 +178,8 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
                   <td className="px-2 py-1.5"><select value={r.kind ?? ''} onChange={e => commitExpense(r.id, 'kind', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white">{['報酬', '立替', '代理支払'].map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                   <td className="px-2 py-1.5"><input type="text" defaultValue={r.label ?? ''} onBlur={e => commitExpense(r.id, 'label', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded" />{r.source && r.source !== 'manual' && <span className="text-[10px] text-brand-500 ml-1">連動</span>}</td>
                   <td className="px-2 py-1.5"><MoneyInput value={r.amount} onCommit={v => commitExpense(r.id, 'amount', v === '' ? 0 : Number(v))} /></td>
-                  <td className="px-2 py-1.5 text-center"><input type="checkbox" checked={r.paid} onChange={e => commitExpense(r.id, 'paid', e.target.checked)} className="w-4 h-4 accent-emerald-600" title="ミトラ残高から振込が完了したらチェック" /></td>
-                  <td className="px-2 py-1.5"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commitExpense(r.id, 'note', e.target.value)} placeholder="例: 7/2 ミトラから振込" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded" /></td>
+                  <td className="px-2 py-1.5 text-center"><input type="checkbox" checked={r.paid} onChange={e => commitExpense(r.id, 'paid', e.target.checked)} className="w-4 h-4 accent-emerald-600" title="振込が完了したらチェック" /></td>
+                  <td className="px-2 py-1.5"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commitExpense(r.id, 'note', e.target.value)} placeholder="例: 7/2 振込" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded" /></td>
                   <td className="px-2 py-1.5 text-center"><button type="button" onClick={() => delExpense(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></td>
                 </tr>
               ))}
