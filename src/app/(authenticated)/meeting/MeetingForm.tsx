@@ -16,7 +16,7 @@ import {
   LP_FOLLOWUP_METHODS, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
-  FUNERAL_COMPANIES, FUNERAL_DEFAULT_DISPLAY, TAX_ADVISOR_COMPANIES, HP_SOURCES,
+  FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
@@ -560,7 +560,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                     value={data.orderRouteDetail}
                     onChange={name => update('orderRouteDetail', name)}
                     staticOptions={data.orderRoute === '葬儀社経由' ? [...FUNERAL_COMPANIES] : data.orderRoute === '税理士経由' ? [...TAX_ADVISOR_COMPANIES] : undefined}
-                    defaultOptions={data.orderRoute === '葬儀社経由' ? [...FUNERAL_DEFAULT_DISPLAY] : undefined}
                   />
                 )}
               </div>
