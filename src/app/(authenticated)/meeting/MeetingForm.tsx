@@ -541,7 +541,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             })()}
             {data.orderRoute && (
               <div className="mt-3">
-                {data.orderRoute === PAST_CLIENT_ROUTE ? (
+                {selectedCase.id !== 'new' ? (
+                  <div className="py-1.5">
+                    <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（紹介元）</div>
+                    <div className="w-full bg-gray-100 border-[1.5px] border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-500 cursor-not-allowed">{data.orderRouteDetail || '未設定'}</div>
+                  </div>
+                ) : data.orderRoute === PAST_CLIENT_ROUTE ? (
                   <PastClientLookup
                     label="詳細（過去の依頼者）"
                     value={data.pastClientId}
