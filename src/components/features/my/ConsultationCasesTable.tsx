@@ -17,6 +17,7 @@ export type ConsultCase = {
   deal_name: string
   status: string
   created_at?: string | null
+  updated_at?: string | null
   meeting_executed_date: string | null
   client_response_due_date: string | null
   /** 検討期間区分（1週間/2週間/1ヶ月/見込み不明） */
@@ -259,6 +260,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                 <th className="px-3 py-2 text-left font-bold">オーダーシート</th>
                 <th className="px-3 py-2 text-left font-bold">受注内容</th>
                 <th className="px-3 py-2 text-right font-bold">受注金額</th>
+                <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -286,7 +288,9 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                         />
                       </td>
                     )}
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono">
+                      <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
+                    </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[200px]">
@@ -364,6 +368,9 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
+                      {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
                 )

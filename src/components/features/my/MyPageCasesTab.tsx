@@ -41,6 +41,8 @@ export type MyCaseRow = {
   /** 直近お客様報告 */
   lastCommDate?: string | null
   lastCommDetail?: string | null
+  /** 最終更新日 */
+  updated_at?: string | null
   /** 管理担当向けアラート: 週次報告の漏れ */
   weeklyReportMissing?: boolean
   /** 管理担当向けアラート: タスク期限超過 */
@@ -207,6 +209,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">最終更新日</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -239,7 +242,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   </span>
                 )}
               </td>
-              <td className="px-3 py-2.5 font-mono text-[12px] text-gray-600 whitespace-nowrap">{c.case_number}</td>
+              <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+                <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
+              </td>
               <td className="px-3 py-2.5 min-w-[160px]">
                 <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[280px]">
                   {c.deal_name}
@@ -317,6 +322,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 ) : (
                   <span className="text-gray-300">—</span>
                 )}
+              </td>
+              {/* 最終更新日 */}
+              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
+                {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}
               </td>
             </tr>
             )

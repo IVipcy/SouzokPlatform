@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Megaphone, AlertTriangle, Trash2 } from 'lucide-react'
+import { Megaphone, AlertTriangle, Trash2, Download } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { CASE_STATUSES } from '@/lib/constants'
@@ -52,6 +53,8 @@ export type LpCaseRow = {
   lp_followup_method_other: string | null
   /** LP追いかけ期限日 */
   lp_followup_due_date: string | null
+  /** 最終更新日 */
+  updated_at?: string | null
 }
 
 type Props = {
@@ -83,6 +86,69 @@ const formatMan = (yen: number): string => {
 export default function LpCasesTable({ cases, selectable = false }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const sel = useCaseBulkDelete(cases.map(c => c.id))
+  const [exporting, setExporting] = useState(false)
+
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const statuses = [...new Set(cases.map(c => c.status))]
+      const HEADERS = [
+        '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
+        '案件ステータス', '検討中・不受託理由', 'その他理由詳細', 'お客様回答予定日',
+        '検討期間', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
+        'LPによる追いかけ可否', '連絡方法', '追いかけ期限日', '完了予定日',
+        '税理士業務', '不動産登記', '最終更新日',
+      ]
+      const flagLabel = (ct: string | null) => ct === '行政書士法人単独' ? '行' : ct === '司法書士法人単独' ? '司' : ct === '行・司連名' ? '連' : ''
+      const fmtYen = (n: number | null) => n && n > 0 ? n : ''
+      const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+
+      const addSheet = (name: string, rows: LpCaseRow[]) => {
+        const sheetName = name.length > 31 ? name.slice(0, 31) : name
+        const ws = wb.addWorksheet(sheetName)
+        const headerRow = ws.addRow(HEADERS)
+        headerRow.font = { bold: true, size: 10 }
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } }
+        for (const c of rows) {
+          const daysRemaining = c.client_response_due_date
+            ? Math.round((new Date(c.client_response_due_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
+            : null
+          const daysLabel = daysRemaining === null ? '' : daysRemaining < 0 ? `${Math.abs(daysRemaining)}日超過` : daysRemaining === 0 ? '本日' : `あと${daysRemaining}日`
+          ws.addRow([
+            flagLabel(c.contract_type), c.case_number, c.lp_case_number ?? '', c.referral_source ?? '',
+            c.client_name ?? '', c.status, c.consideration_decline_reason ?? '',
+            c.consideration_decline_reason_detail ?? '', c.client_response_due_date ?? '',
+            c.consideration_period ?? '', daysLabel, c.sales_name ?? '', c.manager_name ?? '',
+            fmtYen(c.advance_payment), fmtYen(c.confirmed_revenue),
+            c.lp_followup_allowed === true ? '可' : c.lp_followup_allowed === false ? '不可' : '',
+            c.lp_followup_method ? (c.lp_followup_method === 'その他' ? (c.lp_followup_method_other || 'その他') : c.lp_followup_method) : '',
+            c.lp_followup_due_date ?? '', c.expected_completion_date ?? '',
+            c.tax_advisor_business ?? '', c.real_estate_registration ?? '',
+            fmtDate(c.updated_at ?? null),
+          ])
+        }
+        ws.columns.forEach(col => { col.width = 16 })
+      }
+
+      addSheet('すべて', cases)
+      for (const st of statuses) {
+        addSheet(st, cases.filter(c => c.status === st))
+      }
+
+      const buf = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `LP案件一覧_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -101,7 +167,13 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
             <button type="button" onClick={sel.clear} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
           </div>
         ) : (
-          <span className="ml-auto text-[11px] text-gray-400">受注ルートが「LP経由」の案件</span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[11px] text-gray-400">受注ルートが「LP経由」の案件</span>
+            <button type="button" onClick={exportExcel} disabled={exporting || cases.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 transition-colors">
+              <Download className="w-3.5 h-3.5" />{exporting ? '出力中...' : 'Excel出力'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -138,6 +210,7 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
                 <th className="px-3 py-2 text-left font-bold">税理士業務</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
+                <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -165,7 +238,9 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                       )}
                     </td>
                     {/* 案件管理番号 */}
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono">
+                      <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
+                    </td>
                     {/* LP案件管理番号（相続ステーション元番号） */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.lp_case_number || <span className="text-gray-300">—</span>}</td>
                     {/* 送客元 */}
@@ -245,6 +320,10 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.tax_advisor_business || <span className="text-gray-300">—</span>}</td>
                     {/* 不動産登記（case_referrals(不動産).content） */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.real_estate_registration || <span className="text-gray-300">—</span>}</td>
+                    {/* 最終更新日 */}
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
+                      {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}
+                    </td>
                   </tr>
                 )
               })}

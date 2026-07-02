@@ -12,11 +12,11 @@ export type ReferralRow = {
   case_number: string
   deal_name: string
   status: string
+  updated_at?: string | null
   order_route_detail: string | null
   procedure_type: string[] | null
   client_name: string | null
   manager_name: string | null
-  /** 受注担当名・担当チーム名（検索用。表示はしない） */
   sales_name?: string | null
   team_name?: string | null
 }
@@ -63,6 +63,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                 <th className="px-3 py-2 text-left font-bold">紹介内容</th>
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
                 <th className="px-3 py-2 text-left font-bold">依頼者名</th>
+                <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -76,7 +77,9 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                         <input type="checkbox" checked={isSelected} onChange={() => sel.toggleOne(c.id)} className="w-4 h-4 accent-brand-600 cursor-pointer align-middle" />
                       </td>
                     )}
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{c.case_number}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono">
+                      <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
+                    </td>
                     <td className="px-3 py-2.5">
                       <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">
                         {c.deal_name}
@@ -102,6 +105,9 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-700 truncate">{c.client_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
+                      {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}
+                    </td>
                   </tr>
                 )
               })}

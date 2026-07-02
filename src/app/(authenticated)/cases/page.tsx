@@ -28,6 +28,7 @@ type CaseRowRaw = {
   has_complaint: boolean | null
   last_opened_at: string | null
   created_at: string | null
+  updated_at: string | null
   order_route: string | null
   order_route_detail: string | null
   order_route_lp_name: string | null
@@ -166,6 +167,7 @@ export default async function CasesPage() {
       has_complaint: c.has_complaint,
       last_opened_at: c.last_opened_at,
       created_at: c.created_at,
+      updated_at: c.updated_at,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
       team_name: salesTeamByCase.get(c.id) ?? null,
@@ -192,6 +194,7 @@ export default async function CasesPage() {
     deal_name: c.deal_name,
     status: c.status,
     created_at: c.created_at,
+    updated_at: c.updated_at,
     meeting_executed_date: c.meeting_executed_date,
     client_response_due_date: c.client_response_due_date,
     consideration_period: c.consideration_period,
@@ -226,10 +229,9 @@ export default async function CasesPage() {
       advance_payment: advanceTotal(c),
       confirmed_revenue: confirmedRevenue(c),
       expected_completion_date: c.expected_completion_date,
-      // 他事業者紹介(税理士/不動産)の依頼内容を引用（同一データ）
+      updated_at: c.updated_at,
       tax_advisor_business: refMap.get('税理士') ?? null,
       real_estate_registration: refMap.get('不動産') ?? null,
-      // LP追いかけ運用
       lp_followup_allowed: c.lp_followup_allowed,
       lp_followup_method: c.lp_followup_method,
       lp_followup_method_other: c.lp_followup_method_other,
@@ -243,6 +245,7 @@ export default async function CasesPage() {
     case_number: c.case_number,
     deal_name: c.deal_name,
     status: c.status,
+    updated_at: c.updated_at,
     order_route_detail: c.order_route_detail,
     procedure_type: c.procedure_type,
     client_name: c.clients?.name ?? null,
