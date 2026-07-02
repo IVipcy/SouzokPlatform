@@ -119,7 +119,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
             fmtYen(c.advance_payment), fmtYen(c.confirmed_revenue),
             c.expected_completion_date ?? '',
             c.tax_advisor_business ?? '', c.real_estate_registration ?? '',
-            c.meeting_other_notes ?? '',
+            c.meeting_other_notes || c.consideration_decline_reason_detail || '',
             fmtDate(c.updated_at ?? null),
           ])
         }
@@ -302,8 +302,8 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.tax_advisor_business || <span className="text-gray-300">—</span>}</td>
                     {/* 不動産登記（case_referrals(不動産).content） */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.real_estate_registration || <span className="text-gray-300">—</span>}</td>
-                    {/* 面談内容詳細 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[220px] truncate" title={c.meeting_other_notes ?? undefined}>{c.meeting_other_notes || <span className="text-gray-300">—</span>}</td>
+                    {/* 面談内容詳細（新カラム。旧・理由詳細もフォールバックで表示） */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[220px] truncate" title={(c.meeting_other_notes || c.consideration_decline_reason_detail) ?? undefined}>{(c.meeting_other_notes || c.consideration_decline_reason_detail) || <span className="text-gray-300">—</span>}</td>
                     {/* 最終更新日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
                       {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}

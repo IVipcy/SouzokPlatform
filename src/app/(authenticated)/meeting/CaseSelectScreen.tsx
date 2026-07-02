@@ -56,6 +56,7 @@ export default function CaseSelectScreen({ cases, onSelect }: Props) {
     clientPostalCode: c.clients?.postal_code ?? null,
     clientNotes: c.clients?.notes ?? null,
     hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
+    meetingOtherNotes: c.meeting_other_notes, considerationDeclineReasonDetail: c.consideration_decline_reason_detail,
   })
 
   return (

@@ -30,6 +30,8 @@ export type SelectedCase = {
   hearingContent?: string | null
   specialNotes?: string | null
   otherNeeds?: string | null
+  meetingOtherNotes?: string | null
+  considerationDeclineReasonDetail?: string | null
 } | null
 
 export type CaseData = CaseRow & { clients?: ClientRow | null }
