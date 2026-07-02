@@ -45,3 +45,6 @@ next-env.d.ts
 
 # supabase temp
 supabase/.temp/
+
+# アカウント発行の配布用CSV（パスワード平文を含むためコミット禁止）
+scripts/created_accounts.csv
