@@ -654,7 +654,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
 }
 
 // ─── InlineMemberSelect (担当者選択) ───
-export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRefresh, multi }: {
+export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRefresh, multi, searchable, candidateRoles }: {
   label: string
   roleKey: string
   assigned: CaseMemberRow[]
@@ -662,10 +662,23 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   caseId: string
   onRefresh?: () => void
   multi?: boolean
+  /** true のとき候補を名前で絞り込む検索ボックスを表示 */
+  searchable?: boolean
+  /** 指定時、この primary_role の候補のみ表示（例: ['manager','sub_manager']） */
+  candidateRoles?: string[]
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [query, setQuery] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // 候補: ロール絞り込み＋名前検索
+  const candidates = allMembers.filter(m => {
+    if (candidateRoles && candidateRoles.length > 0 && !candidateRoles.includes((m.primary_role as string) ?? '')) return false
+    const q = query.trim().toLowerCase()
+    if (q) return (m.name ?? '').toLowerCase().includes(q)
+    return true
+  })
 
   // 外クリックで閉じる
   useEffect(() => {
@@ -712,6 +725,16 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
+          {searchable && (
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="名前で検索"
+              autoFocus
+              className="w-full mb-1.5 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-brand-500"
+            />
+          )}
           <div className="space-y-1 max-h-[200px] overflow-y-auto">
             {!multi && (
               <button
@@ -722,7 +745,10 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                 （未設定）
               </button>
             )}
-            {allMembers.map(member => {
+            {candidates.length === 0 && (
+              <div className="px-2 py-2 text-[11px] text-gray-400">該当する候補がありません</div>
+            )}
+            {candidates.map(member => {
               const isAssigned = assigned.some(cm => cm.member_id === member.id)
               return (
                 <button
@@ -748,7 +774,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
           <div className="text-[12px] text-gray-400 mt-2">他の場所をクリックで閉じる</div>
         </div>
       ) : (
-        <div onClick={() => setEditing(true)} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
+        <div onClick={() => { setQuery(''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
           {assigned.length > 0 ? (
             <div className="flex items-center gap-1.5 flex-wrap">
               {assigned.map(cm => (

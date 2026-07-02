@@ -40,7 +40,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
       <Section title="担当者">
         <FieldGrid>
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
-          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
+          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} searchable candidateRoles={['manager', 'sub_manager']} />
         </FieldGrid>
         {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る）。ミニマム運用では稼働状況一覧が非表示のため隠す（上のインライン選択で割り振り） */}
         {!isMinimalMode() && (
