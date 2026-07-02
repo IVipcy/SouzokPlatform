@@ -112,13 +112,13 @@ export async function POST(request: NextRequest) {
     setCell(kak, K.billAmount, c.billAmount)
     setCell(kak, K.amountTop, c.billAmount)
 
-    // 社印
-    try {
-      const imgBuf = await readFile(path.join(process.cwd(), 'public', 'templates', 'stamps', STAMP_FILES[def.office]))
-      const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
-      const { col, row } = cellToColRow(K.sealCell)
-      kak.addImage(imageId, { tl: { col, row } as ExcelJS.Anchor, ext: { width: 56, height: 56 }, editAs: 'oneCell' })
-    } catch { /* 画像が無ければスキップ */ }
+    // 社印（切り分け中：2シート＋画像でファイルが破損する疑いのため一時停止。後で確実な方法で戻す）
+    // try {
+    //   const imgBuf = await readFile(path.join(process.cwd(), 'public', 'templates', 'stamps', STAMP_FILES[def.office]))
+    //   const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
+    //   const { col, row } = cellToColRow(K.sealCell)
+    //   kak.addImage(imageId, { tl: { col, row } as ExcelJS.Anchor, ext: { width: 56, height: 56 }, editAs: 'oneCell' })
+    // } catch { /* 画像が無ければスキップ */ }
 
     // --- 立替実費明細 ---
     const T = TATEKAE_FIELDS
