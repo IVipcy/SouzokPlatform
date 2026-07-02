@@ -605,18 +605,28 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
             <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
           )}
-          <Card label="不動産売却（他事業者紹介・不動産）">
-            <div className="flex gap-2 items-start">
-              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
-              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
-            </div>
-          </Card>
+          {/* 他事業者紹介: 税理士 → 不動産売却 の順（全ステータス共通） */}
           <Card label="税理士（他事業者紹介・税理士）">
             <div className="flex gap-2 items-start">
               <div className="w-28 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士'))} /></div>
               <div className="flex-1"><Input value={data.taxAdvisorBusinessType} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="備考を記載" /></div>
             </div>
           </Card>
+          <Card label="不動産売却（他事業者紹介・不動産）">
+            <div className="flex gap-2 items-start">
+              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
+              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
+            </div>
+          </Card>
+          {/* 追い電話の必要性: 検討中のときだけ、面談内容詳細の上に表示 */}
+          {data.caseStatus === '検討中' && (
+            <Card label="追い電話の必要性">
+              <Pills value={data.followUpCallNeeded} options={['不要', '要']} onChange={v => update('followUpCallNeeded', v as string)} />
+              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要な場合は「要」を入れてください。</p>
+            </Card>
+          )}
+          {/* 面談内容詳細: 全ステータス共通・フォーム最下部のフリー入力 */}
+          <Card label="面談内容詳細"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="面談内容の詳細やメモがあれば記入" /></Card>
         </div>
       )
       case 'client': return (
