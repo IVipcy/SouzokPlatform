@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Section, FieldGrid, Field, InlineSelect, InlineCurrency, InlineDate, InlineTextarea, FormField } from '@/components/ui/InlineFields'
 import { INVOICE_STATUSES, PAYMENT_STATUSES, EXPENSE_CATEGORIES } from '@/lib/constants'
 import { advanceTotal } from '@/lib/advancePayment'
-import type { CaseRow, ExpenseRow, TaskRow, PartnerRow } from '@/types'
+import type { CaseRow, ExpenseRow, TaskRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -19,7 +19,6 @@ type Props = {
 const yen = (v: number | null | undefined) => v != null ? '¥' + v.toLocaleString() : '未設定'
 
 export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patchCase }: Props) {
-  const [partner, setPartner] = useState<PartnerRow | null>(null)
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [expenseForm, setExpenseForm] = useState({
@@ -30,24 +29,6 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
     notes: '',
   })
 
-  // Fetch partner data
-  useEffect(() => {
-    if (!caseData.partner_id) {
-      setPartner(null)
-      return
-    }
-    const fetchPartner = async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('partners')
-        .select('*')
-        .eq('id', caseData.partner_id!)
-        .single()
-      setPartner(data as PartnerRow | null)
-    }
-    fetchPartner()
-  }, [caseData.partner_id])
-
   // Save helpers
   const saveCaseField = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
@@ -56,8 +37,6 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
   // Computed values
   const subtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = subtotal - advanceTotal(caseData)
-  // パートナー報酬 = 行政報酬のみを対象（司法書士報酬は紹介料計算から除外）
-  const partnerCompensation = partner ? (caseData.fee_administrative ?? 0) * (partner.kickback_rate ?? 0) / 100 : null
   const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
 
   // Expense CRUD
@@ -168,31 +147,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
             </FieldGrid>
           </Section>
 
-          {/* パートナー報酬 */}
-          <div className="mt-4">
-            <Section title="パートナー報酬" icon="🤝">
-              <FieldGrid cols={1}>
-                <Field
-                  label="紹介元パートナー"
-                  value={partner ? partner.name : '未設定'}
-                />
-                <Field
-                  label="パートナー報酬割合"
-                  value={partner ? `${partner.kickback_rate}%` : '—'}
-                  mono
-                />
-                <Field
-                  label="パートナー報酬金額"
-                  value={partner && partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
-                  mono
-                />
-              </FieldGrid>
-              <div className="text-[12px] text-gray-400 mt-2">
-                ※ 紹介元パートナーは「基本情報 → 受注ルート・紹介 → 紹介パートナー」で選択します。
-                報酬金額は「請求金額（確定）× 還元率」で自動計算されます。
-              </div>
-            </Section>
-          </div>
+          {/* パートナー報酬 — 紹介元マスタの紹介料連動まで非表示 */}
         </div>
 
         {/* Right column - H. 立替実費明細 */}
@@ -336,12 +291,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
             <div className="text-[13px] opacity-80 mb-0.5">請求金額（確定）</div>
             <div className="text-lg font-bold tracking-tight">{yen(confirmedAmount)}</div>
           </div>
-          <div>
-            <div className="text-[13px] opacity-80 mb-0.5">パートナー報酬額</div>
-            <div className="text-lg font-bold tracking-tight">
-              {partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
-            </div>
-          </div>
+          {/* パートナー報酬額 — 紹介元マスタ連動まで非表示 */}
         </div>
       </div>
     </div>
