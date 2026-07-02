@@ -16,6 +16,7 @@ import BillingExpensesSection from './BillingExpensesSection'
 import KakuteiInvoiceModal from './KakuteiInvoiceModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
 import { FileText } from 'lucide-react'
+import { isMinimalMode } from '@/lib/featureMode'
 
 type Props = {
   caseData: CaseRow
@@ -33,6 +34,8 @@ const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
 export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
+  // ミニマム運用モードでは請求サマリー・付帯収益・パートナー報酬・案件トータル収益見込を非表示
+  const minimal = isMinimalMode()
   const [kakuteiOpen, setKakuteiOpen] = useState(false)
   const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
@@ -156,6 +159,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
       </Section>
 
 
+          {!minimal && (<>
           {/* 請求サマリー（報酬・前受金は上の内訳から自動。契約日は受注内容へ・特記事項は廃止） */}
           <Section title="請求サマリー" icon="💳">
             <FieldGrid cols={1}>
@@ -268,9 +272,10 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               </div>
             </div>
           </div>
+          </>)}
 
-      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時は非表示。フラット＝ブランド淡色＋枠線 ─── */}
-      {!orderSheetMode && (
+      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時・ミニマム時は非表示。フラット＝ブランド淡色＋枠線 ─── */}
+      {!orderSheetMode && !minimal && (
       <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
         <div className="text-[12px] font-semibold text-brand-700 mb-2.5">請求サマリー</div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -138,10 +138,10 @@ export default function RewardBreakdownSection({ caseId, onTotals, advance, onAd
             <div className="px-2 py-1.5 flex items-center gap-2 flex-wrap">
               <button type="button" onClick={() => addRow(s.key)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 行を追加</button>
               {advance && onAdvanceChange && (
-                <span className="ml-auto inline-flex items-center gap-2 text-[12px]">
-                  <span className="text-gray-500">前受金（{s.key}）</span>
+                <span className="ml-auto inline-flex items-center gap-2 text-[12px] bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                  <span className="text-amber-700 font-bold">前受金（{s.key}）</span>
                   <MoneyInput value={advance[s.key as '司法' | '行政']} onCommit={v => onAdvanceChange(s.key as '司法' | '行政', v === '' ? null : Number(v))} />
-                  <span className="text-gray-400">差引後 {yen(sum - (advance[s.key as '司法' | '行政'] ?? 0))}</span>
+                  <span className="text-gray-500">差引後 <span className="font-mono font-semibold text-amber-800">{yen(sum - (advance[s.key as '司法' | '行政'] ?? 0))}</span></span>
                 </span>
               )}
             </div>
