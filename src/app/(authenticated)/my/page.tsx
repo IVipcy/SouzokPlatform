@@ -371,14 +371,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       : computeSalesMetrics(salesDashCases, salesChanges, selectedPeriod, salesProps)
 
   let consultCasesArr = myCases.filter(c => salesCaseIds.has(c.id) && CONSULT_STATUSES.has(c.status))
+  // 集計基準日：面談実施日 → 面談予定日 → 案件作成日（面談日未入力の案件も期間から漏れないようにフォールバック）
+  const consultBaseDate = (c: MyCase): string | null =>
+    c.meeting_executed_date || c.meeting_date || (c.created_at ? c.created_at.slice(0, 10) : null)
   if (selectedPeriod === 'today') {
-    consultCasesArr = consultCasesArr.filter(c =>
-      c.meeting_date === todayStr || c.meeting_executed_date === todayStr,
-    )
+    consultCasesArr = consultCasesArr.filter(c => consultBaseDate(c) === todayStr)
   } else if (selectedPeriod !== 'all') {
-    consultCasesArr = consultCasesArr.filter(c =>
-      c.meeting_date?.startsWith(selectedPeriod) || c.meeting_executed_date?.startsWith(selectedPeriod),
-    )
+    consultCasesArr = consultCasesArr.filter(c => consultBaseDate(c)?.startsWith(selectedPeriod))
   }
   // 受注遷移時刻（案件ごと最新）。新規受注の担当アサイン期限・NEWマーク判定に使う
   const wonAtByCase = new Map<string, string>()

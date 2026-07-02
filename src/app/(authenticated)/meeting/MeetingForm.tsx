@@ -197,6 +197,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   const [done, setDone] = useState(false)  // スマホ独立ルート：登録完了画面
   const [data, setData] = useState<FormData>(() => {
     const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
+    // 面談実施日は既定で本日（面談報告＝当日に登録する想定。必要なら変更可）
+    init.meetingDate = new Date().toLocaleDateString('sv-SE')
     if (selectedCase.id !== 'new') {
       // 連携①（相続ステーション）で事前登録された情報を初期値に引き継ぐ
       // 面談ルート・紹介元
@@ -580,6 +582,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             <Input value={data.clients[0]?.name ?? ''} onChange={v => updateClient(0, { name: v })} placeholder="例: 服部 雅弘" />
           </Card>
           <Card label="面談内容"><Input value={data.meetingType} onChange={v => update('meetingType', v)} placeholder="新規面談" /></Card>
+          <Card label="面談実施日" required>
+            <Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} />
+            <p className="mt-1 text-[11px] text-gray-400">面談を行った日。マイページの相談案件一覧（当月面談）はこの日付で集計されます。</p>
+          </Card>
           <Card label="面談結果" required><Select value={data.caseStatus} options={STATUS_OPTIONS} onChange={v => update('caseStatus', v)} noEmpty /></Card>
 
           {/* 検討中・検討中(契約書待ち)のときだけ、面談結果の直下に検討期間→理由→(LP経由なら)追いかけ を表示 */}
