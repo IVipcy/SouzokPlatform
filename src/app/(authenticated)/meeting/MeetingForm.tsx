@@ -882,7 +882,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           {data.caseStatus === '検討中' && (
             <Card label="追い電話の必要性">
               <Pills value={data.followUpCallNeeded} options={['不要', '要']} onChange={v => update('followUpCallNeeded', v as string)} />
-              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要かどうか。</p>
+              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要な場合は「要」を入れてください。</p>
             </Card>
           )}
           <Card label="面談内容詳細"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="面談内容の詳細やメモがあれば記入" /></Card>
