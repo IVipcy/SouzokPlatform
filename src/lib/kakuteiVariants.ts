@@ -24,7 +24,8 @@ export const KAKUTEI_FIELDS = {
   taxTotal: 'R28',            // 内消費税計
   billAmount: 'R29',          // 請求額
   amountTop: 'D14',           // 上部「金額」
-  sealCell: 'T11',
+  caseNoClear: ['C3', 'D3', 'E3', 'F3'],  // 案件番号は B3 に1セルで表示し、旧・分割セルは消す
+  sealCell: 'T10',            // 社印（法人名の行に重ねる）
 }
 
 /** 立替実費明細シート（2枚目）の流し込みセル */
@@ -33,7 +34,9 @@ export const TATEKAE_FIELDS = {
   clientName: 'A7',
   totalTop: 'A12',
   nameCol: 'A',
-  amountCol: 'G',
+  qtyCol: 'E',    // 数量
+  unitCol: 'F',   // 単価
+  amountCol: 'G', // 金額
   nonTaxRows: [19, 21, 23, 25, 27, 29, 31, 33, 35, 37],
   nonTaxSubtotal: 'G39',
   taxRows: [43, 45, 47, 49, 51, 53, 55, 57, 59, 61],
@@ -56,7 +59,7 @@ export function recommendKakuteiOffice(contractType: string | null | undefined):
   return contractType === '司法書士法人単独' ? 'shiho' : 'gyosei'
 }
 
-export type ExpenseItem = { name: string; amount: number; taxable: boolean }
+export type ExpenseItem = { name: string; amount: number; taxable: boolean; quantity?: number | null; unitPrice?: number | null }
 
 /** 税込金額から内消費税（10%）を算出。X円(税込)の内税 = round(X/11)。 */
 export function innerTax(amountTaxIncluded: number): number {

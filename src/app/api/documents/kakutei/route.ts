@@ -38,19 +38,6 @@ function alignLeft(ws: ExcelJS.Worksheet, addr: string | undefined) {
   ws.getCell(addr).alignment = { ...cur, horizontal: 'left', vertical: 'middle' }
 }
 
-function splitCaseNumber(caseNumber: string | null | undefined): [string, string, string, string] {
-  const s = (caseNumber ?? '').trim()
-  if (!s) return ['', '', '', '']
-  // 区切りありの旧形式（例: 2606-HP-0008）はそのまま分割
-  if (/[-－/／\s]/.test(s)) {
-    const parts = s.split(/[-－/／\s]+/).filter(Boolean)
-    return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? '', parts[3] ?? '']
-  }
-  // 新形式: YYMM + 経路コード(英字) + 当日連番(数字)。例 2606HP0008 → 26 / 06 / HP / 0008
-  const m = s.match(/^(\d{2})(\d{2})([A-Za-z]{1,3})(\d+)$/)
-  if (m) return [m[1], m[2], m[3].toUpperCase(), m[4]]
-  return [s, '', '', '']
-}
 
 function cellToColRow(addr: string): { col: number; row: number } {
   const m = /^([A-Z]+)(\d+)$/.exec(addr)
@@ -109,10 +96,10 @@ export async function POST(request: NextRequest) {
 
     // --- 確定請求書 ---
     const K = KAKUTEI_FIELDS
-    const seg = splitCaseNumber(caseData.case_number)
-    setCell(kak, K.caseNo[0], seg[0]); setCell(kak, K.caseNo[1], seg[1])
-    setCell(kak, K.caseNo[2], seg[2]); setCell(kak, K.caseNo[3], seg[3])
-    K.caseNo.forEach(a => alignLeft(kak, a))  // 案件番号は左揃え（見切れ対策）
+    // 案件番号は分割せず B3 に1セルでまとめて表示（分割の余分な空白を無くす）。旧・分割セルはクリア。
+    setCell(kak, K.caseNo[0], caseData.case_number ?? '')
+    alignLeft(kak, K.caseNo[0])
+    for (const cell of K.caseNoClear) kak.getCell(cell).value = null
     setCell(kak, K.clientName, clientName)
     for (const cell of K.kenmei) setCell(kak, cell, kenmei || '')
     if (fee > 0) { setCell(kak, K.fee, fee); setCell(kak, K.feeTax, c.feeTax) }
@@ -139,17 +126,15 @@ export async function POST(request: NextRequest) {
     alignLeft(tate, T.caseNoConcat)  // 立替明細シートの案件番号も左揃え
     setCell(tate, T.clientName, clientName)
     setCell(tate, T.totalTop, c.expenseGrand)
-    c.nonTaxItems.slice(0, T.nonTaxRows.length).forEach((e, i) => {
-      const r = T.nonTaxRows[i]
+    const writeExpenseRow = (r: number, e: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }) => {
       setCell(tate, `${T.nameCol}${r}`, e.name)
+      setCell(tate, `${T.qtyCol}${r}`, e.quantity ?? null)
+      setCell(tate, `${T.unitCol}${r}`, e.unitPrice ?? null)
       setCell(tate, `${T.amountCol}${r}`, e.amount)
-    })
+    }
+    c.nonTaxItems.slice(0, T.nonTaxRows.length).forEach((e, i) => writeExpenseRow(T.nonTaxRows[i], e))
     setCell(tate, T.nonTaxSubtotal, c.nonTaxSubtotal)
-    c.taxItems.slice(0, T.taxRows.length).forEach((e, i) => {
-      const r = T.taxRows[i]
-      setCell(tate, `${T.nameCol}${r}`, e.name)
-      setCell(tate, `${T.amountCol}${r}`, e.amount)
-    })
+    c.taxItems.slice(0, T.taxRows.length).forEach((e, i) => writeExpenseRow(T.taxRows[i], e))
     setCell(tate, T.taxSubtotal, c.taxSubtotal)
     setCell(tate, T.grandTotal, c.expenseGrand)
 

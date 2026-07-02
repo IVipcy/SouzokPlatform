@@ -17,7 +17,7 @@ type Props = {
   onSaved?: () => void
 }
 
-type Row = { id: string; name: string; amount: number | ''; taxable: boolean }
+type Row = { id: string; name: string; amount: number | ''; taxable: boolean; quantity: number | null; unitPrice: number | null }
 
 const NEW_ID = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 const yen = (n: number) => `${n.toLocaleString('en-US')}円`
@@ -48,16 +48,16 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
     ;(async () => {
       const { data } = await createClient()
         .from('billing_expense_items')
-        .select('label, amount, taxable, sort_order')
+        .select('label, amount, taxable, quantity, unit_price, sort_order')
         .eq('case_id', caseData.id)
         .eq('shigyo', shigyo)
         .order('sort_order', { ascending: true })
-      const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null }>
-      setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true })))
+      const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null; quantity: number | null; unit_price: number | null }>
+      setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true, quantity: e.quantity, unitPrice: e.unit_price })))
     })()
   }, [isOpen, office, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
 
-  const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable }))
+  const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable, quantity: r.quantity, unitPrice: r.unitPrice }))
   const calc = computeKakutei(Number(fee) || 0, Number(advance) || 0, expenses)
 
   const handleGenerate = async () => {
