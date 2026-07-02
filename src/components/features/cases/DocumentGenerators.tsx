@@ -51,9 +51,12 @@ const DOCUMENTS: DocumentItem[] = [
 
 // ミニマム運用モードで利用可にする書類（請求書系＋領収書のみ）
 const MINIMAL_DOC_KEYS = new Set(['invoice_advance', 'invoice_final', 'receipt_final', 'receipt'])
+// 請求書・領収書は受注確定（受注／戻り受注）以降のみ発行可
+const BILLING_DOC_KEYS = new Set(['invoice_advance', 'invoice_final', 'receipt_final', 'receipt'])
 
 export default function DocumentGenerators({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], defaultTaskId, onGenerated }: Props) {
   const minimal = isMinimalMode()
+  const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
   const [, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
@@ -104,7 +107,9 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
         {DOCUMENTS.map(doc => {
           // ミニマム運用モードでは請求書・領収書のみ利用可。他はグレーアウト（1ヶ月後に解放）。
           const minimalBlocked = minimal && !MINIMAL_DOC_KEYS.has(doc.key)
-          const ready = doc.status === 'ready' && !minimalBlocked
+          // 請求書・領収書は受注確定以降のみ
+          const billingBlocked = BILLING_DOC_KEYS.has(doc.key) && !canBill
+          const ready = doc.status === 'ready' && !minimalBlocked && !billingBlocked
           return (
             <button
               key={doc.key}
@@ -122,6 +127,8 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
                 </span>
                 {ready ? (
                   <span className="text-[12px] text-green-600 font-semibold">✓ 利用可能</span>
+                ) : billingBlocked ? (
+                  <span className="text-[12px] text-amber-600 font-medium">受注後に発行</span>
                 ) : minimalBlocked ? (
                   <span className="text-[12px] text-brand-500 font-medium">1ヶ月後</span>
                 ) : (

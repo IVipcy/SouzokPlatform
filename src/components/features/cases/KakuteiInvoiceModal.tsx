@@ -31,9 +31,23 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
   const [rows, setRows] = useState<Row[]>([])
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
+  // 生成済みファイル（自動DLがブラウザにブロックされても、手動ボタンから確実に保存できるよう保持）
+  const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
+
+  const triggerDownload = (url: string, filename: string) => {
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click()
+    setTimeout(() => { document.body.removeChild(a) }, 1000)
+  }
+  const handleClose = () => {
+    if (downloadInfo) URL.revokeObjectURL(downloadInfo.url)
+    setDownloadInfo(null)
+    onClose()
+  }
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) { setDownloadInfo(null); return }
     setOffice(recommendedOffice)
     setTaskId(defaultTaskId ?? '')
   }, [isOpen, recommendedOffice, defaultTaskId])
@@ -86,13 +100,11 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
       const blob = await res.blob()
       const filename = `確定請求書_立替実費_${office === 'gyosei' ? '行政' : '司法'}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = filename
-      document.body.appendChild(a); a.click()
-      // 2シートで大きめのため、即 revoke するとブラウザがDLをキャンセルすることがある。後始末を遅延する。
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 3000)
-      showToast('確定請求書＋立替実費明細を生成しました', 'success')
+      setDownloadInfo({ url, filename })
+      triggerDownload(url, filename)  // 自動DL（ブロックされても下のボタンから手動保存可）
+      showToast('生成しました。ダウンロードされない場合は「ダウンロード」ボタンで保存してください', 'success')
       onSaved?.()
-      onClose()
+      // モーダルは閉じない：手動ダウンロードボタンを残す
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
     } finally {
@@ -103,17 +115,32 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="請求書（確定）＋立替実費明細 を作成"
       maxWidth="max-w-3xl"
       footer={
-        <>
-          <button onClick={onClose} disabled={generating} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50">キャンセル</button>
-          <button onClick={handleGenerate} disabled={generating} className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50">{generating ? '生成中…' : 'Excelで出力（2シート）'}</button>
-        </>
+        downloadInfo ? (
+          <>
+            <button onClick={handleClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">閉じる</button>
+            <button onClick={() => triggerDownload(downloadInfo.url, downloadInfo.filename)} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">⬇ ダウンロード</button>
+          </>
+        ) : (
+          <>
+            <button onClick={handleClose} disabled={generating} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50">キャンセル</button>
+            <button onClick={handleGenerate} disabled={generating} className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50">{generating ? '生成中…' : 'Excelで出力（2シート）'}</button>
+          </>
+        )
       }
     >
       <div className="space-y-4">
+        {downloadInfo && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+            <div className="flex-1 text-[13px] text-green-800">
+              確定請求書＋立替実費明細を生成しました。自動で保存されない場合は右のボタンから保存してください。
+            </div>
+            <button type="button" onClick={() => triggerDownload(downloadInfo.url, downloadInfo.filename)} className="flex-none px-3 py-1.5 text-[13px] font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md">⬇ ダウンロード</button>
+          </div>
+        )}
         {/* 発行主体 */}
         <section>
           <label className="block text-xs font-semibold text-gray-700 mb-1">発行主体<span className="ml-2 text-[12px] font-normal text-gray-400">契約形態「{caseData.contract_type ?? '未設定'}」から推奨</span></label>
