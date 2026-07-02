@@ -36,6 +36,8 @@ const yen = (v: number | null | undefined) =>
 export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
   // ミニマム運用モードでは請求サマリー・付帯収益・パートナー報酬・案件トータル収益見込を非表示
   const minimal = isMinimalMode()
+  // 請求書の発行は受注確定（受注／戻り受注）以降のみ。依頼確定待ち以前は不可。
+  const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
   const [kakuteiOpen, setKakuteiOpen] = useState(false)
   const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
@@ -132,8 +134,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         <TabHeader title="請求" description="請求料金内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理"
           right={
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setAdvanceInvoiceOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
-              <button type="button" onClick={() => setKakuteiOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
+              {!canBill && <span className="text-[11px] text-gray-400">受注（戻り受注含む）以降で発行できます</span>}
+              <button type="button" disabled={!canBill} onClick={() => canBill && setAdvanceInvoiceOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
+              <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
             </div>
           }
         />
