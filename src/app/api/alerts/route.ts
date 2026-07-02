@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
+import { isMinimalMode } from '@/lib/featureMode'
 
 const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
 const PENDING_ANSWER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
 const ASSIGN_DEADLINE_DAYS = 3
+// ミニマム運用時にアラートから除外する初期対応タスク（検討状況確認 sys_review_status は残す）
+const MINIMAL_HIDDEN_TASK_KEYS = new Set([
+  'sys_order_sheet', 'sys_contract_send', 'sys_contract_docs_upload',
+  'sys_case_handover', 'sys_advance_invoice', 'sys_advance_payment_confirm',
+])
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -45,7 +51,7 @@ export async function GET() {
     supabase.from('case_members').select('case_id, role').in('case_id', myCaseIds),
     // 自分が担当の未完了タスク
     supabase.from('tasks')
-      .select('id,title,due_date,status,case_id, task_assignees!inner(member_id)')
+      .select('id,title,due_date,status,case_id,template_key, task_assignees!inner(member_id)')
       .eq('task_assignees.member_id', memberId).neq('status', '完了'),
     supabase.from('invoices').select('case_id,invoice_type,status,due_date').in('case_id', myCaseIds),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date').in('case_id', myCaseIds),
@@ -62,7 +68,7 @@ export async function GET() {
   }
   const cases = (casesRaw ?? []) as CaseRow[]
   const allCm = (allCmRaw ?? []) as Array<{ case_id: string; role: string }>
-  const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string }>
+  const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string; template_key: string | null }>
   const invoices = (invRaw ?? []) as Array<{ case_id: string; invoice_type: string; status: string; due_date: string | null }>
   const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null }>
 
@@ -118,7 +124,11 @@ export async function GET() {
   }
 
   // タスク期限超過（自分担当の未完了タスク）
+  // ミニマム運用時は、受注時の初期対応タスク（オーダーシート・契約書送付 等）はアラートから除外。
+  // 「検討状況の確認」(sys_review_status) は残す。
+  const minimal = isMinimalMode()
   for (const t of tasks) {
+    if (minimal && t.template_key && MINIMAL_HIDDEN_TASK_KEYS.has(t.template_key)) continue
     if (t.due_date && t.due_date < todayStr && t.status !== 'キャンセル') {
       push({ id: `task-${t.id}`, severity: 'high', category: 'タスク期限超過', title: t.title, body: `期限 ${t.due_date} を超過`, href: `/tasks/${t.id}` })
     }
