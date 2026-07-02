@@ -31,12 +31,10 @@ import ClientDocsReflectModal from '@/components/features/cases/ClientDocsReflec
 
 type Props = {
   selectedCase: NonNullable<SelectedCase>
-  // 案件作成者（受注担当として自動セット）
   currentMemberId: string | null
-  // スマホ独立ルート（/register）用：登録後に案件詳細へ遷移せず「完了画面」を出す
   standalone?: boolean
-  // 完了画面「案件選択に戻る」用
   onBack?: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 // 案件作成は面談完了後のため「面談設定済」は選択肢から除外
@@ -193,7 +191,7 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack }: Props) {
+export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -238,7 +236,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
 
   const update = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setData(prev => ({ ...prev, [key]: value }))
-  }, [])
+    onDirtyChange?.(true)
+  }, [onDirtyChange])
 
   // 検討期間区分を選ぶ → 回答予定日を「今日＋期間」を上限にそろえる（見込み不明は上限なし）
   const selectPeriod = (p: string) => {
