@@ -88,8 +88,8 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
       a.download = filename
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // 即 revoke するとブラウザがDLをキャンセルすることがあるため、後始末を遅延する。
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 3000)
 
       showToast(`${docType}を生成しました`, 'success')
       onSaved?.()

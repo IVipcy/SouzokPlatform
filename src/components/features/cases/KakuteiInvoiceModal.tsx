@@ -87,7 +87,9 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
       const filename = `確定請求書_立替実費_${office === 'gyosei' ? '行政' : '司法'}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = filename
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+      document.body.appendChild(a); a.click()
+      // 2シートで大きめのため、即 revoke するとブラウザがDLをキャンセルすることがある。後始末を遅延する。
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 3000)
       showToast('確定請求書＋立替実費明細を生成しました', 'success')
       onSaved?.()
       onClose()
