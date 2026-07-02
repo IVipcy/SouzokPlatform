@@ -6,41 +6,38 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 
 type Props = {
-  route: string                 // 面談ルート（経路で候補を絞る）
-  value: string | null          // 選択中の紹介元名
+  route: string
+  value: string | null
   onChange: (name: string) => void
-  label?: string                // 指定時は InlineFields 風のラベルを表示
+  label?: string
   placeholder?: string
+  staticOptions?: string[]
+  defaultOptions?: string[]
 }
 
-/**
- * 紹介元の検索ルックアップ。referral_sources を経路で絞って候補表示し、
- * 無ければ「＋『◯◯』を追加」でマスタに登録してそのまま選択できる。
- */
-export default function ReferralSourceLookup({ route, value, onChange, label, placeholder }: Props) {
+export default function ReferralSourceLookup({ route, value, onChange, label, placeholder, staticOptions, defaultOptions }: Props) {
   const supabase = createClient()
-  const [options, setOptions] = useState<string[]>([])
+  const [dbOptions, setDbOptions] = useState<string[]>([])
   const [query, setQuery] = useState(value ?? '')
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  // 経路が変わったら候補を読み込む
+  const options = staticOptions ?? dbOptions
+
   useEffect(() => {
-    if (!route) { setOptions([]); return }
+    if (staticOptions || !route) { setDbOptions([]); return }
     let alive = true
     ;(async () => {
       const { data } = await supabase.from('referral_sources').select('name').eq('route', route).order('name')
-      if (alive) setOptions(((data ?? []) as { name: string }[]).map(d => d.name))
+      if (alive) setDbOptions(((data ?? []) as { name: string }[]).map(d => d.name))
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route])
+  }, [route, !!staticOptions])
 
-  // value が外から変わったら入力に反映
   useEffect(() => { setQuery(value ?? '') }, [value])
 
-  // 外側クリックで閉じる
   useEffect(() => {
     const onDoc = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
@@ -48,7 +45,9 @@ export default function ReferralSourceLookup({ route, value, onChange, label, pl
   }, [])
 
   const q = query.trim()
-  const filtered = q ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options
+  const filtered = q
+    ? options.filter(o => o.toLowerCase().includes(q.toLowerCase()))
+    : (defaultOptions ?? options)
   const exact = options.some(o => o === q)
 
   const select = (name: string) => { onChange(name); setQuery(name); setOpen(false) }
@@ -59,7 +58,9 @@ export default function ReferralSourceLookup({ route, value, onChange, label, pl
     const { error } = await supabase.from('referral_sources').insert({ route, name: q })
     setBusy(false)
     if (error && !error.message.includes('duplicate')) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
-    setOptions(prev => (prev.includes(q) ? prev : [...prev, q].sort()))
+    if (!staticOptions) {
+      setDbOptions(prev => (prev.includes(q) ? prev : [...prev, q].sort()))
+    }
     select(q)
   }
 

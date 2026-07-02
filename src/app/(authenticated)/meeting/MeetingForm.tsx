@@ -16,6 +16,7 @@ import {
   LP_FOLLOWUP_METHODS, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
+  FUNERAL_COMPANIES, FUNERAL_DEFAULT_DISPLAY, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
@@ -93,7 +94,7 @@ function Card({ label, required, children }: { label: string; required?: boolean
   )
 }
 
-function Pills({ value, options, onChange, multi }: { value: string | string[]; options: string[]; onChange: (v: string | string[]) => void; multi?: boolean }) {
+function Pills({ value, options, onChange, multi, disabled }: { value: string | string[]; options: string[]; onChange: (v: string | string[]) => void; multi?: boolean; disabled?: boolean }) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map(o => {
@@ -102,7 +103,9 @@ function Pills({ value, options, onChange, multi }: { value: string | string[]; 
           <button
             key={o}
             type="button"
+            disabled={disabled}
             onClick={() => {
+              if (disabled) return
               if (multi) {
                 const arr = value as string[]
                 onChange(arr.includes(o) ? arr.filter(x => x !== o) : [...arr, o])
@@ -111,9 +114,11 @@ function Pills({ value, options, onChange, multi }: { value: string | string[]; 
               }
             }}
             className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${
-              selected
-                ? (multi ? 'bg-brand-700 border-brand-700 text-white' : 'bg-brand-600 border-brand-600 text-white')
-                : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+              disabled
+                ? (selected ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed' : 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed')
+                : selected
+                  ? (multi ? 'bg-brand-700 border-brand-700 text-white' : 'bg-brand-600 border-brand-600 text-white')
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
             }`}
           >
             {o}
@@ -529,7 +534,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         <div className="max-w-[800px]">
           <p className="text-[12px] text-gray-400 mb-3">面談報告の項目（案件番号は自動採番。詳細はオーダーシートで入力）</p>
           <Card label="面談ルート（紹介元）">
-            <Pills value={data.orderRoute} options={[...ORDER_ROUTES]} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} />
+            {(() => {
+              const isLpLinked = selectedCase.id !== 'new'
+              const routeOptions = isLpLinked ? [...ORDER_ROUTES] : ORDER_ROUTES.filter(r => r !== 'LP経由')
+              return <Pills value={data.orderRoute} options={routeOptions} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} disabled={isLpLinked} />
+            })()}
             {data.orderRoute && (
               <div className="mt-3">
                 {data.orderRoute === PAST_CLIENT_ROUTE ? (
@@ -539,12 +548,19 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                     displayName={data.orderRouteDetail}
                     onSelect={(id, name) => { update('pastClientId', id); update('orderRouteDetail', name) }}
                   />
+                ) : data.orderRoute === 'HP経由' ? (
+                  <div className="py-1.5">
+                    <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（紹介元）</div>
+                    <Select value={data.orderRouteDetail} options={[...HP_SOURCES]} onChange={name => update('orderRouteDetail', name)} placeholder="HP経由の紹介元を選択" />
+                  </div>
                 ) : (
                   <ReferralSourceLookup
                     label="詳細（紹介元）"
                     route={data.orderRoute}
                     value={data.orderRouteDetail}
                     onChange={name => update('orderRouteDetail', name)}
+                    staticOptions={data.orderRoute === '葬儀社経由' ? [...FUNERAL_COMPANIES] : data.orderRoute === '税理士経由' ? [...TAX_ADVISOR_COMPANIES] : undefined}
+                    defaultOptions={data.orderRoute === '葬儀社経由' ? [...FUNERAL_DEFAULT_DISPLAY] : undefined}
                   />
                 )}
               </div>
