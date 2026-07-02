@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Phone, MapPin, Utensils, Heart, Sparkles, MessageCircleHeart, Camera, Loader2 } from 'lucide-react'
+import { Mail, Phone, MapPin, Utensils, Heart, Sparkles, MessageCircleHeart, Camera, Loader2, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -161,6 +161,51 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
           <span className="text-3xl font-bold text-amber-600 font-mono">--</span>
           <span className="text-sm text-gray-500">件（今月）</span>
         </div>
+      </div>
+
+      {/* パスワード変更（本人のみ） */}
+      {isOwner && <PasswordChangeCard />}
+    </div>
+  )
+}
+
+// ───────── パスワード変更（ログイン中の本人が自分のパスワードを変更） ─────────
+function PasswordChangeCard() {
+  const supabase = createClient()
+  const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [saving, setSaving] = useState(false)
+  const inputCls = 'w-full py-2 px-3 border-[1.5px] border-gray-200 rounded-lg text-[13px] text-gray-900 outline-none focus:border-brand-500 transition'
+
+  const submit = async () => {
+    if (pw.length < 8) { showToast('パスワードは8文字以上にしてください', 'error'); return }
+    if (pw !== pw2) { showToast('確認用パスワードが一致しません', 'error'); return }
+    setSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: pw })
+    setSaving(false)
+    if (error) { showToast(`変更に失敗しました: ${error.message}`, 'error'); return }
+    setPw(''); setPw2('')
+    showToast('パスワードを変更しました', 'success')
+  }
+
+  return (
+    <div className="mt-5 bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-brand-600" />
+        <h3 className="text-[13px] font-semibold text-gray-900">パスワード変更</h3>
+      </div>
+      <div className="px-4 py-3 max-w-[420px] space-y-2.5">
+        <p className="text-[12px] text-gray-500">初期パスワードから、自分だけがわかるものに変更してください（8文字以上）。</p>
+        <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="新しいパスワード" autoComplete="new-password" className={inputCls} />
+        <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="新しいパスワード（確認）" autoComplete="new-password" className={inputCls} />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || !pw || !pw2}
+          className="px-4 py-2 rounded-lg bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 disabled:opacity-50 transition"
+        >
+          {saving ? '変更中...' : 'パスワードを変更'}
+        </button>
       </div>
     </div>
   )
