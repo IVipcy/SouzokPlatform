@@ -1,6 +1,6 @@
 // === 案件 ===
 // 「架電案件化（新規）」は廃止。案件は「面談設定済」から開始する。
-export type CaseStatus = '面談設定済' | '検討中' | '検討中（契約書待ち）' | '受注' | '対応中' | '保留・長期' | '完了' | '失注' | '紹介のみ'
+export type CaseStatus = '面談設定済' | '検討中' | '検討中（契約書待ち）' | '受注' | '戻り受注' | '対応中' | '保留・長期' | '完了' | '失注' | '紹介のみ'
 
 export type Case = {
   id: string
@@ -212,6 +212,8 @@ export type CaseRow = {
   referral_partner_number: string | null
   // 追い電話の必要性（検討中のとき入力）
   follow_up_call_needed: boolean | null
+  // 即受注フラグ（面談登録で受注にした＝その場受注のとき true。受注ステータスに「即受注」バッジ表示）
+  instant_order: boolean | null
   // 面談内容（面談で聞き取った内容のメモ・備考。事前情報とは別）
   meeting_hearing_memo: string | null
   meeting_other_notes: string | null

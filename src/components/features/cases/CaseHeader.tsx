@@ -124,6 +124,12 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
                 </div>
               )}
+              {/* 即受注バッジ: 面談登録で受注にした＝その場受注の案件 */}
+              {caseData.status === '受注' && caseData.instant_order && (
+                <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded border bg-green-50 text-green-700 border-green-200" title="面談でその場受注になった案件（即受注）">
+                  即受注
+                </span>
+              )}
             </div>
             {/* 案件名 + クレームフラグ */}
             <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">

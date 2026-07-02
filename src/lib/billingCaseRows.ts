@@ -113,7 +113,7 @@ export function buildBillingCaseRows(
   const rows: BillingCaseRow[] = []
   for (const c of cases) {
     let bucket: BillingBucket | null = null
-    if (c.status === '受注') bucket = '受託'
+    if (c.status === '受注' || c.status === '戻り受注') bucket = '受託'
     else if (c.status === '対応中' && c.expected_completion_date?.startsWith(ym)) bucket = '対応中'
     else if (c.status === '完了' && c.completion_date?.startsWith(ym)) bucket = '完了'
     if (!bucket) continue

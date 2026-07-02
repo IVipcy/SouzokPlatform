@@ -24,7 +24,7 @@ export type AlertItem = {
 
 // 案件詳細ヘッダー用：1案件の有効アラート（種別＋重大度）を算出する。
 // 案件本来の状態に基づくので、閲覧者のロールに関わらず同じものを表示する。
-const ACTIVE_STATUSES_A = new Set(['受注', '対応中', '保留・長期'])
+const ACTIVE_STATUSES_A = new Set(['受注', '戻り受注', '対応中', '保留・長期'])
 const PENDING_ANSWER_A = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
 
 export type CaseAlertChip = { severity: AlertSeverity; category: string }
@@ -59,7 +59,7 @@ export function computeCaseAlerts(
 
   if (c.has_complaint && active) out.push({ severity: 'claim', category: 'クレーム' })
   if (ctx.overdueTaskCount > 0) out.push({ severity: 'high', category: `タスク期限超過${ctx.overdueTaskCount > 1 ? `(${ctx.overdueTaskCount})` : ''}` })
-  if (c.status === '受注' && !ctx.managerExists && c.order_received_date && c.order_received_date <= assignCutStr) out.push({ severity: 'high', category: 'アサイン未完了' })
+  if ((c.status === '受注' || c.status === '戻り受注') && !ctx.managerExists && c.order_received_date && c.order_received_date <= assignCutStr) out.push({ severity: 'high', category: 'アサイン未完了' })
   if (active && (ctx.advanceInvoiceStatus === '作成済' || ctx.advanceInvoiceStatus === '入金待ち')) out.push({ severity: 'high', category: '前受金 未入金' })
   if (c.expected_completion_date && c.expected_completion_date < ymd && c.status !== '完了' && c.status !== '失注') out.push({ severity: 'high', category: '完了予定日 超過' })
   if (active && !ctx.recentWeeklyConfirmed) out.push({ severity: 'mid', category: '週次報告の漏れ' })

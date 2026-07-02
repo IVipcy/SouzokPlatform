@@ -37,8 +37,8 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void
 }
 
-// 案件作成は面談完了後のため「面談設定済」は選択肢から除外
-const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
+// 案件作成は面談完了後のため「面談設定済」は除外。「戻り受注」は検討中→受注の後日遷移用なので面談登録では選べない。
+const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済' && k !== '戻り受注').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
 // 「検討中・失注理由」を表示する面談結果（失注のステータスキーは '失注'）
@@ -384,6 +384,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
         contract_type: formData.contractType || null,
         follow_up_call_needed: formData.followUpCallNeeded === '要' ? true : formData.followUpCallNeeded === '不要' ? false : null,
+        // 即受注: 面談登録で受注を選んだ＝その場受注。受注以外は false。
+        instant_order: formData.caseStatus === '受注',
       }
 
       if (isNew) {

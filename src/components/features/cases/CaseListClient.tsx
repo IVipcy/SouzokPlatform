@@ -146,7 +146,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
     total: viewFiltered.length,
     active: viewFiltered.filter(c => c.status === '対応中').length,
     reviewing: viewFiltered.filter(c => c.status === '検討中').length,
-    ordered: viewFiltered.filter(c => c.status === '受注').length,
+    ordered: viewFiltered.filter(c => c.status === '受注' || c.status === '戻り受注').length,
     completed: viewFiltered.filter(c => c.status === '完了').length,
   }), [viewFiltered])
 

@@ -95,7 +95,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(() => {
     const st = caseDataProp.status
     const created = searchParams.get('created') === '1'
-    return created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注') ? st : null
+    return created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注' || st === '戻り受注') ? st : null
   })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
@@ -150,16 +150,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
-    // 受託（受注）に変わったら：受注日を自動セット＋初期対応タスクの確認ポップアップ
+    // 受注／戻り受注に変わったら：受注日を自動セット＋初期対応タスクの確認ポップアップ
     // （閉じた後は常設の受託フロー・ナビゲーターがオーダーシート作成以降を順に案内する）
-    if (patch.status === '受注' && prev.status !== '受注') {
+    if ((patch.status === '受注' || patch.status === '戻り受注') && prev.status !== patch.status) {
       if (!prev.order_received_date) {
         const today = new Date().toLocaleDateString('sv-SE')  // YYYY-MM-DD（ローカル）
         await supabase.from('cases').update({ order_received_date: today }).eq('id', caseState.id)
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setNavDismissed(false)
-      setTaskReviewStatus('受注')
+      setTaskReviewStatus(patch.status)
     }
     // 検討中 / 検討中（契約書待ち）に変わったら：検討状況リマインド等の初期タスク確認ポップアップ
     if ((patch.status === '検討中' || patch.status === '検討中（契約書待ち）') && prev.status !== patch.status) {
@@ -232,7 +232,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約残手続き＋タスク）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone, allTasksDone })
-  const jutakuNavVisible = caseState.status === '受注' && !navDismissed
+  const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed
   const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed
   // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
   // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
