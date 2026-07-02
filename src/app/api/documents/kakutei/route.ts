@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
-import { getKakuteiVariant, KAKUTEI_FIELDS, TATEKAE_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
+import { getKakuteiVariant, KAKUTEI_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
 import { isMinimalMode } from '@/lib/featureMode'
 
@@ -112,31 +112,61 @@ export async function POST(request: NextRequest) {
     setCell(kak, K.billAmount, c.billAmount)
     setCell(kak, K.amountTop, c.billAmount)
 
-    // 社印（切り分け中：2シート＋画像でファイルが破損する疑いのため一時停止。後で確実な方法で戻す）
-    // try {
-    //   const imgBuf = await readFile(path.join(process.cwd(), 'public', 'templates', 'stamps', STAMP_FILES[def.office]))
-    //   const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
-    //   const { col, row } = cellToColRow(K.sealCell)
-    //   kak.addImage(imageId, { tl: { col, row } as ExcelJS.Anchor, ext: { width: 56, height: 56 }, editAs: 'oneCell' })
-    // } catch { /* 画像が無ければスキップ */ }
+    // 社印
+    try {
+      const imgBuf = await readFile(path.join(process.cwd(), 'public', 'templates', 'stamps', STAMP_FILES[def.office]))
+      const imageId = wb.addImage({ buffer: new Uint8Array(imgBuf).buffer as ArrayBuffer, extension: 'png' })
+      const { col, row } = cellToColRow(K.sealCell)
+      kak.addImage(imageId, { tl: { col, row } as ExcelJS.Anchor, ext: { width: 56, height: 56 }, editAs: 'oneCell' })
+    } catch { /* 画像が無ければスキップ */ }
 
     // --- 立替実費明細 ---
-    const T = TATEKAE_FIELDS
-    setCell(tate, T.caseNoConcat, caseData.case_number ?? '')
-    alignLeft(tate, T.caseNoConcat)  // 立替明細シートの案件番号も左揃え
-    setCell(tate, T.clientName, clientName)
-    setCell(tate, T.totalTop, c.expenseGrand)
-    const writeExpenseRow = (r: number, e: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }) => {
-      setCell(tate, `${T.nameCol}${r}`, e.name)
-      setCell(tate, `${T.qtyCol}${r}`, e.quantity ?? null)
-      setCell(tate, `${T.unitCol}${r}`, e.unitPrice ?? null)
-      setCell(tate, `${T.amountCol}${r}`, e.amount)
+    // テンプレのsheet2は結合セル131個等の複雑構造をExcelJSが再保存時に壊し、Excelで開けなくなる。
+    // そのため、テンプレのsheet2を削除し、ExcelJS自身でクリーンな明細シートを新規作成する（＝壊れない）。
+    wb.removeWorksheet(tate.id)
+    const ws = wb.addWorksheet('立替実費明細')
+    ws.getColumn(1).width = 42; ws.getColumn(2).width = 8; ws.getColumn(3).width = 12; ws.getColumn(4).width = 14; ws.getColumn(5).width = 18
+    const thin = { style: 'thin' as const }
+    const bd: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin }
+    let rr = 1
+    const title = ws.getCell(rr, 1); title.value = '立 替 実 費 明 細'; title.font = { bold: true, size: 16 }
+    ws.mergeCells(rr, 1, rr, 5); title.alignment = { horizontal: 'center' }
+    rr += 2
+    ws.getCell(rr, 1).value = `案件管理番号：${caseData.case_number ?? ''}`; rr++
+    ws.getCell(rr, 1).value = `依頼者：${clientName} 様`; rr += 2
+    const putHeader = (label: string) => {
+      const h = ws.getCell(rr, 1); h.value = label; h.font = { bold: true }
+      h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } }
+      ws.mergeCells(rr, 1, rr, 5); rr++
+      ;['名目', '数量', '単価', '金額', '備考'].forEach((t, i) => {
+        const cell = ws.getCell(rr, i + 1); cell.value = t; cell.font = { bold: true }; cell.border = bd
+        cell.alignment = { horizontal: i === 0 ? 'left' : 'center' }
+      }); rr++
     }
-    c.nonTaxItems.slice(0, T.nonTaxRows.length).forEach((e, i) => writeExpenseRow(T.nonTaxRows[i], e))
-    setCell(tate, T.nonTaxSubtotal, c.nonTaxSubtotal)
-    c.taxItems.slice(0, T.taxRows.length).forEach((e, i) => writeExpenseRow(T.taxRows[i], e))
-    setCell(tate, T.taxSubtotal, c.taxSubtotal)
-    setCell(tate, T.grandTotal, c.expenseGrand)
+    const putItem = (e: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }) => {
+      ws.getCell(rr, 1).value = e.name
+      ws.getCell(rr, 2).value = e.quantity ?? null
+      ws.getCell(rr, 3).value = e.unitPrice ?? null
+      ws.getCell(rr, 4).value = e.amount
+      for (let ci = 1; ci <= 5; ci++) { const cell = ws.getCell(rr, ci); cell.border = bd; if (ci >= 2 && ci <= 4) cell.alignment = { horizontal: 'right' } }
+      ws.getCell(rr, 3).numFmt = '#,##0'; ws.getCell(rr, 4).numFmt = '#,##0'
+      rr++
+    }
+    const putSubtotal = (label: string, amount: number) => {
+      const l = ws.getCell(rr, 1); l.value = label; l.font = { bold: true }
+      const a = ws.getCell(rr, 4); a.value = amount; a.font = { bold: true }; a.numFmt = '#,##0'; a.alignment = { horizontal: 'right' }
+      for (let ci = 1; ci <= 5; ci++) ws.getCell(rr, ci).border = bd
+      rr++
+    }
+    putHeader('非課税')
+    c.nonTaxItems.forEach(putItem)
+    putSubtotal('非課税 小計', c.nonTaxSubtotal)
+    rr++
+    putHeader('課税（税込）')
+    c.taxItems.forEach(putItem)
+    putSubtotal('課税 小計（税込）', c.taxSubtotal)
+    rr++
+    putSubtotal('立替実費 合計', c.expenseGrand)
 
     // 出力
     const outBuffer = await wb.xlsx.writeBuffer()
