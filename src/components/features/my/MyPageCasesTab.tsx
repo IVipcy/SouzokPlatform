@@ -8,6 +8,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
+import { isMinimalMode } from '@/lib/featureMode'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -111,6 +112,8 @@ function computeFlagSimple(c: MyCaseRow): CaseFlag {
  *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
 export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false }: Props) {
+  // ミニマム運用モードでは進捗列（タスクへ飛ぶ）を非表示
+  const minimal = isMinimalMode()
   void _memberId
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -205,7 +208,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>
+            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>}
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
@@ -287,8 +290,8 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ） */}
-              <td className="px-3 py-2.5">
+              {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ）。ミニマム時は非表示 */}
+              {!minimal && <td className="px-3 py-2.5">
                 {total > 0 ? (
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -308,7 +311,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 ) : (
                   <span className="text-[12px] text-gray-300">—</span>
                 )}
-              </td>
+              </td>}
               {/* 週次報告状況 */}
               <td className="px-3 py-2.5 text-center">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${WEEKLY_BADGE[weekly]}`}>{weekly}</span>

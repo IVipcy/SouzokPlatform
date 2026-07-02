@@ -4,6 +4,7 @@ import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, Clipboa
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
+import { isMinimalMode } from '@/lib/featureMode'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
@@ -554,7 +555,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {showProgress && (
           <TabLink href={`/my?tab=progress${asSuffix}`} label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
-        <TabLink href={`/my?tab=tasks${asSuffix}`} label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        {/* ミニマム運用モードではタスクタブを非表示 */}
+        {!isMinimalMode() && (
+          <TabLink href={`/my?tab=tasks${asSuffix}`} label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
+        )}
       </div>
 
       {/* 当月面談（相談案件一覧） */}
