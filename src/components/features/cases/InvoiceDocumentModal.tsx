@@ -35,6 +35,13 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
   const [amount, setAmount] = useState<number | ''>('')
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
+
+  const handleClose = () => {
+    if (downloadInfo) URL.revokeObjectURL(downloadInfo.url)
+    setDownloadInfo(null)
+    onClose()
+  }
 
   // 発行法人ぶんの金額をオーダーシートからプリセット（前受金=その法人の前受金／確定=その法人の報酬−前受金）。
   const presetAmount = (firm: StampLaw): number => {
@@ -49,7 +56,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
   }
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) { setDownloadInfo(null); return }
     setOffice(recommendedOffice)
     setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き ${kubunLabel}`)
     setAmount(presetAmount(recommendedOffice) || '')
@@ -83,17 +90,10 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
       const officeLabel = office === 'gyosei' ? '行政' : '司法'
       const filename = `${docType}_${kubunLabel}_${officeLabel}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      // 即 revoke するとブラウザがDLをキャンセルすることがあるため、後始末を遅延する。
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 3000)
-
-      showToast(`${docType}を生成しました`, 'success')
+      setDownloadInfo({ url, filename })
+      showToast(`${docType}を生成しました。「ダウンロード」ボタンで保存してください`, 'success')
       onSaved?.()
-      onClose()
+      // モーダルは閉じない：ダウンロードリンクを残す
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
     } finally {
@@ -104,29 +104,42 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={`${docType}（${kubunLabel}）を作成`}
       maxWidth="max-w-xl"
       footer={
-        <>
-          <button
-            onClick={onClose}
-            disabled={generating}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {generating ? '生成中…' : 'Excelで出力'}
-          </button>
-        </>
+        downloadInfo ? (
+          <>
+            <button onClick={handleClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">閉じる</button>
+            <a href={downloadInfo.url} download={downloadInfo.filename} className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors no-underline">⬇ ダウンロード</a>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleClose}
+              disabled={generating}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {generating ? '生成中…' : 'Excelで出力'}
+            </button>
+          </>
+        )
       }
     >
       <div className="space-y-4">
+        {downloadInfo && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+            <div className="flex-1 text-[13px] text-green-800">{docType}を生成しました。下のボタンで保存してください。</div>
+            <a href={downloadInfo.url} download={downloadInfo.filename} className="flex-none inline-flex items-center px-3 py-1.5 text-[13px] font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md no-underline">⬇ ダウンロード</a>
+          </div>
+        )}
         {/* 発行主体 */}
         <section>
           <label className="block text-xs font-semibold text-gray-700 mb-1">

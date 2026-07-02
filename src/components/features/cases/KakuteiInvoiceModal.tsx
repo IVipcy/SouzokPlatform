@@ -34,12 +34,6 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
   // 生成済みファイル（自動DLがブラウザにブロックされても、手動ボタンから確実に保存できるよう保持）
   const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
 
-  const triggerDownload = (url: string, filename: string) => {
-    const a = document.createElement('a')
-    a.href = url; a.download = filename
-    document.body.appendChild(a); a.click()
-    setTimeout(() => { document.body.removeChild(a) }, 1000)
-  }
   const handleClose = () => {
     if (downloadInfo) URL.revokeObjectURL(downloadInfo.url)
     setDownloadInfo(null)
@@ -101,10 +95,9 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
       const filename = `確定請求書_立替実費_${office === 'gyosei' ? '行政' : '司法'}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
       setDownloadInfo({ url, filename })
-      triggerDownload(url, filename)  // 自動DL（ブロックされても下のボタンから手動保存可）
-      showToast('生成しました。ダウンロードされない場合は「ダウンロード」ボタンで保存してください', 'success')
+      showToast('生成しました。「ダウンロード」ボタンで保存してください', 'success')
       onSaved?.()
-      // モーダルは閉じない：手動ダウンロードボタンを残す
+      // モーダルは閉じない：ダウンロードリンクを残す
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
     } finally {
@@ -122,7 +115,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
         downloadInfo ? (
           <>
             <button onClick={handleClose} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">閉じる</button>
-            <button onClick={() => triggerDownload(downloadInfo.url, downloadInfo.filename)} className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">⬇ ダウンロード</button>
+            <a href={downloadInfo.url} download={downloadInfo.filename} className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors no-underline">⬇ ダウンロード</a>
           </>
         ) : (
           <>
@@ -136,9 +129,9 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
         {downloadInfo && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
             <div className="flex-1 text-[13px] text-green-800">
-              確定請求書＋立替実費明細を生成しました。自動で保存されない場合は右のボタンから保存してください。
+              確定請求書＋立替実費明細を生成しました。下のボタンで保存してください。
             </div>
-            <button type="button" onClick={() => triggerDownload(downloadInfo.url, downloadInfo.filename)} className="flex-none px-3 py-1.5 text-[13px] font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md">⬇ ダウンロード</button>
+            <a href={downloadInfo.url} download={downloadInfo.filename} className="flex-none inline-flex items-center px-3 py-1.5 text-[13px] font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md no-underline">⬇ ダウンロード</a>
           </div>
         )}
         {/* 発行主体 */}
