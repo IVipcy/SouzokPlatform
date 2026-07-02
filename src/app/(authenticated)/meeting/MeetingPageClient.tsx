@@ -185,7 +185,7 @@ function RouteChoiceTop({ onLp, onOc }: { onLp: () => void; onOc: () => void }) 
             <Plus className="w-[18px] h-[18px] text-gray-500" />
           </div>
           <div className="flex-1">
-            <div className="text-[14px] font-semibold text-gray-900">OC直 / HP経由等</div>
+            <div className="text-[14px] font-semibold text-gray-900">OC直・HP経由案件等</div>
             <div className="text-[12px] text-gray-500 mt-0.5">葬儀社・税理士・HP経由など新規案件</div>
           </div>
           <ChevronRight className="w-[18px] h-[18px] text-gray-400 flex-shrink-0" />
