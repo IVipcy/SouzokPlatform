@@ -13,6 +13,7 @@ import path from 'node:path'
 import ExcelJS from 'exceljs'
 import { getKakuteiVariant, KAKUTEI_FIELDS, TATEKAE_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
+import { isMinimalMode } from '@/lib/featureMode'
 
 type Body = {
   caseId: string
@@ -28,6 +29,13 @@ type Body = {
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
   if (!addr || value === null || value === undefined || value === '') return
   ws.getCell(addr).value = value
+}
+
+// 案件管理番号などを左揃えにする（右揃えテンプレで見切れる問題の対策）
+function alignLeft(ws: ExcelJS.Worksheet, addr: string | undefined) {
+  if (!addr) return
+  const cur = ws.getCell(addr).alignment ?? {}
+  ws.getCell(addr).alignment = { ...cur, horizontal: 'left', vertical: 'middle' }
 }
 
 function splitCaseNumber(caseNumber: string | null | undefined): [string, string, string, string] {
@@ -104,6 +112,7 @@ export async function POST(request: NextRequest) {
     const seg = splitCaseNumber(caseData.case_number)
     setCell(kak, K.caseNo[0], seg[0]); setCell(kak, K.caseNo[1], seg[1])
     setCell(kak, K.caseNo[2], seg[2]); setCell(kak, K.caseNo[3], seg[3])
+    K.caseNo.forEach(a => alignLeft(kak, a))  // 案件番号は左揃え（見切れ対策）
     setCell(kak, K.clientName, clientName)
     for (const cell of K.kenmei) setCell(kak, cell, kenmei || '')
     if (fee > 0) { setCell(kak, K.fee, fee); setCell(kak, K.feeTax, c.feeTax) }
@@ -127,6 +136,7 @@ export async function POST(request: NextRequest) {
     // --- 立替実費明細 ---
     const T = TATEKAE_FIELDS
     setCell(tate, T.caseNoConcat, caseData.case_number ?? '')
+    alignLeft(tate, T.caseNoConcat)  // 立替明細シートの案件番号も左揃え
     setCell(tate, T.clientName, clientName)
     setCell(tate, T.totalTop, c.expenseGrand)
     c.nonTaxItems.slice(0, T.nonTaxRows.length).forEach((e, i) => {
@@ -148,28 +158,34 @@ export async function POST(request: NextRequest) {
     const downloadFilename = `確定請求書_立替実費_${def.officeLabel}_${caseData.case_number ?? caseId}.xlsx`
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
     const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
-    const { error: uploadErr } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, uploadBuffer, {
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-    if (!uploadErr) {
-      await supabase.from('documents').insert({
-        case_id: caseId,
-        task_id: taskId ?? null,
-        name: `確定請求書＋立替実費明細（${def.office === 'gyosei' ? '行政' : '司法'}）`,
-        file_path: storagePath,
-        file_type: 'Excel',
-        status: '作成済',
-        generated_by: 'ai',
-      })
-    } else {
-      console.error('[kakutei] storage upload failed:', uploadErr.message)
+    // ミニマム運用モードでは案件フォルダ（storage/documents）へ保存せず、ローカルDLのみ。
+    const minimal = isMinimalMode()
+    let savedPath: string | null = null
+    if (!minimal) {
+      const { error: uploadErr } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, uploadBuffer, {
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+      if (!uploadErr) {
+        savedPath = storagePath
+        await supabase.from('documents').insert({
+          case_id: caseId,
+          task_id: taskId ?? null,
+          name: `確定請求書＋立替実費明細（${def.office === 'gyosei' ? '行政' : '司法'}）`,
+          file_path: storagePath,
+          file_type: 'Excel',
+          status: '作成済',
+          generated_by: 'ai',
+        })
+      } else {
+        console.error('[kakutei] storage upload failed:', uploadErr.message)
+      }
     }
 
-    // 請求一覧(invoices)にも反映
+    // 請求一覧(invoices)にも反映（ファイルパスは案件フォルダ保存時のみ）
     if (body.invoiceId) {
-      await supabase.from('invoices').update({ generated_file_path: storagePath }).eq('id', body.invoiceId)
+      await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
     } else {
       const { error: invErr } = await supabase.from('invoices').insert({
         case_id: caseId,
@@ -181,7 +197,7 @@ export async function POST(request: NextRequest) {
         advance_deduction: advanceReceived || 0,
         status: '作成済',
         issued_date: new Date().toISOString().slice(0, 10),
-        generated_file_path: storagePath,
+        generated_file_path: savedPath,
       })
       if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
     }

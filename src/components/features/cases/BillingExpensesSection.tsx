@@ -105,9 +105,12 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     return (
       <div className="mt-2">
         <span className={`inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-full mb-1.5 ${taxable ? 'bg-amber-50 text-amber-800' : 'bg-brand-50 text-brand-700'}`}>{taxable ? '課税（税込）' : '非課税'}</span>
-        <table className="w-full text-[12px] border-collapse" style={{ minWidth: 520 }}>
+        <table className="w-full text-[12px] border-collapse table-fixed" style={{ minWidth: 560 }}>
+          <colgroup>
+            <col style={{ width: 224 }} /><col style={{ width: 64 }} /><col style={{ width: 80 }} /><col style={{ width: 96 }} /><col /><col style={{ width: 28 }} />
+          </colgroup>
           <thead><tr className="text-[10.5px] text-gray-500 border-b border-gray-100">
-            <th className="px-1.5 py-1 text-left font-medium w-56">名目</th><th className="px-1.5 py-1 text-right font-medium w-16">数量</th><th className="px-1.5 py-1 text-right font-medium w-20">単価</th><th className="px-1.5 py-1 text-right font-medium w-20">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1 w-6" />
+            <th className="px-1.5 py-1 text-left font-medium">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価</th><th className="px-1.5 py-1 text-right font-medium">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1" />
           </tr></thead>
           <tbody>
             {items.map(r => (
@@ -115,7 +118,14 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
                 <td className="px-1.5 py-1"><SelectOrTextField value={r.label} options={options} onSave={v => { setLocal(r.id, { label: v }); commit(r.id, { label: v }) }} placeholder="名目を入力" /></td>
                 <td className="px-1.5 py-1"><MoneyInput value={r.quantity} onCommit={v => { const q = v === '' ? null : Number(v); setLocal(r.id, { quantity: q }); commit(r.id, { quantity: q, amount: recalcAmount(r, q, r.unit_price) }) }} /></td>
                 <td className="px-1.5 py-1"><MoneyInput value={r.unit_price} onCommit={v => { const u = v === '' ? null : Number(v); setLocal(r.id, { unit_price: u }); commit(r.id, { unit_price: u, amount: recalcAmount(r, r.quantity, u) }) }} /></td>
-                <td className="px-1.5 py-1"><MoneyInput value={r.amount} onCommit={v => commit(r.id, { amount: v === '' ? 0 : Number(v) })} /></td>
+                <td className="px-1.5 py-1">
+                  {r.quantity != null && r.unit_price != null ? (
+                    // 数量×単価が入っていれば金額は自動計算（読み取り専用）
+                    <div className="px-1.5 py-1.5 text-[12px] text-right tabular-nums text-gray-700 bg-gray-50/70 rounded" title="数量×単価の自動計算">{yen(r.amount ?? 0)}</div>
+                  ) : (
+                    <MoneyInput value={r.amount} onCommit={v => commit(r.id, { amount: v === '' ? 0 : Number(v) })} />
+                  )}
+                </td>
                 <td className="px-1.5 py-1"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commit(r.id, { note: e.target.value })} placeholder="備考" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                 <td className="px-1.5 py-1 text-center"><button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button></td>
               </tr>

@@ -14,6 +14,7 @@ import ExcelJS from 'exceljs'
 import { getInvoiceVariant, INVOICE_FIELDS } from '@/lib/invoiceVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
+import { isMinimalMode } from '@/lib/featureMode'
 
 type Body = {
   caseId: string
@@ -92,6 +93,11 @@ export async function POST(request: NextRequest) {
 
     // 案件番号（枠内に1セルでまとめて表示。旧テンプレの区切りセルは消す）
     setCell(ws, F.caseNoCell, caseData.case_number ?? '')
+    // 案件番号は左揃え（右揃えテンプレだと見切れるため）
+    {
+      const cur = ws.getCell(F.caseNoCell).alignment ?? {}
+      ws.getCell(F.caseNoCell).alignment = { ...cur, horizontal: 'left', vertical: 'middle' }
+    }
     for (const c of F.caseNoClear) ws.getCell(c).value = null
 
     // 依頼者・件名・区分
@@ -128,31 +134,36 @@ export async function POST(request: NextRequest) {
 
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
     const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
-    const { error: uploadErr } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, uploadBuffer, {
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-
-    if (!uploadErr) {
-      await supabase.from('documents').insert({
-        case_id: caseId,
-        task_id: taskId ?? null,
-        name: `${def.docType}（前受金・${def.office === 'gyosei' ? '行政' : '司法'}）`,
-        file_path: storagePath,
-        file_type: 'Excel',
-        status: '作成済',
-        generated_by: 'ai',
-      })
-    } else {
-      console.error('[invoice] storage upload failed:', uploadErr.message)
+    // ミニマム運用モードでは案件フォルダ（storage/documents）へ保存せず、ローカルDLのみ。
+    const minimal = isMinimalMode()
+    let savedPath: string | null = null
+    if (!minimal) {
+      const { error: uploadErr } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, uploadBuffer, {
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+      if (!uploadErr) {
+        savedPath = storagePath
+        await supabase.from('documents').insert({
+          case_id: caseId,
+          task_id: taskId ?? null,
+          name: `${def.docType}（前受金・${def.office === 'gyosei' ? '行政' : '司法'}）`,
+          file_path: storagePath,
+          file_type: 'Excel',
+          status: '作成済',
+          generated_by: 'ai',
+        })
+      } else {
+        console.error('[invoice] storage upload failed:', uploadErr.message)
+      }
     }
 
     // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではない）。
     if (def.docType === '請求書') {
       if (body.invoiceId) {
         // メイン請求モーダル経由＝既に行があるので、公式Excelのパスだけ追記
-        await supabase.from('invoices').update({ generated_file_path: storagePath }).eq('id', body.invoiceId)
+        await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
       } else {
         const { error: invErr } = await supabase.from('invoices').insert({
           case_id: caseId,
@@ -162,7 +173,7 @@ export async function POST(request: NextRequest) {
           fee_amount: amount,
           status: '作成済',
           issued_date: new Date().toISOString().slice(0, 10),
-          generated_file_path: storagePath,
+          generated_file_path: savedPath,
         })
         if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)
       }
