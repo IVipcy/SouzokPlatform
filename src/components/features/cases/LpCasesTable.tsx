@@ -59,6 +59,7 @@ export type LpCaseRow = {
 
 type Props = {
   cases: LpCaseRow[]
+  allCases?: LpCaseRow[]
   selectable?: boolean
 }
 
@@ -83,17 +84,18 @@ const formatMan = (yen: number): string => {
  * - 「LPによる追いかけ可否 / 連絡方法 / 検討理由 / その他特記事項」は
  *   現時点で案件詳細に対応フィールドが無いため、ヘッダーのみ設置（中身は空欄）。
  */
-export default function LpCasesTable({ cases, selectable = false }: Props) {
+export default function LpCasesTable({ cases, allCases, selectable = false }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const sel = useCaseBulkDelete(cases.map(c => c.id))
   const [exporting, setExporting] = useState(false)
 
   const exportExcel = async () => {
+    const exportRows = allCases ?? cases
     setExporting(true)
     try {
       const ExcelJS = (await import('exceljs')).default
       const wb = new ExcelJS.Workbook()
-      const statuses = [...new Set(cases.map(c => c.status))]
+      const statuses = [...new Set(exportRows.map(c => c.status))]
       const HEADERS = [
         '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
         '案件ステータス', '検討中・不受託理由', 'その他理由詳細', 'お客様回答予定日',
@@ -132,9 +134,9 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
         ws.columns.forEach(col => { col.width = 16 })
       }
 
-      addSheet('すべて', cases)
+      addSheet('すべて', exportRows)
       for (const st of statuses) {
-        addSheet(st, cases.filter(c => c.status === st))
+        addSheet(st, exportRows.filter(c => c.status === st))
       }
 
       const buf = await wb.xlsx.writeBuffer()
@@ -169,7 +171,7 @@ export default function LpCasesTable({ cases, selectable = false }: Props) {
         ) : (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[11px] text-gray-400">受注ルートが「LP経由」の案件</span>
-            <button type="button" onClick={exportExcel} disabled={exporting || cases.length === 0}
+            <button type="button" onClick={exportExcel} disabled={exporting || (allCases ?? cases).length === 0}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 transition-colors">
               <Download className="w-3.5 h-3.5" />{exporting ? '出力中...' : 'Excel出力'}
             </button>
