@@ -50,6 +50,7 @@ type CaseRowRaw = {
   meeting_executed_date: string | null
   client_response_due_date: string | null
   consideration_period: string | null
+  meeting_other_notes: string | null
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
   // 他事業者紹介の依頼内容（partner_type='税理士'/'不動産' の content）
@@ -227,6 +228,7 @@ export default async function CasesPage() {
       updated_at: c.updated_at,
       tax_advisor_business: refMap.get('税理士') ?? null,
       real_estate_registration: refMap.get('不動産') ?? null,
+      meeting_other_notes: c.meeting_other_notes,
     }
   })
 

@@ -45,6 +45,8 @@ export type LpCaseRow = {
   tax_advisor_business: string | null
   /** 不動産登記（依頼内容、case_referrals(partner_type='不動産').content） */
   real_estate_registration: string | null
+  /** 面談内容詳細（cases.meeting_other_notes） */
+  meeting_other_notes: string | null
   /** 最終更新日 */
   updated_at?: string | null
 }
@@ -92,7 +94,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
         '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
         '案件ステータス', '検討中・失注理由', 'その他理由詳細', 'お客様回答予定日',
         '検討期間', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
-        '完了予定日', '税理士業務', '不動産登記', '最終更新日',
+        '完了予定日', '税理士業務', '不動産登記', '面談内容詳細', '最終更新日',
       ]
       const flagLabel = (ct: string | null) => ct === '行政書士法人単独' ? '行' : ct === '司法書士法人単独' ? '司' : ct === '行・司連名' ? '連' : ''
       const fmtYen = (n: number | null) => n && n > 0 ? n : ''
@@ -117,6 +119,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
             fmtYen(c.advance_payment), fmtYen(c.confirmed_revenue),
             c.expected_completion_date ?? '',
             c.tax_advisor_business ?? '', c.real_estate_registration ?? '',
+            c.meeting_other_notes ?? '',
             fmtDate(c.updated_at ?? null),
           ])
         }
@@ -198,6 +201,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
                 <th className="px-3 py-2 text-left font-bold">税理士業務</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
+                <th className="px-3 py-2 text-left font-bold">面談内容詳細</th>
                 <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
@@ -298,6 +302,8 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.tax_advisor_business || <span className="text-gray-300">—</span>}</td>
                     {/* 不動産登記（case_referrals(不動産).content） */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.real_estate_registration || <span className="text-gray-300">—</span>}</td>
+                    {/* 面談内容詳細 */}
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[220px] truncate" title={c.meeting_other_notes ?? undefined}>{c.meeting_other_notes || <span className="text-gray-300">—</span>}</td>
                     {/* 最終更新日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
                       {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}

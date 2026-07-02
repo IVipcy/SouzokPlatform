@@ -592,9 +592,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                   placeholder="理由を選択"
                 />
               </Card>
-              <Card label="理由詳細">
-                <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="理由の詳細を自由に入力（任意）" />
-              </Card>
             </>
           )}
 
