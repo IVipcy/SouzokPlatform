@@ -444,6 +444,15 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
+        // 受注担当が未設定なら、相談結果を登録した本人を受注担当に紐付ける。
+        // （LP連携案件は case_members が未作成のため、マイページの担当一覧に出てこない問題の対策）
+        if (currentMemberId) {
+          const { data: existingSales } = await supabase.from('case_members')
+            .select('id').eq('case_id', caseId).eq('role', 'sales').limit(1)
+          if (!existingSales || existingSales.length === 0) {
+            await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
+          }
+        }
       }
 
       // 3-b. 依頼者（同行者含む）を case_clients に保存（全置換）

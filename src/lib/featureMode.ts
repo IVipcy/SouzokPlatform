@@ -25,17 +25,11 @@ export const isNavVisible = (href: string): boolean =>
 /** ミニマム時のログイン着地先（ダッシュボードを隠すため）。 */
 export const MINIMAL_LANDING = '/my'
 
-// ── 案件詳細タブで表示する TabKey（ミニマム時の許可リスト） ──
-// 残す: 案件進捗 / 担当・受注ルート(管理担当アサイン) / 面談情報 / 依頼者 /
-//       相続人調査(被相続人情報) / 案件基本情報 / 請求 / 契約書作成・書類作成(AI書類=任意) / 履歴
-// 隠す: オーダーシート / タスク / 郵送書類確認 / 受注内容 / 他事業者紹介 / 実務系 / 案件フォルダ
-const MINIMAL_TABS = new Set<string>([
-  'basicInfo', 'ownerSales', 'meeting', 'clientInfo', 'deceased', 'caseBasic',
-  'contract', 'contractCreate', 'documentCreate', 'history',
-])
-/** 案件詳細タブを表示してよいか。フルモードでは常に true。 */
-export const isCaseTabVisible = (tab: string): boolean =>
-  !isMinimalMode() || MINIMAL_TABS.has(tab)
+// ── 案件詳細タブ（ミニマム時。この順序・ステータス非依存で表示） ──
+// 表示: 面談情報 / 担当・受注ルート(管理担当アサイン) / 依頼者 / 案件基本情報 / 請求
+// 非表示: 案件進捗・相続人調査・オーダーシート・タスク・郵送書類確認・受注内容・他事業者紹介・実務系・案件フォルダ
+// ※ AI書類作成(documentCreate)はヘッダーの書類ボタンから開ける（請求書・領収書のみ／DocumentGenerators側で制御）。
+export const MINIMAL_CASE_TABS = ['meeting', 'ownerSales', 'clientInfo', 'caseBasic', 'contract']
 
 /**
  * ミニマム時は「前提を満たさないと次ステータスに進めない」ハードゲートや、

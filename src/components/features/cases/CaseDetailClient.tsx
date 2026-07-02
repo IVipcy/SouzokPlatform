@@ -40,7 +40,7 @@ import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone, isAllTasksDone } from '@/lib/constants'
-import { gatesDisabled, isCaseTabVisible } from '@/lib/featureMode'
+import { gatesDisabled, isMinimalMode, MINIMAL_CASE_TABS } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
 
@@ -263,21 +263,21 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     referralPartnerCount: caseReferrals?.length ?? 0,
     allowedPracticeTabs,
   })
-  // ミニマム運用モードでは実務系タブを非表示（許可リスト外を除外）
-  const tabVis = {
-    ...tabVisRaw,
-    visible: tabVisRaw.visible.filter(t => isCaseTabVisible(t)),
-    collapsed: tabVisRaw.collapsed.filter(t => isCaseTabVisible(t)),
-  }
-  // 現在のタブが表示対象外なら先頭タブにフォールバック
-  const effectiveTab: TabKey = tabVis.visible.includes(activeTab) ? activeTab : tabVis.visible[0]
+  // ミニマム運用モードでは、ステータス非依存で固定順のタブだけ表示
+  const minimal = isMinimalMode()
+  const tabVis = minimal
+    ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
+    : tabVisRaw
+  // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
+  const HEADER_TABS: TabKey[] = ['docs', 'documentCreate']
+  const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
 
   return (
     <div>
       <CaseHeader
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
-        caseAlerts={caseAlerts}
+        caseAlerts={minimal ? [] : caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
         selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone, kentouContractReady)}
@@ -287,8 +287,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           setActiveTab('orderSheet')
           setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
         }}
-        showDocsAction={tabVis.visible.includes('docs')}
-        showDocumentCreateAction={tabVis.visible.includes('documentCreate')}
+        showDocsAction={minimal ? false : tabVis.visible.includes('docs')}
+        showDocumentCreateAction={minimal ? true : tabVis.visible.includes('documentCreate')}
         docCount={documents.length}
         highlightTabs={navHighlightTabs}
         onActivateTab={setActiveTab}

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
+import { isMinimalMode } from '@/lib/featureMode'
 import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, KosekiRequestRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
@@ -48,7 +49,11 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'envelope', category: '封筒', categoryColor: 'bg-gray-50 text-gray-700 border-gray-200', title: '封筒（角２／長形３号）', description: '依頼者の郵便番号・住所・宛名を流し込み（差出人はテンプレ既設）', status: 'ready' },
 ]
 
+// ミニマム運用モードで利用可にする書類（請求書系＋領収書のみ）
+const MINIMAL_DOC_KEYS = new Set(['invoice_advance', 'invoice_final', 'receipt_final', 'receipt'])
+
 export default function DocumentGenerators({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], defaultTaskId, onGenerated }: Props) {
+  const minimal = isMinimalMode()
   const [, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
   const fixedAssetModal = useModal()
@@ -97,7 +102,9 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
       {/* 書類一覧 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {DOCUMENTS.map(doc => {
-          const ready = doc.status === 'ready'
+          // ミニマム運用モードでは請求書・領収書のみ利用可。他はグレーアウト（1ヶ月後に解放）。
+          const minimalBlocked = minimal && !MINIMAL_DOC_KEYS.has(doc.key)
+          const ready = doc.status === 'ready' && !minimalBlocked
           return (
             <button
               key={doc.key}
@@ -115,6 +122,8 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
                 </span>
                 {ready ? (
                   <span className="text-[12px] text-green-600 font-semibold">✓ 利用可能</span>
+                ) : minimalBlocked ? (
+                  <span className="text-[12px] text-brand-500 font-medium">1ヶ月後</span>
                 ) : (
                   <span className="text-[12px] text-gray-400 font-medium">準備中</span>
                 )}
