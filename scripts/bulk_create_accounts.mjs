@@ -30,6 +30,22 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+// ローカルの .env.local / .env を自動読み込み（既存の環境変数は上書きしない）。
+// → Render の環境変数と同じ値がローカル .env.local にあれば、手で貼らなくてよい。
+function loadEnvFile(file) {
+  try {
+    for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+      if (!m) continue
+      let v = m[2].trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
+      if (process.env[m[1]] === undefined) process.env[m[1]] = v
+    }
+  } catch { /* ファイルが無ければ無視 */ }
+}
+loadEnvFile('.env.local')
+loadEnvFile('.env')
+
 const XLSX_PATH = process.argv[2] || 'C:\\Users\\sugur\\Desktop\\アカウント発行対象_ミニマム開始.xlsx'
 const SHEET = process.argv[3] || 'Sheet2'
 const DRY_RUN = process.env.DRY_RUN === '1'

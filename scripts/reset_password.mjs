@@ -16,6 +16,22 @@
 
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+
+// ローカルの .env.local / .env を自動読み込み（既存の環境変数は上書きしない）
+function loadEnvFile(file) {
+  try {
+    for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+      if (!m) continue
+      let v = m[2].trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
+      if (process.env[m[1]] === undefined) process.env[m[1]] = v
+    }
+  } catch { /* ファイルが無ければ無視 */ }
+}
+loadEnvFile('.env.local')
+loadEnvFile('.env')
 
 const EMAIL = (process.argv[2] || '').toLowerCase()
 const NEW_PW = process.argv[3] || null
