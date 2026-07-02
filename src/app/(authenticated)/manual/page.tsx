@@ -1,9 +1,12 @@
+import { redirect } from 'next/navigation'
 import { BookOpen } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { getAllArticles, MANUAL_CATEGORY_ORDER } from '@/lib/manual'
 import ManualIndex from '@/components/features/manual/ManualIndex'
+import { isMinimalMode } from '@/lib/featureMode'
 
 export default function ManualPage() {
+  if (isMinimalMode()) redirect('/my')
   const articles = getAllArticles()
   const items = articles.map(a => ({
     slug: a.slug,

@@ -40,6 +40,7 @@ import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone, isAllTasksDone } from '@/lib/constants'
+import { gatesDisabled, isCaseTabVisible } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
 
@@ -95,7 +96,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(() => {
     const st = caseDataProp.status
     const created = searchParams.get('created') === '1'
-    return created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注' || st === '戻り受注') ? st : null
+    // ミニマム運用モードでは初期対応タスク確認ポップアップを出さない
+    return !gatesDisabled() && created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注' || st === '戻り受注') ? st : null
   })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
@@ -159,15 +161,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setNavDismissed(false)
-      setTaskReviewStatus(patch.status)
+      if (!gatesDisabled()) setTaskReviewStatus(patch.status)
     }
     // 検討中 / 検討中（契約書待ち）に変わったら：検討状況リマインド等の初期タスク確認ポップアップ
     if ((patch.status === '検討中' || patch.status === '検討中（契約書待ち）') && prev.status !== patch.status) {
-      setTaskReviewStatus(patch.status)
+      if (!gatesDisabled()) setTaskReviewStatus(patch.status)
     }
     // 対応中に変わったら：事務管理タスクの設定を促すポップアップ
     if (patch.status === '対応中' && prev.status !== '対応中') {
-      setManagementTaskPrompt(true)
+      if (!gatesDisabled()) setManagementTaskPrompt(true)
     }
     // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得
     const needsRefresh = Object.keys(patch).some(k => TRIGGER_FIELDS.has(k))
@@ -232,12 +234,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約残手続き＋タスク）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone, allTasksDone })
-  const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed
-  const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed
+  // ミニマム運用モードでは各フロー・ナビ（ハードゲート案内）を出さない
+  const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed && !gatesDisabled()
+  const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed && !gatesDisabled()
   // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
   // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
   const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : ['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s
-  const kickoffNeeded = caseState.status === '対応中'
+  const kickoffNeeded = caseState.status === '対応中' && !gatesDisabled()
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
@@ -254,12 +257,18 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     : undefined
 
   // ステータス連動＋業務連動のタブ表示制御
-  const tabVis = getCaseTabVisibility({
+  const tabVisRaw = getCaseTabVisibility({
     status: caseState.status,
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
     referralPartnerCount: caseReferrals?.length ?? 0,
     allowedPracticeTabs,
   })
+  // ミニマム運用モードでは実務系タブを非表示（許可リスト外を除外）
+  const tabVis = {
+    ...tabVisRaw,
+    visible: tabVisRaw.visible.filter(t => isCaseTabVisible(t)),
+    collapsed: tabVisRaw.collapsed.filter(t => isCaseTabVisible(t)),
+  }
   // 現在のタブが表示対象外なら先頭タブにフォールバック
   const effectiveTab: TabKey = tabVis.visible.includes(activeTab) ? activeTab : tabVis.visible[0]
 

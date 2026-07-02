@@ -6,6 +6,7 @@ import {
   Section, FieldGrid, InlineEdit, InlineSelect, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
 import { ORDER_ROUTES, PAST_CLIENT_ROUTE } from '@/lib/constants'
+import { isMinimalMode } from '@/lib/featureMode'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
 import ReferralSourceLookup from './ReferralSourceLookup'
 import TabHeader from './TabHeader'
@@ -41,17 +42,19 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
         </FieldGrid>
-        {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る） */}
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100">
-          <Link
-            href={`/workload?assignCaseId=${caseData.id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 text-[12px] font-semibold hover:bg-brand-100 transition-colors"
-          >
-            <UserPlus className="w-3.5 h-3.5" strokeWidth={2.25} />
-            管理担当を割り振る（稼働状況一覧へ）
-          </Link>
-          <p className="text-[11px] text-gray-400 mt-1">稼働状況・経験年数を見て管理担当を割り振ります。</p>
-        </div>
+        {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る）。ミニマム運用では稼働状況一覧が非表示のため隠す（上のインライン選択で割り振り） */}
+        {!isMinimalMode() && (
+          <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+            <Link
+              href={`/workload?assignCaseId=${caseData.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 text-[12px] font-semibold hover:bg-brand-100 transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" strokeWidth={2.25} />
+              管理担当を割り振る（稼働状況一覧へ）
+            </Link>
+            <p className="text-[11px] text-gray-400 mt-1">稼働状況・経験年数を見て管理担当を割り振ります。</p>
+          </div>
+        )}
       </Section>
 
       {/* 受注ルート */}

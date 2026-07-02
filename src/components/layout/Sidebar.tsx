@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { isNavVisible } from '@/lib/featureMode'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useAlertCenter } from '@/components/providers/AlertCenterProvider'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -135,6 +136,7 @@ export default function Sidebar() {
         // 管理担当タスク一覧は 管理担当系 / システム管理者のみ（事務管理アカウントには出さない）
         const canManagerTasks = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || user.roles.includes('manager') || ['manager', 'sub_manager'].includes(user.primaryRole ?? ''))
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
+          if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (it.href === '/my') return canMyPage
           if (it.href === '/manager-tasks') return canManagerTasks
           return true

@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { isMinimalMode } from '@/lib/featureMode'
 import DocumentsClient from '@/components/features/documents/DocumentsClient'
 import type { CaseDocumentRow, DocumentReceiptRow, DocumentReceiptItemRow, MemberRow } from '@/types'
 
@@ -11,6 +13,7 @@ type CaseLite = {
 }
 
 export default async function DocumentsPage() {
+  if (isMinimalMode()) redirect('/my')
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
   const currentMemberId = currentUser?.memberId ?? null

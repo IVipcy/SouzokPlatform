@@ -1,3 +1,5 @@
+import { isMinimalMode } from '@/lib/featureMode'
+
 // === フェーズ定義 ===
 export const PHASES = [
   { key: 'Phase1:相続人調査', label: 'Phase1: 相続人調査', color: '#2563EB' },
@@ -111,12 +113,14 @@ export const getSelectableCaseStatuses = (
 ): string[] => {
   if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
-  const canManage = (orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) || isManagementNow
+  // ミニマム運用モードでは「前提を満たさないと次に進めない」ハードゲートを無効化（手動で自由に変更）
+  const gatesOff = isMinimalMode()
+  const canManage = gatesOff || (orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) || isManagementNow
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
   const filtered = targets.filter(t => {
     if ((MANAGEMENT_STATUSES as readonly string[]).includes(t)) return canManage
     // 検討中（契約書待ち）→受注 は、契約残手続き＋この段階の全タスク完了が条件
-    if (currentStatus === '検討中（契約書待ち）' && t === '受注') return kentouContractReady
+    if (currentStatus === '検討中（契約書待ち）' && t === '受注') return gatesOff || kentouContractReady
     return true
   })
   return [currentStatus, ...filtered.filter(t => t !== currentStatus)]
