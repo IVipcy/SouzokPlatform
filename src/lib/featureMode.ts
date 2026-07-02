@@ -29,7 +29,7 @@ export const MINIMAL_LANDING = '/my'
 // 表示: 面談情報 / 担当・受注ルート(管理担当アサイン) / 依頼者 / 案件基本情報 / 請求
 // 非表示: 案件進捗・相続人調査・オーダーシート・タスク・郵送書類確認・受注内容・他事業者紹介・実務系・案件フォルダ
 // ※ AI書類作成(documentCreate)はヘッダーの書類ボタンから開ける（請求書・領収書のみ／DocumentGenerators側で制御）。
-export const MINIMAL_CASE_TABS = ['caseBasic', 'meeting', 'ownerSales', 'clientInfo', 'contract']
+export const MINIMAL_CASE_TABS = ['caseBasic', 'meeting', 'clientInfo', 'ownerSales', 'contract']
 
 /**
  * ミニマム時は「前提を満たさないと次ステータスに進めない」ハードゲートや、

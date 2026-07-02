@@ -10,6 +10,7 @@ import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
 import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS } from '@/lib/constants'
+import { isMinimalMode } from '@/lib/featureMode'
 import type { BillingExpenseItemRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
@@ -105,9 +106,9 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     return (
       <div className="mt-2">
         <span className={`inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-full mb-1.5 ${taxable ? 'bg-amber-50 text-amber-800' : 'bg-brand-50 text-brand-700'}`}>{taxable ? '課税（税込）' : '非課税'}</span>
-        <table className="w-full text-[12px] border-collapse table-fixed" style={{ minWidth: 560 }}>
+        <table className="w-full text-[12px] border-collapse table-fixed" style={{ minWidth: 680 }}>
           <colgroup>
-            <col style={{ width: 224 }} /><col style={{ width: 64 }} /><col style={{ width: 80 }} /><col style={{ width: 96 }} /><col /><col style={{ width: 28 }} />
+            <col style={{ width: 320 }} /><col style={{ width: 64 }} /><col style={{ width: 80 }} /><col style={{ width: 96 }} /><col /><col style={{ width: 28 }} />
           </colgroup>
           <thead><tr className="text-[10.5px] text-gray-500 border-b border-gray-100">
             <th className="px-1.5 py-1 text-left font-medium">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価</th><th className="px-1.5 py-1 text-right font-medium">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1" />
@@ -116,8 +117,8 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
             {items.map(r => (
               <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
                 <td className="px-1.5 py-1"><SelectOrTextField value={r.label} options={options} onSave={v => { setLocal(r.id, { label: v }); commit(r.id, { label: v }) }} placeholder="名目を入力" /></td>
-                <td className="px-1.5 py-1"><MoneyInput value={r.quantity} onCommit={v => { const q = v === '' ? null : Number(v); setLocal(r.id, { quantity: q }); commit(r.id, { quantity: q, amount: recalcAmount(r, q, r.unit_price) }) }} /></td>
-                <td className="px-1.5 py-1"><MoneyInput value={r.unit_price} onCommit={v => { const u = v === '' ? null : Number(v); setLocal(r.id, { unit_price: u }); commit(r.id, { unit_price: u, amount: recalcAmount(r, r.quantity, u) }) }} /></td>
+                <td className="px-1.5 py-1"><MoneyInput value={r.quantity} onCommit={v => { const q = v === '' ? null : Number(v); const amt = recalcAmount(r, q, r.unit_price); setLocal(r.id, { quantity: q, amount: amt }); commit(r.id, { quantity: q, amount: amt }) }} /></td>
+                <td className="px-1.5 py-1"><MoneyInput value={r.unit_price} onCommit={v => { const u = v === '' ? null : Number(v); const amt = recalcAmount(r, r.quantity, u); setLocal(r.id, { unit_price: u, amount: amt }); commit(r.id, { unit_price: u, amount: amt }) }} /></td>
                 <td className="px-1.5 py-1">
                   {r.quantity != null && r.unit_price != null ? (
                     // 数量×単価が入っていれば金額は自動計算（読み取り専用）
@@ -140,13 +141,16 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] text-gray-400">各実務タブ（戸籍の小為替・不動産の取得資料・登録免許税）で確定した立替実費を取り込めます。手入力分はそのまま残ります。</p>
-        <button type="button" onClick={importFromTabs} disabled={importing}
-          className="flex-none inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50">
-          <Download className="w-3.5 h-3.5" />{importing ? '取り込み中…' : '実務タブから取り込み'}
-        </button>
-      </div>
+      {/* 実務タブからの取り込みはミニマム運用では非表示（実務タブ自体が非表示のため） */}
+      {!isMinimalMode() && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] text-gray-400">各実務タブ（戸籍の小為替・不動産の取得資料・登録免許税）で確定した立替実費を取り込めます。手入力分はそのまま残ります。</p>
+          <button type="button" onClick={importFromTabs} disabled={importing}
+            className="flex-none inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50">
+            <Download className="w-3.5 h-3.5" />{importing ? '取り込み中…' : '実務タブから取り込み'}
+          </button>
+        </div>
+      )}
       {SHIGYO.map(s => {
         const firmTotal = rows.filter(r => r.shigyo === s.key).reduce((n, r) => n + (r.amount ?? 0), 0)
         return (

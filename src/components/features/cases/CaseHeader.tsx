@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Inbox, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, hasInheritanceTaxFiling } from '@/lib/constants'
+import { isMinimalMode } from '@/lib/featureMode'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
 import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
@@ -149,8 +150,8 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                 ))
               ) : <span className="text-[11px] text-gray-300">未設定</span>}
             </div>
-            {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ */}
-            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+            {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ。ミニマム時は非表示 */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1.5" style={{ display: isMinimalMode() ? 'none' : undefined }}>
               <span className="text-[10px] font-medium text-gray-400 tracking-wide">相続税申告</span>
               <button
                 type="button"
