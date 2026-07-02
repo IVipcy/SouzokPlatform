@@ -25,6 +25,9 @@ export const KAKUTEI_FIELDS = {
   billAmount: 'R29',          // 請求額
   amountTop: 'D14',           // 上部「金額」
   caseNoClear: ['C3', 'D3', 'E3', 'F3'],  // 案件番号は B3 に1セルで表示し、旧・分割セルは消す
+  address1: 'Q11',            // 事務所住所1（選択した拠点で上書き）
+  address2: 'Q12',            // 事務所住所2
+  repName: 'Q13',             // 担当者（代表社員 氏名）
   sealCell: 'T10',            // 社印（法人名の行に重ねる）
 }
 

@@ -6,6 +6,7 @@ import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { recommendKakuteiOffice, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
+import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -25,6 +26,7 @@ const yen = (n: number) => `${n.toLocaleString('en-US')}円`
 export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, defaultTaskId, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendKakuteiOffice(caseData.contract_type), [caseData.contract_type])
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
+  const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
   const [kenmei, setKenmei] = useState('')
   const [fee, setFee] = useState<number | ''>('')
   const [advance, setAdvance] = useState<number | ''>('')
@@ -84,6 +86,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
           advanceReceived: Number(advance) || 0,
           expenses: expenses.filter(e => e.name || e.amount > 0),
           taskId: taskId || null,
+          officeId,
         }),
       })
       if (!res.ok) {
@@ -145,6 +148,16 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
               </button>
             ))}
           </div>
+        </section>
+
+        {/* 事務所住所（拠点） */}
+        <section>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">事務所住所（拠点）</label>
+          <select value={officeId} onChange={e => setOfficeId(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
+            {KOSEKI_AGENT_OFFICES.map(o => (
+              <option key={o.id} value={o.id}>{o.label}（{o.line1}）</option>
+            ))}
+          </select>
         </section>
 
         {/* 件名 */}
