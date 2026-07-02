@@ -122,51 +122,60 @@ export async function POST(request: NextRequest) {
 
     // --- 立替実費明細 ---
     // テンプレのsheet2は結合セル131個等の複雑構造をExcelJSが再保存時に壊し、Excelで開けなくなる。
-    // そのため、テンプレのsheet2を削除し、ExcelJS自身でクリーンな明細シートを新規作成する（＝壊れない）。
+    // そのため sheet2 を削除し、ExcelJS でクリーンな明細シートを新規作成する（原本の見た目に寄せる）。
+    // 列: A〜D=名目(結合) / E=数量 / F=単価 / G=金額 / H=備考
     wb.removeWorksheet(tate.id)
     const ws = wb.addWorksheet('立替実費明細')
-    ws.getColumn(1).width = 42; ws.getColumn(2).width = 8; ws.getColumn(3).width = 12; ws.getColumn(4).width = 14; ws.getColumn(5).width = 18
+    ;[9, 8.4, 7.5, 6.7, 6, 10.5, 13.8, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w })
     const thin = { style: 'thin' as const }
     const bd: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin }
+    const borderRow = (r: number) => { for (let ci = 1; ci <= 8; ci++) ws.getCell(r, ci).border = bd }
+    const fillLt = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE8F0FE' } }
     let rr = 1
-    const title = ws.getCell(rr, 1); title.value = '立 替 実 費 明 細'; title.font = { bold: true, size: 16 }
-    ws.mergeCells(rr, 1, rr, 5); title.alignment = { horizontal: 'center' }
+    // タイトル
+    const title = ws.getCell(rr, 1); title.value = '立 替 実 費 内 訳'; title.font = { bold: true, size: 18 }
+    ws.mergeCells(rr, 1, rr, 8); title.alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(rr).height = 28
     rr += 2
-    ws.getCell(rr, 1).value = `案件管理番号：${caseData.case_number ?? ''}`; rr++
-    ws.getCell(rr, 1).value = `依頼者：${clientName} 様`; rr += 2
-    const putHeader = (label: string) => {
-      const h = ws.getCell(rr, 1); h.value = label; h.font = { bold: true }
-      h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } }
-      ws.mergeCells(rr, 1, rr, 5); rr++
-      ;['名目', '数量', '単価', '金額', '備考'].forEach((t, i) => {
-        const cell = ws.getCell(rr, i + 1); cell.value = t; cell.font = { bold: true }; cell.border = bd
-        cell.alignment = { horizontal: i === 0 ? 'left' : 'center' }
-      }); rr++
-    }
-    const putItem = (e: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }) => {
-      ws.getCell(rr, 1).value = e.name
-      ws.getCell(rr, 2).value = e.quantity ?? null
-      ws.getCell(rr, 3).value = e.unitPrice ?? null
-      ws.getCell(rr, 4).value = e.amount
-      for (let ci = 1; ci <= 5; ci++) { const cell = ws.getCell(rr, ci); cell.border = bd; if (ci >= 2 && ci <= 4) cell.alignment = { horizontal: 'right' } }
-      ws.getCell(rr, 3).numFmt = '#,##0'; ws.getCell(rr, 4).numFmt = '#,##0'
-      rr++
-    }
-    const putSubtotal = (label: string, amount: number) => {
-      const l = ws.getCell(rr, 1); l.value = label; l.font = { bold: true }
-      const a = ws.getCell(rr, 4); a.value = amount; a.font = { bold: true }; a.numFmt = '#,##0'; a.alignment = { horizontal: 'right' }
-      for (let ci = 1; ci <= 5; ci++) ws.getCell(rr, ci).border = bd
-      rr++
-    }
-    putHeader('非課税')
-    c.nonTaxItems.forEach(putItem)
-    putSubtotal('非課税 小計', c.nonTaxSubtotal)
+    // 案件番号 / 発行主体
+    ws.getCell(rr, 1).value = `案件管理番号：${caseData.case_number ?? ''}`
+    const om = ws.getCell(rr, 6); om.value = def.officeLabel; ws.mergeCells(rr, 6, rr, 8); om.alignment = { horizontal: 'right' }
     rr++
-    putHeader('課税（税込）')
-    c.taxItems.forEach(putItem)
-    putSubtotal('課税 小計（税込）', c.taxSubtotal)
-    rr++
-    putSubtotal('立替実費 合計', c.expenseGrand)
+    // 依頼者
+    const cn = ws.getCell(rr, 1); cn.value = `${clientName}　様`; cn.font = { bold: true, size: 13 }; ws.mergeCells(rr, 1, rr, 5)
+    rr += 2
+    ws.getCell(rr, 1).value = '下記の通りご請求申し上げます。'
+    rr += 2
+    // セクション（非課税/課税）を原本の体裁で描画
+    const putSection = (label: string, items: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }[], subtotalLabel: string, subtotal: number) => {
+      const sec = ws.getCell(rr, 1); sec.value = label; sec.font = { bold: true }; sec.fill = fillLt
+      ws.mergeCells(rr, 1, rr, 8); rr++
+      // ヘッダ（名目=A:D結合、数量/単価/金額/備考）
+      ws.mergeCells(rr, 1, rr, 4); ws.getCell(rr, 1).value = '名目'
+      ws.getCell(rr, 5).value = '数量'; ws.getCell(rr, 6).value = '単価'; ws.getCell(rr, 7).value = '金額'; ws.getCell(rr, 8).value = '備考'
+      for (let ci = 1; ci <= 8; ci++) { ws.getCell(rr, ci).font = { bold: true }; ws.getCell(rr, ci).alignment = { horizontal: ci === 1 ? 'left' : 'center' } }
+      borderRow(rr); rr++
+      // 明細行
+      for (const e of items) {
+        ws.mergeCells(rr, 1, rr, 4); ws.getCell(rr, 1).value = e.name
+        ws.getCell(rr, 5).value = e.quantity ?? null
+        ws.getCell(rr, 6).value = e.unitPrice ?? null
+        ws.getCell(rr, 7).value = e.amount
+        ws.getCell(rr, 6).numFmt = '#,##0'; ws.getCell(rr, 7).numFmt = '#,##0'
+        for (const ci of [5, 6, 7]) ws.getCell(rr, ci).alignment = { horizontal: 'right' }
+        borderRow(rr); rr++
+      }
+      // 小計（合計ラベルを右寄せ、金額列に）
+      ws.mergeCells(rr, 1, rr, 6); const sl = ws.getCell(rr, 1); sl.value = subtotalLabel; sl.font = { bold: true }; sl.alignment = { horizontal: 'right' }
+      const sa = ws.getCell(rr, 7); sa.value = subtotal; sa.font = { bold: true }; sa.numFmt = '#,##0'; sa.alignment = { horizontal: 'right' }
+      borderRow(rr); rr += 2
+    }
+    putSection('立替実費　（非課税）', c.nonTaxItems, '非課税 合計', c.nonTaxSubtotal)
+    putSection('立替実費　（課税）', c.taxItems, '課税 合計（税込）', c.taxSubtotal)
+    // 総合計
+    ws.mergeCells(rr, 1, rr, 6); const gl = ws.getCell(rr, 1); gl.value = '立替実費 合計'; gl.font = { bold: true, size: 12 }; gl.alignment = { horizontal: 'right' }; gl.fill = fillLt
+    const ga = ws.getCell(rr, 7); ga.value = c.expenseGrand; ga.font = { bold: true, size: 12 }; ga.numFmt = '#,##0'; ga.alignment = { horizontal: 'right' }; ga.fill = fillLt
+    ws.getCell(rr, 8).fill = fillLt
+    borderRow(rr)
 
     // 出力
     const outBuffer = await wb.xlsx.writeBuffer()
