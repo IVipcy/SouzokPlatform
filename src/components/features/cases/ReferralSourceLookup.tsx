@@ -90,7 +90,7 @@ export default function ReferralSourceLookup({ route, value, onChange, label, pl
                 {o}
               </button>
             ))}
-            {q && !exact && (
+            {q && !exact && !staticOptions && (
               <button
                 type="button"
                 onClick={addNew}
@@ -100,8 +100,11 @@ export default function ReferralSourceLookup({ route, value, onChange, label, pl
                 <Plus className="w-3.5 h-3.5" />「{q}」を追加
               </button>
             )}
-            {filtered.length === 0 && !q && (
+            {filtered.length === 0 && !q && !staticOptions && (
               <div className="px-3 py-2 text-[12px] text-gray-400">候補がありません。入力して追加できます。</div>
+            )}
+            {filtered.length === 0 && q && staticOptions && (
+              <div className="px-3 py-2 text-[12px] text-gray-400">該当する候補がありません</div>
             )}
           </div>
         )}
