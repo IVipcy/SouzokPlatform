@@ -56,7 +56,7 @@ type Props = {
 
 // 相談案件のステータス絞り込み候補（受注担当が受託に至るまでのステータス）
 // ※ 長期保留・紹介のみは「個別管理案件」へ分類変更したため除外
-const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '失注'] as const
+const CONSULT_STATUS_FILTERS = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'] as const
 
 type SortKey = 'created' | 'response_due' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
 type SortOrder = 'asc' | 'desc'
@@ -267,7 +267,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
               {sorted.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
                 // お客様の回答待ち（検討中／検討中（契約書待ち）／面談設定済）のときだけ残り日数・超過を出す。
-                // 受託・不受託・紹介のみ等の決着済みステータスでは回答待ちではないのでカウントしない。
+                // 受注・失注・紹介のみ等の決着済みステータスでは回答待ちではないのでカウントしない。
                 const awaitingAnswer = c.status === '検討中' || c.status === '検討中（契約書待ち）' || c.status === '面談設定済'
                 const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && awaitingAnswer)
                 // 残り日数（お客様回答予定日 − 本日）。マイナス＝超過。回答待ちのときのみ。

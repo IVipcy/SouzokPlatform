@@ -158,7 +158,7 @@ export default function MonthlyMeetingsTable({ cases, title = '当月面談一�
                 <SortableTh label="面談実施日"     sortKey="meeting_executed" currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="お客様回答予定日" sortKey="response_due"    currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <th className="px-3 py-2 text-left font-bold">面談場所</th>
-                <th className="px-3 py-2 text-left font-bold">検討中・不受託理由</th>
+                <th className="px-3 py-2 text-left font-bold">検討中・失注理由</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

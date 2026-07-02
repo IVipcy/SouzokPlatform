@@ -119,7 +119,7 @@ export type CaseRow = {
   client_response_due_date: string | null   // migration 049: お客様回答予定日
   consideration_period: string | null        // migration 092: 検討期間区分(1週間/2週間/1ヶ月/見込み不明)
   order_received_date: string | null
-  // 検討中・不受託理由（旧 lost_reason の置換、migration 125 で導入）
+  // 検討中・失注理由（旧 lost_reason の置換、migration 125 で導入）
   consideration_decline_reason: string | null
   consideration_decline_reason_detail: string | null  // その他理由詳細（migration 126）
   // 新規面談登録（migration 149）
@@ -210,11 +210,8 @@ export type CaseRow = {
   other_needs: string | null
   // 相続ステーション連携：紹介元の屋号管理番号（例：KN02）
   referral_partner_number: string | null
-  // LP担当の追いかけ運用（連携②廃止に伴う）
-  lp_followup_allowed: boolean | null
-  lp_followup_method: string | null
-  lp_followup_method_other: string | null
-  lp_followup_due_date: string | null
+  // 追い電話の必要性（検討中のとき入力）
+  follow_up_call_needed: boolean | null
   // 面談内容（面談で聞き取った内容のメモ・備考。事前情報とは別）
   meeting_hearing_memo: string | null
   meeting_other_notes: string | null

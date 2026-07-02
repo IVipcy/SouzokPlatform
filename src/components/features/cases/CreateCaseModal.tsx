@@ -13,11 +13,10 @@ import { generateCaseNumber } from '@/lib/stationIntegration'
 
 type Props = { isOpen: boolean; onClose: () => void; onSaved: () => void }
 
-const MEETING_RESULTS = ['検討中', '受託', '不受託'] as const
-const RESULT_TO_STATUS: Record<string, string> = { '検討中': '検討中', '受託': '受注', '不受託': '失注' }
+const MEETING_RESULTS = ['検討中', '即受注', '失注'] as const
+const RESULT_TO_STATUS: Record<string, string> = { '検討中': '検討中', '即受注': '受注', '失注': '失注' }
 const CONSIDERATION_PERIODS = ['1週間', '2週間', '1ヶ月', '見込み不明'] as const
 const PROCEDURES = ['相続登記', '遺産整理（預貯金等）', '遺言', '相続放棄・限定承認', 'その他'] as const
-const LP_FOLLOWUP = [{ k: '', label: '—' }, { k: 'yes', label: '可' }, { k: 'no', label: '否' }]
 
 export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
   const user = useAuth()
@@ -30,7 +29,6 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
     consideration_period: '',
     response_due: '',
     proposal_note: '',
-    lp_followup: '',
     expected_completion: '',
     realestate_sale: '',          // 不動産売却（フリー）→他事業者紹介(不動産)
     tax_advisor: '',              // 税理士（フリー）→他事業者紹介(税理士)
@@ -69,7 +67,6 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
       consideration_period: form.consideration_period || null,
       client_response_due_date: form.response_due || null,
       proposal_note: form.proposal_note.trim() || null,
-      lp_followup_allowed: form.lp_followup === 'yes' ? true : form.lp_followup === 'no' ? false : null,
       expected_completion_date: form.expected_completion || null,
       consideration_decline_reason_detail: form.decline_reason.trim() || null,
     }).select('id').single()
@@ -126,15 +123,10 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
           </Row>
           <Row label="お客様回答予定日"><input type="date" value={form.response_due} onChange={e => set('response_due', e.target.value)} className={inp} /></Row>
           <Row label="提案金額"><input value={form.proposal_note} onChange={e => set('proposal_note', e.target.value)} placeholder="例: 提案せず / 330,000円" className={inp} /></Row>
-          <Row label="LPによる追いかけの可否">
-            <select value={form.lp_followup} onChange={e => set('lp_followup', e.target.value)} className={inp}>
-              {LP_FOLLOWUP.map(o => <option key={o.k} value={o.k}>{o.label}</option>)}
-            </select>
-          </Row>
           <Row label="完了予定日"><input type="date" value={form.expected_completion} onChange={e => set('expected_completion', e.target.value)} className={inp} /></Row>
           <Row label="不動産売却" hint="他事業者紹介(不動産)へ"><input value={form.realestate_sale} onChange={e => set('realestate_sale', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>
           <Row label="税理士" hint="他事業者紹介(税理士)へ"><input value={form.tax_advisor} onChange={e => set('tax_advisor', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>
-          <Row label="検討・不受託の理由" top><textarea value={form.decline_reason} onChange={e => set('decline_reason', e.target.value)} rows={3} placeholder="理由・面談メモ" className={`${inp} resize-none`} /></Row>
+          <Row label="検討・失注の理由" top><textarea value={form.decline_reason} onChange={e => set('decline_reason', e.target.value)} rows={3} placeholder="理由・面談メモ" className={`${inp} resize-none`} /></Row>
         </div>
       </form>
     </Modal>

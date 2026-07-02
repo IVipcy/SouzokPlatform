@@ -31,11 +31,7 @@ export type FormData = {
   meetingPlace: string      // 面談場所
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明）
-  // LP担当の追いかけ運用（検討中系のとき入力。連携②廃止に伴うLP直接追いかけ）
-  lpFollowupAllowed: '' | '可' | '不可'   // LP追いかけ可否（空＝未入力）
-  lpFollowupMethod: string              // 連絡方法（電話/メール/SMS/LINE/その他）
-  lpFollowupMethodOther: string         // 連絡方法が「その他」のときの自由入力
-  lpFollowupDueDate: string             // 追いかけ期限日
+  followUpCallNeeded: string  // 追い電話の必要性（不要/要。検討中のとき入力）
   // 他事業者紹介：依頼内容（partner_type が 税理士/不動産 のとき選択肢、それ以外はフリー）
   taxAdvisorBusinessType: string  // 税理士業務（依頼内容） — case_referrals(partner_type='税理士').content と連動
   realEstateRegistrationType: string  // 不動産登記（依頼内容） — case_referrals(partner_type='不動産').content と連動
@@ -67,7 +63,7 @@ export type FormData = {
   serviceCategories: string[] // 受注区分パート（順序付き・複数選択。source of truth）
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
-  considerationDeclineReason: string  // 検討中・不受託理由（面談結果が検討中／不受託のとき入力）
+  considerationDeclineReason: string  // 検討中・失注理由（面談結果が検討中／失注のとき入力）
   considerationDeclineReasonDetail: string  // その他理由詳細（フリーテキスト）
   otherNotes: string        // その他備考
   difficulty: string        // 難易度（高/中/低）
@@ -88,10 +84,7 @@ export const INITIAL_DATA: FormData = {
   meetingPlace: '',
   clientResponseDueDate: '',
   considerationPeriod: '',
-  lpFollowupAllowed: '',
-  lpFollowupMethod: '',
-  lpFollowupMethodOther: '',
-  lpFollowupDueDate: '',
+  followUpCallNeeded: '',
   taxAdvisorBusinessType: '',
   realEstateRegistrationType: '',
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],

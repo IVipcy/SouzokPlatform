@@ -21,7 +21,7 @@ export type LpCaseRow = {
   referral_source: string | null
   /** 依頼者氏名 */
   client_name: string | null
-  /** 検討中・不受託理由（旧 lost_reason の置換、migration 125） */
+  /** 検討中・失注理由（旧 lost_reason の置換、migration 125） */
   consideration_decline_reason: string | null
   /** その他理由詳細（migration 126） */
   consideration_decline_reason_detail?: string | null
@@ -45,14 +45,6 @@ export type LpCaseRow = {
   tax_advisor_business: string | null
   /** 不動産登記（依頼内容、case_referrals(partner_type='不動産').content） */
   real_estate_registration: string | null
-  /** LPによる追いかけ可否（cases.lp_followup_allowed） */
-  lp_followup_allowed: boolean | null
-  /** LP追いかけ連絡方法 */
-  lp_followup_method: string | null
-  /** 連絡方法が「その他」のとき自由入力 */
-  lp_followup_method_other: string | null
-  /** LP追いかけ期限日 */
-  lp_followup_due_date: string | null
   /** 最終更新日 */
   updated_at?: string | null
 }
@@ -98,10 +90,9 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
       const statuses = [...new Set(exportRows.map(c => c.status))]
       const HEADERS = [
         '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
-        '案件ステータス', '検討中・不受託理由', 'その他理由詳細', 'お客様回答予定日',
+        '案件ステータス', '検討中・失注理由', 'その他理由詳細', 'お客様回答予定日',
         '検討期間', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
-        'LPによる追いかけ可否', '連絡方法', '追いかけ期限日', '完了予定日',
-        '税理士業務', '不動産登記', '最終更新日',
+        '完了予定日', '税理士業務', '不動産登記', '最終更新日',
       ]
       const flagLabel = (ct: string | null) => ct === '行政書士法人単独' ? '行' : ct === '司法書士法人単独' ? '司' : ct === '行・司連名' ? '連' : ''
       const fmtYen = (n: number | null) => n && n > 0 ? n : ''
@@ -124,9 +115,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
             c.consideration_decline_reason_detail ?? '', c.client_response_due_date ?? '',
             c.consideration_period ?? '', daysLabel, c.sales_name ?? '', c.manager_name ?? '',
             fmtYen(c.advance_payment), fmtYen(c.confirmed_revenue),
-            c.lp_followup_allowed === true ? '可' : c.lp_followup_allowed === false ? '不可' : '',
-            c.lp_followup_method ? (c.lp_followup_method === 'その他' ? (c.lp_followup_method_other || 'その他') : c.lp_followup_method) : '',
-            c.lp_followup_due_date ?? '', c.expected_completion_date ?? '',
+            c.expected_completion_date ?? '',
             c.tax_advisor_business ?? '', c.real_estate_registration ?? '',
             fmtDate(c.updated_at ?? null),
           ])
@@ -197,7 +186,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">送客元</th>
                 <th className="px-3 py-2 text-left font-bold">依頼者氏名</th>
                 <th className="px-3 py-2 text-left font-bold">案件ステータス</th>
-                <th className="px-3 py-2 text-left font-bold">検討中・不受託理由</th>
+                <th className="px-3 py-2 text-left font-bold">検討中・失注理由</th>
                 <th className="px-3 py-2 text-left font-bold">その他理由詳細</th>
                 <th className="px-3 py-2 text-left font-bold">お客様回答予定日</th>
                 <th className="px-3 py-2 text-left font-bold">検討期間</th>
@@ -206,9 +195,6 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
                 <th className="px-3 py-2 text-right font-bold">前受金額</th>
                 <th className="px-3 py-2 text-right font-bold">確定売上金額</th>
-                <th className="px-3 py-2 text-left font-bold">LPによる<br />追いかけ可否</th>
-                <th className="px-3 py-2 text-left font-bold">連絡方法</th>
-                <th className="px-3 py-2 text-left font-bold">追いかけ<br />期限日</th>
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
                 <th className="px-3 py-2 text-left font-bold">税理士業務</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
@@ -257,7 +243,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                     <td className="px-3 py-2.5">
                       {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
                     </td>
-                    {/* 検討中・不受託理由（旧 不受託理由＋検討理由 を統合） */}
+                    {/* 検討中・失注理由 */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.consideration_decline_reason || <span className="text-gray-300">—</span>}</td>
                     {/* その他理由詳細 */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600 max-w-[220px] truncate" title={c.consideration_decline_reason_detail ?? undefined}>{c.consideration_decline_reason_detail || <span className="text-gray-300">—</span>}</td>
@@ -306,16 +292,6 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    {/* LPによる追いかけ可否 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700">
-                      {c.lp_followup_allowed === true ? '可' : c.lp_followup_allowed === false ? '不可' : <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 連絡方法 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700">
-                      {c.lp_followup_method ? (c.lp_followup_method === 'その他' ? (c.lp_followup_method_other || 'その他') : c.lp_followup_method) : <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 追いかけ期限日 */}
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-700">{c.lp_followup_due_date ?? <span className="text-gray-300">—</span>}</td>
                     {/* 完了予定日 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
                     {/* 税理士業務（case_referrals(税理士).content） */}

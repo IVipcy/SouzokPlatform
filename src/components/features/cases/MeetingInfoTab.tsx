@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, InlineEdit, InlineSelect,
-  InlineDate, InlineMemberSelect, InlineTextarea, InlineCheckbox,
+  InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
   CONSIDERATION_DECLINE_REASONS,
@@ -38,7 +38,7 @@ type Props = {
  * 案件作成（面談）時に登録する情報を、面談に特化した4セクションで表示・編集する。
  *   ① 案件情報   : 案件管理番号 / 受注担当 / 案件ステータス / 案件作成日
  *   ② 面談概要   : 面談予定日 / 面談実施日 / 面談場所 / お客様回答予定日 / 伺い先
- *   ③ 面談内容   : ヒアリング内容メモ / 受注区分（単一）→役割分担 / 検討中・不受託理由 / その他備考
+ *   ③ 面談内容   : ヒアリング内容メモ / 受注区分（単一）→役割分担 / 検討中・失注理由 / 面談内容詳細
  *   ④ 相談事前情報: LP担当が面談前にヒアリングした事前情報（アコーディオン・既定で閉じる）
  *
  * ※ 担当者・受注内容・受注ルートは「担当・受注内容」タブへ移設。
@@ -105,10 +105,9 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineSelect label="検討期間" value={caseData.consideration_period} options={[...CONSIDERATION_PERIODS]} onSave={v => selectPeriod(v)} />
           <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
           <InlineEdit label="提案金額" value={caseData.proposal_note} onSave={v => saveCaseField('proposal_note', v)} />
-          <InlineCheckbox label="LPによる追いかけ可" value={caseData.lp_followup_allowed ?? false} onSave={v => saveCaseField('lp_followup_allowed', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
-          <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
-          <InlineTextarea label="備考" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
+          <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
+          <InlineTextarea label="理由詳細" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
         </FieldGrid>
         {/* 不動産売却・税理士などの他事業者紹介（ON＝紹介タブに業者サブタブ作成） */}
         <div className="mt-3 pt-3 border-t border-gray-100">

@@ -306,11 +306,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           />
         )}
 
-        {/* 検討フロー・ナビゲーター：検討中（契約書待ち）で、受託への前提条件（契約残手続き＋タスク）を案内 */}
+        {/* 検討フロー・ナビゲーター：依頼確定待ちで、即受注への前提条件（契約残手続き＋タスク）を案内 */}
         {kentouNavVisible && (
           <StatusFlowNavigator
             steps={kentouSteps}
-            targetLabel="受託"
+            targetLabel="即受注"
             onAdvance={() => patchCase({ status: '受注' })}
             onDismiss={() => setNavDismissed(true)}
           />

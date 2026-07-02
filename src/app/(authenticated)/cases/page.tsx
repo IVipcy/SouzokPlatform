@@ -50,11 +50,6 @@ type CaseRowRaw = {
   meeting_executed_date: string | null
   client_response_due_date: string | null
   consideration_period: string | null
-  // LP担当の追いかけ運用（連携②廃止に伴う）
-  lp_followup_allowed: boolean | null
-  lp_followup_method: string | null
-  lp_followup_method_other: string | null
-  lp_followup_due_date: string | null
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
   // 他事業者紹介の依頼内容（partner_type='税理士'/'不動産' の content）
@@ -232,10 +227,6 @@ export default async function CasesPage() {
       updated_at: c.updated_at,
       tax_advisor_business: refMap.get('税理士') ?? null,
       real_estate_registration: refMap.get('不動産') ?? null,
-      lp_followup_allowed: c.lp_followup_allowed,
-      lp_followup_method: c.lp_followup_method,
-      lp_followup_method_other: c.lp_followup_method_other,
-      lp_followup_due_date: c.lp_followup_due_date,
     }
   })
 

@@ -76,16 +76,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineDate label="面談予定日"      value={caseData.meeting_date}             onSave={v => saveCaseField('meeting_date', v || null)} />
             <InlineDate label="面談実施日"      value={caseData.meeting_executed_date}    onSave={v => saveCaseField('meeting_executed_date', v || null)} />
             <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} required />
-            <InlineSelect label="検討中・不受託理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
-            {/* LP担当の追いかけ運用（連携②廃止に伴う） */}
-            <InlineSelect label="LP追いかけ可否" value={caseData.lp_followup_allowed === true ? '可' : caseData.lp_followup_allowed === false ? '不可' : null}
-              options={['可', '不可']}
-              onSave={v => saveCaseField('lp_followup_allowed', v === '可' ? true : v === '不可' ? false : null)} />
-            <InlineSelect label="LP追いかけ連絡方法" value={caseData.lp_followup_method} options={['電話', 'メール', 'SMS', 'LINE', 'その他']} onSave={v => saveCaseField('lp_followup_method', v)} />
-            {caseData.lp_followup_method === 'その他' && (
-              <InlineEdit label="LP追いかけ連絡方法(その他)" value={caseData.lp_followup_method_other} onSave={v => saveCaseField('lp_followup_method_other', v)} />
-            )}
-            <InlineDate label="LP追いかけ期限日" value={caseData.lp_followup_due_date} onSave={v => saveCaseField('lp_followup_due_date', v || null)} />
+            <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
           </FieldGrid>
         </Section>
 

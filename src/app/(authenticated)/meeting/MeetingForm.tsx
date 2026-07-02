@@ -13,7 +13,7 @@ import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } f
 import {
   MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
   REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
-  LP_FOLLOWUP_METHODS, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
+  REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
@@ -41,14 +41,12 @@ type Props = {
 const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
-// 「検討中・不受託理由」を表示する面談結果（不受託のステータスキーは '失注'）
+// 「検討中・失注理由」を表示する面談結果（失注のステータスキーは '失注'）
 const DECLINE_REASON_REQUIRED = new Set(['検討中', '失注'])
-// 「LPによる追いかけ可否」を表示する面談結果（検討中(契約書待ち)は受注確定済のため不要）
-const LP_FOLLOWUP_VISIBLE = new Set(['検討中'])
-// 契約確定系（役割分担／契約手続き／契約形態／難易度／完了予定日）を表示する面談結果。※ステータスのキーで判定（受託のキーは'受注'）。
-const CONTRACT_FIELDS_VISIBLE = new Set(['受注', '検討中（契約書待ち）'])
+// 契約確定系（役割分担／契約手続き／契約形態／難易度／完了予定日）を表示する面談結果。※ステータスのキーで判定。
+const CONTRACT_FIELDS_VISIBLE = new Set(['受注', '戻り受注', '検討中（契約書待ち）'])
 // 他事業者紹介を表示する面談結果。上記＋「紹介のみ」（紹介先を埋めるため）。
-const REFERRAL_FIELDS_VISIBLE = new Set(['受注', '検討中（契約書待ち）', '紹介のみ'])
+const REFERRAL_FIELDS_VISIBLE = new Set(['受注', '戻り受注', '検討中（契約書待ち）', '紹介のみ'])
 // 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
 const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
   { key: 'smile',   emoji: '😊', label: '笑顔' },
@@ -383,11 +381,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         deceased_has_special_chars: formData.deceasedHasSpecialChars,
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
         contract_type: formData.contractType || null,
-        // LP担当の追いかけ運用
-        lp_followup_allowed: formData.lpFollowupAllowed === '' ? null : formData.lpFollowupAllowed === '可',
-        lp_followup_method: formData.lpFollowupMethod || null,
-        lp_followup_method_other: formData.lpFollowupMethod === 'その他' ? (formData.lpFollowupMethodOther || null) : null,
-        lp_followup_due_date: formData.lpFollowupDueDate || null,
+        follow_up_call_needed: formData.followUpCallNeeded === '要' ? true : formData.followUpCallNeeded === '不要' ? false : null,
       }
 
       if (isNew) {
@@ -587,39 +581,20 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               )}
             </>
           )}
-          {/* 検討中・不受託理由: 検討中 / 不受託 で表示（旧 失注理由の置換） */}
+          {/* 検討中・失注理由: 検討中 / 失注 で表示 */}
           {DECLINE_REASON_REQUIRED.has(data.caseStatus) && (
             <>
-              <Card label={data.caseStatus === '失注' ? '不受託理由' : '検討中理由'}>
+              <Card label={data.caseStatus === '失注' ? '失注理由' : '検討中理由'}>
                 <Select
                   value={data.considerationDeclineReason}
-                  options={CONSIDERATION_DECLINE_REASONS.filter(r => r.startsWith(data.caseStatus === '失注' ? '【不受託】' : '【検討】'))}
+                  options={CONSIDERATION_DECLINE_REASONS.filter(r => r.startsWith(data.caseStatus === '失注' ? '【失注】' : '【検討】'))}
                   onChange={v => update('considerationDeclineReason', v)}
                   placeholder="理由を選択"
                 />
               </Card>
-              <Card label="備考">
+              <Card label="理由詳細">
                 <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="理由の詳細を自由に入力（任意）" />
               </Card>
-            </>
-          )}
-          {/* LP担当追いかけ運用: 検討中系 かつ LP経由 のときだけ。理由の下に表示。 */}
-          {LP_FOLLOWUP_VISIBLE.has(data.caseStatus) && data.orderRoute === 'LP経由' && (
-            <>
-              <Card label="LPによる追いかけ可否">
-                <Select value={data.lpFollowupAllowed} options={['可', '不可']} onChange={v => update('lpFollowupAllowed', v as '' | '可' | '不可')} placeholder="未設定" />
-                <p className="mt-1 text-[11px] text-gray-400">LP担当がこの案件を電話等で追いかけて良いかどうか。</p>
-              </Card>
-              {data.lpFollowupAllowed === '可' && (
-                <>
-                  <Card label="連絡方法">
-                    <Select value={data.lpFollowupMethod} options={[...LP_FOLLOWUP_METHODS]} onChange={v => update('lpFollowupMethod', v)} placeholder="連絡方法を選択" />
-                  </Card>
-                  <Card label="追いかけ期限日">
-                    <Input type="date" value={data.lpFollowupDueDate} onChange={v => update('lpFollowupDueDate', v)} />
-                  </Card>
-                </>
-              )}
             </>
           )}
 
@@ -830,8 +805,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               )}
             </Card>
           )}
-          {/* 受託確定前(検討中/不受託)では契約・業務関連項目を隠す。
-              検討中→受託に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
+          {/* 受注確定前(検討中/失注)では契約・業務関連項目を隠す。
+              検討中→受注に変わった後は、案件詳細のオーダーシートで入力する想定。 */}
           {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (
             <>
               {data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY) ? (
@@ -906,7 +881,14 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               )}
             </>
           )}
-          <Card label="その他備考"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="その他特記事項があれば記入" /></Card>
+          {/* 追い電話の必要性: 検討中のときだけ表示 */}
+          {data.caseStatus === '検討中' && (
+            <Card label="追い電話の必要性">
+              <Pills value={data.followUpCallNeeded} options={['不要', '要']} onChange={v => update('followUpCallNeeded', v as string)} />
+              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要かどうか。</p>
+            </Card>
+          )}
+          <Card label="面談内容詳細"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="面談内容の詳細やメモがあれば記入" /></Card>
         </div>
       )
       case 'confirm': return (
@@ -933,7 +915,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <ConfirmRow label="受注区分" value={data.serviceCategories.join('・') || '（未選択）'} />
               <ConfirmRow label="他事業者紹介" value={data.referralPartners.join(', ')} />
               <ConfirmRow label="難易度" value={data.difficulty} />
-              <ConfirmRow label="検討中・不受託理由" value={data.considerationDeclineReason} />
+              <ConfirmRow label="検討中・失注理由" value={data.considerationDeclineReason} />
             </ConfirmSection>
           </div>
         </div>
