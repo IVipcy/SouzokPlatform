@@ -17,6 +17,8 @@ type Props = {
   /** info グループ（面談情報・契約残手続き等）をドロップダウンに畳むか。
    *  対応中以降は true（案件情報にまとめる）、それ以前は false（タブが少ないので展開）。 */
   groupInfoTabs?: boolean
+  /** true のとき、グループ分けせず visibleTabs の順序どおりにフラット表示（ミニマム運用の固定順用）。 */
+  flatOrder?: boolean
   /** 互換のため残置（管理情報は MeetingInfoTab の案件情報セクションへ統合済み） */
   onOpenManagementInfo?: () => void
 }
@@ -77,10 +79,25 @@ const DEFAULT_TABS: TabKey[] = [
   'ownerSales', 'orderContent', 'contract', 'meeting', 'caseBasic', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true, flatOrder = false }: Props) {
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
   const counts: Record<string, number> = { taskCount }
+
+  // ミニマム運用など固定順で見せたいときは、グループ分けせず visibleTabs の順のままフラット表示。
+  if (flatOrder) {
+    return (
+      <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
+        {all.map(key => (
+          <Tab key={key} tabKey={key}
+            isActive={activeTab === key}
+            isHighlight={highlightSet.has(key)}
+            count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
+            onClick={() => onTabChange(key)} />
+        ))}
+      </div>
+    )
+  }
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
   const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
