@@ -131,65 +131,62 @@ export async function POST(request: NextRequest) {
     // テンプレのsheet2は結合セル131個等の複雑構造をExcelJSが再保存時に壊し、Excelで開けなくなる。
     // そのため sheet2 を削除し、ExcelJS でクリーンな明細シートを新規作成する（原本の見た目に寄せる）。
     // 列: A〜D=名目(結合) / E=数量 / F=単価 / G=金額 / H=備考
+    // ユーザー提供のスリム原本(立替かい.xlsx)のレイアウトに忠実に合わせる。
+    // 列: A〜D=名目(結合) / E=数量 / F=単価 / G=金額 / H〜J=備考(結合)。フォント=Meiryo。
     wb.removeWorksheet(tate.id)
     const ws = wb.addWorksheet('立替実費明細')
-    ;[9, 8.4, 7.5, 6.7, 6, 10.5, 13.8, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w })
-    const FONT = 'ＭＳ Ｐ明朝'
+    const colW: Record<number, number> = { 1: 9, 3: 7.5, 4: 6.7, 5: 5.5, 6: 10.5, 7: 13.8, 8: 12.1 }
+    Object.entries(colW).forEach(([ci, w]) => { ws.getColumn(Number(ci)).width = w })
+    const FONT = 'Meiryo'
     const thin = { style: 'thin' as const }
     const bd: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin }
-    const borderRow = (r: number) => { for (let ci = 1; ci <= 8; ci++) ws.getCell(r, ci).border = bd }
-    const rightText = (r: number, text: string, opt?: { bold?: boolean; size?: number }) => {
-      const cell = ws.getCell(r, 5); cell.value = text; ws.mergeCells(r, 5, r, 8)
-      cell.alignment = { horizontal: 'right' }; cell.font = { name: FONT, bold: opt?.bold, size: opt?.size ?? 10 }
-    }
-    let rr = 1
-    // タイトル
-    const title = ws.getCell(rr, 1); title.value = '立 替 実 費 内 訳'; title.font = { name: FONT, bold: true, size: 18 }
-    ws.mergeCells(rr, 1, rr, 8); title.alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(rr).height = 30
-    rr += 2
-    // 案件番号（左）＋ 法人名（右）
-    const cno = ws.getCell(rr, 1); cno.value = `案件管理番号：${caseData.case_number ?? ''}`; cno.font = { name: FONT, size: 10 }
-    rightText(rr, def.officeLabel, { bold: true, size: 11 }); rr++
-    // 依頼者（左）＋ 〒住所（右）
-    const cn = ws.getCell(rr, 1); cn.value = `${clientName}　様`; cn.font = { name: FONT, bold: true, size: 14 }; ws.mergeCells(rr, 1, rr, 4)
-    if (office) rightText(rr, `〒${prof?.postalCode ?? ''}　${office.line1}`); rr++
-    if (office) { rightText(rr, office.line2); rr++ }
-    if (prof) { rightText(rr, `${prof.representativeTitle}　${prof.representativeName}`); rr++ }
-    rr++
-    const lead = ws.getCell(rr, 1); lead.value = '下記の通りご請求申し上げます。'; lead.font = { name: FONT, size: 10 }
-    rr += 2
-    // セクション（非課税/課税）を原本の体裁で描画（セル色なし）
-    const putSection = (label: string, items: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }[], subtotalLabel: string, subtotal: number) => {
-      const sec = ws.getCell(rr, 1); sec.value = label; sec.font = { name: FONT, bold: true, size: 11 }
-      rr++
-      // ヘッダ（名目=A:D結合、数量/単価/金額/備考）
-      ws.mergeCells(rr, 1, rr, 4); ws.getCell(rr, 1).value = '名目'
-      ws.getCell(rr, 5).value = '数量'; ws.getCell(rr, 6).value = '単価'; ws.getCell(rr, 7).value = '金額'; ws.getCell(rr, 8).value = '備考'
-      for (let ci = 1; ci <= 8; ci++) { const cell = ws.getCell(rr, ci); cell.font = { name: FONT, bold: true, size: 10 }; cell.alignment = { horizontal: ci === 1 ? 'left' : 'center' } }
-      borderRow(rr); rr++
-      // 明細行
+    const font = (size = 11, bold = false) => ({ name: FONT, size, bold })
+    const bcells = (r: number, c1: number, c2: number) => { for (let ci = c1; ci <= c2; ci++) ws.getCell(r, ci).border = bd }
+    // ── ヘッダ ──
+    ws.getCell('A1').value = '案件管理No.'; ws.getCell('A1').font = font(10)
+    ws.mergeCells('A2:C3'); const cno = ws.getCell('A2'); cno.value = caseData.case_number ?? ''; cno.font = font(16); cno.alignment = { horizontal: 'left', vertical: 'middle' }
+    ws.mergeCells('A4:J5'); const ttl = ws.getCell('A4'); ttl.value = '立 替 実 費 明 細 書'; ttl.font = font(20, true); ttl.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.mergeCells('A7:C8'); const cl = ws.getCell('A7'); cl.value = clientName; cl.font = font(18); cl.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getCell('D8').value = '様'; ws.getCell('D8').font = font(11)
+    // 事務所ブロック（右側）: 法人名＋代表社員 / 〒 / 住所
+    ws.getCell('G9').value = `${def.officeLabel}　${prof ? prof.representativeTitle + '　' + prof.representativeName : ''}`; ws.getCell('G9').font = font(11)
+    ws.getCell('G11').value = `〒 ${prof?.postalCode ?? ''}`; ws.getCell('G11').font = font(10)
+    ws.getCell('G12').value = office ? `${office.line1}${office.line2}` : ''; ws.getCell('G12').font = font(10)
+    // 金額（大・上部）
+    ws.mergeCells('A12:C13'); const gtop = ws.getCell('A12'); gtop.value = c.expenseGrand; gtop.numFmt = '¥#,##0'; gtop.font = font(22, true); gtop.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getCell('A16').value = '下記の通りご請求申し上げます。'; ws.getCell('A16').font = font(11)
+    // ── 明細（動的に行を追加）──
+    let rr = 18
+    const section = (label: string, items: { name: string; amount: number; quantity?: number | null; unitPrice?: number | null }[], subtotal: number) => {
+      // ヘッダ行: 名目欄(A:D)にセクション名、E数量/F単価/G金額/H:J備考
+      ws.mergeCells(rr, 1, rr, 4); ws.getCell(rr, 1).value = label; ws.getCell(rr, 1).font = font(11, true)
+      ws.getCell(rr, 5).value = '数量'; ws.getCell(rr, 6).value = '単価'; ws.getCell(rr, 7).value = '金額'
+      ws.mergeCells(rr, 8, rr, 10); ws.getCell(rr, 8).value = '備考'
+      for (const ci of [5, 6, 7, 8]) { ws.getCell(rr, ci).font = font(11); ws.getCell(rr, ci).alignment = { horizontal: 'center' } }
+      bcells(rr, 1, 10); rr++
+      // 明細行（名目=A:D結合）。増えるほど行が増える。
       for (const e of items) {
-        ws.mergeCells(rr, 1, rr, 4)
-        for (let ci = 1; ci <= 8; ci++) ws.getCell(rr, ci).font = { name: FONT, size: 10 }
-        ws.getCell(rr, 1).value = e.name
+        ws.mergeCells(rr, 1, rr, 4); ws.getCell(rr, 1).value = e.name; ws.getCell(rr, 1).font = font(11)
         ws.getCell(rr, 5).value = e.quantity ?? null
         ws.getCell(rr, 6).value = e.unitPrice ?? null
         ws.getCell(rr, 7).value = e.amount
+        ws.mergeCells(rr, 8, rr, 10)
+        for (const ci of [5, 6, 7]) { ws.getCell(rr, ci).font = font(11); ws.getCell(rr, ci).alignment = { horizontal: 'right' } }
         ws.getCell(rr, 6).numFmt = '#,##0'; ws.getCell(rr, 7).numFmt = '#,##0'
-        for (const ci of [5, 6, 7]) ws.getCell(rr, ci).alignment = { horizontal: 'right' }
-        borderRow(rr); rr++
+        bcells(rr, 1, 10); rr++
       }
-      // 小計（合計ラベルを右寄せ、金額列に）
-      ws.mergeCells(rr, 1, rr, 6); const sl = ws.getCell(rr, 1); sl.value = subtotalLabel; sl.font = { name: FONT, bold: true, size: 10 }; sl.alignment = { horizontal: 'right' }
-      const sa = ws.getCell(rr, 7); sa.value = subtotal; sa.font = { name: FONT, bold: true, size: 10 }; sa.numFmt = '#,##0'; sa.alignment = { horizontal: 'right' }
-      borderRow(rr); rr += 2
+      // 合計行（F=合計、G=金額）
+      ws.getCell(rr, 6).value = '合計'; ws.getCell(rr, 6).font = font(11); ws.getCell(rr, 6).alignment = { horizontal: 'right' }
+      ws.getCell(rr, 7).value = subtotal; ws.getCell(rr, 7).font = font(11, true); ws.getCell(rr, 7).numFmt = '#,##0'; ws.getCell(rr, 7).alignment = { horizontal: 'right' }
+      bcells(rr, 1, 10); rr += 2
     }
-    putSection('立替実費　（非課税）', c.nonTaxItems, '非課税 合計', c.nonTaxSubtotal)
-    putSection('立替実費　（課税）', c.taxItems, '課税 合計（税込）', c.taxSubtotal)
-    // 総合計
-    ws.mergeCells(rr, 1, rr, 6); const gl = ws.getCell(rr, 1); gl.value = '立替実費 合計'; gl.font = { name: FONT, bold: true, size: 12 }; gl.alignment = { horizontal: 'right' }
-    const ga = ws.getCell(rr, 7); ga.value = c.expenseGrand; ga.font = { name: FONT, bold: true, size: 12 }; ga.numFmt = '#,##0'; ga.alignment = { horizontal: 'right' }
-    borderRow(rr)
+    section('立替実費　（非課税）', c.nonTaxItems, c.nonTaxSubtotal)
+    section('立替実費　（課税）', c.taxItems, c.taxSubtotal)
+    // 注記 ＋ 総合計
+    ws.getCell(rr, 1).value = '※印紙代・小為替・郵送代等の実費については消費税は非課税となります。'; ws.getCell(rr, 1).font = font(9)
+    ws.getCell(rr, 8).value = '合計'; ws.getCell(rr, 8).font = font(14, true); ws.getCell(rr, 8).alignment = { horizontal: 'right' }
+    ws.mergeCells(rr, 9, rr, 10); const gbot = ws.getCell(rr, 9); gbot.value = c.expenseGrand; gbot.numFmt = '¥#,##0'; gbot.font = font(12, true); gbot.alignment = { horizontal: 'right' }
+    bcells(rr, 8, 10)
 
     // 出力
     const outBuffer = await wb.xlsx.writeBuffer()
