@@ -69,6 +69,12 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
+  // オーダーシート：証券/信託はデータが無ければ最初は非表示。「＋証券/＋信託」を押すと表示。
+  const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
+  const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean }>({})
+  const showSecurities = orderSheetMode ? (hasKind('証券') || !!reveal.securities) : sub === 'securities'
+  const showTrust = orderSheetMode ? (hasKind('信託銀行') || !!reveal.trust) : sub === 'trust'
+
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
   const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
@@ -146,7 +152,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
           )}
         </div>
-        <div className={orderSheetMode || sub === 'securities' ? 'space-y-3' : 'hidden'}>
+        <div className={showSecurities ? 'space-y-3' : 'hidden'}>
           {orderSheetMode ? (
             <>
               <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -156,7 +162,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
           )}
         </div>
-        <div className={orderSheetMode || sub === 'trust' ? 'space-y-3' : 'hidden'}>
+        <div className={showTrust ? 'space-y-3' : 'hidden'}>
           {orderSheetMode ? (
             <>
               <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -174,6 +180,17 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
           </FieldGrid>
         </div>
+        {/* オーダーシート：証券/信託が未表示なら追加ボタンで出す */}
+        {orderSheetMode && (!showSecurities || !showTrust) && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {!showSecurities && (
+              <button type="button" onClick={() => setReveal(r => ({ ...r, securities: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 証券を追加</button>
+            )}
+            {!showTrust && (
+              <button type="button" onClick={() => setReveal(r => ({ ...r, trust: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 信託を追加</button>
+            )}
+          </div>
+        )}
         {/* 契約時受領の財産書類は不動産/金融の各表の先頭に「契約時受領」として取り込み表示（二重登録防止）。 */}
       </div>
 
