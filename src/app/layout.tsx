@@ -30,8 +30,9 @@ export const metadata: Metadata = {
   description: "相続手続き業務管理システム（オーシャン）",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "相談案件登録", statusBarStyle: "default" },
+  // favicon（タブアイコン）は app/icon.png（会話）／order-sheet/icon.png（表シート）のファイル方式で
+  // ルート別に出し分ける（favicon.ico は撤去）。ここでは apple-touch-icon のみ指定。
   icons: {
-    icon: "/icons/icon-192.png",
     apple: "/icons/apple-touch-icon.png",
   },
 };
