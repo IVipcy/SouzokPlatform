@@ -36,7 +36,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  * 受注担当 (sales):
  *   - 当月面談（相談案件一覧）: 面談設定済/検討中/検討中（契約書待ち）/受託/不受託 の案件。期間切替・KPIサマリ付き
  *   - 管理案件一覧            : 受託後の進捗（対応中/完了）。進捗管理ダッシュボードと同じ見た目
- *   - 個別管理案件            : 紹介のみ/長期保留 の案件（戻り受注の可能性あり）
+ *   - 個別管理案件            : 紹介のみ の案件（戻り受注の可能性あり）
  *   - タスク                  : 自分宛のタスク
  * 管理担当 (manager) / その他: 管理案件一覧 + タスク
  */
@@ -44,12 +44,12 @@ import type { TaskRow, ProgressReportRow } from '@/types'
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
 type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'tasks'
 
-// 相談案件 = 受注担当が受託に至るまで（長期保留・紹介のみは個別管理案件へ移管）
+// 相談案件 = 受注担当が受託に至るまで（紹介のみは個別管理案件へ移管）
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'])
-// 個別管理案件 = 紹介のみ・長期保留
-const REFERRAL_STATUSES = new Set(['紹介のみ', '保留・長期'])
+// 個別管理案件 = 紹介のみ
+const REFERRAL_STATUSES = new Set(['紹介のみ'])
 // 管理担当のアラート対象スコープ（KPI/アラート用。一覧分類とは別概念）
-const MGMT_ACTIVE_STATUSES = new Set(['受注', '戻り受注', '対応中', '保留・長期'])
+const MGMT_ACTIVE_STATUSES = new Set(['受注', '戻り受注', '対応中'])
 const pad = (n: number) => String(n).padStart(2, '0')
 
 // 相談案件の累計KPIを各月の集計から合成する（件数は合算、平均単価は件数で加重平均）
@@ -426,7 +426,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     }
   })
 
-  // === 個別管理案件（紹介のみ・長期保留） ===
+  // === 個別管理案件（紹介のみ） ===
   const referralCases = myCases.filter(c => REFERRAL_STATUSES.has(c.status))
 
   // === 自分宛タスク（担当者ベース） ===
@@ -625,7 +625,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       )}
 
 
-      {/* 個別管理案件（紹介のみ・長期保留） */}
+      {/* 個別管理案件（紹介のみ） */}
       {activeTab === 'referrals' && isSales && (
         <ReferralCasesTable
           cases={referralCases.map(c => ({

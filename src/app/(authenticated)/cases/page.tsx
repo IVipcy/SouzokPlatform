@@ -11,7 +11,7 @@ import { advanceTotal } from '@/lib/advancePayment'
 
 // 案件分類（constants の定義に一元化）
 // 管理案件一覧 = 対応中（稼働中）のみ。完了はこの一覧には出さない（バッジ数＝表示と一致させる）。
-// 相談案件 = 面談設定済〜受託・不受託 / 個別管理案件 = 紹介のみ・長期保留
+// 相談案件 = 面談設定済〜受託・不受託 / 個別管理案件 = 紹介のみ
 const MANAGEMENT_ACTIVE = new Set<string>(['対応中'])
 const CONSULT = new Set<string>(CONSULT_STATUSES)
 const REFERRAL = new Set<string>(REFERRAL_STATUSES)
@@ -232,7 +232,7 @@ export default async function CasesPage() {
     }
   })
 
-  // 個別管理案件（紹介のみ・長期保留）
+  // 個別管理案件（紹介のみ）
   const referralRows: ReferralRow[] = cases.filter(c => REFERRAL.has(c.status)).map(c => ({
     id: c.id,
     case_number: c.case_number,

@@ -9,7 +9,7 @@
 //
 // タブ分類（getCaseCategory）との対応:
 //   相談案件      = 面談設定済 / 検討中 / 検討中（契約書待ち） / 受託 / 不受託
-//   個別管理案件  = 紹介のみ / 長期保留
+//   個別管理案件  = 紹介のみ
 //   管理案件      = 対応中 / 完了
 //
 // ※「依頼者情報」タブ = 既存の「依頼者情報・やり取り」タブ（clientInfo）に統一。
@@ -73,7 +73,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
     return { visible: filterByGyomu(FULL_PRACTICE_TABS, allowedPracticeTabs), collapsed: ['meeting', 'contractProc'] }
   }
 
-  // 個別管理案件（紹介のみ / 長期保留）
+  // 個別管理案件（紹介のみ）
   if (category === 'referral') {
     return { visible: ['basicInfo', 'meeting', 'clientInfo', 'referral', 'tasks'], collapsed: [] }
   }

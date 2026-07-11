@@ -125,12 +125,18 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
                 </div>
               )}
-              {/* 即受注バッジ: 面談登録で受注にした＝その場受注の案件 */}
-              {caseData.status === '受注' && caseData.instant_order && (
-                <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded border bg-green-50 text-green-700 border-green-200" title="面談でその場受注になった案件（即受注）">
-                  即受注
-                </span>
-              )}
+              {/* 受注の獲得区分バッジ（即受注 / 面談なし受注）。旧データは instant_order を即受注扱い */}
+              {caseData.status === '受注' && (caseData.order_win_type || caseData.instant_order) && (() => {
+                const winLabel = caseData.order_win_type || (caseData.instant_order ? '即受注' : '')
+                const cls = winLabel === '面談なし受注'
+                  ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+                return (
+                  <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${cls}`} title={`受注の獲得区分：${winLabel}`}>
+                    {winLabel}
+                  </span>
+                )
+              })()}
             </div>
             {/* 案件名 + クレームフラグ */}
             <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">

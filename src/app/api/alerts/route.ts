@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
 import { isMinimalMode } from '@/lib/featureMode'
 
-const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+const ACTIVE = new Set(['受注', '対応中'])
 const PENDING_ANSWER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
 const ASSIGN_DEADLINE_DAYS = 3
 // ミニマム運用時にアラートから除外する初期対応タスク（検討状況確認 sys_review_status は残す）

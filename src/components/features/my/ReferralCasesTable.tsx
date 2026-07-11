@@ -21,7 +21,7 @@ export type ReferralRow = {
   team_name?: string | null
 }
 
-/** 個別管理案件（紹介のみ・長期保留）一覧。selectable でチェック選択＋一括削除を有効化 */
+/** 個別管理案件（受注なし＋パートナー紹介）一覧。selectable でチェック選択＋一括削除を有効化 */
 export default function ReferralCasesTable({ cases, selectable = false }: { cases: ReferralRow[]; selectable?: boolean }) {
   const sel = useCaseBulkDelete(cases.map(c => c.id))
   return (
@@ -41,11 +41,11 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
             <button type="button" onClick={sel.clear} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
           </div>
         ) : (
-          <span className="ml-auto text-[11px] text-gray-400">受託に至らず紹介のみ／長期保留の案件（裁判解決後などに戻り受注の可能性あり）</span>
+          <span className="ml-auto text-[11px] text-gray-400">受注なし＋パートナー紹介の案件（裁判解決後などに戻り受注の可能性あり）</span>
         )}
       </div>
       {cases.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-gray-400">個別案件（紹介のみ・長期保留）はありません</div>
+        <div className="px-4 py-12 text-center text-[13px] text-gray-400">個別案件（受注なし＋パートナー紹介）はありません</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">

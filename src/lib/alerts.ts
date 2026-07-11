@@ -24,7 +24,7 @@ export type AlertItem = {
 
 // 案件詳細ヘッダー用：1案件の有効アラート（種別＋重大度）を算出する。
 // 案件本来の状態に基づくので、閲覧者のロールに関わらず同じものを表示する。
-const ACTIVE_STATUSES_A = new Set(['受注', '戻り受注', '対応中', '保留・長期'])
+const ACTIVE_STATUSES_A = new Set(['受注', '戻り受注', '対応中'])
 const PENDING_ANSWER_A = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
 
 export type CaseAlertChip = { severity: AlertSeverity; category: string }

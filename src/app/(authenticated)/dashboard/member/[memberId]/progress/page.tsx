@@ -137,7 +137,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     tasksByCase.get(t.case_id)!.push(t)
   }
 
-  const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+  const ACTIVE = new Set(['受注', '対応中'])
   const inSelectedMonth = (d: string | null | undefined): boolean => {
     if (!d) return false
     if (selectedMonth === 'all') return true

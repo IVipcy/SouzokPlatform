@@ -30,7 +30,7 @@ type Props = {
 }
 
 // ステータスフィルタ候補（マイページ仕様）
-const STATUS_FILTERS = ['面談設定済', '検討中', '受注', '失注', '保留・長期'] as const
+const STATUS_FILTERS = ['面談設定済', '検討中', '受注', '失注'] as const
 
 type SortKey = 'response_due' | 'meeting_date' | 'meeting_executed' | 'status' | 'case_number' | 'deal_name'
 type SortOrder = 'asc' | 'desc'

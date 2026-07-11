@@ -12,7 +12,8 @@ export const PHASES = [
 
 // === 案件ステータス ===
 // key = 内部キー（DB値・既存ロジックの比較に使用。絶対に変更しない）
-// label = 表示名（改称はここだけ。即受注は「受注」＋instant_orderバッジで表現 / 保留・長期→長期保留）
+// label = 表示名（改称はここだけ）。受注の獲得区分（即受注/面談なし受注）は order_win_type で
+//         表現し、ステータスkeyは「受注」1本のまま（B案）。バッジで即受注/面談なし受注を表示。
 // 表示は getCaseStatusLabel(key) を使い、key を直接画面に出さない。
 // 「新規（架電案件化）」は廃止。案件は必ず「面談設定済」から開始する。
 // 並び順は案件ライフサイクル＝相談案件→個別管理案件→管理案件の順。
@@ -24,9 +25,8 @@ export const CASE_STATUSES = [
   { key: '受注', label: '受注', color: '#16A34A' },
   { key: '戻り受注', label: '戻り受注', color: '#10B981' },
   { key: '失注', label: '失注', color: '#DC2626' },
-  // 個別管理案件（受注せず紹介のみ／長期保留。戻り受注の可能性あり）
-  { key: '紹介のみ', label: '紹介のみ', color: '#0891B2' },
-  { key: '保留・長期', label: '長期保留', color: '#EA580C' },
+  // 個別管理案件（受注せず紹介のみ。戻り受注の可能性あり）
+  { key: '紹介のみ', label: '受注なし＋パートナー紹介', color: '#0891B2' },
   // 管理案件（受注後、管理担当が引き継ぎ対応）
   { key: '対応中', label: '対応中', color: '#7C3AED' },
   { key: '完了', label: '完了', color: '#059669' },
@@ -38,15 +38,45 @@ export const getCaseStatusLabel = (key: string | null | undefined): string =>
 
 // === 案件分類（相談案件 / 個別管理案件 / 管理案件） ===
 // 相談案件      : 受注担当が「受注」に至るまでの状態（面談〜検討〜即受注/戻り受注/失注）
-// 個別管理案件  : 受託に至らず紹介のみ・長期保留（裁判解決後などに「戻り受注」になり得る）
+// 個別管理案件  : 受託に至らず紹介のみ（裁判解決後などに「戻り受注」になり得る）
 // 管理案件      : 受託後、管理担当へ引き継がれ対応中〜完了
 export const CONSULT_STATUSES = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'] as const
-export const REFERRAL_STATUSES = ['紹介のみ', '保留・長期'] as const
+export const REFERRAL_STATUSES = ['紹介のみ'] as const
 export const MANAGEMENT_STATUSES = ['対応中', '完了'] as const
 
 // 案件作成・面談情報タブで選択可能なステータス（相談案件＋個別管理案件）。
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
 export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
+
+// === 面談分類（旧「面談内容」。相談案件登録の選択式・既定「新規面談」） ===
+export const MEETING_CATEGORIES = ['新規面談', '既存面談', '見積もり対応', '過去客面談'] as const
+
+// === 受注の獲得区分（order_win_type。status='受注' のときのみ意味を持つ） ===
+// 即受注     : 面談設定済からその場で受注（面談結果で「即受注」を選択）
+// 面談なし受注 : 税理士/過去客ルート等、面談なしで受注（面談結果で「面談なし受注」を選択）
+// null       : 依頼確定待ち→受注 で確定した通常受注（戻り受注は別ステータスkey）
+export const ORDER_WIN_TYPES = ['即受注', '面談なし受注'] as const
+
+// === 相談案件登録画面「面談結果」の選択肢 ===
+// value=フォーム上の選択値。status=保存する案件ステータスkey。winType=受注の獲得区分（受注以外はnull）。
+// 即受注/面談なし受注 はどちらも status='受注'。獲得区分(order_win_type)で区別しバッジ表示する（B案）。
+export const MEETING_RESULT_OPTIONS = [
+  { value: '検討中',       label: '検討中',                   status: '検討中',               winType: null as string | null },
+  { value: '依頼確定待ち', label: '依頼確定待ち',             status: '検討中（契約書待ち）', winType: null as string | null },
+  { value: '即受注',       label: '即受注',                   status: '受注',                 winType: '即受注' as string | null },
+  { value: '面談なし受注', label: '面談なし受注',             status: '受注',                 winType: '面談なし受注' as string | null },
+  { value: '紹介のみ',     label: '受注なし＋パートナー紹介', status: '紹介のみ',             winType: null as string | null },
+  { value: '失注',         label: '失注',                     status: '失注',                 winType: null as string | null },
+] as const
+export type MeetingResultOption = typeof MEETING_RESULT_OPTIONS[number]
+
+export const getMeetingResultOption = (value: string | null | undefined): MeetingResultOption | undefined =>
+  MEETING_RESULT_OPTIONS.find(o => o.value === value)
+
+// 面談ルートが「面談なし」前提のもの（税理士経由・過去客経由）。
+// これらを選んだら面談結果は「面談なし受注／失注」のみに絞る。
+export const NO_MEETING_ROUTES = new Set(['税理士経由', '過去客経由'])
+export const NO_MEETING_RESULT_VALUES = ['面談なし受注', '失注'] as const
 
 // ヒアリング内容メモの記入サンプル（入力欄プレースホルダ）。面談で押さえる観点の雛形。
 export const HEARING_MEMO_SAMPLE = `【相談の経緯】紹介元・相談のきっかけ／急ぎ度
@@ -76,24 +106,23 @@ export function considerationDueMax(period: string | null | undefined, from: Dat
 // 案件ステータスの遷移ルール（現在ステータス → 変更できる先）。
 // 前進を基本に、運用上ありえない「戻り」を抑止する。基本ルール:
 //   ・面談設定済へは戻さない（受託/検討中/対応中 などから）
-//   ・対応中→面談設定済/受託/検討中 へは戻さない（ただし保留・長期は可）
-//   ・紹介のみ/長期保留/不受託 からの復活（→受託）は可
+//   ・対応中→面談設定済/受託/検討中 へは戻さない
+//   ・紹介のみ/失注 からの復活（→受注）は可
 //   ・対応中⇄完了（完了の再開）は可
 // ※「対応中・完了」へ遷移できるのは別途ゲート（OS完成＋管理担当アサイン）を満たす時のみ。
 // 恒久ルール:
 //   ・検討中 からは「受注」に直接できず「戻り受注」のみ（検討の末の受注は戻り受注）
 //   ・受注 / 依頼確定待ち（検討中（契約書待ち）） からは「紹介のみ」へ遷移できない
-//   ・即受注は面談登録で受注にした案件のバッジ（instant_order）で表現し、ステータスは「受注」
+//   ・受注の獲得区分（即受注/面談なし受注/通常）は order_win_type で表現し、ステータスは「受注」
 export const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  '面談設定済': ['検討中', '検討中（契約書待ち）', '受注', '失注', '紹介のみ', '保留・長期'],
-  '検討中': ['戻り受注', '失注', '紹介のみ', '保留・長期'],
-  '検討中（契約書待ち）': ['検討中', '受注', '失注', '保留・長期'],
+  '面談設定済': ['検討中', '検討中（契約書待ち）', '受注', '失注', '紹介のみ'],
+  '検討中': ['戻り受注', '失注', '紹介のみ'],
+  '検討中（契約書待ち）': ['検討中', '受注', '失注'],
   '受注': ['対応中', '失注'],
   '戻り受注': ['対応中', '失注'],
   '失注': ['紹介のみ', '受注', '戻り受注'],
-  '紹介のみ': ['受注', '戻り受注', '保留・長期', '失注'],
-  '保留・長期': ['受注', '戻り受注', '紹介のみ'],
-  '対応中': ['完了', '保留・長期'],
+  '紹介のみ': ['受注', '戻り受注', '失注'],
+  '対応中': ['完了'],
   '完了': ['対応中'],
 }
 

@@ -11,7 +11,8 @@ import { lookupPostalAddress } from '@/lib/postal'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
-  MEETING_SELECTABLE_STATUSES, getCaseStatusLabel,
+  MEETING_CATEGORIES, MEETING_RESULT_OPTIONS, getMeetingResultOption,
+  NO_MEETING_ROUTES, NO_MEETING_RESULT_VALUES,
   REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
   REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
@@ -37,8 +38,13 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void
 }
 
-// 案件作成は面談完了後のため「面談設定済」は除外。「戻り受注」は検討中→受注の後日遷移用なので面談登録では選べない。
-const STATUS_OPTIONS = MEETING_SELECTABLE_STATUSES.filter(k => k !== '面談設定済' && k !== '戻り受注').map(k => ({ key: k, label: getCaseStatusLabel(k) }))
+// 面談結果の選択肢（面談ルートで絞る）。税理士経由・過去客経由は面談なし前提なので「面談なし受注／失注」のみ。
+function meetingResultOptionsForRoute(route: string): { key: string; label: string }[] {
+  const opts = NO_MEETING_ROUTES.has(route)
+    ? MEETING_RESULT_OPTIONS.filter(o => (NO_MEETING_RESULT_VALUES as readonly string[]).includes(o.value))
+    : MEETING_RESULT_OPTIONS
+  return opts.map(o => ({ key: o.value, label: o.label }))
+}
 // お客様回答予定日が必須になるステータス
 const RESPONSE_DUE_REQUIRED = new Set(['検討中', '検討中（契約書待ち）'])
 // 「検討中・失注理由」を表示する面談結果（失注のステータスキーは '失注'）
@@ -241,6 +247,31 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     onDirtyChange?.(true)
   }, [onDirtyChange])
 
+  // 面談結果ドロップダウン：選択値からステータスkey・獲得区分（即受注/面談なし受注）を同時にセット
+  const setMeetingResult = (value: string) => {
+    const opt = getMeetingResultOption(value)
+    setData(prev => ({ ...prev, meetingResult: value, caseStatus: opt?.status ?? value, orderWinType: opt?.winType ?? '' }))
+    onDirtyChange?.(true)
+  }
+
+  // 面談ルート変更：詳細をリセットしつつ、面談なしルート（税理士/過去客）で選べない面談結果は補正する
+  const setOrderRoute = (route: string) => {
+    setData(prev => {
+      const allowed = NO_MEETING_ROUTES.has(route)
+        ? (NO_MEETING_RESULT_VALUES as readonly string[])
+        : MEETING_RESULT_OPTIONS.map(o => o.value)
+      let { meetingResult, caseStatus, orderWinType } = prev
+      if (!allowed.includes(meetingResult)) {
+        const opt = getMeetingResultOption(allowed[0])
+        meetingResult = allowed[0]
+        caseStatus = opt?.status ?? allowed[0]
+        orderWinType = opt?.winType ?? ''
+      }
+      return { ...prev, orderRoute: route, orderRouteDetail: '', pastClientId: '', meetingResult, caseStatus, orderWinType }
+    })
+    onDirtyChange?.(true)
+  }
+
   // 検討期間区分を選ぶ → 回答予定日を「今日＋期間」を上限にそろえる（見込み不明は上限なし）
   const selectPeriod = (p: string) => {
     const max = considerationDueMax(p)
@@ -386,8 +417,9 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
         contract_type: formData.contractType || null,
         follow_up_call_needed: formData.followUpCallNeeded === '要' ? true : formData.followUpCallNeeded === '不要' ? false : null,
-        // 即受注: 面談登録で受注を選んだ＝その場受注。受注以外は false。
-        instant_order: formData.caseStatus === '受注',
+        // 受注の獲得区分（即受注/面談なし受注）。互換のため instant_order も維持（即受注のとき true）。
+        order_win_type: formData.orderWinType || null,
+        instant_order: formData.orderWinType === '即受注',
       }
 
       if (isNew) {
@@ -545,7 +577,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             {(() => {
               const isLpLinked = selectedCase.id !== 'new'
               const routeOptions = isLpLinked ? [...ORDER_ROUTES] : ORDER_ROUTES.filter(r => r !== 'LP経由')
-              return <Pills value={data.orderRoute} options={routeOptions} onChange={v => { update('orderRoute', v as string); update('orderRouteDetail', ''); update('pastClientId', '') }} disabled={isLpLinked} />
+              return <Pills value={data.orderRoute} options={routeOptions} onChange={v => setOrderRoute(v as string)} disabled={isLpLinked} />
             })()}
             {data.orderRoute && (
               <div className="mt-3">
@@ -581,12 +613,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           <Card label="顧客名（依頼者名）" required>
             <Input value={data.clients[0]?.name ?? ''} onChange={v => updateClient(0, { name: v })} placeholder="例: 服部 雅弘" />
           </Card>
-          <Card label="面談内容"><Input value={data.meetingType} onChange={v => update('meetingType', v)} placeholder="新規面談" /></Card>
+          <Card label="面談分類" required><Select value={data.meetingType} options={[...MEETING_CATEGORIES]} onChange={v => update('meetingType', v)} noEmpty /></Card>
           <Card label="面談実施日" required>
             <Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} />
             <p className="mt-1 text-[11px] text-gray-400">面談を行った日。マイページの相談案件一覧（当月面談）はこの日付で集計されます。</p>
           </Card>
-          <Card label="面談結果" required><Select value={data.caseStatus} options={STATUS_OPTIONS} onChange={v => update('caseStatus', v)} noEmpty /></Card>
+          <Card label="面談結果" required><Select value={data.meetingResult} options={meetingResultOptionsForRoute(data.orderRoute)} onChange={v => setMeetingResult(v)} noEmpty /></Card>
 
           {/* 検討中・検討中(契約書待ち)のときだけ、面談結果の直下に検討期間→理由→(LP経由なら)追いかけ を表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
@@ -926,7 +958,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <ConfirmRow label="案件管理番号" value="（保存時に自動採番）" />
               <ConfirmRow label="面談実施日" value={data.meetingDate} />
               <ConfirmRow label="面談ルート" value={data.orderRoute + (data.orderRouteDetail ? `（${data.orderRouteDetail}）` : '')} />
-              <ConfirmRow label="面談結果" value={getCaseStatusLabel(data.caseStatus)} />
+              <ConfirmRow label="面談分類" value={data.meetingType} />
+              <ConfirmRow label="面談結果" value={getMeetingResultOption(data.meetingResult)?.label ?? data.meetingResult} />
               {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="検討期間" value={data.considerationPeriod} />}
               {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && data.considerationPeriod !== '見込み不明' && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
             </ConfirmSection>

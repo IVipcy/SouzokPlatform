@@ -10,7 +10,7 @@ import { koteiOf, koteiRank } from '@/lib/kotei'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
 // この案件ステータスでは「受注/管理担当タスク」レーンを既定で折りたたむ（主役が事務管理タスクに移るため）
-const SYSTEM_LANE_COLLAPSED = new Set(['対応中', '保留・長期', '完了', '失注'])
+const SYSTEM_LANE_COLLAPSED = new Set(['対応中', '完了', '失注'])
 
 // 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
 function normGyomu(phase: string | null | undefined): string {
@@ -100,7 +100,7 @@ function taskAssignee(t: TaskRow): string | null {
   return primary?.members?.name ?? null
 }
 
-const STATUS_ORDER = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '対応中', '保留・長期', '完了', '失注', '紹介のみ']
+const STATUS_ORDER = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '対応中', '完了', '失注', '紹介のみ']
 
 // マイルストーン定義（実際に通過したステータスのみ表示）
 // historyOnly=true のものは「ステータス遷移の実履歴に該当ステータスがある場合のみ」表示する

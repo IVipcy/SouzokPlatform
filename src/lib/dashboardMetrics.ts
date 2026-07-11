@@ -180,7 +180,7 @@ export type SalesDailyMetricsBundle = {
   propertyAppraisalCount: number // 不動産査定件数（本日新規受注の不動産で appraisal_status IN ('対応中','完了') の物件数）
 }
 
-const STATUS_AFTER_ORDER = new Set(['受注', '対応中', '保留・長期', '完了'])
+const STATUS_AFTER_ORDER = new Set(['受注', '対応中', '完了'])
 const AVG_DAYS_PER_MONTH = 30.4375
 
 export function monthRange(ym: string): { start: string; end: string } {
@@ -300,7 +300,7 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
 }
 
 // アクティブ = 受注済〜未完了（失注・受注前は除く）
-const ACTIVE_STATUSES = new Set(['受注', '対応中', '保留・長期'])
+const ACTIVE_STATUSES = new Set(['受注', '対応中'])
 
 // 当月発行された請求書を集計するため、月内 issued_date を持つ行型
 export type DashInvoice = {
@@ -319,7 +319,7 @@ export function computeProgressKpis(
   today: Date = new Date(),
   scopedInvoices: DashInvoice[] = [],
   // 担当件数・フラグ件数・完了予定件数の対象とするステータス集合。
-  // 既定はアクティブ全体（受注/対応中/保留・長期）。一覧を「対応中のみ」に揃えたい
+  // 既定はアクティブ全体（受注/対応中）。一覧を「対応中のみ」に揃えたい
   // 画面では new Set(['対応中']) を渡す。完了割合・サイクルは scopedCases 全体を使うので影響しない。
   activeStatuses: Set<string> = ACTIVE_STATUSES,
 ): ProgressKpiBundle {

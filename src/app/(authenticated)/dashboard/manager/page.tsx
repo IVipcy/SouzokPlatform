@@ -30,7 +30,7 @@ type MemberRow = { id: string; name: string; avatar_color: string; avatar_url: s
 type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null }
 
 const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
-const ACTIVE = new Set(['受注', '対応中', '保留・長期'])
+const ACTIVE = new Set(['受注', '対応中'])
 const INVOICE_PSTATUS = ['未請求', '作成済', '入金待ち', '入金済'] as const
 
 type Props = { searchParams: Promise<{ month?: string; view?: string; member?: string; status?: string; pstatus?: string }> }

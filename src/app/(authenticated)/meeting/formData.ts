@@ -21,8 +21,10 @@ export const EMPTY_CLIENT: ClientPerson = {
 
 export type FormData = {
   // 基本情報（案件番号は自動採番のため入力欄なし）
-  caseStatus: string        // 面談結果（旧・案件ステータス。key）
-  meetingType: string       // 面談内容（フリーテキスト。既定「新規面談」）
+  meetingResult: string     // 面談結果（ドロップダウン選択値。MEETING_RESULT_OPTIONS の value）
+  caseStatus: string        // 面談結果から導出した案件ステータスkey（各条件分岐が参照）
+  orderWinType: string      // 受注の獲得区分（即受注/面談なし受注。受注以外は空）
+  meetingType: string       // 面談分類（選択式。既定「新規面談」）
   proposalNote: string      // 提案金額（フリーテキスト。例「提案せず」）
   meetingDate: string       // 面談実施日
   orderRoute: string        // 面談ルート（＝受注ルート）
@@ -74,7 +76,9 @@ export type FormData = {
 }
 
 export const INITIAL_DATA: FormData = {
+  meetingResult: '検討中',
   caseStatus: '検討中',
+  orderWinType: '',
   meetingType: '新規面談',
   proposalNote: '',
   meetingDate: '',
