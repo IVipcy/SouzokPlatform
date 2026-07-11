@@ -121,7 +121,8 @@ export type CaseRow = {
   order_received_date: string | null
   // 検討中・失注理由（旧 lost_reason の置換、migration 125 で導入）
   consideration_decline_reason: string | null
-  consideration_decline_reason_detail: string | null  // その他理由詳細（migration 126）
+  consideration_decline_reason_detail: string | null  // 詳細理由（検討中/失注。migration 126）
+  meeting_content_detail: string | null  // 面談内容詳細（検討中/失注以外。申し送りとは別。migration 161）
   // 新規面談登録（migration 149）
   meeting_owner_id: string | null      // 面談担当＝受注担当（自動設定）
   meeting_type: string | null          // 面談内容（フリーテキスト。既定「新規面談」）

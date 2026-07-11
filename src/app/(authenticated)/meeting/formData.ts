@@ -34,9 +34,12 @@ export type FormData = {
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
   considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明）
   followUpCallNeeded: string  // 追い電話の必要性（不要/要。検討中のとき入力）
-  // 他事業者紹介：依頼内容（partner_type が 税理士/不動産 のとき選択肢、それ以外はフリー）
-  taxAdvisorBusinessType: string  // 税理士業務（依頼内容） — case_referrals(partner_type='税理士').content と連動
-  realEstateRegistrationType: string  // 不動産登記（依頼内容） — case_referrals(partner_type='不動産').content と連動
+  // 他事業者紹介：依頼内容
+  taxAdvisorBusinessType: string  // 税理士紹介の理由（選択） — case_referrals(partner_type='税理士').content と連動
+  taxAdvisorReferralNote: string  // 税理士紹介「その他」自由入力 — content_detail
+  realEstateRegistrationType: string  // 不動産査定のランク（選択） — case_referrals(partner_type='不動産').content と連動
+  realEstateAppraisalNote: string  // 不動産査定「その他」自由入力 — content_detail
+  otherReferralNotes: Record<string, string>  // その他紹介の備考（partner_type→備考。弁護士/遺品整理/解体/自動車/鑑定/特殊清掃）
   // 依頼者（複数人）
   clients: ClientPerson[]
   // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
@@ -66,8 +69,9 @@ export type FormData = {
   referralPartners: string[] // 他事業者紹介要否（税理士/弁護士/不動産/遺品整理）
   contractType: string      // 契約形態（行政書士法人単独/司法書士法人単独/行・司連名）
   considerationDeclineReason: string  // 検討中・失注理由（面談結果が検討中／失注のとき入力）
-  considerationDeclineReasonDetail: string  // その他理由詳細（フリーテキスト）
-  otherNotes: string        // その他備考
+  considerationDeclineReasonDetail: string  // 詳細理由（検討中／失注のとき。理由セレクト直下のフリーテキスト）
+  meetingContentDetail: string  // 面談内容詳細（検討中／失注以外のとき。理由位置のフリーテキスト。申し送りとは別）
+  otherNotes: string        // その他申し送り事項（フォーム最下部。旧「面談内容詳細」）
   difficulty: string        // 難易度（高/中/低）
   expectedCompletionDate: string  // 完了予定日
   // 手続き詳細（受注見込み手続き区分の次に入力）
@@ -90,7 +94,10 @@ export const INITIAL_DATA: FormData = {
   considerationPeriod: '',
   followUpCallNeeded: '',
   taxAdvisorBusinessType: '',
+  taxAdvisorReferralNote: '',
   realEstateRegistrationType: '',
+  realEstateAppraisalNote: '',
+  otherReferralNotes: {},
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
   postalCode: '',
   address: '',
@@ -117,6 +124,7 @@ export const INITIAL_DATA: FormData = {
   contractType: '',
   considerationDeclineReason: '',
   considerationDeclineReasonDetail: '',
+  meetingContentDetail: '',
   otherNotes: '',
   difficulty: '',
   expectedCompletionDate: '',

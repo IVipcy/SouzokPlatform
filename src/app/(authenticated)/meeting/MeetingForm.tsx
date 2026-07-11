@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, FileText, CheckCircle2, type LucideIcon } from 'lucide-react'
+import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
@@ -15,6 +15,7 @@ import {
   NO_MEETING_ROUTES, NO_MEETING_RESULT_VALUES,
   REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
   REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
+  TAX_ADVISOR_REFERRAL_REASONS, REAL_ESTATE_APPRAISAL_RANKS, OTHER_REFERRAL_PARTNERS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
@@ -201,6 +202,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [done, setDone] = useState(false)  // スマホ独立ルート：登録完了画面
+  const [otherReferralOpen, setOtherReferralOpen] = useState(false)  // ⑫ その他紹介アコーディオン
   const [data, setData] = useState<FormData>(() => {
     const init: FormData = { ...INITIAL_DATA, clients: INITIAL_DATA.clients.map(c => ({ ...c })) }
     // 面談実施日は既定で本日（面談報告＝当日に登録する想定。必要なら変更可）
@@ -271,6 +273,23 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     })
     onDirtyChange?.(true)
   }
+
+  // 提案金額（⑧）：proposal_note に「提案せず」or 税抜(カンマ整形)を保存。税込は表示のみ（×1.10）。
+  const proposalMode = data.proposalNote === '提案せず' ? '提案せず' : '金額を入力'
+  const proposalDigits = data.proposalNote === '提案せず' ? '' : data.proposalNote.replace(/[^0-9]/g, '')
+  const proposalTaxIncluded = proposalDigits ? Math.round(Number(proposalDigits) * 1.1) : null
+  const setProposalMode = (mode: string) => update('proposalNote', mode === '提案せず' ? '提案せず' : '')
+  const setProposalAmount = (raw: string) => {
+    const d = raw.replace(/[^0-9]/g, '')
+    update('proposalNote', d ? Number(d).toLocaleString('en-US') : '')
+  }
+
+  // 他事業者紹介の あり/なし トグル（referralPartners に partner_type を出し入れ）
+  const toggleReferral = (key: string, yes: boolean) =>
+    update('referralPartners', yes ? [...new Set([...data.referralPartners, key])] : data.referralPartners.filter(x => x !== key))
+  // その他紹介の備考
+  const setOtherReferralNote = (key: string, note: string) =>
+    update('otherReferralNotes', { ...data.otherReferralNotes, [key]: note })
 
   // 検討期間区分を選ぶ → 回答予定日を「今日＋期間」を上限にそろえる（見込み不明は上限なし）
   const selectPeriod = (p: string) => {
@@ -397,6 +416,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         meeting_other_notes: formData.otherNotes || null,
         consideration_decline_reason: formData.considerationDeclineReason || null,
         consideration_decline_reason_detail: formData.considerationDeclineReasonDetail || null,
+        meeting_content_detail: formData.meetingContentDetail || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
         // 郵送・書類設定／依頼者特徴（メイン依頼者）
@@ -515,8 +535,19 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       if (formData.referralPartners.length > 0) {
         const rows = formData.referralPartners.map(p => {
           const row: { case_id: string; partner_type: string; content?: string | null; content_detail?: string | null } = { case_id: caseId, partner_type: p }
-          if (p === '税理士' && formData.taxAdvisorBusinessType) { row.content = formData.taxAdvisorBusinessType; row.content_detail = formData.taxAdvisorBusinessType }
-          if (p === '不動産' && formData.realEstateRegistrationType) { row.content = formData.realEstateRegistrationType; row.content_detail = formData.realEstateRegistrationType }
+          if (p === '税理士') {
+            const sel = formData.taxAdvisorBusinessType
+            row.content = sel || null
+            row.content_detail = sel.startsWith('その他') ? (formData.taxAdvisorReferralNote || null) : (sel || null)
+          } else if (p === '不動産') {
+            const sel = formData.realEstateRegistrationType
+            row.content = sel || null
+            row.content_detail = sel.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : (sel || null)
+          } else {
+            const note = formData.otherReferralNotes[p]
+            row.content = note || null
+            row.content_detail = note || null
+          }
           return row
         })
         await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type' })
@@ -642,8 +673,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               )}
             </>
           )}
-          {/* 検討中・失注理由: 検討中 / 失注 で表示 */}
-          {DECLINE_REASON_REQUIRED.has(data.caseStatus) && (
+          {/* ③ 理由セレクト直下：検討中/失注→詳細理由、それ以外→面談内容詳細（申し送りとは別） */}
+          {DECLINE_REASON_REQUIRED.has(data.caseStatus) ? (
             <>
               <Card label={data.caseStatus === '失注' ? '失注理由' : '検討中理由'}>
                 <Select
@@ -653,29 +684,91 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                   placeholder="理由を選択"
                 />
               </Card>
+              <Card label="詳細理由">
+                <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="検討／失注の具体的な事情を記入（LP案件一覧の検討中理由の右列にも表示されます）" />
+              </Card>
             </>
+          ) : (
+            <Card label="面談内容詳細">
+              <Textarea value={data.meetingContentDetail} onChange={v => update('meetingContentDetail', v)} placeholder="面談で確認した内容の詳細を記入" />
+            </Card>
           )}
 
-          <Card label="手続内容（受注区分）">
+          <Card label="提案内容・手続き内容">
             <Pills multi value={data.serviceCategories} options={data.caseStatus === '検討中' ? [...ORDER_CATEGORIES, '提案できず'] : [...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
-          <Card label="提案金額"><Input value={data.proposalNote} onChange={v => update('proposalNote', v)} placeholder="例: 提案せず / 330,000円" /></Card>
+          <Card label="提案金額">
+            <Pills value={proposalMode} options={['提案せず', '金額を入力']} onChange={v => setProposalMode(v as string)} />
+            {proposalMode === '金額を入力' && (
+              <div className="mt-3 flex items-end gap-3">
+                <div className="flex-1">
+                  <div className="text-[11px] text-gray-400 mb-1">税抜（入力）</div>
+                  <Input value={proposalDigits ? Number(proposalDigits).toLocaleString('en-US') : ''} onChange={setProposalAmount} placeholder="330,000" />
+                </div>
+                <div className="pb-2.5 text-gray-300">→</div>
+                <div className="flex-1">
+                  <div className="text-[11px] text-gray-400 mb-1">税込（自動・×1.10）</div>
+                  <div className="h-[42px] flex items-center justify-end px-3 rounded-lg bg-brand-50 text-brand-700 font-semibold border-[1.5px] border-brand-100 tabular-nums">
+                    {proposalTaxIncluded != null ? `${proposalTaxIncluded.toLocaleString('en-US')} 円` : '—'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
           {/* 完了予定日は受注/検討中（契約書待ち）のときだけ */}
           {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
-            <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
+            <Card label="完了予定日">
+              <Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} />
+              <p className="mt-1 text-[11px] text-gray-400">相続手続き一式：標準4ヶ月＋延長1ヶ月／遺産承継：標準5ヶ月＋延長1ヶ月 を目安に設定してください。</p>
+            </Card>
           )}
-          {/* 他事業者紹介: 税理士 → 不動産売却 の順（全ステータス共通） */}
-          <Card label="税理士（他事業者紹介・税理士）">
+          {/* 他事業者紹介: ⑪ 不動産査定 → 税理士紹介 → ⑫ その他紹介 の順（全ステータス共通） */}
+          <Card label="不動産査定（他事業者紹介）">
             <div className="flex gap-2 items-start">
-              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '税理士'])] : data.referralPartners.filter(x => x !== '税理士'))} /></div>
-              <div className="flex-1"><Input value={data.taxAdvisorBusinessType} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="備考を記載" /></div>
+              <div className="w-24 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral('不動産', v === 'あり')} /></div>
+              {data.referralPartners.includes('不動産') && (
+                <div className="flex-1">
+                  <Select value={data.realEstateRegistrationType} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onChange={v => update('realEstateRegistrationType', v)} placeholder="査定ランクを選択" />
+                  {data.realEstateRegistrationType.startsWith('その他') && (
+                    <div className="mt-2"><Input value={data.realEstateAppraisalNote} onChange={v => update('realEstateAppraisalNote', v)} placeholder="自由入力" /></div>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
-          <Card label="不動産売却（他事業者紹介・不動産）">
+          <Card label="税理士紹介（他事業者紹介）">
             <div className="flex gap-2 items-start">
-              <div className="w-28 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => update('referralPartners', v === 'あり' ? [...new Set([...data.referralPartners, '不動産'])] : data.referralPartners.filter(x => x !== '不動産'))} /></div>
-              <div className="flex-1"><Input value={data.realEstateRegistrationType} onChange={v => update('realEstateRegistrationType', v)} placeholder="備考を記載" /></div>
+              <div className="w-24 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral('税理士', v === 'あり')} /></div>
+              {data.referralPartners.includes('税理士') && (
+                <div className="flex-1">
+                  <Select value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="理由を選択" />
+                  {data.taxAdvisorBusinessType.startsWith('その他') && (
+                    <div className="mt-2"><Input value={data.taxAdvisorReferralNote} onChange={v => update('taxAdvisorReferralNote', v)} placeholder="自由入力" /></div>
+                  )}
+                </div>
+              )}
             </div>
+          </Card>
+          {/* ⑫ その他紹介（アコーディオン開閉式） */}
+          <Card label="その他紹介">
+            <button type="button" onClick={() => setOtherReferralOpen(o => !o)} className="w-full flex items-center justify-between text-[13px] font-medium text-gray-600 py-1">
+              <span>弁護士・遺品整理・解体・自動車・鑑定・特殊清掃 の紹介</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${otherReferralOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {otherReferralOpen && (
+              <div className="mt-2 space-y-2">
+                {OTHER_REFERRAL_PARTNERS.map(p => {
+                  const yes = data.referralPartners.includes(p.key)
+                  return (
+                    <div key={p.key} className="flex gap-2 items-center">
+                      <div className="w-32 flex-none text-[13px] text-gray-700">{p.label}</div>
+                      <div className="w-20 flex-none"><Select value={yes ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral(p.key, v === 'あり')} /></div>
+                      <div className="flex-1"><Input value={data.otherReferralNotes[p.key] ?? ''} onChange={v => setOtherReferralNote(p.key, v)} placeholder="備考" /></div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </Card>
           {/* 追い電話の必要性: 検討中のときだけ、面談内容詳細の上に表示 */}
           {data.caseStatus === '検討中' && (
@@ -684,8 +777,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要な場合は「要」を入れてください。</p>
             </Card>
           )}
-          {/* 面談内容詳細: 全ステータス共通・フォーム最下部のフリー入力 */}
-          <Card label="面談内容詳細"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="面談内容の詳細やメモがあれば記入" /></Card>
+          {/* ⑬ その他申し送り事項（旧・面談内容詳細）: 全ステータス共通・フォーム最下部 */}
+          <Card label="その他申し送り事項"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="顧客のパーソナリティ、お付き合い先の会社の社員 等" /></Card>
         </div>
       )
       case 'client': return (

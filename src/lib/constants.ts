@@ -207,9 +207,40 @@ export const REFERRAL_TASK_LABEL: Record<string, string> = {
   '弁護士': '弁護士依頼',
   '遺品整理': '遺品整理業者依頼',
   '生命保険': '生命保険会社依頼',
+  '解体': '解体業者依頼',
+  '自動車': '自動車売買・処分依頼',
+  '鑑定': '鑑定業者依頼',
+  '特殊清掃': '特殊清掃業者依頼',
 }
 // 報酬請求状態の選択肢。
 export const REFERRAL_BILLING_STATUSES = ['未請求', '請求済', '入金済'] as const
+
+// 税理士紹介の依頼理由（相談案件登録・他事業者紹介）。「その他」選択時は自由入力を content_detail に保存。
+export const TAX_ADVISOR_REFERRAL_REASONS = [
+  '相見積もりあり（価格調整が対応可能な税理士手配）',
+  '専門性高い（土地や資産の評価の難易度が高い）',
+  '提案金額注意（自分で申告したい等の要望あり）',
+  'その他（自由入力）',
+] as const
+
+// 不動産査定のランク（相談案件登録・他事業者紹介）。「その他」選択時は自由入力を content_detail に保存。
+export const REAL_ESTATE_APPRAISAL_RANKS = [
+  'S（今すぐ売りたい、兄弟相続物件あり）',
+  'A（空き家になっている等）',
+  'B（近々空き家になる可能性等あり）',
+  'C（査定のみ、地方物件、一般仲介困難等）',
+  'その他（自由入力）',
+] as const
+
+// その他紹介（相談案件登録・アコーディオン）。key=case_referrals.partner_type、label=表示名。あり/なし＋備考。
+export const OTHER_REFERRAL_PARTNERS = [
+  { key: '弁護士', label: '弁護士紹介' },
+  { key: '遺品整理', label: '遺品整理業者紹介' },
+  { key: '解体', label: '解体業者紹介' },
+  { key: '自動車', label: '自動車（売買・処分）' },
+  { key: '鑑定', label: '鑑定業者紹介' },
+  { key: '特殊清掃', label: '特殊清掃業者紹介' },
+] as const
 
 export type CaseCategory = 'consult' | 'referral' | 'management'
 
@@ -586,7 +617,7 @@ export const TAX_ADVISOR_REFERRAL_OPTIONS = ['有', '無', '検討中'] as const
 // 面談結果が「検討中」または「失注」のとき選択。【検討】/【失注】プレフィックス付き。
 export const CONSIDERATION_DECLINE_REASONS = [
   '【検討】費用',
-  '【検討】親族に相談したい',
+  '【検討】相続人・親族に相談したい',
   '【検討】他社と比較検討したい',
   '【検討】四十九日まで未着手予定',
   '【検討】その他（面談内容詳細に記載）',

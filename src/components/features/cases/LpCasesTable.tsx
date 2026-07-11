@@ -190,7 +190,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">依頼者氏名</th>
                 <th className="px-3 py-2 text-left font-bold">案件ステータス</th>
                 <th className="px-3 py-2 text-left font-bold">検討中・失注理由</th>
-                <th className="px-3 py-2 text-left font-bold">その他理由詳細</th>
+                <th className="px-3 py-2 text-left font-bold">詳細理由</th>
                 <th className="px-3 py-2 text-left font-bold">お客様回答予定日</th>
                 <th className="px-3 py-2 text-left font-bold">検討期間</th>
                 <th className="px-3 py-2 text-left font-bold">残り日数</th>
@@ -201,7 +201,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
                 <th className="px-3 py-2 text-left font-bold">税理士業務</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
-                <th className="px-3 py-2 text-left font-bold">面談内容詳細</th>
+                <th className="px-3 py-2 text-left font-bold">その他申し送り事項</th>
                 <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
