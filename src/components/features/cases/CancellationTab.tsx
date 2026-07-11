@@ -61,7 +61,8 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
             財産調査タブで{st.label}を登録すると、ここで解約手続を管理できます。
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
               <thead>
                 <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -94,6 +95,24 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
               </tbody>
             </table>
           </div>
+          {/* スマホ: カード表示（1口座＝1カード） */}
+          <div className="sm:hidden space-y-2.5">
+            {klist.map(r => (
+              <div key={r.id} className="border border-gray-200 rounded-xl p-3">
+                <div className="text-[14px] font-semibold text-gray-900 mb-2.5">{r.institution_name || '未入力'}</div>
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div><div className="text-[11px] text-gray-500 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+                    <div><div className="text-[11px] text-gray-500 mb-1">解約予定日</div><input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
+                  </div>
+                  <label className="flex items-center gap-2 text-[13px] text-gray-700"><input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600" />解約完了</label>
+                  <div><div className="text-[11px] text-gray-500 mb-1">禁止事項</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
+                  <div><div className="text-[11px] text-gray-500 mb-1">関連タスク</div><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </Section>
     )

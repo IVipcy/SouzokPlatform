@@ -100,7 +100,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     <div>
       {/* 契約時に受領済の戸籍（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      <div className="overflow-x-auto">
+      {/* PC: 表（スマホは非表示・下のカード表示） */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1240 : 820 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -133,6 +134,18 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
           </tbody>
         </table>
       </div>
+
+      {/* スマホ: カード表示（1請求＝1カード） */}
+      <div className="sm:hidden space-y-2.5">
+        {rows.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</div>
+        ) : (
+          rows.map(r => (
+            <KosekiCard key={r.id} r={r} progressMode={progressMode} setLocal={setLocal} commit={commit} saveField={saveField} onDelete={() => delRow(r)} targetOptions={targetOptions} />
+          ))
+        )}
+      </div>
+
       <div className="mt-2">
         <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" /> 戸籍請求を追加
@@ -203,6 +216,75 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         </tr>
       )}
     </>
+  )
+}
+
+// スマホ用：戸籍請求1件＝1カード
+function KFieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div><div className="text-[11px] text-gray-500 mb-1">{label}</div>{children}</div>
+}
+
+function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, targetOptions }: {
+  r: KosekiRequestRow
+  progressMode: boolean
+  setLocal: (id: string, field: keyof KosekiRequestRow, value: string) => void
+  commit: (id: string, field: keyof KosekiRequestRow, value: string) => void
+  saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
+  onDelete: () => void
+  targetOptions: string[]
+}) {
+  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selectCls = 'w-full h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  const targetOpts = r.target_person && !targetOptions.includes(r.target_person) ? [...targetOptions, r.target_person] : targetOptions
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 bg-white">
+      <div className="flex items-center justify-end -mt-1 mb-1">
+        <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 p-1" title="削除"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      <div className="space-y-2.5">
+        <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="例: 名古屋市中区役所" className={inputCls} /></KFieldBlock>
+        <div className="grid grid-cols-2 gap-2.5">
+          <KFieldBlock label="対象者">
+            <select value={r.target_person ?? ''} onChange={e => saveField(r.id, 'target_person', e.target.value)} className={selectCls}>
+              <option value="">— 選択 —</option>
+              {targetOpts.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </KFieldBlock>
+          <KFieldBlock label="取得区分">
+            <select value={r.acquirer ?? '自社'} onChange={e => saveField(r.id, 'acquirer', e.target.value)} className={selectCls}>
+              {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+            </select>
+          </KFieldBlock>
+        </div>
+        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></KFieldBlock>
+        <div className="grid grid-cols-2 gap-2.5">
+          <KFieldBlock label="種別">
+            <select value={r.doc_types ?? ''} onChange={e => saveField(r.id, 'doc_types', e.target.value)} className={selectCls}>
+              <option value="">—</option>
+              {KOSEKI_REQUEST_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </KFieldBlock>
+          <KFieldBlock label="取得目的">
+            <select value={r.purpose ?? ''} onChange={e => saveField(r.id, 'purpose', e.target.value)} className={selectCls}>
+              <option value="">—</option>
+              {KOSEKI_PURPOSES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </KFieldBlock>
+        </div>
+        {progressMode && (
+          <div className="grid grid-cols-2 gap-2.5">
+            <KFieldBlock label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className={inputCls} /></KFieldBlock>
+            <KFieldBlock label="到着日"><input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) commit(r.id, 'arrival_date', e.target.value) }} className={inputCls} /></KFieldBlock>
+          </div>
+        )}
+        <FieldGrid cols={1}>
+          <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} />
+          <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} />
+          <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} />
+          <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} />
+        </FieldGrid>
+      </div>
+    </div>
   )
 }
 
