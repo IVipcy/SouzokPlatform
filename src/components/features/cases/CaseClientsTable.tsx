@@ -87,7 +87,8 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      {/* PC: 表（スマホは非表示・下のカード表示） */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1320 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -149,6 +150,18 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
           </tbody>
         </table>
       </div>
+
+      {/* スマホ: カード表示（1人＝1カード） */}
+      <div className="sm:hidden space-y-2.5">
+        {rows.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</div>
+        ) : (
+          rows.map(r => (
+            <ClientCard key={r.id} r={r} setLocal={setLocal} commit={commit} commitVal={commitVal} onDelete={() => delRow(r)} />
+          ))
+        )}
+      </div>
+
       <button
         type="button"
         onClick={addRow}
@@ -191,6 +204,58 @@ function PrefContactCell({ value, onChange }: { value: string[] | null; onChange
         })}
       </div>
     </td>
+  )
+}
+
+// スマホ用：依頼者1人＝1カード（表の代わり）
+function CFieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div><div className="text-[11px] text-gray-500 mb-1">{label}</div>{children}</div>
+}
+
+function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
+  r: CaseClientRow
+  setLocal: (id: string, field: keyof CaseClientRow, value: string) => void
+  commit: (id: string, field: keyof CaseClientRow, value: string) => void
+  commitVal: (id: string, field: keyof CaseClientRow, value: unknown) => void
+  onDelete: () => void
+}) {
+  const age = calcAge(r.birth_date)
+  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selectedPref = r.preferred_contact ?? []
+  const togglePref = (key: string) => {
+    const next = selectedPref.includes(key) ? selectedPref.filter(k => k !== key) : [...selectedPref, key]
+    commitVal(r.id, 'preferred_contact', next.length > 0 ? next : null)
+  }
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 bg-white">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <select value={r.priority} onChange={e => { setLocal(r.id, 'priority', e.target.value); commit(r.id, 'priority', e.target.value) }} className="flex-1 h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+          <option value="main">メイン依頼人</option>
+          <option value="companion">同行者</option>
+        </select>
+        <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 p-1.5" title="削除"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      <div className="space-y-2.5">
+        <CFieldBlock label="氏名"><input type="text" value={r.name ?? ''} onChange={e => setLocal(r.id, 'name', e.target.value)} onBlur={e => commit(r.id, 'name', e.target.value)} placeholder="山田 太郎" className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="ふりがな"><input type="text" value={r.furigana ?? ''} onChange={e => setLocal(r.id, 'furigana', e.target.value)} onBlur={e => commit(r.id, 'furigana', e.target.value)} placeholder="やまだ たろう" className={inputCls} /></CFieldBlock>
+        <div className="grid grid-cols-2 gap-2.5">
+          <CFieldBlock label="続柄"><input type="text" value={r.relationship ?? ''} onChange={e => setLocal(r.id, 'relationship', e.target.value)} onBlur={e => commit(r.id, 'relationship', e.target.value)} placeholder="長男 等" className={inputCls} /></CFieldBlock>
+          <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-10 text-[13px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
+        </div>
+        <CFieldBlock label="TEL①（自宅）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="03-..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="TEL②（携帯）"><input type="tel" value={r.mobile_phone ?? ''} onChange={e => setLocal(r.id, 'mobile_phone', e.target.value)} onBlur={e => commit(r.id, 'mobile_phone', e.target.value)} placeholder="090-..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="メール"><input type="email" value={r.email ?? ''} onChange={e => setLocal(r.id, 'email', e.target.value)} onBlur={e => commit(r.id, 'email', e.target.value)} placeholder="mail@..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="連絡先希望">
+          <div className="flex items-center gap-1.5">
+            {PREF_CONTACTS.map(p => {
+              const on = selectedPref.includes(p.key)
+              return <button key={p.key} type="button" onClick={() => togglePref(p.key)} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-400'}`}>{p.label}</button>
+            })}
+          </div>
+        </CFieldBlock>
+        <CFieldBlock label={`生年月日${age != null ? `（${age}歳）` : ''}`}><BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} /></CFieldBlock>
+      </div>
+    </div>
   )
 }
 

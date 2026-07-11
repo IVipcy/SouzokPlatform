@@ -93,7 +93,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   return (
     <div className="space-y-3.5">
       <Section title="相続登記（物件ごとの手続き）">
-      <div className="overflow-x-auto">
+      {/* PC: 表（スマホは非表示・下のカード表示） */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1580 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -160,12 +161,61 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
           </tbody>
         </table>
       </div>
+
+      {/* スマホ: カード表示（1物件＝1カード） */}
+      <div className="sm:hidden space-y-2.5">
+        {rows.map(r => (
+          <RegCard key={r.id} r={r} columns={columns} saveField={saveField} saveCustom={saveCustom} />
+        ))}
+      </div>
+
       <p className="mt-2 text-[11px] text-gray-400">
         物件は財産調査タブの不動産から自動表示されます。登記情報・公図等の取得進捗は財産調査タブで管理します。
         「列を追加」で案件固有の項目（登録免許税・立会日 など）を追加できます。
       </p>
       </Section>
       <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
+    </div>
+  )
+}
+
+// スマホ用：相続登記 1物件＝1カード（オーダーシート用の列のみ）
+function RegCard({ r, columns, saveField, saveCustom }: {
+  r: RealEstatePropertyRow
+  columns: string[]
+  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
+  saveCustom: (row: RealEstatePropertyRow, col: string, value: string) => Promise<void>
+}) {
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 bg-white">
+      <div className="mb-2.5">
+        <div className="text-[14px] font-semibold text-gray-900">{r.address || '所在地 未入力'}</div>
+        <div className="text-[11px] text-gray-400">{r.property_type || '種別未設定'}</div>
+      </div>
+      <div className="space-y-2.5">
+        <div><div className="text-[11px] text-gray-500 mb-1">相続登記の種別</div>
+          <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div><div className="text-[11px] text-gray-500 mb-1">登記原因</div>
+            <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+              <option value="">—</option>
+              {REGISTRATION_CAUSES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div><div className="text-[11px] text-gray-500 mb-1">管轄法務局</div>
+            <CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 名古屋法務局" />
+          </div>
+        </div>
+        <div><div className="text-[11px] text-gray-500 mb-1">備考</div>
+          <CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" />
+        </div>
+        {columns.map(col => (
+          <div key={col}><div className="text-[11px] text-gray-500 mb-1">{col}</div>
+            <CustomCell value={r.registration_data?.[col] ?? ''} onCommit={v => saveCustom(r, col, v)} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
