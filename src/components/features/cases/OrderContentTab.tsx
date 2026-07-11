@@ -89,6 +89,21 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     await patchCase({ service_parts: nextParts, service_category: newKeys[0] ?? null, service_category_2: newKeys[1] ?? null, procedure_type: newKeys, intake_roles: merged })
   }
 
+  // 実施予定業務の選択（intake_roles の gyomu を出し入れ）。外すと該当タブ／セクションに表示されない
+  // （CaseDetailClient / OrderSheet は intake_roles の gyomu でタブ・セクションを出し分ける）。
+  const selectedGyomu = [...new Set(roles.map(r => r.gyomu).filter(Boolean))]
+  const toggleGyomu = async (g: string) => {
+    let nextRoles: RoleRow[]
+    if (selectedGyomu.includes(g)) {
+      nextRoles = roles.filter(r => r.gyomu !== g)
+    } else {
+      const seeded = seedRolesForCategories(selectedKeys) as RoleRow[]
+      const toAdd = seeded.filter(s => s.gyomu === g && !roles.some(r => r.gyomu === s.gyomu && r.sagyou === s.sagyou))
+      nextRoles = [...roles, ...toAdd]
+    }
+    setRoles(nextRoles)
+    await patchCase({ intake_roles: nextRoles })
+  }
 
   return (
     <div className="space-y-3.5">
@@ -103,31 +118,42 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
             </p>
           )}
         </div>
+
+        {/* 実施予定業務（受注区分のすぐ下・選択式）。外すと該当タブ／セクションに表示されません。 */}
+        <div className="mb-3">
+          <div className="text-[13px] text-gray-500 mb-1.5">実施予定業務</div>
+          {isReferralOnly ? (
+            <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は「他事業者紹介」タブで入力してください。</p>
+          ) : selectedKeys.length > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {gyomuForCategories(selectedKeys).map(g => {
+                  const on = selectedGyomu.includes(g)
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => toggleGyomu(g)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition ${on ? 'bg-brand-50 border-brand-300 text-brand-700' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                    >
+                      {on && <Check className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />}{g}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2">実施する業務を選びます。外すと該当タブ／セクションに表示されません（担当は各実務タブで管理）。</p>
+            </>
+          ) : (
+            <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
+          )}
+        </div>
+
         <FieldGrid>
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
           <InlineDate label="契約日" value={caseData.contract_date} onSave={v => save('contract_date', v)} />
           <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
         </FieldGrid>
-      </Section>
-
-      <Section title={isReferralOnly ? '紹介先（自社手続きはありません）' : '実施予定業務'}>
-        {isReferralOnly ? (
-          <p className="text-[12px] text-gray-400">紹介のみは自社で行う相続手続きはありません。紹介先（税理士＝相続税申告 / 不動産＝査定 / 遺品整理 / 弁護士）は「他事業者紹介」タブで入力してください。</p>
-        ) : selectedKeys.length > 0 ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {gyomuForCategories(selectedKeys).map(g => (
-                <span key={g} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-[12.5px] text-gray-800">
-                  <Check className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />{g}
-                </span>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-2">受注区分から自動で表示されます。自社／依頼者などの担当は各実務タブで管理します（細かい作業ごとの役割分担は行いません）。</p>
-          </>
-        ) : (
-          <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
-        )}
       </Section>
     </div>
   )

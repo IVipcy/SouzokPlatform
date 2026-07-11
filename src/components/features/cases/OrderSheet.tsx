@@ -195,13 +195,15 @@ export default function OrderSheet({
 }
 
 // 大セクション見出し（オーダーシートの親）。子の Section（カード）を束ねる上位の帯。番号は付けない。
+// 大セクション（親）。小セクション（白カード＝Section）と明確に区別するため、
+// 親は「濃い青の見出し＋薄グレー地の容器」にして、中の白カード群を包む＝親子の階層を視覚化する。
 function OSSection({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="scroll-mt-24">
-      <div className="flex items-center gap-2.5 mb-3 bg-brand-100/60 border-l-[3px] border-l-brand-600 rounded-r px-3.5 py-2">
-        <h2 className="text-[14px] font-bold text-brand-800 tracking-[0.02em]">{title}</h2>
+    <section id={id} className="scroll-mt-24 bg-white border border-gray-200 rounded-lg">
+      <div className="px-4 py-2.5 bg-brand-600 rounded-t-lg">
+        <h2 className="text-[14px] font-bold text-white tracking-[0.02em]">{title}</h2>
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="p-3.5 space-y-3 bg-gray-50/70 rounded-b-lg">{children}</div>
     </section>
   )
 }
