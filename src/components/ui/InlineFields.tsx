@@ -104,7 +104,7 @@ export function SectionHeading({ title, right, className = '' }: { title: string
 export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: number }) {
   return (
     <div
-      className={`grid ${cols === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
+      className={`grid ${cols === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
     >
       {children}
     </div>
