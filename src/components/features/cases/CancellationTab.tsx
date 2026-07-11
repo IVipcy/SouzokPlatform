@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
@@ -44,15 +43,60 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
   // オーダーシート等で常時マウントされる場合に初期 props のまま固まるのを防ぐ。
   useEffect(() => { setRows(financialAssets) }, [financialAssets])
-  const [sub, setSub] = useState('deposit')
-  const kind = SUBTABS.find(t => t.key === sub)?.kind ?? '預貯金'
-  const list = rows.filter(r => r.asset_type === kind)
 
   const save = async (id: string, field: keyof FinancialAssetRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
     const { error } = await supabase.from('financial_assets').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
+  }
+
+  // 1種別（預貯金／証券／信託）ぶんの解約テーブル。オーダーシートでは全種別を縦積み表示。
+  const renderKindBlock = (st: typeof SUBTABS[number]) => {
+    const klist = rows.filter(r => r.asset_type === st.kind)
+    return (
+      <Section key={st.key} title={`${st.label}の解約手続`}>
+        {klist.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">
+            財産調査タブで{st.label}を登録すると、ここで解約手続を管理できます。
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
+              <thead>
+                <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                  <th className="px-2.5 py-2 text-left font-semibold">{st.kind === '預貯金' ? '金融機関名' : st.kind === '証券' ? '証券会社' : '信託銀行名'}</th>
+                  <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
+                  <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
+                  <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
+                  <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
+                </tr>
+              </thead>
+              <tbody>
+                {klist.map((r, i) => (
+                  <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                    <td className="px-2.5 py-2 font-semibold text-gray-800">{r.institution_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-2.5 py-1.5">
+                      <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                        <option value="">—</option>
+                        {CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </td>
+                    <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
+                    <td className="px-2.5 py-1.5 text-center">
+                      <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                    </td>
+                    <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
+                    <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    )
   }
 
   return (
@@ -68,67 +112,10 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
         // 案件詳細（実務）：金融機関単位の左レール＋カード
         <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} />
       ) : (
-      <>
-      <SubTabs tabs={SUBTABS} active={sub} onChange={setSub} className="mb-3" />
-
-      {list.length === 0 ? (
-        <Section title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`}>
-          <div className="px-4 py-6 text-center text-[13px] text-gray-400">
-            財産調査タブで{SUBTABS.find(t => t.key === sub)?.label}を登録すると、ここで解約手続を管理できます。
-          </div>
-        </Section>
-      ) : (
-        <Section title={`${SUBTABS.find(t => t.key === sub)?.label ?? ''}の解約手続`}>
-          <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1200 }}>
-            <thead>
-              <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                <th className="px-2.5 py-2 text-left font-semibold">{kind === '預貯金' ? '金融機関名' : kind === '証券' ? '証券会社' : '信託銀行名'}</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
-                {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-36">解約書類</th>}
-                <th className="px-2.5 py-2 text-center font-semibold w-20">解約完了</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
-                <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
-                {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((r, i) => (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  <td className="px-2.5 py-2 font-semibold text-gray-800">{r.institution_name || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-2.5 py-1.5">
-                    <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                      <option value="">—</option>
-                      {CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </td>
-                  <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
-                  {/* 解約書類の受領状況（read-only。請求・到着は財産調査／受信簿で管理）。オーダーシートでは非表示 */}
-                  {!orderSheetMode && (
-                    <td className="px-2.5 py-1.5">
-                      {r.cancellation_arrival_date ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title="解約書類の受領（財産調査・受信簿で管理）">受領済 {r.cancellation_arrival_date}</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200" title="解約書類は財産調査・受信簿で受領管理します">未受領</span>
-                      )}
-                    </td>
-                  )}
-                  <td className="px-2.5 py-1.5 text-center">
-                    <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
-                  </td>
-                  {/* 解約書類(cancellation_arrival_date)の受領→着手した解約タスク */}
-                  <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
-                  <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
-                  {!orderSheetMode && <TextCell value={r.cancellation_result} onSave={v => save(r.id, 'cancellation_result', v)} placeholder="この解約で分かったこと・結果" />}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </Section>
-      )}
-      </>
+        // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開
+        <div className="space-y-4">
+          {SUBTABS.map(renderKindBlock)}
+        </div>
       )}
     </div>
   )
