@@ -425,7 +425,8 @@ export const ACQUISITION_ITEMS = [
 export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
 
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
-export const ORDER_ROUTES = ['LP経由', '葬儀社経由', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
+// 葬儀社経由は「主要取引先葬儀社／その他葬儀社」に分割（はせがわ等のLP直/OC直を面談ルートで識別するため）。
+export const ORDER_ROUTES = ['LP経由', '主要取引先葬儀社', 'その他葬儀社', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const
 
 // LP担当の追いかけ連絡方法（連携②廃止に伴うLP追いかけ運用）
 export const LP_FOLLOWUP_METHODS = ['電話', 'メール', 'SMS', 'LINE'] as const
@@ -460,7 +461,9 @@ export function hasInheritanceTaxFiling(
 // 案件番号の経路コード（YYMM + コード + 当日連番4桁）
 export const ORDER_ROUTE_CODES: Record<string, string> = {
   'LP経由': 'LP',
-  '葬儀社経由': 'SD',
+  '主要取引先葬儀社': 'SD',   // 主要/その他とも案件番号コードは SD を共用（集計は order_route 列で区別）
+  'その他葬儀社': 'SD',
+  '葬儀社経由': 'SD',         // 旧ルート（互換・既存データ用）
   'HP経由': 'HP',
   '過去客経由': 'PC',
   '税理士経由': 'ZE',
@@ -483,6 +486,13 @@ export const FUNERAL_COMPANIES = [
   '創世（ライフワークス社）', 'セレモニーホールときわ', 'セレモニー　上郷',
   'ファミリーホール', '牧野葬儀店',
 ] as const
+
+// 主要取引先葬儀社（OC直の面談ルート）。はせがわはLP経由のパートナーでもあるが、
+// 従業員経由でOC直となるケースがあるためここに含める（面談ルートでLP直/OC直を識別）。
+export const MAIN_FUNERAL_COMPANIES = ['はせがわ', '公益社', '伊藤典範', '横浜セレモ'] as const
+// その他葬儀社 = 葬儀社マスタから主要取引先（マスタ内の3社）を除いた残り。
+const _MAIN_FUNERAL_IN_MASTER = ['公益社', '伊藤典範', '横浜セレモ']
+export const OTHER_FUNERAL_COMPANIES: string[] = FUNERAL_COMPANIES.filter(c => !_MAIN_FUNERAL_IN_MASTER.includes(c))
 
 export const TAX_ADVISOR_COMPANIES = [
   'ランドマーク税理士法人', '中央総合会計事務所', '税理士法人チェスター',

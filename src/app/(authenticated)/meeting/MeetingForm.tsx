@@ -17,7 +17,7 @@ import {
   REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
-  FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
+  MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
@@ -598,13 +598,23 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                     <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（紹介元）</div>
                     <Select value={data.orderRouteDetail} options={[...HP_SOURCES]} onChange={name => update('orderRouteDetail', name)} placeholder="HP経由の紹介元を選択" />
                   </div>
+                ) : data.orderRoute === 'その他' ? (
+                  <div className="py-1.5">
+                    <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（その他）</div>
+                    <Input value={data.orderRouteDetail} onChange={v => update('orderRouteDetail', v)} placeholder="遺品整理業者、介護事業者等の業種を入力してください。" />
+                  </div>
                 ) : (
                   <ReferralSourceLookup
                     label="詳細（紹介元）"
                     route={data.orderRoute}
                     value={data.orderRouteDetail}
                     onChange={name => update('orderRouteDetail', name)}
-                    staticOptions={data.orderRoute === '葬儀社経由' ? [...FUNERAL_COMPANIES] : data.orderRoute === '税理士経由' ? [...TAX_ADVISOR_COMPANIES] : undefined}
+                    staticOptions={
+                      data.orderRoute === '主要取引先葬儀社' ? [...MAIN_FUNERAL_COMPANIES]
+                        : data.orderRoute === 'その他葬儀社' ? [...OTHER_FUNERAL_COMPANIES]
+                        : data.orderRoute === '税理士経由' ? [...TAX_ADVISOR_COMPANIES]
+                        : undefined
+                    }
                   />
                 )}
               </div>
