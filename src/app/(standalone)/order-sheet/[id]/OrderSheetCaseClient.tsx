@@ -68,6 +68,7 @@ export default function OrderSheetCaseClient({ caseData, ...rest }: Props) {
         patchCase={patchCase}
         patchClient={patchClient}
         onRefresh={onRefresh}
+        guided
         {...rest}
       />
 

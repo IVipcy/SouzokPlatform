@@ -14,6 +14,7 @@ import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField } from './WorkContentField'
+import OrderSheetGuided from './OrderSheetGuided'
 import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
@@ -44,6 +45,8 @@ type Props = {
   contractDocuments: ContractDocumentRow[]
   sagyoDocuments?: SagyoDocumentRow[]
   receipts?: TimelineReceipt[]
+  // スマホ用ガイド入力（1セクション1画面ステップ＋簡易メモ＋詳細展開）。既定は従来の縦積み表示。
+  guided?: boolean
 }
 
 /**
@@ -56,7 +59,7 @@ type Props = {
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
   heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
-  sagyoDocuments = [], receipts = [],
+  sagyoDocuments = [], receipts = [], guided = false,
 }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
@@ -110,6 +113,20 @@ export default function OrderSheet({
     // 契約・報酬・請求はオーダーシートでは扱わない（請求タブで管理）
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))
+
+  // スマホ用ガイド入力：1セクション1画面のステップ表示（簡易メモ＋詳細展開）
+  if (guided) {
+    return (
+      <OrderSheetGuided
+        sections={osSections}
+        caseData={caseData}
+        patchCase={patchCase}
+        completed={completed}
+        onComplete={markComplete}
+        saving={saving}
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">
