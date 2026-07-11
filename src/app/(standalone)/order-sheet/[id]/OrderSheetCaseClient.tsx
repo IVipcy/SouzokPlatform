@@ -56,9 +56,9 @@ export default function OrderSheetCaseClient({ caseData, ...rest }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <Link href="/order-sheet" className="inline-flex items-center gap-1 text-[13px] font-semibold text-gray-600 hover:text-brand-700">
-          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />担当案件一覧に戻る
+      <div className="flex items-center justify-between mb-2.5">
+        <Link href="/order-sheet" className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
+          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />一覧
         </Link>
         <span className="text-[11px] font-mono text-gray-400">{caseState.case_number}</span>
       </div>
@@ -71,12 +71,6 @@ export default function OrderSheetCaseClient({ caseData, ...rest }: Props) {
         guided
         {...rest}
       />
-
-      <div className="mt-5 flex justify-center">
-        <Link href="/order-sheet" className="inline-flex items-center gap-1.5 px-5 py-3 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition">
-          <ArrowLeft className="w-4 h-4" strokeWidth={2} />担当案件一覧（TOP）に戻る
-        </Link>
-      </div>
     </div>
   )
 }

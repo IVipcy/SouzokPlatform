@@ -175,7 +175,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="flex items-center gap-2">
         <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
           {label}
@@ -234,7 +234,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}
       </div>
@@ -314,7 +314,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   }, [editing, draft])
 
   return (
-    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}
       </div>
@@ -394,7 +394,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   const missing = required && !value
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </div>
@@ -460,7 +460,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <input
@@ -510,7 +510,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div className="flex items-center gap-1">
@@ -635,7 +635,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
   }, [editing, draft])
 
   return (
-    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'col-span-2' : ''}`}>
+    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
       {editing ? (
         <div>

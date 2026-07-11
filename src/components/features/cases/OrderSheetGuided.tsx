@@ -80,19 +80,19 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
         )}
       </div>
 
-      {/* ナビゲーション */}
-      <div className="flex gap-2.5 mt-4">
+      {/* ナビゲーション（コンパクト） */}
+      <div className="flex gap-2 mt-3">
         <button
           type="button"
           onClick={() => go(step - 1)}
           disabled={step === 0}
-          className="flex-1 py-3 rounded-lg border border-gray-200 text-[13px] font-semibold text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition inline-flex items-center justify-center gap-1"
+          className="flex-1 py-2.5 rounded-lg border border-gray-200 text-[13px] font-semibold text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition inline-flex items-center justify-center gap-1"
         >
           <ChevronLeft className="w-4 h-4" />前へ
         </button>
         {isLast ? (
           completed ? (
-            <div className="flex-[2] py-3 rounded-lg bg-emerald-50 text-emerald-700 text-[13px] font-bold text-center inline-flex items-center justify-center gap-1.5">
+            <div className="flex-[2] py-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-[13px] font-bold text-center inline-flex items-center justify-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" strokeWidth={2} />完成済
             </div>
           ) : (
@@ -100,31 +100,31 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
               type="button"
               onClick={onComplete}
               disabled={saving}
-              className="flex-[2] py-3 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
+              className="flex-[2] py-2.5 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : 'オーダーシートを完成'}
+              <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : '完成'}
             </button>
           )
         ) : (
           <button
             type="button"
             onClick={() => go(step + 1)}
-            className="flex-[2] py-3 rounded-lg bg-brand-600 text-white text-[13px] font-bold hover:bg-brand-700 transition inline-flex items-center justify-center gap-1"
+            className="flex-[2] py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-bold hover:bg-brand-700 transition inline-flex items-center justify-center gap-1"
           >
             次へ<ChevronRight className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* ステップ番号（タップで移動） */}
-      <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
+      {/* ステップ番号（タップで移動・コンパクト） */}
+      <div className="flex flex-wrap gap-1 mt-2.5 justify-center">
         {sections.map((s, i) => (
           <button
             key={s.title}
             type="button"
             onClick={() => go(i)}
             title={s.title}
-            className={`w-7 h-7 text-[11px] font-semibold rounded transition ${i === step ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            className={`w-6 h-6 text-[11px] font-semibold rounded transition ${i === step ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
           >
             {i + 1}
           </button>
