@@ -259,24 +259,19 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         </div>
       )}
 
-      {/* 子タブ（相続人 / 戸籍請求） */}
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
+      {/* 子タブ（相続人 / 戸籍請求）。オーダーシートではサブタブを廃止し、相続人→戸籍を縦積み表示。 */}
+      {!orderSheetMode && (
+        <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
+      )}
 
-      {sub === 'koseki' && (
+      {!orderSheetMode && sub === 'koseki' && (
         <div className="space-y-3.5">
-          {orderSheetMode ? (
-            // オーダーシート（調査前）は従来の一覧表のまま（請求の洗い出し）
-            <Section title="戸籍請求一覧" icon="🗂️">
-              <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
-            </Section>
-          ) : (
-            // 案件詳細（実務）：TOP＋左レール（請求単位）＋相関図
-            <KosekiSection caseId={caseData.id} caseData={caseData} requests={kosekiRequests} heirs={heirs} onRefresh={onRefresh} />
-          )}
+          {/* 案件詳細（実務）：TOP＋左レール（請求単位）＋相関図 */}
+          <KosekiSection caseId={caseData.id} caseData={caseData} requests={kosekiRequests} heirs={heirs} onRefresh={onRefresh} />
         </div>
       )}
 
-      {sub === 'heirs' && (
+      {(orderSheetMode || sub === 'heirs') && (
       <div>
       <div className="space-y-3.5">
           {/* 4. 被相続人情報 */}
@@ -497,6 +492,15 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
         </Section>
       </div>
       </div>
+      )}
+
+      {/* オーダーシート：戸籍請求一覧を相続人一覧の下に縦積み表示（サブタブ廃止） */}
+      {orderSheetMode && (
+        <div className="mt-3.5">
+          <Section title="戸籍請求一覧" icon="🗂️">
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
+          </Section>
+        </div>
       )}
     </div>
   )

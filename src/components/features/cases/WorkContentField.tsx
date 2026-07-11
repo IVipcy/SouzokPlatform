@@ -38,7 +38,7 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
         onBlur={save}
         rows={large ? 8 : 5}
         placeholder={placeholder ?? '作業内容や備考を自由に記載してください'}
-        className={`w-full px-3 py-2.5 border-2 border-amber-300 bg-amber-50/50 rounded-lg outline-none focus:border-amber-400 focus:bg-amber-50 placeholder:text-amber-700/40 ${large ? 'text-[14px] leading-relaxed' : 'text-[13px] leading-relaxed'}`}
+        className={`w-full px-3 py-2.5 bg-amber-50 rounded-lg outline-none focus:bg-amber-100/60 focus:ring-2 focus:ring-amber-200 placeholder:text-amber-700/40 ${large ? 'text-[14px] leading-relaxed' : 'text-[13px] leading-relaxed'}`}
       />
     </div>
   )

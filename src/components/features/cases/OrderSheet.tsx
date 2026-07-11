@@ -142,10 +142,10 @@ export default function OrderSheet({
 
       {osSections.map((s) => (
         <OSSection key={s.title} title={s.title} id={s.anchorId}>
-          {s.node}
-          <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="mb-3 pb-3 border-b border-gray-100">
             <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容（フリー・補足）" />
           </div>
+          {s.node}
         </OSSection>
       ))}
 
