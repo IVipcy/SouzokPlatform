@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { X, Download, Share, SquarePlus } from 'lucide-react'
 
 // ホーム画面未追加の人だけに、インストール案内を出す。
@@ -20,6 +21,7 @@ function isStandalone() {
 }
 
 export default function InstallGuide() {
+  const pathname = usePathname()
   const [show, setShow] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
@@ -65,7 +67,8 @@ export default function InstallGuide() {
     setShow(false)
   }
 
-  if (!show) return null
+  // インストール案内は相談案件登録アプリ（/register）でのみ表示
+  if (!show || pathname !== '/register') return null
 
   return (
     <div className="mb-3 rounded-xl border border-brand-200 bg-brand-50/70 px-3.5 py-3">
