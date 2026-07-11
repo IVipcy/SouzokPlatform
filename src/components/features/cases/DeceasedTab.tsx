@@ -325,7 +325,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               相続人を追加してください
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
@@ -384,13 +384,44 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
             </div>
           )}
 
+          {/* スマホ: 相続人カード（表の代わり・1人=1カード） */}
+          {heirs.length > 0 && (
+            <div className="sm:hidden space-y-2.5 mt-2">
+              {heirs.map(heir => (
+                <div key={heir.id} className="border border-gray-200 rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <div className="text-[14px] font-semibold text-gray-900">{heir.name || '—'}</div>
+                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                        {(heir.relationship_type || heir.relationship) && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">{heir.relationship_type ?? heir.relationship}</span>
+                        )}
+                        {heir.is_legal_heir && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">法定相続人</span>}
+                        {heir.is_applicant && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">申出人</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-none">
+                      <button type="button" onClick={() => startEdit(heir)} className="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:bg-brand-50 hover:text-brand-600" title="編集"><Pencil className="w-4 h-4" strokeWidth={1.75} /></button>
+                      <button type="button" onClick={() => handleDeleteHeir(heir.id)} className="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500" title="削除"><Trash2 className="w-4 h-4" strokeWidth={1.75} /></button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-[12.5px] text-gray-700">
+                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">生年月日</span><span>{heir.birth_date ? <>{heir.birth_date}{toWareki(heir.birth_date) && <span className="text-gray-400 ml-1">{toWareki(heir.birth_date)}</span>}</> : '—'}</span></div>
+                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">住所</span><span>{heir.address ?? '—'}</span></div>
+                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">本籍</span><span>{heir.registered_address ?? '—'}</span></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Add / Edit heir form */}
           {showAddHeir && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="text-[13px] font-semibold text-gray-700 mb-2">
                 {editingHeirId ? '相続人を編集' : '相続人を追加'}
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <FormField label="氏名" required>
                   <input
                     type="text"
