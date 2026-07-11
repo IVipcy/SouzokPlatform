@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, CaseReferralRow } from '@/types'
 import {
-  Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS } from '@/lib/constants'
 import TabHeader from './TabHeader'
@@ -77,6 +77,41 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
     onRefresh?.()
   }
 
+  // 1業者ぶんの入力欄。オーダーシートは全業者を縦積み、案件詳細はサブタブで1業者ずつ表示。
+  const renderPartnerBody = (row: CaseReferralRow) => (
+    <div className="space-y-3">
+      {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${row.partner_type}`} title={`進捗/結果（${row.partner_type}）`} />}
+      <div className="flex justify-end mb-1">
+        <button
+          type="button"
+          onClick={() => deletePartner(row)}
+          className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" /> この業者を削除
+        </button>
+      </div>
+      <FieldGrid>
+        <InlineDate label="紹介日付" value={row.referred_date} onSave={saveReferralField(row.id, 'referred_date')} />
+        {!orderSheetMode && (
+          <InlineSelect label="報酬請求状態" value={row.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(row.id, 'billing_status')} />
+        )}
+        {row.partner_type !== '弁護士' && (
+          <InlineCurrency label="見込み報酬" value={row.estimated_fee} onSave={saveReferralField(row.id, 'estimated_fee')} />
+        )}
+        {row.partner_type === '税理士' && (
+          <>
+            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+            <InlineSelect label="依頼内容" value={row.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+          </>
+        )}
+        {row.partner_type === '不動産' && (
+          <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+        )}
+        <InlineTextarea label="詳細内容" value={row.content_detail} onSave={saveReferralField(row.id, 'content_detail')} fullWidth placeholder="詳細の依頼内容や、紹介先はお客様から指定がある場合はこちらに記載してください。" />
+      </FieldGrid>
+    </div>
+  )
+
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="他事業者紹介" description="税理士・弁護士・不動産・遺品整理など、自社外への紹介と依頼内容の管理" />}
@@ -88,7 +123,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
       <Section title="紹介業者">
         {/* サブタブ：登録済み業者＋追加 */}
         <div className="inline-flex items-center gap-0.5 bg-gray-100 rounded p-0.5 mb-3 flex-wrap">
-          {rows.map(r => (
+          {!orderSheetMode && rows.map(r => (
             <button
               key={r.id}
               type="button"
@@ -114,48 +149,23 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
           ))}
         </div>
 
-        {activeRow ? (
-          <div className="space-y-3">
-            {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${activeRow.partner_type}`} title={`進捗/結果（${activeRow.partner_type}）`} />}
-            <div className="flex justify-end mb-1">
-              <button
-                type="button"
-                onClick={() => deletePartner(activeRow)}
-                className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> この業者を削除
-              </button>
-            </div>
-            <FieldGrid>
-              <InlineDate label="紹介日付" value={activeRow.referred_date} onSave={saveReferralField(activeRow.id, 'referred_date')} />
-              {!orderSheetMode && (
-                <InlineSelect label="報酬請求状態" value={activeRow.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(activeRow.id, 'billing_status')} />
-              )}
-              {/* 弁護士は紹介料が発生しないため見込み報酬は入力不可（非表示） */}
-              {activeRow.partner_type !== '弁護士' && (
-                <InlineCurrency label="見込み報酬" value={activeRow.estimated_fee} onSave={saveReferralField(activeRow.id, 'estimated_fee')} />
-              )}
-              {/* 依頼内容（旧称：紹介内容）。税理士/不動産は選択肢、それ以外はフリー入力。
-                  この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。
-                  詳細内容には、具体的な依頼内容や、お客様から紹介先の指定がある場合に記載する。 */}
-              {activeRow.partner_type === '税理士' && (
-                <>
-                  {/* 相続税申告要否＝相続税申告あり判定の正（cases.tax_filing_required）。ダッシュボード集計・案件ヘッダーのバッジもこの値を参照。 */}
-                  <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
-                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
-                </>
-              )}
-              {activeRow.partner_type === '不動産' && (
-                <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
-              )}
-              <InlineTextarea label="詳細内容" value={activeRow.content_detail} onSave={saveReferralField(activeRow.id, 'content_detail')} fullWidth placeholder="詳細の依頼内容や、紹介先はお客様から指定がある場合はこちらに記載してください。" />
-            </FieldGrid>
-          </div>
-        ) : (
+        {rows.length === 0 ? (
           <div className="py-8 text-center text-[13px] text-gray-400">
             紹介した業者がありません。上の「＋」から業者を追加してください。
           </div>
-        )}
+        ) : orderSheetMode ? (
+          // オーダーシート：サブタブ廃止で全業者を縦積み表示
+          <div className="space-y-4">
+            {rows.map(r => (
+              <div key={r.id}>
+                <SectionHeading title={r.partner_type} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                {renderPartnerBody(r)}
+              </div>
+            ))}
+          </div>
+        ) : activeRow ? (
+          renderPartnerBody(activeRow)
+        ) : null}
       </Section>
     </div>
   )
