@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Inbox, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES, hasInheritanceTaxFiling } from '@/lib/constants'
+import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
@@ -54,9 +54,9 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, referrals, onJumpToReferral, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
-  const taxFiling = hasInheritanceTaxFiling(referrals)
+  const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
   const category = getCaseCategory(caseData.status)

@@ -8,7 +8,7 @@ import type { CaseRow, CaseReferralRow } from '@/types'
 import {
   Section, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS } from '@/lib/constants'
+import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS } from '@/lib/constants'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
@@ -67,6 +67,14 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
     setRows(prev => prev.map(r => (r.id === id ? ({ ...r, [field]: v } as CaseReferralRow) : r)))
     const { error } = await supabase.from('case_referrals').update({ [field]: v }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); throw new Error(error.message) }
+  }
+
+  // cases 本体の1フィールドを更新（相続税申告要否など。保存後に親を再取得）
+  const saveCaseField = (field: keyof CaseRow) => async (value: unknown) => {
+    const v = value === '' ? null : value
+    const { error } = await supabase.from('cases').update({ [field]: v }).eq('id', caseData.id)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); throw new Error(error.message) }
+    onRefresh?.()
   }
 
   return (
@@ -131,7 +139,11 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
                   この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。
                   詳細内容には、具体的な依頼内容や、お客様から紹介先の指定がある場合に記載する。 */}
               {activeRow.partner_type === '税理士' && (
-                <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                <>
+                  {/* 相続税申告要否＝相続税申告あり判定の正（cases.tax_filing_required）。ダッシュボード集計・案件ヘッダーのバッジもこの値を参照。 */}
+                  <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+                  <InlineSelect label="依頼内容" value={activeRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
+                </>
               )}
               {activeRow.partner_type === '不動産' && (
                 <InlineSelect label="依頼内容" value={activeRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(activeRow.id, 'content')} fullWidth />
