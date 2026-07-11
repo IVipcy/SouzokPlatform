@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react'
 import { WorkContentField } from './WorkContentField'
+import { NestedSectionContext } from '@/components/ui/InlineFields'
 import type { CaseRow } from '@/types'
 
 export type GuidedSection = { title: string; gate?: string; node: ReactNode }
@@ -71,9 +72,11 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           {detailOpen ? '詳細を閉じる' : '詳細を入力'}
         </button>
         {detailOpen && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            {current.node}
-          </div>
+          <NestedSectionContext.Provider value={true}>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              {current.node}
+            </div>
+          </NestedSectionContext.Provider>
         )}
       </div>
 

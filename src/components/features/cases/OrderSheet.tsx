@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -15,6 +15,7 @@ import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField } from './WorkContentField'
 import OrderSheetGuided from './OrderSheetGuided'
+import { NestedSectionContext } from '@/components/ui/InlineFields'
 import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
@@ -114,6 +115,27 @@ export default function OrderSheet({
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))
 
+  // 各大セクションのアンカーID（左ガイドのジャンプ先／スクロール監視に使用）
+  const sectionId = (s: { anchorId?: string }, i: number) => s.anchorId ?? `os-sec-${i}`
+
+  // PC左ガイド：スクロールに合わせて現在地セクションをハイライト（IntersectionObserver）
+  const [activeSectionId, setActiveSectionId] = useState('')
+  useEffect(() => {
+    if (guided) return
+    const els = osSections.map((s, i) => document.getElementById(sectionId(s, i))).filter((el): el is HTMLElement => !!el)
+    if (els.length === 0) return
+    const obs = new IntersectionObserver(
+      entries => {
+        const vis = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (vis[0]) setActiveSectionId(vis[0].target.id)
+      },
+      { rootMargin: '-15% 0px -75% 0px', threshold: 0 },
+    )
+    els.forEach(el => obs.observe(el))
+    return () => obs.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [osSections.length, guided])
+
   // スマホ用ガイド入力：1セクション1画面のステップ表示（簡易メモ＋詳細展開）
   if (guided) {
     return (
@@ -157,14 +179,39 @@ export default function OrderSheet({
         )}
       </div>
 
-      {osSections.map((s) => (
-        <OSSection key={s.title} title={s.title} id={s.anchorId}>
-          <div className="mb-3 pb-3 border-b border-gray-100">
-            <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容（フリー・補足）" />
+      <div className="lg:flex lg:gap-5 lg:items-start">
+        {/* PC左ガイド（追従・クリックでジャンプ・現在地ハイライト）。スマホは非表示 */}
+        <nav className="hidden lg:block lg:w-44 lg:flex-shrink-0 lg:sticky lg:top-4 self-start">
+          <div className="text-[11px] text-gray-400 px-2.5 mb-1.5">セクション</div>
+          <div className="flex flex-col gap-0.5">
+            {osSections.map((s, i) => {
+              const id = sectionId(s, i)
+              const active = id === activeSectionId
+              return (
+                <a
+                  key={s.title}
+                  href={`#${id}`}
+                  onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setActiveSectionId(id) }}
+                  className={`text-[12.5px] px-2.5 py-1.5 rounded border-l-[3px] transition ${active ? 'bg-brand-50 text-brand-700 font-semibold border-brand-600' : 'text-gray-500 hover:bg-gray-50 border-transparent'}`}
+                >
+                  {s.title}
+                </a>
+              )
+            })}
           </div>
-          {s.node}
-        </OSSection>
-      ))}
+        </nav>
+
+        <div className="flex-1 min-w-0 space-y-5">
+          {osSections.map((s, i) => (
+            <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
+              <div className="mb-3 pb-3 border-b border-gray-100">
+                <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容（フリー・補足）" />
+              </div>
+              {s.node}
+            </OSSection>
+          ))}
+        </div>
+      </div>
 
       {/* 最下部の保存／完成アクション（各項目は入力時に自動保存されます） */}
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
@@ -203,7 +250,10 @@ function OSSection({ title, children, id }: { title: string; children: React.Rea
       <div className="px-4 py-2.5 bg-brand-600 rounded-t-lg">
         <h2 className="text-[14px] font-bold text-white tracking-[0.02em]">{title}</h2>
       </div>
-      <div className="p-3.5 space-y-3 bg-gray-50/70 rounded-b-lg">{children}</div>
+      {/* 中の Section は「親の中の見出しブロック」に切り替える（枠なし・灰見出し） */}
+      <NestedSectionContext.Provider value={true}>
+        <div className="p-4 space-y-4 rounded-b-lg">{children}</div>
+      </NestedSectionContext.Provider>
     </section>
   )
 }

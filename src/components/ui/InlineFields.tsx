@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -22,6 +22,11 @@ async function withToast<T>(op: () => Promise<T>): Promise<T | undefined> {
 }
 
 // ─── Section ───
+// 大セクション（OSSection＝オーダーシートの親）の中に入ると、この Context が true になり、
+// Section は「白カードの小セクション」ではなく「親の中の見出しブロック（枠なし・灰見出し）」に切り替わる。
+// これにより、案件詳細の各タブ（単体表示）は従来の青カードのまま、オーダーシート内だけ階層表示になる。
+export const NestedSectionContext = createContext(false)
+
 export function Section({ title, icon: _icon, children, actionLabel, onAction, collapsible = false, defaultOpen = true }: {
   title: string
   icon?: string  // deprecated: 旧API互換のため受け取るだけ。表示はしない
@@ -31,22 +36,31 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   collapsible?: boolean  // true でアコーディオン（タイトルクリックで開閉）
   defaultOpen?: boolean
 }) {
+  const nested = useContext(NestedSectionContext)
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = collapsible ? open : true
 
-  // カード型セクション：白背景＋薄枠＋角丸（4px）。見出しは青い帯＋アクセントバーで境界を明確に。
-  // overflow-hidden は使わない（中のドロップダウン/ポップアップが切れるため）。見出しの上角だけ丸める。
+  // nested=false（通常）: 白背景＋薄枠＋青見出しのカード型。
+  // nested=true（オーダーシート内）: 枠なし・灰の細見出し＋インデントで、親の中の一部だと分かる小見出しに。
+  const sectionCls = nested ? '' : 'bg-white border border-gray-200 rounded'
+  const headerCls = nested
+    ? 'flex items-center gap-2 mb-2'
+    : 'flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100 rounded-t-[3px]'
+  const tickCls = nested ? 'inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px] flex-shrink-0' : 'inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0'
+  const titleCls = nested ? 'text-[12.5px] font-semibold text-gray-600 tracking-[0.02em]' : 'text-[13px] font-semibold text-brand-800 tracking-[0.02em]'
+  const contentCls = nested ? 'pl-[11px]' : 'px-4 py-3.5'
+
   return (
-    <section className="bg-white border border-gray-200 rounded">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100 rounded-t-[3px]">
-        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0" />
+    <section className={sectionCls}>
+      <div className={headerCls}>
+        <span className={tickCls} />
         {collapsible ? (
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
             className="inline-flex items-center gap-1.5 text-left group"
           >
-            <h3 className="text-[13px] font-semibold text-brand-800 tracking-[0.02em] group-hover:text-brand-900 transition-colors">{title}</h3>
+            <h3 className={`${titleCls} group-hover:text-brand-900 transition-colors`}>{title}</h3>
             <svg
               className={`w-4 h-4 text-brand-400 transition-transform group-hover:text-brand-600 ${isOpen ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
@@ -56,14 +70,14 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
             <span className="text-[11px] text-brand-400 group-hover:text-brand-600">{isOpen ? '閉じる' : '開く'}</span>
           </button>
         ) : (
-          <h3 className="text-[13px] font-semibold text-brand-800 tracking-[0.02em]">{title}</h3>
+          <h3 className={titleCls}>{title}</h3>
         )}
         {actionLabel && onAction && (
           <button onClick={onAction} className="ml-auto text-[12.5px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
         )}
       </div>
       {isOpen && (
-        <div className="px-4 py-3.5">
+        <div className={contentCls}>
           {children}
         </div>
       )}
