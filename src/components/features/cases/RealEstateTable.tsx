@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Trash2, Plus, ChevronRight, ChevronDown, Lock, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -92,7 +92,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      {/* PC: 表（スマホでは非表示）。スマホは下のカード表示。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 920 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -132,6 +133,32 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
           </tbody>
         </table>
       </div>
+
+      {/* スマホ: カード表示（1件＝1カード・縦積み） */}
+      <div className="sm:hidden space-y-2.5">
+        {visibleRows.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
+        ) : (
+          visibleRows.map(r => (
+            <RealCard
+              key={r.id}
+              r={r}
+              open={expanded === r.id}
+              onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
+              setLocal={setLocal}
+              commit={commit}
+              saveField={saveField}
+              onDelete={() => delRow(r)}
+              orderSheetMode={orderSheetMode}
+              showMuni={showMuni}
+              showConfirmed={showConfirmed}
+              isManager={isManager}
+              onToggleConfirmed={() => toggleConfirmed(r)}
+            />
+          ))
+        )}
+      </div>
+
       <button type="button" onClick={addRow} disabled={busy} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
         <Plus className="w-3.5 h-3.5" /> 不動産を追加
       </button>
@@ -240,5 +267,103 @@ function CellInput({ value, onChange, onCommit, placeholder }: { value: string |
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
       />
     </td>
+  )
+}
+
+// スマホ用：ラベル＋入力欄を縦に並べる小ブロック
+function FieldBlock({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] text-gray-500 mb-1">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+// スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
+function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, isManager, onToggleConfirmed }: {
+  r: RealEstatePropertyRow
+  open: boolean
+  onToggle: () => void
+  setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
+  commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
+  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
+  onDelete: () => void
+  orderSheetMode: boolean
+  showMuni: boolean
+  showConfirmed: boolean
+  isManager: boolean
+  onToggleConfirmed: () => void
+}) {
+  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 bg-white">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <select value={(r.property_type as string) ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className="flex-1 h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+          <option value="">種別を選択</option>
+          {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 p-1.5" title="削除"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      <div className="space-y-2.5">
+        {showMuni && (
+          <FieldBlock label="市区町村">
+            <input type="text" value={r.municipality ?? ''} onChange={e => setLocal(r.id, 'municipality', e.target.value)} onBlur={e => commit(r.id, 'municipality', e.target.value)} placeholder="例: 東京都墨田区" className={inputCls} />
+          </FieldBlock>
+        )}
+        <FieldBlock label="所在地">
+          <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地" className={inputCls} />
+        </FieldBlock>
+        <FieldBlock label="評価額">
+          <MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} />
+        </FieldBlock>
+        <FieldBlock label="備考">
+          <input type="text" value={r.notes ?? ''} onChange={e => setLocal(r.id, 'notes', e.target.value)} onBlur={e => commit(r.id, 'notes', e.target.value)} placeholder="住人・売却意向・ランク・査定状況 等" className={inputCls} />
+        </FieldBlock>
+        {!orderSheetMode && (
+          <FieldBlock label="備考・結果">
+            <input type="text" value={r.survey_result ?? ''} onChange={e => setLocal(r.id, 'survey_result', e.target.value)} onBlur={e => commit(r.id, 'survey_result', e.target.value)} placeholder="この物件で分かったこと" className={inputCls} />
+          </FieldBlock>
+        )}
+        {showConfirmed && (
+          <FieldBlock label="確定（管理担当のみ）">
+            {r.confirmed ? (
+              <button type="button" onClick={onToggleConfirmed} disabled={!isManager} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" strokeWidth={2.5} />確定済</button>
+            ) : isManager ? (
+              <button type="button" onClick={onToggleConfirmed} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" strokeWidth={2} />未確定</button>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
+            )}
+          </FieldBlock>
+        )}
+      </div>
+      <button type="button" onClick={onToggle} className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-gray-200 text-[12.5px] font-semibold text-gray-600 hover:bg-gray-50">
+        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}{open ? '詳細を閉じる' : '詳細を入力'}
+      </button>
+      {open && (
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-3">
+          <div>
+            <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
+            <FieldGrid cols={1}>
+              <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
+              <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
+              <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
+              <InlineEdit label="築年数" value={r.building_age != null ? String(r.building_age) : null} onSave={v => saveField(r.id, 'building_age', v ? Number(v) : null)} />
+              <InlineSelect label="評価方法" value={r.evaluation_method} options={[...PROPERTY_EVALUATION_METHODS]} onSave={v => saveField(r.id, 'evaluation_method', v)} />
+              <InlineEdit label="売却仲介業者" value={r.sale_agent_name} onSave={v => saveField(r.id, 'sale_agent_name', v)} />
+              <InlineCheckbox label="マンション敷地注意" value={r.is_condo_land} onSave={v => saveField(r.id, 'is_condo_land', v)} />
+            </FieldGrid>
+          </div>
+          <div>
+            <SectionHeading title="発見元（どの資料から判明したか）" className="mb-2" />
+            <FieldGrid cols={1}>
+              <InlineCheckbox label="名寄せ参照" value={r.ref_nayose} onSave={v => saveField(r.id, 'ref_nayose', v)} />
+              <InlineCheckbox label="権利書参照" value={r.ref_title_deed} onSave={v => saveField(r.id, 'ref_title_deed', v)} />
+              <InlineCheckbox label="納税通知書参照" value={r.ref_tax_notice} onSave={v => saveField(r.id, 'ref_tax_notice', v)} />
+            </FieldGrid>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

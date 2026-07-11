@@ -136,62 +136,67 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 凍結確認(progressMode時のみ) +列 +残高 +確定済(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
   const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 3 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
-  // 口座カード（1行1項目）。口座タブ用。
-  if (cardLayout) {
-    const r = visibleRows[0]
-    if (!r) return <div className="rounded-md border border-gray-200 bg-gray-50/60 px-4 py-6 text-center text-[12px] text-gray-400">口座がありません。</div>
-    return (
-      <div className="rounded-md border border-gray-200">
-        {/* 凍結確認・残高確定（管理担当） */}
-        {progressMode && (
-          <CardRow label="凍結確認（管理担当）">
-            {r.freeze_confirmed
-              ? <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確認済</button>
-              : isManager ? <button type="button" onClick={() => toggleFreeze(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確認</button>
-              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200">調査不可</span>}
-          </CardRow>
-        )}
-        {cols.map(c => (
-          <CardRow key={c.key} label={c.label}>
-            {c.type === 'text'
-              ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
-              : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />}
-          </CardRow>
-        ))}
-        <CardRow label="残高/評価額"><MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} /></CardRow>
-        {showConfirmed && (
-          <CardRow label="確定済（管理担当）">
-            {r.balance_confirmed
-              ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確定済</button>
-              : isManager ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確定</button>
-              : <span className="text-[11px] text-gray-400">未確定</span>}
-          </CardRow>
-        )}
-        <CardRow label="取得区分">
-          <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-            {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
-          </select>
+  // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
+  const renderCard = (r: FinancialAssetRow) => (
+    <div key={r.id} className="rounded-xl border border-gray-200 bg-white">
+      {progressMode && (
+        <CardRow label="凍結確認（管理担当）">
+          {r.freeze_confirmed
+            ? <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確認済</button>
+            : isManager ? <button type="button" onClick={() => toggleFreeze(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確認</button>
+            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200">調査不可</span>}
         </CardRow>
-        <CardRow label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
+      )}
+      {cols.map(c => (
+        <CardRow key={c.key} label={c.label}>
+          {c.type === 'text'
+            ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
+            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />}
+        </CardRow>
+      ))}
+      <CardRow label="残高/評価額"><MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} /></CardRow>
+      {showConfirmed && (
+        <CardRow label="確定済（管理担当）">
+          {r.balance_confirmed
+            ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確定済</button>
+            : isManager ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確定</button>
+            : <span className="text-[11px] text-gray-400">未確定</span>}
+        </CardRow>
+      )}
+      <CardRow label="取得区分">
+        <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+          {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+        </select>
+      </CardRow>
+      {progressMode && <CardRow label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>}
+      {progressMode && (
         <CardRow label="到着日（受信簿）">
           {r.arrival_date
             ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" />受信済 {r.arrival_date}</span>
             : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
         </CardRow>
-        <CardRow label="備考"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></CardRow>
-        <CardRow label="備考・結果"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></CardRow>
-        <div className="flex justify-end px-3 py-2">
-          <button type="button" onClick={() => delRow(r)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />この口座を削除</button>
-        </div>
+      )}
+      <CardRow label="備考"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></CardRow>
+      {progressMode && <CardRow label="備考・結果"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></CardRow>}
+      <div className="flex justify-end px-3 py-2">
+        <button type="button" onClick={() => delRow(r)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />この口座を削除</button>
       </div>
-    )
+    </div>
+  )
+
+  // 口座カード（口座タブ用・1口座）。
+  if (cardLayout) {
+    const r = visibleRows[0]
+    if (!r) return <div className="rounded-md border border-gray-200 bg-gray-50/60 px-4 py-6 text-center text-[12px] text-gray-400">口座がありません。</div>
+    return renderCard(r)
   }
 
   return (
     <div>
       {/* 契約時にお客様から受領済の書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      <div className="overflow-x-auto">
+      {/* PC: 表（スマホは非表示・下のカード表示） */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1660 : 1300 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -309,6 +314,16 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           </tbody>
         </table>
       </div>
+
+      {/* スマホ: カード表示（1口座＝1カード） */}
+      <div className="sm:hidden space-y-2.5">
+        {visibleRows.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</div>
+        ) : (
+          visibleRows.map(renderCard)
+        )}
+      </div>
+
       <div className="mt-2">
         <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" /> 追加
