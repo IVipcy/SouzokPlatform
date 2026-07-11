@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation'
 import { X, Download, Share, SquarePlus } from 'lucide-react'
 
 // ホーム画面未追加の人だけに、インストール案内を出す。
+// 相談案件登録（/register）とオーダーシート入力（/order-sheet）の2アプリに対応し、
+// パスに応じてアイコン・アプリ名・非表示キーを切り替える（それぞれ別アプリとして案内）。
 // Android/Chrome: beforeinstallprompt を掴んでワンタップ「インストール」ボタン。
 // iPhone/Safari: プログラムから促せないので手順ガイドを表示。
 // すでにアプリとして起動中（standalone）／最近閉じた人には出さない。
 
-const DISMISS_KEY = 'registerInstallGuideDismissedAt'
 const DISMISS_DAYS = 14
 
 type BeforeInstallPromptEvent = Event & { prompt: () => void; userChoice: Promise<{ outcome: string }> }
@@ -22,14 +23,21 @@ function isStandalone() {
 
 export default function InstallGuide() {
   const pathname = usePathname()
+  const isOrderSheet = pathname === '/order-sheet'
+  const isRegister = pathname === '/register'
+  const enabled = isOrderSheet || isRegister
+  const dismissKey = isOrderSheet ? 'orderSheetInstallGuideDismissedAt' : 'registerInstallGuideDismissedAt'
+  const iconSrc = isOrderSheet ? '/icons/os-192.png' : '/icons/icon-192.png'
+  const appLabel = isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
+
   const [show, setShow] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
-    if (isStandalone()) return
+    if (!enabled || isStandalone()) return
     try {
-      const at = Number(localStorage.getItem(DISMISS_KEY) || 0)
+      const at = Number(localStorage.getItem(dismissKey) || 0)
       if (at && Date.now() - at < DISMISS_DAYS * 86400000) return
     } catch { /* noop */ }
     const ua = navigator.userAgent
@@ -37,14 +45,15 @@ export default function InstallGuide() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (ios) { setIsIOS(true); setShow(true) }
     // Android等は beforeinstallprompt が来たら表示（下の effect）
-  }, [])
+  }, [enabled, dismissKey])
 
   useEffect(() => {
+    if (!enabled) return
     const handler = (e: Event) => {
       e.preventDefault()
       if (isStandalone()) return
       try {
-        const at = Number(localStorage.getItem(DISMISS_KEY) || 0)
+        const at = Number(localStorage.getItem(dismissKey) || 0)
         if (at && Date.now() - at < DISMISS_DAYS * 86400000) return
       } catch { /* noop */ }
       setDeferred(e as BeforeInstallPromptEvent)
@@ -52,10 +61,10 @@ export default function InstallGuide() {
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  }, [enabled, dismissKey])
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch { /* noop */ }
+    try { localStorage.setItem(dismissKey, String(Date.now())) } catch { /* noop */ }
     setShow(false)
   }
 
@@ -67,23 +76,22 @@ export default function InstallGuide() {
     setShow(false)
   }
 
-  // インストール案内は相談案件登録アプリ（/register）でのみ表示
-  if (!show || pathname !== '/register') return null
+  if (!show || !enabled) return null
 
   return (
     <div className="mb-3 rounded-xl border border-brand-200 bg-brand-50/70 px-3.5 py-3">
       <div className="flex items-start gap-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/icon-192.png" alt="" className="w-9 h-9 rounded-lg flex-shrink-0 border border-brand-100" />
+        <img src={iconSrc} alt="" className="w-9 h-9 rounded-lg flex-shrink-0 border border-brand-100" />
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-bold text-brand-900">ホーム画面に追加すると便利です</div>
+          <div className="text-[13px] font-bold text-brand-900">「{appLabel}」をホーム画面に追加すると便利です</div>
           {isIOS ? (
             <p className="text-[12px] text-brand-800/90 mt-0.5 leading-relaxed">
               画面下の <Share className="inline w-3.5 h-3.5 -mt-0.5" /> 共有ボタン →「<SquarePlus className="inline w-3.5 h-3.5 -mt-0.5" /> ホーム画面に追加」で、次回からアイコンから直接開けます。
             </p>
           ) : (
             <p className="text-[12px] text-brand-800/90 mt-0.5 leading-relaxed">
-              アプリとして追加すると、次回からアイコンをタップするだけでこの登録画面を開けます。
+              アプリとして追加すると、次回からアイコンをタップするだけでこの画面を開けます。
             </p>
           )}
           {!isIOS && deferred && (
