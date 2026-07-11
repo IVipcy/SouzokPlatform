@@ -157,6 +157,11 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
     }
   }, [editing])
 
+  // オーダーシート内（NestedSectionContext=true）は「常時表示の入力欄」にする
+  const alwaysEdit = useContext(NestedSectionContext)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (alwaysEdit) setDraft(value ?? '') }, [value, alwaysEdit])
+
   const handleStartEdit = () => { setDraft(value ?? ''); setEditing(true) }
 
   const handleSave = async () => {
@@ -172,6 +177,28 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
     if (composingRef.current) return
     if (e.key === 'Enter') { e.preventDefault(); handleSave() }
     else if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
+  }
+
+  if (alwaysEdit) {
+    return (
+      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="text-[12px] font-medium text-slate-500">{label}</div>
+          {action}
+        </div>
+        <input
+          type="text"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={() => { composingRef.current = false }}
+          onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
+          placeholder="入力"
+          className={`w-full h-10 px-2.5 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''}`}
+        />
+        {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
+      </div>
+    )
   }
 
   return (
@@ -226,11 +253,25 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const alwaysEdit = useContext(NestedSectionContext)
+
   const handleChange = async (newVal: string) => {
     if (newVal === (value ?? '')) { setEditing(false); return }
     setSaving(true)
     await withToast(() => onSave(newVal))
     setSaving(false); setEditing(false)
+  }
+
+  if (alwaysEdit) {
+    return (
+      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className="w-full h-10 px-2 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400">
+          <option value="">（未設定）</option>
+          {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
+        </select>
+      </div>
+    )
   }
 
   return (
@@ -384,6 +425,10 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
     }
   }, [editing])
 
+  const alwaysEdit = useContext(NestedSectionContext)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (alwaysEdit) setDraft(value ?? '') }, [value, alwaysEdit])
+
   const handleSave = async () => {
     if (draft === (value ?? '')) { setEditing(false); return }
     setSaving(true)
@@ -392,6 +437,16 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   }
 
   const missing = required && !value
+
+  if (alwaysEdit) {
+    return (
+      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-10 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+        {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
+      </div>
+    )
+  }
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
@@ -501,12 +556,28 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
     if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select() }
   }, [editing])
 
+  const alwaysEdit = useContext(NestedSectionContext)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (alwaysEdit) setDraft(value?.toString() ?? '') }, [value, alwaysEdit])
+
   const handleSave = async () => {
     const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, ''))
     if (parsed === value) { setEditing(false); return }
     setSaving(true)
     await withToast(() => onSave(parsed))
     setSaving(false); setEditing(false)
+  }
+
+  if (alwaysEdit) {
+    return (
+      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13px] text-gray-500">¥</span>
+          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-10 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -612,6 +683,10 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
     }
   }, [editing])
 
+  const alwaysEdit = useContext(NestedSectionContext)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (alwaysEdit) setDraft(value ?? '') }, [value, alwaysEdit])
+
   const handleSave = async () => {
     const trimmed = draft.trim()
     if (trimmed === (value ?? '')) { setEditing(false); return }
@@ -633,6 +708,23 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
     return () => document.removeEventListener('mousedown', onDocClick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, draft])
+
+  if (alwaysEdit) {
+    return (
+      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={() => { composingRef.current = false }}
+          onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
+          placeholder={placeholder}
+          className="w-full px-2.5 py-2 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[80px] leading-relaxed"
+        />
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
