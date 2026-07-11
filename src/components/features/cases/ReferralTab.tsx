@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, CaseReferralRow } from '@/types'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineDate, InlineCurrency, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS } from '@/lib/constants'
+import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS } from '@/lib/constants'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
@@ -77,6 +77,23 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
     onRefresh?.()
   }
 
+  // 相談案件登録と同じ構成（オーダーシート）用：業者行の有無トグル。
+  const rowOf = (type: string) => rows.find(r => r.partner_type === type) ?? null
+  const togglePartner = async (type: string, yes: boolean) => {
+    const existing = rowOf(type)
+    if (yes && !existing) {
+      const { data, error } = await supabase.from('case_referrals').insert({ case_id: caseData.id, partner_type: type }).select('*').single()
+      if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+      setRows(prev => [...prev, data as CaseReferralRow])
+      onRefresh?.()
+    } else if (!yes && existing) {
+      const { error } = await supabase.from('case_referrals').delete().eq('id', existing.id)
+      if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+      setRows(prev => prev.filter(r => r.id !== existing.id))
+      onRefresh?.()
+    }
+  }
+
   // 1業者ぶんの入力欄。オーダーシートは全業者を縦積み、案件詳細はサブタブで1業者ずつ表示。
   const renderPartnerBody = (row: CaseReferralRow) => (
     <div className="space-y-3">
@@ -111,6 +128,44 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
       </FieldGrid>
     </div>
   )
+
+  // オーダーシート：相談案件登録と同じ構成（不動産査定→税理士紹介→その他紹介）
+  if (orderSheetMode) {
+    const reRow = rowOf('不動産')
+    const taxRow = rowOf('税理士')
+    return (
+      <div className="space-y-3.5">
+        <Section title="不動産査定">
+          <FieldGrid>
+            <InlineSelect label="紹介" value={reRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('不動産', v === 'あり') }} />
+            {reRow && <InlineSelect label="査定ランク" value={reRow.content} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(reRow.id, 'content')} />}
+            {reRow && <InlineTextarea label="備考" value={reRow.content_detail} onSave={saveReferralField(reRow.id, 'content_detail')} fullWidth />}
+          </FieldGrid>
+        </Section>
+        <Section title="税理士紹介">
+          <FieldGrid>
+            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+            <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} />
+            {taxRow && <InlineSelect label="紹介理由" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
+            {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
+          </FieldGrid>
+        </Section>
+        <Section title="その他紹介" collapsible defaultOpen={OTHER_REFERRAL_PARTNERS.some(p => !!rowOf(p.key))}>
+          <FieldGrid>
+            {OTHER_REFERRAL_PARTNERS.map(p => {
+              const row = rowOf(p.key)
+              return (
+                <Fragment key={p.key}>
+                  <InlineSelect label={p.label} value={row ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner(p.key, v === 'あり') }} />
+                  {row ? <InlineEdit label="備考" value={row.content} onSave={saveReferralField(row.id, 'content')} /> : <div className="py-1.5" />}
+                </Fragment>
+              )
+            })}
+          </FieldGrid>
+        </Section>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3.5">
