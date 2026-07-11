@@ -47,7 +47,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
   // toggle +[市区町村] +物件種別 +所在地 +評価額 +[確定済] +備考 +[備考・結果] +削除
-  const colCount = 1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1
+  const colCount = (orderSheetMode ? 0 : 1) + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1
 
   const toggleConfirmed = async (row: RealEstatePropertyRow) => {
     const next = !row.confirmed
@@ -97,7 +97,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 920 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-1 py-2 w-7" />
+              {!orderSheetMode && <th className="px-1 py-2 w-7" />}
               {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
@@ -192,11 +192,13 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
   return (
     <>
       <tr className="border-b border-gray-100">
-        <td className="px-1 py-1.5 text-center">
-          <button type="button" onClick={onToggle} className="text-gray-400 hover:text-brand-600" title="詳細">
-            {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        </td>
+        {!orderSheetMode && (
+          <td className="px-1 py-1.5 text-center">
+            <button type="button" onClick={onToggle} className="text-gray-400 hover:text-brand-600" title="詳細">
+              {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+          </td>
+        )}
         {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
         {sel('property_type', PROPERTY_TYPES)}
         <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地" />
@@ -222,7 +224,7 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
         </td>
       </tr>
-      {open && (
+      {!orderSheetMode && open && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
           <td colSpan={1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
@@ -337,10 +339,12 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           </FieldBlock>
         )}
       </div>
-      <button type="button" onClick={onToggle} className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-gray-200 text-[12.5px] font-semibold text-gray-600 hover:bg-gray-50">
-        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}{open ? '詳細を閉じる' : '詳細を入力'}
-      </button>
-      {open && (
+      {!orderSheetMode && (
+        <button type="button" onClick={onToggle} className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-gray-200 text-[12.5px] font-semibold text-gray-600 hover:bg-gray-50">
+          {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}{open ? '詳細を閉じる' : '詳細を入力'}
+        </button>
+      )}
+      {!orderSheetMode && open && (
         <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-3">
           <div>
             <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
