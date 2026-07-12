@@ -49,7 +49,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
   // toggle +[市区町村] +物件種別 +所在地 +評価額 +[確定済] +備考 +[備考・結果] +削除
-  const colCount = (orderSheetMode ? 0 : 1) + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1
+  const colCount = (orderSheetMode ? 0 : 1) + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1
 
   const toggleConfirmed = async (row: RealEstatePropertyRow) => {
     const next = !row.confirmed
@@ -96,17 +96,15 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     <div>
       {/* PC: 表（スマホでは非表示）。オーダーシートは全幅でカード表示に統一（1項目=1行）。 */}
       <div className={`${orderSheetMode ? 'hidden' : 'hidden sm:block'} overflow-x-auto`}>
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 920 }}>
+        <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {!orderSheetMode && <th className="px-1 py-2 w-7" />}
+              {!orderSheetMode && <th className="px-2 py-2 w-16" />}
               {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
-              <th className="px-2.5 py-2 text-left font-semibold">備考</th>
-              {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -195,9 +193,9 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
     <>
       <tr className="border-b border-gray-100">
         {!orderSheetMode && (
-          <td className="px-1 py-1.5 text-center">
-            <button type="button" onClick={onToggle} className="text-gray-400 hover:text-brand-600" title="詳細">
-              {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          <td className="px-2 py-1.5">
+            <button type="button" onClick={onToggle} className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-600 hover:text-brand-700 whitespace-nowrap" title="物件の詳細・備考を開く">
+              {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}詳細
             </button>
           </td>
         )}
@@ -220,19 +218,19 @@ function RealRow({ r, open, onToggle, setLocal, commit, saveField, onDelete, ord
             )}
           </td>
         )}
-        <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
-        {!orderSheetMode && <CellInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この物件で分かったこと" />}
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
         </td>
       </tr>
       {!orderSheetMode && open && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
-          <td colSpan={1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1 + (orderSheetMode ? 0 : 1) + 1} className="px-4 py-3 space-y-3">
+          <td colSpan={1 + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1} className="px-4 py-3 space-y-3">
             {/* 物件詳細（固定資産申請書にも連携）。請求・取得の進捗は下の「取得資料管理」で管理。 */}
             <div>
-              <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
+              <SectionHeading title="物件詳細・備考（固定資産申請書にも連携）" className="mb-2" />
               <FieldGrid>
+                <InlineEdit label="備考（住人・売却意向・ランク・査定状況 等）" value={r.notes} onSave={v => saveField(r.id, 'notes', v || null)} fullWidth />
+                <InlineEdit label="備考・結果（この物件で分かったこと）" value={r.survey_result} onSave={v => saveField(r.id, 'survey_result', v || null)} fullWidth />
                 <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
                 <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
                 <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
