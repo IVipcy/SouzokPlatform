@@ -344,10 +344,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 }
 
 function CardRow({ label, children }: { label: string; children: React.ReactNode }) {
+  // 上にラベル・下に入力欄（他セクションのカードとテイストを統一）
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-100 last:border-b-0">
-      <span className="flex-none w-28 text-[11px] text-gray-500">{label}</span>
-      <div className="flex-1 min-w-0">{children}</div>
+    <div className="px-3 py-2 border-b border-gray-100 last:border-b-0">
+      <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
+      <div className="min-w-0">{children}</div>
     </div>
   )
 }

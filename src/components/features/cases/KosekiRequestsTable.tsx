@@ -291,7 +291,8 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
               <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} />
             </>
           )}
-          <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} />
+          {/* 備考・結果は調査後の結果欄。オーダーシート(progressMode=false)では出さない。 */}
+          {progressMode && <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} />}
           <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} />
         </FieldGrid>
       </div>

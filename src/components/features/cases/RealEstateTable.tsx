@@ -94,8 +94,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   return (
     <div>
-      {/* PC: 表（スマホでは非表示）。スマホは下のカード表示。 */}
-      <div className="hidden sm:block overflow-x-auto">
+      {/* PC: 表（スマホでは非表示）。オーダーシートは全幅でカード表示に統一（1項目=1行）。 */}
+      <div className={`${orderSheetMode ? 'hidden' : 'hidden sm:block'} overflow-x-auto`}>
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 920 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -136,8 +136,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
         </table>
       </div>
 
-      {/* スマホ: カード表示（1件＝1カード・縦積み） */}
-      <div className="sm:hidden space-y-2.5">
+      {/* カード表示（1件＝1カード・縦積み）。オーダーシートは全幅。 */}
+      <div className={`${orderSheetMode ? '' : 'sm:hidden'} space-y-2.5`}>
         {visibleRows.length === 0 ? (
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
         ) : (
@@ -299,17 +299,19 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
   isManager: boolean
   onToggleConfirmed: () => void
 }) {
-  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
-      <div className="flex items-center justify-between gap-2 mb-2.5">
-        <select value={(r.property_type as string) ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className="flex-1 h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
-          <option value="">種別を選択</option>
-          {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+      <div className="flex items-center justify-end mb-1.5">
         <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 p-1.5" title="削除"><Trash2 className="w-4 h-4" /></button>
       </div>
       <div className="space-y-2.5">
+        <FieldBlock label="物件種別">
+          <select value={(r.property_type as string) ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+            <option value="">種別を選択</option>
+            {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </FieldBlock>
         {showMuni && (
           <FieldBlock label="市区町村">
             <input type="text" value={r.municipality ?? ''} onChange={e => setLocal(r.id, 'municipality', e.target.value)} onBlur={e => commit(r.id, 'municipality', e.target.value)} placeholder="例: 東京都墨田区" className={inputCls} />
