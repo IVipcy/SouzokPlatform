@@ -171,6 +171,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={orderSheetMode || sub === 'insurance' ? 'space-y-3' : 'hidden'}>
+          {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
           <FieldGrid>
             <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
