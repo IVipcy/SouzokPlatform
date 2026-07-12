@@ -286,16 +286,16 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
               <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
               <div className="py-1.5">
-                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人生年月日</div>
+                <div className="text-[13px] font-medium text-slate-600 mb-1">被相続人生年月日</div>
                 <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => patchCase({ deceased_birth_date: v || null, deceased_age: ageAtDeath(v, caseData.date_of_death) })} />
               </div>
               <div className="py-1.5">
-                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">相続開始日（死亡日）<span className="text-red-500 ml-0.5">*</span></div>
+                <div className="text-[13px] font-medium text-slate-600 mb-1">相続開始日（死亡日）<span className="text-red-500 ml-0.5">*</span></div>
                 <BirthdayPicker value={caseData.date_of_death} onChange={v => patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) })} />
               </div>
               <div className="py-1.5">
-                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">被相続人年齢（享年・自動計算）</div>
-                <div className="text-[13px] text-gray-700 font-medium min-h-[24px]">
+                <div className="text-[13px] font-medium text-slate-600 mb-1">被相続人年齢（享年・自動計算）</div>
+                <div className="text-[15px] text-gray-700 font-medium min-h-[24px]">
                   {ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death) != null
                     ? `${ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death)} 歳`
                     : <span className="text-gray-300 italic text-xs">生年月日と死亡日から自動計算</span>}
