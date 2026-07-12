@@ -45,14 +45,6 @@ type Props = {
  *   財産調査（調査条件・財産目録）／不動産（表）／金融機関（表）／生命保険提案
  *   不動産・金融機関は表形式で行追加できる（RealEstateTable / FinancialAssetsTable）。
  */
-const MAIN_TABS_FULL: { key: string; label: string }[] = [
-  { key: 'conditions', label: '財産調査条件' },
-  { key: 'targets', label: '調査対象' },
-  { key: 'inventory', label: '財産目録' },
-]
-// オーダーシートは調査前の設計情報のみ。財産目録（調査後の集計）はOSでは出さない。
-const MAIN_TABS_OS = MAIN_TABS_FULL.filter(t => t.key !== 'inventory')
-
 const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'realestate', label: '不動産' },
   { key: 'deposit', label: '預金' },
@@ -60,13 +52,14 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'trust', label: '信託' },
   { key: 'insurance', label: '生命保険' },
 ]
+// 案件詳細では「財産目録」も種別と同じタブ列に並べる（第1層タブを廃止して3層→2層）。
+// 財産調査条件（案件で1つ）は上部の折りたたみ小セクションへ。
+const SUBTABS_FULL: { key: string; label: string }[] = [...ASSET_SUBTABS, { key: 'inventory', label: '財産目録' }]
 
 export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
-  const MAIN_TABS = orderSheetMode ? MAIN_TABS_OS : MAIN_TABS_FULL
-  const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
   // オーダーシート：証券/信託/生命保険はデータが無ければ最初は非表示。「＋証券/＋信託/＋生命保険」を押すと表示。
@@ -100,11 +93,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         />
       )}
 
-      {/* 財産調査条件 / 調査対象 のタブ切替。オーダーシートは両方を縦積みで全展開（タブ廃止）。 */}
-      {!orderSheetMode && <SubTabs tabs={MAIN_TABS} active={mainTab} onChange={setMainTab} />}
-
-      {/* 財産調査条件タブ */}
-      <div className={orderSheetMode || mainTab === 'conditions' ? '' : 'hidden'}>
+      {/* 財産調査条件（案件で1つ）。オーダーシートは通常表示、案件詳細は上部の折りたたみ小セクション。 */}
+      {orderSheetMode ? (
         <Section title="財産調査条件">
           <FieldGrid>
             <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
@@ -112,13 +102,21 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           </FieldGrid>
           <p className="mt-2 text-[11px] text-gray-400">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</p>
         </Section>
-      </div>
+      ) : (
+        <Section title="財産調査条件（開始条件・使用書類）" collapsible defaultOpen={false}>
+          <FieldGrid>
+            <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
+            <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
+          </FieldGrid>
+          <p className="mt-2 text-[11px] text-gray-400">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</p>
+        </Section>
+      )}
 
-      {/* 調査対象タブ（不動産 / 預金 / 証券 / 信託 / 生命保険）。
-          切替時にアンマウントすると入力中の表が古いpropsで作り直され消えて見えるため、
-          各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
-      <div className={orderSheetMode || mainTab === 'targets' ? 'space-y-3.5' : 'hidden'}>
-        {!orderSheetMode && <SubTabs tabs={ASSET_SUBTABS} active={sub} onChange={setSub} />}
+      {/* 種別タブ（不動産 / 預金 / 証券 / 信託 / 生命保険 / 財産目録）。案件詳細のみタブ表示、
+          オーダーシートは各パネルを縦積みで全展開。切替時にアンマウントすると入力中の表が
+          古いpropsで作り直され消えて見えるため、各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
+      <div className={orderSheetMode ? 'space-y-3.5' : ''}>
+        {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} />}
 
         <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           {orderSheetMode ? (
@@ -196,8 +194,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         {/* 契約時受領の財産書類は不動産/金融の各表の先頭に「契約時受領」として取り込み表示（二重登録防止）。 */}
       </div>
 
-      {/* 財産目録タブ（オーダーシートでは非表示） */}
-      <div className={mainTab === 'inventory' && !orderSheetMode ? '' : 'hidden'}>
+      {/* 財産目録（種別タブと同列・オーダーシートでは非表示） */}
+      <div className={!orderSheetMode && sub === 'inventory' ? '' : 'hidden'}>
         <Section title="財産目録（協議書・精算書へ反映）">
           <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} onRefresh={onRefresh} />
         </Section>
