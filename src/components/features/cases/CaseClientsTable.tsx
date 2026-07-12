@@ -216,7 +216,7 @@ function PrefContactCell({ value, onChange }: { value: string[] | null; onChange
 
 // スマホ用：依頼者1人＝1カード（表の代わり）
 function CFieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><div className="text-[11px] text-gray-500 mb-1">{label}</div>{children}</div>
+  return <div><div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>{children}</div>
 }
 
 function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
@@ -227,7 +227,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
   onDelete: () => void
 }) {
   const age = calcAge(r.birth_date)
-  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
   const selectedPref = r.preferred_contact ?? []
   const togglePref = (key: string) => {
     const next = selectedPref.includes(key) ? selectedPref.filter(k => k !== key) : [...selectedPref, key]
@@ -236,7 +236,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
       <div className="flex items-center justify-between gap-2 mb-2.5">
-        <select value={r.priority} onChange={e => { setLocal(r.id, 'priority', e.target.value); commit(r.id, 'priority', e.target.value) }} className="flex-1 h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+        <select value={r.priority} onChange={e => { setLocal(r.id, 'priority', e.target.value); commit(r.id, 'priority', e.target.value) }} className="flex-1 h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
           <option value="main">メイン依頼人</option>
           <option value="companion">同行者</option>
         </select>
@@ -247,7 +247,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
         <CFieldBlock label="ふりがな"><input type="text" value={r.furigana ?? ''} onChange={e => setLocal(r.id, 'furigana', e.target.value)} onBlur={e => commit(r.id, 'furigana', e.target.value)} placeholder="やまだ たろう" className={inputCls} /></CFieldBlock>
         <div className="grid grid-cols-2 gap-2.5">
           <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">続柄を選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>
-          <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-10 text-[13px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
+          <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-12 text-[15px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
         </div>
         <CFieldBlock label="TEL①（自宅）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="03-..." className={inputCls} /></CFieldBlock>
         <CFieldBlock label="TEL②（携帯）"><input type="tel" value={r.mobile_phone ?? ''} onChange={e => setLocal(r.id, 'mobile_phone', e.target.value)} onBlur={e => commit(r.id, 'mobile_phone', e.target.value)} placeholder="090-..." className={inputCls} /></CFieldBlock>

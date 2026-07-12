@@ -226,7 +226,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
 
 // スマホ用：戸籍請求1件＝1カード
 function KFieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><div className="text-[11px] text-gray-500 mb-1">{label}</div>{children}</div>
+  return <div><div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>{children}</div>
 }
 
 function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, targetOptions }: {

@@ -278,7 +278,7 @@ function CellInput({ value, onChange, onCommit, placeholder }: { value: string |
 function FieldBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] text-gray-500 mb-1">{label}</div>
+      <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
       {children}
     </div>
   )

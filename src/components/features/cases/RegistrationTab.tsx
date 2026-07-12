@@ -193,25 +193,25 @@ function RegCard({ r, columns, saveField, saveCustom }: {
         <div className="text-[11px] text-gray-400">{r.property_type || '種別未設定'}</div>
       </div>
       <div className="space-y-2.5">
-        <div><div className="text-[11px] text-gray-500 mb-1">相続登記の種別</div>
+        <div><div className="text-[13px] font-medium text-slate-600 mb-1">相続登記の種別</div>
           <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
         </div>
         <div className="grid grid-cols-1 gap-2.5">
-          <div><div className="text-[12px] text-gray-500 mb-1">登記原因</div>
+          <div><div className="text-[13px] font-medium text-slate-600 mb-1">登記原因</div>
             <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
               <option value="">—</option>
               {REGISTRATION_CAUSES.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div><div className="text-[12px] text-gray-500 mb-1">管轄法務局</div>
+          <div><div className="text-[13px] font-medium text-slate-600 mb-1">管轄法務局</div>
             <CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 名古屋法務局" />
           </div>
         </div>
-        <div><div className="text-[11px] text-gray-500 mb-1">備考</div>
+        <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考</div>
           <CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" />
         </div>
         {columns.map(col => (
-          <div key={col}><div className="text-[11px] text-gray-500 mb-1">{col}</div>
+          <div key={col}><div className="text-[13px] font-medium text-slate-600 mb-1">{col}</div>
             <CustomCell value={r.registration_data?.[col] ?? ''} onCommit={v => saveCustom(r, col, v)} />
           </div>
         ))}
