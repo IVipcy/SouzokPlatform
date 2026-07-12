@@ -93,8 +93,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   return (
     <div className="space-y-3.5">
       <Section title="相続登記（物件ごとの手続き）">
-      {/* PC: 表（スマホは非表示・下のカード表示） */}
-      <div className="hidden sm:block overflow-x-auto">
+      {/* オーダーシートは全幅でカード表示に統一（1項目=1行）。表は出さない。 */}
+      <div className="hidden overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1580 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -162,8 +162,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
         </table>
       </div>
 
-      {/* スマホ: カード表示（1物件＝1カード） */}
-      <div className="sm:hidden space-y-2.5">
+      {/* カード表示（1物件＝1カード・全幅） */}
+      <div className="space-y-2.5">
         {rows.map(r => (
           <RegCard key={r.id} r={r} columns={columns} saveField={saveField} saveCustom={saveCustom} />
         ))}
@@ -196,14 +196,14 @@ function RegCard({ r, columns, saveField, saveCustom }: {
         <div><div className="text-[11px] text-gray-500 mb-1">相続登記の種別</div>
           <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <div><div className="text-[11px] text-gray-500 mb-1">登記原因</div>
-            <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+        <div className="grid grid-cols-1 gap-2.5">
+          <div><div className="text-[12px] text-gray-500 mb-1">登記原因</div>
+            <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
               <option value="">—</option>
               {REGISTRATION_CAUSES.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div><div className="text-[11px] text-gray-500 mb-1">管轄法務局</div>
+          <div><div className="text-[12px] text-gray-500 mb-1">管轄法務局</div>
             <CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 名古屋法務局" />
           </div>
         </div>

@@ -100,8 +100,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     <div>
       {/* 契約時に受領済の戸籍（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      {/* PC: 表（スマホは非表示・下のカード表示） */}
-      <div className="hidden sm:block overflow-x-auto">
+      {/* PC: 表（スマホは非表示・下のカード表示）。オーダーシート(progressMode=false)は全幅でカード表示に統一（1項目=1行）。 */}
+      <div className={`${progressMode ? 'hidden sm:block' : 'hidden'} overflow-x-auto`}>
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1240 : 820 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -135,8 +135,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
         </table>
       </div>
 
-      {/* スマホ: カード表示（1請求＝1カード） */}
-      <div className="sm:hidden space-y-2.5">
+      {/* スマホ: カード表示（1請求＝1カード）。オーダーシートは全幅でカード表示。 */}
+      <div className={`${progressMode ? 'sm:hidden' : ''} space-y-2.5`}>
         {rows.length === 0 ? (
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</div>
         ) : (
@@ -238,8 +238,10 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
   onDelete: () => void
   targetOptions: string[]
 }) {
-  const inputCls = 'w-full h-10 px-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
-  const selectCls = 'w-full h-10 px-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selectCls = 'w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  // オーダーシート(progressMode=false)は1項目=1行。案件詳細のスマホは従来どおり2列。
+  const gridCls = progressMode ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-1 gap-2.5'
   const targetOpts = r.target_person && !targetOptions.includes(r.target_person) ? [...targetOptions, r.target_person] : targetOptions
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
@@ -248,7 +250,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
       </div>
       <div className="space-y-2.5">
         <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="例: 名古屋市中区役所" className={inputCls} /></KFieldBlock>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className={gridCls}>
           <KFieldBlock label="対象者">
             <select value={r.target_person ?? ''} onChange={e => saveField(r.id, 'target_person', e.target.value)} className={selectCls}>
               <option value="">— 選択 —</option>
@@ -262,7 +264,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
           </KFieldBlock>
         </div>
         <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></KFieldBlock>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className={gridCls}>
           <KFieldBlock label="種別">
             <select value={r.doc_types ?? ''} onChange={e => saveField(r.id, 'doc_types', e.target.value)} className={selectCls}>
               <option value="">—</option>
