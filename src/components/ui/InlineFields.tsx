@@ -102,9 +102,12 @@ export function SectionHeading({ title, right, className = '' }: { title: string
 // 2項目/行を基本にした、テーブル風の見た目で統一（白セル＋薄いグリッド線）。
 // 各タブで共通利用するため、ここを変えると全タブのフィールド表示が揃う。
 export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: number }) {
+  // オーダーシート内（Nested）は 1項目=1行 に固定（スマホ・PC共通で見やすく）。
+  const nested = useContext(NestedSectionContext)
+  const oneCol = cols === 1 || nested
   return (
     <div
-      className={`grid ${cols === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
+      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
     >
       {children}
     </div>
@@ -183,7 +186,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="flex items-center gap-2 mb-1">
-          <div className="text-[12px] font-medium text-slate-500">{label}</div>
+          <div className="text-[13px] font-medium text-slate-600">{label}</div>
           {action}
         </div>
         <input
@@ -194,7 +197,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder="入力"
-          className={`w-full h-10 px-2.5 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''}`}
+          className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''}`}
         />
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
@@ -265,8 +268,8 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   if (alwaysEdit) {
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
-        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className="w-full h-10 px-2 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400">
+        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className="w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400">
           <option value="">（未設定）</option>
           {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
         </select>
@@ -441,8 +444,8 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   if (alwaysEdit) {
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-10 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-12 px-3 text-[15px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
         {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
       </div>
     )
@@ -571,10 +574,10 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
   if (alwaysEdit) {
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
+        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[13px] text-gray-500">¥</span>
-          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-10 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+          <span className="text-[15px] text-gray-500">¥</span>
+          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-12 px-3 text-[15px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
         </div>
       </div>
     )
@@ -712,7 +715,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
   if (alwaysEdit) {
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[12px] font-medium text-slate-500 mb-1">{label}</div>
+        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
         <textarea
           value={draft}
           onChange={e => setDraft(e.target.value)}
@@ -720,7 +723,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder={placeholder}
-          className="w-full px-2.5 py-2 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[80px] leading-relaxed"
+          className="w-full px-3 py-2.5 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
         />
       </div>
     )

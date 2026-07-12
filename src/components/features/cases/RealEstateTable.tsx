@@ -34,7 +34,9 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const showMuni = !municipalityFilter   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）
+  // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）。
+  // オーダーシートでは所在地だけ入力し、市区町村は所在地から自動抽出するため列を隠す。
+  const showMuni = !municipalityFilter && !orderSheetMode
   // 明示の市区町村が無ければ所在地から抽出（RealEstateSection と同一ロジック）
   const muniOf = (r: RealEstatePropertyRow) => {
     const m = (r.municipality ?? '').trim()

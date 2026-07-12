@@ -5,6 +5,7 @@ import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
+import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseClientRow } from '@/types'
 
 // 生年月日から年齢を算出
@@ -126,7 +127,13 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
                     </td>
                     <Cell value={r.name} onChange={v => setLocal(r.id, 'name', v)} onCommit={v => commit(r.id, 'name', v)} placeholder="山田 太郎" />
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
-                    <Cell value={r.relationship} onChange={v => setLocal(r.id, 'relationship', v)} onCommit={v => commit(r.id, 'relationship', v)} placeholder="長男 等" />
+                    <td className="px-2 py-1.5">
+                      <select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                        <option value="">続柄を選択</option>
+                        {r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}
+                        {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </td>
                     <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="自宅 03-..." />
                     <Cell value={r.mobile_phone} type="tel" onChange={v => setLocal(r.id, 'mobile_phone', v)} onCommit={v => commit(r.id, 'mobile_phone', v)} placeholder="携帯 090-..." />
                     <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
@@ -239,7 +246,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
         <CFieldBlock label="氏名"><input type="text" value={r.name ?? ''} onChange={e => setLocal(r.id, 'name', e.target.value)} onBlur={e => commit(r.id, 'name', e.target.value)} placeholder="山田 太郎" className={inputCls} /></CFieldBlock>
         <CFieldBlock label="ふりがな"><input type="text" value={r.furigana ?? ''} onChange={e => setLocal(r.id, 'furigana', e.target.value)} onBlur={e => commit(r.id, 'furigana', e.target.value)} placeholder="やまだ たろう" className={inputCls} /></CFieldBlock>
         <div className="grid grid-cols-2 gap-2.5">
-          <CFieldBlock label="続柄"><input type="text" value={r.relationship ?? ''} onChange={e => setLocal(r.id, 'relationship', e.target.value)} onBlur={e => commit(r.id, 'relationship', e.target.value)} placeholder="長男 等" className={inputCls} /></CFieldBlock>
+          <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">続柄を選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>
           <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-10 text-[13px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
         </div>
         <CFieldBlock label="TEL①（自宅）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="03-..." className={inputCls} /></CFieldBlock>

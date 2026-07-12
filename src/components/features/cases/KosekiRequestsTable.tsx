@@ -207,8 +207,13 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <tr className="border-b border-gray-100 bg-gray-50/40">
           <td colSpan={colCount} className="px-4 py-3">
             <FieldGrid>
-              <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} fullWidth />
-              <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} fullWidth />
+              {/* 戸籍請求理由は取得目的（メイン列）と用途が重複するため、オーダーシート(progressMode=false)では非表示。案件詳細でのみ表示。 */}
+              {progressMode && (
+                <>
+                  <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} fullWidth />
+                  <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} fullWidth />
+                </>
+              )}
               <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} fullWidth />
               <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />
             </FieldGrid>
@@ -278,8 +283,12 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
           </div>
         )}
         <FieldGrid cols={1}>
-          <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} />
-          <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} />
+          {progressMode && (
+            <>
+              <InlineSelect label="戸籍請求理由" value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onSave={v => saveField(r.id, 'request_reason', v)} />
+              <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} />
+            </>
+          )}
           <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} />
           <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} />
         </FieldGrid>

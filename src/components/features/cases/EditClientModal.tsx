@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { lookupPostalAddress } from '@/lib/postal'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -31,6 +32,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         name: client?.name ?? '',
         furigana: client?.furigana ?? '',
@@ -118,7 +120,19 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
               <FormField label="ふりがな" value={form.furigana} onChange={v => setForm(p => ({ ...p, furigana: v }))} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <FormField label="郵便番号" value={form.postal_code} onChange={v => setForm(p => ({ ...p, postal_code: v }))} placeholder="123-4567" />
+              <FormField
+                label="郵便番号"
+                value={form.postal_code}
+                onChange={v => {
+                  setForm(p => ({ ...p, postal_code: v }))
+                  // 7桁入力で住所を自動補完（番地・建物は住所欄に追記してもらう）
+                  const z = v.replace(/[^0-9]/g, '')
+                  if (z.length === 7) {
+                    lookupPostalAddress(z).then(addr => { if (addr) setForm(p => ({ ...p, address: addr })) })
+                  }
+                }}
+                placeholder="123-4567（住所を自動入力）"
+              />
               <FormField label="続柄" value={form.relationship_to_deceased} onChange={v => setForm(p => ({ ...p, relationship_to_deceased: v }))} placeholder="長男、配偶者など" />
             </div>
             <FormField label="住所" value={form.address} onChange={v => setForm(p => ({ ...p, address: v }))} />

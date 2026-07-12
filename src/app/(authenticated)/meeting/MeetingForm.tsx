@@ -538,11 +538,13 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           if (p === '税理士') {
             const sel = formData.taxAdvisorBusinessType
             row.content = sel || null
-            row.content_detail = sel.startsWith('その他') ? (formData.taxAdvisorReferralNote || null) : (sel || null)
+            // 備考(content_detail)は「その他」自由入力のときだけ。選択値の重複保存はしない。
+            row.content_detail = sel.startsWith('その他') ? (formData.taxAdvisorReferralNote || null) : null
           } else if (p === '不動産') {
             const sel = formData.realEstateRegistrationType
             row.content = sel || null
-            row.content_detail = sel.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : (sel || null)
+            // 備考(content_detail)は「その他」自由入力のときだけ。選択値（査定ランク）の重複保存はしない。
+            row.content_detail = sel.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : null
           } else {
             const note = formData.otherReferralNotes[p]
             row.content = note || null

@@ -69,11 +69,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const [mainTab, setMainTab] = useState('conditions')
   const [sub, setSub] = useState('realestate')
 
-  // オーダーシート：証券/信託はデータが無ければ最初は非表示。「＋証券/＋信託」を押すと表示。
+  // オーダーシート：証券/信託/生命保険はデータが無ければ最初は非表示。「＋証券/＋信託/＋生命保険」を押すと表示。
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
-  const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean }>({})
+  const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
+  const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean; insurance?: boolean }>({})
   const showSecurities = orderSheetMode ? (hasKind('証券') || !!reveal.securities) : sub === 'securities'
   const showTrust = orderSheetMode ? (hasKind('信託銀行') || !!reveal.trust) : sub === 'trust'
+  const showInsurance = orderSheetMode ? (hasInsurance || !!reveal.insurance) : sub === 'insurance'
 
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
@@ -120,9 +122,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
 
         <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           {orderSheetMode ? (
-            // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。市区町村を入力。
+            // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             <div>
-              <SectionHeading title="物件一覧（どこに物件があるか／市区町村を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="物件一覧（どこに物件があるか／所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode />
             </div>
           ) : (
@@ -170,7 +172,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
           )}
         </div>
-        <div className={orderSheetMode || sub === 'insurance' ? 'space-y-3' : 'hidden'}>
+        <div className={showInsurance ? 'space-y-3' : 'hidden'}>
           {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
           <FieldGrid>
@@ -179,14 +181,17 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
           </FieldGrid>
         </div>
-        {/* オーダーシート：証券/信託が未表示なら追加ボタンで出す */}
-        {orderSheetMode && (!showSecurities || !showTrust) && (
+        {/* オーダーシート：証券/信託/生命保険が未表示なら追加ボタンで出す（優先度: 証券→信託→生命保険） */}
+        {orderSheetMode && (!showSecurities || !showTrust || !showInsurance) && (
           <div className="flex flex-wrap gap-2 pt-1">
             {!showSecurities && (
               <button type="button" onClick={() => setReveal(r => ({ ...r, securities: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 証券を追加</button>
             )}
             {!showTrust && (
               <button type="button" onClick={() => setReveal(r => ({ ...r, trust: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 信託を追加</button>
+            )}
+            {!showInsurance && (
+              <button type="button" onClick={() => setReveal(r => ({ ...r, insurance: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 生命保険を追加</button>
             )}
           </div>
         )}
