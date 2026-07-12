@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { AlertTriangle, Inbox, PackageCheck, Clock } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
-import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses, isInitialTasksDone } from '@/lib/constants'
+import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
@@ -180,7 +180,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         <div className="rounded-lg border border-gray-200">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-px bg-gray-100">
             <SummaryItem label="案件ステータス">
-              <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} initialTasksDone={isInitialTasksDone(tasks)} contractProcDone={contractProcDone} onChange={s => saveCaseField('status', s)} />
+              <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} contractProcDone={contractProcDone} onChange={s => saveCaseField('status', s)} />
             </SummaryItem>
             <SummaryItem label="現在の業務">
               <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
@@ -243,10 +243,10 @@ function SummaryItem({ label, children }: { label: string; children: React.React
 
 // 案件ステータスの編集チップ（ブランド単色。ヘッダーのステータスフローと色を統一）
 // 対応中/完了はオーダーシート完成＋管理担当アサイン後のみ選択可（getSelectableCaseStatuses）。
-function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, initialTasksDone = true, contractProcDone = true, onChange }: { status: string; orderSheetCompleted: boolean; managerAssigned: boolean; initialTasksDone?: boolean; contractProcDone?: boolean; onChange: (s: string) => void }) {
+function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, contractProcDone = true, onChange }: { status: string; orderSheetCompleted: boolean; managerAssigned: boolean; contractProcDone?: boolean; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status, managerAssigned, initialTasksDone, contractProcDone))
+  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status, managerAssigned, true, contractProcDone))
 
   useEffect(() => {
     if (!open) return
@@ -282,13 +282,12 @@ function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, init
               {s.label}
             </button>
           ))}
-          {!(orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) && (
+          {!(orderSheetCompleted && managerAssigned && contractProcDone) && (
             <div className="px-3.5 py-2 text-[11px] text-gray-400 border-t border-gray-100">
               「対応中」「完了」は{[
                 !orderSheetCompleted ? 'オーダーシート完成' : null,
                 !managerAssigned ? '管理担当の割り振り' : null,
-                !initialTasksDone ? '初期対応タスクの完了' : null,
-                !contractProcDone ? '契約残手続きの完了' : null,
+                !contractProcDone ? '契約手続きの完了' : null,
               ].filter(Boolean).join('＋')}後に選択できます
             </div>
           )}

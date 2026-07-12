@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
 import { isMinimalMode } from '@/lib/featureMode'
+import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
 
 const ACTIVE = new Set(['受注', '対応中'])
 const PENDING_ANSWER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
@@ -44,9 +45,9 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }] = await Promise.all([
     supabase.from('cases')
-      .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date')
+      .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at')
       .in('id', myCaseIds),
     supabase.from('case_members').select('case_id, role').in('case_id', myCaseIds),
     // 自分が担当の未完了タスク
@@ -58,6 +59,8 @@ export async function GET() {
     // 「検討状況の確認」(sys_review_status) が完了済みの案件 → 回答予定日アラートを抑制
     supabase.from('tasks').select('case_id,status,template_key')
       .in('case_id', myCaseIds).eq('template_key', 'sys_review_status').in('status', ['完了', 'キャンセル']),
+    // 契約手続き（契約関連書類の受領状況）→ 未回収アラート判定用
+    supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', myCaseIds),
   ])
 
   type CaseRow = {
@@ -65,6 +68,7 @@ export async function GET() {
     expected_completion_date: string | null; completion_date: string | null
     meeting_date: string | null; meeting_executed_date: string | null
     client_response_due_date: string | null; order_received_date: string | null
+    order_sheet_completed_at: string | null
   }
   const cases = (casesRaw ?? []) as CaseRow[]
   const allCm = (allCmRaw ?? []) as Array<{ case_id: string; role: string }>
@@ -78,6 +82,11 @@ export async function GET() {
   const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
   for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
+  // 契約手続き未了（受領状況が「後日郵送 / 依頼者が取得」で未到着の書類がある）案件
+  const contractDocs = (contractDocRaw ?? []) as Array<{ case_id: string; status: string | null; arrival_date: string | null }>
+  const contractPendingCaseIds = new Set(
+    contractDocs.filter(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date).map(d => d.case_id),
+  )
   // 入金期日を過ぎた未入金の請求がある案件
   const overduePayCaseIds = new Set(invoices.filter(i => i.due_date && i.due_date < todayStr && i.status !== '入金済').map(i => i.case_id))
   const recentConfirmed = new Set(reports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
@@ -103,6 +112,20 @@ export async function GET() {
     const advStatus = advanceStatusByCase.get(c.id)
     if (active && (advStatus === '作成済' || advStatus === '入金待ち')) {
       push({ id: `advance-${c.id}`, severity: 'high', category: '前受金 未入金', title: name, body: '前受金の入金が未確認です', href: `/billing?case=${c.id}` })
+    }
+    // 初期対応（旧・初期対応タスク）をアラート化した3系統：
+    // ① オーダーシート未完成（受注案件でオーダーシート未完成）
+    const isOrdered = c.status === '受注' || c.status === '戻り受注'
+    if (isMySales && isOrdered && !c.order_sheet_completed_at) {
+      push({ id: `ordersheet-${c.id}`, severity: 'mid', category: 'オーダーシート未完成', title: name, body: '受注後のオーダーシートが未完成です', href: `${caseHref}?tab=orderSheet` })
+    }
+    // ② 前受金 未請求（受注案件で前受金の請求書が未作成）
+    if (isMySales && isOrdered && advStatus === undefined) {
+      push({ id: `advinv-${c.id}`, severity: 'high', category: '前受金 未請求', title: name, body: '前受金の請求書が未作成です', href: `/billing?case=${c.id}` })
+    }
+    // ③ 契約手続き 未了（契約関連書類が未回収）
+    if ((isMySales || isMyManager) && (isOrdered || c.status === '検討中（契約書待ち）') && contractPendingCaseIds.has(c.id)) {
+      push({ id: `contractproc-${c.id}`, severity: 'mid', category: '契約手続き 未了', title: name, body: '契約関連書類が未回収です', href: `${caseHref}?tab=contractProc` })
     }
     if (isMySales && overduePayCaseIds.has(c.id)) {
       push({ id: `paydue-${c.id}`, severity: 'high', category: '入金期日 超過', title: name, body: '入金期日を過ぎた未入金の請求があります', href: '/my?tab=billing' })

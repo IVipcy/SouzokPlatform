@@ -32,13 +32,12 @@ import OrderSheet from './OrderSheet'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import InitialTaskReviewModal from './InitialTaskReviewModal'
 import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } from './StatusFlowNavigator'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
-import { getSelectableCaseStatuses, isInitialTasksDone, isContractProcDone, isAllTasksDone } from '@/lib/constants'
+import { getSelectableCaseStatuses, isContractProcDone } from '@/lib/constants'
 import { gatesDisabled, isMinimalMode, MINIMAL_CASE_TABS } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
@@ -90,14 +89,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
   // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
   const [meetingGate, setMeetingGate] = useState<string | null>(null)
-  // 初期対応タスク確認ポップアップ（契機となったステータス）。
-  // 新規登録直後（?created=1）に検討中/受注で作成された場合も初回マウントで開く。
-  const [taskReviewStatus, setTaskReviewStatus] = useState<string | null>(() => {
-    const st = caseDataProp.status
-    const created = searchParams.get('created') === '1'
-    // ミニマム運用モードでは初期対応タスク確認ポップアップを出さない
-    return !gatesDisabled() && created && (st === '検討中' || st === '検討中（契約書待ち）' || st === '受注' || st === '戻り受注') ? st : null
-  })
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
   // タブ↔ナビのリードライン描画用ラッパ
@@ -151,8 +142,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       showToast(`保存に失敗しました: ${error.message}`, 'error')
       return
     }
-    // 受注／戻り受注に変わったら：受注日を自動セット＋初期対応タスクの確認ポップアップ
-    // （閉じた後は常設の受託フロー・ナビゲーターがオーダーシート作成以降を順に案内する）
+    // 受注／戻り受注に変わったら：受注日を自動セット（初期対応はアラートで通知するためタスク確認ポップアップは廃止）。
+    // 閉じた後は常設の受託フロー・ナビゲーターがオーダーシート作成以降を順に案内する。
     if ((patch.status === '受注' || patch.status === '戻り受注') && prev.status !== patch.status) {
       if (!prev.order_received_date) {
         const today = new Date().toLocaleDateString('sv-SE')  // YYYY-MM-DD（ローカル）
@@ -160,11 +151,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setNavDismissed(false)
-      if (!gatesDisabled()) setTaskReviewStatus(patch.status)
-    }
-    // 検討中 / 検討中（契約書待ち）に変わったら：検討状況リマインド等の初期タスク確認ポップアップ
-    if ((patch.status === '検討中' || patch.status === '検討中（契約書待ち）') && prev.status !== patch.status) {
-      if (!gatesDisabled()) setTaskReviewStatus(patch.status)
     }
     // 対応中に変わったら：事務管理タスクの設定を促すポップアップ
     if (patch.status === '対応中' && prev.status !== '対応中') {
@@ -209,30 +195,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const salesMemberId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   // 進捗確認の依頼は、この案件の管理担当（ログイン中の本人）だけが出せる
   const isCaseManager = !!currentMemberId && caseMembers.some(cm => cm.role === 'manager' && cm.member_id === currentMemberId)
-  // 初期対応タスク（受託時に生成される system / category=初期対応）が全完了か（対応中ガード用）
-  const initialTasksDone = isInitialTasksDone(tasks)
-  // 契約残手続き（契約関連書類）が全受信済か（対応中ガード用）
+  // 契約手続き（契約関連書類）が全受信済か（対応中ガード用）
   const contractProcDone = isContractProcDone(contractDocuments)
-  // この段階の全タスク完了か（検討中（契約書待ち）→受託ガード用）
-  const allTasksDone = isAllTasksDone(tasks)
-  // 検討中（契約書待ち）→受託 のゲート：契約残手続き＋全タスク完了
-  const kentouContractReady = contractProcDone && allTasksDone
-
-  // 初期対応タスク確認ポップアップを閉じる。閉じた後は受託フロー・ナビゲーターが案内を引き継ぐ。
-  const closeTaskReview = (refresh: boolean) => {
-    setTaskReviewStatus(null)
-    if (refresh) router.refresh()
-  }
+  // 検討中（契約書待ち）→受託 のゲート：契約手続き完了（初期対応タスク完了ゲートは撤去）
+  const kentouContractReady = contractProcDone
 
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   const flowSteps = getJutakuFlowSteps({
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
     managerAssigned,
-    initialTasksDone,
     contractProcDone,
   })
-  // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約残手続き＋タスク）
-  const kentouSteps = getKentouContractFlowSteps({ contractProcDone, allTasksDone })
+  // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
+  const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
   // ミニマム運用モードでは各フロー・ナビ（ハードゲート案内）を出さない
   const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed && !gatesDisabled()
   const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed && !gatesDisabled()
@@ -279,7 +254,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={minimal ? [] : caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
-        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, initialTasksDone, contractProcDone, kentouContractReady)}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, true, contractProcDone, kentouContractReady)}
         onStatusChange={s => patchCase({ status: s })}
         referrals={caseReferrals ?? []}
         onJumpToReferral={() => {
@@ -418,16 +393,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
-
-      {/* 受託/検討中になったら初期対応タスクを確認（不要を外す・必要を追加） */}
-      <InitialTaskReviewModal
-        key={taskReviewStatus ?? 'none'}
-        isOpen={!!taskReviewStatus}
-        status={taskReviewStatus}
-        caseId={caseState.id}
-        onApplied={() => closeTaskReview(true)}
-        onClose={() => closeTaskReview(false)}
-      />
 
       {/* 対応中になったら事務管理タスクの設定を促す */}
       <Modal

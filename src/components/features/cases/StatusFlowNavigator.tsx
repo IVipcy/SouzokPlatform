@@ -16,29 +16,26 @@ export type FlowStep = {
 }
 
 // 受託案件の前提条件。done は呼び出し側で判定して渡す。順番は問わない。
+// 初期対応タスク完了ゲートは撤去（初期対応はアラートで通知）。
 export function getJutakuFlowSteps(args: {
   orderSheetCompleted: boolean
   managerAssigned: boolean
-  initialTasksDone: boolean
   contractProcDone: boolean
 }): FlowStep[] {
   return [
-    // ナビの線が上のタブと交差しないよう、タブの並び順（オーダーシート→タスク→担当・受注ルート→契約残手続き）に合わせる
+    // ナビの線が上のタブと交差しないよう、タブの並び順（オーダーシート→契約手続き→担当者）に合わせる
     { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
-    { key: 'initialTasks', label: '初期対応タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.initialTasksDone },
-    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当・受注ルート', done: args.managerAssigned },
-    { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
+    { key: 'contractProc', label: '契約手続き完了', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
+    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当者', done: args.managerAssigned },
   ]
 }
 
-// 検討中（契約書待ち）→受託 の前提条件。契約残手続き＋受注/管理担当タスク完了（事務管理タスクは対応中で着手するため除外）。
+// 検討中（契約書待ち）→受託 の前提条件。契約手続き完了（タスク管理は撤去）。
 export function getKentouContractFlowSteps(args: {
   contractProcDone: boolean
-  allTasksDone: boolean
 }): FlowStep[] {
   return [
-    { key: 'contractProc', label: '契約残手続き完了', tab: 'contractProc', tabLabel: '契約残手続き', done: args.contractProcDone },
-    { key: 'tasks', label: '受注/管理担当タスク完了', tab: 'tasks', tabLabel: 'タスク', done: args.allTasksDone },
+    { key: 'contractProc', label: '契約手続き完了', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
   ]
 }
 

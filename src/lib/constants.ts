@@ -144,7 +144,10 @@ export const getSelectableCaseStatuses = (
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
   // ミニマム運用モードでは「前提を満たさないと次に進めない」ハードゲートを無効化（手動で自由に変更）
   const gatesOff = isMinimalMode()
-  const canManage = gatesOff || (orderSheetCompleted && managerAssigned && initialTasksDone && contractProcDone) || isManagementNow
+  // 初期対応タスク完了ゲートは撤去（初期対応はアラートで通知し、タスク管理はしない）。
+  // 対応中への前提は オーダーシート完成 ＆ 管理担当アサイン ＆ 契約手続き完了。
+  void initialTasksDone
+  const canManage = gatesOff || (orderSheetCompleted && managerAssigned && contractProcDone) || isManagementNow
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
   const filtered = targets.filter(t => {
     if ((MANAGEMENT_STATUSES as readonly string[]).includes(t)) return canManage

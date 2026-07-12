@@ -59,16 +59,15 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   const { status, allowedPracticeTabs } = state
   const category = getCaseCategory(status)
 
-  // 受託: オーダーシート作成・担当受注内容まで。実務タブは出さないが、
-  // 受託段階で前受金等を請求するため「契約・報酬・請求」、契約書等の授受のため「書類」を表示する。
+  // 受託: 対応中より前はタスク管理をしない（初期対応はアラートで通知）。
+  // タブは オーダーシート / 契約手続き / 請求 / 面談情報 / 担当者（管理担当アサイン用）。
+  // docs / documentCreate はタブではなくヘッダーのボタンとして出すため visible に含める。
   if (status === '受注' || status === '戻り受注') {
-    // 面談情報は受託後はオーダーシート・受注内容等に展開済みのため、対応中と同様に「その他」へ畳む。
-    // 契約残手続きは受託中に完了させるべき重要タブのため表示（対応中になったら畳む）。
-    return { visible: ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'contract', 'docs', 'documentCreate', 'tasks'], collapsed: ['meeting'] }
+    return { visible: ['orderSheet', 'contractProc', 'contract', 'meeting', 'ownerSales', 'docs', 'documentCreate'], collapsed: [] }
   }
 
-  // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約残手続きは折りたたみ
-  // （契約残手続きは対応中までに完了している前提のため「その他」へ畳む）
+  // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約手続きは折りたたみ
+  // （契約手続きは対応中までに完了している前提のため「その他」へ畳む）
   if (category === 'management') {
     return { visible: filterByGyomu(FULL_PRACTICE_TABS, allowedPracticeTabs), collapsed: ['meeting', 'contractProc'] }
   }
@@ -78,12 +77,13 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
     return { visible: ['basicInfo', 'meeting', 'clientInfo', 'referral', 'tasks'], collapsed: [] }
   }
 
-  // 検討中（契約書待ち）: 契約書類の授受を管理するため「契約残手続き」タブも表示する。
-  if (status === '検討中（契約書待ち）') {
-    return { visible: ['basicInfo', 'meeting', 'clientInfo', 'contractProc', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
+  // 検討中 / 検討中（契約書待ち）: 対応中より前はタスク管理をしない（初期対応はアラートで通知）。
+  // タブは オーダーシート / 契約手続き / 請求 / 面談情報。docs / documentCreate はヘッダーボタン。
+  if (status === '検討中' || status === '検討中（契約書待ち）') {
+    return { visible: ['orderSheet', 'contractProc', 'contract', 'meeting', 'docs', 'documentCreate'], collapsed: [] }
   }
 
-  // 相談案件（面談設定済 / 検討中 / 不受託）
+  // 相談案件（面談設定済 / 不受託）
   // 契約書の授受・受信簿連携のため「書類」タブを早い段階から表示する。
   return { visible: ['basicInfo', 'meeting', 'clientInfo', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
 }
