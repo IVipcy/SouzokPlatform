@@ -52,7 +52,7 @@ export type TabVisibility = {
 const FULL_PRACTICE_TABS: TabKey[] = [
   'orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'contract',
-  'docs', 'documentCreate', 'tasks', 'meeting',
+  'receipts', 'docs', 'documentCreate', 'tasks', 'meeting',
 ]
 
 export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
@@ -69,7 +69,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // タブは オーダーシート / 契約手続き / 請求 / 案件基本情報 / 面談情報（固定順・flatOrder表示）。
   // docs / documentCreate はタブではなくヘッダーのボタンとして出すため visible に含める。
   if (status === '検討中' || status === '検討中（契約書待ち）' || status === '受注' || status === '戻り受注') {
-    return { visible: ['orderSheet', 'contractProc', 'contract', 'ownerSales', 'meeting', 'docs', 'documentCreate'], collapsed: [] }
+    return { visible: ['orderSheet', 'contractProc', 'contract', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約手続きは折りたたみ
@@ -84,6 +84,6 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   }
 
   // 相談案件（面談設定済 等）
-  // 契約書の授受・受信簿連携のため「書類」タブを早い段階から表示する。
-  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
+  // 契約書の授受・受信簿連携のため「到着物」「書類」タブを早い段階から表示する。
+  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'receipts', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
 }

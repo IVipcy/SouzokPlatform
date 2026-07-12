@@ -38,6 +38,7 @@ import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone } from '@/lib/constants'
+import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import { gatesDisabled, isMinimalMode, MINIMAL_CASE_TABS } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
@@ -75,7 +76,7 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [] }: Props) {
   const router = useRouter()
@@ -197,6 +198,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const isCaseManager = !!currentMemberId && caseMembers.some(cm => cm.role === 'manager' && cm.member_id === currentMemberId)
   // 契約手続き（契約関連書類）が全受信済か（対応中ガード用）
   const contractProcDone = isContractProcDone(contractDocuments)
+  // 到着物ボタンの未対応件数（タスク紐づけ待ちの到着物数）
+  const receiptContractCat = new Map((contractDocuments ?? []).map(d => [d.id, d.category ?? '']))
+  const unhandledReceiptCount = countReceiptsNeedingLink(documentReceipts ?? [], receiptContractCat)
   // 検討中（契約書待ち）→受託 のゲート：契約手続き完了（初期対応タスク完了ゲートは撤去）
   const kentouContractReady = contractProcDone
 
@@ -243,7 +247,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
     : tabVisRaw
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
-  const HEADER_TABS: TabKey[] = ['docs', 'documentCreate']
+  const HEADER_TABS: TabKey[] = ['receipts', 'docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
   // 検討中〜受注（＋失注）は固定順のフラット表示（グループ分けせず指定順のピルで見せる）
   const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
@@ -264,6 +268,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           setActiveTab('orderSheet')
           setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
         }}
+        showReceiptsAction={minimal ? false : tabVis.visible.includes('receipts')}
+        receiptCount={unhandledReceiptCount}
         showDocsAction={minimal ? false : tabVis.visible.includes('docs')}
         showDocumentCreateAction={minimal ? true : tabVis.visible.includes('documentCreate')}
         docCount={documents.length}
@@ -287,7 +293,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         {jutakuNavVisible && (
           <StatusFlowNavigator
             steps={flowSteps}
-            targetLabel="対応中"
+            targetLabel="作業進行中"
             onAdvance={() => patchCase({ status: '対応中' })}
             onDismiss={() => setNavDismissed(true)}
           />
@@ -390,8 +396,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'referral' && (
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
       )}
+      {effectiveTab === 'receipts' && (
+        <DocsTab mode="receipts" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />
+      )}
       {effectiveTab === 'docs' && (
-        <DocsTab caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />
+        <DocsTab mode="folder" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />
       )}
       {effectiveTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} onRefresh={handleSaved} />
@@ -401,7 +410,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       <Modal
         isOpen={managementTaskPrompt}
         onClose={() => setManagementTaskPrompt(false)}
-        title="対応中になりました"
+        title="作業進行中になりました"
         footer={
           <>
             <Button variant="secondary" onClick={() => setManagementTaskPrompt(false)}>あとで</Button>

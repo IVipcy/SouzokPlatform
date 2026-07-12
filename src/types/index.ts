@@ -247,6 +247,8 @@ export type CaseRow = {
   complaint_detail: string | null
   // オーダーシート完成日時（NULL=未作成）。実務タブ解禁・対応中遷移の条件。
   order_sheet_completed_at: string | null
+  // 作業進行中（対応中）に入った日時（NULL=未到達）。週次報告のカウント開始基準（対応中＋7日）。
+  management_started_at: string | null
   // 相続登記の任意項目（列名）定義（migration 066）
   registration_columns: string[] | null
   created_at: string

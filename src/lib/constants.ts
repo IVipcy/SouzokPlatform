@@ -28,7 +28,7 @@ export const CASE_STATUSES = [
   // 個別管理案件（受注せず紹介のみ。戻り受注の可能性あり）
   { key: '紹介のみ', label: '受注なし＋パートナー紹介', color: '#0891B2' },
   // 管理案件（受注後、管理担当が引き継ぎ対応）
-  { key: '対応中', label: '対応中', color: '#7C3AED' },
+  { key: '対応中', label: '作業進行中', color: '#7C3AED' },
   { key: '完了', label: '完了', color: '#059669' },
 ] as const
 

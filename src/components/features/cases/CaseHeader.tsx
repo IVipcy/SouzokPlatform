@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Inbox, FilePlus, ChevronDown } from 'lucide-react'
+import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
@@ -32,8 +32,11 @@ type Props = {
   referrals?: CaseReferralRow[]
   // 相続税申告フラグのクリックでオーダーシートの他事業者紹介セクションへ移動
   onJumpToReferral?: () => void
-  // ヘッダー右上のアクションボタン（到着物・書類作成）
+  // ヘッダー右上のアクションボタン（到着物・案件フォルダ・書類作成）
   // 案件状態でこれらタブが表示可能なときだけ true にする（タブ表示制御と連動）。
+  showReceiptsAction?: boolean
+  /** 到着物の未対応件数（タスク紐づけ待ち）。バッジ表示に使う。 */
+  receiptCount?: number
   showDocsAction?: boolean
   showDocumentCreateAction?: boolean
   docCount?: number
@@ -54,7 +57,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
@@ -207,19 +210,36 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
               )
             ))}
 
-            {(showDocsAction || showDocumentCreateAction) && (
+            {(showReceiptsAction || showDocsAction || showDocumentCreateAction) && (
               <>
                 {alertChips.length > 0 && (
                   <span className="w-px h-5 bg-gray-200 mx-0.5" aria-hidden="true" />
+                )}
+                {showReceiptsAction && (
+                  <button
+                    type="button"
+                    onClick={() => onActivateTab?.('receipts')}
+                    title="到着物（受信簿・受領台帳）を開く"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
+                  >
+                    <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
+                    到着物
+                    {(highlightTabs ?? []).includes('receipts') && (
+                      <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
+                    )}
+                    {receiptCount > 0 && (
+                      <span className="bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-1.5 text-[11px] font-mono leading-tight" title="未対応（タスク紐づけ待ち）の到着物">{receiptCount}</span>
+                    )}
+                  </button>
                 )}
                 {showDocsAction && (
                   <button
                     type="button"
                     onClick={() => onActivateTab?.('docs')}
-                    title="案件フォルダ（書類一式・受信簿）を開く"
+                    title="案件フォルダ（書類一式）を開く"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
                   >
-                    <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
+                    <FolderOpen className="w-3.5 h-3.5" strokeWidth={2} />
                     案件フォルダ
                     {(highlightTabs ?? []).includes('docs') && (
                       <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>

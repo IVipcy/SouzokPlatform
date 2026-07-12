@@ -117,7 +117,7 @@ export default function CaseStatusBoard({ tasks, caseMap }: Props) {
     <div>
       {/* サマリー＋検索（対応中の案件のみ表示） */}
       <div className="flex flex-wrap items-center gap-3 mb-3 text-[12px]">
-        <span className="font-semibold text-gray-600">対応中の案件 <b className="text-gray-800">{counts.active}</b> 件</span>
+        <span className="font-semibold text-gray-600">作業進行中の案件 <b className="text-gray-800">{counts.active}</b> 件</span>
         <span className="text-red-600">遅延 <b>{counts.overdue}</b></span>
         <span className="text-amber-600">停滞 <b>{counts.stall}</b></span>
         <div className="ml-auto flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 w-[260px]">

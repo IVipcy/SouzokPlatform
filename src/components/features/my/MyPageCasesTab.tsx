@@ -163,7 +163,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   if (visibleRows.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
-        {showCompleted ? '完了案件はありません' : '対応中の案件はありません'}
+        {showCompleted ? '完了案件はありません' : '作業進行中の案件はありません'}
       </div>
     )
   }

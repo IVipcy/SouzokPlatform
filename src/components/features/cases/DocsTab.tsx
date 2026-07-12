@@ -30,6 +30,8 @@ type Props = {
   /** AI書類作成で作成した書類（documents テーブル）。案件フォルダの「AI作成」タブに表示。 */
   createdDocuments?: DocumentRow[]
   currentMemberId?: string | null
+  /** 表示モード。folder=案件フォルダ（ファイル一式）、receipts=到着物一覧（受信簿）。別タブに分離。 */
+  mode?: 'folder' | 'receipts'
 }
 
 type ReceiptItemRow = {
@@ -60,7 +62,7 @@ type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], createdDocuments = [], currentMemberId = null }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], createdDocuments = [], currentMemberId = null, mode = 'folder' }: Props) {
   const router = useRouter()
   const isManager = useIsManager()  // 到着物のタスク紐づけ・受信操作は管理担当のみ
   const [, startTransition] = useTransition()
@@ -199,11 +201,30 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
     })
   }
 
+  // 案件フォルダ（ファイル一式）タブ
+  if (mode === 'folder') {
+    return (
+      <div className="space-y-3.5">
+        <TabHeader title="案件フォルダ" description="書類一式のアップロード・AI作成書類の管理" />
+
+        <CaseFolderSection caseId={caseData.id} files={caseFiles} aiDocs={aiDocs} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
+
+        {orphanDocs.length > 0 && (
+          <Section title="添付ファイル（受信簿外）">
+            <p className="text-[11px] text-gray-400 mb-2">
+              受信簿に登録されていない、個別アップロードのファイル。ここから単独でファイル管理できます。
+            </p>
+            <CaseDocumentTable caseId={caseData.id} rows={orphanDocs} noun="到着物" />
+          </Section>
+        )}
+      </div>
+    )
+  }
+
+  // 到着物一覧（受信簿）タブ
   return (
     <div className="space-y-3.5">
-      <TabHeader title="案件フォルダ" description="書類一式のアップロード・AI作成書類＋受信簿（受領台帳）の管理" />
-
-      <CaseFolderSection caseId={caseData.id} files={caseFiles} aiDocs={aiDocs} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
+      <TabHeader title="到着物" description="受信簿に登録された到着物（受領台帳）とタスク紐づけの管理" />
 
       <Section title="到着物一覧（受信簿）">
         {/* フィルタ（タスク紐づけ系＋ファイルアップ系の2系統） */}
@@ -347,15 +368,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           </div>
         )}
       </Section>
-
-      {orphanDocs.length > 0 && (
-        <Section title="添付ファイル（受信簿外）">
-          <p className="text-[11px] text-gray-400 mb-2">
-            受信簿に登録されていない、個別アップロードのファイル。ここから単独でファイル管理できます。
-          </p>
-          <CaseDocumentTable caseId={caseData.id} rows={orphanDocs} noun="到着物" />
-        </Section>
-      )}
 
       {linkingItem && (
         <LinkTaskModal

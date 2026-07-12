@@ -95,8 +95,8 @@ export default function CaseCurrentStatusCard({ tasks, caseId, status }: { tasks
           <div className="flex items-center gap-1 text-[12px] font-semibold text-amber-700 mb-1.5">
             <Rocket className="w-3.5 h-3.5" strokeWidth={2.25} />
             {!next
-              ? (latest ? '前回タスクが完了し、次のタスクが未定です。' : '対応中になりました。まだタスクがありません。')
-              : '対応中です。まだ着手していません。'}下記を確認して着手しましょう。
+              ? (latest ? '前回タスクが完了し、次のタスクが未定です。' : '作業進行中になりました。まだタスクがありません。')
+              : '作業進行中です。まだ着手していません。'}下記を確認して着手しましょう。
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <Link href={`/cases/${caseId}?tab=orderSheet`} className="inline-flex items-center px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-brand-700">① 受注内容（オーダーシート）を確認</Link>

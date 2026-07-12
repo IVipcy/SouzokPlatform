@@ -39,7 +39,7 @@ export default function OrderSheetAppClient({ cases }: { cases: OsCaseRow[] }) {
         <h1 className="text-[17px] font-bold text-gray-900">担当案件</h1>
         <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-full">未対応中 {cases.length}件</span>
       </div>
-      <p className="text-[12px] text-gray-400 mb-3">登録済み・まだ対応中になっていない自分の案件</p>
+      <p className="text-[12px] text-gray-400 mb-3">登録済み・まだ作業進行中になっていない自分の案件</p>
 
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.75} />

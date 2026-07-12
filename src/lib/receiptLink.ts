@@ -28,3 +28,17 @@ export function itemNeedsTaskLink(it: ReceiptItemLike, contractCat: Map<string, 
   if ((it.item_tasks ?? []).some(t => t.task?.id)) return false // 既に紐づけ済み
   return !isItemNotRequired(it, contractCat)
 }
+
+// 到着物ボタンの「未対応件数」バッジ用。受信簿全体で、タスク紐づけ待ちのアイテム数を数える。
+// 受信単位の代表タスク(started_task_id)がある受信は、全アイテムが紐づけ済み扱いで対象外。
+type ReceiptLike = { started_task_id?: string | null; items?: ReceiptItemLike[] | null }
+export function countReceiptsNeedingLink(receipts: ReceiptLike[], contractCat: Map<string, string>): number {
+  let n = 0
+  for (const r of receipts) {
+    if (r.started_task_id) continue
+    for (const it of (r.items ?? [])) {
+      if (itemNeedsTaskLink(it, contractCat)) n++
+    }
+  }
+  return n
+}

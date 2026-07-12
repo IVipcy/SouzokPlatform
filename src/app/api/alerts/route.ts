@@ -47,7 +47,7 @@ export async function GET() {
 
   const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }] = await Promise.all([
     supabase.from('cases')
-      .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at')
+      .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at')
       .in('id', myCaseIds),
     supabase.from('case_members').select('case_id, role').in('case_id', myCaseIds),
     // 自分が担当の未完了タスク
@@ -68,7 +68,7 @@ export async function GET() {
     expected_completion_date: string | null; completion_date: string | null
     meeting_date: string | null; meeting_executed_date: string | null
     client_response_due_date: string | null; order_received_date: string | null
-    order_sheet_completed_at: string | null
+    order_sheet_completed_at: string | null; management_started_at: string | null
   }
   const cases = (casesRaw ?? []) as CaseRow[]
   const allCm = (allCmRaw ?? []) as Array<{ case_id: string; role: string }>
@@ -133,7 +133,10 @@ export async function GET() {
     if (isMyManager && c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') {
       push({ id: `overdue-comp-${c.id}`, severity: 'high', category: '完了予定日 超過', title: name, body: `完了予定日 ${c.expected_completion_date} を超過`, href: `${caseHref}?tab=tasks` })
     }
-    if (isMyManager && active && !recentConfirmed.has(c.id)) {
+    // 週次報告は「作業進行中（対応中）」に入って1週間後からカウント開始（受注段階は対象外）。
+    const mgmtStarted = c.management_started_at ? new Date(c.management_started_at) : null
+    const weeklyEligible = c.status === '対応中' && mgmtStarted !== null && mgmtStarted.getTime() <= weekAgo.getTime()
+    if (isMyManager && weeklyEligible && !recentConfirmed.has(c.id)) {
       // 進捗報告の発行は自分のマイページ進捗報告タブで行うため、そこへ誘導
       push({ id: `weekly-${c.id}`, severity: 'mid', category: '週次報告の漏れ', title: name, body: '直近7日に確認済の進捗報告がありません', href: '/my?tab=progress' })
     }

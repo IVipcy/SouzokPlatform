@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -49,6 +49,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   execution: '執行通知',
   contractCreate: '契約書作成',
   contract: '請求',
+  receipts: '到着物',
   docs: '案件フォルダ',
   documentCreate: '書類作成',
   tasks: 'タスク',
@@ -68,7 +69,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
   succession: 'practice', contract: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
   ownerSales: 'info', orderContent: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
-  docs: 'header', documentCreate: 'header',
+  receipts: 'header', docs: 'header', documentCreate: 'header',
 }
 
 const DEFAULT_TABS: TabKey[] = [
