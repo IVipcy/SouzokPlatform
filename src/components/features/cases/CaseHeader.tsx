@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
@@ -64,6 +65,19 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
   const category = getCaseCategory(caseData.status)
   const categoryStyle = category ? CATEGORY_STYLE[category] : null
+
+  // ヘッダー付帯情報（手続き区分・相続税申告・被相続人・マイルストーン軸）の折りたたみ。
+  // 既定は全表示。ユーザーが任意で畳める（PPTのリボン折りたたみのように、設定は端末に記憶）。
+  const [headerCollapsed, setHeaderCollapsed] = useState(false)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setHeaderCollapsed(localStorage.getItem('caseHeaderCollapsed') === '1') } catch { /* noop */ }
+  }, [])
+  const toggleHeaderCollapsed = () => setHeaderCollapsed(c => {
+    const next = !c
+    try { localStorage.setItem('caseHeaderCollapsed', next ? '1' : '0') } catch { /* noop */ }
+    return next
+  })
 
   // アラートのジャンプ先（カテゴリ→タブ）。クリックで該当タブへ飛ばす。
   const alertJump = (label: string): TabKey | null => {
@@ -141,7 +155,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                 )
               })()}
             </div>
-            {/* 案件名 + クレームフラグ */}
+            {/* 案件名 + クレームフラグ ＋ 折りたたみトグル */}
             <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">
               <span className="truncate">{caseData.deal_name}</span>
               {caseData.has_complaint && (
@@ -149,43 +163,56 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <span className="w-1.5 h-1.5 rounded-full bg-white" />
                 </span>
               )}
-            </h1>
-            {/* 手続き区分 */}
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
-              <span className="text-[10px] font-medium text-gray-400 tracking-wide">手続き区分</span>
-              {procedures.length > 0 ? (
-                procedures.map(p => (
-                  <span key={p} className="inline-block text-[11px] leading-none px-2 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-100 font-medium">{p}</span>
-                ))
-              ) : <span className="text-[11px] text-gray-300">未設定</span>}
-            </div>
-            {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ。ミニマム時は非表示 */}
-            <div className="flex items-center gap-1.5 flex-wrap mt-1.5" style={{ display: isMinimalMode() ? 'none' : undefined }}>
-              <span className="text-[10px] font-medium text-gray-400 tracking-wide">相続税申告</span>
               <button
                 type="button"
-                onClick={onJumpToReferral}
-                title="他事業者紹介（税理士）へ移動"
-                className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
-                  taxFiling
-                    ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                    : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
-                }`}
+                onClick={toggleHeaderCollapsed}
+                title={headerCollapsed ? '案件情報を表示' : '案件情報を折りたたむ'}
+                aria-label={headerCollapsed ? '案件情報を表示' : '案件情報を折りたたむ'}
+                className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
-                {taxFiling ? 'あり' : 'なし'}
+                <ChevronDown className={`w-4 h-4 transition-transform ${headerCollapsed ? '' : 'rotate-180'}`} strokeWidth={2.25} />
               </button>
-            </div>
-            {caseData.deceased_name && (
-              <p className="text-[12px] text-gray-500 mt-2">
-                被相続人：{caseData.deceased_name}{caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
-              </p>
+            </h1>
+            {!headerCollapsed && (
+              <>
+                {/* 手続き区分 */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  <span className="text-[10px] font-medium text-gray-400 tracking-wide">手続き区分</span>
+                  {procedures.length > 0 ? (
+                    procedures.map(p => (
+                      <span key={p} className="inline-block text-[11px] leading-none px-2 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-100 font-medium">{p}</span>
+                    ))
+                  ) : <span className="text-[11px] text-gray-300">未設定</span>}
+                </div>
+                {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ。ミニマム時は非表示 */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-1.5" style={{ display: isMinimalMode() ? 'none' : undefined }}>
+                  <span className="text-[10px] font-medium text-gray-400 tracking-wide">相続税申告</span>
+                  <button
+                    type="button"
+                    onClick={onJumpToReferral}
+                    title="他事業者紹介（税理士）へ移動"
+                    className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
+                      taxFiling
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                        : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
+                    {taxFiling ? 'あり' : 'なし'}
+                  </button>
+                </div>
+                {caseData.deceased_name && (
+                  <p className="text-[12px] text-gray-500 mt-2">
+                    被相続人：{caseData.deceased_name}{caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
-          {/* 中央: コンパクトなマイルストーン軸 */}
+          {/* 中央: コンパクトなマイルストーン軸（折りたたみ時は非表示・右のボタンは維持） */}
           <div className="flex-1 min-w-0 self-center">
-            <MilestoneAxis caseData={caseData} tasks={tasks} statusHistory={statusHistory} compact />
+            {!headerCollapsed && <MilestoneAxis caseData={caseData} tasks={tasks} statusHistory={statusHistory} compact />}
           </div>
 
           {/* 右上: アラート集約＋アクションボタン（到着物・書類作成） */}
