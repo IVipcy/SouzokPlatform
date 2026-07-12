@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, InlineEdit, InlineSelect,
+  Section, FieldGrid, Field, InlineEdit, InlineSelect,
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
-  CONSIDERATION_DECLINE_REASONS,
+  CONSIDERATION_DECLINE_REASONS, ORDER_ROUTES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
   CONSIDERATION_PERIODS, considerationDueMax,
 } from '@/lib/constants'
@@ -91,6 +91,17 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
       {/* 面談結果（報告書式の項目をそのまま） */}
       <Section title="面談結果">
         <FieldGrid>
+          {/* 受注ルート。LP経由はLP連携で自動設定されるため編集不可（読み取り表示）。 */}
+          {caseData.order_route === 'LP経由' ? (
+            <Field label="受注ルート" value="LP経由（LP連携のため変更不可）" />
+          ) : (
+            <InlineSelect
+              label="受注ルート"
+              value={caseData.order_route}
+              options={[...ORDER_ROUTES]}
+              onSave={async v => { await patchCase({ order_route: v, order_route_detail: null }) }}
+            />
+          )}
           <InlineEdit label="紹介元" value={caseData.order_route_detail} onSave={v => saveCaseField('order_route_detail', v)} />
           <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
