@@ -141,15 +141,16 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         return (
           <div key={t.key} className="space-y-4">
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
-            <div>
+            {/* 3つの表はそれぞれ枠付きカードに入れて境目をはっきりさせる */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title="物件一覧（評価額の入力・確定）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
-            <div>
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title="① 市区町村へ請求（名寄帳・評価証明）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} />
             </div>
-            <div>
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title="② 物件ごとに取得（登記情報・所有者事項・公図・地積測量図・路線価）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} />
             </div>
