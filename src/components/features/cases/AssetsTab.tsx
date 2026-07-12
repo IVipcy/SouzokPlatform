@@ -116,7 +116,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           オーダーシートは各パネルを縦積みで全展開。切替時にアンマウントすると入力中の表が
           古いpropsで作り直され消えて見えるため、各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
       <div className={orderSheetMode ? 'space-y-3.5' : ''}>
-        {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} />}
+        {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} className="mb-3.5" />}
 
         <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           {orderSheetMode ? (
