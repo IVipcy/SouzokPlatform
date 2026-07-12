@@ -83,6 +83,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
   const [heirForm, setHeirForm] = useState(emptyHeirForm())
+  // 相続人住所の自動入力用の郵便番号（DBには保存せず、住所欄の補助入力として使う）
+  const [heirPostal, setHeirPostal] = useState('')
   const diagramRef = useRef<HTMLDivElement>(null)
   const [savingDiagram, setSavingDiagram] = useState(false)
 
@@ -93,6 +95,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   const startAdd = () => {
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
+    setHeirPostal('')
     setShowAddHeir(true)
   }
 
@@ -111,6 +114,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       phone: mainClient?.phone ?? '',
       email: mainClient?.email ?? '',
     })
+    setHeirPostal('')
     setShowAddHeir(true)
   }
 
@@ -160,11 +164,13 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       is_legal_heir: heir.is_legal_heir,
       is_applicant: heir.is_applicant,
     })
+    setHeirPostal('')
     setShowAddHeir(true)
   }
 
   const cancelEdit = () => {
     setShowAddHeir(false)
+    setHeirPostal('')
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
   }
@@ -463,6 +469,23 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 mb-3">
+                <FormField label="郵便番号（住所を自動入力）">
+                  <input
+                    type="text"
+                    value={heirPostal}
+                    onChange={e => {
+                      const v = e.target.value
+                      setHeirPostal(v)
+                      // 7桁入力で住所を自動補完（番地・建物は住所欄に追記）
+                      const z = v.replace(/[^0-9]/g, '')
+                      if (z.length === 7) {
+                        lookupPostalAddress(z).then(addr => { if (addr) setHeirForm(f => ({ ...f, address: addr })) })
+                      }
+                    }}
+                    placeholder="123-4567"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                  />
+                </FormField>
                 <FormField label="住所">
                   <input
                     type="text"
