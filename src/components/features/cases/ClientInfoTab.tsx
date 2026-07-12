@@ -135,7 +135,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
         <div className="space-y-3">
           <div>
             <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {TRAIT_OPTIONS.map(t => {
                 const active = caseData.client_trait === t.key
                 return (
@@ -143,7 +143,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                     key={t.key}
                     type="button"
                     onClick={() => saveCaseField('client_trait', active ? null : t.key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-all ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] whitespace-nowrap transition-all ${
                       active
                         ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
                         : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
