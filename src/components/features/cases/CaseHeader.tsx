@@ -166,11 +166,12 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
               <button
                 type="button"
                 onClick={toggleHeaderCollapsed}
-                title={headerCollapsed ? '案件情報を表示' : '案件情報を折りたたむ'}
-                aria-label={headerCollapsed ? '案件情報を表示' : '案件情報を折りたたむ'}
-                className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                title={headerCollapsed ? '案件情報を表示する' : '案件情報を折りたたむ'}
+                aria-label={headerCollapsed ? '案件情報を表示する' : '案件情報を折りたたむ'}
+                className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-500 hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50 transition-colors"
               >
-                <ChevronDown className={`w-4 h-4 transition-transform ${headerCollapsed ? '' : 'rotate-180'}`} strokeWidth={2.25} />
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${headerCollapsed ? '' : 'rotate-180'}`} strokeWidth={2.5} />
+                {headerCollapsed ? '案件情報を表示' : '折りたたむ'}
               </button>
             </h1>
             {!headerCollapsed && (
