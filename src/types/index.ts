@@ -749,6 +749,9 @@ export type FinancialAssetRow = {
   unclaimed_dividend_required: string | null // 未受領配当金要否（信託）
   survey_period_type: string | null         // 相続開始日 / 任意指定
   survey_date: string | null                // 調査基準日（任意指定時）
+  survey_prohibited_start: string | null    // 財産調査禁止期間 開始日（口座単位。migration 162）
+  survey_prohibited_end: string | null      // 財産調査禁止期間 終了日（口座単位。migration 162）
+  survey_prohibited_reason: string | null   // 財産調査禁止理由（口座単位。migration 162）
   request_date: string | null               // 請求日（進捗）
   arrival_date: string | null               // 到着日（進捗）
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）

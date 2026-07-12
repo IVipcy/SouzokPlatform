@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCheckbox, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import {
   FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS,
@@ -106,11 +106,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <Section title="財産調査条件">
           <FieldGrid>
             <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
-            <InlineDate label="財産調査禁止期間 開始日" value={caseData.financial_survey_prohibited_start} onSave={v => save('financial_survey_prohibited_start', v)} />
-            <InlineDate label="財産調査禁止期間 終了日" value={caseData.financial_survey_prohibited_end} onSave={v => save('financial_survey_prohibited_end', v)} />
-            <InlineEdit label="財産調査禁止理由" value={caseData.financial_survey_prohibited_reason} onSave={v => save('financial_survey_prohibited_reason', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
           </FieldGrid>
+          <p className="mt-2 text-[11px] text-gray-400">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</p>
         </Section>
       </div>
 

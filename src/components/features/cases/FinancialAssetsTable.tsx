@@ -134,7 +134,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   }
 
   // 凍結確認(progressMode時のみ) +列 +残高 +確定済(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 3 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
+  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 6 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
   const renderCard = (r: FinancialAssetRow) => (
@@ -168,6 +168,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
         </select>
       </CardRow>
+      <CardRow label="調査禁止期間 開始"><input type="date" defaultValue={r.survey_prohibited_start ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_start ?? '')) commit(r.id, 'survey_prohibited_start', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
+      <CardRow label="調査禁止期間 終了"><input type="date" defaultValue={r.survey_prohibited_end ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_end ?? '')) commit(r.id, 'survey_prohibited_end', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
+      <CardRow label="調査禁止理由"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></CardRow>
       {progressMode && <CardRow label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>}
       {progressMode && (
         <CardRow label="到着日（受信簿）">
@@ -206,6 +209,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
+              <th className="px-2 py-2 text-left font-semibold w-28">調査禁止 開始</th>
+              <th className="px-2 py-2 text-left font-semibold w-28">調査禁止 終了</th>
+              <th className="px-2 py-2 text-left font-semibold w-40">禁止理由</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
@@ -280,6 +286,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       )}
                     </div>
                   </td>
+                  {/* 財産調査 禁止期間・理由（口座単位） */}
+                  <td className="px-2 py-1.5"><input type="date" value={r.survey_prohibited_start ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_start', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_start', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                  <td className="px-2 py-1.5"><input type="date" value={r.survey_prohibited_end ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_end', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_end', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                  <td className="px-2 py-1.5"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></td>
                   {progressMode && (
                     <td className="px-2 py-1.5"><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
