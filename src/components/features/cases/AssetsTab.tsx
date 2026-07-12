@@ -89,7 +89,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
       {!orderSheetMode && <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など財産の調査と取得資料の管理" />}
       {!orderSheetMode && (
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+          <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
       )}
       {!orderSheetMode && (
@@ -131,8 +131,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計
             <RealEstateSection
               caseId={caseData.id}
-              evalMethod={caseData.real_estate_evaluation_method}
-              onSaveEvalMethod={v => save('real_estate_evaluation_method', v)}
               properties={properties}
               acquisitions={acquisitions}
               onRefresh={onRefresh}

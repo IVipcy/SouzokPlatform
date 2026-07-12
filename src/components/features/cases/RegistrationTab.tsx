@@ -71,7 +71,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
       <div className="space-y-3.5">
         <TabHeader title="相続登記" description="物件ごとの登記種別・管轄法務局・申請日・登録免許税の管理" />
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="registration" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+          <WorkContentField caseData={caseData} gyomu="registration" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
         <RegistrationSection caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
         <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />

@@ -116,7 +116,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
       {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続き、入金確認・名義書換の管理" />}
       {!orderSheetMode && caseData && (
         <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="cancellation" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" />
+          <WorkContentField caseData={caseData} gyomu="cancellation" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
       )}
 

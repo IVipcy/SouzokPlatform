@@ -136,7 +136,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     <div className="space-y-3.5">
       <TabHeader title="遺産承継" description="精算書（収入−支出＝残余）と指図書（相続人への振込）の管理" />
       <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-        <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" />
+        <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
       </div>
       <SubTabs tabs={[{ key: 'settlement', label: '精算書作成' }, { key: 'instruction', label: '指図書作成' }]} active={sub} onChange={k => setSub(k as 'settlement' | 'instruction')} />
 

@@ -9,8 +9,7 @@ import { Plus, Check, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { LeftRail } from './LeftRail'
-import { SectionHeading, FieldGrid, InlineSelect } from '@/components/ui/InlineFields'
-import { REAL_ESTATE_EVAL_METHODS } from '@/lib/constants'
+import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
@@ -19,8 +18,6 @@ import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
   caseId: string
-  evalMethod: string | null
-  onSaveEvalMethod: (v: string | null) => Promise<void> | void
   properties: RealEstatePropertyRow[]
   acquisitions: RealEstateAcquisitionRow[]
   onRefresh?: () => void
@@ -41,7 +38,7 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
   const [statuses, setStatuses] = useState<Record<string, string>>({})
@@ -97,12 +94,9 @@ export default function RealEstateSection({ caseId, evalMethod, onSaveEvalMethod
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
 
-      {/* TOP（一覧）：評価方法＋確定済を集計した読み取り専用一覧 */}
+      {/* TOP（一覧）：確定済を集計した読み取り専用一覧 */}
       {sub === 'top' && (
         <div className="space-y-3.5">
-          <FieldGrid>
-            <InlineSelect label="不動産の評価方法" value={evalMethod} options={[...REAL_ESTATE_EVAL_METHODS]} onSave={async v => { await onSaveEvalMethod(v) }} />
-          </FieldGrid>
           <div>
             <SectionHeading title="物件一覧（各市区町村タブの集計）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">

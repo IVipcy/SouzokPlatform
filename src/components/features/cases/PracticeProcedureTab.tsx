@@ -74,7 +74,7 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
     <div className="space-y-3.5">
       <TabHeader title={title} description={description} />
       <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-        <WorkContentField caseData={caseData} gyomu={GYOMU_TAB[gyomu] ?? gyomu} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+        <WorkContentField caseData={caseData} gyomu={GYOMU_TAB[gyomu] ?? gyomu} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
       </div>
       <TabTasksSection
         gyomus={[gyomu]}

@@ -304,9 +304,9 @@ function RequestDetail({ r, caseId, isManager, targetOptions, relLabel, saveFiel
           <InlineSelect label="取得区分" value={r.acquirer} options={ACQUIRERS} onSave={v => saveField(r.id, 'acquirer', v)} />
           <InlineEdit label="請求先" value={r.request_to} onSave={v => saveField(r.id, 'request_to', v)} />
           <InlineSelect label="対象者" value={r.target_person} options={targetOptions} onSave={v => saveField(r.id, 'target_person', v)} />
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] text-gray-400">続柄（相続人タブ参照）</span>
-            <span className="px-2 py-1.5 text-[12.5px] bg-gray-50 border border-gray-200 rounded text-gray-700">{relLabel || '—'}</span>
+          <div className="py-1.5 border-b border-gray-50">
+            <div className="text-[12px] font-semibold text-gray-400 tracking-wide">続柄（相続人タブ参照）</div>
+            <div className="text-[13px] text-gray-700 font-medium min-h-[24px]">{relLabel || '—'}</div>
           </div>
           <InlineSelect label="範囲" value={r.range_text} options={[...KOSEKI_RANGES]} onSave={v => saveField(r.id, 'range_text', v)} />
           <InlineSelect label="種別" value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onSave={v => saveField(r.id, 'doc_types', v)} />

@@ -252,7 +252,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人の確定と、戸籍請求の管理" />}
       {!orderSheetMode && (
         <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+          <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
       )}
       {!orderSheetMode && (

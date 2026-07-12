@@ -91,7 +91,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
       )}
       {!orderSheetMode && (
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu={mode} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" />
+          <WorkContentField caseData={caseData} gyomu={mode} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
       )}
       {mode === 'division' && !orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗/結果（遺産分割）" />}
