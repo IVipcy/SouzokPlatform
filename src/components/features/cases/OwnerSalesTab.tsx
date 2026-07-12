@@ -34,7 +34,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="担当者" description="案件の担当者（受注/管理）と案件基本情報（案件番号・保管場所・受注日など）" />
+      <TabHeader title="案件基本情報" description="案件の担当者（受注/管理）と案件番号・保管場所・受注日などの基本情報" />
       {/* 担当者 */}
       <Section title="担当者">
         <FieldGrid>

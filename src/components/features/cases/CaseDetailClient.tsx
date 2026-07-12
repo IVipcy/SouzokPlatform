@@ -245,6 +245,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
   const HEADER_TABS: TabKey[] = ['docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
+  // 検討中〜受注（＋失注）は固定順のフラット表示（グループ分けせず指定順のピルで見せる）
+  const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
+  const flatOrderTabs = minimal || FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
 
   return (
     <div>
@@ -277,7 +280,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
           groupInfoTabs={caseState.status === '対応中' || caseState.status === '完了'}
-          flatOrder={minimal}
+          flatOrder={flatOrderTabs}
         />
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}

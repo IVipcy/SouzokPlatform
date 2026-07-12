@@ -26,11 +26,11 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
-  ownerSales: '担当者',
+  ownerSales: '案件基本情報',
   orderContent: '受注内容',
   contractProc: '契約手続き',
   meeting: '面談情報',
-  // ownerSales は「担当者」に改称し案件基本情報（案件番号等）を統合。contractProc は「契約手続き」に改称（旧: 郵送書類確認）
+  // ownerSales は「案件基本情報」（担当者＋案件番号等を統合）。contractProc は「契約手続き」に改称（旧: 郵送書類確認）
   clientInfo: '依頼者連絡',
   deceased: '相続人調査',
   assets: '財産調査',
@@ -84,10 +84,11 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   const counts: Record<string, number> = { taskCount }
 
   // ミニマム運用など固定順で見せたいときは、グループ分けせず visibleTabs の順のままフラット表示。
+  // docs / documentCreate はヘッダーボタンで開くタブなので、フラット表示でもピルにはしない。
   if (flatOrder) {
     return (
       <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
-        {all.map(key => (
+        {all.filter(key => TAB_GROUP[key] !== 'header').map(key => (
           <Tab key={key} tabKey={key}
             isActive={activeTab === key}
             isHighlight={highlightSet.has(key)}
