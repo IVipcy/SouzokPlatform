@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'caseBasic' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -26,13 +26,12 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
-  caseBasic: '案件基本情報',
-  ownerSales: '担当・受注ルート',
+  ownerSales: '担当者',
   orderContent: '受注内容',
-  contractProc: '郵送書類確認',
+  contractProc: '契約手続き',
   meeting: '面談情報',
-  // contractProc は「郵送書類確認」に改称（旧: 契約残手続き）
-  clientInfo: '依頼者',
+  // ownerSales は「担当者」に改称し案件基本情報（案件番号等）を統合。contractProc は「契約手続き」に改称（旧: 郵送書類確認）
+  clientInfo: '依頼者連絡',
   deceased: '相続人調査',
   assets: '財産調査',
   referral: '他事業者紹介',
@@ -68,7 +67,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
   succession: 'practice', contract: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
   ownerSales: 'info', orderContent: 'info',
-  meeting: 'info', caseBasic: 'info', contractProc: 'info', history: 'info',
+  meeting: 'info', contractProc: 'info', history: 'info',
   docs: 'header', documentCreate: 'header',
 }
 
@@ -76,7 +75,7 @@ const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
   'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'letter', 'execution', 'contractCreate', 'succession',
-  'ownerSales', 'orderContent', 'contract', 'meeting', 'caseBasic', 'contractProc',
+  'ownerSales', 'orderContent', 'contract', 'meeting', 'contractProc',
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true, flatOrder = false }: Props) {

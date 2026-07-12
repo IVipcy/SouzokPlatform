@@ -627,7 +627,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                 ) : data.orderRoute === 'HP経由' ? (
                   <div className="py-1.5">
                     <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（紹介元）</div>
-                    <Select value={data.orderRouteDetail} options={[...HP_SOURCES]} onChange={name => update('orderRouteDetail', name)} placeholder="HP経由の紹介元を選択" />
+                    <Select value={data.orderRouteDetail} options={[...HP_SOURCES]} onChange={name => update('orderRouteDetail', name)} placeholder="HPの詳細を選択" />
                   </div>
                 ) : data.orderRoute === 'その他' ? (
                   <div className="py-1.5">

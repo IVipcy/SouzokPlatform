@@ -3,12 +3,11 @@
 import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
 import {
-  Section, FieldGrid, InlineEdit, InlineSelect, InlineMemberSelect,
+  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate, InlineMemberSelect,
 } from '@/components/ui/InlineFields'
-import { ORDER_ROUTES, PAST_CLIENT_ROUTE } from '@/lib/constants'
+import { LOCATIONS } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
-import ReferralSourceLookup from './ReferralSourceLookup'
 import TabHeader from './TabHeader'
 
 type Props = {
@@ -20,14 +19,14 @@ type Props = {
 }
 
 /**
- * 担当・受注ルートタブ（受託・オーダーシート作成済から表示）
+ * 担当者タブ（受託・オーダーシート作成済から表示）
  *   担当者（受注担当〔案件作成者を自動セット〕/ 管理担当〔割り振りボタン付き〕）
- *   受注ルート（受注ルート / 詳細 / パートナー / 紹介先名）
- * ※ 受注内容（手続区分 等）と役割分担は「受注内容・契約手続き」タブへ移設。
+ *   案件基本情報（案件番号・保管場所・受注日など案件そのものの情報）
+ * ※ 受注ルートは面談情報タブへ移設。受注内容（手続区分 等）は「受注内容」タブ。
  */
 export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patchCase, onRefresh }: Props) {
-  const save = async (field: string, value: unknown) => {
-    await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
+  const save = async (field: keyof CaseRow, value: unknown) => {
+    await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
 
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
@@ -35,7 +34,7 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="担当・受注ルート" description="案件の担当者（受注/管理）と受注経路の管理" />
+      <TabHeader title="担当者" description="案件の担当者（受注/管理）と案件基本情報（案件番号・保管場所・受注日など）" />
       {/* 担当者 */}
       <Section title="担当者">
         <FieldGrid>
@@ -57,26 +56,17 @@ export default function OwnerSalesTab({ caseData, caseMembers, allMembers, patch
         )}
       </Section>
 
-      {/* 受注ルート */}
-      <Section title="受注ルート">
+      {/* 案件基本情報（旧・案件基本情報タブから統合。被相続人情報・手続詳細はオーダーシートで入力） */}
+      <Section title="案件基本情報">
         <FieldGrid>
-          <InlineSelect
-            label="受注ルート"
-            value={caseData.order_route}
-            options={[...ORDER_ROUTES]}
-            onSave={async v => { await patchCase({ order_route: v, order_route_detail: null }) }}
-          />
-          {caseData.order_route && caseData.order_route !== PAST_CLIENT_ROUTE && (
-            <ReferralSourceLookup
-              label="詳細（紹介元）"
-              route={caseData.order_route}
-              value={caseData.order_route_detail}
-              onChange={v => save('order_route_detail', v)}
-            />
-          )}
-          {caseData.order_route === PAST_CLIENT_ROUTE && (
-            <InlineEdit label="詳細（過去の依頼者）" value={caseData.order_route_detail} onSave={v => save('order_route_detail', v)} />
-          )}
+          <InlineEdit label="案件管理番号" value={caseData.case_number} onSave={v => save('case_number', v)} required />
+          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => save('lp_case_number', v)} />
+          <InlineSelect label="難易度" value={caseData.difficulty} options={['易', '普', '難']} onSave={v => save('difficulty', v)} />
+          <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => save('location', v)} required />
+          <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => save('order_received_date', v || null)} />
+          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
+          <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
+          <Field label="案件作成日" value={caseData.created_at ? caseData.created_at.slice(0, 10) : null} mono />
         </FieldGrid>
       </Section>
     </div>

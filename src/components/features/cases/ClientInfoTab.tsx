@@ -6,7 +6,6 @@ import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
-import { SubTabs } from '@/components/ui/SubTabs'
 import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
@@ -56,8 +55,6 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
   const saveClientField = async (field: string, value: unknown) => {
     await patchClient({ [field]: value ?? null })
   }
-
-  const [sub, setSub] = useState<'info' | 'history'>('info')
 
   // 依頼者情報（一覧・住所・郵送・特徴・クレーム）。アコーディオンをやめ常に開く。
   const infoSections = (
@@ -184,23 +181,14 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
   // クレーム案件フラグ(has_complaint)は、やり取り履歴の連絡内容「クレーム対応」から自動判定。
   // 手動のクレーム欄は廃止（紫フラグはやり取りに「クレーム対応」があると自動で立つ）。
 
-  // オーダーシート埋め込み時はサブタブなし（やり取り履歴も非表示）
+  // オーダーシート埋め込み時は依頼者情報セクションを展開表示（やり取り履歴は非表示）
   if (orderSheetMode) return infoSections
 
+  // 案件詳細の依頼者連絡タブ：やり取り履歴のみ（依頼者情報はオーダーシートに集約）
   return (
     <div className="space-y-3.5">
-      <TabHeader title="依頼者" description="依頼者情報と連絡先・やり取り履歴の管理" />
-      <SubTabs
-        tabs={[{ key: 'info', label: '依頼者情報' }, { key: 'history', label: 'やり取り履歴' }]}
-        active={sub}
-        onChange={k => setSub(k as 'info' | 'history')}
-      />
-      {sub === 'info' && infoSections}
-      {sub === 'history' && (
-        <div className="space-y-3.5">
-          <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
-        </div>
-      )}
+      <TabHeader title="依頼者連絡" description="依頼者との連絡・やり取り履歴の管理（依頼者情報はオーダーシートで入力）" />
+      <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
     </div>
   )
 }
