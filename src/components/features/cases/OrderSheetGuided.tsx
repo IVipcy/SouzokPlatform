@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react'
-import { WorkContentField } from './WorkContentField'
+import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import type { CaseRow } from '@/types'
 
@@ -58,8 +58,8 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           caseData={caseData}
           gyomu={current.gate ?? current.title}
           patchCase={patchCase}
-          label="簡易メモ"
-          placeholder="この工程の要点をサッと記入"
+          label="作業内容・関連情報"
+          placeholder={workContentPlaceholder(current.gate ?? current.title)}
         />
 
         {/* 詳細を入力（展開） */}

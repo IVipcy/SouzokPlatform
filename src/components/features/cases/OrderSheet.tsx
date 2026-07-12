@@ -13,7 +13,7 @@ import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
-import { WorkContentField } from './WorkContentField'
+import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import OrderSheetGuided from './OrderSheetGuided'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import { PROCEDURE_TABS } from './practiceTabs'
@@ -205,7 +205,7 @@ export default function OrderSheet({
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
               <div className="mb-3 pb-3 border-b border-gray-100">
-                <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容（フリー・補足）" />
+                <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
               </div>
               {s.node}
             </OSSection>
