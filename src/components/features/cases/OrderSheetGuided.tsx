@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, Check, Home, MonitorSmartphone } from 'lucide-react'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
+import BackToTopButton from '@/components/ui/BackToTopButton'
 import type { CaseRow } from '@/types'
 
 export type GuidedSection = { title: string; gate?: string; node: ReactNode }
@@ -155,6 +156,8 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           </button>
         ))}
       </div>
+
+      <BackToTopButton />
     </div>
   )
 }

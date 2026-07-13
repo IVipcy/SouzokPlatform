@@ -16,6 +16,7 @@ import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import OrderSheetGuided from './OrderSheetGuided'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
+import BackToTopButton from '@/components/ui/BackToTopButton'
 import { PROCEDURE_TABS } from './practiceTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
@@ -240,6 +241,8 @@ export default function OrderSheet({
           {saving ? '保存中...' : completed ? '完成を更新' : 'オーダーシートを完成'}
         </button>
       </div>
+
+      <BackToTopButton />
     </div>
   )
 }
