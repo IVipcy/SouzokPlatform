@@ -37,12 +37,8 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
  */
 export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  // タスクごとの担当区分（既定=事務管理。相関図作成など判断系は管理担当へ手動で切替）
-  const [roleByKey, setRoleByKey] = useState<Record<string, 'assistant' | 'manager'>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const roleOf = (key: string): 'assistant' | 'manager' => roleByKey[key] ?? 'assistant'
-  const setRole = (key: string, role: 'assistant' | 'manager') => setRoleByKey(prev => ({ ...prev, [key]: role }))
 
   const cats = categoriesOf(serviceCategory, serviceCategory2)
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
@@ -130,7 +126,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       status: '着手前',
       priority: '通常',
       source_rid: ridByKey[c.key] ?? null,
-      work_role: roleOf(c.key),
+      work_role: 'assistant',
       procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
       sort_order: i,
     }))
@@ -197,13 +193,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
                           <input type="checkbox" checked={selected.has(c.key)} disabled={gen} onChange={() => toggle(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
                           <span className="flex-1 text-gray-700">{c.title}</span>
                           {hasProc && <span className="text-[11px] text-gray-400" title="手順テンプレあり">手順</span>}
-                          {gen ? (
+                          {gen && (
                             <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">生成済</span>
-                          ) : (
-                            <span className="inline-flex rounded-md border border-gray-200 overflow-hidden flex-shrink-0" onClick={e => e.preventDefault()}>
-                              <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); setRole(c.key, 'assistant') }} className={`px-2 py-0.5 text-[11px] font-semibold ${roleOf(c.key) === 'assistant' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>事務</button>
-                              <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); setRole(c.key, 'manager') }} className={`px-2 py-0.5 text-[11px] font-semibold border-l border-gray-200 ${roleOf(c.key) === 'manager' ? 'bg-purple-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>管理</button>
-                            </span>
                           )}
                         </label>
                       )

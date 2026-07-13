@@ -64,11 +64,12 @@ const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
 
 type Group = 'main' | 'practice' | 'info' | 'header'
 const TAB_GROUP: Record<TabKey, Group> = {
-  basicInfo: 'main', orderSheet: 'main', clientInfo: 'main', tasks: 'main',
+  // 請求(contract)は依頼者連絡(clientInfo)の右に置くため main グループに含める。
+  basicInfo: 'main', orderSheet: 'main', clientInfo: 'main', contract: 'main', tasks: 'main',
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
-  succession: 'practice', contract: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
+  succession: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
   ownerSales: 'info', assignees: 'info', orderContent: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   receipts: 'header', docs: 'header', documentCreate: 'header',
@@ -121,9 +122,11 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
   const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
-  // info グループから案件基本情報の子（案件管理・面談情報）は除外し、専用ドロップダウンで別途表示。
-  const infoTabs = all.filter(t => TAB_GROUP[t] === 'info' && !BASIC_INFO_TABS.includes(t))
   const hasPreceding = mainTabs.length > 0 || practiceTabs.length > 0
+  // 対応中以降（groupInfoTabs）は info を1つの「案件情報」に統合（案件基本情報も含めて重複させない）。
+  // それ以前はドロップダウンにせず、info は個別タブ＋案件基本情報グループだけ別立てにする。
+  const infoAll = all.filter(t => TAB_GROUP[t] === 'info')
+  const infoTabs = infoAll.filter(t => !BASIC_INFO_TABS.includes(t))
 
   return (
     <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
@@ -141,23 +144,26 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           isHighlight={highlightSet.has(key)}
           onClick={() => onTabChange(key)} />
       ))}
-      {hasPreceding && infoTabs.length > 0 && <VDivider />}
-      {/* 対応中以降はドロップダウンに畳む。それ以前はタブが少ないのでフラット展開。 */}
-      {infoTabs.length > 0 && (
-        groupInfoTabs ? (
-          <InfoDropdown tabs={infoTabs} activeTab={activeTab} highlightSet={highlightSet}
-            onTabChange={onTabChange} />
-        ) : (
-          infoTabs.map(key => (
+      {groupInfoTabs ? (
+        <>
+          {hasPreceding && infoAll.length > 0 && <VDivider />}
+          {infoAll.length > 0 && (
+            <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
+          )}
+        </>
+      ) : (
+        <>
+          {hasPreceding && infoTabs.length > 0 && <VDivider />}
+          {infoTabs.map(key => (
             <Tab key={key} tabKey={key}
               isActive={activeTab === key}
               isHighlight={highlightSet.has(key)}
               onClick={() => onTabChange(key)} />
-          ))
-        )
+          ))}
+          {(hasPreceding || infoTabs.length > 0) && basicInfoTabs.length > 0 && <VDivider />}
+          {renderBasicInfo()}
+        </>
       )}
-      {(hasPreceding || infoTabs.length > 0) && basicInfoTabs.length > 0 && <VDivider />}
-      {renderBasicInfo()}
     </div>
   )
 }
