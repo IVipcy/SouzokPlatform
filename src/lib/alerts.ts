@@ -49,8 +49,6 @@ export function computeCaseAlerts(
   today: Date,
 ): CaseAlertChip[] {
   const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const assignCut = new Date(today); assignCut.setDate(assignCut.getDate() - 3)
-  const assignCutStr = `${assignCut.getFullYear()}-${String(assignCut.getMonth() + 1).padStart(2, '0')}-${String(assignCut.getDate()).padStart(2, '0')}`
   const horizon = new Date(today); horizon.setDate(horizon.getDate() + 2)
   const horizonStr = `${horizon.getFullYear()}-${String(horizon.getMonth() + 1).padStart(2, '0')}-${String(horizon.getDate()).padStart(2, '0')}`
 
@@ -59,7 +57,7 @@ export function computeCaseAlerts(
 
   if (c.has_complaint && active) out.push({ severity: 'claim', category: 'クレーム' })
   if (ctx.overdueTaskCount > 0) out.push({ severity: 'high', category: `タスク期限超過${ctx.overdueTaskCount > 1 ? `(${ctx.overdueTaskCount})` : ''}` })
-  if ((c.status === '受注' || c.status === '戻り受注') && !ctx.managerExists && c.order_received_date && c.order_received_date <= assignCutStr) out.push({ severity: 'high', category: 'アサイン未完了' })
+  // 「アサイン未完了」アラートは廃止。管理担当は受注担当からの引き継ぎ時にアサインするため、受注段階で未アサインは正常。
   if (active && (ctx.advanceInvoiceStatus === '作成済' || ctx.advanceInvoiceStatus === '入金待ち')) out.push({ severity: 'high', category: '前受金 未入金' })
   if (c.expected_completion_date && c.expected_completion_date < ymd && c.status !== '完了' && c.status !== '失注') out.push({ severity: 'high', category: '完了予定日 超過' })
   if (active && !ctx.recentWeeklyConfirmed) out.push({ severity: 'mid', category: '週次報告の漏れ' })
