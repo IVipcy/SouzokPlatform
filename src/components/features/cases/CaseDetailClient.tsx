@@ -33,6 +33,7 @@ import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
 import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } from './StatusFlowNavigator'
+import HandoffModal from './HandoffModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
@@ -92,6 +93,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [meetingGate, setMeetingGate] = useState<string | null>(null)
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
+  const [handoffOpen, setHandoffOpen] = useState(false)
   // タブ↔ナビのリードライン描画用ラッパ
   const navWrapRef = useRef<HTMLDivElement>(null)
 
@@ -207,7 +209,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   const flowSteps = getJutakuFlowSteps({
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
-    managerAssigned,
     contractProcDone,
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
@@ -296,7 +297,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           <StatusFlowNavigator
             steps={flowSteps}
             targetLabel="作業進行中"
-            onAdvance={() => patchCase({ status: '対応中' })}
+            advanceLabel="管理担当へ引き継ぐ"
+            onAdvance={() => setHandoffOpen(true)}
             onDismiss={() => setNavDismissed(true)}
           />
         )}
@@ -459,6 +461,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         financialAssets={financialAssets}
         onSaved={handleSaved}
       />
+
+      {handoffOpen && (
+        <HandoffModal
+          isOpen
+          onClose={() => setHandoffOpen(false)}
+          caseId={caseState.id}
+          salesMemberId={salesMemberId}
+          allMembers={allMembers}
+          onDone={handleSaved}
+        />
+      )}
 
       <AddTaskModal
         isOpen={addTaskModal.isOpen}

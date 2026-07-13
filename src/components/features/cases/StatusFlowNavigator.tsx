@@ -15,18 +15,15 @@ export type FlowStep = {
   done: boolean
 }
 
-// 受託案件の前提条件。done は呼び出し側で判定して渡す。順番は問わない。
-// 初期対応タスク完了ゲートは撤去（初期対応はアラートで通知）。
+// 受託案件の前提条件（＝受注担当の作業）。done は呼び出し側で判定して渡す。順番は問わない。
+// 管理担当のアサインは「引き継ぐ」操作で行うため前提条件からは外す（受注担当は誰が管理担当かを決めない）。
 export function getJutakuFlowSteps(args: {
   orderSheetCompleted: boolean
-  managerAssigned: boolean
   contractProcDone: boolean
 }): FlowStep[] {
   return [
-    // ナビの線が上のタブと交差しないよう、タブの並び順（オーダーシート→契約手続き→担当者）に合わせる
     { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
-    { key: 'contractProc', label: '契約手続き完了', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
-    { key: 'manager', label: '管理担当アサイン', tab: 'ownerSales', tabLabel: '担当者', done: args.managerAssigned },
+    { key: 'contractProc', label: '契約書類の受領', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
   ]
 }
 
@@ -41,12 +38,13 @@ export function getKentouContractFlowSteps(args: {
 
 type Props = {
   steps: FlowStep[]
-  onAdvance: () => void // 次のステータスへ進める
+  onAdvance: () => void // 次のステータスへ進める（引き継ぎ等）
   onDismiss: () => void // 「あとで」
   targetLabel?: string  // 進行先ステータス名（既定: 対応中）
+  advanceLabel?: string // 進めるボタンの文言（既定: `${targetLabel}に進める`）
 }
 
-export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targetLabel = '対応中' }: Props) {
+export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targetLabel = '対応中', advanceLabel }: Props) {
   const total = steps.length
   const doneCount = steps.filter(s => s.done).length
   const remaining = total - doneCount
@@ -106,7 +104,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
             onClick={onAdvance}
             className="ml-auto inline-flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg"
           >
-            {targetLabel}に進める <ArrowRight className="w-3.5 h-3.5" />
+            {advanceLabel ?? `${targetLabel}に進める`} <ArrowRight className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
