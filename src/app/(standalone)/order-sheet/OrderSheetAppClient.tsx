@@ -35,10 +35,7 @@ export default function OrderSheetAppClient({ cases }: { cases: OsCaseRow[] }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-[17px] font-bold text-gray-900">担当案件</h1>
-        <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-full">未対応中 {cases.length}件</span>
-      </div>
+      <h1 className="text-[17px] font-bold text-gray-900 mb-1">担当案件</h1>
       <p className="text-[12px] text-gray-400 mb-3">登録済み・まだ作業進行中になっていない自分の案件</p>
 
       <div className="relative mb-3">
