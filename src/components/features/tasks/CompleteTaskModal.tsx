@@ -19,7 +19,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
-import { createManagerReviewTask } from '@/lib/managerReviewTask'
+import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
 import type { TaskRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string }
@@ -61,8 +61,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [newMode, setNewMode] = useState<Mode>('now')
   const [newNote, setNewNote] = useState('')
 
-  // 管理担当確認
+  // 管理担当ヘルプ（完了時は①次を教えて／②巻き取り）
   const [mgrOn, setMgrOn] = useState(false)
+  const [mgrType, setMgrType] = useState<Extract<HelpType, 'next_unknown' | 'too_hard'>>('next_unknown')
   const [mgrContent, setMgrContent] = useState('')
 
   useEffect(() => {
@@ -132,9 +133,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       })
     }
 
-    // 4) 管理担当確認タスク
+    // 4) 管理担当ヘルプタスク
     if (mgrOn && mgrContent.trim()) {
-      await createManagerReviewTask({ caseId: task.case_id, content: mgrContent.trim(), fromTaskTitle: task.title, requestedBy: memberId })
+      await createManagerReviewTask({ caseId: task.case_id, content: mgrContent.trim(), helpType: mgrType, fromTaskTitle: task.title, fromTaskId: task.id, requestedBy: memberId })
     }
 
     // 5) 活動履歴
@@ -258,21 +259,38 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             )}
           </div>
 
-          {/* 管理担当に確認 */}
+          {/* 管理担当にヘルプ（完了時＝①次を教えて／②巻き取り） */}
           <div className={`mt-2 rounded-lg border px-2.5 py-2 transition-colors ${mgrOn ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={mgrOn} onChange={e => setMgrOn(e.target.checked)} className="w-4 h-4 accent-amber-500" />
               <HelpCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-              <span className="text-[12.5px] font-semibold text-amber-800">次が判断できない → 管理担当に確認</span>
+              <span className="text-[12.5px] font-semibold text-amber-800">管理担当にヘルプを依頼</span>
             </label>
             {mgrOn && (
-              <textarea
-                value={mgrContent}
-                onChange={e => setMgrContent(e.target.value)}
-                rows={2}
-                placeholder="確認してほしい内容（例：相続人に未成年がいる。次の進め方を確認したい）"
-                className="mt-2 w-full px-2.5 py-1.5 text-[12px] border border-amber-200 bg-white rounded-lg outline-none focus:border-amber-400"
-              />
+              <div className="mt-2 space-y-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([
+                    { key: 'next_unknown', label: '次が分からない', sub: '次を教えてほしい' },
+                    { key: 'too_hard', label: '次が難しい', sub: '巻き取ってほしい' },
+                  ] as const).map(o => {
+                    const on = mgrType === o.key
+                    return (
+                      <button key={o.key} type="button" onClick={() => setMgrType(o.key)}
+                        className={`text-left px-2.5 py-1.5 rounded-lg border text-[12px] transition-colors ${on ? 'border-2 border-amber-400 bg-white' : 'border-gray-200 bg-white hover:bg-amber-50/40'}`}>
+                        <div className={`font-semibold ${on ? 'text-amber-800' : 'text-gray-700'}`}>{o.label}</div>
+                        <div className="text-[10.5px] text-gray-500">{o.sub}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <textarea
+                  value={mgrContent}
+                  onChange={e => setMgrContent(e.target.value)}
+                  rows={2}
+                  placeholder={mgrType === 'too_hard' ? '巻き取ってほしいタスク・難しい理由' : '次に何をすべきか分からない点・状況'}
+                  className="w-full px-2.5 py-1.5 text-[12px] border border-amber-200 bg-white rounded-lg outline-none focus:border-amber-400"
+                />
+              </div>
             )}
           </div>
 

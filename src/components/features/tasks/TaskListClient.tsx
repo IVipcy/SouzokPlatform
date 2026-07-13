@@ -3,7 +3,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck, Package, Compass } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Tag, Briefcase, Layers, PackageCheck, Package, Compass, HelpCircle } from 'lucide-react'
+import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
@@ -97,6 +98,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
   const assistantTasks = useMemo(
     () => tasks.filter(t => {
+      // 管理担当ヘルプ（systemタスク・ext_data.manager_review）は管理担当一覧に表示する
+      const isManagerHelp = t.task_kind === 'system' && !!(t.ext_data as Record<string, unknown> | null)?.manager_review
+      if (isManagerHelp) return roleScope === 'manager'
       if (t.task_kind !== 'case' && t.work_role !== 'assistant' && t.work_role !== 'manager') return false
       if (t.task_kind === 'system') return false
       return roleScope === 'manager' ? t.work_role === 'manager' : t.work_role !== 'manager'
@@ -748,6 +752,11 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           {task.priority === '急ぎ' && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 flex-shrink-0">急ぎ</span>
           )}
+          {!!ext.manager_review && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+              <HelpCircle className="w-3 h-3" strokeWidth={2.25} />ヘルプ{typeof ext.help_type === 'string' ? `・${HELP_TYPE_LABEL[ext.help_type as HelpType] ?? ''}` : ''}
+            </span>
+          )}
           <a
             href={`/tasks/${task.id}`}
             className={`text-[13px] font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}
@@ -755,6 +764,15 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
             {task.title}
           </a>
         </div>
+        {/* 管理担当ヘルプ：依頼内容＋元タスクへのリンク */}
+        {!!ext.manager_review && (
+          <div className="pl-1 mt-0.5 text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
+            {typeof ext.content === 'string' && ext.content && <span className="truncate max-w-[280px]">「{ext.content}」</span>}
+            {typeof ext.from_task_id === 'string' && ext.from_task_id && (
+              <a href={`/tasks/${ext.from_task_id}`} className="text-brand-600 hover:underline flex-shrink-0">元タスク：{typeof ext.from_task === 'string' && ext.from_task ? ext.from_task : '開く'}</a>
+            )}
+          </div>
+        )}
       </td>
 
       {/* ステータス（未着手 / 受領待ち / 着手OK / 対応中 / 完了） */}

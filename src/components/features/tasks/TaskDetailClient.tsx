@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck, HelpCircle } from 'lucide-react'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -12,6 +12,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
+import ManagerHelpModal from './ManagerHelpModal'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
 import { isFinanceFreezeTask } from '@/lib/financeFreeze'
 import { getPhaseLabel } from '@/lib/phases'
@@ -94,6 +95,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [advancing, setAdvancing] = useState(false)
   // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
   const [completeOpen, setCompleteOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   // 着手OKは「次やる目印」（ソフト）。着手OKでなくても着手はできる。
   // 着手不可（ハード制限）は口座凍結未確認の金融タスクのみ。
   const startSignal = getStartSignal(task)
@@ -382,6 +384,20 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             </FieldGrid>
           </Section>
 
+          {/* 作業中に困ったら管理担当へヘルプ（systemタスクでは出さない） */}
+          {!isSystemTask && (
+            <div className="flex justify-end -mt-1">
+              <button
+                type="button"
+                onClick={() => setHelpOpen(true)}
+                className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+              >
+                <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
+                管理担当にヘルプを依頼
+              </button>
+            </div>
+          )}
+
           {/* 2. 着手者・作業履歴 */}
           <Section title="着手者・作業履歴" icon="👤">
             {/* 着手者表示 */}
@@ -481,6 +497,19 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           task={task}
           onClose={() => setCompleteOpen(false)}
           onCompleted={() => { setCompleteOpen(false); router.refresh() }}
+        />
+      )}
+
+      {/* 作業中の管理担当ヘルプ依頼 */}
+      {helpOpen && (
+        <ManagerHelpModal
+          isOpen
+          onClose={() => setHelpOpen(false)}
+          caseId={task.case_id}
+          taskId={task.id}
+          taskTitle={task.title}
+          requestedBy={currentMemberId}
+          onSubmitted={() => router.refresh()}
         />
       )}
 
