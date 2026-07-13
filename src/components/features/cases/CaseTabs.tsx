@@ -26,11 +26,12 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
-  ownerSales: '案件基本情報',
+  ownerSales: '案件管理',
   orderContent: '受注内容',
   contractProc: '契約手続き',
   meeting: '面談情報',
-  // ownerSales は「案件基本情報」（担当者＋案件番号等を統合）。contractProc は「契約手続き」に改称（旧: 郵送書類確認）
+  // ownerSales は「案件管理」（案件番号等）。meeting と合わせて親「案件基本情報」ドロップダウンに束ねる。
+  // contractProc は「契約手続き」に改称（旧: 郵送書類確認）
   clientInfo: '依頼者連絡',
   deceased: '相続人調査',
   assets: '財産調査',
@@ -72,6 +73,9 @@ const TAB_GROUP: Record<TabKey, Group> = {
   receipts: 'header', docs: 'header', documentCreate: 'header',
 }
 
+// 親「案件基本情報」ドロップダウンに束ねる子タブ（案件管理＋面談情報）。
+const BASIC_INFO_TABS: TabKey[] = ['ownerSales', 'meeting']
+
 const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
@@ -84,25 +88,41 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   const highlightSet = new Set(highlightTabs ?? [])
   const counts: Record<string, number> = { taskCount }
 
+  // 案件管理＋面談情報は親「案件基本情報」ドロップダウンに束ねる（2つ未満なら通常タブ）。
+  const basicInfoTabs = all.filter(t => BASIC_INFO_TABS.includes(t))
+  const renderBasicInfo = () => {
+    if (basicInfoTabs.length === 0) return null
+    if (basicInfoTabs.length === 1) {
+      const key = basicInfoTabs[0]
+      return <Tab key={key} tabKey={key} isActive={activeTab === key} isHighlight={highlightSet.has(key)} onClick={() => onTabChange(key)} />
+    }
+    return <InfoDropdown label="案件基本情報" tabs={basicInfoTabs} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
+  }
+
   // ミニマム運用など固定順で見せたいときは、グループ分けせず visibleTabs の順のままフラット表示。
   // docs / documentCreate はヘッダーボタンで開くタブなので、フラット表示でもピルにはしない。
   if (flatOrder) {
+    const flatTabs = all.filter(key => TAB_GROUP[key] !== 'header' && !BASIC_INFO_TABS.includes(key))
     return (
       <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
-        {all.filter(key => TAB_GROUP[key] !== 'header').map(key => (
+        {flatTabs.map(key => (
           <Tab key={key} tabKey={key}
             isActive={activeTab === key}
             isHighlight={highlightSet.has(key)}
             count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
             onClick={() => onTabChange(key)} />
         ))}
+        {flatTabs.length > 0 && basicInfoTabs.length > 0 && <VDivider />}
+        {renderBasicInfo()}
       </div>
     )
   }
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
   const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
-  const infoTabs = all.filter(t => TAB_GROUP[t] === 'info')
+  // info グループから案件基本情報の子（案件管理・面談情報）は除外し、専用ドロップダウンで別途表示。
+  const infoTabs = all.filter(t => TAB_GROUP[t] === 'info' && !BASIC_INFO_TABS.includes(t))
+  const hasPreceding = mainTabs.length > 0 || practiceTabs.length > 0
 
   return (
     <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
@@ -120,7 +140,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           isHighlight={highlightSet.has(key)}
           onClick={() => onTabChange(key)} />
       ))}
-      {(mainTabs.length > 0 || practiceTabs.length > 0) && infoTabs.length > 0 && <VDivider />}
+      {hasPreceding && infoTabs.length > 0 && <VDivider />}
       {/* 対応中以降はドロップダウンに畳む。それ以前はタブが少ないのでフラット展開。 */}
       {infoTabs.length > 0 && (
         groupInfoTabs ? (
@@ -135,6 +155,8 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           ))
         )
       )}
+      {(hasPreceding || infoTabs.length > 0) && basicInfoTabs.length > 0 && <VDivider />}
+      {renderBasicInfo()}
     </div>
   )
 }
@@ -191,11 +213,13 @@ function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
 }
 
 // 案件情報グループのドロップダウン。閉じてる時のボタンも他タブと同じ枠付きピル形。
-function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange }: {
+function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案件情報' }: {
   tabs: TabKey[]
   activeTab: TabKey
   highlightSet: Set<TabKey>
   onTabChange: (t: TabKey) => void
+  /** 閉じているときのボタン名（既定=案件情報）。案件基本情報グループでは差し替える。 */
+  label?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -216,7 +240,7 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange }: {
 
   const isOnInfo = tabs.includes(activeTab)
   const hasHighlight = tabs.some(t => highlightSet.has(t))
-  const buttonLabel = isOnInfo ? TAB_LABELS[activeTab] : '案件情報'
+  const buttonLabel = isOnInfo ? TAB_LABELS[activeTab] : label
   const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap transition-colors cursor-pointer'
   const state = isOnInfo
     ? 'bg-brand-600 text-white font-medium border border-brand-600'

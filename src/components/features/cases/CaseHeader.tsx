@@ -1,21 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
+import { Inbox, FolderOpen, FilePlus, ChevronDown, Check, Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseCategory, getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
+import { getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
-import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
-
-// 案件分類（相談案件 / 個別管理案件 / 管理案件）のラベルと色
-const CATEGORY_STYLE: Record<'consult' | 'referral' | 'management', { label: string; cls: string }> = {
-  consult:    { label: '相談案件', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  referral:   { label: '個別案件', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  management: { label: '管理案件', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-}
+import type { CaseRow, CaseReferralRow, TaskRow, CaseMemberRow, MemberRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -45,6 +40,10 @@ type Props = {
   highlightTabs?: TabKey[]
   /** ボタンクリックで該当タブへ遷移する */
   onActivateTab?: (tab: TabKey) => void
+  /** 担当者（受注/管理）をヘッダーで直接編集するための情報 */
+  caseMembers?: CaseMemberRow[]
+  allMembers?: MemberRow[]
+  onRefresh?: () => void
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -58,13 +57,17 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], onRefresh }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
-  const category = getCaseCategory(caseData.status)
-  const categoryStyle = category ? CATEGORY_STYLE[category] : null
+
+  // 担当者（受注/管理）。ヘッダーで直接選び直せる。管理担当の候補は manager / sub_manager。
+  const salesId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
+  const managerId = caseMembers.find(cm => cm.role === 'manager')?.member_id ?? null
+  const nameOf = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? null : null)
+  const managerCandidates = allMembers.filter(m => ['manager', 'sub_manager'].includes((m.primary_role as string) ?? ''))
 
   // ヘッダー付帯情報（手続き区分・相続税申告・被相続人・マイルストーン軸）の折りたたみ。
   // 既定は全表示。ユーザーが任意で畳める（PPTのリボン折りたたみのように、設定は端末に記憶）。
@@ -116,46 +119,8 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
       <div className="bg-white rounded-xl border border-gray-200 px-5 py-3">
         <div className="flex items-start gap-5">
           {/* 左: 案件の識別情報 */}
-          <div className="flex-shrink-0 min-w-0" style={{ maxWidth: 300 }}>
-            {/* 案件番号＋案件分類フラグ（独立行・控えめ） */}
-            <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
-              <span className="inline-block text-[11px] font-mono tracking-wide text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                {caseData.case_number}
-              </span>
-              {categoryStyle && (
-                <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${categoryStyle.cls}`}>
-                  {categoryStyle.label}
-                </span>
-              )}
-              {/* 案件ステータス（どのタブからでも変更可能） */}
-              {selectableStatuses && onStatusChange && (
-                <div className="relative inline-flex items-center">
-                  <span className="absolute left-2 w-1.5 h-1.5 rounded-full pointer-events-none" style={{ background: statusColor }} />
-                  <select
-                    value={caseData.status}
-                    onChange={e => onStatusChange(e.target.value)}
-                    title="案件ステータスを変更"
-                    className="appearance-none text-[11px] font-bold pl-4 pr-6 py-0.5 rounded border border-gray-200 bg-white text-gray-700 cursor-pointer outline-none hover:border-brand-400 focus:border-brand-500"
-                  >
-                    {selectableStatuses.map(s => <option key={s} value={s}>{getCaseStatusLabel(s)}</option>)}
-                  </select>
-                  <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
-                </div>
-              )}
-              {/* 受注の獲得区分バッジ（即受注 / 面談なし受注）。旧データは instant_order を即受注扱い */}
-              {caseData.status === '受注' && (caseData.order_win_type || caseData.instant_order) && (() => {
-                const winLabel = caseData.order_win_type || (caseData.instant_order ? '即受注' : '')
-                const cls = winLabel === '面談なし受注'
-                  ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
-                  : 'bg-green-50 text-green-700 border-green-200'
-                return (
-                  <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${cls}`} title={`受注の獲得区分：${winLabel}`}>
-                    {winLabel}
-                  </span>
-                )
-              })()}
-            </div>
-            {/* 案件名 + クレームフラグ ＋ 折りたたみトグル */}
+          <div className="flex-shrink-0 min-w-0" style={{ maxWidth: 360 }}>
+            {/* 案件名 + クレームフラグ ＋ 折りたたみトグル（枠なしテキスト） */}
             <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">
               <span className="truncate">{caseData.deal_name}</span>
               {caseData.has_complaint && (
@@ -168,46 +133,86 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                 onClick={toggleHeaderCollapsed}
                 title={headerCollapsed ? '案件情報を表示する' : '案件情報を折りたたむ'}
                 aria-label={headerCollapsed ? '案件情報を表示する' : '案件情報を折りたたむ'}
-                className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-500 hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50 transition-colors"
+                className="flex-shrink-0 inline-flex items-center gap-0.5 text-[11.5px] font-medium text-gray-400 hover:text-brand-700 transition-colors"
               >
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${headerCollapsed ? '' : 'rotate-180'}`} strokeWidth={2.5} />
                 {headerCollapsed ? '案件情報を表示' : '折りたたむ'}
               </button>
             </h1>
+
             {!headerCollapsed && (
-              <>
+              <div className="mt-2.5 space-y-1.5">
+                {/* ステータス（どのタブからでも変更可能） */}
+                <MetaRow label="ステータス">
+                  {selectableStatuses && onStatusChange ? (
+                    <div className="relative inline-flex items-center">
+                      <span className="absolute left-2 w-1.5 h-1.5 rounded-full pointer-events-none" style={{ background: statusColor }} />
+                      <select
+                        value={caseData.status}
+                        onChange={e => onStatusChange(e.target.value)}
+                        title="案件ステータスを変更"
+                        className="appearance-none text-[11px] font-bold pl-4 pr-6 py-0.5 rounded border border-gray-200 bg-white text-gray-700 cursor-pointer outline-none hover:border-brand-400 focus:border-brand-500"
+                      >
+                        {selectableStatuses.map(s => <option key={s} value={s}>{getCaseStatusLabel(s)}</option>)}
+                      </select>
+                      <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-bold text-gray-700">{getCaseStatusLabel(caseData.status)}</span>
+                  )}
+                  {/* 受注の獲得区分バッジ（即受注 / 面談なし受注） */}
+                  {caseData.status === '受注' && (caseData.order_win_type || caseData.instant_order) && (() => {
+                    const winLabel = caseData.order_win_type || (caseData.instant_order ? '即受注' : '')
+                    const cls = winLabel === '面談なし受注' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-green-50 text-green-700 border-green-200'
+                    return <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${cls}`} title={`受注の獲得区分：${winLabel}`}>{winLabel}</span>
+                  })()}
+                </MetaRow>
+
                 {/* 手続き区分 */}
-                <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                  <span className="text-[10px] font-medium text-gray-400 tracking-wide">手続き区分</span>
+                <MetaRow label="手続き区分">
                   {procedures.length > 0 ? (
                     procedures.map(p => (
                       <span key={p} className="inline-block text-[11px] leading-none px-2 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-100 font-medium">{p}</span>
                     ))
                   ) : <span className="text-[11px] text-gray-300">未設定</span>}
-                </div>
-                {/* 相続税申告フラグ（他事業者紹介の税理士・依頼内容から自動判定）。クリックで該当セクションへ。ミニマム時は非表示 */}
-                <div className="flex items-center gap-1.5 flex-wrap mt-1.5" style={{ display: isMinimalMode() ? 'none' : undefined }}>
-                  <span className="text-[10px] font-medium text-gray-400 tracking-wide">相続税申告</span>
-                  <button
-                    type="button"
-                    onClick={onJumpToReferral}
-                    title="他事業者紹介（税理士）へ移動"
-                    className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
-                      taxFiling
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                        : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
-                    {taxFiling ? 'あり' : 'なし'}
-                  </button>
-                </div>
-                {caseData.deceased_name && (
-                  <p className="text-[12px] text-gray-500 mt-2">
-                    被相続人：{caseData.deceased_name}{caseData.date_of_death && `（${caseData.date_of_death} 死亡）`}
-                  </p>
+                </MetaRow>
+
+                {/* 相続税申告（自動判定）。クリックで税理士セクションへ。ミニマム時は非表示 */}
+                {!isMinimalMode() && (
+                  <MetaRow label="相続税申告">
+                    <button
+                      type="button"
+                      onClick={onJumpToReferral}
+                      title="他事業者紹介（税理士）へ移動"
+                      className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
+                        taxFiling
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
+                      {taxFiling ? 'あり' : 'なし'}
+                    </button>
+                  </MetaRow>
                 )}
-              </>
+
+                {/* 担当（受注/管理）。名前クリックで選び直し。アイコンで稼働状況一覧へ */}
+                <MetaRow label="担当">
+                  <HeaderMemberSelect label="受注" roleKey="sales" memberId={salesId} memberName={nameOf(salesId)} candidates={allMembers} caseId={caseData.id} onRefresh={onRefresh} />
+                  <span className="text-gray-300">/</span>
+                  <HeaderMemberSelect label="管理" roleKey="manager" memberId={managerId} memberName={nameOf(managerId)} candidates={managerCandidates.length ? managerCandidates : allMembers} caseId={caseData.id} onRefresh={onRefresh} />
+                  {!isMinimalMode() && (
+                    <Link
+                      href={`/workload?assignCaseId=${caseData.id}`}
+                      title="稼働状況一覧で割り振る"
+                      aria-label="稼働状況一覧で割り振る"
+                      className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md border border-gray-200 bg-gray-50 text-gray-500 hover:text-brand-700 hover:border-brand-300 transition-colors"
+                    >
+                      <Users className="w-3.5 h-3.5" strokeWidth={2} />
+                    </Link>
+                  )}
+                </MetaRow>
+              </div>
             )}
           </div>
 
@@ -296,5 +301,72 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             モーダルで開くため、ここからは撤去（CaseManagementInfoModalに切り出し）。 */}
       </div>
     </div>
+  )
+}
+
+// ヘッダーの付帯情報1行（ラベル＋内容）。ステータス/手続き区分/相続税申告/担当で共用。
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-medium text-gray-400 tracking-wide w-[64px] flex-shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5 flex-wrap min-w-0">{children}</div>
+    </div>
+  )
+}
+
+// ヘッダー内のコンパクトな担当者セレクト。名前クリックで候補ドロップダウン→case_membersを更新。
+function HeaderMemberSelect({ label, roleKey, memberId, memberName, candidates, caseId, onRefresh }: {
+  label: string
+  roleKey: string
+  memberId: string | null
+  memberName: string | null
+  candidates: MemberRow[]
+  caseId: string
+  onRefresh?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const select = async (id: string) => {
+    setSaving(true)
+    const supabase = createClient()
+    try {
+      await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
+      if (id) await supabase.from('case_members').insert({ case_id: caseId, member_id: id, role: roleKey })
+      onRefresh?.()
+      showToast('担当を更新しました', 'success')
+    } catch {
+      showToast('保存に失敗しました', 'error')
+    } finally {
+      setSaving(false)
+      setOpen(false)
+    }
+  }
+
+  return (
+    <span ref={ref} className="relative inline-flex items-center">
+      <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1 text-[11.5px] text-gray-700 hover:text-brand-700">
+        {label} <span className={memberName ? 'text-brand-700 font-medium' : 'text-gray-400'}>{memberName ?? '未設定'}</span>
+        <ChevronDown className="w-3 h-3 text-gray-400" strokeWidth={2} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-lg p-1 shadow-[0_4px_16px_rgba(0,0,0,0.1)] min-w-[150px] max-h-[240px] overflow-y-auto">
+          <button type="button" onClick={() => select('')} disabled={saving} className="w-full text-left px-2 py-1 text-[12px] text-gray-400 hover:bg-gray-50 rounded">（未設定）</button>
+          {candidates.map(m => (
+            <button key={m.id} type="button" onClick={() => select(m.id)} disabled={saving} className={`w-full text-left px-2 py-1 text-[12px] rounded flex items-center justify-between gap-2 ${m.id === memberId ? 'bg-brand-50 text-brand-700 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}>
+              <span className="truncate">{m.name}</span>{m.id === memberId && <Check className="w-3 h-3 flex-shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
   )
 }

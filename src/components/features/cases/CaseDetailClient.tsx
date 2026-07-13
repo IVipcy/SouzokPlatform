@@ -275,6 +275,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         docCount={documents.length}
         highlightTabs={navHighlightTabs}
         onActivateTab={setActiveTab}
+        caseMembers={caseMembers}
+        allMembers={allMembers}
+        onRefresh={handleSaved}
       />
 
       <div ref={navWrapRef} className="relative">
@@ -340,7 +343,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
       )}
       {effectiveTab === 'ownerSales' && (
-        <OwnerSalesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} patchCase={patchCase} onRefresh={handleSaved} />
+        <OwnerSalesTab caseData={caseState} patchCase={patchCase} />
       )}
       {effectiveTab === 'orderContent' && (
         <OrderContentTab caseData={caseState} patchCase={patchCase} />
