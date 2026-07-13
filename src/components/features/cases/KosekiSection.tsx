@@ -4,7 +4,7 @@
 // 各請求はカード形式。費用（予算/返金/確定）＋ダブルチェック（自分以外）。追加請求は管理担当の承認ゲート。
 
 import { useState, useEffect } from 'react'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, UserCheck, X } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
@@ -12,6 +12,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import ProgressSummary, { summaryStatusClass, SUMMARY_STATUSES } from './ProgressSummary'
+import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import Modal from '@/components/ui/Modal'
 import type { KosekiRequestRow, HeirRow, CaseRow } from '@/types'
@@ -335,32 +336,6 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
-const cellSel = 'w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
-
-function TxtCell({ value, onCommit, placeholder }: { value: string | null; onCommit: (v: string) => void; placeholder?: string }) {
-  return <input type="text" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} placeholder={placeholder} className={cellInp} />
-}
-function SelCell({ value, options, onChange }: { value: string | null; options: readonly string[]; onChange: (v: string) => void }) {
-  return <select value={value ?? ''} onChange={e => onChange(e.target.value)} className={cellSel}><option value="">—</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
-}
-function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
-  return <input type="date" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} className={cellInp} />
-}
-function MoneyCell({ value, onCommit }: { value: number | null; onCommit: (v: string) => void }) {
-  return <input type="text" inputMode="numeric" defaultValue={value != null ? String(value) : ''} onBlur={e => onCommit(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" className={`${cellInp} text-right tabular-nums`} />
-}
-function DcCell({ name, at, me, onSet }: { name: string | null; at: string | null; me: string; onSet: (n: string | null, a: string | null) => void }) {
-  return name ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
-      <UserCheck className="w-3 h-3" strokeWidth={2.25} />{name}{at ? `・${at.slice(5, 10).replace('-', '/')}` : ''}
-      <button type="button" onClick={() => onSet(null, null)} title="確認を取消" className="text-emerald-400 hover:text-red-500"><X className="w-3 h-3" /></button>
-    </span>
-  ) : (
-    <button type="button" onClick={() => onSet(me, new Date().toISOString())} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700"><UserCheck className="w-3 h-3" />未確認</button>
-  )
-}
-
 function KosekiRow({ r, i, me, isManager, status, saveField, saveMany, saveStatus, approve, onDelete }: {
   r: KosekiRequestRow
   i: number
