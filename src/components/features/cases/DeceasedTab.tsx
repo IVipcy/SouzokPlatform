@@ -127,13 +127,13 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     await supabase.from('heirs').insert({
       case_id: caseData.id,
       name,
-      furigana: mainClient?.furigana ?? null,
+      furigana: mainClient?.furigana ?? caseData.clients?.furigana ?? null,
       relationship_type: null,
       birth_date: mainClient?.birth_date || null,
       address: caseData.clients?.address ?? null,
       registered_address: null,
-      phone: mainClient?.phone ?? null,
-      email: mainClient?.email ?? null,
+      phone: mainClient?.phone ?? caseData.clients?.phone ?? null,
+      email: mainClient?.email ?? caseData.clients?.email ?? null,
       is_legal_heir: true,
       is_applicant: true,
       sort_order: 0,
@@ -149,6 +149,33 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heirs.length])
+
+  // 依頼者情報→相続人の空欄補完。オーダーシートでは名前だけの段階で相続人が自動投入されるため、
+  // その後に入力したふりがな・生年月日・住所・連絡先を、同名の相続人行の「空欄だけ」に反映する（手入力は上書きしない）。
+  // 氏名/ふりがな/生年月日/連絡先は依頼者一覧(case_clients)、住所は依頼者(clients)に入るため両方から取得。
+  useEffect(() => {
+    const clientName = (mainClient?.name ?? caseData.clients?.name ?? '').trim()
+    if (!clientName) return
+    const heir = heirs.find(h => h.name.trim() === clientName)
+    if (!heir) return
+    const src: Record<'furigana' | 'birth_date' | 'address' | 'phone' | 'email', string | null> = {
+      furigana: mainClient?.furigana ?? caseData.clients?.furigana ?? null,
+      birth_date: mainClient?.birth_date ?? null,
+      address: caseData.clients?.address ?? null,
+      phone: mainClient?.phone ?? caseData.clients?.phone ?? null,
+      email: mainClient?.email ?? caseData.clients?.email ?? null,
+    }
+    const patch: Record<string, string> = {}
+    for (const [k, v] of Object.entries(src)) {
+      if (v && !(heir as unknown as Record<string, unknown>)[k]) patch[k] = v
+    }
+    if (Object.keys(patch).length === 0) return
+    ;(async () => {
+      const { error } = await createClient().from('heirs').update(patch).eq('id', heir.id)
+      if (!error) onRefresh()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heirs, mainClient, caseData.clients])
 
   const startEdit = (heir: HeirRow) => {
     setEditingHeirId(heir.id)
