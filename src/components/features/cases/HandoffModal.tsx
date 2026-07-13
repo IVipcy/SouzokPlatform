@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
@@ -22,9 +22,14 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
   const managers = allMembers.filter(m => m.is_active && m.primary_role === 'manager')
   const sameTeam = salesTeam ? managers.filter(m => m.team_id === salesTeam) : []
   const noSameTeam = sameTeam.length === 0
-  const candidates = noSameTeam ? managers : sameTeam
+  const defaultList = noSameTeam ? managers : sameTeam
 
-  const [picked, setPicked] = useState<string | null>(candidates[0]?.id ?? null)
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  // 検索時は全チームの管理担当から。未入力時は同じチーム（無ければ全員）。
+  const displayed = q ? managers.filter(m => (m.name ?? '').toLowerCase().includes(q)) : defaultList
+
+  const [picked, setPicked] = useState<string | null>(defaultList[0]?.id ?? null)
   const [saving, setSaving] = useState(false)
 
   const submit = async () => {
@@ -67,13 +72,23 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
         <div className="text-[12.5px] text-gray-600">
           {noSameTeam
             ? '同じチームに管理担当がいないため、全ての管理担当を表示しています。'
-            : '同じチームの管理担当から選んでください。'}
+            : '同じチームの管理担当から選んでください。別チームの人は検索で選べます。'}
         </div>
-        {candidates.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-6 text-center text-[12px] text-gray-400">管理担当が登録されていません。</div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.75} />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="名前で検索（別チームの管理担当も選べます）"
+            className="w-full h-10 pl-9 pr-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white"
+          />
+        </div>
+        {displayed.length === 0 ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-6 text-center text-[12px] text-gray-400">{q ? '該当する管理担当がいません。' : '管理担当が登録されていません。'}</div>
         ) : (
           <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto">
-            {candidates.map(m => {
+            {displayed.map(m => {
               const on = picked === m.id
               return (
                 <button key={m.id} type="button" onClick={() => setPicked(m.id)}
