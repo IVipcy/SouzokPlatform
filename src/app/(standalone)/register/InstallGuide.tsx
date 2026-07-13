@@ -23,8 +23,9 @@ function isStandalone() {
 
 export default function InstallGuide() {
   const pathname = usePathname()
-  const isOrderSheet = pathname === '/order-sheet'
-  const isRegister = pathname === '/register'
+  // TOPだけでなく案件ページ（/order-sheet/[id]）でも誘導を出す
+  const isOrderSheet = pathname.startsWith('/order-sheet')
+  const isRegister = pathname.startsWith('/register')
   const enabled = isOrderSheet || isRegister
   const dismissKey = isOrderSheet ? 'orderSheetInstallGuideDismissedAt' : 'registerInstallGuideDismissedAt'
   const iconSrc = isOrderSheet ? '/icons/os-192.png' : '/icons/icon-192.png'
