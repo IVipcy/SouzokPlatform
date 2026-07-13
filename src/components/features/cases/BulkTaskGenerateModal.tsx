@@ -8,7 +8,7 @@ import {
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
-import type { TaskRow, TaskTemplateRow, CaseReferralRow } from '@/types'
+import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
@@ -24,6 +24,8 @@ type Props = {
   taskTemplates: TaskTemplateRow[]
   // 他事業者紹介で登録した業者（各業者への「依頼」タスクを候補に出す）
   caseReferrals?: CaseReferralRow[]
+  // 戸籍請求（実務タブ）の請求先。戸籍収集タスクを請求先ごとに展開する。
+  kosekiRequests?: KosekiRequestRow[]
   onSaved: () => void
 }
 
@@ -35,7 +37,7 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -48,6 +50,17 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     const out: Candidate[] = []
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
+      // 戸籍収集は、戸籍請求タブで登録した請求先（役所）ごとに1タスクへ展開する。
+      // 各タスクは source_rid=koseki:<request_id> で請求先に1対1リンク（重複生成を防ぐ）。
+      const isKosekiCollect = r.gyomu === '戸籍' && r.sagyou.includes('戸籍収集')
+      if (isKosekiCollect && kosekiRequests.length > 0) {
+        kosekiRequests.forEach(k => {
+          const dest = (k.request_to ?? '').trim() || '請求先未設定'
+          const person = (k.target_person ?? '').trim()
+          out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍収集：${dest}${person ? `（${person}）` : ''}`, rid: `koseki:${k.id}` })
+        })
+        return
+      }
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
     })
     // 経理のみ（相続税は使わないため除外）
@@ -61,7 +74,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
     return out
-  }, [intakeRoles, caseReferrals])
+  }, [intakeRoles, caseReferrals, kosekiRequests])
 
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))

@@ -454,6 +454,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         taskTemplates={taskTemplates}
         existingTasks={tasks}
         caseReferrals={caseReferrals ?? []}
+        kosekiRequests={kosekiRequests}
         onSaved={handleSaved}
       />
 
