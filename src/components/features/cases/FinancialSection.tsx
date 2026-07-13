@@ -56,9 +56,23 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
     onRefresh?.()
   }
 
+  // グループ一括削除：その金融機関の口座（この種別）をまとめて削除
+  const deleteInstitution = async (key: string) => {
+    const instKey = key === '__unset__' ? '' : key
+    const targets = kindAssets.filter(a => (a.institution_name ?? '').trim() === instKey)
+    const label = key === '__unset__' ? '金融機関 未設定' : key
+    if (targets.length === 0) return
+    if (!window.confirm(`「${label}」の口座${targets.length}件をすべて削除します。よろしいですか？（オーダーシート・解約タブからも消えます）`)) return
+    const { error } = await supabase.from('financial_assets').delete().in('id', targets.map(a => a.id))
+    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    if (sub === key) setSub('top')
+    showToast(`「${label}」を削除しました`, 'success')
+    onRefresh?.()
+  }
+
   return (
     <div className="flex gap-3 items-start">
-      <LeftRail items={railItems} active={sub} onChange={setSub} extra={
+      <LeftRail items={railItems} active={sub} onChange={setSub} onDelete={deleteInstitution} extra={
         <button type="button" onClick={addInstitution} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
           <Plus className="w-3 h-3" /> 金融機関
         </button>

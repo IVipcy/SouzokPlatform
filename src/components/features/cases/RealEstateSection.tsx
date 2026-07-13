@@ -85,9 +85,27 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     onRefresh?.()
   }
 
+  // グループ一括削除：その市区町村の物件と、それに紐づく取得資料をまとめて削除
+  const deleteMunicipality = async (key: string) => {
+    const muniKey = key === '__unset__' ? '' : key
+    const targetProps = properties.filter(p => municipalityOf(p) === muniKey)
+    const label = key === '__unset__' ? '市区町村 未設定' : key
+    if (targetProps.length === 0) return
+    if (!window.confirm(`「${label}」の物件${targetProps.length}件と、その取得資料をすべて削除します。よろしいですか？（オーダーシートからも消えます）`)) return
+    const propIds = targetProps.map(p => p.id)
+    // 取得資料（物件紐づき or 市区町村指定）→ 物件本体 の順で削除
+    const acqIds = acquisitions.filter(a => (a.target_property_id != null && propIds.includes(a.target_property_id)) || (muniKey && (a.target_municipality ?? '').trim() === muniKey)).map(a => a.id)
+    if (acqIds.length) { const { error } = await supabase.from('real_estate_acquisitions').delete().in('id', acqIds); if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return } }
+    const { error } = await supabase.from('real_estate_properties').delete().in('id', propIds)
+    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    if (sub === key) setSub('top')
+    showToast(`「${label}」を削除しました`, 'success')
+    onRefresh?.()
+  }
+
   return (
     <div className="flex gap-3 items-start">
-      <LeftRail items={railItems} active={sub} onChange={setSub} extra={
+      <LeftRail items={railItems} active={sub} onChange={setSub} onDelete={deleteMunicipality} extra={
         <button type="button" onClick={addMunicipality} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
           <Plus className="w-3 h-3" /> 市区町村
         </button>

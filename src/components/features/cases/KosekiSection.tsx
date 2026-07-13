@@ -99,6 +99,20 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     onRefresh?.()
   }
 
+  // グループ一括削除：その人の戸籍請求をまとめて削除
+  const deletePersonGroup = async (personId: string) => {
+    const person = personId === '__unset__' ? '' : personId
+    const targets = requests.filter(r => (r.target_person ?? '').trim() === person)
+    const label = personId === '__unset__' ? '対象者 未設定' : personId
+    if (targets.length === 0) return
+    if (!confirm(`「${label}」の戸籍請求${targets.length}件をすべて削除しますか？`)) return
+    const { error } = await supabase.from('koseki_requests').delete().in('id', targets.map(r => r.id))
+    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    if (sub === personId) { setSub('top'); setSelectedReqId(null) }
+    showToast(`「${label}」の戸籍請求を削除しました`, 'success')
+    onRefresh?.()
+  }
+
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
   // 人（被相続人＋相続人）ごとの戸籍取得状況。請求が無ければ未着手。
@@ -150,13 +164,21 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           const received = reqs.some(r => !!r.arrival_date)
           const pending = reqs.some(r => r.is_additional && !r.additional_approved_at)
           return (
-            <button key={t.id} type="button" onClick={() => { setSub(t.id); setSelectedReqId(null) }}
-              className={`text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
-              {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
-              <span className="truncate flex-1">{t.label}</span>
-              {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
-              {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
-            </button>
+            <div key={t.id} className="group/rail relative flex items-center">
+              <button type="button" onClick={() => { setSub(t.id); setSelectedReqId(null) }}
+                className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
+                <span className="truncate flex-1">{t.label}</span>
+                {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
+                {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
+              </button>
+              {!isTop && reqs.length > 0 && (
+                <button type="button" onClick={() => deletePersonGroup(t.id)} title="この人の戸籍請求を一括削除"
+                  className="flex-none ml-0.5 p-1 rounded text-gray-300 opacity-0 group-hover/rail:opacity-100 hover:text-red-500 hover:bg-red-50 transition-opacity">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           )
         })}
         {sub !== 'top' && (
