@@ -7,7 +7,6 @@ import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
 
 const ACTIVE = new Set(['受注', '対応中'])
 const PENDING_ANSWER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
-const ASSIGN_DEADLINE_DAYS = 3
 // ミニマム運用時にアラートから除外する初期対応タスク（検討状況確認 sys_review_status は残す）
 const MINIMAL_HIDDEN_TASK_KEYS = new Set([
   'sys_order_sheet', 'sys_contract_send', 'sys_contract_docs_upload',
@@ -27,8 +26,6 @@ export async function GET() {
   const todayStr = ymd(today)
   const horizon = new Date(today); horizon.setDate(horizon.getDate() + 2)
   const horizonStr = ymd(horizon)
-  const assignCutoff = new Date(today); assignCutoff.setDate(assignCutoff.getDate() - ASSIGN_DEADLINE_DAYS)
-  const assignCutoffStr = ymd(assignCutoff)
   const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
   const weekAgoStr = ymd(weekAgo)
 
@@ -45,11 +42,10 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: allCmRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }] = await Promise.all([
     supabase.from('cases')
       .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at')
       .in('id', myCaseIds),
-    supabase.from('case_members').select('case_id, role').in('case_id', myCaseIds),
     // 自分が担当の未完了タスク
     supabase.from('tasks')
       .select('id,title,due_date,status,case_id,template_key, task_assignees!inner(member_id)')
@@ -61,6 +57,8 @@ export async function GET() {
       .in('case_id', myCaseIds).eq('template_key', 'sys_review_status').in('status', ['完了', 'キャンセル']),
     // 契約手続き（契約関連書類の受領状況）→ 未回収アラート判定用
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', myCaseIds),
+    // 事務管理タスク（task_kind='case'）の有無 → 「タスク未生成」判定用
+    supabase.from('tasks').select('case_id').eq('task_kind', 'case').in('case_id', myCaseIds),
   ])
 
   type CaseRow = {
@@ -71,7 +69,6 @@ export async function GET() {
     order_sheet_completed_at: string | null; management_started_at: string | null
   }
   const cases = (casesRaw ?? []) as CaseRow[]
-  const allCm = (allCmRaw ?? []) as Array<{ case_id: string; role: string }>
   const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string; template_key: string | null }>
   const invoices = (invRaw ?? []) as Array<{ case_id: string; invoice_type: string; status: string; due_date: string | null }>
   const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null }>
@@ -79,7 +76,6 @@ export async function GET() {
   // 「検討状況の確認」(sys_review_status) が完了済みの案件
   const reviewDoneCaseIds = new Set(((reviewDoneRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
 
-  const managerExists = new Set(allCm.filter(c => c.role === 'manager').map(c => c.case_id))
   const advanceStatusByCase = new Map<string, string>()
   for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
   // 契約手続き未了（受領状況が「後日郵送 / 依頼者が取得」で未到着の書類がある）案件
@@ -90,6 +86,8 @@ export async function GET() {
   // 入金期日を過ぎた未入金の請求がある案件
   const overduePayCaseIds = new Set(invoices.filter(i => i.due_date && i.due_date < todayStr && i.status !== '入金済').map(i => i.case_id))
   const recentConfirmed = new Set(reports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
+  // 事務管理タスク（task_kind='case'）が1件でもある案件
+  const hasCaseTasks = new Set(((caseTaskRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
 
   const alerts: AlertItem[] = []
   const push = (a: AlertItem) => alerts.push(a)
@@ -105,23 +103,23 @@ export async function GET() {
     if (c.has_complaint && active) {
       push({ id: `claim-${c.id}`, severity: 'claim', category: 'クレーム案件', title: name, body: '依頼者からのクレーム。最優先で対応', href: caseHref })
     }
-    // 書類到着・未処理のアラートは廃止（着手するのは事務管理担当でシフト制のため、案件メンバー宛アラートにそぐわない）
-    if (isMySales && c.status === '受注' && !managerExists.has(c.id) && c.order_received_date && c.order_received_date <= assignCutoffStr) {
-      push({ id: `assign-${c.id}`, severity: 'high', category: 'アサイン未完了', title: name, body: '受注から3日経過・管理担当が未アサイン', href: `${caseHref}?tab=basicInfo` })
-    }
+    // 「アサイン未完了」アラートは廃止。管理担当は受注担当からの引き継ぎ時にアサインするため、受注段階で未アサインは正常。
     const advStatus = advanceStatusByCase.get(c.id)
     if (active && (advStatus === '作成済' || advStatus === '入金待ち')) {
       push({ id: `advance-${c.id}`, severity: 'high', category: '前受金 未入金', title: name, body: '前受金の入金が未確認です', href: `/billing?case=${c.id}` })
     }
-    // 初期対応（旧・初期対応タスク）をアラート化した3系統：
-    // ① オーダーシート未完成（受注案件でオーダーシート未完成）
+    // 受注担当の初期対応をアラート化：オーダーシート未完成（受注案件）
     const isOrdered = c.status === '受注' || c.status === '戻り受注'
     if (isMySales && isOrdered && !c.order_sheet_completed_at) {
       push({ id: `ordersheet-${c.id}`, severity: 'mid', category: 'オーダーシート未完成', title: name, body: '受注後のオーダーシートが未完成です', href: `${caseHref}?tab=orderSheet` })
     }
-    // ② 前受金 未請求（受注案件で前受金の請求書が未作成）
-    if (isMySales && isOrdered && advStatus === undefined) {
-      push({ id: `advinv-${c.id}`, severity: 'high', category: '前受金 未請求', title: name, body: '前受金の請求書が未作成です', href: `/billing?case=${c.id}` })
+    // 管理担当の初動①：前受金の請求（対応中で前受金の請求書が未作成）→ 管理担当マイページ
+    if (isMyManager && c.status === '対応中' && advStatus === undefined) {
+      push({ id: `advinv-${c.id}`, severity: 'high', category: '前受金の請求', title: name, body: '前受金の請求書が未作成です', href: `/billing?case=${c.id}` })
+    }
+    // 管理担当の初動②：タスク未生成（対応中で事務管理タスクが0件）→ 事務にタスク生成を依頼
+    if (isMyManager && c.status === '対応中' && !hasCaseTasks.has(c.id)) {
+      push({ id: `notasks-${c.id}`, severity: 'mid', category: 'タスク未生成', title: name, body: '事務管理タスクが未生成です。事務にタスク生成を依頼してください', href: `${caseHref}?tab=tasks` })
     }
     // ③ 契約手続き 未了（契約関連書類が未回収）
     if ((isMySales || isMyManager) && (isOrdered || c.status === '検討中（契約書待ち）') && contractPendingCaseIds.has(c.id)) {
