@@ -200,7 +200,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       {/* 表示：進捗モード(案件詳細)はPCのみ表・スマホはカード。オーダーシート(progressMode=false)は全幅でカード（表が横に広すぎるため） */}
       <div className={progressMode ? 'hidden sm:block overflow-x-auto' : 'hidden'}>
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1660 : 1300 }}>
+        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
