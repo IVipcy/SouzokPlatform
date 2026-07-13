@@ -68,31 +68,22 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
-  // 通常請求は即作成（今開いている市区町村＝請求先に紐づける）。追加請求は専用モーダル（理由必須）→管理担当へ通知。
-  const addRequest = async () => {
-    const mkt = sub === 'top' || sub === '__unset__' ? '' : sub
+  // 戸籍の追加は1本に統一。needsApproval=true（予定外の追加）なら管理担当の承認待ち＋通知。
+  const submitAdd = async (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean }) => {
     const { data, error } = await supabase.from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: requests.length, is_additional: false, request_to: mkt || null })
+      .insert({ case_id: caseId, sort_order: requests.length, is_additional: form.needsApproval, additional_reason: form.needsApproval ? (form.reason || null) : null, target_person: form.target_person || null, request_to: form.request_to || null })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
-    setSub(mkt || '__unset__')
-    setSelectedReqId((data as { id: string }).id)
-    onRefresh?.()
-  }
-
-  const submitAdditional = async (form: { target_person: string; request_to: string; reason: string }) => {
-    const { data, error } = await supabase.from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: requests.length, is_additional: true, additional_reason: form.reason, target_person: form.target_person || null, request_to: form.request_to || null })
-      .select('id').single()
-    if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
-    // 管理担当へ通知（承認依頼）
-    const { data: mgrs } = await supabase.from('members').select('id').eq('primary_role', 'manager').eq('is_active', true)
-    const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
-    if (rows.length) await supabase.from('notifications').insert(rows)
+    if (form.needsApproval) {
+      // 管理担当へ通知（承認依頼）
+      const { data: mgrs } = await supabase.from('members').select('id').eq('primary_role', 'manager').eq('is_active', true)
+      const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
+      if (rows.length) await supabase.from('notifications').insert(rows)
+    }
     setAddOpen(false)
-    setSub((form.request_to || '').trim() || '__unset__')
+    setSub((form.target_person || '').trim() || '__unset__')
     setSelectedReqId((data as { id: string }).id)
-    showToast('追加請求を申請しました（管理担当へ通知）', 'success')
+    showToast(form.needsApproval ? '戸籍を追加しました（要承認・管理担当へ通知）' : '戸籍を追加しました', 'success')
     onRefresh?.()
   }
 
@@ -132,18 +123,21 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   // 相続関係説明図の枠色＋ホバー用（氏名→状態＋進捗/結果）
   const statusByName = Object.fromEntries(peopleRows.map(p => [p.name.trim(), { status: statusForName(p.name), body: bodyForName(p.name) }]))
 
-  // 市区町村（請求先の役所）ごとにグループ化。1件ずつではなくグループ左タブにして、中身を表にする。
-  const marketKey = (r: KosekiRequestRow) => (r.request_to ?? '').trim()
-  const markets = [...new Set(requests.map(marketKey).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'))
-  const hasUnsetMkt = requests.some(r => !marketKey(r))
+  // 人（被相続人・相続人＝対象者）ごとにグループ化。1人の戸籍チェーン（複数役所）を1タブにまとめる。
+  const personKey = (r: KosekiRequestRow) => (r.target_person ?? '').trim()
+  const knownPeople = peopleRows.map(p => p.name.trim())
+  // requests にあるが人リストに無い対象者も拾う（自由入力対応）
+  const extraPeople = [...new Set(requests.map(personKey).filter(n => n && !knownPeople.includes(n)))]
+  const people = [...peopleRows.map(p => ({ name: p.name.trim(), rel: p.rel })), ...extraPeople.map(n => ({ name: n, rel: '' }))]
+  const hasUnsetPerson = requests.some(r => !personKey(r))
   const railTabs = [
     { id: 'top', label: '一覧（TOP）' },
-    ...markets.map(m => ({ id: m, label: m })),
-    ...(hasUnsetMkt ? [{ id: '__unset__', label: '請求先 未設定' }] : []),
+    ...people.map(p => ({ id: p.name, label: p.rel ? `${p.name}（${p.rel}）` : p.name })),
+    ...(hasUnsetPerson ? [{ id: '__unset__', label: '対象者 未設定' }] : []),
   ]
-  const activeMarket = sub === '__unset__' ? '' : sub
-  const marketRequests = requests.filter(r => marketKey(r) === activeMarket)
-  const selectedReq = marketRequests.find(r => r.id === selectedReqId) ?? null
+  const activePerson = sub === '__unset__' ? '' : sub
+  const personRequests = requests.filter(r => personKey(r) === activePerson)
+  const selectedReq = personRequests.find(r => r.id === selectedReqId) ?? null
 
   return (
     <div className="flex gap-3 items-start">
@@ -151,8 +145,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
-          const mkt = t.id === '__unset__' ? '' : t.id
-          const reqs = isTop ? [] : requests.filter(r => marketKey(r) === mkt)
+          const person = t.id === '__unset__' ? '' : t.id
+          const reqs = isTop ? [] : requests.filter(r => personKey(r) === person)
           const received = reqs.some(r => !!r.arrival_date)
           const pending = reqs.some(r => r.is_additional && !r.additional_approved_at)
           return (
@@ -165,8 +159,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             </button>
           )
         })}
-        <button type="button" onClick={addRequest} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1"><Plus className="w-3 h-3" />請求を追加</button>
-        <button type="button" onClick={() => setAddOpen(true)} className="text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-amber-300 text-amber-600 hover:bg-amber-50 inline-flex items-center gap-1"><Plus className="w-3 h-3" />追加請求（承認要）</button>
+        {sub !== 'top' && (
+          <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1"><Plus className="w-3 h-3" />戸籍を追加</button>
+        )}
       </div>
 
       {/* 本文 */}
@@ -190,9 +185,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左の「請求を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
-                      <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => { setSub((r.request_to ?? '').trim() || '__unset__'); setSelectedReqId(r.id) }}>
+                      <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => { setSub((r.target_person ?? '').trim() || '__unset__'); setSelectedReqId(r.id) }}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
                         <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
@@ -226,18 +221,17 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`koseki_muni_${activeMarket || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '請求先 未設定' : activeMarket}）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title={`戸籍請求一覧（${sub === '__unset__' ? '請求先 未設定' : activeMarket}）／行をクリックで詳細編集`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              {marketRequests.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この請求先の戸籍請求がありません。「請求を追加」から登録してください。</div>
+              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・チェーン）／行をクリックで詳細編集`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {personRequests.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この人の戸籍請求がありません。「戸籍を追加」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[12px] border-collapse" style={{ minWidth: 760 }}>
+                  <table className="w-full text-[12px] border-collapse" style={{ minWidth: 720 }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
-                        <th className="px-2.5 py-2 text-left font-semibold w-28">対象者</th>
-                        <th className="px-2.5 py-2 text-left font-semibold w-20">続柄</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-40">請求先（役所）</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-32">範囲</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-28">種別</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-20">取得区分</th>
@@ -248,11 +242,10 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                       </tr>
                     </thead>
                     <tbody>
-                      {marketRequests.map((r, i) => (
+                      {personRequests.map((r, i) => (
                         <tr key={r.id} onClick={() => setSelectedReqId(r.id)}
                           className={`border-b border-gray-100 last:border-b-0 cursor-pointer ${selectedReqId === r.id ? 'bg-brand-50/70' : i % 2 === 1 ? 'bg-gray-50/40 hover:bg-brand-50/30' : 'hover:bg-brand-50/30'}`}>
-                          <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
-                          <td className="px-2.5 py-2 text-gray-600">{relForName(r.target_person ?? '') || '—'}</td>
+                          <td className="px-2.5 py-2 font-medium text-gray-800">{r.request_to || <span className="text-gray-300">役所 未入力</span>}{r.is_additional && <span className="ml-1 text-[10px] font-semibold text-amber-600">{r.additional_approved_at ? '追加' : '要承認'}</span>}</td>
                           <td className="px-2.5 py-2 text-gray-700">{r.range_text || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2.5 py-2 text-gray-700">{r.doc_types || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2.5 py-2 text-gray-700">{r.acquirer || '—'}</td>
@@ -281,43 +274,51 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 approveAdditional={() => approveAdditional(selectedReq)}
                 onDelete={() => delRequest(selectedReq)}
               />
-            ) : marketRequests.length > 0 ? (
-              <div className="text-[12px] text-gray-400 text-center py-3">上の表で請求をクリックすると、ここで請求内容・費用・ダブルチェックを編集できます。</div>
+            ) : personRequests.length > 0 ? (
+              <div className="text-[12px] text-gray-400 text-center py-3">上の表で戸籍をクリックすると、ここで請求内容・費用・ダブルチェックを編集できます。</div>
             ) : null}
           </div>
         )}
       </div>
-      {addOpen && <AdditionalRequestModal targetOptions={targetOptions} onClose={() => setAddOpen(false)} onSubmit={submitAdditional} />}
+      {addOpen && <AddKosekiModal targetOptions={targetOptions} defaultPerson={activePerson} onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
     </div>
   )
 }
 
-function AdditionalRequestModal({ targetOptions, onClose, onSubmit }: {
+function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
   targetOptions: string[]
+  defaultPerson: string
   onClose: () => void
-  onSubmit: (form: { target_person: string; request_to: string; reason: string }) => void
+  onSubmit: (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean }) => void
 }) {
-  const [target, setTarget] = useState('')
+  const [target, setTarget] = useState(defaultPerson || '')
   const [reqTo, setReqTo] = useState('')
   const [reason, setReason] = useState('')
+  const [needsApproval, setNeedsApproval] = useState(false)
   const [busy, setBusy] = useState(false)
   const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
+  const canSubmit = !!target.trim() && (!needsApproval || !!reason.trim())
   return (
-    <Modal isOpen onClose={onClose} title="追加戸籍請求の申請">
+    <Modal isOpen onClose={onClose} title="戸籍を追加">
       <div className="space-y-3">
-        <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">
-          <ShieldCheck className="w-4 h-4 flex-none mt-0.5" />
-          <span>追加請求は<strong>管理担当の承認（追加OK）後</strong>に請求内容を入力できます。申請すると管理担当へ通知が飛びます。</span>
-        </div>
-        <div><label className="block text-[11px] text-gray-500 mb-1">対象者</label>
+        <div><label className="block text-[11px] text-gray-500 mb-1">対象者（誰の戸籍か）</label>
           <select value={target} onChange={e => setTarget(e.target.value)} className={inp}><option value="">選択…</option>{targetOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
           <p className="text-[10.5px] text-gray-400 mt-1">一覧にない場合は「相続人」タブで追加してください。</p>
         </div>
-        <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所" className={inp} /></div>
-        <div><label className="block text-[11px] text-gray-500 mb-1">追加が必要な理由 <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="転籍・除籍など追加が必要な戸籍と理由" className={`${inp} resize-none`} /></div>
+        <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
+        <label className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 cursor-pointer">
+          <input type="checkbox" checked={needsApproval} onChange={e => setNeedsApproval(e.target.checked)} className="w-4 h-4 accent-amber-500 mt-0.5" />
+          <span className="flex-1"><strong>予定外の追加（要承認）</strong>にする — 管理担当の承認（追加OK）後に入力可能に。費用の歯止め用。</span>
+        </label>
+        {needsApproval && (
+          <div><label className="block text-[11px] text-gray-500 mb-1">追加が必要な理由 <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="転籍・除籍など追加が必要な戸籍と理由" className={`${inp} resize-none`} /></div>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
-          <button type="button" disabled={busy || !reason.trim()} onClick={() => { setBusy(true); onSubmit({ target_person: target, request_to: reqTo, reason: reason.trim() }) }} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold text-white bg-amber-500 rounded-md hover:bg-amber-600 disabled:opacity-50"><ShieldCheck className="w-3.5 h-3.5" />申請する（管理担当へ通知）</button>
+          <button type="button" disabled={busy || !canSubmit} onClick={() => { setBusy(true); onSubmit({ target_person: target, request_to: reqTo, reason: reason.trim(), needsApproval }) }}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold text-white rounded-md disabled:opacity-50 ${needsApproval ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-600 hover:bg-brand-700'}`}>
+            {needsApproval ? <><ShieldCheck className="w-3.5 h-3.5" />申請する（要承認）</> : <><Plus className="w-3.5 h-3.5" />追加する</>}
+          </button>
         </div>
       </div>
     </Modal>
