@@ -9,7 +9,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: '面談後の相談案件をその場で登録',
     id: '/register',
     start_url: '/register',
-    scope: '/',
+    // scope はオーダーシートアプリ(/order-sheet)と重ならないよう /register に限定する。
+    // '/' にすると /order-sheet まで飲み込み、2つのPWAが混線する（別アプリとして分離できない）。
+    scope: '/register',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#f9fafb',
