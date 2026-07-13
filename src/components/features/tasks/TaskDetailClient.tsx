@@ -16,7 +16,6 @@ import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskRea
 import { isFinanceFreezeTask } from '@/lib/financeFreeze'
 import { getPhaseLabel } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
-import { WORK_ROLES } from '@/lib/constants'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import TaskCreatedDocsSection from './TaskCreatedDocsSection'
@@ -336,16 +335,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         </div>
       </div>
 
-      {/* 案件サマリー — 他人が引き継いだとき、この案件と業務の現在地を10秒で把握 */}
-      {caseData && (
-        <CaseSummaryPanel
-          caseData={caseData}
-          taskPhase={task.phase}
-          caseTasks={caseTasks}
-          currentTaskId={task.id}
-        />
-      )}
-
       {/* 3カラムレイアウト
           左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
@@ -367,6 +356,16 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         {/* 中央カラム — メイン */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
 
+          {/* 案件サマリー — 他人が引き継いだとき、この案件と業務の現在地を10秒で把握（幅を他セクションに合わせる） */}
+          {caseData && (
+            <CaseSummaryPanel
+              caseData={caseData}
+              taskPhase={task.phase}
+              caseTasks={caseTasks}
+              currentTaskId={task.id}
+            />
+          )}
+
           {/* 1. 基本情報（タスク件名 / Phase / カテゴリはヘッダーに記載されているので重複除外） */}
           <Section title="基本情報" icon="📝">
             <FieldGrid>
@@ -380,19 +379,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 options={PRIORITIES.map(p => p.key)}
                 onSave={v => saveField('priority', v)}
               />
-              <InlineSelect
-                label="タスク分類"
-                value={WORK_ROLES.find(r => r.key === task.work_role)?.label ?? ''}
-                options={WORK_ROLES.map(r => r.label)}
-                onSave={async v => {
-                  const key = WORK_ROLES.find(r => r.label === v)?.key ?? null
-                  await saveField('work_role', key)
-                }}
-              />
             </FieldGrid>
-            <div className="mt-2 space-y-2">
-              <InlineTextarea label="備考" value={task.remarks ?? ''} onSave={v => saveField('remarks', v)} />
-            </div>
           </Section>
 
           {/* 2. 着手者・作業履歴 */}
@@ -659,7 +646,7 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
   events.sort((a, b) => b.at.localeCompare(a.at))
 
   return (
-    <div className="mb-5">
+    <div>
     <Section title="案件サマリー">
       {/* 業務フォーカス */}
       {currentGyomu ? (
