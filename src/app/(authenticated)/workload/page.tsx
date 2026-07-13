@@ -67,6 +67,19 @@ export default async function WorkloadPage({ searchParams }: Props) {
     .filter(c => !managerCaseIds.has(c.id))
     .map(c => ({ id: c.id, caseNumber: c.case_number, dealName: c.deal_name, orderSheetReady: !!c.order_sheet_completed_at }))
 
+  // 案件詳細の「割り振り」から来た案件は、ステータス（受注以外でも）・管理担当の有無にかかわらず必ず選べるようにする。
+  if (assignCaseId && !unassignedCases.some(c => c.id === assignCaseId)) {
+    const { data: target } = await supabase
+      .from('cases')
+      .select('id, case_number, deal_name, order_sheet_completed_at')
+      .eq('id', assignCaseId)
+      .maybeSingle()
+    if (target) {
+      const t = target as { id: string; case_number: string; deal_name: string; order_sheet_completed_at: string | null }
+      unassignedCases.unshift({ id: t.id, caseNumber: t.case_number, dealName: t.deal_name, orderSheetReady: !!t.order_sheet_completed_at })
+    }
+  }
+
   // チーム→メンバー（dashboard_team_members 優先、無ければ members.team_id）
   const dtmByTeam = new Map<string, Set<string>>()
   for (const r of dtm) {
