@@ -33,7 +33,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const supabase = createClient()
   const isManager = useIsManager()
   const memberId = useCurrentMember(null)
-  const [sub, setSub] = useState('top')
+  const [sub, setSub] = useState('top')            // 'top' | 請求先(市区町村) | '__unset__'
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null)  // 表で選択した請求（詳細表示用）
   const [addOpen, setAddOpen] = useState(false)
   const [statuses, setStatuses] = useState<Record<string, { status: string; body: string }>>({})
   const deceasedName = caseData.deceased_name
@@ -67,13 +68,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
-  // 通常請求は即作成。追加請求は専用モーダル（理由必須）→管理担当へ通知。
+  // 通常請求は即作成（今開いている市区町村＝請求先に紐づける）。追加請求は専用モーダル（理由必須）→管理担当へ通知。
   const addRequest = async () => {
+    const mkt = sub === 'top' || sub === '__unset__' ? '' : sub
     const { data, error } = await supabase.from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: requests.length, is_additional: false })
+      .insert({ case_id: caseId, sort_order: requests.length, is_additional: false, request_to: mkt || null })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
-    setSub((data as { id: string }).id)
+    setSub(mkt || '__unset__')
+    setSelectedReqId((data as { id: string }).id)
     onRefresh?.()
   }
 
@@ -87,7 +90,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
     if (rows.length) await supabase.from('notifications').insert(rows)
     setAddOpen(false)
-    setSub((data as { id: string }).id)
+    setSub((form.request_to || '').trim() || '__unset__')
+    setSelectedReqId((data as { id: string }).id)
     showToast('追加請求を申請しました（管理担当へ通知）', 'success')
     onRefresh?.()
   }
@@ -100,7 +104,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     if (!confirm(`「${reqLabel(r)}」の戸籍請求を削除しますか？`)) return
     const { error } = await supabase.from('koseki_requests').delete().eq('id', r.id)
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
-    if (sub === r.id) setSub('top')
+    if (selectedReqId === r.id) setSelectedReqId(null)
     onRefresh?.()
   }
 
@@ -128,27 +132,36 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   // 相続関係説明図の枠色＋ホバー用（氏名→状態＋進捗/結果）
   const statusByName = Object.fromEntries(peopleRows.map(p => [p.name.trim(), { status: statusForName(p.name), body: bodyForName(p.name) }]))
 
-  const tabs = [{ id: 'top', label: '一覧（TOP）' }, ...requests.map(r => ({ id: r.id, label: reqLabel(r) }))]
-  const active = requests.find(r => r.id === sub)
+  // 市区町村（請求先の役所）ごとにグループ化。1件ずつではなくグループ左タブにして、中身を表にする。
+  const marketKey = (r: KosekiRequestRow) => (r.request_to ?? '').trim()
+  const markets = [...new Set(requests.map(marketKey).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'))
+  const hasUnsetMkt = requests.some(r => !marketKey(r))
+  const railTabs = [
+    { id: 'top', label: '一覧（TOP）' },
+    ...markets.map(m => ({ id: m, label: m })),
+    ...(hasUnsetMkt ? [{ id: '__unset__', label: '請求先 未設定' }] : []),
+  ]
+  const activeMarket = sub === '__unset__' ? '' : sub
+  const marketRequests = requests.filter(r => marketKey(r) === activeMarket)
+  const selectedReq = marketRequests.find(r => r.id === selectedReqId) ?? null
 
   return (
     <div className="flex gap-3 items-start">
-      {/* 左レール */}
+      {/* 左レール（市区町村＝請求先ごと） */}
       <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
-        {tabs.map(t => {
-          const r = requests.find(x => x.id === t.id)
-          const st = r ? (statuses[r.id]?.status ?? '未着手') : null
-          const pending = r?.is_additional && !r.additional_approved_at
-          const received = !!r?.arrival_date
-          const isClient = r?.acquirer === '依頼者'
+        {railTabs.map(t => {
+          const isTop = t.id === 'top'
+          const mkt = t.id === '__unset__' ? '' : t.id
+          const reqs = isTop ? [] : requests.filter(r => marketKey(r) === mkt)
+          const received = reqs.some(r => !!r.arrival_date)
+          const pending = reqs.some(r => r.is_additional && !r.additional_approved_at)
           return (
-            <button key={t.id} type="button" onClick={() => setSub(t.id)}
-              className={`text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : `text-gray-600 hover:bg-gray-50 ${r && !received ? 'opacity-70' : ''}`}`}>
-              {t.id === 'top' ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className={`w-1.5 h-1.5 rounded-full flex-none border ${summaryStatusClass(st)}`} />}
+            <button key={t.id} type="button" onClick={() => { setSub(t.id); setSelectedReqId(null) }}
+              className={`text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
+              {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
               <span className="truncate flex-1">{t.label}</span>
-              {r && <span className={`text-[9px] font-semibold px-1 rounded flex-none ${isClient ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700'}`}>{isClient ? '依' : '自'}</span>}
-              {r?.is_additional && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-amber-500 text-white">追</span>}
-              {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済" />}
+              {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
+              {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
             </button>
           )
         })}
@@ -179,7 +192,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     {requests.length === 0 ? (
                       <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左の「請求を追加」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
-                      <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub(r.id)}>
+                      <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => { setSub((r.request_to ?? '').trim() || '__unset__'); setSelectedReqId(r.id) }}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
                         <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
@@ -211,20 +224,68 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
               <p className="mt-2 text-[11px] text-gray-400">枠色＝戸籍の取得状況（<span className="text-emerald-700">緑=完了</span>／<span className="text-blue-600">青=対応中</span>／<span className="text-amber-600">橙=追加調査中</span>／灰=未着手）。ノードにマウスを乗せると進捗/結果を表示。</p>
             </div>
           </div>
-        ) : active ? (
-          <RequestDetail
-            key={active.id}
-            r={active}
-            caseId={caseId}
-            isManager={isManager}
-            targetOptions={targetOptions}
-            relLabel={relForName(active.target_person ?? '')}
-            saveField={saveField}
-            saveMany={saveMany}
-            approveAdditional={() => approveAdditional(active)}
-            onDelete={() => delRequest(active)}
-          />
-        ) : null}
+        ) : (
+          <div className="space-y-3.5">
+            <ProgressSummary caseId={caseId} scopeKey={`koseki_muni_${activeMarket || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '請求先 未設定' : activeMarket}）`} />
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+              <SectionHeading title={`戸籍請求一覧（${sub === '__unset__' ? '請求先 未設定' : activeMarket}）／行をクリックで詳細編集`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {marketRequests.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この請求先の戸籍請求がありません。「請求を追加」から登録してください。</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px] border-collapse" style={{ minWidth: 760 }}>
+                    <thead>
+                      <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                        <th className="px-2.5 py-2 text-left font-semibold w-28">対象者</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-20">続柄</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-32">範囲</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-28">種別</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-20">取得区分</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-20">請求日</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-20">到着日</th>
+                        <th className="px-2.5 py-2 text-right font-semibold w-24">確定費用</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-24">状態</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {marketRequests.map((r, i) => (
+                        <tr key={r.id} onClick={() => setSelectedReqId(r.id)}
+                          className={`border-b border-gray-100 last:border-b-0 cursor-pointer ${selectedReqId === r.id ? 'bg-brand-50/70' : i % 2 === 1 ? 'bg-gray-50/40 hover:bg-brand-50/30' : 'hover:bg-brand-50/30'}`}>
+                          <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
+                          <td className="px-2.5 py-2 text-gray-600">{relForName(r.target_person ?? '') || '—'}</td>
+                          <td className="px-2.5 py-2 text-gray-700">{r.range_text || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-2.5 py-2 text-gray-700">{r.doc_types || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-2.5 py-2 text-gray-700">{r.acquirer || '—'}</td>
+                          <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
+                          <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
+                          <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
+                          <td className="px-2.5 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${summaryStatusClass(statuses[r.id]?.status)}`}>{statuses[r.id]?.status ?? '未着手'}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {selectedReq ? (
+              <RequestDetail
+                key={selectedReq.id}
+                r={selectedReq}
+                caseId={caseId}
+                isManager={isManager}
+                targetOptions={targetOptions}
+                relLabel={relForName(selectedReq.target_person ?? '')}
+                saveField={saveField}
+                saveMany={saveMany}
+                approveAdditional={() => approveAdditional(selectedReq)}
+                onDelete={() => delRequest(selectedReq)}
+              />
+            ) : marketRequests.length > 0 ? (
+              <div className="text-[12px] text-gray-400 text-center py-3">上の表で請求をクリックすると、ここで請求内容・費用・ダブルチェックを編集できます。</div>
+            ) : null}
+          </div>
+        )}
       </div>
       {addOpen && <AdditionalRequestModal targetOptions={targetOptions} onClose={() => setAddOpen(false)} onSubmit={submitAdditional} />}
     </div>
