@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'orderContent' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -28,7 +28,6 @@ const TAB_LABELS: Record<TabKey, string> = {
   basicInfo: '案件進捗',
   ownerSales: '案件管理',
   assignees: '担当者',
-  orderContent: '受注内容',
   contractProc: '契約手続き',
   meeting: '面談情報',
   // 担当者 / 案件管理（案件番号等）/ 面談情報 を親「案件基本情報」ドロップダウンに束ねる。
@@ -70,7 +69,7 @@ const TAB_GROUP: Record<TabKey, Group> = {
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
   succession: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
-  ownerSales: 'info', assignees: 'info', orderContent: 'info',
+  ownerSales: 'info', assignees: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   receipts: 'header', docs: 'header', documentCreate: 'header',
 }
@@ -82,7 +81,7 @@ const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
   'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'letter', 'execution', 'contractCreate', 'succession',
-  'assignees', 'ownerSales', 'orderContent', 'contract', 'meeting', 'contractProc',
+  'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 
 export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true, flatOrder = false }: Props) {
