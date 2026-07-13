@@ -103,40 +103,58 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
         ) : (
           <div className="space-y-3.5">
             <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗/結果（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
-            {instRows(activeInst).map(r => (
-              <div key={r.id} className="rounded-md border border-gray-200 px-3.5 py-3">
-                <div className="text-[12.5px] font-semibold text-gray-800 mb-2.5">{r.institution_name || '—'} {r.branch_name || r.stock_name || ''}</div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <Field label="解約有無">
-                    <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                      <option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="解約予定日">
-                    <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
-                  </Field>
-                  <Field label="解約書類">
-                    {r.cancellation_arrival_date
-                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済 {r.cancellation_arrival_date}</span>
-                      : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
-                  </Field>
-                  <Field label="解約完了">
-                    <label className="inline-flex items-center gap-1.5 text-[12px] text-gray-700"><input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600" />完了</label>
-                  </Field>
-                  <div className="col-span-2"><Field label="禁止事項">
-                    <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="例：相続人全員の同意が必要 等" className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
-                  </Field></div>
-                  <div className="col-span-2"><Field label="関連タスク"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></Field></div>
+            {instRows(activeInst).length === 0 ? (
+              <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この金融機関の口座がありません。</div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+                <SectionHeading title="解約手続（口座ごと／横スクロールで全項目）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px] border-collapse" style={{ minWidth: 840 }}>
+                    <thead>
+                      <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                        <th className="px-2.5 py-2 text-left font-semibold w-32">支店/銘柄</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-36">解約予定日</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-28">解約書類</th>
+                        <th className="px-2.5 py-2 text-center font-semibold w-16">完了</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {instRows(activeInst).map((r, i) => (
+                        <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                          <td className="px-2.5 py-1.5 font-medium text-gray-800">{r.branch_name || r.stock_name || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-2.5 py-1.5">
+                            <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                              <option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-2.5 py-1.5">
+                            <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                          </td>
+                          <td className="px-2.5 py-1.5">
+                            {r.cancellation_arrival_date
+                              ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
+                              : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-center">
+                            <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
+                          </td>
+                          <td className="px-2.5 py-1.5">
+                            <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="例：相続人全員の同意が必要 等" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                          </td>
+                          <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
     </div>
   )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="flex flex-col gap-1"><span className="text-[10.5px] text-gray-400">{label}</span>{children}</div>
 }
