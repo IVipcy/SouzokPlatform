@@ -28,10 +28,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "相続案件管理",
   description: "相続手続き業務管理システム（オーシャン）",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "相談案件登録", statusBarStyle: "default" },
-  // favicon（タブアイコン）は app/icon.png（会話）／order-sheet/icon.png（表シート）のファイル方式で
-  // ルート別に出し分ける（favicon.ico は撤去）。ここでは apple-touch-icon のみ指定。
+  // PWAマニフェストはアプリ別に各ルートのlayoutで指定する（/register・/order-sheet）。
+  // ここでグローバルに貼ると /order-sheet 等と競合し別アプリとして分離できないため貼らない。
+  appleWebApp: { capable: true, title: "相続案件管理", statusBarStyle: "default" },
+  // favicon（タブアイコン）は app/icon.svg のファイル方式。ここでは apple-touch-icon のみ指定。
   icons: {
     apple: "/icons/apple-touch-icon.png",
   },

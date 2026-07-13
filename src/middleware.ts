@@ -59,6 +59,6 @@ export const config = {
   matcher: [
     // PWA関連（manifest / service worker / icons）は認証に巻き込まず公開で配信する。
     // これが無いと Chrome がインストール可能と判定できず「ホーム画面に追加」しか出ない。
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sw.js|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|webmanifest)$).*)',
   ],
 }
