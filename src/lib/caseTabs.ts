@@ -50,7 +50,7 @@ export type TabVisibility = {
 
 // 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'assignees', 'ownerSales', 'orderContent', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'contract',
   'receipts', 'docs', 'documentCreate', 'tasks', 'meeting',
 ]
@@ -59,9 +59,9 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   const { status, allowedPracticeTabs } = state
   const category = getCaseCategory(status)
 
-  // 失注: 案件基本情報タブのみ。
+  // 失注: 案件基本情報グループ（担当者・案件管理）のみ。
   if (status === '失注') {
-    return { visible: ['ownerSales'], collapsed: [] }
+    return { visible: ['assignees', 'ownerSales'], collapsed: [] }
   }
 
   // 検討中 / 依頼確定待ち（契約書待ち）/ 受注 / 戻り受注（即受注は status=受注）を統一。
@@ -69,7 +69,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // タブは オーダーシート / 契約手続き / 請求 / 案件基本情報 / 面談情報（固定順・flatOrder表示）。
   // docs / documentCreate はタブではなくヘッダーのボタンとして出すため visible に含める。
   if (status === '検討中' || status === '検討中（契約書待ち）' || status === '受注' || status === '戻り受注') {
-    return { visible: ['orderSheet', 'contractProc', 'contract', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
+    return { visible: ['orderSheet', 'contractProc', 'contract', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約手続きは折りたたみ

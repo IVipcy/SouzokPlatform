@@ -1,10 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Inbox, FolderOpen, FilePlus, ChevronDown, Check, Users } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
+import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
@@ -40,10 +38,9 @@ type Props = {
   highlightTabs?: TabKey[]
   /** ボタンクリックで該当タブへ遷移する */
   onActivateTab?: (tab: TabKey) => void
-  /** 担当者（受注/管理）をヘッダーで直接編集するための情報 */
+  /** 担当者（受注/管理）をヘッダーで表示するための情報（変更は担当者タブ） */
   caseMembers?: CaseMemberRow[]
   allMembers?: MemberRow[]
-  onRefresh?: () => void
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -57,17 +54,16 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], onRefresh }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [] }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
 
-  // 担当者（受注/管理）。ヘッダーで直接選び直せる。管理担当の候補は manager / sub_manager。
+  // 担当者（受注/管理）はヘッダーでは表示のみ（変更は「担当者」タブ）。
   const salesId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   const managerId = caseMembers.find(cm => cm.role === 'manager')?.member_id ?? null
   const nameOf = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? null : null)
-  const managerCandidates = allMembers.filter(m => ['manager', 'sub_manager'].includes((m.primary_role as string) ?? ''))
 
   // ヘッダー付帯情報（手続き区分・相続税申告・被相続人・マイルストーン軸）の折りたたみ。
   // 既定は全表示。ユーザーが任意で畳める（PPTのリボン折りたたみのように、設定は端末に記憶）。
@@ -88,7 +84,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
     if (label === '要進捗連絡') return 'clientInfo'                    // 依頼者・やり取り
     if (label.startsWith('タスク期限超過')) return 'tasks'
     if (label === 'クレーム') return 'basicInfo'
-    if (label === 'アサイン未完了') return 'ownerSales'
+    if (label === 'アサイン未完了') return 'assignees'
     if (label === '前受金 未入金') return 'contract'
     if (label === '完了予定日 超過') return 'meeting'                  // 管理情報セクションへ
     if (label === '面談メモ未記載') return 'meeting'
@@ -196,21 +192,11 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   </MetaRow>
                 )}
 
-                {/* 担当（受注/管理）。名前クリックで選び直し。アイコンで稼働状況一覧へ */}
+                {/* 担当（受注/管理）は表示のみ。変更は「担当者」タブ（案件基本情報グループ）で行う。 */}
                 <MetaRow label="担当">
-                  <HeaderMemberSelect label="受注" roleKey="sales" memberId={salesId} memberName={nameOf(salesId)} candidates={allMembers} caseId={caseData.id} onRefresh={onRefresh} />
+                  <span className="text-[11.5px] text-gray-700">受注 <span className={nameOf(salesId) ? 'text-gray-900 font-medium' : 'text-gray-400'}>{nameOf(salesId) ?? '未設定'}</span></span>
                   <span className="text-gray-300">/</span>
-                  <HeaderMemberSelect label="管理" roleKey="manager" memberId={managerId} memberName={nameOf(managerId)} candidates={managerCandidates.length ? managerCandidates : allMembers} caseId={caseData.id} onRefresh={onRefresh} />
-                  {!isMinimalMode() && (
-                    <Link
-                      href={`/workload?assignCaseId=${caseData.id}`}
-                      title="稼働状況一覧で割り振る"
-                      aria-label="稼働状況一覧で割り振る"
-                      className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md border border-gray-200 bg-gray-50 text-gray-500 hover:text-brand-700 hover:border-brand-300 transition-colors"
-                    >
-                      <Users className="w-3.5 h-3.5" strokeWidth={2} />
-                    </Link>
-                  )}
+                  <span className="text-[11.5px] text-gray-700">管理 <span className={nameOf(managerId) ? 'text-gray-900 font-medium' : 'text-gray-400'}>{nameOf(managerId) ?? '未設定'}</span></span>
                 </MetaRow>
               </div>
             )}
@@ -314,59 +300,3 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-// ヘッダー内のコンパクトな担当者セレクト。名前クリックで候補ドロップダウン→case_membersを更新。
-function HeaderMemberSelect({ label, roleKey, memberId, memberName, candidates, caseId, onRefresh }: {
-  label: string
-  roleKey: string
-  memberId: string | null
-  memberName: string | null
-  candidates: MemberRow[]
-  caseId: string
-  onRefresh?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  const select = async (id: string) => {
-    setSaving(true)
-    const supabase = createClient()
-    try {
-      await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
-      if (id) await supabase.from('case_members').insert({ case_id: caseId, member_id: id, role: roleKey })
-      onRefresh?.()
-      showToast('担当を更新しました', 'success')
-    } catch {
-      showToast('保存に失敗しました', 'error')
-    } finally {
-      setSaving(false)
-      setOpen(false)
-    }
-  }
-
-  return (
-    <span ref={ref} className="relative inline-flex items-center">
-      <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1 text-[11.5px] text-gray-700 hover:text-brand-700">
-        {label} <span className={memberName ? 'text-brand-700 font-medium' : 'text-gray-400'}>{memberName ?? '未設定'}</span>
-        <ChevronDown className="w-3 h-3 text-gray-400" strokeWidth={2} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-lg p-1 shadow-[0_4px_16px_rgba(0,0,0,0.1)] min-w-[150px] max-h-[240px] overflow-y-auto">
-          <button type="button" onClick={() => select('')} disabled={saving} className="w-full text-left px-2 py-1 text-[12px] text-gray-400 hover:bg-gray-50 rounded">（未設定）</button>
-          {candidates.map(m => (
-            <button key={m.id} type="button" onClick={() => select(m.id)} disabled={saving} className={`w-full text-left px-2 py-1 text-[12px] rounded flex items-center justify-between gap-2 ${m.id === memberId ? 'bg-brand-50 text-brand-700 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}>
-              <span className="truncate">{m.name}</span>{m.id === memberId && <Check className="w-3 h-3 flex-shrink-0" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </span>
-  )
-}

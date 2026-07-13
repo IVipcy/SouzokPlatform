@@ -24,6 +24,7 @@ import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
+import AssigneesTab from './AssigneesTab'
 import OrderContentTab from './OrderContentTab'
 import ContractProcTab from './ContractProcTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
@@ -76,7 +77,7 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'assignees', 'orderContent', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [] }: Props) {
   const router = useRouter()
@@ -277,7 +278,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onActivateTab={setActiveTab}
         caseMembers={caseMembers}
         allMembers={allMembers}
-        onRefresh={handleSaved}
       />
 
       <div ref={navWrapRef} className="relative">
@@ -344,6 +344,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} patchCase={patchCase} />
+      )}
+      {effectiveTab === 'assignees' && (
+        <AssigneesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'orderContent' && (
         <OrderContentTab caseData={caseState} patchCase={patchCase} />
