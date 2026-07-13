@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section } from '@/components/ui/InlineFields'
-import { relatedTasksFor } from '@/lib/relatedTasks'
-import RelatedTaskChips from './RelatedTaskChips'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
@@ -69,7 +67,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                   <th className="px-2.5 py-2 text-left font-semibold">{st.kind === '預貯金' ? '金融機関名' : st.kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
-                  <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                   <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
                 </tr>
               </thead>
@@ -84,7 +81,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                       </select>
                     </td>
                     <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
-                    <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                     <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
                   </tr>
                 ))}
@@ -100,7 +96,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約予定日</div><input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">禁止事項</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
-                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">関連タスク</div><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></div>
                 </div>
               </div>
             ))}

@@ -204,9 +204,12 @@ export default function OrderSheet({
         <div className="flex-1 min-w-0 space-y-5">
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
-              <div className="mb-3 pb-3 border-b border-gray-100">
-                <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
-              </div>
+              {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ） */}
+              {s.title !== '依頼者情報' && (
+                <div className="mb-3 pb-3 border-b border-gray-100">
+                  <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
+                </div>
+              )}
               {s.node}
             </OSSection>
           ))}

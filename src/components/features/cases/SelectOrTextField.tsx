@@ -9,15 +9,18 @@ import { Pencil, RotateCcw } from 'lucide-react'
  * - 選択モード: select（末尾に「自由入力に切替」）＋鉛筆ボタン
  * - 自由入力モード: テキスト入力（amber背景）＋「選択肢に戻す」ボタン
  */
-export default function SelectOrTextField({ value, options, onSave, placeholder, emptyLabel = '— 選択 —' }: {
+export default function SelectOrTextField({ value, options, onSave, placeholder, emptyLabel = '— 選択 —', className }: {
   value: string | null
   options: readonly string[]
   onSave: (v: string) => void
   placeholder?: string
   emptyLabel?: string
+  // 呼び出し側で入力欄のサイズ等を上書き（例：オーダーシートの大きめカード入力に合わせる）
+  className?: string
 }) {
   const inList = !!value && options.includes(value)
   const [mode, setMode] = useState<'select' | 'free'>(!!value && !inList ? 'free' : 'select')
+  const ctl = className ?? 'px-1.5 py-1.5 text-[12px] border border-gray-200 rounded'
 
   if (mode === 'free') {
     return (
@@ -27,7 +30,7 @@ export default function SelectOrTextField({ value, options, onSave, placeholder,
           defaultValue={value ?? ''}
           onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }}
           placeholder={placeholder}
-          className="flex-1 min-w-0 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded outline-none bg-amber-50/40 focus:border-brand-500 focus:bg-white transition"
+          className={`flex-1 min-w-0 outline-none bg-amber-50/40 focus:border-brand-500 focus:bg-white transition ${ctl}`}
         />
         <button
           type="button"
@@ -35,7 +38,7 @@ export default function SelectOrTextField({ value, options, onSave, placeholder,
           className="text-gray-400 hover:text-brand-600 p-1 flex-shrink-0"
           title="選択肢に戻す"
         >
-          <RotateCcw className="w-3 h-3" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
     )
@@ -46,7 +49,7 @@ export default function SelectOrTextField({ value, options, onSave, placeholder,
       <select
         value={inList ? (value as string) : ''}
         onChange={e => { if (e.target.value === '__free__') { setMode('free'); return } onSave(e.target.value) }}
-        className="flex-1 min-w-0 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded outline-none bg-white focus:border-brand-500 transition"
+        className={`flex-1 min-w-0 outline-none bg-white focus:border-brand-500 transition ${ctl}`}
       >
         <option value="">{emptyLabel}</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}

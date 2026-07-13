@@ -263,7 +263,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onDelete, ta
             </select>
           </KFieldBlock>
         </div>
-        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></KFieldBlock>
+        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" className="h-12 px-3 text-[15px] border border-gray-200 rounded-lg" /></KFieldBlock>
         <div className={gridCls}>
           <KFieldBlock label="種別">
             <select value={r.doc_types ?? ''} onChange={e => saveField(r.id, 'doc_types', e.target.value)} className={selectCls}>
