@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -8,6 +9,14 @@ import { gyomuForCategories } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
+
+// 担当区分。事務管理＝業務ひもづきの通常タスク。管理担当/受注担当＝systemタスクで、その担当へ割当＋通知。
+type RoleKind = 'assistant' | 'manager' | 'sales'
+const ROLE_KINDS: { key: RoleKind; label: string; desc: string }[] = [
+  { key: 'assistant', label: '事務管理タスク', desc: '業務にひもづく通常タスク（既定）' },
+  { key: 'manager', label: '管理担当タスク', desc: '案件の管理担当へ割当・通知' },
+  { key: 'sales', label: '受注担当タスク', desc: '案件の受注担当へ割当・通知' },
+]
 
 type Props = {
   isOpen: boolean
@@ -24,9 +33,10 @@ const PRIORITIES = [
   { key: '急ぎ', label: '急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
 ] as const
 
-export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSaved, defaultPhase }: Props) {
+export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase }: Props) {
   const [form, setForm] = useState({
     title: '',
+    roleKind: 'assistant' as RoleKind,
     kotei: defaultPhase ? koteiOf(defaultPhase) : '',
     gyomu: defaultPhase ?? '',
     dueDate: '',
@@ -68,28 +78,57 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
 
     const supabase = createClient()
 
-    const { error: taskErr } = await supabase
-      .from('tasks')
-      .insert({
-        case_id: caseId,
-        task_kind: 'case',
-        title: form.title.trim(),
-        phase: form.gyomu,
-        category: form.gyomu,
-        status: '着手前',
-        priority: form.priority,
-        due_date: form.dueDate || null,
-        sort_order: 99,
-      })
-
-    if (taskErr) {
-      setError(`追加に失敗しました: ${taskErr.message}`)
-      setSaving(false)
-      return
+    if (form.roleKind === 'assistant') {
+      // 事務管理タスク（業務にひもづく通常タスク）
+      const { error: taskErr } = await supabase
+        .from('tasks')
+        .insert({
+          case_id: caseId,
+          task_kind: 'case',
+          title: form.title.trim(),
+          phase: form.gyomu,
+          category: form.gyomu,
+          status: '着手前',
+          priority: form.priority,
+          due_date: form.dueDate || null,
+          sort_order: 99,
+        })
+      if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
+    } else {
+      // 管理担当/受注担当タスク（systemタスク）→ 案件のその担当へ割当＋通知
+      const role = form.roleKind  // 'manager' | 'sales'
+      const { data: nt, error: taskErr } = await supabase
+        .from('tasks')
+        .insert({
+          case_id: caseId,
+          task_kind: 'system',
+          assign_role: role,
+          title: form.title.trim(),
+          status: '未着手',
+          priority: form.priority,
+          due_date: form.dueDate || null,
+          sort_order: 99,
+        })
+        .select('id')
+        .single()
+      if (taskErr || !nt) { setError(`追加に失敗しました: ${taskErr?.message ?? ''}`); setSaving(false); return }
+      const taskId = (nt as { id: string }).id
+      const { data: cm } = await supabase.from('case_members').select('member_id').eq('case_id', caseId).eq('role', role).limit(1)
+      const assignee = ((cm ?? []) as Array<{ member_id: string }>)[0]?.member_id
+      if (assignee) {
+        await supabase.from('task_assignees').insert({ task_id: taskId, member_id: assignee, role: 'primary' })
+        await supabase.from('notifications').insert({
+          member_id: assignee,
+          type: 'task_assigned',
+          case_id: caseId,
+          title: role === 'manager' ? '管理担当タスクが追加されました' : '受注担当タスクが追加されました',
+          body: form.title.trim(),
+        })
+      }
     }
 
     setSaving(false)
-    setForm({ title: '', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
+    setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
     onSaved()
     onClose()
   }
@@ -113,7 +152,32 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
         )}
 
-        {/* 工程 → 業務（先に分類を選ぶ） */}
+        {/* 担当区分（事務管理／管理担当／受注担当） */}
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">担当区分</label>
+          <div className="flex flex-col gap-1.5">
+            {ROLE_KINDS.map(rk => {
+              const on = form.roleKind === rk.key
+              return (
+                <button
+                  key={rk.key}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, roleKind: rk.key }))}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${on ? 'border-2 border-brand-400 bg-brand-50' : 'border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[13px] font-semibold ${on ? 'text-brand-700' : 'text-gray-800'}`}>{rk.label}</div>
+                    <div className="text-[11px] text-gray-500">{rk.desc}</div>
+                  </div>
+                  {on && <Check className="w-4 h-4 text-brand-600 flex-shrink-0" strokeWidth={2.25} />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 工程 → 業務（事務管理タスクのときだけ。先に分類を選ぶ） */}
+        {form.roleKind === 'assistant' ? (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[13px] font-semibold text-gray-500 mb-1">工程</label>
@@ -141,6 +205,11 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
             </select>
           </div>
         </div>
+        ) : (
+          <div className="text-[12px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+            業務区分は不要です。案件の{form.roleKind === 'manager' ? '管理担当' : '受注担当'}へ自動で割り当て・通知します。
+          </div>
+        )}
 
         {/* Task name（分類のあとに入力） */}
         <div>
@@ -185,9 +254,11 @@ export default function AddTaskModal({ isOpen, onClose, caseId, allMembers, onSa
           </div>
         </div>
 
-        <div className="text-[13px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
-          💡 タスクの担当は事前に割り振りません。パートタイマーが出勤時にタスク一覧から「着手する」で開始します。
-        </div>
+        {form.roleKind === 'assistant' && (
+          <div className="text-[13px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+            💡 タスクの担当は事前に割り振りません。パートタイマーが出勤時にタスク一覧から「着手する」で開始します。
+          </div>
+        )}
       </div>
     </Modal>
   )
