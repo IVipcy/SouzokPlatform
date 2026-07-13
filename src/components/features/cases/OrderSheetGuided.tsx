@@ -71,7 +71,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           <span className="text-[12px] text-gray-500">ステップ {step + 1} / {total}</span>
           {completed && (
             <span className="text-[11px] font-semibold text-emerald-700 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />完成済
+              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />完成済（編集できます）
             </span>
           )}
         </div>
@@ -122,20 +122,14 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           <ChevronLeft className="w-4 h-4" />前へ
         </button>
         {isLast ? (
-          completed ? (
-            <div className="flex-[2] py-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-[13px] font-bold text-center inline-flex items-center justify-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" strokeWidth={2} />完成済
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => { if (await onComplete()) setJustCompleted(true) }}
-              disabled={saving}
-              className="flex-[2] py-2.5 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : '完成'}
-            </button>
-          )
+          <button
+            type="button"
+            onClick={async () => { if (await onComplete()) setJustCompleted(true) }}
+            disabled={saving}
+            className="flex-[2] py-2.5 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
+          >
+            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : completed ? '完成を更新' : '完成'}
+          </button>
         ) : (
           <button
             type="button"

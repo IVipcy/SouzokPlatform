@@ -75,13 +75,14 @@ export default function OrderSheet({
 
   const markComplete = async (): Promise<boolean> => {
     setSaving(true)
+    // 完成済でも編集可（作業進行中になるまで）。再度押しても完成日は初回のまま保持する。
     const { error } = await supabase
       .from('cases')
-      .update({ order_sheet_completed_at: new Date().toISOString() })
+      .update({ order_sheet_completed_at: caseData.order_sheet_completed_at ?? new Date().toISOString() })
       .eq('id', caseData.id)
     setSaving(false)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return false }
-    showToast('オーダーシートを完成しました', 'success')
+    showToast(completed ? 'オーダーシートを更新しました' : 'オーダーシートを完成しました', 'success')
     onRefresh()
     return true
   }
@@ -229,17 +230,15 @@ export default function OrderSheet({
           <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
           オーダーシートを保存
         </button>
-        {!completed && (
-          <button
-            type="button"
-            onClick={markComplete}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50"
-          >
-            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-            {saving ? '保存中...' : 'オーダーシートを完成'}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={markComplete}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50"
+        >
+          <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+          {saving ? '保存中...' : completed ? '完成を更新' : 'オーダーシートを完成'}
+        </button>
       </div>
     </div>
   )
