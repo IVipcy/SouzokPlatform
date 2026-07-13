@@ -10,7 +10,7 @@ import { toWareki } from '@/lib/wareki'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
-import { lookupPostalAddress } from '@/lib/postal'
+import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import KosekiRequestsTable from './KosekiRequestsTable'
@@ -303,18 +303,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </div>
               <InlineEdit
                 label="被相続人郵便番号"
-                hint="7桁の郵便番号を入力すると住所の候補を自動入力します"
+                hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
                 value={caseData.deceased_postal_code}
-                onSave={async v => {
-                  const z = v.replace(/[^0-9]/g, '')
-                  await saveCaseField('deceased_postal_code', z)
-                  // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
-                  if (z.length === 7) {
-                    const addr = await lookupPostalAddress(z)
-                    if (addr) await saveCaseField('deceased_address', addr)
-                  }
-                }}
+                onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))}
               />
+              <div className="flex items-end pb-1"><PostalLookupButton zip={caseData.deceased_postal_code} onResolved={addr => saveCaseField('deceased_address', addr)} /></div>
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
               <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
               <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} />
@@ -469,22 +462,17 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 mb-3">
-                <FormField label="郵便番号（住所を自動入力）">
-                  <input
-                    type="text"
-                    value={heirPostal}
-                    onChange={e => {
-                      const v = e.target.value
-                      setHeirPostal(v)
-                      // 7桁入力で住所を自動補完（番地・建物は住所欄に追記）
-                      const z = v.replace(/[^0-9]/g, '')
-                      if (z.length === 7) {
-                        lookupPostalAddress(z).then(addr => { if (addr) setHeirForm(f => ({ ...f, address: addr })) })
-                      }
-                    }}
-                    placeholder="123-4567"
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                  />
+                <FormField label="郵便番号（→「住所を取得」で反映）">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={heirPostal}
+                      onChange={e => setHeirPostal(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="1234567"
+                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                    />
+                    <PostalLookupButton zip={heirPostal} onResolved={addr => setHeirForm(f => ({ ...f, address: addr }))} className="flex-none inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />
+                  </div>
                 </FormField>
                 <FormField label="住所">
                   <input

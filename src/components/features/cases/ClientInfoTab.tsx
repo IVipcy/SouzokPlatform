@@ -11,7 +11,7 @@ import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import { toKatakana } from '@/lib/kana'
-import { lookupPostalAddress } from '@/lib/postal'
+import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import TabHeader from './TabHeader'
 import type { CaseRow, ClientCommunicationRow, CaseClientRow } from '@/types'
 
@@ -71,17 +71,10 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
             <InlineEdit
               label="郵便番号"
               value={client.postal_code}
-              hint="7桁の郵便番号を入力すると住所の候補を自動入力します"
-              onSave={async v => {
-                const z = v.replace(/[^0-9]/g, '')
-                await saveClientField('postal_code', z)
-                // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
-                if (z.length === 7) {
-                  const addr = await lookupPostalAddress(z)
-                  if (addr) await saveClientField('address', addr)
-                }
-              }}
+              hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
+              onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
             />
+            <div className="flex items-end pb-1"><PostalLookupButton zip={client.postal_code} onResolved={addr => saveClientField('address', addr)} /></div>
             <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}

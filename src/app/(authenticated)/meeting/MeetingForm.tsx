@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { toKatakana } from '@/lib/kana'
-import { lookupPostalAddress } from '@/lib/postal'
+import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
@@ -851,17 +851,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             <Card label="郵便番号">
               <Input
                 value={data.postalCode}
-                onChange={async v => {
-                  const z = v.replace(/[^0-9]/g, '')
-                  update('postalCode', z)
-                  // 7桁入力で住所を自動補完（入れ直したら上書き。番地・建物は追記）
-                  if (z.length === 7) {
-                    const addr = await lookupPostalAddress(z)
-                    if (addr) update('address', addr)
-                  }
-                }}
-                placeholder="4600008（7桁入力で住所自動入力）"
+                onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))}
+                placeholder="4600008（7桁入力→「住所を取得」）"
               />
+              <PostalLookupButton zip={data.postalCode} onResolved={addr => update('address', addr)} />
             </Card>
             <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
             {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン。
@@ -935,14 +928,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                 : <span className="text-gray-400 text-[13px]">生年月日と死亡日を入力すると自動計算されます</span>}
             </div>
           </Card>
-          <Card label="被相続人郵便番号"><Input value={data.deceasedPostalCode} onChange={async v => {
-            const z = v.replace(/[^0-9]/g, '')
-            update('deceasedPostalCode', z)
-            if (z.length === 7) {
-              const addr = await lookupPostalAddress(z)
-              if (addr) update('deceasedAddress', addr)
-            }
-          }} placeholder="1000131（7桁入力で住所自動入力）" /></Card>
+          <Card label="被相続人郵便番号">
+            <Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="1000131（7桁入力→「住所を取得」）" />
+            <PostalLookupButton zip={data.deceasedPostalCode} onResolved={addr => update('deceasedAddress', addr)} />
+          </Card>
           <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">
