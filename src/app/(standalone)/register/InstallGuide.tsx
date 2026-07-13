@@ -21,6 +21,12 @@ function isStandalone() {
     || (navigator as unknown as { standalone?: boolean }).standalone === true
 }
 
+// スマホ/タブレットのみ対象（PCではインストール誘導を出さない）。
+function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false
+  return /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+}
+
 export default function InstallGuide() {
   const pathname = usePathname()
   // TOPだけでなく案件ページ（/order-sheet/[id]）でも誘導を出す
@@ -36,7 +42,7 @@ export default function InstallGuide() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
-    if (!enabled || isStandalone()) return
+    if (!enabled || isStandalone() || !isMobileDevice()) return
     try {
       const at = Number(localStorage.getItem(dismissKey) || 0)
       if (at && Date.now() - at < DISMISS_DAYS * 86400000) return
@@ -51,6 +57,7 @@ export default function InstallGuide() {
   useEffect(() => {
     if (!enabled) return
     const handler = (e: Event) => {
+      if (!isMobileDevice()) return  // PCでは誘導を出さない（ブラウザ標準に任せる）
       e.preventDefault()
       if (isStandalone()) return
       try {
