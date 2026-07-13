@@ -455,6 +455,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         existingTasks={tasks}
         caseReferrals={caseReferrals ?? []}
         kosekiRequests={kosekiRequests}
+        properties={properties}
+        financialAssets={financialAssets}
         onSaved={handleSaved}
       />
 

@@ -8,7 +8,7 @@ import {
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
-import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow } from '@/types'
+import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
@@ -26,6 +26,9 @@ type Props = {
   caseReferrals?: CaseReferralRow[]
   // 戸籍請求（実務タブ）の請求先。戸籍収集タスクを請求先ごとに展開する。
   kosekiRequests?: KosekiRequestRow[]
+  // 不動産・金融資産（左タブ単位＝市区町村/金融機関でタスクをまとめる）
+  properties?: RealEstatePropertyRow[]
+  financialAssets?: FinancialAssetRow[]
   onSaved: () => void
 }
 
@@ -37,7 +40,7 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -48,6 +51,25 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   // 候補：役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部＋経理/相続税。表示は業務グループ順。
   const candidates = useMemo<Candidate[]>(() => {
     const out: Candidate[] = []
+
+    // 左タブ単位（不動産/登記＝市区町村、金融資産/解約＝金融機関）でタスクをまとめるための単位一覧。
+    const muniOf = (p: RealEstatePropertyRow): string => {
+      const m = (p.municipality ?? '').trim()
+      if (m) return m
+      const a = (p.address ?? '').trim()
+      const match = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
+      return match ? `${match[1] ?? ''}${match[2]}` : ''
+    }
+    const muniUnits = [...new Set(properties.map(muniOf).filter(Boolean))]
+    const instUnits = [...new Set(financialAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))]
+    const UNIT: Record<string, { prefix: string; label: string; units: string[] }> = {
+      '不動産': { prefix: 're', label: '不動産取得', units: muniUnits },
+      '登記': { prefix: 'reg', label: '相続登記', units: muniUnits },
+      '金融資産': { prefix: 'fin', label: '金融資産調査', units: instUnits },
+      '解約': { prefix: 'cancel', label: '解約手続', units: instUnits },
+    }
+    const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
+
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
       // 戸籍収集は、戸籍請求タブで登録した請求先（役所）ごとに1タスクへ展開する。
@@ -59,6 +81,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
           const person = (k.target_person ?? '').trim()
           out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍収集：${dest}${person ? `（${person}）` : ''}`, rid: `koseki:${k.id}` })
         })
+        return
+      }
+      // 不動産/登記/金融資産/解約は左タブ単位で1タスクに集約（個別作業は畳む）。単位が無ければ従来どおり個別作業。
+      const u = UNIT[r.gyomu]
+      if (u && u.units.length > 0) {
+        if (unitExpanded.has(r.gyomu)) return
+        unitExpanded.add(r.gyomu)
+        u.units.forEach(name => out.push({ key: `${u.prefix}:${name}`, gyomu: r.gyomu, title: `${u.label}：${name}`, rid: `${u.prefix}:${name}` }))
         return
       }
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
@@ -74,7 +104,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets])
 
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))
