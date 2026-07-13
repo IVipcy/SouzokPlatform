@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, Check, Home, MonitorSmartphone } from 'lucide-react'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import type { CaseRow } from '@/types'
@@ -17,12 +18,42 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   completed: boolean
-  onComplete: () => void
+  onComplete: () => Promise<boolean>
   saving: boolean
 }) {
+  const router = useRouter()
   const [step, setStep] = useState(0)
   const [detailOpen, setDetailOpen] = useState(false)
+  // 「完成」ボタン押下直後だけ完成画面を出す。開き直したときは通常の入力画面（＝いつでも修正可）。
+  const [justCompleted, setJustCompleted] = useState(false)
   const total = sections.length
+
+  // 完成画面（完成ボタン押下直後）。以降の追加・変更はPCの方が楽、というソフトな案内。
+  if (justCompleted) {
+    return (
+      <div className="py-6 flex flex-col items-center text-center">
+        <div className="w-[76px] h-[76px] rounded-full bg-emerald-50 flex items-center justify-center mb-5">
+          <Check className="w-10 h-10 text-emerald-600" strokeWidth={2.25} />
+        </div>
+        <div className="text-[20px] font-bold text-gray-900 mb-1.5">お疲れさまでした</div>
+        <div className="text-[13px] text-gray-500 mb-5">オーダーシートが完成しました</div>
+        <div className="w-full max-w-[320px] rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3.5 mb-6">
+          <div className="flex items-start gap-2 text-left">
+            <MonitorSmartphone className="w-[18px] h-[18px] text-brand-600 mt-0.5 flex-none" />
+            <span className="text-[13px] leading-relaxed text-brand-800">この先の追加・変更はPC（管理画面）で行ってください</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/order-sheet')}
+          className="w-full max-w-[320px] h-12 rounded-xl bg-brand-600 text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-700 transition"
+        >
+          <Home className="w-[18px] h-[18px]" />TOPに戻る
+        </button>
+        <div className="text-[11px] text-gray-400 mt-4">入力内容はすべて自動保存済みです</div>
+      </div>
+    )
+  }
 
   if (total === 0) {
     return <div className="py-12 text-center text-[13px] text-gray-400">入力するセクションがありません（受注区分を設定してください）。</div>
@@ -98,7 +129,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           ) : (
             <button
               type="button"
-              onClick={onComplete}
+              onClick={async () => { if (await onComplete()) setJustCompleted(true) }}
               disabled={saving}
               className="flex-[2] py-2.5 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
             >

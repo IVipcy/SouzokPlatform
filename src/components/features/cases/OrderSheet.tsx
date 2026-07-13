@@ -73,16 +73,17 @@ export default function OrderSheet({
     showToast('オーダーシートを保存しました', 'success')
   }
 
-  const markComplete = async () => {
+  const markComplete = async (): Promise<boolean> => {
     setSaving(true)
     const { error } = await supabase
       .from('cases')
       .update({ order_sheet_completed_at: new Date().toISOString() })
       .eq('id', caseData.id)
     setSaving(false)
-    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return false }
     showToast('オーダーシートを完成しました', 'success')
     onRefresh()
+    return true
   }
 
   // 受注区分→選択業務 で実務セクションを出し分け（service_category 未設定の旧案件は全表示）
