@@ -589,6 +589,17 @@ export const PAYMENT_STATUSES = [
   '未請求', '作成済', '入金待ち', '入金済',
 ] as const
 
+// === 請求パターン（案件単位。cases.billing_pattern・migration 166） ===
+//   ②③の「一括」＝前受金に確定請求ぶんを含めて一度に受領（＝確定請求という独立ステップがない）
+export type BillingPattern = 'staged' | 'lump_expense' | 'lump_only'
+export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: string; desc: string; hasKakutei: boolean; hasExpense: boolean }[] = [
+  { value: 'staged',       no: '①', label: '段階請求（通常）', desc: '前受金 → 確定請求 → 立替実費', hasKakutei: true,  hasExpense: true  },
+  { value: 'lump_expense', no: '②', label: '一括＋実費',       desc: '前受金で確定分も受領・立替実費は後日', hasKakutei: false, hasExpense: true  },
+  { value: 'lump_only',    no: '③', label: '一括のみ',         desc: '前受金で完結・立替実費なし', hasKakutei: false, hasExpense: false },
+]
+export const billingPatternOf = (v: string | null | undefined) =>
+  BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]
+
 // === 遺言種別 ===
 export const WILL_TYPES = ['自筆', '公正証書', 'その他'] as const
 

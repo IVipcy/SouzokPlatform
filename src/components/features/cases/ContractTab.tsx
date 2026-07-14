@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt } from 'lucide-react'
+import { ExternalLink, Receipt, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { advanceTotal } from '@/lib/advancePayment'
+import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
 import {
   Section, FieldGrid, Field,
   InlineTextarea,
@@ -38,6 +39,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const minimal = isMinimalMode()
   // 請求書の発行は受注確定（受注／戻り受注）以降のみ。依頼確定待ち以前は不可。
   const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
+  // 請求パターン（案件単位）。②③は前受金に確定分を含む「一括」＝確定請求なし。③は立替実費もなし。
+  const pattern = billingPatternOf(caseData.billing_pattern)
   const [kakuteiOpen, setKakuteiOpen] = useState(false)
   const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
@@ -136,13 +139,41 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             <div className="flex items-center gap-2">
               {!canBill && <span className="text-[11px] text-gray-400">受注（戻り受注含む）以降で発行できます</span>}
               <button type="button" disabled={!canBill} onClick={() => canBill && setAdvanceInvoiceOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
-              <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
+              {pattern.hasKakutei
+                ? <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
+                : <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md" title="このパターンは前受金に確定分を含むため、確定請求書は発行しません">確定請求は前受金に含む（一括）</span>}
             </div>
           }
         />
       )}
       {kakuteiOpen && <KakuteiInvoiceModal isOpen onClose={() => setKakuteiOpen(false)} caseData={caseData} tasks={tasks} onSaved={_onRefresh} />}
       {advanceInvoiceOpen && <InvoiceDocumentModal isOpen onClose={() => setAdvanceInvoiceOpen(false)} caseData={caseData} tasks={tasks} docType="請求書" onSaved={_onRefresh} />}
+
+      {/* 請求パターン（案件単位）。②③は前受金＝確定（一括）。契約時に受注担当／管理担当が選択。 */}
+      {!orderSheetMode && (
+        <div className="rounded-lg border border-brand-200 bg-brand-50/40 px-3.5 py-3">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[12.5px] font-semibold text-brand-800">請求パターン</span>
+            <span className="text-[11px] text-gray-400">案件単位・契約時に選択（受注担当／管理担当。変更可）</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {BILLING_PATTERNS.map(p => {
+              const active = pattern.value === p.value
+              return (
+                <button key={p.value} type="button" onClick={() => save('billing_pattern', p.value)}
+                  className={`text-left rounded-lg px-3 py-2 bg-white transition ${active ? 'border-2 border-brand-500' : 'border border-gray-200 hover:border-brand-300'}`}>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className={`w-5 h-5 rounded-full text-[11px] font-semibold inline-flex items-center justify-center ${active ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>{p.no}</span>
+                    <span className="text-[12.5px] font-semibold text-gray-800">{p.label}</span>
+                    {active && <Check className="w-3.5 h-3.5 text-brand-600 ml-auto" strokeWidth={2.5} />}
+                  </div>
+                  <div className="text-[11px] text-gray-500 leading-snug">{p.desc}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 請求料金内訳（司法/行政。割引後合計＝確定報酬・前受金組込） */}
       <Section title="請求料金内訳（司法／行政）">
@@ -155,10 +186,16 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         <p className="text-[11px] text-gray-400 mt-2">各士業の「割引後」合計が確定報酬になり、前受金を差し引いた額が確定請求になります。</p>
       </Section>
 
-      {/* 立替実費（司法/行政・課税/非課税） */}
+      {/* 立替実費（司法/行政・課税/非課税）。③一括のみは立替実費の請求がない。 */}
       <Section title="立替実費（司法／行政・課税/非課税）">
-        <BillingExpensesSection caseId={caseData.id} />
-        <p className="text-[11px] text-gray-400 mt-2">名目を選ぶと課税/非課税が自動。金額＝数量×単価（空欄なら直接入力）。請求書はこの内訳から生成します。</p>
+        {pattern.hasExpense ? (
+          <>
+            <BillingExpensesSection caseId={caseData.id} />
+            <p className="text-[11px] text-gray-400 mt-2">名目を選ぶと課税/非課税が自動。金額＝数量×単価（空欄なら直接入力）。請求書はこの内訳から生成します。</p>
+          </>
+        ) : (
+          <div className="text-[12px] text-gray-400 py-2">このパターン（③一括のみ）は立替実費の請求がありません（前受金で完結）。</div>
+        )}
       </Section>
 
 

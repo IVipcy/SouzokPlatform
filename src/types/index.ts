@@ -240,6 +240,7 @@ export type CaseRow = {
   payment_amount: number | null
   partner_compensation: number | null
   invoice_memo: string | null
+  billing_pattern: string        // 請求パターン staged=①/lump_expense=②/lump_only=③（migration 166。既定 staged）
   // 依頼者情報タブ
   client_trait: 'smile' | 'neutral' | 'angry' | null
   client_trait_detail: string | null
