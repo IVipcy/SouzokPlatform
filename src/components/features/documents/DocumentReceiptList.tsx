@@ -88,9 +88,9 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
                 <th className="px-2.5 py-2 text-left font-semibold">番号</th>
+                <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">〒種類</th>
                 <th className="px-2.5 py-2 text-left font-semibold">差出人</th>
-                <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
@@ -671,20 +671,6 @@ function ReceiptRow({
                 {numberText}
               </td>
             )}
-            {/* 〒種類（封筒単位・行統合） */}
-            {isFirst && (
-              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
-                {receipt.postal_type
-                  ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{receipt.postal_type}</span>
-                  : <span className="text-gray-300 text-[12px]">—</span>}
-              </td>
-            )}
-            {/* 差出人（封筒単位・行統合） */}
-            {isFirst && (
-              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle text-[12px] text-gray-700 border-r border-gray-100">
-                {senderText || <span className="text-gray-300">—</span>}
-              </td>
-            )}
             {/* 案件管理番号（行統合） */}
             {isFirst && (
               <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
@@ -701,6 +687,20 @@ function ReceiptRow({
                 ) : (
                   <span className="text-gray-400 text-[12px]">案件未紐付</span>
                 )}
+              </td>
+            )}
+            {/* 〒種類（封筒単位・行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
+                {receipt.postal_type
+                  ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{receipt.postal_type}</span>
+                  : <span className="text-gray-300 text-[12px]">—</span>}
+              </td>
+            )}
+            {/* 差出人（封筒単位・行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle text-[12px] text-gray-700 border-r border-gray-100">
+                {senderText || <span className="text-gray-300">—</span>}
               </td>
             )}
 
