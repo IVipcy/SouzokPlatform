@@ -174,3 +174,14 @@ body[data-sidebar-collapsed="1"] .ml-60 {
 @media (prefers-reduced-motion: reduce) {
   .nav-spotlight, .nav-dot { animation: none; }
 }
+
+/* ─────────────────────────────────────────
+   テーブルヘッダーの左寄せ統一
+   表ごとに th が text-left / text-right / text-center とバラバラで見づらいので、
+   全テーブルのヘッダーを左寄せに統一する。
+   （@layer 外＝unlayered なので、Tailwind の text-center/text-right ユーティリティより優先される。
+    数字列などで右寄せに戻したい場合は th 側で style={{textAlign:'right'}} のインライン指定で個別上書き可）
+   ──────────────────────────────────────── */
+th {
+  text-align: left;
+}
