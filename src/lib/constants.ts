@@ -592,10 +592,12 @@ export const PAYMENT_STATUSES = [
 // === 請求パターン（案件単位。cases.billing_pattern・migration 166） ===
 //   ②③の「一括」＝前受金に確定請求ぶんを含めて一度に受領（＝確定請求という独立ステップがない）
 export type BillingPattern = 'staged' | 'lump_expense' | 'lump_only'
-export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: string; desc: string; hasKakutei: boolean; hasExpense: boolean }[] = [
-  { value: 'staged',       no: '①', label: '段階請求（通常）', desc: '前受金 → 確定請求 → 立替実費', hasKakutei: true,  hasExpense: true  },
-  { value: 'lump_expense', no: '②', label: '一括＋実費',       desc: '前受金で確定分も受領・立替実費は後日', hasKakutei: false, hasExpense: true  },
-  { value: 'lump_only',    no: '③', label: '一括のみ',         desc: '前受金で完結・立替実費なし', hasKakutei: false, hasExpense: false },
+// finalInvoiceLabel … 後日の請求書ボタン名（null=③はなし）。②は前受金＝報酬なので確定請求書は実質「立替のみ」。
+// hasExpense … 立替実費セクションの要否（①②あり/③なし）。lumpNote … 一括の補足チップ（①はなし）。
+export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: string; desc: string; finalInvoiceLabel: string | null; finalLegLabel: string; hasExpense: boolean; lumpNote: string | null }[] = [
+  { value: 'staged',       no: '①', label: '段階請求（通常）', desc: '前受金 → 確定請求 → 立替実費', finalInvoiceLabel: '確定請求書を作成（報酬＋立替）', finalLegLabel: '確定請求', hasExpense: true,  lumpNote: null },
+  { value: 'lump_expense', no: '②', label: '一括＋実費',       desc: '前受金で確定分も受領・立替実費は後日', finalInvoiceLabel: '立替実費の請求書を作成', finalLegLabel: '立替実費', hasExpense: true,  lumpNote: '報酬は前受金に含む（一括）' },
+  { value: 'lump_only',    no: '③', label: '一括のみ',         desc: '前受金で完結・立替実費なし', finalInvoiceLabel: null, finalLegLabel: '確定請求', hasExpense: false, lumpNote: '前受金で完結（確定請求・立替なし）' },
 ]
 export const billingPatternOf = (v: string | null | undefined) =>
   BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]

@@ -118,6 +118,23 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     })
   }, [caseData.id])
 
+  // 請求完了バッジ用：この案件の請求書（前受金／確定請求）の入金状況
+  const [invLegs, setInvLegs] = useState<{ advanceExists: boolean; advancePaid: boolean; finalExists: boolean; finalPaid: boolean } | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('invoices').select('invoice_type, status').eq('case_id', caseData.id).then(({ data }) => {
+      const rows = (data ?? []) as { invoice_type: string; status: string }[]
+      const adv = rows.filter(r => r.invoice_type === '前受金')
+      const fin = rows.filter(r => r.invoice_type === '確定請求')
+      setInvLegs({
+        advanceExists: adv.length > 0,
+        advancePaid: adv.some(r => r.status === '入金済'),
+        finalExists: fin.length > 0,
+        finalPaid: fin.some(r => r.status === '入金済'),
+      })
+    })
+  }, [caseData.id])
+
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = feeSubtotal + billingExpTotal - advanceTotal(caseData)
@@ -131,6 +148,19 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
   const totalRevenue = feeSubtotal + referralFeeTotal
 
+  // 請求完了判定：前受金が入金済＋（①②は確定/立替も入金済）。③は前受金のみで完了。
+  const reqFinal = pattern.finalInvoiceLabel != null
+  const anyInvoice = !!invLegs && (invLegs.advanceExists || invLegs.finalExists)
+  const billingComplete = !!invLegs && invLegs.advancePaid && (!reqFinal || invLegs.finalPaid)
+  // 請求ステータスの脚チップ（前受金／確定 or 立替）
+  const legChip = (label: string, exists: boolean, paid: boolean, na = false) => {
+    const cls = na || (!exists && !paid) ? 'bg-gray-50 text-gray-400 border-gray-200'
+      : paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : 'bg-amber-50 text-amber-700 border-amber-200'
+    const txt = na ? '対象外' : paid ? '入金済' : exists ? '請求済' : '未請求'
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cls}`}>{label}：{txt}</span>
+  }
+
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && (
@@ -139,9 +169,10 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             <div className="flex items-center gap-2">
               {!canBill && <span className="text-[11px] text-gray-400">受注（戻り受注含む）以降で発行できます</span>}
               <button type="button" disabled={!canBill} onClick={() => canBill && setAdvanceInvoiceOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
-              {pattern.hasKakutei
-                ? <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> 確定請求書を作成（報酬＋立替）</button>
-                : <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md" title="このパターンは前受金に確定分を含むため、確定請求書は発行しません">確定請求は前受金に含む（一括）</span>}
+              {pattern.finalInvoiceLabel && (
+                <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> {pattern.finalInvoiceLabel}</button>
+              )}
+              {pattern.lumpNote && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md" title="前受金に確定請求ぶんを含む一括パターンです">{pattern.lumpNote}</span>}
             </div>
           }
         />
@@ -171,6 +202,26 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 </button>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* 請求ステータス（案件としての請求完了をパターン別に判定） */}
+      {!orderSheetMode && invLegs && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12.5px] font-semibold text-gray-700">請求ステータス</span>
+            {billingComplete
+              ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />請求完了</span>
+              : anyInvoice
+                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">請求中</span>
+                : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-gray-50 text-gray-400 border border-gray-200">未請求</span>}
+            <span className="ml-auto flex items-center gap-1.5 flex-wrap">
+              {legChip('前受金', invLegs.advanceExists, invLegs.advancePaid)}
+              {reqFinal
+                ? legChip(pattern.finalLegLabel, invLegs.finalExists, invLegs.finalPaid)
+                : legChip('確定請求', false, false, true)}
+            </span>
           </div>
         </div>
       )}
