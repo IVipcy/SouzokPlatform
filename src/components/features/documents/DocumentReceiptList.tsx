@@ -76,14 +76,15 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1100 }}>
             <colgroup>
-              <col style={{ width: 100 }} />
-              <col style={{ width: 140 }} />
-              <col />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 180 }} />
-              <col style={{ width: 150 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 130 }} />
+              <col style={{ width: 84 }} />{/* 番号 */}
+              <col style={{ width: 148 }} />{/* 案件管理番号 */}
+              <col style={{ width: 76 }} />{/* 〒種類 */}
+              <col />{/* 差出人（可変） */}
+              <col />{/* 到着物（可変） */}
+              <col style={{ width: 60 }} />{/* 通数 */}
+              <col style={{ width: 124 }} />{/* ファイル */}
+              <col style={{ width: 112 }} />{/* W-Check */}
+              <col style={{ width: 120 }} />{/* 対応 */}
             </colgroup>
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
