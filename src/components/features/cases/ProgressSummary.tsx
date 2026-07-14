@@ -22,11 +22,13 @@ export function summaryStatusClass(status: string | null | undefined): string {
   }
 }
 
-export default function ProgressSummary({ caseId, scopeKey, title, showStatus = true }: {
+export default function ProgressSummary({ caseId, scopeKey, title, showStatus = true, onSaved }: {
   caseId: string
   scopeKey: string
   title: string
   showStatus?: boolean
+  // 状態・メモを保存したら親へ通知（相関図などをリロードなしで即反映するため）
+  onSaved?: (v: { status: string; body: string }) => void
 }) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
@@ -72,7 +74,7 @@ export default function ProgressSummary({ caseId, scopeKey, title, showStatus = 
     setStatus(s)
     const ok = await persist(body, s)
     if (!ok) setStatus(prev)
-    else showToast('状態を更新しました', 'success')
+    else { onSaved?.({ status: s, body }); showToast('状態を更新しました', 'success') }
   }
 
   // 本文（メモ）の保存。
@@ -80,7 +82,7 @@ export default function ProgressSummary({ caseId, scopeKey, title, showStatus = 
     setSaving(true)
     const ok = await persist(draft, status || '未着手')
     setSaving(false)
-    if (ok) { setBody(draft); setEditing(false) }
+    if (ok) { setBody(draft); setEditing(false); onSaved?.({ status: status || '未着手', body: draft }) }
   }
 
   return (

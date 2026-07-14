@@ -226,7 +226,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`} />
+            <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
+              onSaved={v => setStatuses(prev => ({ ...prev, [activePerson.trim()]: v }))} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）／全項目を直接編集（横スクロール）`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
