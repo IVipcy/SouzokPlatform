@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition, Fragment } from 'react'
 import Link from 'next/link'
 import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -36,6 +36,16 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
   return `${mm}${dd}/${String(seq).padStart(3, '0')}`
 }
 
+// 過去日分の日付見出し「7月10日（木）」。YYYY-MM-DD を素直に分解（TZずれ回避のため new Date しない）
+const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土']
+function formatReceiptDateHeader(ymd: string): string {
+  if (!ymd || ymd.length < 10) return ymd || '日付不明'
+  const y = Number(ymd.slice(0, 4)), m = Number(ymd.slice(5, 7)), d = Number(ymd.slice(8, 10))
+  // 曜日は UTC 正午基準で算出（ローカルTZに依存しない）
+  const wd = WEEKDAY_JA[new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay()]
+  return `${m}月${d}日（${wd}）`
+}
+
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
   const canManage = useIsManager()  // 受信確定(W-Check)・タスク紐づけ等は管理担当のみ
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
@@ -48,6 +58,14 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
   const pastReceipts = receipts
     .filter(r => (r.received_date ?? '') < today)
     .sort((a, b) => (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no))
+  // 到着日ごとにグループ化（見出しで「何月何日分」にすぐたどり着けるように）。pastReceipts は既に日付降順。
+  const pastGroups: { date: string; rows: typeof pastReceipts }[] = []
+  for (const r of pastReceipts) {
+    const d = r.received_date ?? ''
+    const last = pastGroups[pastGroups.length - 1]
+    if (last && last.date === d) last.rows.push(r)
+    else pastGroups.push({ date: d, rows: [r] })
+  }
 
   if (receipts.length === 0) {
     return (
@@ -100,18 +118,41 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               </tr>
             </thead>
             <tbody>
-              {list.map((r, i) => (
-                <ReceiptRow
-                  key={r.id}
-                  receipt={r}
-                  rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
-                  currentMemberId={currentMemberId}
-                  currentMember={currentMember}
-                  onChanged={onChanged}
-                  onStartRequest={setStartingReceipt}
-                  canManage={canManage}
-                />
-              ))}
+              {tab === 'past'
+                ? pastGroups.map(g => (
+                    <Fragment key={g.date}>
+                      <tr className="bg-brand-50/50 border-y border-brand-100">
+                        <td colSpan={9} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
+                          {formatReceiptDateHeader(g.date)}
+                          <span className="ml-2 font-normal text-gray-500">{g.rows.length}件</span>
+                        </td>
+                      </tr>
+                      {g.rows.map((r, i) => (
+                        <ReceiptRow
+                          key={r.id}
+                          receipt={r}
+                          rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
+                          currentMemberId={currentMemberId}
+                          currentMember={currentMember}
+                          onChanged={onChanged}
+                          onStartRequest={setStartingReceipt}
+                          canManage={canManage}
+                        />
+                      ))}
+                    </Fragment>
+                  ))
+                : list.map((r, i) => (
+                    <ReceiptRow
+                      key={r.id}
+                      receipt={r}
+                      rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
+                      currentMemberId={currentMemberId}
+                      currentMember={currentMember}
+                      onChanged={onChanged}
+                      onStartRequest={setStartingReceipt}
+                      canManage={canManage}
+                    />
+                  ))}
             </tbody>
           </table>
         </div>
