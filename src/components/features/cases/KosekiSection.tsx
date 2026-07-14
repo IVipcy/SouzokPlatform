@@ -11,7 +11,7 @@ import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
-import ProgressSummary, { summaryStatusClass, SUMMARY_STATUSES } from './ProgressSummary'
+import ProgressSummary from './ProgressSummary'
 import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import Modal from '@/components/ui/Modal'
@@ -42,14 +42,18 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
   const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
 
-  // 各請求の状態＋サマリー本文（scope=koseki_req_<id>）を読み込み、TOP表・取得状況図に反映
+  // 人ごとの進捗/結果（scope=koseki_person_<name>）を読み込み、取得状況図の枠色・ホバーに反映。
+  // 行ごとの状態は廃止（請求日・到着日で進み具合を表現し、要約は②進捗/結果カードで管理）。
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status, body').eq('case_id', caseId).like('scope_key', 'koseki_req_%')
+      const { data } = await supabase.from('progress_summaries').select('scope_key, status, body').eq('case_id', caseId).like('scope_key', 'koseki_person_%')
       if (!alive || !data) return
       const map: Record<string, { status: string; body: string }> = {}
-      for (const d of data as { scope_key: string; status: string | null; body: string | null }[]) map[d.scope_key.replace('koseki_req_', '')] = { status: d.status ?? '未着手', body: d.body ?? '' }
+      for (const d of data as { scope_key: string; status: string | null; body: string | null }[]) {
+        const key = d.scope_key.replace('koseki_person_', '')
+        map[key === 'unset' ? '' : key] = { status: d.status ?? '未着手', body: d.body ?? '' }
+      }
       setStatuses(map)
     })()
     return () => { alive = false }
@@ -62,18 +66,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const saveMany = async (id: string, patch: Partial<KosekiRequestRow>) => {
     const { error } = await supabase.from('koseki_requests').update(patch).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
-  }
-
-  // 行の状態（scope=koseki_req_<id>）をインラインで即保存（楽観的更新）。
-  const saveStatus = async (id: string, s: string) => {
-    const prev = statuses[id]?.status ?? '未着手'
-    if (s === prev) return
-    setStatuses(m => ({ ...m, [id]: { status: s, body: m[id]?.body ?? '' } }))
-    const { error } = await supabase.from('progress_summaries').upsert(
-      { case_id: caseId, scope_key: `koseki_req_${id}`, status: s, body: statuses[id]?.body ?? '', updated_by: memberId, updated_at: new Date().toISOString() },
-      { onConflict: 'case_id,scope_key' },
-    )
-    if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); setStatuses(m => ({ ...m, [id]: { status: prev, body: m[id]?.body ?? '' } })) }
   }
 
   // 戸籍の追加は1本に統一。needsApproval=true（予定外の追加）なら管理担当の承認待ち＋通知。
@@ -121,20 +113,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
-  // 人（被相続人＋相続人）ごとの戸籍取得状況。請求が無ければ未着手。
-  const reqsForName = (name: string) => requests.filter(r => (r.target_person ?? '').trim() === name.trim())
-  const statusForName = (name: string) => {
-    const sts = reqsForName(name).map(r => statuses[r.id]?.status ?? '未着手')
-    if (!sts.length) return '未着手'
-    if (sts.some(s => s === '追加調査中')) return '追加調査中'
-    if (sts.every(s => s === '完了')) return '完了'
-    if (sts.some(s => s === '対応中')) return '対応中'
-    return '未着手'
-  }
-  const bodyForName = (name: string) => {
-    for (const r of reqsForName(name)) { const b = statuses[r.id]?.body; if (b && b.trim()) return b.trim() }
-    return ''
-  }
+  // 人ごとの状態＝②進捗/結果カード（koseki_person_<name>）から取得。
+  const statusForName = (name: string) => statuses[name.trim()]?.status ?? '未着手'
+  const bodyForName = (name: string) => statuses[name.trim()]?.body ?? ''
   // 取得状況リスト：被相続人＋相続人（続柄付き）
   const peopleRows = [
     { name: deceasedName ?? '', rel: '被相続人' },
@@ -207,12 +188,11 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                       <th className="px-2.5 py-2 text-left font-semibold w-20">請求日</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-20">到着日</th>
                       <th className="px-2.5 py-2 text-right font-semibold w-28">確定費用</th>
-                      <th className="px-2.5 py-2 text-left font-semibold w-24">状態</th>
                     </tr>
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
@@ -220,7 +200,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
-                        <td className="px-2.5 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${summaryStatusClass(statuses[r.id]?.status)}`}>{statuses[r.id]?.status ?? '未着手'}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -228,7 +207,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     <tr className="bg-gray-50 font-semibold text-gray-700">
                       <td className="px-2.5 py-2 text-right" colSpan={4}>確定費用 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confirmedTotal)}</td>
-                      <td />
                     </tr>
                   </tfoot>
                 </table>
@@ -255,7 +233,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この人の戸籍請求がありません。「戸籍を追加」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="text-[12px] border-collapse" style={{ minWidth: 1760, width: 'max-content' }}>
+                  <table className="text-[12px] border-collapse" style={{ minWidth: 1660, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                         <th className="px-2 py-2 text-left font-semibold w-40">請求先（役所）</th>
@@ -268,17 +246,16 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <th className="px-2 py-2 text-right font-semibold w-24">費用予算</th>
                         <th className="px-2 py-2 text-right font-semibold w-20">返金</th>
                         <th className="px-2 py-2 text-right font-semibold w-24">確定費用</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">請求時DC</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">受信時DC</th>
-                        <th className="px-2 py-2 text-left font-semibold w-24">状態</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">請求時W-Check</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">受信時W-Check</th>
                         <th className="px-2 py-2 text-left font-semibold w-36">特記</th>
                         <th className="px-2 py-2 w-8" />
                       </tr>
                     </thead>
                     <tbody>
                       {personRequests.map((r, i) => (
-                        <KosekiRow key={r.id} r={r} i={i} me={me} isManager={isManager} status={statuses[r.id]?.status ?? '未着手'}
-                          saveField={saveField} saveMany={saveMany} saveStatus={saveStatus}
+                        <KosekiRow key={r.id} r={r} i={i} me={me} isManager={isManager}
+                          saveField={saveField} saveMany={saveMany}
                           approve={() => approveAdditional(r)} onDelete={() => delRequest(r)} />
                       ))}
                     </tbody>
@@ -336,15 +313,13 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, isManager, status, saveField, saveMany, saveStatus, approve, onDelete }: {
+function KosekiRow({ r, i, me, isManager, saveField, saveMany, approve, onDelete }: {
   r: KosekiRequestRow
   i: number
   me: string
   isManager: boolean
-  status: string
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
-  saveStatus: (id: string, s: string) => Promise<void>
   approve: () => void
   onDelete: () => void
 }) {
@@ -352,7 +327,7 @@ function KosekiRow({ r, i, me, isManager, status, saveField, saveMany, saveStatu
   if (r.is_additional && !r.additional_approved_at) {
     return (
       <tr className="border-b border-gray-100 last:border-b-0">
-        <td colSpan={15} className="p-0">
+        <td colSpan={14} className="p-0">
           <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-50 border-l-[3px] border-amber-400">
             <Lock className="w-4 h-4 flex-none text-amber-600" />
             <span className="flex-1 text-[12px] text-amber-800"><strong className="font-semibold">{r.request_to || '役所未定'}（追加・要承認）</strong> — 管理担当の承認待ち。理由「{r.additional_reason || '—'}」。承認後にこの行で各項目を編集できます。</span>
@@ -392,11 +367,6 @@ function KosekiRow({ r, i, me, isManager, status, saveField, saveMany, saveStatu
           <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} onSet={(n, a) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a })} /></td>
         </>
       )}
-      <td className="px-2 py-1.5">
-        <select value={status} onChange={e => saveStatus(r.id, e.target.value)} className={`w-full px-1 py-1 text-[11px] font-semibold rounded-full border outline-none ${summaryStatusClass(status)}`}>
-          {SUMMARY_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </td>
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>
       <td className="px-2 py-1.5 text-center"><button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></td>
     </tr>

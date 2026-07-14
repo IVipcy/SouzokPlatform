@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, Fragment } from 'react'
-import { Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
-import { CostBlock, DoubleCheck } from './CostAndCheck'
+import { useState, useEffect } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -13,7 +13,10 @@ import RelatedTaskChips from './RelatedTaskChips'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import SelectOrTextField from './SelectOrTextField'
+import { MoneyCell, DcCell } from './PracticeTableCells'
 import { municipalityOf } from './RealEstateSection'
+
+const yen = (n: number | null | undefined) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 
 type Props = {
   caseId: string
@@ -44,11 +47,14 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  */
 export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter }: Props) {
   const supabase = createClient()
+  const authUser = useAuth()
+  const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // W-Check（自分以外）の記録者
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
-  const [expanded, setExpanded] = useState<string | null>(null)
   const costMode = scope === 'property' ? 'confirmedOnly' : 'full'  // 物件取得=印紙(確定のみ)、市区町村請求=小為替(予算/返金/確定)
+  const fullCost = costMode === 'full'
+  const confirmedOf = (r: RealEstateAcquisitionRow) => fullCost ? (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : r.cost_confirmed) : r.cost_confirmed
 
   const saveMany = async (id: string, patch: Partial<RealEstateAcquisitionRow>) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } as RealEstateAcquisitionRow : r)))
@@ -119,15 +125,19 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       {/* 契約時に受領済の不動産関係書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1100 : 720 }}>
+        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1760 : 1560) : 720, width: progressMode ? 'max-content' : '100%' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {progressMode && <th className="px-1 py-2 w-7" />}
               <th className="px-2.5 py-2 text-left font-semibold w-32">取得物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">対象</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">請求先</th>
-              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>}
-              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
+              {progressMode && fullCost && <th className="px-2.5 py-2 text-right font-semibold w-24">費用予算</th>}
+              {progressMode && fullCost && <th className="px-2.5 py-2 text-right font-semibold w-20">返金</th>}
+              {progressMode && <th className="px-2.5 py-2 text-right font-semibold w-24">確定費用</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">請求時W-Check</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-32">受信時W-Check</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
               {progressMode && <th className="px-2.5 py-2 text-center font-semibold w-16">受領</th>}
               <th className="px-2.5 py-2 w-8" />
@@ -135,21 +145,13 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 9 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={progressMode ? (fullCost ? 13 : 11) : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : visibleRows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
               const isProp = meta?.target === '物件'
               return (
-                <Fragment key={r.id}>
-                <tr className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  {progressMode && (
-                    <td className="px-1 py-1.5 text-center">
-                      <button type="button" onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="text-gray-400 hover:text-brand-600" title="費用・ダブルチェック">
-                        {expanded === r.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </button>
-                    </td>
-                  )}
+                <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-1.5">
                     {/* プリセットから選択／自由入力に切替（所有者事項以外の任意書類など） */}
                     <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
@@ -171,6 +173,17 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   </td>
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) save(r.id, 'request_date', e.target.value || null) }} className={dateCls} />}</td>}
                   {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
+                  {progressMode && fullCost && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />}</td>}
+                  {progressMode && fullCost && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} />}</td>}
+                  {progressMode && (
+                    <td className="px-2.5 py-1.5 text-right">
+                      {isRef ? <span className="text-gray-300 text-[11px]">—</span>
+                        : fullCost ? <span className="inline-block px-2 py-1 rounded text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">{yen(confirmedOf(r))}</span>
+                          : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
+                    </td>
+                  )}
+                  {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <DcCell name={r.request_check_name} at={r.request_check_at} me={me} onSet={(n, a) => saveMany(r.id, { request_check_name: n, request_check_at: a })} />}</td>}
+                  {progressMode && <td className="px-2.5 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} onSet={(n, a) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a })} />}</td>}
                   {progressMode && (
                     <td className="px-2.5 py-1.5">
                       <div className="flex flex-col gap-1 items-start">
@@ -193,21 +206,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     <button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
-                {progressMode && expanded === r.id && (
-                  <tr className="border-b border-gray-100 bg-gray-50/40">
-                    <td colSpan={9} className="px-4 py-3 space-y-2.5">
-                      <CostBlock budget={r.cost_budget} refund={r.cost_refund} confirmed={r.cost_confirmed} mode={costMode}
-                        onSave={(field, v) => saveMany(r.id, { [field]: v === '' ? null : Number(v) })} />
-                      <div className="flex gap-2.5 flex-wrap">
-                        <DoubleCheck label="請求時ダブルチェック（自分以外）" name={r.request_check_name} at={r.request_check_at}
-                          onSet={(name, at) => saveMany(r.id, { request_check_name: name, request_check_at: at })} />
-                        <DoubleCheck label="受信時ダブルチェック（自分以外）" name={r.receipt_check_name} at={r.receipt_check_at}
-                          onSet={(name, at) => saveMany(r.id, { receipt_check_name: name, receipt_check_at: at })} />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                </Fragment>
               )
             })}
           </tbody>
