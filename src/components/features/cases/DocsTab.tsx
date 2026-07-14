@@ -14,6 +14,7 @@ import CaseFolderSection from './CaseFolderSection'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isItemNotRequired } from '@/lib/receiptLink'
+import { READY_REASON_DOC } from '@/lib/taskReadiness'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import type { CaseRow, CaseDocumentRow, TaskRow, ContractDocumentRow, CaseFileRow, DocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -267,11 +268,12 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
               </colgroup>
               <thead>
                 <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                  <th className="px-3 py-2 text-left font-semibold">到着物</th>
-                  <th className="px-3 py-2 text-left font-semibold">受領日</th>
-                  <th className="px-3 py-2 text-left font-semibold">アップ状況</th>
-                  <th className="px-3 py-2 text-left font-semibold">紐づきタスク</th>
-                  <th className="px-3 py-2 text-center font-semibold">操作</th>
+                  <th className="px-3 py-2 text-left font-semibold w-44">到着物</th>
+                  <th className="px-3 py-2 text-left font-semibold w-24">受領日</th>
+                  <th className="px-3 py-2 text-left font-semibold w-24">アップ状況</th>
+                  <th className="px-3 py-2 text-left font-semibold">着手可能タスク<span className="block text-[10px] font-normal text-gray-400">紐づけ＝着手可能に</span></th>
+                  <th className="px-3 py-2 text-left font-semibold w-28" title="ONにすると、遺産承継の精算書や立替実費の精算に費目として反映できます（金額は精算書タブで入力）">精算<span className="block text-[10px] font-normal text-gray-400">費目に反映</span></th>
+                  <th className="px-3 py-2 text-center font-semibold w-28">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -312,18 +314,32 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                         <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 italic">未紐づけ</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    {/* 精算（費目に反映）：遺産承継の精算書や立替実費の精算に費目として反映（金額は精算書タブで入力） */}
+                    <td className="px-3 py-2">
                       {!isManager ? (
-                        <span className="text-[11px] text-gray-300" title="到着物の紐づけは管理担当のみ">—</span>
+                        <span className="text-[11px] text-gray-300">—</span>
+                      ) : row.settlementReflect ? (
+                        <button type="button" onClick={() => setSettlement(row.realItemId, false)} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-md" title="精算反映を解除">
+                          <Check className="w-3 h-3" strokeWidth={2.5} />反映中
+                        </button>
                       ) : (
-                      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                        <button type="button" onClick={() => setSettlement(row.realItemId, true)} disabled={!row.realItemId} className="px-2 py-1 text-[11px] font-medium text-gray-500 border border-gray-200 hover:text-emerald-700 hover:bg-emerald-50 rounded-md disabled:opacity-50" title="遺産承継の精算書や立替実費の精算に費目として反映（金額は精算書タブで入力）">
+                          精算に反映
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {!isManager ? (
+                        <span className="text-[11px] text-gray-300 block text-center" title="到着物の紐づけは管理担当のみ">—</span>
+                      ) : (
+                      <div className="flex flex-col items-stretch gap-1">
                         <button
                           type="button"
                           onClick={() => setLinkingItem(row)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded-md"
-                          title="この到着物にタスクを紐付ける"
+                          className="inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded-md"
+                          title="この到着物にタスクを紐づけて着手可能にする"
                         >
-                          <Plus className="w-3 h-3" strokeWidth={2.5} />紐付け
+                          <Plus className="w-3 h-3" strokeWidth={2.5} />紐づけ
                         </button>
                         {row.linkedTasks.length === 0 && (
                           row.notRequired ? (
@@ -331,7 +347,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                               type="button"
                               onClick={() => setNotRequired(row.realItemId, false)}
                               disabled={!row.realItemId}
-                              className="px-2 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 rounded-md disabled:opacity-50"
+                              className="px-2 py-0.5 text-[10.5px] font-medium text-gray-500 hover:bg-gray-100 rounded disabled:opacity-50"
                               title="タスク紐づけが必要なものに戻す"
                             >
                               必要に戻す
@@ -341,22 +357,12 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                               type="button"
                               onClick={() => setNotRequired(row.realItemId, true)}
                               disabled={!row.realItemId}
-                              className="px-2 py-1 text-[11px] font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50"
+                              className="px-2 py-0.5 text-[10.5px] font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded disabled:opacity-50"
                               title="タスク紐づけ不要にする（未紐づけの催促を消す）"
                             >
                               紐づけ不要
                             </button>
                           )
-                        )}
-                        {/* 精算書（代理支払）へ反映のON/OFFのみ。金額は精算書タブで入力する。 */}
-                        {row.settlementReflect ? (
-                          <button type="button" onClick={() => setSettlement(row.realItemId, false)} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-md" title="精算反映を解除（金額は精算書タブで入力）">
-                            <Check className="w-3 h-3" strokeWidth={2.5} />精算反映
-                          </button>
-                        ) : (
-                          <button type="button" onClick={() => setSettlement(row.realItemId, true)} disabled={!row.realItemId} className="px-2 py-1 text-[11px] font-medium text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md disabled:opacity-50" title="精算書（代理支払）に反映する。金額は精算書タブで入力">
-                            精算反映
-                          </button>
                         )}
                       </div>
                       )}
@@ -408,6 +414,7 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
   const [, startTransition] = useTransition()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [newTitle, setNewTitle] = useState('')
+  const [makeReady, setMakeReady] = useState(true)  // 紐づけ＝着手可能にする（既定ON）
   const [saving, setSaving] = useState(false)
   const linkedIds = new Set(item.linkedTasks.map(t => t.id))
   // 紐付け候補は未完了のみ（完了・キャンセルは出さない）。受注/管理担当の初期対応タスクも対象外。
@@ -448,7 +455,19 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
         if (error) throw error
       }
 
-      showToast(`${totalToLink} 件のタスクに紐付けました`, 'success')
+      // 「着手可能にする」＝紐づけた着手前タスクに着手OK旗（必要書類受領済）を立てる。
+      if (makeReady && linkRows.length > 0) {
+        const linkedTaskIds = [...new Set(linkRows.map(r => r.task_id))]
+        const { data: rows } = await supabase.from('tasks').select('id, status, ext_data').in('id', linkedTaskIds)
+        for (const row of (rows ?? []) as { id: string; status: string; ext_data: Record<string, unknown> | null }[]) {
+          if (row.status !== '着手前') continue
+          const ext = (row.ext_data ?? {}) as Record<string, unknown>
+          const next = { ...ext, ready_reason: READY_REASON_DOC, ready_on_receipt: false, ready_wait_note: null }
+          await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
+        }
+      }
+
+      showToast(makeReady ? `${totalToLink} 件を着手可能にして紐づけました` : `${totalToLink} 件のタスクに紐づけました`, 'success')
       startTransition(() => router.refresh())
       onClose()
     } catch (e) {
@@ -479,13 +498,13 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
     <Modal
       isOpen
       onClose={onClose}
-      title={`タスクを紐付け: ${item.itemName}`}
+      title={`着手可能なタスクの紐づけ: ${item.itemName}`}
       maxWidth="max-w-lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={handleConfirm} loading={saving} disabled={totalToLink === 0}>
-            {totalToLink > 0 ? `紐付ける (${totalToLink})` : '対象を選んでください'}
+            {totalToLink > 0 ? (makeReady ? `着手可能にして紐づける (${totalToLink})` : `紐づける (${totalToLink})`) : '対象を選んでください'}
           </Button>
         </>
       }
@@ -496,6 +515,15 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
           <span className="font-semibold text-brand-900">{item.itemName}</span>
           <span className="font-mono text-brand-700">{item.receivedDate ?? '受領日未設定'}</span>
         </div>
+
+        {/* 着手可能にする（主役）。紐づけの本来の目的＝紐づけたタスクを着手OKに。 */}
+        <label className={`flex items-start gap-2.5 rounded-lg px-3 py-2.5 cursor-pointer border-2 transition-colors ${makeReady ? 'bg-emerald-50 border-emerald-300' : 'bg-gray-50 border-gray-200'}`}>
+          <input type="checkbox" checked={makeReady} onChange={e => setMakeReady(e.target.checked)} className="w-4 h-4 mt-0.5 accent-emerald-600" />
+          <span className="flex-1">
+            <span className={`block text-[13px] font-semibold ${makeReady ? 'text-emerald-800' : 'text-gray-700'}`}>紐づけたタスクを着手可能にする</span>
+            <span className="block text-[11px] text-gray-500 mt-0.5 leading-relaxed">この到着物が届いたので、紐づけたタスクに<strong className="font-semibold">着手できる（着手OK）</strong>ようにします。＝紐づけの本来の目的。（着手前のタスクのみ）</span>
+          </span>
+        </label>
 
         {/* 既存の紐付き */}
         {item.linkedTasks.length > 0 && (
@@ -517,7 +545,7 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
 
         {/* 既存タスクから選択 */}
         <div>
-          <div className="text-[11px] font-semibold text-gray-500 mb-1.5">既存タスクから選ぶ</div>
+          <div className="text-[11px] font-semibold text-gray-500 mb-1.5">着手可能にするタスクを選ぶ</div>
           {candidates.length === 0 ? (
             <p className="text-[11px] text-gray-400">紐付け候補のタスクがありません</p>
           ) : (
