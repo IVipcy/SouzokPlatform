@@ -27,22 +27,9 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   useEffect(() => { setRows(financialAssets) }, [financialAssets])
   const [sub, setSub] = useState('top')
-  const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   const institutions = [...new Set(rows.map(r => (r.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = rows.some(r => !(r.institution_name ?? '').trim())
-
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', 'cancellation_%')
-      if (!alive || !data) return
-      const map: Record<string, string> = {}
-      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace('cancellation_', '')] = d.status ?? '未着手'
-      setStatuses(map)
-    })()
-    return () => { alive = false }
-  }, [caseId, supabase, rows.length])
 
   const save = async (id: string, field: keyof FinancialAssetRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -56,8 +43,8 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
   const instReceived = (inst: string) => instRows(inst).some(r => !!r.cancellation_arrival_date)
   const items = [
     { key: 'top', label: '一覧（TOP）' },
-    ...institutions.map(i => ({ key: i, label: i, status: statuses[i], received: instReceived(i) })),
-    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', status: statuses[''], received: rows.some(r => !(r.institution_name ?? '').trim() && !!r.cancellation_arrival_date) }] : []),
+    ...institutions.map(i => ({ key: i, label: i, received: instReceived(i) })),
+    ...(hasUnset ? [{ key: '__unset__', label: '機関名 未設定', received: rows.some(r => !(r.institution_name ?? '').trim() && !!r.cancellation_arrival_date) }] : []),
   ]
   const activeInst = sub === '__unset__' ? '' : sub
 

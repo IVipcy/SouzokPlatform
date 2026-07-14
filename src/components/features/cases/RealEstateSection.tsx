@@ -4,7 +4,7 @@
 // TOP（一覧）＝各市区町村タブの物件を集計（確定済バッジ）。財産目録へ反映されるのは確定済のみ。
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Check, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -41,23 +41,10 @@ export function municipalityOf(p: { municipality: string | null; address: string
 export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState('top')
-  const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !municipalityOf(p))
-
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', 'asset_re_%')
-      if (!alive || !data) return
-      const map: Record<string, string> = {}
-      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace('asset_re_', '')] = d.status ?? '未着手'
-      setStatuses(map)
-    })()
-    return () => { alive = false }
-  }, [caseId, supabase, properties.length])
 
   const tabs = [
     { key: 'top', label: '一覧' },
@@ -71,8 +58,8 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   ))
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
-    ...munis.map(m => ({ key: m, label: m, status: statuses[m], received: muniReceived(m) })),
-    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', status: statuses['unset'], received: muniReceived('') }] : []),
+    ...munis.map(m => ({ key: m, label: m, received: muniReceived(m) })),
+    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', received: muniReceived('') }] : []),
   ]
 
   // 「＋市区町村」：名称を受け取り、その市区町村の空物件を1件作成 → タブが増える

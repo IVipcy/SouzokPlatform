@@ -37,24 +37,24 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const memberId = useCurrentMember(null)
   const [sub, setSub] = useState('top')            // 'top' | 対象者(人) | '__unset__'
   const [addOpen, setAddOpen] = useState(false)
-  const [statuses, setStatuses] = useState<Record<string, { status: string; body: string }>>({})
+  const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
 
   const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
 
-  // 人ごとの進捗/結果（scope=koseki_person_<name>）を読み込み、取得状況図の枠色・ホバーに反映。
-  // 行ごとの状態は廃止（請求日・到着日で進み具合を表現し、要約は②進捗/結果カードで管理）。
+  // 人ごとの進捗/結果メモ（scope=koseki_person_<name>）を読み込み、相関図ホバーに反映。
+  // 状態は廃止し請求日/到着日から自動判定。②カードはメモ専用。
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status, body').eq('case_id', caseId).like('scope_key', 'koseki_person_%')
+      const { data } = await supabase.from('progress_summaries').select('scope_key, body').eq('case_id', caseId).like('scope_key', 'koseki_person_%')
       if (!alive || !data) return
-      const map: Record<string, { status: string; body: string }> = {}
-      for (const d of data as { scope_key: string; status: string | null; body: string | null }[]) {
+      const map: Record<string, string> = {}
+      for (const d of data as { scope_key: string; body: string | null }[]) {
         const key = d.scope_key.replace('koseki_person_', '')
-        map[key === 'unset' ? '' : key] = { status: d.status ?? '未着手', body: d.body ?? '' }
+        map[key === 'unset' ? '' : key] = d.body ?? ''
       }
-      setStatuses(map)
+      setMemoByName(map)
     })()
     return () => { alive = false }
   }, [caseId, supabase, requests.length])
@@ -113,9 +113,19 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
-  // 人ごとの状態＝②進捗/結果カード（koseki_person_<name>）から取得。
-  const statusForName = (name: string) => statuses[name.trim()]?.status ?? '未着手'
-  const bodyForName = (name: string) => statuses[name.trim()]?.body ?? ''
+  // 人ごとの状態は戸籍請求の実績（請求日/到着日）から自動判定。②はメモ専用（手動状態は廃止）。
+  // 全て到着＝完了 / 1件でも請求or到着あり＝対応中 / それ以外＝未着手（依頼者取得のみの人は依頼者取得分で判定）。
+  const statusForName = (name: string) => {
+    const reqs = requests.filter(r => (r.target_person ?? '').trim() === name.trim())
+    if (!reqs.length) return '未着手'
+    const rel = reqs.filter(r => r.acquirer !== '依頼者')
+    const use = rel.length ? rel : reqs
+    if (use.every(r => !!r.arrival_date)) return '完了'
+    if (use.some(r => !!r.request_date || !!r.arrival_date)) return '対応中'
+    return '未着手'
+  }
+  // 相関図ホバー用のメモは②進捗/結果カード（koseki_person_<name>）から取得。
+  const bodyForName = (name: string) => memoByName[name.trim()] ?? ''
   // 取得状況リスト：被相続人＋相続人（続柄付き）
   const peopleRows = [
     { name: deceasedName ?? '', rel: '被相続人' },
@@ -227,7 +237,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
         ) : (
           <div className="space-y-3.5">
             <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
-              onSaved={v => setStatuses(prev => ({ ...prev, [activePerson.trim()]: v }))} />
+              onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）／全項目を直接編集（横スクロール）`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (

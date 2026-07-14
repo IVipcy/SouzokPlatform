@@ -3,7 +3,7 @@
 // 相続登記（実務）：市区町村単位の左レール＋カード。TOP＝物件別の登記状況。
 // 物件は財産調査(real_estate_properties)を共有。確定費用＝登録免許税＋申請時ダブルチェック。
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -26,22 +26,9 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
   const authUser = useAuth()
   const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // 申請時DBチェックの記録者
   const [sub, setSub] = useState('top')
-  const [statuses, setStatuses] = useState<Record<string, string>>({})
 
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !municipalityOf(p))
-
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      const { data } = await supabase.from('progress_summaries').select('scope_key, status').eq('case_id', caseId).like('scope_key', 'registration_%')
-      if (!alive || !data) return
-      const map: Record<string, string> = {}
-      for (const d of data as { scope_key: string; status: string | null }[]) map[d.scope_key.replace('registration_', '')] = d.status ?? '未着手'
-      setStatuses(map)
-    })()
-    return () => { alive = false }
-  }, [caseId, supabase, properties.length])
 
   const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
     const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
@@ -55,8 +42,8 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
   const muniProps = (m: string) => properties.filter(p => municipalityOf(p) === m)
   const items = [
     { key: 'top', label: '一覧（TOP）' },
-    ...munis.map(m => ({ key: m, label: m, status: statuses[m] })),
-    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', status: statuses[''] }] : []),
+    ...munis.map(m => ({ key: m, label: m })),
+    ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定' }] : []),
   ]
   const activeMuni = sub === '__unset__' ? '' : sub
   const costTotal = properties.reduce((s, p) => s + (p.registration_cost ?? 0), 0)

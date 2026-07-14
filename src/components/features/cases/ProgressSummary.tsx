@@ -22,13 +22,12 @@ export function summaryStatusClass(status: string | null | undefined): string {
   }
 }
 
-export default function ProgressSummary({ caseId, scopeKey, title, showStatus = true, onSaved }: {
+export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
   caseId: string
   scopeKey: string
   title: string
-  showStatus?: boolean
-  // 状態・メモを保存したら親へ通知（相関図などをリロードなしで即反映するため）
-  onSaved?: (v: { status: string; body: string }) => void
+  // メモを保存したら親へ通知（相関図のホバー等をリロードなしで即反映するため）
+  onSaved?: (v: { body: string }) => void
 }) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
@@ -67,22 +66,12 @@ export default function ProgressSummary({ caseId, scopeKey, title, showStatus = 
     return true
   }
 
-  // 状態バッジをクリックしたら即保存（楽観的更新）。
-  const saveStatus = async (s: string) => {
-    if (s === (status || '未着手')) return
-    const prev = status
-    setStatus(s)
-    const ok = await persist(body, s)
-    if (!ok) setStatus(prev)
-    else { onSaved?.({ status: s, body }); showToast('状態を更新しました', 'success') }
-  }
-
-  // 本文（メモ）の保存。
+  // 本文（メモ）の保存。状態は廃止したため既存値をそのまま維持して保存する。
   const saveBody = async () => {
     setSaving(true)
     const ok = await persist(draft, status || '未着手')
     setSaving(false)
-    if (ok) { setBody(draft); setEditing(false); onSaved?.({ status: status || '未着手', body: draft }) }
+    if (ok) { setBody(draft); setEditing(false); onSaved?.({ body: draft }) }
   }
 
   return (
@@ -96,30 +85,6 @@ export default function ProgressSummary({ caseId, scopeKey, title, showStatus = 
           </button>
         )}
       </div>
-
-      {/* 状態：常にクリックできるボタン。クリックで即保存（選択中はリング＋チェックで明示）。 */}
-      {showStatus && (
-        <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <span className="text-[11px] text-gray-400 mr-0.5">状態（クリックで変更）</span>
-          {SUMMARY_STATUSES.map(s => {
-            const selected = (status || '未着手') === s
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => saveStatus(s)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
-                  selected
-                    ? `${summaryStatusClass(s)} ring-2 ring-brand-200`
-                    : 'text-gray-500 bg-white border-gray-200 hover:border-brand-300 hover:bg-brand-50'
-                }`}
-              >
-                {selected && <Check className="w-3 h-3" strokeWidth={2.5} />}{s}
-              </button>
-            )
-          })}
-        </div>
-      )}
 
       {editing ? (
         <div>
