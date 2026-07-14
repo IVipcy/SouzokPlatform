@@ -24,6 +24,9 @@ type ItemDraft = {
   otherMode: boolean  // 受信待ちに無い物を自由入力するモード（true=名称入力欄を表示）
 }
 
+// 郵送種別（〒の種類）。封筒＝1受信単位。
+export const POSTAL_TYPES = ['速達', '簡易書留', '赤レタパ', '青レタパ'] as const
+
 type Props = {
   isOpen: boolean
   onClose: () => void
@@ -48,6 +51,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
   const [caseQuery, setCaseQuery] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [receivedDate, setReceivedDate] = useState(todayYmd)
+  const [postalType, setPostalType] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   const [saving, setSaving] = useState(false)
@@ -59,6 +63,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setCaseQuery('')
     setSelectedCaseId(null)
     setReceivedDate(todayYmd)
+    setPostalType('')
     setItems([newItem()])
     setDeliverables([])
     setError('')
@@ -159,6 +164,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       .insert({
         case_id: selectedCaseId,
         received_date: receivedDate,
+        postal_type: postalType || null,
       })
       .select('id')
       .single()
@@ -176,7 +182,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       received_date: receivedDate,
       quantity: it.quantity ? Number(it.quantity) : 1,
       generated_by: 'receipt',
-      notes: it.received_from.trim() ? `受領先: ${it.received_from.trim()}` : null,
+      notes: it.received_from.trim() ? `差出人: ${it.received_from.trim()}` : null,
     }))
     const { data: createdDocs, error: docErr } = await supabase
       .from('case_documents')
@@ -315,15 +321,28 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
           )}
         </div>
 
-        {/* 到着日 */}
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1">到着日 <span className="text-red-500">*</span></label>
-          <input
-            type="date"
-            value={receivedDate}
-            onChange={e => setReceivedDate(e.target.value)}
-            className="w-48 px-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
-          />
+        {/* 到着日 ＋ 〒の種類（封筒単位） */}
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="block text-[12px] font-semibold text-gray-500 mb-1">到着日 <span className="text-red-500">*</span></label>
+            <input
+              type="date"
+              value={receivedDate}
+              onChange={e => setReceivedDate(e.target.value)}
+              className="w-48 px-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-gray-500 mb-1">〒の種類</label>
+            <select
+              value={postalType}
+              onChange={e => setPostalType(e.target.value)}
+              className="w-40 px-3 py-2 text-[13px] border border-gray-300 rounded-lg bg-white focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+            >
+              <option value="">選択…</option>
+              {POSTAL_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* 到着物（複数） */}
@@ -393,7 +412,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
                       type="text"
                       value={it.received_from}
                       onChange={e => updateItem(it.key, { received_from: e.target.value })}
-                      placeholder="受領先（例: 名古屋市区役所）"
+                      placeholder="差出人（例: 名古屋市区役所）"
                       className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                     />
                     <button

@@ -921,6 +921,7 @@ export type DocumentReceiptRow = {
   case_id: string
   received_date: string     // YYYY-MM-DD
   sequence_no: number       // 当日の連番
+  postal_type: string | null  // 郵送種別（〒の種類）: 速達/簡易書留/赤レタパ/青レタパ（migration 165）
   dual_check_member_id: string | null
   dual_checked_at: string | null
   started_by_member_id: string | null

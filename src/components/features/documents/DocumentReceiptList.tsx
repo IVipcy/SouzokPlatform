@@ -88,10 +88,11 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
                 <th className="px-2.5 py-2 text-left font-semibold">番号</th>
+                <th className="px-2.5 py-2 text-left font-semibold">〒種類</th>
+                <th className="px-2.5 py-2 text-left font-semibold">差出人</th>
                 <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
-                <th className="px-2.5 py-2 text-left font-semibold">受領先</th>
                 <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold">対応</th>
@@ -571,6 +572,8 @@ function ReceiptRow({
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
   const numberText = formatReceiptNumber(receipt.received_date, receipt.sequence_no)
+  // 差出人は封筒（受信）単位。通常1名だが、項目ごとに異なる場合は重複除去で並べる。
+  const senderText = [...new Set(items.map(i => (i.received_from ?? '').trim()).filter(Boolean))].join(' / ')
   const rowClass = rowBg
 
   const [, startTransition] = useTransition()
@@ -668,6 +671,20 @@ function ReceiptRow({
                 {numberText}
               </td>
             )}
+            {/* 〒種類（封筒単位・行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
+                {receipt.postal_type
+                  ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{receipt.postal_type}</span>
+                  : <span className="text-gray-300 text-[12px]">—</span>}
+              </td>
+            )}
+            {/* 差出人（封筒単位・行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle text-[12px] text-gray-700 border-r border-gray-100">
+                {senderText || <span className="text-gray-300">—</span>}
+              </td>
+            )}
             {/* 案件管理番号（行統合） */}
             {isFirst && (
               <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
@@ -687,7 +704,7 @@ function ReceiptRow({
               </td>
             )}
 
-            {/* 到着物 / 通数 / 受領先（各項目で1行ずつ） */}
+            {/* 到着物 / 通数（各項目で1行ずつ。差出人は封筒単位で上に集約） */}
             <td className="px-2.5 py-1.5 text-gray-800">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span>{it?.item_name ?? <span className="text-gray-300">-</span>}</span>
@@ -704,9 +721,6 @@ function ReceiptRow({
             </td>
             <td className="px-2.5 py-1.5 text-right font-mono text-gray-700">
               {it?.quantity != null ? `${it.quantity}通` : <span className="text-gray-300">-</span>}
-            </td>
-            <td className="px-2.5 py-1.5 text-gray-700">
-              {it?.received_from ?? <span className="text-gray-300">-</span>}
             </td>
 
             {/* ファイル：受信1件まとめて案件フォルダにアップ／開く（行統合） */}
