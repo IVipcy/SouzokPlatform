@@ -399,7 +399,7 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
             </select>
             {canReconcile && (
               <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
-                銀行CSV取込
+                入金突合
               </Button>
             )}
             {/* 請求書の発行は各案件の「請求」タブに一本化（ここでは作成しない） */}
@@ -712,6 +712,9 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
                           )}
                           {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
                             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-slate-100 text-slate-600" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
+                          )}
+                          {inv.needs_review && (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title={inv.review_reason ?? 'CSV突合で要確認になりました'}>要確認</span>
                           )}
                           {refundTotal > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-rose-50 text-rose-700" title={`返金 ¥${refundTotal.toLocaleString()}`}>

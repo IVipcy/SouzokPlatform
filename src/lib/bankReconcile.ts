@@ -175,6 +175,15 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
         ? `${d.toLocaleString()}円 超過（過払いの可能性）`
         : `${(-d).toLocaleString()}円 不足（過少入金の可能性）`
     }
+    // 名義人一致・金額相違の要確認理由（定型ルール文。差 ≤¥1,000 or ≤3% は手数料想定）。
+    const payerAmountReason = (invAmt: number) => {
+      const d = row.amount - invAmt
+      const small = Math.abs(d) <= 1000 || Math.abs(d) / invAmt <= 0.03
+      const dir = d < 0 ? `${(-d).toLocaleString()}円少ない` : `${d.toLocaleString()}円多い`
+      return small
+        ? `名義人一致・金額が${dir}（振込手数料の可能性）`
+        : `名義人一致・金額が${dir}（金額相違・要確認）`
+    }
 
     // 1) 案件番号一致 ＋ 金額一致 → 確定（AI）
     const byCaseNo = unpaid.filter(i => i.case_number && hayAlnum.includes(norm(i.case_number)))
@@ -201,14 +210,14 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     // 4) 振込人カナは一致するが金額が違う → 要確認（差額・過不足を明示。候補1件なら先に選択）
     if (kanaCands.length > 0) {
       if (kanaCands.length === 1) {
-        return { row, invoiceId: kanaCands[0].id, kind: 'review', by: 'human', reason: `振込人カナ一致・金額が${diffNote(kanaCands[0].amount)}`, candidates: kanaCands }
+        return { row, invoiceId: kanaCands[0].id, kind: 'review', by: 'human', reason: payerAmountReason(kanaCands[0].amount), candidates: kanaCands }
       }
       return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナは一致するが金額が違う。候補から選択', candidates: sortByKana(kanaCands) }
     }
-    // 5) 金額一致のみ（カナ未登録/不一致）→ 要確認（人がカナを確認）
+    // 5) 金額一致のみ（カナ未登録/不一致）→ 要確認（振込名義が相違＝代理入金の可能性）
     const amtMatches = unpaid.filter(amountEq)
     if (amtMatches.length === 1) {
-      return { row, invoiceId: amtMatches[0].id, kind: 'review', by: 'human', reason: '金額は一致（振込人カナを要確認）', candidates: amtMatches }
+      return { row, invoiceId: amtMatches[0].id, kind: 'review', by: 'human', reason: '金額一致・振込名義が相違（代理入金の可能性）', candidates: amtMatches }
     }
     if (amtMatches.length > 1) {
       return { row, invoiceId: null, kind: 'review', by: 'human', reason: '同額の請求が複数あります。選択してください', candidates: sortByKana(amtMatches) }

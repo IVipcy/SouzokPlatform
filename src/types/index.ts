@@ -488,10 +488,29 @@ export type InvoiceRow = {
   generated_file_path: string | null  // migration 113: 公式請求書Excelのパス（documentsバケット）
   overdue_notified_at: string | null   // migration 115: 未入金アラートを受注担当へ送信した日時
   receipt_issued_date: string | null   // migration 118: 領収書を発行（生成）した日
+  needs_review: boolean                 // migration 167: 入金待ち（要確認）＝CSV突合②③
+  review_reason: string | null          // migration 167: 要確認理由（定型ルール文をAI下書き→人が編集）
   created_at: string
   updated_at: string
   cases?: CaseRow
   payments?: PaymentRow[]
+}
+
+// 銀行CSV突合④：どの入金待ち請求にも突合できなかった入金（migration 168）
+export type UnmatchedDepositRow = {
+  id: string
+  payer_name: string | null
+  amount: number
+  deposit_date: string | null
+  memo: string | null
+  source_file: string | null
+  dedup_key: string | null
+  status: 'open' | 'linked' | 'dismissed'
+  linked_invoice_id: string | null
+  resolved_note: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
 }
 
 export type PaymentRow = {
