@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { getCaseStatusLabel, CASE_STATUSES } from '@/lib/constants'
+import { getCaseStatusLabel, CASE_STATUSES, billingPatternOf } from '@/lib/constants'
+import { createClient } from '@/lib/supabase/client'
 import { isMinimalMode } from '@/lib/featureMode'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
@@ -64,6 +65,22 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
   const salesId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   const managerId = caseMembers.find(cm => cm.role === 'manager')?.member_id ?? null
   const nameOf = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? null : null)
+
+  // 請求ステータス（パターン別に請求完了を判定）。前受金入金済＋（①②は確定/立替も入金済）で完了。
+  const billingPattern = billingPatternOf(caseData.billing_pattern)
+  const reqFinalInvoice = billingPattern.finalInvoiceLabel != null
+  const [billing, setBilling] = useState<{ complete: boolean; any: boolean } | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('invoices').select('invoice_type, status').eq('case_id', caseData.id).then(({ data }) => {
+      const rows = (data ?? []) as { invoice_type: string; status: string }[]
+      const adv = rows.filter(r => r.invoice_type === '前受金')
+      const fin = rows.filter(r => r.invoice_type === '確定請求')
+      const advPaid = adv.some(r => r.status === '入金済')
+      const finPaid = fin.some(r => r.status === '入金済')
+      setBilling({ complete: advPaid && (!reqFinalInvoice || finPaid), any: adv.length > 0 || fin.length > 0 })
+    })
+  }, [caseData.id, reqFinalInvoice])
 
   // ヘッダー付帯情報（手続き区分・相続税申告・被相続人・マイルストーン軸）の折りたたみ。
   // 既定は全表示。ユーザーが任意で畳める（PPTのリボン折りたたみのように、設定は端末に記憶）。
@@ -188,6 +205,25 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                       <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
                       {taxFiling ? 'あり' : 'なし'}
                     </button>
+                  </MetaRow>
+                )}
+
+                {/* 請求（パターン別の請求完了。相続税申告と同じ体裁） */}
+                {billing && (
+                  <MetaRow label="請求">
+                    {billing.complete ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />請求完了
+                      </span>
+                    ) : billing.any ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />請求中
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />未請求
+                      </span>
+                    )}
                   </MetaRow>
                 )}
 
