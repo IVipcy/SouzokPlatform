@@ -12,6 +12,7 @@ import { REGISTRATION_TYPES, REGISTRATION_CAUSES } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
 import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
+import { municipalityOf } from './RealEstateSection'
 import type { RealEstatePropertyRow } from '@/types'
 
 const collator = new Intl.Collator('ja')
@@ -27,8 +28,8 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
   const [sub, setSub] = useState('top')
   const [statuses, setStatuses] = useState<Record<string, string>>({})
 
-  const munis = [...new Set(properties.map(p => (p.municipality ?? '').trim()).filter(Boolean))].sort(collator.compare)
-  const hasUnset = properties.some(p => !(p.municipality ?? '').trim())
+  const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
+  const hasUnset = properties.some(p => !municipalityOf(p))
 
   useEffect(() => {
     let alive = true
@@ -51,7 +52,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
-  const muniProps = (m: string) => properties.filter(p => (p.municipality ?? '').trim() === m)
+  const muniProps = (m: string) => properties.filter(p => municipalityOf(p) === m)
   const items = [
     { key: 'top', label: '一覧（TOP）' },
     ...munis.map(m => ({ key: m, label: m, status: statuses[m] })),
@@ -83,8 +84,8 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                     {properties.length === 0 ? (
                       <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">財産調査タブで不動産を登録すると、ここで相続登記を管理できます。</td></tr>
                     ) : properties.map((p, i) => (
-                      <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((p.municipality ?? '').trim() || '__unset__')}>
-                        <td className="px-2.5 py-2 text-gray-700">{(p.municipality ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
+                      <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub(municipalityOf(p) || '__unset__')}>
+                        <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{p.registration_apply_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-right">{p.registration_cost != null ? `¥${Math.round(p.registration_cost).toLocaleString('ja-JP')}` : '—'}</td>
