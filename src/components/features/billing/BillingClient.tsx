@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -22,9 +22,9 @@ import { showToast } from '@/components/ui/Toast'
 import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import RefundListModal from './RefundListModal'
-import BillingRequestsPanel, { type BillingRequestRow } from './BillingRequestsPanel'
-import BulkConfirmRequestModal from './BulkConfirmRequestModal'
-import type { RequestInvoice } from './BillingRequestModal'
+import type { BillingRequestRow } from './BillingRequestsPanel'
+import BillingReviewList, { type ReviewInvoice, type ConfirmReq } from './BillingReviewList'
+import BillingRefundRequestsList from './BillingRefundRequestsList'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
 // 請求書に紐づく入金状況確認依頼（一覧表示用の軽量版）
@@ -259,10 +259,16 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     return out.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   }, [monthFilteredInvoices])
   const [refundListOpen, setRefundListOpen] = useState(false)
-  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
-  // 選択中の「要確認(needs_review)」請求 → まとめて確認依頼
-  const selectedReviewInvoices = invoices.filter(inv => bulkSelected.has(inv.id) && inv.needs_review)
-    .map<RequestInvoice>(inv => ({ id: inv.id, case_id: inv.case_id, amount: inv.amount, cases: inv.cases, payments: inv.payments }))
+
+  // 要確認ビュー用：needs_review の請求 ＋ 確認依頼(kind=confirm)を invoice_id で対応づけ
+  const reviewInvoices: ReviewInvoice[] = invoices.filter(i => i.needs_review).map(i => ({
+    id: i.id, case_id: i.case_id, amount: i.amount, review_reason: i.review_reason, billing_pattern: i.cases?.billing_pattern ?? 'staged',
+    caseNumber: i.cases?.case_number ?? '', dealName: i.cases?.deal_name ?? '',
+    members: (i.cases?.case_members ?? []).map(m => ({ role: m.role, member_id: m.member_id })),
+  }))
+  const confirmByInvoice = new Map<string, ConfirmReq>()
+  for (const r of requests) if (r.kind === 'confirm') confirmByInvoice.set(r.invoice_id, { id: r.id, status: r.status, request_note: r.request_note, result_note: r.result_note, resolution: r.resolution, requester_id: r.requester_id })
+  const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
 
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
@@ -273,17 +279,19 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       .filter(inv => inv.status === '入金待ち')
       .reduce((s, inv) => s + inv.amount - getPaidAmount(inv.payments), 0)
     const paid = src.filter(inv => inv.status === '入金済').length
-    // 要確認（CSV突合②③）は全期間で件数管理（月フィルタ非依存の処理待ちキュー）
+    // 要確認（CSV突合②③）・返金依頼は全期間で件数管理（月フィルタ非依存の処理待ちキュー）
     const review = invoices.filter(inv => inv.needs_review).length
+    const refundOpen = requests.filter(r => r.kind === 'refund' && r.status !== '完了').length
     return [
       { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(collection.total), sub: `${collection.count}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
       { key: '作成済',   label: '作成済',   Icon: AlertCircle as LucideIcon,   value: String(created),    sub: '請求書作成済', color: 'text-gray-700' },
       { key: '入金待ち', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
       { key: 'review',   label: '要確認',   Icon: AlertTriangle as LucideIcon, value: String(review),     sub: 'CSV突合②③', color: 'text-amber-700' },
+      { key: 'refund',   label: '返金依頼', Icon: Undo2 as LucideIcon,         value: String(refundOpen), sub: '経理の対応待ち', color: 'text-rose-600' },
       { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: fmt(collection.collected), color: 'text-green-600' },
     ]
-  }, [monthFilteredInvoices, invoices, collection])
+  }, [monthFilteredInvoices, invoices, collection, requests])
 
   // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける
   const firmSummary = useMemo(() => {
@@ -492,16 +500,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                 </button>
               )
             })}
-            {canReconcile && selectedReviewInvoices.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setBulkConfirmOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-50 rounded-md transition-colors"
-                title="選択した要確認の請求について、受注・管理担当へ確認依頼を出す"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />確認依頼（{selectedReviewInvoices.length}）
-              </button>
-            )}
             <span className="text-gray-300 mx-1">|</span>
             <button
               type="button"
@@ -525,7 +523,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       )}
 
       {/* KPI Cards（請求合計は入金済/未入金の内訳を出すため2枠ぶん） */}
-      <div className="grid grid-cols-3 lg:grid-cols-7 gap-3 mb-5">
+      <div className="grid grid-cols-3 lg:grid-cols-8 gap-3 mb-5">
         {kpis.map(kpi => {
           const ratio = collection.total > 0 ? Math.round((collection.collected / collection.total) * 100) : 0
           return (
@@ -608,20 +606,17 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       )}
       </>)}
 
-      {/* 経理の「確認・返金 依頼」パネル（確認依頼中・要返金の進行管理） */}
-      {canReconcile && <BillingRequestsPanel requests={requests} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />}
-
       {/* CSVのみ（システムに該当なし）の未処理入金。突合できなかった入金を後追いで紐付け／対象外に。 */}
       {canReconcile && <UnmatchedDepositsPanel deposits={deposits} invoices={invoices} onChanged={() => router.refresh()} />}
 
       <RefundListModal isOpen={refundListOpen} onClose={() => setRefundListOpen(false)} entries={refundEntries}
         periodLabel={monthOptions.find(o => o.value === monthFilter)?.label ?? '全期間'} />
 
-      {bulkConfirmOpen && (
-        <BulkConfirmRequestModal isOpen invoices={selectedReviewInvoices} currentMemberId={currentMemberId}
-          onClose={() => setBulkConfirmOpen(false)} onSaved={() => { setBulkConfirmOpen(false); clearBulkSelection(); router.refresh() }} />
-      )}
-
+      {statusFilter === 'review' ? (
+        <BillingReviewList invoices={reviewInvoices} confirmByInvoice={confirmByInvoice} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
+      ) : statusFilter === 'refund' ? (
+        <BillingRefundRequestsList refundReqs={refundReqs} refundEntries={refundEntries} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
+      ) : (
       <div>
         {/* Table */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-x-auto">
@@ -1009,6 +1004,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           )
         })()}
       </div>
+      )}
 
       {/* Create Invoice Modal */}
       <CreateInvoiceModal
