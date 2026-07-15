@@ -19,7 +19,7 @@ import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
-import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel } from '@/lib/constants'
+import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
@@ -134,11 +134,12 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
+    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
     { key: 'case', label: '案件名' },
+    { key: 'pattern', label: '請求パターン' },
     { key: 'route', label: '受注ルート' },
     { key: 'referral', label: '紹介元' },
     { key: 'type', label: '請求分類' },
@@ -230,11 +231,16 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
     })
   }, [invoices, caseFilter, statusFilter, search])
 
+  // 請求合計の内訳（発行済のみ）：総額・入金済（実受領）・未入金。入金済は amount 上限でクランプ。
+  const collection = useMemo(() => {
+    const issued = monthFilteredInvoices.filter(inv => inv.status !== '未請求')
+    const total = issued.reduce((s, inv) => s + inv.amount, 0)
+    const collected = issued.reduce((s, inv) => s + Math.min(inv.amount, getPaidAmount(inv.payments)), 0)
+    return { total, collected, outstanding: Math.max(0, total - collected), count: issued.length }
+  }, [monthFilteredInvoices])
+
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
-    // 「請求合計」は実発行された請求書のみ（未請求プレースホルダーは除外）
-    const issuedInvoices = src.filter(inv => inv.status !== '未請求')
-    const total = issuedInvoices.reduce((s, inv) => s + inv.amount, 0)
     const unpaid = src.filter(inv => inv.status === '未請求').length
     const created = src.filter(inv => inv.status === '作成済').length
     const waiting = src.filter(inv => inv.status === '入金待ち').length
@@ -245,14 +251,14 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
     // 要確認（CSV突合②③）は全期間で件数管理（月フィルタ非依存の処理待ちキュー）
     const review = invoices.filter(inv => inv.needs_review).length
     return [
-      { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${issuedInvoices.length}件発行済` },
+      { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(collection.total), sub: `${collection.count}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
       { key: '作成済',   label: '作成済',   Icon: AlertCircle as LucideIcon,   value: String(created),    sub: '請求書作成済', color: 'text-gray-700' },
       { key: '入金待ち', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
       { key: 'review',   label: '要確認',   Icon: AlertTriangle as LucideIcon, value: String(review),     sub: 'CSV突合②③', color: 'text-amber-700' },
-      { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '入金確定', color: 'text-green-600' },
+      { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: fmt(collection.collected), color: 'text-green-600' },
     ]
-  }, [monthFilteredInvoices, invoices])
+  }, [monthFilteredInvoices, invoices, collection])
 
   // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける
   const firmSummary = useMemo(() => {
@@ -483,13 +489,15 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        {kpis.map(kpi => (
+      {/* KPI Cards（請求合計は入金済/未入金の内訳を出すため2枠ぶん） */}
+      <div className="grid grid-cols-3 lg:grid-cols-7 gap-3 mb-5">
+        {kpis.map(kpi => {
+          const ratio = collection.total > 0 ? Math.round((collection.collected / collection.total) * 100) : 0
+          return (
           <button
             key={kpi.key}
             onClick={() => { if (kpi.key === 'all') { setShowFirmSummary(s => !s); setStatusFilter('all') } else setStatusFilter(kpi.key === statusFilter ? 'all' : kpi.key) }}
-            className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${
+            className={`bg-white border rounded-xl p-3.5 text-left transition shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md ${kpi.key === 'all' ? 'col-span-2' : ''} ${
               (kpi.key === 'all' ? showFirmSummary : statusFilter === kpi.key) ? 'border-brand-300 bg-brand-50 border-t-[3px] border-t-brand-500' : 'border-gray-200 border-t-[3px] border-t-transparent'
             }`}
           >
@@ -498,9 +506,23 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
               <kpi.Icon className="w-5 h-5 text-gray-400" strokeWidth={1.75} />
             </div>
             <div className={`text-[22px] font-extrabold tracking-tight leading-none ${kpi.color || ''}`}>{kpi.value}</div>
-            <div className="text-[12px] text-gray-400 mt-1">{kpi.key === 'all' ? `${kpi.sub}・クリックで行/司内訳` : kpi.sub}</div>
+            {kpi.key === 'all' ? (
+              <>
+                <div className="text-[11px] text-gray-400 mt-1">{kpi.sub}・クリックで行/司内訳</div>
+                <div className="mt-2 h-[6px] rounded-full bg-rose-100 overflow-hidden flex">
+                  <div className="bg-green-500 h-full" style={{ width: `${ratio}%` }} />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[11.5px]">
+                  <span className="text-green-700">● 入金済 <span className="font-mono font-semibold">{fmt(collection.collected)}</span></span>
+                  <span className="text-rose-600">● 未入金 <span className="font-mono font-semibold">{fmt(collection.outstanding)}</span></span>
+                </div>
+              </>
+            ) : (
+              <div className="text-[12px] text-gray-400 mt-1">{kpi.sub}</div>
+            )}
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {/* 行/司 別の集計（発行法人ごと）。請求合計KPIクリックで開閉 */}
@@ -676,6 +698,15 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
                             {deceasedName && <div className="text-[12px] text-gray-400 truncate">被相続人: {deceasedName}</div>}
                           </div>
                         )}
+                      </td>
+                      {/* 請求パターン */}
+                      <td className="px-3.5 py-2.5 overflow-hidden">
+                        {(() => {
+                          const p = billingPatternOf(inv.cases?.billing_pattern)
+                          const short = p.value === 'staged' ? '段階請求' : p.value === 'lump_expense' ? '一括＋実費' : '一括のみ'
+                          const cls = p.value === 'staged' ? 'bg-gray-50 text-gray-600 border-gray-200' : 'bg-brand-50 text-brand-700 border-brand-100'
+                          return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cls}`} title={p.desc}><span className="font-semibold">{p.no}</span>{short}</span>
+                        })()}
                       </td>
                       {/* 受注ルート */}
                       <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{inv.cases?.order_route || <span className="text-gray-300">—</span>}</td>
