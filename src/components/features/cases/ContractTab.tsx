@@ -233,8 +233,13 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
           onTotals={applyRewardTotals}
           advance={{ 司法: caseData.advance_payment_judicial, 行政: caseData.advance_payment_administrative }}
           onAdvanceChange={(shigyo, v) => save(shigyo === '司法' ? 'advance_payment_judicial' : 'advance_payment_administrative', v)}
+          hideAdvance={pattern.value !== 'staged'}
         />
-        <p className="text-[11px] text-gray-400 mt-2">各士業の「割引後」合計が確定報酬になり、前受金を差し引いた額が確定請求になります。</p>
+        <p className="text-[11px] text-gray-400 mt-2">
+          {pattern.value === 'staged'
+            ? '各士業の「割引後」合計が確定報酬になり、前受金を差し引いた額が確定請求になります。'
+            : '一括のため、各士業の「割引後」合計（確定報酬）をそのまま前受金として請求します。'}
+        </p>
       </Section>
 
       {/* 立替実費（司法/行政・課税/非課税）。③一括のみは立替実費の請求がない。 */}

@@ -11,6 +11,7 @@ import {
 import { type StampLaw } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
 import { advanceForFirm } from '@/lib/advancePayment'
+import { billingPatternOf } from '@/lib/constants'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -43,16 +44,22 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
     onClose()
   }
 
-  // 発行法人ぶんの金額をオーダーシートからプリセット（前受金=その法人の前受金／確定=その法人の報酬−前受金）。
-  const presetAmount = (firm: StampLaw): number => {
-    if (kakutei) {
-      let fee = firm === 'shiho' ? (caseData.fee_judicial ?? 0) : (caseData.fee_administrative ?? 0)
-      if (fee === 0 && (caseData.fee_administrative ?? 0) === 0 && (caseData.fee_judicial ?? 0) === 0) {
-        fee = caseData.fee_total ?? 0
-      }
-      return Math.max(0, fee - advanceForFirm(caseData, firm))
+  // 発行法人ぶんの確定報酬（割引後合計）。0のときは fee_total フォールバック。
+  const firmFee = (firm: StampLaw): number => {
+    let fee = firm === 'shiho' ? (caseData.fee_judicial ?? 0) : (caseData.fee_administrative ?? 0)
+    if (fee === 0 && (caseData.fee_administrative ?? 0) === 0 && (caseData.fee_judicial ?? 0) === 0) {
+      fee = caseData.fee_total ?? 0
     }
-    return advanceForFirm(caseData, firm)
+    return fee
+  }
+  const isLump = billingPatternOf(caseData.billing_pattern).value !== 'staged'  // ②③=一括（前受金＝確定分）
+
+  // 発行法人ぶんの金額をプリセット。
+  //   確定請求＝報酬−前受金 / 前受金（段階①）＝その法人の前受金 / 前受金（一括②③）＝確定報酬まるごと。
+  const presetAmount = (firm: StampLaw): number => {
+    if (kakutei) return Math.max(0, firmFee(firm) - advanceForFirm(caseData, firm))
+    if (isLump) return firmFee(firm)          // 一括：前受金請求書＝確定報酬そのもの
+    return advanceForFirm(caseData, firm)     // 段階：前受金欄の額
   }
 
   useEffect(() => {
