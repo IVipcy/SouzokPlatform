@@ -5,16 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 export async function autoClosePaymentChecks(invoiceId: string): Promise<void> {
   const supabase = createClient()
   const today = new Date().toISOString().slice(0, 10)
+  // 入金確定で、その請求の未完了の「確認依頼」を完了に（受注/管理の回答=result_note は残す）
   const { data, error } = await supabase
     .from('payment_check_requests')
-    .update({
-      status: '確認済',
-      confirmed_date: today,
-      auto_closed: true,
-      result_note: '入金が確定したため自動でクローズしました',
-    })
+    .update({ status: '完了', confirmed_date: today, auto_closed: true })
     .eq('invoice_id', invoiceId)
-    .eq('status', '依頼中')
+    .eq('kind', 'confirm')
+    .in('status', ['依頼中', '回答済'])
     .select('requester_id, case_id')
   if (error) { console.error('autoClosePaymentChecks failed', error); return }
   for (const r of (data ?? []) as Array<{ requester_id: string; case_id: string }>) {

@@ -24,8 +24,6 @@ import RefundListModal from './RefundListModal'
 import type { BillingRequestRow } from './BillingRequestsPanel'
 import BillingRefundRequestsList from './BillingRefundRequestsList'
 import RespondBillingRequestModal, { type ConfirmRequestLite } from './RespondBillingRequestModal'
-import { autoClosePaymentChecks } from '@/lib/paymentCheck'
-import { ensureReceiptTask } from '@/lib/receiptTask'
 import { resolutionOf } from '@/lib/billingRequests'
 import BillingRequestModal, { type RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
@@ -144,7 +142,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 150,
+    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, reviewReason: 200, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 90,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
@@ -157,6 +155,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     { key: 'sales', label: '受注担当' },
     { key: 'manager', label: '管理担当' },
     { key: 'status', label: '入金ステータス' },
+    { key: 'reviewReason', label: '要確認理由' },
     { key: 'dueDate', label: '入金期日' },
     { key: 'overdue', label: '超過日数' },
     { key: 'amount', label: '請求金額', align: 'right' },
@@ -268,22 +267,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const confirmByInvoice = new Map<string, BillingRequestRow>()
   for (const r of requests) if (r.kind === 'confirm' && r.status !== '完了') confirmByInvoice.set(r.invoice_id, r)
   const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
-  // 確認依頼への回答（受注/管理）・経理の対応
+  // 確認依頼への回答（受注/管理）はアラートから自動オープン
   const [respondTarget, setRespondTarget] = useState<ConfirmRequestLite | null>(null)
-  const resolveConfirm = async (inv: InvoiceWithRelations, req: BillingRequestRow, kind: 'pay' | 'refund') => {
-    const supabase = createClient()
-    if (kind === 'refund') {
-      const input = window.prompt('返金額を入力してください（円）', '')
-      const amt = Number((input ?? '').replace(/[^\d]/g, '')); if (!amt) return
-      await supabase.from('payments').insert({ invoice_id: inv.id, amount: -amt, payment_date: new Date().toISOString().slice(0, 10), payment_method: '振込', is_refund: true, matched_by: 'human', match_note: '過入金の返金（確認依頼より）' })
-    } else {
-      await supabase.from('invoices').update({ status: '入金済' }).eq('id', inv.id)
-      await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id)
-    }
-    await supabase.from('invoices').update({ needs_review: false, review_reason: null }).eq('id', inv.id)
-    await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: new Date().toISOString().slice(0, 10) }).eq('id', req.id)
-    showToast(kind === 'refund' ? '返金を確定しました' : '入金確定しました（入金済へ）', 'success'); router.refresh()
-  }
   // アラート(?respond=1)から来たら、その案件の未回答の確認依頼を自動でモーダル表示（案件ごとに1回）
   const respondHandledRef = useRef<string | null>(null)
   useEffect(() => {
@@ -854,6 +839,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           )}
                         </div>
                       </td>
+                      {/* 要確認理由（CSV突合でAIが要確認にした理由） */}
+                      <td className="px-3.5 py-2.5 overflow-hidden">
+                        {inv.needs_review && inv.review_reason
+                          ? <span className="text-[11.5px] text-amber-800 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 inline-block leading-snug" title={inv.review_reason}>{inv.review_reason}</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
                       {/* 入金期日 */}
                       <td className={`px-3.5 py-2.5 text-xs font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
                       {/* 超過日数（超過した未入金のみ） */}
@@ -904,38 +895,16 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                         <RemarksCell value={inv.notes} onCommit={v => handleNotesCommit(inv.id, v)} />
                       </td>
-                      {/* 操作：依頼（確認/返金を選択）＋ 詳細（編集・入金消込・領収書の右パネル） */}
+                      {/* 操作：入金消込・確認依頼・返金依頼をまとめた右パネルを開く（回答待ちはドット表示） */}
                       <td className="px-2 py-2.5">
-                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-                          {(() => {
-                            const cReq = confirmByInvoice.get(inv.id)
-                            if (cReq?.status === '依頼中') return (
-                              <button type="button" onClick={() => setRespondTarget({ id: cReq.id, case_id: cReq.case_id, requester_id: cReq.requester_id, request_note: cReq.request_note, caseNumber: cReq.caseNumber, dealName: cReq.dealName })}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded bg-brand-600 text-white hover:bg-brand-700 transition">回答</button>
-                            )
-                            if (cReq?.status === '回答済' && canReconcile) {
-                              const need = cReq.resolution === 'need_refund'
-                              return <button type="button" onClick={() => resolveConfirm(inv, cReq, need ? 'refund' : 'pay')}
-                                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded text-white transition ${need ? 'bg-rose-600 hover:bg-rose-700' : 'bg-green-600 hover:bg-green-700'}`}>{need ? '返金確定' : '入金確定'}</button>
-                            }
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => setRequestTarget({ inv: { id: inv.id, case_id: inv.case_id, amount: inv.amount, review_reason: inv.review_reason, cases: inv.cases, payments: inv.payments }, defaultMode: inv.status === '入金済' ? 'refund' : 'confirm' })}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-brand-700 transition"
-                                title="確認依頼／返金依頼を出す"
-                              >
-                                <MessagesSquare className="w-3.5 h-3.5" strokeWidth={2} />依頼
-                              </button>
-                            )
-                          })()}
+                        <div className="flex justify-end">
                           <button
                             type="button"
                             onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
-                            className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
-                            title="詳細・編集・入金消込を開く"
+                            className={`inline-flex items-center justify-center gap-1 w-[72px] py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
+                            title="入金消込・確認依頼・返金依頼などの操作を開く"
                           >
-                            <PanelRightOpen className="w-3.5 h-3.5" strokeWidth={2} />詳細
+                            <PanelRightOpen className="w-3.5 h-3.5" strokeWidth={2} />操作
                           </button>
                         </div>
                       </td>
@@ -1015,49 +984,43 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   </DetailSection>
                 )}
                 <div className="flex flex-col gap-2 pt-2">
-                  <button
-                    onClick={() => openOfficialInvoice(selected.id)}
-                    className="px-3 py-2 text-xs font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition text-center inline-flex items-center justify-center gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    請求書（Excel）を表示 / DL
+                  {/* 確認依頼の状態・回答（あれば） */}
+                  {(() => {
+                    const cReq = confirmByInvoice.get(selected.id)
+                    if (!cReq) return null
+                    const r = resolutionOf(cReq.resolution)
+                    return (
+                      <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-[11.5px]">
+                        <div className="font-semibold text-brand-800">確認依頼：{cReq.status === '依頼中' ? '回答待ち（受注/管理）' : `回答あり${r ? `・判定「${r.label}」` : ''}`}</div>
+                        {cReq.request_note && <div className="text-gray-500 mt-0.5">内容：{cReq.request_note}</div>}
+                        {cReq.result_note && <div className="text-gray-600 mt-0.5">回答：{cReq.result_note}</div>}
+                        {cReq.status === '依頼中'
+                          ? <button onClick={() => setRespondTarget({ id: cReq.id, case_id: cReq.case_id, requester_id: cReq.requester_id, request_note: cReq.request_note, caseNumber: cReq.caseNumber, dealName: cReq.dealName })} className="mt-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-brand-600 rounded hover:bg-brand-700">回答する（受注/管理）</button>
+                          : <div className="text-[10.5px] text-gray-400 mt-0.5">「入金消込」または「返金を依頼」で対応してください</div>}
+                      </div>
+                    )
+                  })()}
+                  {/* 入金消込 */}
+                  <button onClick={() => setPaymentInvoice(selected)} className="w-full px-3 py-2 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition inline-flex items-center justify-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" />入金消込
                   </button>
-                  <button
-                    onClick={() => openOfficialReceipt(selected.id)}
-                    className="px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-center inline-flex items-center justify-center gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    領収書（Excel）を表示 / DL
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditInvoice(selected)}
-                      className="flex-1 px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition inline-flex items-center justify-center gap-1"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                      編集
-                    </button>
-                    <button
-                      onClick={() => setPaymentInvoice(selected)}
-                      className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
-                    >
-                      💰 入金消込
-                    </button>
-                  </div>
-                  {selPaidAmount > 0 && (
-                    <button
-                      onClick={() => setRequestTarget({ inv: { id: selected.id, case_id: selected.case_id, amount: selected.amount, review_reason: selected.review_reason, cases: selected.cases, payments: selected.payments }, defaultMode: 'refund' })}
-                      className="w-full px-3 py-2 text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 rounded-lg hover:bg-rose-100 transition inline-flex items-center justify-center gap-1"
-                    >
-                      ↩ 返金を依頼
+                  {/* 入金内容の確認依頼（まだ依頼していないとき） */}
+                  {!confirmByInvoice.get(selected.id) && (
+                    <button onClick={() => setRequestTarget({ inv: { id: selected.id, case_id: selected.case_id, amount: selected.amount, review_reason: selected.review_reason, cases: selected.cases, payments: selected.payments }, defaultMode: 'confirm' })}
+                      className="w-full px-3 py-2 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition inline-flex items-center justify-center gap-1.5">
+                      <MessagesSquare className="w-3.5 h-3.5" />入金内容の確認依頼
                     </button>
                   )}
-                  <button
-                    onClick={() => setDeleteInvoice(selected)}
-                    className="w-full px-3 py-1.5 text-[11px] font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition"
-                  >
-                    削除
+                  {/* 返金依頼 */}
+                  <button onClick={() => setRequestTarget({ inv: { id: selected.id, case_id: selected.case_id, amount: selected.amount, review_reason: selected.review_reason, cases: selected.cases, payments: selected.payments }, defaultMode: 'refund' })}
+                    className="w-full px-3 py-2 text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 rounded-lg hover:bg-rose-100 transition inline-flex items-center justify-center gap-1">
+                    <Undo2 className="w-3.5 h-3.5" />返金を依頼
                   </button>
+                  {/* 編集・削除 */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <button onClick={() => setEditInvoice(selected)} className="px-2 py-1 text-[12px] text-gray-600 hover:text-gray-800 inline-flex items-center gap-1"><Edit2 className="w-3 h-3" />編集</button>
+                    <button onClick={() => setDeleteInvoice(selected)} className="px-2 py-1 text-[12px] text-red-500 hover:text-red-600 inline-flex items-center gap-1">削除</button>
+                  </div>
                 </div>
               </div>
               </div>
