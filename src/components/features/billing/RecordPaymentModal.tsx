@@ -66,7 +66,8 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
       newStatus = '入金待ち'  // 一部入金 / 未入金は「入金待ち」に集約
     }
 
-    await supabase.from('invoices').update({ status: newStatus }).eq('id', invoice.id)
+    // 手動で入金消込した時点で「要確認（CSV突合②③）」は解消したものとしてフラグを落とす
+    await supabase.from('invoices').update({ status: newStatus, needs_review: false, review_reason: null }).eq('id', invoice.id)
 
     // 入金確定したら、開いている入金状況確認依頼を自動でクローズ
     if (newStatus === '入金済') { await autoClosePaymentChecks(invoice.id); await ensureReceiptTask(invoice.id) }

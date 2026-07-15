@@ -303,7 +303,10 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
   const handleStatusChange = async (invoiceId: string, nextStatus: InvoiceStatus) => {
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('invoices').update({ status: nextStatus }).eq('id', invoiceId)
+      // 入金済にした場合は「要確認（CSV突合②③）」フラグも解消する
+      const update: { status: InvoiceStatus; needs_review?: boolean; review_reason?: null } = { status: nextStatus }
+      if (nextStatus === '入金済') { update.needs_review = false; update.review_reason = null }
+      const { error } = await supabase.from('invoices').update(update).eq('id', invoiceId)
       if (error) throw error
       showToast(`ステータスを「${nextStatus}」に変更しました`, 'success')
       router.refresh()
