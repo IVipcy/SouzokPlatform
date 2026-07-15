@@ -22,8 +22,11 @@ import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCase
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import RefundListModal from './RefundListModal'
 import type { BillingRequestRow } from './BillingRequestsPanel'
-import BillingReviewList, { type ReviewInvoice, type ConfirmReq } from './BillingReviewList'
 import BillingRefundRequestsList from './BillingRefundRequestsList'
+import RespondBillingRequestModal, { type ConfirmRequestLite } from './RespondBillingRequestModal'
+import { autoClosePaymentChecks } from '@/lib/paymentCheck'
+import { ensureReceiptTask } from '@/lib/receiptTask'
+import { resolutionOf } from '@/lib/billingRequests'
 import BillingRequestModal, { type RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
@@ -261,15 +264,26 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   // 行の「依頼」（確認依頼/返金依頼を種類選択するモーダル）
   const [requestTarget, setRequestTarget] = useState<{ inv: RequestInvoice; defaultMode: 'confirm' | 'refund' } | null>(null)
 
-  // 要確認ビュー用：needs_review の請求 ＋ 確認依頼(kind=confirm)を invoice_id で対応づけ
-  const reviewInvoices: ReviewInvoice[] = invoices.filter(i => i.needs_review).map(i => ({
-    id: i.id, case_id: i.case_id, amount: i.amount, review_reason: i.review_reason, billing_pattern: i.cases?.billing_pattern ?? 'staged',
-    caseNumber: i.cases?.case_number ?? '', dealName: i.cases?.deal_name ?? '',
-    members: (i.cases?.case_members ?? []).map(m => ({ role: m.role, member_id: m.member_id })),
-  }))
-  const confirmByInvoice = new Map<string, ConfirmReq>()
-  for (const r of requests) if (r.kind === 'confirm') confirmByInvoice.set(r.invoice_id, { id: r.id, status: r.status, request_note: r.request_note, result_note: r.result_note, resolution: r.resolution, requester_id: r.requester_id })
+  // 確認依頼(kind=confirm)を invoice_id で対応づけ（行の回答/経理対応ボタンに使う）
+  const confirmByInvoice = new Map<string, BillingRequestRow>()
+  for (const r of requests) if (r.kind === 'confirm' && r.status !== '完了') confirmByInvoice.set(r.invoice_id, r)
   const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
+  // 確認依頼への回答（受注/管理）・経理の対応
+  const [respondTarget, setRespondTarget] = useState<ConfirmRequestLite | null>(null)
+  const resolveConfirm = async (inv: InvoiceWithRelations, req: BillingRequestRow, kind: 'pay' | 'refund') => {
+    const supabase = createClient()
+    if (kind === 'refund') {
+      const input = window.prompt('返金額を入力してください（円）', '')
+      const amt = Number((input ?? '').replace(/[^\d]/g, '')); if (!amt) return
+      await supabase.from('payments').insert({ invoice_id: inv.id, amount: -amt, payment_date: new Date().toISOString().slice(0, 10), payment_method: '振込', is_refund: true, matched_by: 'human', match_note: '過入金の返金（確認依頼より）' })
+    } else {
+      await supabase.from('invoices').update({ status: '入金済' }).eq('id', inv.id)
+      await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id)
+    }
+    await supabase.from('invoices').update({ needs_review: false, review_reason: null }).eq('id', inv.id)
+    await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: new Date().toISOString().slice(0, 10) }).eq('id', req.id)
+    showToast(kind === 'refund' ? '返金を確定しました' : '入金確定しました（入金済へ）', 'success'); router.refresh()
+  }
 
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
@@ -618,9 +632,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           onClose={() => setRequestTarget(null)} onSaved={() => { setRequestTarget(null); router.refresh() }} />
       )}
 
-      {statusFilter === 'review' ? (
-        <BillingReviewList invoices={reviewInvoices} confirmByInvoice={confirmByInvoice} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
-      ) : statusFilter === 'refund' ? (
+      {respondTarget && (
+        <RespondBillingRequestModal isOpen request={respondTarget}
+          onClose={() => setRespondTarget(null)} onSaved={() => { setRespondTarget(null); router.refresh() }} />
+      )}
+
+      {statusFilter === 'refund' ? (
         <BillingRefundRequestsList refundReqs={refundReqs} refundEntries={refundEntries} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
       ) : (
       <div>
@@ -816,6 +833,13 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           {inv.needs_review && (
                             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title={inv.review_reason ?? 'CSV突合で要確認になりました'}>要確認</span>
                           )}
+                          {(() => {
+                            const cReq = confirmByInvoice.get(inv.id)
+                            if (!cReq) return null
+                            if (cReq.status === '依頼中') return <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200">確認依頼中</span>
+                            const r = resolutionOf(cReq.resolution)
+                            return <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title={cReq.result_note ?? ''}>確認済{r ? `・${r.label}` : ''}</span>
+                          })()}
                           {refundTotal > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-rose-50 text-rose-700" title={`返金 ¥${refundTotal.toLocaleString()}`}>
                               {paidAmount <= 0 ? '全額返金' : '一部返金'}
@@ -876,14 +900,28 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       {/* 操作：依頼（確認/返金を選択）＋ 詳細（編集・入金消込・領収書の右パネル） */}
                       <td className="px-2 py-2.5">
                         <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setRequestTarget({ inv: { id: inv.id, case_id: inv.case_id, amount: inv.amount, review_reason: inv.review_reason, cases: inv.cases, payments: inv.payments }, defaultMode: inv.status === '入金済' ? 'refund' : 'confirm' })}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-brand-700 transition"
-                            title="確認依頼／返金依頼を出す"
-                          >
-                            <MessagesSquare className="w-3.5 h-3.5" strokeWidth={2} />依頼
-                          </button>
+                          {(() => {
+                            const cReq = confirmByInvoice.get(inv.id)
+                            if (cReq?.status === '依頼中') return (
+                              <button type="button" onClick={() => setRespondTarget({ id: cReq.id, case_id: cReq.case_id, requester_id: cReq.requester_id, request_note: cReq.request_note, caseNumber: cReq.caseNumber, dealName: cReq.dealName })}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded bg-brand-600 text-white hover:bg-brand-700 transition">回答</button>
+                            )
+                            if (cReq?.status === '回答済' && canReconcile) {
+                              const need = cReq.resolution === 'need_refund'
+                              return <button type="button" onClick={() => resolveConfirm(inv, cReq, need ? 'refund' : 'pay')}
+                                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded text-white transition ${need ? 'bg-rose-600 hover:bg-rose-700' : 'bg-green-600 hover:bg-green-700'}`}>{need ? '返金確定' : '入金確定'}</button>
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setRequestTarget({ inv: { id: inv.id, case_id: inv.case_id, amount: inv.amount, review_reason: inv.review_reason, cases: inv.cases, payments: inv.payments }, defaultMode: inv.status === '入金済' ? 'refund' : 'confirm' })}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-brand-700 transition"
+                                title="確認依頼／返金依頼を出す"
+                              >
+                                <MessagesSquare className="w-3.5 h-3.5" strokeWidth={2} />依頼
+                              </button>
+                            )
+                          })()}
                           <button
                             type="button"
                             onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
