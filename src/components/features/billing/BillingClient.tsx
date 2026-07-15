@@ -9,12 +9,11 @@ import Link from 'next/link'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import EditInvoiceModal from './EditInvoiceModal'
 import RecordPaymentModal from './RecordPaymentModal'
-import RefundModal from './RefundModal'
 import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
-import { Edit2, FileText, PanelRightOpen } from 'lucide-react'
+import { Edit2, FileText, PanelRightOpen, MessagesSquare } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
@@ -25,6 +24,7 @@ import RefundListModal from './RefundListModal'
 import type { BillingRequestRow } from './BillingRequestsPanel'
 import BillingReviewList, { type ReviewInvoice, type ConfirmReq } from './BillingReviewList'
 import BillingRefundRequestsList from './BillingRefundRequestsList'
+import BillingRequestModal, { type RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
 // 請求書に紐づく入金状況確認依頼（一覧表示用の軽量版）
@@ -141,7 +141,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 72,
+    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 150,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
@@ -174,7 +174,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const [csvOpen, setCsvOpen] = useState(false)
   const [editInvoice, setEditInvoice] = useState<InvoiceWithRelations | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceWithRelations | null>(null)
-  const [refundInvoice, setRefundInvoice] = useState<InvoiceWithRelations | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceWithRelations | null>(null)
 
   // 一覧で選択中の「未請求」行（請求書発行ボタンで使う）
@@ -259,6 +258,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     return out.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   }, [monthFilteredInvoices])
   const [refundListOpen, setRefundListOpen] = useState(false)
+  // 行の「依頼」（確認依頼/返金依頼を種類選択するモーダル）
+  const [requestTarget, setRequestTarget] = useState<{ inv: RequestInvoice; defaultMode: 'confirm' | 'refund' } | null>(null)
 
   // 要確認ビュー用：needs_review の請求 ＋ 確認依頼(kind=confirm)を invoice_id で対応づけ
   const reviewInvoices: ReviewInvoice[] = invoices.filter(i => i.needs_review).map(i => ({
@@ -612,6 +613,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       <RefundListModal isOpen={refundListOpen} onClose={() => setRefundListOpen(false)} entries={refundEntries}
         periodLabel={monthOptions.find(o => o.value === monthFilter)?.label ?? '全期間'} />
 
+      {requestTarget && (
+        <BillingRequestModal isOpen defaultMode={requestTarget.defaultMode} invoice={requestTarget.inv} currentMemberId={currentMemberId}
+          onClose={() => setRequestTarget(null)} onSaved={() => { setRequestTarget(null); router.refresh() }} />
+      )}
+
       {statusFilter === 'review' ? (
         <BillingReviewList invoices={reviewInvoices} confirmByInvoice={confirmByInvoice} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
       ) : statusFilter === 'refund' ? (
@@ -867,16 +873,26 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                         <RemarksCell value={inv.notes} onCommit={v => handleNotesCommit(inv.id, v)} />
                       </td>
-                      {/* 詳細（編集・入金消込・領収書・入金確認依頼をまとめた右パネルを開く） */}
-                      <td className="px-2 py-2.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
-                          className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
-                          title="詳細・編集・入金消込を開く"
-                        >
-                          <PanelRightOpen className="w-3.5 h-3.5" strokeWidth={2} />詳細
-                        </button>
+                      {/* 操作：依頼（確認/返金を選択）＋ 詳細（編集・入金消込・領収書の右パネル） */}
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setRequestTarget({ inv: { id: inv.id, case_id: inv.case_id, amount: inv.amount, review_reason: inv.review_reason, cases: inv.cases, payments: inv.payments }, defaultMode: inv.status === '入金済' ? 'refund' : 'confirm' })}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-brand-700 transition"
+                            title="確認依頼／返金依頼を出す"
+                          >
+                            <MessagesSquare className="w-3.5 h-3.5" strokeWidth={2} />依頼
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
+                            title="詳細・編集・入金消込を開く"
+                          >
+                            <PanelRightOpen className="w-3.5 h-3.5" strokeWidth={2} />詳細
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -985,10 +1001,10 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   </div>
                   {selPaidAmount > 0 && (
                     <button
-                      onClick={() => setRefundInvoice(selected)}
+                      onClick={() => setRequestTarget({ inv: { id: selected.id, case_id: selected.case_id, amount: selected.amount, review_reason: selected.review_reason, cases: selected.cases, payments: selected.payments }, defaultMode: 'refund' })}
                       className="w-full px-3 py-2 text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 rounded-lg hover:bg-rose-100 transition inline-flex items-center justify-center gap-1"
                     >
-                      ↩ 返金を記録
+                      ↩ 返金を依頼
                     </button>
                   )}
                   <button
@@ -1037,16 +1053,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           onClose={() => setPaymentInvoice(null)}
           invoice={paymentInvoice}
           onSaved={() => { setPaymentInvoice(null); router.refresh() }}
-        />
-      )}
-
-      {/* Refund Modal（返金＝マイナス入金） */}
-      {refundInvoice && (
-        <RefundModal
-          isOpen={!!refundInvoice}
-          onClose={() => setRefundInvoice(null)}
-          invoice={refundInvoice}
-          onSaved={() => { setRefundInvoice(null); router.refresh() }}
         />
       )}
 

@@ -65,7 +65,7 @@ export default function MyBillingRequests({ confirmRequests, refundableInvoices,
       )}
 
       {respondTo && <RespondBillingRequestModal isOpen request={respondTo} onClose={() => setRespondTo(null)} onSaved={() => { setRespondTo(null); router.refresh() }} />}
-      {refundTarget && <BillingRequestModal isOpen mode="refund" invoice={refundTarget} currentMemberId={currentMemberId} onClose={() => setRefundTarget(null)} onSaved={() => { setRefundTarget(null); router.refresh() }} />}
+      {refundTarget && <BillingRequestModal isOpen defaultMode="refund" invoice={refundTarget} currentMemberId={currentMemberId} onClose={() => setRefundTarget(null)} onSaved={() => { setRefundTarget(null); router.refresh() }} />}
     </div>
   )
 }

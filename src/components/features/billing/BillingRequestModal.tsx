@@ -12,6 +12,7 @@ export type RequestInvoice = {
   id: string
   case_id: string
   amount: number
+  review_reason?: string | null   // 確認依頼の初期文（AI想定）
   cases?: { case_number?: string | null; deal_name?: string | null; case_members?: Array<{ role: string; member_id: string }> | null } | null
   payments?: Array<{ amount: number; is_refund: boolean }> | null
 }
@@ -19,20 +20,23 @@ export type RequestInvoice = {
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 const today = () => new Date().toISOString().slice(0, 10)
 
-export default function BillingRequestModal({ isOpen, onClose, mode, invoice, currentMemberId, onSaved }: {
+export default function BillingRequestModal({ isOpen, onClose, defaultMode, invoice, currentMemberId, onSaved }: {
   isOpen: boolean
   onClose: () => void
-  mode: 'confirm' | 'refund'
+  defaultMode: 'confirm' | 'refund'
   invoice: RequestInvoice
   currentMemberId: string | null
   onSaved: () => void
 }) {
   const netHeld = (invoice.payments ?? []).reduce((s, p) => s + p.amount, 0)  // 手元残（返金可能額の目安）
-  const [note, setNote] = useState('')
+  const [mode, setMode] = useState<'confirm' | 'refund'>(defaultMode)
+  const [note, setNote] = useState(defaultMode === 'confirm' ? (invoice.review_reason ?? '') : '')
   const [reason, setReason] = useState<string>(REFUND_REASONS[1])
   const [feeBearer, setFeeBearer] = useState<string>('customer')
-  const [amount, setAmount] = useState<string>(mode === 'refund' && netHeld > 0 ? String(netHeld) : '')
+  const [amount, setAmount] = useState<string>(defaultMode === 'refund' && netHeld > 0 ? String(netHeld) : '')
   const [saving, setSaving] = useState(false)
+  // 種類切替時、確認依頼ならAI想定文を初期表示
+  const switchMode = (m: 'confirm' | 'refund') => { setMode(m); if (m === 'confirm' && !note) setNote(invoice.review_reason ?? '') }
 
   const caseNo = invoice.cases?.case_number ?? ''
   const dealName = invoice.cases?.deal_name ?? ''
@@ -80,12 +84,17 @@ export default function BillingRequestModal({ isOpen, onClose, mode, invoice, cu
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={mode === 'confirm' ? '入金の確認依頼' : '返金依頼'} maxWidth="max-w-lg"
+    <Modal isOpen={isOpen} onClose={onClose} title="依頼" maxWidth="max-w-lg"
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
         <Button variant="primary" onClick={submit} loading={saving}>{mode === 'confirm' ? '確認依頼を送る' : '経理へ返金依頼'}</Button>
       </>}>
       <div className="space-y-3">
+        {/* 種類を選択（確認依頼＝経理→受注/管理 ／ 返金依頼＝受注/管理→経理） */}
+        <div className="inline-flex border border-gray-300 rounded-md overflow-hidden">
+          <button type="button" onClick={() => switchMode('confirm')} className={`px-4 py-1.5 text-[12.5px] font-semibold ${mode === 'confirm' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>確認依頼</button>
+          <button type="button" onClick={() => switchMode('refund')} className={`px-4 py-1.5 text-[12.5px] font-semibold border-l border-gray-200 ${mode === 'refund' ? 'bg-rose-50 text-rose-700' : 'text-gray-500 hover:bg-gray-50'}`}>返金依頼</button>
+        </div>
         <div className="text-[12px] text-gray-500"><span className="font-mono text-brand-700">{caseNo}</span> {dealName}・請求 {yen(invoice.amount)}{netHeld > 0 ? `・入金 ${yen(netHeld)}` : ''}</div>
 
         {mode === 'refund' && (
