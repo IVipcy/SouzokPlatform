@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -20,7 +20,8 @@ import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
 import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel } from '@/lib/constants'
-import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow } from '@/types'
+import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
+import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
 // 請求書に紐づく入金状況確認依頼（一覧表示用の軽量版）
 type PayCheckLite = {
@@ -47,6 +48,8 @@ type CaseOption = { id: string; case_number: string; deal_name: string }
 type Props = {
   invoices: InvoiceWithRelations[]
   cases: CaseOption[]
+  /** CSVのみ（システムに該当なし）の未処理入金 */
+  deposits?: UnmatchedDepositRow[]
   /** 銀行CSV取込・入金突合ができるか（経理・システム管理者のみ） */
   canReconcile?: boolean
 }
@@ -101,7 +104,7 @@ function contractDot(contractType: string | null | undefined): { cls: string; la
   }
 }
 
-export default function BillingClient({ invoices, cases, canReconcile = false }: Props) {
+export default function BillingClient({ invoices, cases, deposits = [], canReconcile = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFromUrl = searchParams.get('case')
@@ -205,7 +208,9 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
       if (caseFilter && inv.case_id !== caseFilter) return false
-      if (statusFilter === 'waiting') {
+      if (statusFilter === 'review') {
+        if (!inv.needs_review) return false
+      } else if (statusFilter === 'waiting') {
         if (inv.status !== '入金待ち') return false
       } else if (statusFilter !== 'all' && inv.status !== statusFilter) {
         return false
@@ -237,14 +242,17 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
       .filter(inv => inv.status === '入金待ち')
       .reduce((s, inv) => s + inv.amount - getPaidAmount(inv.payments), 0)
     const paid = src.filter(inv => inv.status === '入金済').length
+    // 要確認（CSV突合②③）は全期間で件数管理（月フィルタ非依存の処理待ちキュー）
+    const review = invoices.filter(inv => inv.needs_review).length
     return [
       { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(total),         sub: `${issuedInvoices.length}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
       { key: '作成済',   label: '作成済',   Icon: AlertCircle as LucideIcon,   value: String(created),    sub: '請求書作成済', color: 'text-gray-700' },
       { key: '入金待ち', label: '入金待ち', Icon: Hourglass as LucideIcon,     value: String(waiting),    sub: fmt(waitingAmt), color: 'text-amber-600' },
+      { key: 'review',   label: '要確認',   Icon: AlertTriangle as LucideIcon, value: String(review),     sub: 'CSV突合②③', color: 'text-amber-700' },
       { key: '入金済',   label: '入金済',   Icon: CheckCircle2 as LucideIcon,  value: String(paid),       sub: '入金確定', color: 'text-green-600' },
     ]
-  }, [monthFilteredInvoices])
+  }, [monthFilteredInvoices, invoices])
 
   // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける
   const firmSummary = useMemo(() => {
@@ -473,7 +481,7 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {kpis.map(kpi => (
           <button
             key={kpi.key}
@@ -531,6 +539,9 @@ export default function BillingClient({ invoices, cases, canReconcile = false }:
         </div>
       )}
       </>)}
+
+      {/* CSVのみ（システムに該当なし）の未処理入金。突合できなかった入金を後追いで紐付け／対象外に。 */}
+      {canReconcile && <UnmatchedDepositsPanel deposits={deposits} invoices={invoices} onChanged={() => router.refresh()} />}
 
       <div>
         {/* Table */}
