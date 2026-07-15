@@ -36,15 +36,19 @@ function typeLabel(t: string): string { return t === '確定請求' ? '確定売
 
 export default function BillingCaseTable({ rows, title = '請求対象案件' }: Props) {
   const [sortAsc, setSortAsc] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<string>('all')  // KPIカードで絞り込み
+  const [showFirm, setShowFirm] = useState(false)                  // 行/司サマリは請求合計クリックで開く
 
   const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    const f = rows.filter(r => statusFilter === 'all' ? true : statusFilter === 'review' ? r.needsReview : r.invoiceStatus === statusFilter)
+    return f.sort((a, b) => {
       const ao = BILLING_STATUS_ORDER[a.invoiceStatus] ?? 99
       const bo = BILLING_STATUS_ORDER[b.invoiceStatus] ?? 99
       if (ao !== bo) return sortAsc ? ao - bo : bo - ao
       return a.caseNumber.localeCompare(b.caseNumber)
     })
-  }, [rows, sortAsc])
+  }, [rows, sortAsc, statusFilter])
+  const toggleFilter = (key: string) => setStatusFilter(s => s === key ? 'all' : key)
 
   // サマリ（請求・入金タブと同内容）
   const summary = useMemo(() => {
@@ -74,10 +78,10 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
     <section className="space-y-5">
       {/* サマリ KPI（請求合計は入金済/未入金の内訳付き＝請求・入金タブと同内容） */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-        <div className="col-span-2 bg-white border border-brand-200 bg-brand-50/40 rounded-xl px-3 py-2.5">
+        <button type="button" onClick={() => setShowFirm(s => !s)} className={`col-span-2 text-left bg-white border rounded-xl px-3 py-2.5 transition hover:shadow-sm ${showFirm ? 'border-brand-300 bg-brand-50 ring-2 ring-brand-200' : 'border-brand-200 bg-brand-50/40'}`}>
           <div className="flex items-center gap-1.5 mb-1"><Banknote className="w-4 h-4 text-brand-600" strokeWidth={2.25} /><span className="text-[12px] font-semibold text-gray-600">請求合計</span></div>
           <div className="text-[20px] font-extrabold tracking-tight leading-none text-brand-700">{fmtYen(summary.total)}</div>
-          <div className="text-[11px] text-gray-400 mt-0.5">{summary.issuedCount}件発行済</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">{summary.issuedCount}件発行済・クリックで行/司内訳</div>
           <div className="mt-1.5 h-[6px] rounded-full bg-rose-100 overflow-hidden flex">
             <div className="bg-green-500 h-full" style={{ width: `${summary.total > 0 ? Math.round((summary.collected / summary.total) * 100) : 0}%` }} />
           </div>
@@ -85,27 +89,30 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
             <span className="text-green-700">● 入金済 <span className="font-mono font-semibold">{fmtYen(summary.collected)}</span></span>
             <span className="text-rose-600">● 未入金 <span className="font-mono font-semibold">{fmtYen(summary.outstanding)}</span></span>
           </div>
+        </button>
+        <SummaryBox icon={<ClipboardList className="w-4 h-4 text-gray-500" />} label="未請求" value={String(summary.unbilled)} sub="請求書未発行" tone="neutral" onClick={() => toggleFilter('未請求')} active={statusFilter === '未請求'} />
+        <SummaryBox icon={<AlertCircle className="w-4 h-4 text-gray-700" />} label="作成済" value={String(summary.created)} sub="請求書作成済" tone="neutral" onClick={() => toggleFilter('作成済')} active={statusFilter === '作成済'} />
+        <SummaryBox icon={<Hourglass className="w-4 h-4 text-amber-600" />} label="入金待ち" value={String(summary.waiting)} sub="請求済・未入金" tone="amber" onClick={() => toggleFilter('入金待ち')} active={statusFilter === '入金待ち'} />
+        <SummaryBox icon={<AlertTriangle className="w-4 h-4 text-amber-700" />} label="要確認" value={String(summary.review)} sub="CSV突合②③" tone="amber" onClick={() => toggleFilter('review')} active={statusFilter === 'review'} />
+        <SummaryBox icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} label="入金済" value={String(summary.paid)} sub="入金確定" tone="green" onClick={() => toggleFilter('入金済')} active={statusFilter === '入金済'} />
+      </div>
+      {/* 行/司 別（請求合計クリックで開閉） */}
+      {showFirm && (
+        <div className="grid grid-cols-2 gap-3">
+          <FirmBox label="行政書士法人" total={summary.gyosei.total} paid={summary.gyosei.paid} count={summary.gyosei.count} ring="border-blue-200" head="bg-blue-50 text-blue-800" accent="text-blue-700" />
+          <FirmBox label="司法書士法人" total={summary.shiho.total} paid={summary.shiho.paid} count={summary.shiho.count} ring="border-red-200" head="bg-red-50 text-red-800" accent="text-red-700" />
         </div>
-        <SummaryBox icon={<ClipboardList className="w-4 h-4 text-gray-500" />} label="未請求" value={String(summary.unbilled)} sub="請求書未発行" tone="neutral" />
-        <SummaryBox icon={<AlertCircle className="w-4 h-4 text-gray-700" />} label="作成済" value={String(summary.created)} sub="請求書作成済" tone="neutral" />
-        <SummaryBox icon={<Hourglass className="w-4 h-4 text-amber-600" />} label="入金待ち" value={String(summary.waiting)} sub="請求済・未入金" tone="amber" />
-        <SummaryBox icon={<AlertTriangle className="w-4 h-4 text-amber-700" />} label="要確認" value={String(summary.review)} sub="CSV突合②③" tone="amber" />
-        <SummaryBox icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} label="入金済" value={String(summary.paid)} sub="入金確定" tone="green" />
-      </div>
-      {/* 行/司 別 */}
-      <div className="grid grid-cols-2 gap-3">
-        <FirmBox label="行政書士法人" total={summary.gyosei.total} paid={summary.gyosei.paid} count={summary.gyosei.count} ring="border-blue-200" head="bg-blue-50 text-blue-800" accent="text-blue-700" />
-        <FirmBox label="司法書士法人" total={summary.shiho.total} paid={summary.shiho.paid} count={summary.shiho.count} ring="border-red-200" head="bg-red-50 text-red-800" accent="text-red-700" />
-      </div>
+      )}
 
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">
           {title}
-          <span className="ml-2 text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{rows.length}件</span>
+          <span className="ml-2 text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{sorted.length}件</span>
+          {statusFilter !== 'all' && <button type="button" onClick={() => setStatusFilter('all')} className="ml-2 text-[11px] text-brand-600 hover:underline">絞り込み解除</button>}
         </h3>
-        {rows.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
-            請求対象の案件はありません（当月の受託 / 当月完了予定の対応中 / 当月業務完了）
+            {statusFilter === 'all' ? '請求対象の案件はありません（当月の受託 / 当月完了予定の対応中 / 当月業務完了）' : '該当する請求はありません'}
           </div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
@@ -221,15 +228,15 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
   )
 }
 
-function SummaryBox({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub: string; tone: 'brand' | 'green' | 'amber' | 'neutral' }) {
+function SummaryBox({ icon, label, value, sub, tone, onClick, active }: { icon: React.ReactNode; label: string; value: string; sub: string; tone: 'brand' | 'green' | 'amber' | 'neutral'; onClick?: () => void; active?: boolean }) {
   const toneCls = tone === 'brand' ? 'border-brand-200 bg-brand-50/40' : tone === 'green' ? 'border-emerald-200 bg-emerald-50/40' : tone === 'amber' ? 'border-amber-200 bg-amber-50/40' : 'border-gray-200 bg-white'
   const valueCls = tone === 'brand' ? 'text-brand-700' : tone === 'green' ? 'text-emerald-700' : tone === 'amber' ? 'text-amber-700' : 'text-gray-900'
   return (
-    <div className={`bg-white border rounded-xl px-3 py-2.5 ${toneCls}`}>
+    <button type="button" onClick={onClick} className={`text-left w-full bg-white border rounded-xl px-3 py-2.5 transition hover:shadow-sm ${toneCls} ${active ? 'ring-2 ring-brand-300' : ''}`}>
       <div className="flex items-center gap-1.5 mb-1">{icon}<span className="text-[12px] font-semibold text-gray-600">{label}</span></div>
       <div className={`text-[20px] font-extrabold tracking-tight leading-none mb-1 ${valueCls}`}>{value}</div>
       <div className="text-[11px] text-gray-400">{sub}</div>
-    </div>
+    </button>
   )
 }
 

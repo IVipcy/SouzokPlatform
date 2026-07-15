@@ -23,6 +23,7 @@ import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCase
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import RefundListModal from './RefundListModal'
 import BillingRequestsPanel, { type BillingRequestRow } from './BillingRequestsPanel'
+import BulkConfirmRequestModal from './BulkConfirmRequestModal'
 import type { RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
@@ -258,6 +259,10 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     return out.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
   }, [monthFilteredInvoices])
   const [refundListOpen, setRefundListOpen] = useState(false)
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  // 選択中の「要確認(needs_review)」請求 → まとめて確認依頼
+  const selectedReviewInvoices = invoices.filter(inv => bulkSelected.has(inv.id) && inv.needs_review)
+    .map<RequestInvoice>(inv => ({ id: inv.id, case_id: inv.case_id, amount: inv.amount, cases: inv.cases, payments: inv.payments }))
 
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
@@ -487,6 +492,16 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                 </button>
               )
             })}
+            {canReconcile && selectedReviewInvoices.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkConfirmOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-50 rounded-md transition-colors"
+                title="選択した要確認の請求について、受注・管理担当へ確認依頼を出す"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />確認依頼（{selectedReviewInvoices.length}）
+              </button>
+            )}
             <span className="text-gray-300 mx-1">|</span>
             <button
               type="button"
@@ -593,21 +608,19 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       )}
       </>)}
 
-      {/* 経理の「確認・返金 依頼」パネル（要確認KPIとは別枠） */}
-      {canReconcile && (
-        <BillingRequestsPanel
-          reviewInvoices={invoices.filter(inv => inv.needs_review).map<RequestInvoice>(inv => ({ id: inv.id, case_id: inv.case_id, amount: inv.amount, cases: inv.cases, payments: inv.payments }))}
-          requests={requests}
-          currentMemberId={currentMemberId}
-          onChanged={() => router.refresh()}
-        />
-      )}
+      {/* 経理の「確認・返金 依頼」パネル（確認依頼中・要返金の進行管理） */}
+      {canReconcile && <BillingRequestsPanel requests={requests} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />}
 
       {/* CSVのみ（システムに該当なし）の未処理入金。突合できなかった入金を後追いで紐付け／対象外に。 */}
       {canReconcile && <UnmatchedDepositsPanel deposits={deposits} invoices={invoices} onChanged={() => router.refresh()} />}
 
       <RefundListModal isOpen={refundListOpen} onClose={() => setRefundListOpen(false)} entries={refundEntries}
         periodLabel={monthOptions.find(o => o.value === monthFilter)?.label ?? '全期間'} />
+
+      {bulkConfirmOpen && (
+        <BulkConfirmRequestModal isOpen invoices={selectedReviewInvoices} currentMemberId={currentMemberId}
+          onClose={() => setBulkConfirmOpen(false)} onSaved={() => { setBulkConfirmOpen(false); clearBulkSelection(); router.refresh() }} />
+      )}
 
       <div>
         {/* Table */}

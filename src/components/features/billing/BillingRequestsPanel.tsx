@@ -3,11 +3,10 @@
 // 経理の「確認・返金 依頼」パネル。要確認KPIとは別枠で3分類を並べる。
 //   要確認(CSV突合)→確認依頼を出す ／ 確認依頼中→回答(判定)を見て入金確定 or 返金確定 ／ 要返金→返金確定
 import { useState } from 'react'
-import { HelpCircle, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { feeBearerLabel, resolutionOf } from '@/lib/billingRequests'
-import BillingRequestModal, { type RequestInvoice } from './BillingRequestModal'
 
 export type BillingRequestRow = {
   id: string
@@ -29,18 +28,16 @@ export type BillingRequestRow = {
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 const today = () => new Date().toISOString().slice(0, 10)
 
-export default function BillingRequestsPanel({ reviewInvoices, requests, currentMemberId, onChanged }: {
-  reviewInvoices: RequestInvoice[]
+export default function BillingRequestsPanel({ requests, currentMemberId, onChanged }: {
   requests: BillingRequestRow[]
   currentMemberId: string | null
   onChanged: () => void
 }) {
-  const [confirmTarget, setConfirmTarget] = useState<RequestInvoice | null>(null)  // 確認依頼を出す対象
   const [busy, setBusy] = useState<string | null>(null)
 
   const confirmReqs = requests.filter(r => r.kind === 'confirm' && r.status !== '完了')
   const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
-  if (reviewInvoices.length === 0 && confirmReqs.length === 0 && refundReqs.length === 0) return null
+  if (confirmReqs.length === 0 && refundReqs.length === 0) return null
 
   const notifyRequester = async (req: BillingRequestRow, title: string, body: string) => {
     const supabase = createClient()
@@ -83,19 +80,6 @@ export default function BillingRequestsPanel({ reviewInvoices, requests, current
 
   return (
     <div className="mb-4 rounded-lg border border-gray-200 overflow-hidden">
-      {/* 要確認（CSV突合）→ 確認依頼を出す */}
-      {reviewInvoices.length > 0 && <>
-        {groupHead('bg-amber-50 text-amber-800', '要確認（CSV突合）', reviewInvoices.length, '迷っている入金。ここから確認依頼を出す')}
-        {reviewInvoices.map(inv => (
-          <div key={inv.id} className="px-3.5 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-center border-b border-gray-100">
-            <div className="min-w-0">
-              <div className="text-[13px]"><span className="font-mono text-brand-700">{inv.cases?.case_number}</span> {inv.cases?.deal_name} ・ {yen(inv.amount)}</div>
-            </div>
-            <button type="button" onClick={() => setConfirmTarget(inv)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md border border-gray-300 bg-white hover:bg-gray-50"><HelpCircle className="w-3.5 h-3.5" />確認依頼を出す</button>
-          </div>
-        ))}
-      </>}
-
       {/* 確認依頼中 → 回答(判定)を見て対応 */}
       {confirmReqs.length > 0 && <>
         {groupHead('bg-brand-50 text-brand-800', '確認依頼中', confirmReqs.length, '受注/管理の回答を待つ・回答後に対応')}
@@ -138,8 +122,6 @@ export default function BillingRequestsPanel({ reviewInvoices, requests, current
           </div>
         ))}
       </>}
-
-      {confirmTarget && <BillingRequestModal isOpen mode="confirm" invoice={confirmTarget} currentMemberId={currentMemberId} onClose={() => setConfirmTarget(null)} onSaved={onChanged} />}
     </div>
   )
 }
