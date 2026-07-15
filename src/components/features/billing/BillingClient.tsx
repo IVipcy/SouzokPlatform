@@ -21,6 +21,7 @@ import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
 import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
+import RefundListModal from './RefundListModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
 // 請求書に紐づく入金状況確認依頼（一覧表示用の軽量版）
@@ -231,13 +232,27 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
     })
   }, [invoices, caseFilter, statusFilter, search])
 
-  // 請求合計の内訳（発行済のみ）：総額・入金済（実受領）・未入金。入金済は amount 上限でクランプ。
+  // 請求合計の内訳（発行済のみ）：純額（返金控除後）・入金済（実受領・純額）・未入金・返金。
   const collection = useMemo(() => {
     const issued = monthFilteredInvoices.filter(inv => inv.status !== '未請求')
-    const total = issued.reduce((s, inv) => s + inv.amount, 0)
-    const collected = issued.reduce((s, inv) => s + Math.min(inv.amount, getPaidAmount(inv.payments)), 0)
-    return { total, collected, outstanding: Math.max(0, total - collected), count: issued.length }
+    const gross = issued.reduce((s, inv) => s + inv.amount, 0)
+    const refunds = issued.reduce((s, inv) => s + getRefundTotal(inv.payments), 0)
+    const netBilled = Math.max(0, gross - refunds)
+    const collected = issued.reduce((s, inv) => s + Math.max(0, Math.min(inv.amount, getPaidAmount(inv.payments))), 0)
+    return { total: netBilled, refunds, collected, outstanding: Math.max(0, netBilled - collected), count: issued.length }
   }, [monthFilteredInvoices])
+
+  // 返金一覧（当月・KPIの返金額クリックで開く）
+  const refundEntries = useMemo(() => {
+    const out: import('./RefundListModal').RefundEntry[] = []
+    for (const inv of monthFilteredInvoices) {
+      for (const p of inv.payments ?? []) {
+        if (p.is_refund) out.push({ id: p.id, caseId: inv.case_id, caseNumber: inv.cases?.case_number ?? '', dealName: inv.cases?.deal_name ?? '', date: p.payment_date, amount: -p.amount, reason: p.match_note ?? '' })
+      }
+    }
+    return out.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+  }, [monthFilteredInvoices])
+  const [refundListOpen, setRefundListOpen] = useState(false)
 
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
@@ -516,6 +531,14 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
                   <span className="text-green-700">● 入金済 <span className="font-mono font-semibold">{fmt(collection.collected)}</span></span>
                   <span className="text-rose-600">● 未入金 <span className="font-mono font-semibold">{fmt(collection.outstanding)}</span></span>
                 </div>
+                {collection.refunds > 0 && (
+                  <span role="button" tabIndex={0}
+                    onClick={e => { e.stopPropagation(); setRefundListOpen(true) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); setRefundListOpen(true) } }}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-rose-600 hover:underline cursor-pointer">
+                    ▲返金 <span className="font-mono font-semibold">{fmt(collection.refunds)}</span>（純額に控除済・クリックで内訳）
+                  </span>
+                )}
               </>
             ) : (
               <div className="text-[12px] text-gray-400 mt-1">{kpi.sub}</div>
@@ -567,6 +590,9 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
 
       {/* CSVのみ（システムに該当なし）の未処理入金。突合できなかった入金を後追いで紐付け／対象外に。 */}
       {canReconcile && <UnmatchedDepositsPanel deposits={deposits} invoices={invoices} onChanged={() => router.refresh()} />}
+
+      <RefundListModal isOpen={refundListOpen} onClose={() => setRefundListOpen(false)} entries={refundEntries}
+        periodLabel={monthOptions.find(o => o.value === monthFilter)?.label ?? '全期間'} />
 
       <div>
         {/* Table */}
