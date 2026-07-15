@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -284,6 +284,13 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: new Date().toISOString().slice(0, 10) }).eq('id', req.id)
     showToast(kind === 'refund' ? '返金を確定しました' : '入金確定しました（入金済へ）', 'success'); router.refresh()
   }
+  // アラート(?respond=1)から来たら、その案件の未回答の確認依頼を自動でモーダル表示（案件ごとに1回）
+  const respondHandledRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (searchParams.get('respond') !== '1' || !caseFilter || respondHandledRef.current === caseFilter) return
+    const req = requests.find(r => r.kind === 'confirm' && r.status === '依頼中' && r.case_id === caseFilter)
+    if (req) { respondHandledRef.current = caseFilter; setRespondTarget({ id: req.id, case_id: req.case_id, requester_id: req.requester_id, request_note: req.request_note, caseNumber: req.caseNumber, dealName: req.dealName }) }
+  }, [searchParams, caseFilter, requests])
 
   const kpis = useMemo(() => {
     const src = monthFilteredInvoices
