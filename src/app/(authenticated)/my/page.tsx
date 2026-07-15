@@ -122,6 +122,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     procedure_type: string[] | null
     order_sheet_completed_at: string | null
     contract_type: string | null
+    billing_pattern: string | null
     advance_payment: number | null
     fee_administrative: number | null
     fee_judicial: number | null
@@ -180,7 +181,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
   let boardTasks: BoardTask[] = []
-  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null; due_date: string | null }> = []
+  let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null; due_date: string | null; needs_review: boolean | null }> = []
   let billingPayments: Array<{ invoice_id: string; amount: number }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
@@ -196,7 +197,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     try {
       const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
-        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date').in('case_id', caseIdArray),
+        supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date,needs_review').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
         // started_by_member は「対応中（名前）」表示に使う
         supabase.from('tasks').select('*, cases(id, case_number, deal_name, status), started_by_member:members!tasks_started_by_fkey(*), task_assignees!inner(member_id, role)').eq('task_assignees.member_id', memberId).neq('status', '完了').order('due_date', { ascending: true, nullsFirst: false }),

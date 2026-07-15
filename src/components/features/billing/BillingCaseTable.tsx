@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { ArrowUpDown, Banknote, ClipboardList, AlertCircle, Hourglass, CheckCircle2 } from 'lucide-react'
+import { ArrowUpDown, Banknote, ClipboardList, AlertCircle, Hourglass, CheckCircle2, AlertTriangle } from 'lucide-react'
 import OpenInvoiceButton from './OpenInvoiceButton'
 import OpenReceiptButton from './OpenReceiptButton'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { BILLING_STATUS_ORDER, type BillingCaseRow } from '@/lib/billingCaseRows'
-import { getCaseStatusLabel } from '@/lib/constants'
+import { getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
 
 type Props = {
   rows: BillingCaseRow[]
@@ -50,16 +50,20 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
   const summary = useMemo(() => {
     const issued = rows.filter(r => r.invoiceStatus !== '未請求')
     const total = issued.reduce((s, r) => s + r.amount, 0)
+    const collected = issued.reduce((s, r) => s + Math.min(r.amount, r.paidAmount), 0)
     const calcFirm = (firm: 'gyosei' | 'shiho') => {
       const fr = issued.filter(r => r.firmType === firm)
       return { total: fr.reduce((s, r) => s + r.amount, 0), paid: fr.reduce((s, r) => s + r.paidAmount, 0), count: fr.length }
     }
     return {
       total,
+      collected,
+      outstanding: Math.max(0, total - collected),
       issuedCount: issued.length,
       unbilled: rows.filter(r => r.invoiceStatus === '未請求').length,
       created: rows.filter(r => r.invoiceStatus === '作成済').length,
       waiting: rows.filter(r => r.invoiceStatus === '入金待ち').length,
+      review: rows.filter(r => r.needsReview).length,
       paid: rows.filter(r => r.invoiceStatus === '入金済').length,
       gyosei: calcFirm('gyosei'),
       shiho: calcFirm('shiho'),
@@ -68,12 +72,24 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
 
   return (
     <section className="space-y-4">
-      {/* サマリ KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        <SummaryBox icon={<Banknote className="w-4 h-4 text-brand-600" />} label="請求合計" value={fmtYen(summary.total)} sub={`${summary.issuedCount}件発行済`} tone="brand" />
+      {/* サマリ KPI（請求合計は入金済/未入金の内訳付き＝請求・入金タブと同内容） */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
+        <div className="col-span-2 bg-white border border-brand-200 bg-brand-50/40 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-1.5 mb-1"><Banknote className="w-4 h-4 text-brand-600" strokeWidth={2.25} /><span className="text-[12px] font-semibold text-gray-600">請求合計</span></div>
+          <div className="text-[20px] font-extrabold tracking-tight leading-none text-brand-700">{fmtYen(summary.total)}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">{summary.issuedCount}件発行済</div>
+          <div className="mt-1.5 h-[6px] rounded-full bg-rose-100 overflow-hidden flex">
+            <div className="bg-green-500 h-full" style={{ width: `${summary.total > 0 ? Math.round((summary.collected / summary.total) * 100) : 0}%` }} />
+          </div>
+          <div className="flex items-center justify-between mt-1 text-[11px]">
+            <span className="text-green-700">● 入金済 <span className="font-mono font-semibold">{fmtYen(summary.collected)}</span></span>
+            <span className="text-rose-600">● 未入金 <span className="font-mono font-semibold">{fmtYen(summary.outstanding)}</span></span>
+          </div>
+        </div>
         <SummaryBox icon={<ClipboardList className="w-4 h-4 text-gray-500" />} label="未請求" value={String(summary.unbilled)} sub="請求書未発行" tone="neutral" />
         <SummaryBox icon={<AlertCircle className="w-4 h-4 text-gray-700" />} label="作成済" value={String(summary.created)} sub="請求書作成済" tone="neutral" />
         <SummaryBox icon={<Hourglass className="w-4 h-4 text-amber-600" />} label="入金待ち" value={String(summary.waiting)} sub="請求済・未入金" tone="amber" />
+        <SummaryBox icon={<AlertTriangle className="w-4 h-4 text-amber-700" />} label="要確認" value={String(summary.review)} sub="CSV突合②③" tone="amber" />
         <SummaryBox icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} label="入金済" value={String(summary.paid)} sub="入金確定" tone="green" />
       </div>
       {/* 行/司 別 */}
@@ -99,6 +115,7 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                   <th className="px-1 py-2 text-center font-semibold" title="契約形態（行/司/連名）"></th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件名</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">請求パターン</th>
                   <th className="px-2.5 py-2 text-left font-semibold">受注ルート</th>
                   <th className="px-2.5 py-2 text-left font-semibold">紹介元</th>
                   <th className="px-2.5 py-2 text-left font-semibold">請求分類</th>
@@ -143,6 +160,14 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                           </div>
                         )}
                       </td>
+                      <td className="px-2.5 py-2">
+                        {(() => {
+                          const p = billingPatternOf(r.billingPattern)
+                          const short = p.value === 'staged' ? '段階請求' : p.value === 'lump_expense' ? '一括＋実費' : '一括のみ'
+                          const cls = p.value === 'staged' ? 'bg-gray-50 text-gray-600 border-gray-200' : 'bg-brand-50 text-brand-700 border-brand-100'
+                          return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cls}`} title={p.desc}><span className="font-semibold">{p.no}</span>{short}</span>
+                        })()}
+                      </td>
                       <td className="px-2.5 py-2 text-gray-600">{r.orderRoute || <span className="text-gray-400">—</span>}</td>
                       <td className="px-2.5 py-2 text-gray-600">{r.orderRouteDetail || <span className="text-gray-400">—</span>}</td>
                       <td className="px-2.5 py-2 text-gray-700">{typeLabel(r.invoiceType)}</td>
@@ -163,8 +188,9 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                           </Link>
                         ) : <span className="text-gray-400">-</span>}
                       </td>
-                      <td className="px-2.5 py-2 text-center">
+                      <td className="px-2.5 py-2 text-center whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[12px] font-semibold ${STATUS_COLOR[r.invoiceStatus] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>{r.invoiceStatus}</span>
+                        {r.needsReview && <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">要確認</span>}
                       </td>
                       <td className="px-2.5 py-2 font-mono text-right text-gray-900">{fmtYen(r.amount)}</td>
                       <td className="px-2.5 py-2 font-mono text-right text-gray-700">{r.advance > 0 ? fmtYen(r.advance) : <span className="text-gray-300">—</span>}</td>

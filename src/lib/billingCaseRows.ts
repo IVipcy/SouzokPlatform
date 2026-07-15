@@ -21,6 +21,8 @@ export type BillingCaseRow = {
   invoiceId: string | null
   invoiceType: string              // 請求分類（前受金 / 確定請求）
   invoiceStatus: string            // 請求(入金)ステータス。未発行は '未請求'
+  needsReview: boolean             // 要確認（CSV突合②③）
+  billingPattern: string           // 請求パターン（staged/lump_expense/lump_only）
   amount: number                   // 請求金額
   paidAmount: number               // 入金済額
   issuedDate: string | null        // 請求日
@@ -39,6 +41,7 @@ type CaseLike = {
   deal_name: string
   status: string
   contract_type?: string | null
+  billing_pattern?: string | null
   procedure_type?: string[] | null
   expected_completion_date?: string | null
   completion_date?: string | null
@@ -64,6 +67,7 @@ type InvoiceLike = {
   advance_deduction?: number | null
   notes?: string | null
   receipt_issued_date?: string | null
+  needs_review?: boolean | null
 }
 
 function firmFromContract(contractType: string | null | undefined): 'gyosei' | 'shiho' | null {
@@ -116,12 +120,25 @@ export function buildBillingCaseRows(
     if (c.status === '受注' || c.status === '戻り受注') bucket = '受託'
     else if (c.status === '対応中' && c.expected_completion_date?.startsWith(ym)) bucket = '対応中'
     else if (c.status === '完了' && c.completion_date?.startsWith(ym)) bucket = '完了'
-    if (!bucket) continue
 
-    const wantType = bucket === '受託' ? '前受金' : '確定請求'
-    const inv = invByCaseType.get(`${c.id}:${wantType}`) ?? null
+    // 当月バケットに該当しなくても、実際に請求書があれば「請求が反映されない」を防ぐため取り込む。
+    const conf = invByCaseType.get(`${c.id}:確定請求`) ?? null
+    const adv = invByCaseType.get(`${c.id}:前受金`) ?? null
+    let wantType: string
+    let inv: InvoiceLike | null
+    if (bucket) {
+      wantType = bucket === '受託' ? '前受金' : '確定請求'
+      inv = invByCaseType.get(`${c.id}:${wantType}`) ?? null
+    } else if (conf || adv) {
+      inv = conf ?? adv
+      wantType = inv!.invoice_type
+      bucket = c.status === '完了' ? '完了' : c.status === '対応中' ? '対応中' : '受託'
+    } else {
+      continue
+    }
+
     const feeTotal = c.fee_total ?? ((c.fee_administrative ?? 0) + (c.fee_judicial ?? 0))
-    const estimate = bucket === '受託' ? (c.advance_payment ?? 0) : feeTotal
+    const estimate = wantType === '前受金' ? (c.advance_payment ?? 0) : feeTotal
     const sales = salesByCase.get(c.id) ?? null
     const mgr = managerByCase.get(c.id) ?? null
     const paid = inv
@@ -145,6 +162,8 @@ export function buildBillingCaseRows(
       invoiceId: inv?.id ?? null,
       invoiceType: wantType,
       invoiceStatus: inv?.status ?? '未請求',
+      needsReview: !!inv?.needs_review,
+      billingPattern: c.billing_pattern ?? 'staged',
       amount: inv?.amount ?? estimate,
       paidAmount: paid,
       issuedDate: inv?.issued_date ?? null,
