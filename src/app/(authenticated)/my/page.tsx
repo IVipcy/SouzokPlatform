@@ -639,7 +639,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
       {/* 請求（管理担当＝請求 / 受注担当＝請求状況）: 案件ベースの請求一覧 */}
       {activeTab === 'billing' && (isManager || isSales) && (
-        <div className="space-y-3">
+        <div className="space-y-5">
           <MyBillingRequests confirmRequests={myConfirmRequests} refundableInvoices={refundableInvoices} currentMemberId={memberId} />
           {isSales && overduePaymentCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">

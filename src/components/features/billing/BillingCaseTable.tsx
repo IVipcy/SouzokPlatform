@@ -71,9 +71,9 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
   }, [rows])
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       {/* サマリ KPI（請求合計は入金済/未入金の内訳付き＝請求・入金タブと同内容） */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         <div className="col-span-2 bg-white border border-brand-200 bg-brand-50/40 rounded-xl px-3 py-2.5">
           <div className="flex items-center gap-1.5 mb-1"><Banknote className="w-4 h-4 text-brand-600" strokeWidth={2.25} /><span className="text-[12px] font-semibold text-gray-600">請求合計</span></div>
           <div className="text-[20px] font-extrabold tracking-tight leading-none text-brand-700">{fmtYen(summary.total)}</div>
