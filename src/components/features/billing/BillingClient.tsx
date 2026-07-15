@@ -22,6 +22,8 @@ import { showToast } from '@/components/ui/Toast'
 import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import RefundListModal from './RefundListModal'
+import BillingRequestsPanel, { type BillingRequestRow } from './BillingRequestsPanel'
+import type { RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
 
 // 請求書に紐づく入金状況確認依頼（一覧表示用の軽量版）
@@ -51,6 +53,9 @@ type Props = {
   cases: CaseOption[]
   /** CSVのみ（システムに該当なし）の未処理入金 */
   deposits?: UnmatchedDepositRow[]
+  /** 確認依頼／返金依頼（未完了） */
+  requests?: BillingRequestRow[]
+  currentMemberId?: string | null
   /** 銀行CSV取込・入金突合ができるか（経理・システム管理者のみ） */
   canReconcile?: boolean
 }
@@ -105,7 +110,7 @@ function contractDot(contractType: string | null | undefined): { cls: string; la
   }
 }
 
-export default function BillingClient({ invoices, cases, deposits = [], canReconcile = false }: Props) {
+export default function BillingClient({ invoices, cases, deposits = [], requests = [], currentMemberId = null, canReconcile = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFromUrl = searchParams.get('case')
@@ -587,6 +592,16 @@ export default function BillingClient({ invoices, cases, deposits = [], canRecon
         </div>
       )}
       </>)}
+
+      {/* 経理の「確認・返金 依頼」パネル（要確認KPIとは別枠） */}
+      {canReconcile && (
+        <BillingRequestsPanel
+          reviewInvoices={invoices.filter(inv => inv.needs_review).map<RequestInvoice>(inv => ({ id: inv.id, case_id: inv.case_id, amount: inv.amount, cases: inv.cases, payments: inv.payments }))}
+          requests={requests}
+          currentMemberId={currentMemberId}
+          onChanged={() => router.refresh()}
+        />
+      )}
 
       {/* CSVのみ（システムに該当なし）の未処理入金。突合できなかった入金を後追いで紐付け／対象外に。 */}
       {canReconcile && <UnmatchedDepositsPanel deposits={deposits} invoices={invoices} onChanged={() => router.refresh()} />}

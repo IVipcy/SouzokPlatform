@@ -10,6 +10,9 @@ import ConsultationCasesTable, { type ConsultCase } from '@/components/features/
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
+import MyBillingRequests from '@/components/features/my/MyBillingRequests'
+import type { ConfirmRequestLite } from '@/components/features/billing/RespondBillingRequestModal'
+import type { RequestInvoice } from '@/components/features/billing/BillingRequestModal'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
@@ -496,6 +499,26 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const billingCaseRows = (isManager || isSales)
     ? buildBillingCaseRows(myCases.filter(c => billingScopeIds.has(c.id)), allCaseMembers, memberObjById, invoices, today, billingPayments)
     : []
+
+  // 確認依頼（あなた宛・未回答）＋返金依頼できる自分の入金済請求
+  const caseByIdForBilling = new Map(myCases.map(c => [c.id, c]))
+  let myConfirmRequests: ConfirmRequestLite[] = []
+  if ((isManager || isSales) && billingScopeIds.size > 0) {
+    const { data: crRaw } = await supabase
+      .from('payment_check_requests')
+      .select('id, case_id, requester_id, request_note, invoices(cases(case_number, deal_name))')
+      .eq('kind', 'confirm').eq('status', '依頼中').in('case_id', Array.from(billingScopeIds))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    myConfirmRequests = ((crRaw ?? []) as any[]).map(r => {
+      const inv = Array.isArray(r.invoices) ? r.invoices[0] : r.invoices
+      const cs = inv && (Array.isArray(inv.cases) ? inv.cases[0] : inv.cases)
+      return { id: r.id, case_id: r.case_id, requester_id: r.requester_id, request_note: r.request_note, caseNumber: cs?.case_number ?? '', dealName: cs?.deal_name ?? '' }
+    })
+  }
+  const refundableInvoices: RequestInvoice[] = (isManager || isSales)
+    ? invoices.filter(i => billingScopeIds.has(i.case_id) && i.status === '入金済')
+        .map(i => ({ id: i.id, case_id: i.case_id, amount: i.amount, cases: { case_number: caseByIdForBilling.get(i.case_id)?.case_number ?? '', deal_name: caseByIdForBilling.get(i.case_id)?.deal_name ?? '' }, payments: [] }))
+    : []
   // 入金期日超過アラート（受注担当）: 自分の案件で、入金期日を過ぎた未入金の請求。
   const overdueInvoices = isSales
     ? invoices.filter(i => salesCaseIds.has(i.case_id) && i.due_date && i.due_date < todayStr && i.status !== '入金済')
@@ -617,6 +640,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {/* 請求（管理担当＝請求 / 受注担当＝請求状況）: 案件ベースの請求一覧 */}
       {activeTab === 'billing' && (isManager || isSales) && (
         <div className="space-y-3">
+          <MyBillingRequests confirmRequests={myConfirmRequests} refundableInvoices={refundableInvoices} currentMemberId={memberId} />
           {isSales && overduePaymentCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">
               <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2.25} />
