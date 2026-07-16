@@ -1111,8 +1111,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       {/* 1ページ構成（ステップバー・プログレスは廃止） */}
       {renderStep()}
 
-      {/* Bottom nav（モバイルは全幅で押しやすく） */}
-      <div className="flex flex-col-reverse md:flex-row md:justify-end gap-2.5 pt-4 mt-2 border-t border-gray-200">
+      {/* Bottom nav（モバイルは全幅で押しやすく／PCは中央にまとめる） */}
+      <div className="flex flex-col-reverse md:flex-row md:justify-center gap-2.5 pt-4 mt-2 border-t border-gray-200">
         {step > 0 && (
           <button onClick={prevStep} className="w-full md:w-auto px-5 py-3 rounded-lg border-[1.5px] border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition">
             ← 戻る
@@ -1120,11 +1120,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         )}
         <button
           onClick={nextStep}
-          className={`w-full md:w-auto px-8 py-3 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2 transition shadow-sm ${
-            step === STEPS.length - 1
-              ? 'bg-green-600 hover:bg-green-700 shadow-green-500/25'
-              : 'bg-brand-600 hover:bg-brand-700 shadow-brand-500/25'
-          }`}
+          className="w-full md:w-auto px-8 py-3 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2 transition shadow-sm bg-brand-600 hover:bg-brand-700 shadow-brand-500/25"
         >
           {step === STEPS.length - 1 ? (saving ? '保存中...' : '登録する') : '次へ →'}
         </button>
