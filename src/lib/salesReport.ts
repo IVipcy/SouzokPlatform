@@ -165,6 +165,8 @@ export function buildSalesReport(
       .filter(p => !p.is_refund)
       .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
     const bank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
+    // 未入金（銀行が確定していない）行は売上表に載せない。入金消込で銀行が決まってから表示。
+    if (!bank) continue
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
