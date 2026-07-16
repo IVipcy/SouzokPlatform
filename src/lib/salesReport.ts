@@ -23,7 +23,14 @@ export type SalesReportRaw = {
 }
 
 export type ExpenseItem = { case_id: string; shigyo: string | null; taxable: boolean; amount: number }
+export type RewardItem = { case_id: string; shigyo: string | null; amount: number; discount: number }
 export type TeamMeta = { id: string; name: string; division: string | null; bank: string | null }
+
+// 売上（計上）を表す請求書か。①段階=確定請求／②③一括=前受金（報酬が前受金に含まれるため）。
+export function isSaleInvoice(invoiceType: string | null | undefined, billingPattern: string | null | undefined): boolean {
+  const isLump = billingPattern === 'lump_expense' || billingPattern === 'lump_only'
+  return isLump ? invoiceType === '前受金' : invoiceType === '確定請求'
+}
 
 export type SalesRow = {
   invoiceId: string
@@ -101,17 +108,27 @@ const BOOK_LABEL: Record<string, string> = { shiho: '司法書士法人　オー
 export function buildSalesReport(
   invoices: SalesReportRaw[],
   expenses: ExpenseItem[],
+  rewards: RewardItem[],
   teams: TeamMeta[],
   month: string,
 ): SalesBook[] {
   const teamById = new Map(teams.map(t => [t.id, t]))
 
-  // 案件ごとの前受金合計（前受金invoiceのamount合計）
-  const advanceByCase = new Map<string, number>()
+  // 案件×司法/行政 の前受金合計（前受金invoiceのfirm_type別）
+  const advKey = (caseId: string, firm: 'shiho' | 'gyosei') => `${caseId}__${firm}`
+  const advanceByCaseFirm = new Map<string, number>()
   for (const inv of invoices) {
-    if (inv.invoice_type === '前受金') {
-      advanceByCase.set(inv.case_id, (advanceByCase.get(inv.case_id) ?? 0) + (inv.amount ?? 0))
-    }
+    if (inv.invoice_type !== '前受金') continue
+    const firm: 'shiho' | 'gyosei' = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
+    advanceByCaseFirm.set(advKey(inv.case_id, firm), (advanceByCaseFirm.get(advKey(inv.case_id, firm)) ?? 0) + (inv.amount ?? 0))
+  }
+
+  // 案件×司法/行政 の報酬（報酬内訳 reward_items。amount − discount）
+  const rewardByCase = new Map<string, number>()
+  for (const rw of rewards) {
+    const shigyo = rw.shigyo === '司法' || rw.shigyo === '行政' ? rw.shigyo : '共通'
+    const k = `${rw.case_id}__${shigyo}`
+    rewardByCase.set(k, (rewardByCase.get(k) ?? 0) + ((rw.amount ?? 0) - (rw.discount ?? 0)))
   }
 
   // 案件×司法/行政 の立替（課税/非課税）
@@ -128,7 +145,9 @@ export function buildSalesReport(
   const books: Record<'shiho' | 'gyosei', Map<string, SalesSheet>> = { shiho: new Map(), gyosei: new Map() }
 
   for (const inv of invoices) {
-    if (inv.invoice_type !== '確定請求') continue
+    const pattern = inv.cases?.billing_pattern as string | null | undefined
+    // パターンに応じた「売上を表す請求書」だけを1行に（①=確定請求／②③=前受金）
+    if (!isSaleInvoice(inv.invoice_type, pattern)) continue
     if (month !== 'all' && !(inv.posted_date ?? '').startsWith(month)) continue
 
     const bookKey: 'shiho' | 'gyosei' = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
@@ -145,7 +164,13 @@ export function buildSalesReport(
     const bank = (c?.bank as string | null) || ''
     const division = divisionOfBank(bank)
 
-    const rewardInclTax = inv.fee_amount ?? 0
+    // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
+    //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
+    const rewardFromItems =
+      (rewardByCase.get(`${inv.case_id}__${shigyoLabel}`) ?? 0) +
+      (rewardByCase.get(`${inv.case_id}__共通`) ?? 0)
+    const rewardFallback = inv.invoice_type === '前受金' ? (inv.amount ?? 0) : (inv.fee_amount ?? 0)
+    const rewardInclTax = rewardFromItems > 0 ? rewardFromItems : rewardFallback
     const expNonTax =
       (expNonTaxMap.get(expKey(inv.case_id, shigyoLabel)) ?? 0) +
       (expNonTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
@@ -154,7 +179,7 @@ export function buildSalesReport(
       (expTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
     const expTotal = expNonTax + expTaxInclTax
     const total = rewardInclTax + expTotal
-    const advance = advanceByCase.get(inv.case_id) ?? 0
+    const advance = advanceByCaseFirm.get(advKey(inv.case_id, bookKey)) ?? 0
     // 立替実費差引額（L/M/N）：立て替えたが今回請求から差し引く分
     const dedNonTax = inv.deduct_expense_nontax ?? 0
     const dedTaxIncl = inv.deduct_expense_tax ?? 0

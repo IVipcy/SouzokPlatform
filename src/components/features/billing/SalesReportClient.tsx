@@ -7,8 +7,8 @@ import { FileSpreadsheet, Download, ArrowLeft, CalendarClock } from 'lucide-reac
 import PageHeader from '@/components/ui/PageHeader'
 import { DEPOSIT_BANKS } from '@/lib/constants'
 import {
-  buildSalesReport,
-  type SalesReportRaw, type ExpenseItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
+  buildSalesReport, isSaleInvoice,
+  type SalesReportRaw, type ExpenseItem, type RewardItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
 } from '@/lib/salesReport'
 import { exportSalesBook, downloadBlob } from '@/lib/salesReportExcel'
 import { createClient } from '@/lib/supabase/client'
@@ -16,19 +16,23 @@ import { createClient } from '@/lib/supabase/client'
 type Props = {
   invoices: SalesReportRaw[]
   expenses: ExpenseItem[]
+  rewards: RewardItem[]
   teams: TeamMeta[]
 }
 
 const yen = (n: number) => n.toLocaleString()
 
-export default function SalesReportClient({ invoices, expenses, teams }: Props) {
+export default function SalesReportClient({ invoices, expenses, rewards, teams }: Props) {
   const router = useRouter()
+
+  // 「売上を表す請求書」判定（①=確定請求／②③=前受金）
+  const patternOf = (inv: SalesReportRaw) => (inv.cases?.billing_pattern as string | null | undefined)
 
   // 計上月の選択肢（posted_date の YYYY-MM）
   const monthOptions = useMemo(() => {
     const set = new Set<string>()
     for (const inv of invoices) {
-      if (inv.invoice_type === '確定請求' && inv.posted_date) set.add(inv.posted_date.slice(0, 7))
+      if (isSaleInvoice(inv.invoice_type, patternOf(inv)) && inv.posted_date) set.add(inv.posted_date.slice(0, 7))
     }
     return [...set].sort().reverse()
   }, [invoices])
@@ -37,16 +41,16 @@ export default function SalesReportClient({ invoices, expenses, teams }: Props) 
   const [book, setBook] = useState<'gyosei' | 'shiho'>('gyosei')
 
   const books = useMemo(
-    () => buildSalesReport(invoices, expenses, teams, month),
-    [invoices, expenses, teams, month],
+    () => buildSalesReport(invoices, expenses, rewards, teams, month),
+    [invoices, expenses, rewards, teams, month],
   )
   const currentBook = books.find(b => b.key === book)!
 
-  // 未計上（確定請求済だが posted_date 未設定）
+  // 未計上（売上を表す請求書だが posted_date 未設定）
   const unposted = useMemo(
     () => invoices.filter(inv =>
-      inv.invoice_type === '確定請求' && !inv.posted_date &&
-      ['確定請求済', '入金済', '一部入金'].includes(inv.status),
+      isSaleInvoice(inv.invoice_type, patternOf(inv)) && !inv.posted_date &&
+      ['前受金請求済', '前受金入金済', '確定請求済', '入金済', '一部入金'].includes(inv.status),
     ),
     [invoices],
   )
@@ -292,7 +296,7 @@ function UnpostedPanel({ invoices, onDone }: { invoices: SalesReportRaw[]; onDon
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-semibold text-amber-900">未計上の確定請求が {invoices.length} 件あります</div>
+        <div className="text-[13px] font-semibold text-amber-900">未計上の売上（請求書）が {invoices.length} 件あります</div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-amber-800">計上日</label>
           <input type="date" value={postDate} onChange={e => setPostDate(e.target.value)} className="px-2 py-1 text-xs border border-amber-300 rounded-lg bg-white" />
@@ -311,7 +315,7 @@ function UnpostedPanel({ invoices, onDone }: { invoices: SalesReportRaw[]; onDon
               <input type="checkbox" checked={checked.has(inv.id)} onChange={() => toggle(inv.id)} />
               <span className="font-mono">{cn}</span>
               <span>{name}</span>
-              <span className="ml-auto tabular-nums">¥{yen((inv.fee_amount ?? 0) + (inv.expenses_amount ?? 0))}</span>
+              <span className="ml-auto tabular-nums">¥{yen(inv.invoice_type === '前受金' ? (inv.amount ?? 0) : ((inv.fee_amount ?? 0) + (inv.expenses_amount ?? 0)))}</span>
               <span className="text-amber-600">{inv.firm_type === 'shiho' ? '司法' : '行政'}</span>
             </label>
           )
