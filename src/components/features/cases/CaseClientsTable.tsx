@@ -129,7 +129,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
                     <td className="px-2 py-1.5">
                       <select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                        <option value="">続柄を選択</option>
+                        <option value="">選択</option>
                         {r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}
                         {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
@@ -246,7 +246,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
         <CFieldBlock label="氏名"><input type="text" value={r.name ?? ''} onChange={e => setLocal(r.id, 'name', e.target.value)} onBlur={e => commit(r.id, 'name', e.target.value)} placeholder="山田 太郎" className={inputCls} /></CFieldBlock>
         <CFieldBlock label="ふりがな"><input type="text" value={r.furigana ?? ''} onChange={e => setLocal(r.id, 'furigana', e.target.value)} onBlur={e => commit(r.id, 'furigana', e.target.value)} placeholder="やまだ たろう" className={inputCls} /></CFieldBlock>
         <div className="grid grid-cols-2 gap-2.5">
-          <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">続柄を選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>
+          <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>
           <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-12 text-[15px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
         </div>
         <CFieldBlock label="TEL①（自宅）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="03-..." className={inputCls} /></CFieldBlock>
