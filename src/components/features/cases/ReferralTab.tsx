@@ -137,15 +137,15 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
       <div className="space-y-3.5">
         <Section title="不動産査定">
           <FieldGrid>
-            <InlineSelect label="紹介" value={reRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('不動産', v === 'あり') }} />
-            {reRow && <InlineSelect label="査定ランク" value={reRow.content} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(reRow.id, 'content')} />}
+            <InlineSelect label="紹介" value={reRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('不動産', v === 'あり') }} width="compact" />
+            {reRow && <InlineSelect label="査定ランク" value={reRow.content} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(reRow.id, 'content')} width="md" />}
             {reRow && <InlineTextarea label="備考" value={reRow.content_detail} onSave={saveReferralField(reRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
         </Section>
         <Section title="税理士紹介">
           <FieldGrid>
-            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
-            <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} />
+            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} width="md" />
+            <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
             {taxRow && <InlineSelect label="紹介理由" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
             {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
@@ -156,7 +156,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
               const row = rowOf(p.key)
               return (
                 <Fragment key={p.key}>
-                  <InlineSelect label={p.label} value={row ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner(p.key, v === 'あり') }} />
+                  <InlineSelect label={p.label} value={row ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner(p.key, v === 'あり') }} width="compact" />
                   {row ? <InlineEdit label="備考" value={row.content} onSave={saveReferralField(row.id, 'content')} /> : <div className="py-1.5" />}
                 </Fragment>
               )

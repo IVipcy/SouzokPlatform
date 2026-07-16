@@ -102,9 +102,9 @@ export function SectionHeading({ title, right, className = '' }: { title: string
 // 2項目/行を基本にした、テーブル風の見た目で統一（白セル＋薄いグリッド線）。
 // 各タブで共通利用するため、ここを変えると全タブのフィールド表示が揃う。
 export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: number }) {
-  // オーダーシート内（Nested）は 1項目=1行 に固定（スマホ・PC共通で見やすく）。
-  const nested = useContext(NestedSectionContext)
-  const oneCol = cols === 1 || nested
+  // 1項目=1行はスマホのみ。PC(sm以上)は2列で見やすく。
+  // cols={1} を明示したときだけ常に1列。
+  const oneCol = cols === 1
   return (
     <div
       className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
@@ -243,7 +243,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
 }
 
 // ─── InlineSelect (picklist) ───
-export function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue, optionLabel }: {
+export function InlineSelect({ label, value, options, onSave, fullWidth, required, renderValue, optionLabel, width }: {
   label: string
   value?: string | null
   options: string[]
@@ -252,6 +252,8 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   required?: boolean
   renderValue?: (v: string) => React.ReactNode
   optionLabel?: (v: string) => string
+  /** 常時入力(オーダーシート)時の入力欄幅。短い選択肢を全幅にしないため。compact=あり/なし等・md=短い区分 */
+  width?: 'compact' | 'md'
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -266,10 +268,11 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   }
 
   if (alwaysEdit) {
+    const selCls = width === 'compact' ? 'w-[110px]' : width === 'md' ? 'w-full sm:w-[240px]' : 'w-full'
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
-        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className="w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400">
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400`}>
           <option value="">（未設定）</option>
           {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
         </select>

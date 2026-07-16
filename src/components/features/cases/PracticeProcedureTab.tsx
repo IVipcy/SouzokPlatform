@@ -69,7 +69,9 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
     </div>
   )
 
-  if (embedded) return body
+  // オーダーシート（embedded）では、家裁手続き情報・請求受領（受信簿連動）は進捗系のため出さない。
+  // 作業内容・関連情報（フリー）はオーダーシート側で各セクション共通に表示される。
+  if (embedded) return null
   return (
     <div className="space-y-3.5">
       <TabHeader title={title} description={description} />
