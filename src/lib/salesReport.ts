@@ -158,9 +158,13 @@ export function buildSalesReport(
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
 
-    // シート＝「営業部 × 入金銀行」。営業部＝受注担当のチームの営業部、銀行＝案件の実入金先。
+    // シート＝「営業部 × 入金銀行」。営業部＝受注担当のチームの営業部。
+    // 銀行＝この売上を入金済にした入金(payments.bank)。どちらのCSV(みずほ/きらぼし)で消込したかで自動決定。
     const division = team?.division || ''
-    const bank = (c?.bank as string | null) || ''
+    const paysAll = toArr<{ amount: number; payment_date: string; is_refund?: boolean; bank?: string | null }>(inv.payments)
+      .filter(p => !p.is_refund)
+      .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
+    const bank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
@@ -185,10 +189,7 @@ export function buildSalesReport(
     const billed = total - advance - dedTotal
 
     // 入金日：返金でない入金があれば最新の payment_date、無ければ未入金
-    const pays = toArr<{ amount: number; payment_date: string; is_refund?: boolean }>(inv.payments)
-      .filter(p => !p.is_refund)
-      .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
-    const paidDate = pays.length ? pays[0].payment_date : null
+    const paidDate = paysAll.length ? paysAll[0].payment_date : null
 
     const row: SalesRow = {
       invoiceId: inv.id,

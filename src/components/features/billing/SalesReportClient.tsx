@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FileSpreadsheet, Download, ArrowLeft, CalendarClock, Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import { DEPOSIT_BANKS, SALES_DIVISIONS } from '@/lib/constants'
+import { SALES_DIVISIONS } from '@/lib/constants'
 import {
   buildSalesReport, isSaleInvoice,
   type SalesReportRaw, type ExpenseItem, type RewardItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
@@ -57,13 +57,6 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   )
 
   const monthLabel = month === 'all' ? '' : `${Number(month.slice(5, 7))}月分`
-
-  // 案件の入金銀行を振り分け（お客さんの振込先）→ シートが変わる
-  async function assignBank(caseId: string, bank: string) {
-    const supabase = createClient()
-    await supabase.from('cases').update({ bank: bank || null }).eq('id', caseId)
-    router.refresh()
-  }
 
   // 立替実費差引額（差引請求額から引く分）を確定請求invoiceへ保存
   async function saveDeduct(invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) {
@@ -143,11 +136,11 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
       )}
 
       <div className="text-xs text-gray-500 mb-3">
-        シートは「営業部（受注担当のチーム）×入金銀行」で分かれます。営業部は「営業部設定」でチームごとに、入金銀行は各行の「銀行」列で（CSV突合は自動・未入金は手動）割り当てます。
+        シートは「営業部（受注担当のチーム）×入金銀行」で分かれます。営業部は「営業部設定」でチームごとに割り当て、入金銀行は<b>入金消込したCSV（みずほ/きらぼし）で自動判定</b>されます（未入金は入金確定まで未振り分け）。
       </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} onAssignBank={assignBank} onSaveDeduct={saveDeduct} />
+      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} />
     </div>
   )
 }
@@ -198,11 +191,10 @@ function DivisionSettingsPanel({ teams, onClose, onSaved }: { teams: TeamMeta[];
 }
 
 type SheetHandlers = {
-  onAssignBank: (caseId: string, bank: string) => void
   onSaveDeduct: (invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) => void
 }
 
-function BookView({ book, monthLabel, onAssignBank, onSaveDeduct }: { book: SalesBook; monthLabel: string } & SheetHandlers) {
+function BookView({ book, monthLabel, onSaveDeduct }: { book: SalesBook; monthLabel: string } & SheetHandlers) {
   if (book.sheets.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">
@@ -212,7 +204,7 @@ function BookView({ book, monthLabel, onAssignBank, onSaveDeduct }: { book: Sale
   }
   return (
     <div className="space-y-5">
-      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onAssignBank={onAssignBank} onSaveDeduct={onSaveDeduct} />)}
+      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onSaveDeduct={onSaveDeduct} />)}
     </div>
   )
 }
@@ -221,7 +213,7 @@ const NUM = 'border border-gray-200 px-2 py-1 text-right tabular-nums whitespace
 const TXT = 'border border-gray-200 px-2 py-1 whitespace-nowrap'
 const TH = 'border border-gray-300 bg-gray-100 px-2 py-1 font-semibold text-gray-700 text-center whitespace-nowrap'
 
-function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
+function SheetTable({ sheet, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
   const t = sheet.totals
   const unassigned = !sheet.division || !sheet.bank
   return (
@@ -234,7 +226,6 @@ function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet }
         <table className="text-[11px] border-collapse min-w-max">
           <thead>
             <tr>
-              <th className={TH} rowSpan={2}>銀行</th>
               <th className={TH} rowSpan={2}>計上日</th><th className={TH} rowSpan={2}>No</th><th className={TH} rowSpan={2}>発行日</th>
               <th className={TH} rowSpan={2}>案件番号</th><th className={TH} rowSpan={2}>クライアント</th>
               <th className={TH} colSpan={2}>報酬額</th>
@@ -254,16 +245,6 @@ function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet }
           <tbody>
             {sheet.rows.map((r, i) => (
               <tr key={r.invoiceId} className="hover:bg-blue-50/40">
-                <td className={TXT}>
-                  <select
-                    value={r.bank ?? ''}
-                    onChange={e => onAssignBank(r.caseId, e.target.value)}
-                    className={`px-1.5 py-0.5 text-[11px] border rounded ${r.bank ? 'border-gray-200 bg-white' : 'border-amber-300 bg-amber-50 text-amber-800'}`}
-                  >
-                    <option value="">未設定</option>
-                    {DEPOSIT_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </td>
                 <td className={TXT}>{r.postedDate ?? ''}</td>
                 <td className={TXT}>{i + 1}</td>
                 <td className={TXT}>{r.issuedDate ?? ''}</td>
@@ -302,7 +283,7 @@ function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet }
 function TotalRow({ t }: { t: SalesTotals }) {
   return (
     <tr className="border-t-2 border-gray-300 bg-amber-50 font-bold text-gray-800">
-      <td className={TXT} colSpan={6}>合　計</td>
+      <td className={TXT} colSpan={5}>合　計</td>
       <td className={NUM}>{yen(t.rewardInclTax)}</td>
       <td className={NUM}>{yen(t.rewardTax)}</td>
       <td className={NUM}>{yen(t.expNonTax)}</td>
