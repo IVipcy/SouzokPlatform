@@ -1,5 +1,5 @@
 // 確定売上表（独自Excel）のデータ構築ロジック。
-// book = 司法/行政（invoice.firm_type）、sheet = 営業部(team.division) × 銀行(team.bank)。
+// book = 司法/行政（invoice.firm_type）、sheet = 営業部(受注担当のチーム team.division) × 入金銀行(cases.bank)。
 // 列はシステムデータから導出：報酬(fee)・内税(×10/110)・立替実費(課税/非課税)・前受金・合計・差引・入金日・担当。
 
 export type SalesReportRaw = {
@@ -82,8 +82,6 @@ export type SalesBook = {
   sheets: SalesSheet[]
 }
 
-import { divisionOfBank } from '@/lib/constants'
-
 const innerTax = (inclTax: number) => Math.round((inclTax * 10) / 110)
 
 function toArr<T>(v: T | T[] | null | undefined): T[] {
@@ -160,9 +158,9 @@ export function buildSalesReport(
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
 
-    // シート分けは「案件の入金銀行」で決まる（お客さんの振込先。チーム固定ではない）
+    // シート＝「営業部 × 入金銀行」。営業部＝受注担当のチームの営業部、銀行＝案件の実入金先。
+    const division = team?.division || ''
     const bank = (c?.bank as string | null) || ''
-    const division = divisionOfBank(bank)
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
@@ -220,12 +218,14 @@ export function buildSalesReport(
       defect: '',
     }
 
-    const sheetKey = bank || '__unassigned'
+    const assigned = !!division && !!bank
+    const sheetKey = assigned ? `${division}__${bank}` : '__unassigned'
+    const missing = [!division ? '営業部' : '', !bank ? '銀行' : ''].filter(Boolean).join('・')
     const map = books[bookKey]
     if (!map.has(sheetKey)) {
       map.set(sheetKey, {
         key: sheetKey, division, bank,
-        title: bank ? `${division ? division + '（' : '（'}${bank}入金${division ? '）' : '）'}` : '未振り分け（銀行未設定）',
+        title: assigned ? `${division}（${bank}入金）` : `未振り分け（${missing}未設定）`,
         rows: [], totals: emptyTotals(),
       })
     }
@@ -235,10 +235,11 @@ export function buildSalesReport(
   const result: SalesBook[] = (['gyosei', 'shiho'] as const).map(key => {
     const sheets = [...books[key].values()]
       .map(s => ({ ...s, totals: sumTotals(s.rows) }))
-      // 未振り分けを先頭、以降は営業部/銀行名順
+      // 未振り分け（営業部/銀行未設定）を先頭、以降は営業部→銀行名順
       .sort((a, b) => {
-        if (!a.bank && b.bank) return -1
-        if (a.bank && !b.bank) return 1
+        const au = !(a.division && a.bank), bu = !(b.division && b.bank)
+        if (au && !bu) return -1
+        if (!au && bu) return 1
         return a.title.localeCompare(b.title, 'ja')
       })
     return { key, label: BOOK_LABEL[key], sheets }

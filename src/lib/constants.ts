@@ -602,13 +602,12 @@ export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: strin
 export const billingPatternOf = (v: string | null | undefined) =>
   BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]
 
-// === 入金銀行（確定売上表のシート＝銀行。第一=みずほ／第二=きらぼし。お客さんの振込先で決まる） ===
-export const DEPOSIT_BANKS: { name: string; division: string }[] = [
-  { name: 'みずほ', division: '第一営業部' },
-  { name: 'きらぼし', division: '第二営業部' },
-]
-export const divisionOfBank = (bank: string | null | undefined): string =>
-  DEPOSIT_BANKS.find(b => b.name === bank)?.division ?? ''
+// === 確定売上表のシート＝「営業部 × 入金銀行」の組み合わせ ===
+//   営業部 … 受注担当のチームの営業部（teams.division）。マスタ（チーム→営業部）で設定。
+//   入金銀行 … お客さんが実際に振り込んだ銀行（cases.bank）。CSV突合で自動・未入金は手動。
+//   例）第一営業部（みずほ入金）／第一営業部（きらぼし入金）／第二営業部（みずほ入金）／第二営業部（きらぼし入金）
+export const SALES_DIVISIONS = ['第一営業部', '第二営業部'] as const
+export const DEPOSIT_BANKS = ['みずほ', 'きらぼし'] as const
 
 // === 遺言種別 ===
 export const WILL_TYPES = ['自筆', '公正証書', 'その他'] as const

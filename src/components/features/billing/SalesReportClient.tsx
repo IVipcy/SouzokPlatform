@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FileSpreadsheet, Download, ArrowLeft, CalendarClock } from 'lucide-react'
+import { FileSpreadsheet, Download, ArrowLeft, CalendarClock, Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import { DEPOSIT_BANKS } from '@/lib/constants'
+import { DEPOSIT_BANKS, SALES_DIVISIONS } from '@/lib/constants'
 import {
   buildSalesReport, isSaleInvoice,
   type SalesReportRaw, type ExpenseItem, type RewardItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
@@ -39,6 +39,7 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
 
   const [month, setMonth] = useState<string>(() => monthOptions[0] ?? 'all')
   const [book, setBook] = useState<'gyosei' | 'shiho'>('gyosei')
+  const [showDivisionConfig, setShowDivisionConfig] = useState(false)
 
   const books = useMemo(
     () => buildSalesReport(invoices, expenses, rewards, teams, month),
@@ -83,7 +84,7 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         eyebrow="Billing"
         title="確定売上表"
         icon={FileSpreadsheet}
-        description="計上月ごとの売上一覧。入金銀行（第一=みずほ／第二=きらぼし）でシート分け、司法/行政でbook分け。Excel出力可"
+        description="計上月ごとの売上一覧。シート＝営業部（受注担当のチーム）×入金銀行、book＝司法/行政。Excel出力可"
         right={
           <Link href="/billing" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
             <ArrowLeft className="w-3.5 h-3.5" /> 請求・入金へ
@@ -124,19 +125,74 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         </div>
 
         <button
+          onClick={() => setShowDivisionConfig(v => !v)}
+          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+        >
+          <Building2 className="w-3.5 h-3.5" /> 営業部設定（チーム別）
+        </button>
+        <button
           onClick={handleExport}
-          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
         >
           <Download className="w-3.5 h-3.5" /> Excel出力
         </button>
       </div>
 
+      {showDivisionConfig && (
+        <DivisionSettingsPanel teams={teams} onClose={() => setShowDivisionConfig(false)} onSaved={() => { setShowDivisionConfig(false); router.refresh() }} />
+      )}
+
       <div className="text-xs text-gray-500 mb-3">
-        入金銀行は各行の「銀行」列で振り分けます（お客さんの振込先次第。CSV突合で自動記録・未入金は手動選択）。
+        シートは「営業部（受注担当のチーム）×入金銀行」で分かれます。営業部は「営業部設定」でチームごとに、入金銀行は各行の「銀行」列で（CSV突合は自動・未入金は手動）割り当てます。
       </div>
 
       {/* book本体 */}
       <BookView book={currentBook} monthLabel={monthLabel} onAssignBank={assignBank} onSaveDeduct={saveDeduct} />
+    </div>
+  )
+}
+
+// チーム→営業部（第一/第二）の割り当て。売上表のシートは「営業部×銀行」で分かれる。
+function DivisionSettingsPanel({ teams, onClose, onSaved }: { teams: TeamMeta[]; onClose: () => void; onSaved: () => void }) {
+  const [draft, setDraft] = useState<Record<string, string>>(() =>
+    Object.fromEntries(teams.map(t => [t.id, t.division ?? ''])))
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    const supabase = createClient()
+    for (const t of teams) {
+      const v = draft[t.id] ?? ''
+      if ((t.division ?? '') === v) continue
+      await supabase.from('teams').update({ division: v || null }).eq('id', t.id)
+    }
+    setSaving(false)
+    onSaved()
+  }
+
+  return (
+    <div className="bg-white border border-blue-200 rounded-xl p-4 mb-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+      <div className="text-[13px] font-semibold text-blue-900 mb-1">チームごとの営業部を設定</div>
+      <div className="text-xs text-gray-500 mb-3">受注担当のチームの営業部で、売上表のシートが決まります（例：高橋チーム＝第一営業部）。</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {teams.map(t => (
+          <div key={t.id} className="flex items-center gap-2">
+            <div className="flex-1 text-sm text-gray-700 truncate">{t.name}</div>
+            <select
+              value={draft[t.id] ?? ''}
+              onChange={e => setDraft(d => ({ ...d, [t.id]: e.target.value }))}
+              className="w-[150px] px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white"
+            >
+              <option value="">未設定</option>
+              {SALES_DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2 mt-3">
+        <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">キャンセル</button>
+        <button onClick={save} disabled={saving} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">{saving ? '保存中…' : '保存'}</button>
+      </div>
     </div>
   )
 }
@@ -167,7 +223,7 @@ const TH = 'border border-gray-300 bg-gray-100 px-2 py-1 font-semibold text-gray
 
 function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
   const t = sheet.totals
-  const unassigned = !sheet.bank
+  const unassigned = !sheet.division || !sheet.bank
   return (
     <div className={`bg-white border rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-300'}`}>
       <div className={`px-4 py-2 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-200' : 'bg-gray-100 border-gray-300'}`}>
@@ -205,7 +261,7 @@ function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet }
                     className={`px-1.5 py-0.5 text-[11px] border rounded ${r.bank ? 'border-gray-200 bg-white' : 'border-amber-300 bg-amber-50 text-amber-800'}`}
                   >
                     <option value="">未設定</option>
-                    {DEPOSIT_BANKS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                    {DEPOSIT_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </td>
                 <td className={TXT}>{r.postedDate ?? ''}</td>
