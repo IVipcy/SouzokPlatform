@@ -73,8 +73,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               value={client.postal_code}
               hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
+              action={<PostalLookupButton zip={client.postal_code} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
             />
-            <div className="flex items-end pb-1"><PostalLookupButton zip={client.postal_code} onResolved={addr => saveClientField('address', addr)} /></div>
             <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}
