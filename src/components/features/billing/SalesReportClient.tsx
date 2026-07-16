@@ -3,8 +3,9 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FileSpreadsheet, Download, Settings2, ArrowLeft, CalendarClock } from 'lucide-react'
+import { FileSpreadsheet, Download, ArrowLeft, CalendarClock } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
+import { DEPOSIT_BANKS } from '@/lib/constants'
 import {
   buildSalesReport,
   type SalesReportRaw, type ExpenseItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
@@ -20,11 +21,8 @@ type Props = {
 
 const yen = (n: number) => n.toLocaleString()
 
-export default function SalesReportClient({ invoices, expenses, teams: initialTeams }: Props) {
+export default function SalesReportClient({ invoices, expenses, teams }: Props) {
   const router = useRouter()
-  const [teams, setTeams] = useState<TeamMeta[]>(initialTeams)
-  const [showTeamConfig, setShowTeamConfig] = useState(false)
-  const [savingTeams, setSavingTeams] = useState(false)
 
   // 計上月の選択肢（posted_date の YYYY-MM）
   const monthOptions = useMemo(() => {
@@ -55,16 +53,10 @@ export default function SalesReportClient({ invoices, expenses, teams: initialTe
 
   const monthLabel = month === 'all' ? '' : `${Number(month.slice(5, 7))}月分`
 
-  async function saveTeams() {
-    setSavingTeams(true)
+  // 案件の入金銀行を振り分け（お客さんの振込先）→ シートが変わる
+  async function assignBank(caseId: string, bank: string) {
     const supabase = createClient()
-    for (const t of teams) {
-      const orig = initialTeams.find(o => o.id === t.id)
-      if (orig && orig.division === t.division && orig.bank === t.bank) continue
-      await supabase.from('teams').update({ division: t.division || null, bank: t.bank || null }).eq('id', t.id)
-    }
-    setSavingTeams(false)
-    setShowTeamConfig(false)
+    await supabase.from('cases').update({ bank: bank || null }).eq('id', caseId)
     router.refresh()
   }
 
@@ -80,7 +72,7 @@ export default function SalesReportClient({ invoices, expenses, teams: initialTe
         eyebrow="Billing"
         title="確定売上表"
         icon={FileSpreadsheet}
-        description="計上月ごとの売上一覧。営業部×銀行でシート分け、司法/行政でbook分け。Excel出力可"
+        description="計上月ごとの売上一覧。入金銀行（第一=みずほ／第二=きらぼし）でシート分け、司法/行政でbook分け。Excel出力可"
         right={
           <Link href="/billing" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
             <ArrowLeft className="w-3.5 h-3.5" /> 請求・入金へ
@@ -120,65 +112,25 @@ export default function SalesReportClient({ invoices, expenses, teams: initialTe
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setShowTeamConfig(v => !v)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-          >
-            <Settings2 className="w-3.5 h-3.5" /> チーム設定（営業部・銀行）
-          </button>
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
-          >
-            <Download className="w-3.5 h-3.5" /> Excel出力
-          </button>
-        </div>
+        <button
+          onClick={handleExport}
+          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+        >
+          <Download className="w-3.5 h-3.5" /> Excel出力
+        </button>
       </div>
 
-      {/* チーム設定 */}
-      {showTeamConfig && (
-        <div className="bg-white border border-blue-200 rounded-xl p-4 mb-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-          <div className="text-[13px] font-semibold text-blue-900 mb-2">チームの営業部・入金銀行を設定</div>
-          <div className="text-xs text-gray-500 mb-3">売上表のシートは「営業部（銀行入金）」で分かれます。各チームがどの営業部・どの銀行かを設定してください。</div>
-          <div className="space-y-2">
-            {teams.map(t => (
-              <div key={t.id} className="grid grid-cols-[120px_1fr_1fr] gap-2 items-center">
-                <div className="text-sm font-medium text-gray-700">{t.name}</div>
-                <input
-                  value={t.division ?? ''}
-                  onChange={e => setTeams(ts => ts.map(x => x.id === t.id ? { ...x, division: e.target.value } : x))}
-                  placeholder="営業部（例：第一営業部）"
-                  className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg"
-                />
-                <input
-                  value={t.bank ?? ''}
-                  onChange={e => setTeams(ts => ts.map(x => x.id === t.id ? { ...x, bank: e.target.value } : x))}
-                  placeholder="入金銀行（例：みずほ）"
-                  list="bank-list"
-                  className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg"
-                />
-              </div>
-            ))}
-            <datalist id="bank-list">
-              <option value="みずほ" />
-              <option value="きらぼし" />
-            </datalist>
-          </div>
-          <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => { setTeams(initialTeams); setShowTeamConfig(false) }} className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">キャンセル</button>
-            <button onClick={saveTeams} disabled={savingTeams} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">{savingTeams ? '保存中…' : '保存'}</button>
-          </div>
-        </div>
-      )}
+      <div className="text-xs text-gray-500 mb-3">
+        入金銀行は各行の「銀行」列で振り分けます（お客さんの振込先次第。CSV突合で自動記録・未入金は手動選択）。
+      </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} />
+      <BookView book={currentBook} monthLabel={monthLabel} onAssignBank={assignBank} />
     </div>
   )
 }
 
-function BookView({ book, monthLabel }: { book: SalesBook; monthLabel: string }) {
+function BookView({ book, monthLabel, onAssignBank }: { book: SalesBook; monthLabel: string; onAssignBank: (caseId: string, bank: string) => void }) {
   if (book.sheets.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">
@@ -188,7 +140,7 @@ function BookView({ book, monthLabel }: { book: SalesBook; monthLabel: string })
   }
   return (
     <div className="space-y-5">
-      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} />)}
+      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onAssignBank={onAssignBank} />)}
     </div>
   )
 }
@@ -196,18 +148,20 @@ function BookView({ book, monthLabel }: { book: SalesBook; monthLabel: string })
 const NUM = 'px-2 py-1 text-right tabular-nums whitespace-nowrap'
 const TXT = 'px-2 py-1 whitespace-nowrap'
 
-function SheetTable({ sheet }: { sheet: SalesSheet }) {
+function SheetTable({ sheet, onAssignBank }: { sheet: SalesSheet; onAssignBank: (caseId: string, bank: string) => void }) {
   const t = sheet.totals
+  const unassigned = !sheet.bank
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-      <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-        <div className="text-[13px] font-bold text-blue-900">{sheet.title}</div>
-        <div className="text-xs text-blue-700">{sheet.rows.length}件 ・ 差引請求 ¥{yen(t.billed)}</div>
+    <div className={`bg-white border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-200'}`}>
+      <div className={`px-4 py-2.5 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
+        <div className={`text-[13px] font-bold ${unassigned ? 'text-amber-900' : 'text-blue-900'}`}>{sheet.title}</div>
+        <div className={`text-xs ${unassigned ? 'text-amber-700' : 'text-blue-700'}`}>{sheet.rows.length}件 ・ 差引請求 ¥{yen(t.billed)}</div>
       </div>
       <div className="overflow-x-auto">
         <table className="text-[11px] border-collapse min-w-max">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
+              <th className={TXT}>銀行</th>
               <th className={TXT}>計上日</th><th className={TXT}>No</th><th className={TXT}>発行日</th>
               <th className={TXT}>案件番号</th><th className={TXT}>クライアント</th>
               <th className={NUM}>報酬(税込)</th><th className={NUM}>(内税)</th>
@@ -220,6 +174,16 @@ function SheetTable({ sheet }: { sheet: SalesSheet }) {
           <tbody>
             {sheet.rows.map((r, i) => (
               <tr key={r.invoiceId} className="border-t border-gray-100 hover:bg-gray-50">
+                <td className={TXT}>
+                  <select
+                    value={r.bank ?? ''}
+                    onChange={e => onAssignBank(r.caseId, e.target.value)}
+                    className={`px-1.5 py-0.5 text-[11px] border rounded ${r.bank ? 'border-gray-200 bg-white' : 'border-amber-300 bg-amber-50 text-amber-800'}`}
+                  >
+                    <option value="">未設定</option>
+                    {DEPOSIT_BANKS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                  </select>
+                </td>
                 <td className={TXT}>{r.postedDate ?? ''}</td>
                 <td className={TXT}>{i + 1}</td>
                 <td className={TXT}>{r.issuedDate ?? ''}</td>
@@ -252,7 +216,7 @@ function SheetTable({ sheet }: { sheet: SalesSheet }) {
 function TotalRow({ t }: { t: SalesTotals }) {
   return (
     <tr className="border-t-2 border-gray-300 bg-amber-50 font-bold text-gray-800">
-      <td className={TXT} colSpan={5}>合　計</td>
+      <td className={TXT} colSpan={6}>合　計</td>
       <td className={NUM}>{yen(t.rewardInclTax)}</td>
       <td className={NUM}>{yen(t.rewardTax)}</td>
       <td className={NUM}>{yen(t.expNonTax)}</td>

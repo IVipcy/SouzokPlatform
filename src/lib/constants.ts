@@ -602,6 +602,14 @@ export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: strin
 export const billingPatternOf = (v: string | null | undefined) =>
   BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]
 
+// === 入金銀行（確定売上表のシート＝銀行。第一=みずほ／第二=きらぼし。お客さんの振込先で決まる） ===
+export const DEPOSIT_BANKS: { name: string; division: string }[] = [
+  { name: 'みずほ', division: '第一営業部' },
+  { name: 'きらぼし', division: '第二営業部' },
+]
+export const divisionOfBank = (bank: string | null | undefined): string =>
+  DEPOSIT_BANKS.find(b => b.name === bank)?.division ?? ''
+
 // === 遺言種別 ===
 export const WILL_TYPES = ['自筆', '公正証書', 'その他'] as const
 

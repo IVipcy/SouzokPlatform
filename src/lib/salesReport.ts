@@ -26,6 +26,7 @@ export type TeamMeta = { id: string; name: string; division: string | null; bank
 export type SalesRow = {
   invoiceId: string
   caseId: string
+  bank: string | null     // 入金銀行（案件のcases.bank）
   postedDate: string | null
   issuedDate: string | null
   caseNumber: string
@@ -53,7 +54,7 @@ export type SalesRow = {
 export type SalesSheet = {
   key: string
   division: string
-  bank: string
+  bank: string            // '' = 未振り分け（銀行未設定）
   title: string           // 例）第一営業部（みずほ入金）
   rows: SalesRow[]
   totals: SalesTotals
@@ -71,6 +72,8 @@ export type SalesBook = {
   label: string           // 司法書士法人／行政書士法人
   sheets: SalesSheet[]
 }
+
+import { divisionOfBank } from '@/lib/constants'
 
 const innerTax = (inclTax: number) => Math.round((inclTax * 10) / 110)
 
@@ -135,8 +138,10 @@ export function buildSalesReport(
     const salesM = members.find(m => m.role === 'sales')?.members ?? null
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
-    const division = team?.division || '未設定'
-    const bank = team?.bank || '未設定'
+
+    // シート分けは「案件の入金銀行」で決まる（お客さんの振込先。チーム固定ではない）
+    const bank = (c?.bank as string | null) || ''
+    const division = divisionOfBank(bank)
 
     const rewardInclTax = inv.fee_amount ?? 0
     const expNonTax =
@@ -159,6 +164,7 @@ export function buildSalesReport(
     const row: SalesRow = {
       invoiceId: inv.id,
       caseId: inv.case_id,
+      bank: bank || null,
       postedDate: inv.posted_date,
       issuedDate: inv.issued_date,
       caseNumber: c?.case_number ?? '',
@@ -183,12 +189,12 @@ export function buildSalesReport(
       defect: '',
     }
 
-    const sheetKey = `${division}__${bank}`
+    const sheetKey = bank || '__unassigned'
     const map = books[bookKey]
     if (!map.has(sheetKey)) {
       map.set(sheetKey, {
         key: sheetKey, division, bank,
-        title: `${division}（${bank}入金）`,
+        title: bank ? `${division ? division + '（' : '（'}${bank}入金${division ? '）' : '）'}` : '未振り分け（銀行未設定）',
         rows: [], totals: emptyTotals(),
       })
     }
@@ -198,7 +204,12 @@ export function buildSalesReport(
   const result: SalesBook[] = (['gyosei', 'shiho'] as const).map(key => {
     const sheets = [...books[key].values()]
       .map(s => ({ ...s, totals: sumTotals(s.rows) }))
-      .sort((a, b) => a.title.localeCompare(b.title, 'ja'))
+      // 未振り分けを先頭、以降は営業部/銀行名順
+      .sort((a, b) => {
+        if (!a.bank && b.bank) return -1
+        if (a.bank && !b.bank) return 1
+        return a.title.localeCompare(b.title, 'ja')
+      })
     return { key, label: BOOK_LABEL[key], sheets }
   })
   return result
