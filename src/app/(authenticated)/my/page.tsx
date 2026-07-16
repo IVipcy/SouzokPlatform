@@ -9,9 +9,8 @@ import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
-import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
+import BillingClient from '@/components/features/billing/BillingClient'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
-import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -153,7 +152,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // 受注担当・管理担当・依頼者名を解決
   const allMembersArr = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_url: string | null }>
   const memberById = new Map<string, string>(allMembersArr.map(m => [m.id, m.name]))
-  const memberObjById = new Map(allMembersArr.map(m => [m.id, m]))
   const clientById = new Map<string, string>(((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]))
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const salesByCase = new Map<string, string>()
@@ -182,7 +180,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
   let boardTasks: BoardTask[] = []
   let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null; due_date: string | null; needs_review: boolean | null }> = []
-  let billingPayments: Array<{ invoice_id: string; amount: number }> = []
   let salesChanges: DashStatusChange[] = []
   let salesProps: DashProperty[] = []
   let salesReferrals: DashReferral[] = []
@@ -222,10 +219,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
-      if ((isManager || isSales) && invoices.length > 0) {
-        const { data: payRaw } = await supabase.from('payments').select('invoice_id,amount').in('invoice_id', invoices.map(i => i.id))
-        billingPayments = (payRaw ?? []) as typeof billingPayments
-      }
       roleTaskRows = (roleTaskRes.data ?? []) as TaskRow[]
       salesChanges = (changesRes.data ?? []) as DashStatusChange[]
       salesProps = (propsRes.data ?? []) as DashProperty[]
@@ -493,9 +486,30 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // 請求タブ: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件。
   // 管理担当＝自分が管理担当の案件 / 受注担当＝自分が受注担当の案件。
   const billingScopeIds = isManager ? managerCaseIds : isSales ? salesCaseIds : new Set<string>()
-  const billingCaseRows = (isManager || isSales)
-    ? buildBillingCaseRows(myCases.filter(c => billingScopeIds.has(c.id)), allCaseMembers, memberObjById, invoices, today, billingPayments)
-    : []
+
+  // 請求タブは /billing（BillingClient）と同一UI・操作にする（CSV突合以外）。自分の案件にスコープ。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let billingInvoices: any[] = []
+  let billingRequests: Array<{ id: string; invoice_id: string; case_id: string; kind: 'confirm' | 'refund'; status: string; requester_id: string | null; request_note: string | null; result_note: string | null; resolution: string | null; reason_category: string | null; fee_bearer: string | null; refund_amount: number | null; caseNumber: string; dealName: string }> = []
+  const billingCaseOptions = myCases.filter(c => billingScopeIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name }))
+  if ((isManager || isSales) && billingScopeIds.size > 0) {
+    const scopeArr = Array.from(billingScopeIds)
+    const [invRes, reqRes] = await Promise.all([
+      supabase.from('invoices')
+        .select('*, cases(id, case_number, deal_name, deceased_name, status, contract_type, billing_pattern, order_route, order_route_detail, clients(*), case_members(*, members(*))), payments(*), payment_check_requests(id, status, result_note, requested_date, confirmed_date, confirmer_id, auto_closed)')
+        .in('case_id', scopeArr).order('created_at', { ascending: false }),
+      supabase.from('payment_check_requests')
+        .select('id, invoice_id, case_id, kind, status, requester_id, request_note, result_note, resolution, reason_category, fee_bearer, refund_amount, invoices(cases(case_number, deal_name))')
+        .in('kind', ['confirm', 'refund']).neq('status', '完了').in('case_id', scopeArr),
+    ])
+    billingInvoices = invRes.data ?? []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    billingRequests = ((reqRes.data ?? []) as any[]).map(r => {
+      const inv = Array.isArray(r.invoices) ? r.invoices[0] : r.invoices
+      const cs = inv && (Array.isArray(inv.cases) ? inv.cases[0] : inv.cases)
+      return { id: r.id, invoice_id: r.invoice_id, case_id: r.case_id, kind: r.kind as 'confirm' | 'refund', status: r.status, requester_id: r.requester_id, request_note: r.request_note, result_note: r.result_note, resolution: r.resolution, reason_category: r.reason_category, fee_bearer: r.fee_bearer, refund_amount: r.refund_amount, caseNumber: cs?.case_number ?? '', dealName: cs?.deal_name ?? '' }
+    })
+  }
 
   // 入金期日超過アラート（受注担当）: 自分の案件で、入金期日を過ぎた未入金の請求。
   const overdueInvoices = isSales
@@ -556,7 +570,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         )}
         <TabLink href={`/my?tab=cases${asSuffix}`} label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
         {isManager && (
-          <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求 (${billingCaseRows.length})`} Icon={Receipt} active={activeTab === 'billing'} />
+          <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求 (${billingInvoices.length})`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {isSales && (
           <TabLink href={`/my?tab=referrals${asSuffix}`} label={`個別案件一覧 (${referralCount})`} Icon={Sparkles} active={activeTab === 'referrals'} />
@@ -617,14 +631,15 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
       {/* 請求（管理担当＝請求 / 受注担当＝請求状況）: 案件ベースの請求一覧 */}
       {activeTab === 'billing' && (isManager || isSales) && (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {isSales && overduePaymentCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-700">
               <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2.25} />
               <span>入金期日を超過した未入金の案件が <span className="font-bold">{overduePaymentCount}件</span> あります。お客様への確認・消込状況をご確認ください。</span>
             </div>
           )}
-          <BillingCaseTable rows={billingCaseRows} />
+          {/* /billing と同一UI・操作（CSV突合は経理のみのため非表示）。自分の案件にスコープ。 */}
+          <BillingClient invoices={billingInvoices} cases={billingCaseOptions} requests={billingRequests} currentMemberId={memberId} canReconcile={false} embedded />
         </div>
       )}
 

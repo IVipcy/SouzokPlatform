@@ -60,6 +60,8 @@ type Props = {
   currentMemberId?: string | null
   /** 銀行CSV取込・入金突合ができるか（経理・システム管理者のみ） */
   canReconcile?: boolean
+  /** マイページ等に埋め込むとき（PageHeaderを出さず、検索/月だけのツールバーにする） */
+  embedded?: boolean
 }
 
 // 手動で選べるステータス。入金済は「入金消込」／CSV突合で payments を伴って確定するためここには含めない。
@@ -112,7 +114,7 @@ function contractDot(contractType: string | null | undefined): { cls: string; la
   }
 }
 
-export default function BillingClient({ invoices, cases, deposits = [], requests = [], currentMemberId = null, canReconcile = false }: Props) {
+export default function BillingClient({ invoices, cases, deposits = [], requests = [], currentMemberId = null, canReconcile = false, embedded = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFromUrl = searchParams.get('case')
@@ -444,42 +446,41 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     }
   }
 
+  const toolbar = (
+    <>
+      <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+        <span className="text-gray-400 text-xs">🔍</span>
+        <input
+          type="text"
+          placeholder="案件名・依頼者で検索"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
+        />
+      </div>
+      <select
+        value={monthFilter}
+        onChange={e => setMonthFilter(e.target.value)}
+        className="px-2.5 py-1 text-[12px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white"
+        title="集計・表示期間（入金期日）"
+      >
+        {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      {canReconcile && (
+        <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
+          入金突合
+        </Button>
+      )}
+    </>
+  )
+
   return (
     <div>
-      <PageHeader
-        eyebrow="Billing"
-        title="請求・入金管理"
-        icon={Receipt}
-        description="請求書発行・入金消込・銀行CSV突合"
-        right={
-          <>
-            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-              <span className="text-gray-400 text-xs">🔍</span>
-              <input
-                type="text"
-                placeholder="案件名・依頼者で検索"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs text-gray-700 w-44 placeholder:text-gray-300"
-              />
-            </div>
-            <select
-              value={monthFilter}
-              onChange={e => setMonthFilter(e.target.value)}
-              className="px-2.5 py-1 text-[12px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white"
-              title="KPI集計期間"
-            >
-              {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            {canReconcile && (
-              <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
-                入金突合
-              </Button>
-            )}
-            {/* 請求書の発行は各案件の「請求」タブに一本化（ここでは作成しない） */}
-          </>
-        }
-      />
+      {embedded ? (
+        <div className="flex items-center justify-end gap-1.5 mb-4 flex-wrap">{toolbar}</div>
+      ) : (
+        <PageHeader eyebrow="Billing" title="請求・入金管理" icon={Receipt} description="請求書発行・入金消込・銀行CSV突合" right={toolbar} />
+      )}
 
       {/* 案件フィルタ表示（?case= で遷移してきた場合） */}
       {filteredCase && (
