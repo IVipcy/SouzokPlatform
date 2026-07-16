@@ -220,8 +220,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
       if (caseFilter && inv.case_id !== caseFilter) return false
-      // 月フィルタ：入金期日がその月のものだけ（要確認は横断キューなので対象外）
-      if (monthFilter !== 'all' && statusFilter !== 'review' && !(inv.due_date ?? '').startsWith(monthFilter)) return false
+      // 月フィルタ：発行月でその月のものだけ（KPIカードと基準を統一。要確認は横断キューなので対象外）
+      if (monthFilter !== 'all' && statusFilter !== 'review' &&
+          !((inv.issued_date ?? '').startsWith(monthFilter) || (!inv.issued_date && inv.status === '未請求'))) return false
       if (statusFilter === 'review') {
         if (!inv.needs_review) return false
       } else if (statusFilter === 'waiting') {
@@ -462,7 +463,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
         value={monthFilter}
         onChange={e => setMonthFilter(e.target.value)}
         className="px-2.5 py-1 text-[12px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white"
-        title="集計・表示期間（入金期日）"
+        title="集計・表示期間（請求書の発行月）"
       >
         {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
