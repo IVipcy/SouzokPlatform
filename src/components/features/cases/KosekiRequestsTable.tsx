@@ -100,8 +100,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     <div>
       {/* 契約時に受領済の戸籍（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      {/* PC: 表（スマホは非表示・下のカード表示）。オーダーシート(progressMode=false)は全幅でカード表示に統一（1項目=1行）。 */}
-      <div className={`${progressMode ? 'hidden sm:block' : 'hidden'} overflow-x-auto`}>
+      {/* PC(sm以上)は表・スマホはカード。オーダーシート・案件詳細とも同じ（表に統一）。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? 1240 : 820 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -135,8 +135,8 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
         </table>
       </div>
 
-      {/* スマホ: カード表示（1請求＝1カード）。オーダーシートは全幅でカード表示。 */}
-      <div className={`${progressMode ? 'sm:hidden' : ''} space-y-2.5`}>
+      {/* スマホのみ: カード表示（1請求＝1カード）。PCは上の表。 */}
+      <div className="sm:hidden space-y-2.5">
         {rows.length === 0 ? (
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</div>
         ) : (
