@@ -13,7 +13,7 @@ import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
-import { Edit2, FileText, PanelRightOpen, MessagesSquare } from 'lucide-react'
+import { Edit2, FileText, MessagesSquare, MoreHorizontal } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
@@ -142,7 +142,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, reviewReason: 200, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 90,
+    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, actionStatus: 130, reviewReason: 200, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 90,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件番号' },
@@ -155,6 +155,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     { key: 'sales', label: '受注担当' },
     { key: 'manager', label: '管理担当' },
     { key: 'status', label: '入金ステータス' },
+    { key: 'actionStatus', label: '対応状況' },
     { key: 'reviewReason', label: '要確認理由' },
     { key: 'dueDate', label: '入金期日' },
     { key: 'overdue', label: '超過日数' },
@@ -168,7 +169,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     { key: 'pdf', label: '請求書' },
     { key: 'receipt', label: '領収書' },
     { key: 'remarks', label: '備考' },
-    { key: 'actions', label: '' },
+    { key: 'actions', label: '操作' },
   ]
 
   // Modal states
@@ -217,6 +218,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const filtered = useMemo(() => {
     return invoices.filter(inv => {
       if (caseFilter && inv.case_id !== caseFilter) return false
+      // 月フィルタ：入金期日がその月のものだけ（要確認は横断キューなので対象外）
+      if (monthFilter !== 'all' && statusFilter !== 'review' && !(inv.due_date ?? '').startsWith(monthFilter)) return false
       if (statusFilter === 'review') {
         if (!inv.needs_review) return false
       } else if (statusFilter === 'waiting') {
@@ -237,7 +240,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       }
       return true
     })
-  }, [invoices, caseFilter, statusFilter, search])
+  }, [invoices, caseFilter, statusFilter, search, monthFilter])
 
   // 請求合計の内訳（発行済のみ）：純額（返金控除後）・入金済（実受領・純額）・未入金・返金。
   const collection = useMemo(() => {
@@ -263,10 +266,24 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   // 行の「依頼」（確認依頼/返金依頼を種類選択するモーダル）
   const [requestTarget, setRequestTarget] = useState<{ inv: RequestInvoice; defaultMode: 'confirm' | 'refund' } | null>(null)
 
-  // 確認依頼(kind=confirm)を invoice_id で対応づけ（行の回答/経理対応ボタンに使う）
+  // 確認依頼/返金依頼(未完了)を invoice_id で対応づけ（対応状況列・操作パネルに使う）
   const confirmByInvoice = new Map<string, BillingRequestRow>()
-  for (const r of requests) if (r.kind === 'confirm' && r.status !== '完了') confirmByInvoice.set(r.invoice_id, r)
+  const refundByInvoice = new Map<string, BillingRequestRow>()
+  for (const r of requests) {
+    if (r.status === '完了') continue
+    if (r.kind === 'confirm') confirmByInvoice.set(r.invoice_id, r)
+    else if (r.kind === 'refund') refundByInvoice.set(r.invoice_id, r)
+  }
   const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
+  // 行の「対応状況」（1状態）：返金依頼 > 確認依頼中 > 確認済(判定) > 要確認(未依頼) > なし
+  const actionStatusOf = (inv: InvoiceWithRelations): { label: string; cls: string } | null => {
+    if (refundByInvoice.has(inv.id)) return { label: '返金依頼', cls: 'bg-rose-50 text-rose-700 border-rose-200' }
+    const c = confirmByInvoice.get(inv.id)
+    if (c?.status === '依頼中') return { label: '確認依頼中', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
+    if (c?.status === '回答済') { const r = resolutionOf(c.resolution); return { label: `確認済${r ? `・${r.label}` : ''}`, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' } }
+    if (inv.needs_review) return { label: '要確認', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+    return null
+  }
   // 確認依頼への回答（受注/管理）はアラートから自動オープン
   const [respondTarget, setRespondTarget] = useState<ConfirmRequestLite | null>(null)
   // アラート(?respond=1)から来たら、その案件の未回答の確認依頼を自動でモーダル表示（案件ごとに1回）
@@ -822,22 +839,21 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
                             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-slate-100 text-slate-600" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
                           )}
-                          {inv.needs_review && (
-                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title={inv.review_reason ?? 'CSV突合で要確認になりました'}>要確認</span>
-                          )}
-                          {(() => {
-                            const cReq = confirmByInvoice.get(inv.id)
-                            if (!cReq) return null
-                            if (cReq.status === '依頼中') return <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200">確認依頼中</span>
-                            const r = resolutionOf(cReq.resolution)
-                            return <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title={cReq.result_note ?? ''}>確認済{r ? `・${r.label}` : ''}</span>
-                          })()}
                           {refundTotal > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-rose-50 text-rose-700" title={`返金 ¥${refundTotal.toLocaleString()}`}>
                               {paidAmount <= 0 ? '全額返金' : '一部返金'}
                             </span>
                           )}
                         </div>
+                      </td>
+                      {/* 対応状況（要確認・依頼系を1状態で表示） */}
+                      <td className="px-3.5 py-2.5">
+                        {(() => {
+                          const a = actionStatusOf(inv)
+                          return a
+                            ? <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold border ${a.cls}`}>{a.label}</span>
+                            : <span className="text-gray-300 text-xs">—</span>
+                        })()}
                       </td>
                       {/* 要確認理由（CSV突合でAIが要確認にした理由） */}
                       <td className="px-3.5 py-2.5 overflow-hidden">
@@ -904,7 +920,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                             className={`inline-flex items-center justify-center gap-1 w-[72px] py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
                             title="入金消込・確認依頼・返金依頼などの操作を開く"
                           >
-                            <PanelRightOpen className="w-3.5 h-3.5" strokeWidth={2} />操作
+                            <MoreHorizontal className="w-3.5 h-3.5" strokeWidth={2} />操作
                           </button>
                         </div>
                       </td>
