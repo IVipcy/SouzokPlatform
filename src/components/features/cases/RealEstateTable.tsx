@@ -48,8 +48,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const visibleRows = municipalityFilter != null
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
-  // toggle +[市区町村] +物件種別 +所在地 +評価額 +[確定済] +備考 +[備考・結果] +削除
-  const colCount = (orderSheetMode ? 0 : 1) + (showMuni ? 1 : 0) + 3 + (showConfirmed ? 1 : 0) + 1
+  // [市区町村] +物件種別 +所在地 +評価額 +備考 +[確定済] +削除
+  const colCount = (showMuni ? 1 : 0) + 4 + (showConfirmed ? 1 : 0) + 1
 
   const toggleConfirmed = async (row: RealEstatePropertyRow) => {
     const next = !row.confirmed
@@ -94,8 +94,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   return (
     <div>
-      {/* PC: 表（スマホでは非表示）。オーダーシートは全幅でカード表示に統一（1項目=1行）。 */}
-      <div className={`${orderSheetMode ? 'hidden' : 'hidden sm:block'} overflow-x-auto`}>
+      {/* PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一）。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -103,6 +103,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
+              <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
@@ -129,8 +130,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
         </table>
       </div>
 
-      {/* カード表示（1件＝1カード・縦積み）。オーダーシートは全幅。 */}
-      <div className={`${orderSheetMode ? '' : 'sm:hidden'} space-y-2.5`}>
+      {/* カード表示（1件＝1カード・縦積み）。スマホのみ（PCは上の表）。 */}
+      <div className="sm:hidden space-y-2.5">
         {visibleRows.length === 0 ? (
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
         ) : (
@@ -187,6 +188,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, isMan
         {sel('property_type', PROPERTY_TYPES)}
         <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地" />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
+        <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
         {showConfirmed && (
           <td className="px-2.5 py-1.5 text-center">
             {r.confirmed ? (
