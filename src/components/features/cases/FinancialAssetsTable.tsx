@@ -198,8 +198,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     <div>
       {/* 契約時にお客様から受領済の書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      {/* 表示：進捗モード(案件詳細)はPCのみ表・スマホはカード。オーダーシート(progressMode=false)は全幅でカード（表が横に広すぎるため） */}
-      <div className={progressMode ? 'hidden sm:block overflow-x-auto' : 'hidden'}>
+      {/* 表示：PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一・横スクロール）。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -325,8 +325,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         </table>
       </div>
 
-      {/* カード表示（1口座＝1カード）。オーダーシートは全幅・進捗モードはスマホのみ */}
-      <div className={progressMode ? 'sm:hidden space-y-2.5' : 'space-y-2.5'}>
+      {/* カード表示（1口座＝1カード）。スマホのみ（PCは上の表）。 */}
+      <div className="sm:hidden space-y-2.5">
         {visibleRows.length === 0 ? (
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</div>
         ) : (
