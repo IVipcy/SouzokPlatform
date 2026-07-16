@@ -69,32 +69,37 @@ export default function PaymentDetailClient({ payments }: Props) {
   )
 }
 
-const NUM = 'px-2 py-1 text-right tabular-nums whitespace-nowrap'
-const TXT = 'px-2 py-1 whitespace-nowrap'
+const NUM = 'border border-gray-200 px-2 py-1 text-right tabular-nums whitespace-nowrap'
+const TXT = 'border border-gray-200 px-2 py-1 whitespace-nowrap'
+const TH = 'border border-gray-300 bg-gray-100 px-2 py-1 font-semibold text-gray-700 text-center whitespace-nowrap'
 
 function SheetTable({ sheet }: { sheet: PaymentSheet }) {
   const unassigned = !sheet.bank
   return (
-    <div className={`bg-white border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-200'}`}>
-      <div className={`px-4 py-2.5 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
-        <div className={`text-[13px] font-bold ${unassigned ? 'text-amber-900' : 'text-blue-900'}`}>{sheet.title}</div>
-        <div className={`text-xs ${unassigned ? 'text-amber-700' : 'text-blue-700'}`}>{sheet.rows.length}件 ・ 入金計 ¥{yen(sheet.totals.amount)}</div>
+    <div className={`bg-white border rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-300'}`}>
+      <div className={`px-4 py-2 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-200' : 'bg-gray-100 border-gray-300'}`}>
+        <div className={`text-[13px] font-bold ${unassigned ? 'text-amber-900' : 'text-gray-800'}`}>{sheet.title}</div>
+        <div className={`text-xs ${unassigned ? 'text-amber-700' : 'text-gray-500'}`}>{sheet.rows.length}件 ・ 入金計 ¥{yen(sheet.totals.amount)}</div>
       </div>
       <div className="overflow-x-auto">
         <table className="text-[11px] border-collapse min-w-max">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead>
             <tr>
-              <th className={TXT}>司/行</th><th className={TXT}>日付</th><th className={TXT}>案件番号</th><th className={TXT}>依頼者</th>
-              <th className={NUM}>入金額</th><th className={NUM}>差額</th><th className={NUM}>内訳</th>
-              <th className={NUM}>司前受金</th><th className={NUM}>司報酬</th><th className={NUM}>司実費</th>
-              <th className={NUM}>行前受金</th><th className={NUM}>行報酬</th><th className={NUM}>行実費</th>
-              <th className={TXT}>受注</th><th className={TXT}>管理</th><th className={TXT}>受注ルート</th><th className={TXT}>紹介元</th>
-              <th className={TXT}>請求書</th><th className={TXT}>備考</th>
+              <th className={TH} rowSpan={2}>司/行</th><th className={TH} rowSpan={2}>日付</th><th className={TH} rowSpan={2}>案件番号</th><th className={TH} rowSpan={2}>依頼者</th>
+              <th className={TH} rowSpan={2}>入金額</th><th className={TH} rowSpan={2}>差額</th><th className={TH} rowSpan={2}>内訳</th>
+              <th className={TH} colSpan={3}>司法</th>
+              <th className={TH} colSpan={3}>行政</th>
+              <th className={TH} rowSpan={2}>受注</th><th className={TH} rowSpan={2}>管理</th><th className={TH} rowSpan={2}>受注ルート</th><th className={TH} rowSpan={2}>紹介元</th>
+              <th className={TH} rowSpan={2}>請求書</th><th className={TH} rowSpan={2}>備考</th>
+            </tr>
+            <tr>
+              <th className={TH}>前受金</th><th className={TH}>報酬</th><th className={TH}>実費</th>
+              <th className={TH}>前受金</th><th className={TH}>報酬</th><th className={TH}>実費</th>
             </tr>
           </thead>
           <tbody>
             {sheet.rows.map((r, i) => (
-              <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/40">
                 <td className={TXT + ' text-center'}>{r.firmMark}</td>
                 <td className={TXT}>{r.date}</td>
                 <td className={TXT + ' font-mono'}>{r.caseNumber}</td>
@@ -133,21 +138,21 @@ function SheetTable({ sheet }: { sheet: PaymentSheet }) {
 function RefundTable({ refunds }: { refunds: RefundRow[] }) {
   const total = refunds.reduce((s, r) => s + r.amount, 0)
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-      <div className="px-4 py-2.5 bg-red-50 border-b border-red-100 flex items-center justify-between">
+    <div className="bg-white border border-gray-300 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+      <div className="px-4 py-2 bg-red-50 border-b border-red-200 flex items-center justify-between">
         <div className="text-[13px] font-bold text-red-900">返金</div>
         <div className="text-xs text-red-700">{refunds.length}件 ・ 返金計 ¥{yen(total)}</div>
       </div>
       <div className="overflow-x-auto">
         <table className="text-[11px] border-collapse min-w-max">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead>
             <tr>
-              <th className={TXT}>日付</th><th className={TXT}>案件No.</th><th className={TXT}>依頼人</th><th className={NUM}>返金額</th><th className={TXT}>備考</th>
+              <th className={TH}>日付</th><th className={TH}>案件No.</th><th className={TH}>依頼人</th><th className={TH}>返金額</th><th className={TH}>備考</th>
             </tr>
           </thead>
           <tbody>
             {refunds.map((r, i) => (
-              <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr key={i} className="hover:bg-blue-50/40">
                 <td className={TXT}>{r.date}</td>
                 <td className={TXT + ' font-mono'}>{r.caseNumber}</td>
                 <td className={TXT}>{r.client}</td>

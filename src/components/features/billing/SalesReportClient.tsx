@@ -161,37 +161,43 @@ function BookView({ book, monthLabel, onAssignBank, onSaveDeduct }: { book: Sale
   )
 }
 
-const NUM = 'px-2 py-1 text-right tabular-nums whitespace-nowrap'
-const TXT = 'px-2 py-1 whitespace-nowrap'
+const NUM = 'border border-gray-200 px-2 py-1 text-right tabular-nums whitespace-nowrap'
+const TXT = 'border border-gray-200 px-2 py-1 whitespace-nowrap'
+const TH = 'border border-gray-300 bg-gray-100 px-2 py-1 font-semibold text-gray-700 text-center whitespace-nowrap'
 
 function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
   const t = sheet.totals
   const unassigned = !sheet.bank
   return (
-    <div className={`bg-white border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-200'}`}>
-      <div className={`px-4 py-2.5 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
-        <div className={`text-[13px] font-bold ${unassigned ? 'text-amber-900' : 'text-blue-900'}`}>{sheet.title}</div>
-        <div className={`text-xs ${unassigned ? 'text-amber-700' : 'text-blue-700'}`}>{sheet.rows.length}件 ・ 差引請求 ¥{yen(t.billed)}</div>
+    <div className={`bg-white border rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden ${unassigned ? 'border-amber-300' : 'border-gray-300'}`}>
+      <div className={`px-4 py-2 border-b flex items-center justify-between ${unassigned ? 'bg-amber-50 border-amber-200' : 'bg-gray-100 border-gray-300'}`}>
+        <div className={`text-[13px] font-bold ${unassigned ? 'text-amber-900' : 'text-gray-800'}`}>{sheet.title}</div>
+        <div className={`text-xs ${unassigned ? 'text-amber-700' : 'text-gray-500'}`}>{sheet.rows.length}件 ・ 差引請求 ¥{yen(t.billed)}</div>
       </div>
       <div className="overflow-x-auto">
         <table className="text-[11px] border-collapse min-w-max">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead>
             <tr>
-              <th className={TXT}>銀行</th>
-              <th className={TXT}>計上日</th><th className={TXT}>No</th><th className={TXT}>発行日</th>
-              <th className={TXT}>案件番号</th><th className={TXT}>クライアント</th>
-              <th className={NUM}>報酬(税込)</th><th className={NUM}>(内税)</th>
-              <th className={NUM}>立替非課税</th><th className={NUM}>立替課税</th><th className={NUM}>(内税)</th><th className={NUM}>立替計</th>
-              <th className={NUM} title="立替のうち今回請求から差し引く分（非課税）">差引(非税)</th>
-              <th className={NUM} title="立替のうち今回請求から差し引く分（課税税込）">差引(課税)</th>
-              <th className={NUM}>合計</th><th className={NUM}>前受金</th><th className={NUM}>差引請求</th>
-              <th className={TXT}>入金日</th><th className={TXT}>備考</th>
-              <th className={TXT}>チーム</th><th className={TXT}>受注</th><th className={TXT}>管理</th>
+              <th className={TH} rowSpan={2}>銀行</th>
+              <th className={TH} rowSpan={2}>計上日</th><th className={TH} rowSpan={2}>No</th><th className={TH} rowSpan={2}>発行日</th>
+              <th className={TH} rowSpan={2}>案件番号</th><th className={TH} rowSpan={2}>クライアント</th>
+              <th className={TH} colSpan={2}>報酬額</th>
+              <th className={TH} colSpan={4}>立替実費</th>
+              <th className={TH} colSpan={2}>立替実費差引額</th>
+              <th className={TH} rowSpan={2}>合計</th><th className={TH} rowSpan={2}>前受金</th><th className={TH} rowSpan={2}>差引請求</th>
+              <th className={TH} rowSpan={2}>入金日</th><th className={TH} rowSpan={2}>備考</th>
+              <th className={TH} rowSpan={2}>チーム</th><th className={TH} rowSpan={2}>受注</th><th className={TH} rowSpan={2}>管理</th>
+            </tr>
+            <tr>
+              <th className={TH}>税込</th><th className={TH}>(内税)</th>
+              <th className={TH}>非課税</th><th className={TH}>課税</th><th className={TH}>(内税)</th><th className={TH}>立替計</th>
+              <th className={TH} title="立替のうち今回請求から差し引く分（非課税）">非課税</th>
+              <th className={TH} title="立替のうち今回請求から差し引く分（課税税込）">課税</th>
             </tr>
           </thead>
           <tbody>
             {sheet.rows.map((r, i) => (
-              <tr key={r.invoiceId} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr key={r.invoiceId} className="hover:bg-blue-50/40">
                 <td className={TXT}>
                   <select
                     value={r.bank ?? ''}
@@ -213,10 +219,10 @@ function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet }
                 <td className={NUM}>{r.expTaxInclTax ? yen(r.expTaxInclTax) : ''}</td>
                 <td className={NUM + ' text-gray-400'}>{r.expTax ? yen(r.expTax) : ''}</td>
                 <td className={NUM}>{r.expTotal ? yen(r.expTotal) : ''}</td>
-                <td className="px-1 py-1 text-right">
+                <td className="border border-gray-200 px-1 py-1 text-right">
                   <DeductInput value={r.dedNonTax} onSave={v => onSaveDeduct(r.invoiceId, 'deduct_expense_nontax', v)} />
                 </td>
-                <td className="px-1 py-1 text-right">
+                <td className="border border-gray-200 px-1 py-1 text-right">
                   <DeductInput value={r.dedTaxIncl} onSave={v => onSaveDeduct(r.invoiceId, 'deduct_expense_tax', v)} />
                 </td>
                 <td className={NUM + ' font-semibold'}>{yen(r.total)}</td>
