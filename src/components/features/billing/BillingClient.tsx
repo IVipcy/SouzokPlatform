@@ -471,6 +471,14 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           入金突合
         </Button>
       )}
+      {canReconcile && !embedded && (
+        <Link
+          href="/billing/sales-report"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition"
+        >
+          📊 確定売上表
+        </Link>
+      )}
     </>
   )
 
