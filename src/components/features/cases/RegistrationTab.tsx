@@ -93,8 +93,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   return (
     <div className="space-y-3.5">
       <Section title="相続登記（物件ごとの手続き）">
-      {/* オーダーシートは全幅でカード表示に統一（1項目=1行）。表は出さない。 */}
-      <div className="hidden overflow-x-auto">
+      {/* PC(sm以上)は表・スマホはカード。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1580 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -162,8 +162,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
         </table>
       </div>
 
-      {/* カード表示（1物件＝1カード・全幅） */}
-      <div className="space-y-2.5">
+      {/* カード表示（1物件＝1カード）。スマホのみ（PCは上の表）。 */}
+      <div className="sm:hidden space-y-2.5">
         {rows.map(r => (
           <RegCard key={r.id} r={r} columns={columns} saveField={saveField} saveCustom={saveCustom} />
         ))}

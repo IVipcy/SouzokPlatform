@@ -60,7 +60,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
           </div>
         ) : (
           <>
-          <div className="hidden overflow-x-auto">
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
               <thead>
                 <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -87,8 +87,8 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
               </tbody>
             </table>
           </div>
-          {/* カード表示（1口座＝1カード・全幅・1項目=1行） */}
-          <div className="space-y-2.5">
+          {/* カード表示（1口座＝1カード）。スマホのみ（PCは上の表）。 */}
+          <div className="sm:hidden space-y-2.5">
             {klist.map(r => (
               <div key={r.id} className="border border-gray-200 rounded-xl p-3">
                 <div className="text-[15px] font-semibold text-gray-900 mb-2.5">{r.institution_name || '未入力'}</div>
