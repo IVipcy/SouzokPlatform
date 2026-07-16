@@ -118,7 +118,7 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 export function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
@@ -207,7 +207,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
       <div className="flex items-center gap-2">
-        <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
+        <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
           {label}
         </div>
         {action}
@@ -279,7 +279,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
         {label}
       </div>
       {editing ? (
@@ -359,7 +359,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
 
   return (
     <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
         {label}
       </div>
       {editing ? (
@@ -445,7 +445,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-12 px-3 text-[15px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
         {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
       </div>
     )
@@ -453,7 +453,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </div>
       {editing ? (
@@ -519,7 +519,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       {editing ? (
         <input
           ref={inputRef}
@@ -585,7 +585,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
 
   return (
     <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       {editing ? (
         <div className="flex items-center gap-1">
           <span className="text-[13px] text-gray-500">¥</span>
@@ -615,10 +615,11 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
 
 // ─── InlineCheckbox ───
 // 楽観的更新: クリック直後にUIを更新、保存失敗時のみロールバック
-export function InlineCheckbox({ label, value, onSave }: {
+export function InlineCheckbox({ label, value, onSave, fullWidth }: {
   label: string
   value?: boolean
   onSave: (value: boolean) => Promise<void>
+  fullWidth?: boolean
 }) {
   const [optimistic, setOptimistic] = useState<boolean | null>(null)
   const shown = optimistic ?? !!value
@@ -641,8 +642,8 @@ export function InlineCheckbox({ label, value, onSave }: {
   }
 
   return (
-    <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       <div className="flex items-center gap-2 min-h-[24px]">
         <button
           type="button"
@@ -731,7 +732,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
 
   return (
     <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       {editing ? (
         <div>
           <textarea
@@ -831,7 +832,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
 
   return (
     <div ref={containerRef} className="py-1.5 border-b border-gray-50">
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           {searchable && (
