@@ -60,6 +60,13 @@ export default function SalesReportClient({ invoices, expenses, teams }: Props) 
     router.refresh()
   }
 
+  // 立替実費差引額（差引請求額から引く分）を確定請求invoiceへ保存
+  async function saveDeduct(invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) {
+    const supabase = createClient()
+    await supabase.from('invoices').update({ [field]: value }).eq('id', invoiceId)
+    router.refresh()
+  }
+
   async function handleExport() {
     const blob = await exportSalesBook(currentBook, monthLabel)
     const mLabel = month === 'all' ? '全期間' : month
@@ -125,12 +132,17 @@ export default function SalesReportClient({ invoices, expenses, teams }: Props) 
       </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} onAssignBank={assignBank} />
+      <BookView book={currentBook} monthLabel={monthLabel} onAssignBank={assignBank} onSaveDeduct={saveDeduct} />
     </div>
   )
 }
 
-function BookView({ book, monthLabel, onAssignBank }: { book: SalesBook; monthLabel: string; onAssignBank: (caseId: string, bank: string) => void }) {
+type SheetHandlers = {
+  onAssignBank: (caseId: string, bank: string) => void
+  onSaveDeduct: (invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) => void
+}
+
+function BookView({ book, monthLabel, onAssignBank, onSaveDeduct }: { book: SalesBook; monthLabel: string } & SheetHandlers) {
   if (book.sheets.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">
@@ -140,7 +152,7 @@ function BookView({ book, monthLabel, onAssignBank }: { book: SalesBook; monthLa
   }
   return (
     <div className="space-y-5">
-      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onAssignBank={onAssignBank} />)}
+      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onAssignBank={onAssignBank} onSaveDeduct={onSaveDeduct} />)}
     </div>
   )
 }
@@ -148,7 +160,7 @@ function BookView({ book, monthLabel, onAssignBank }: { book: SalesBook; monthLa
 const NUM = 'px-2 py-1 text-right tabular-nums whitespace-nowrap'
 const TXT = 'px-2 py-1 whitespace-nowrap'
 
-function SheetTable({ sheet, onAssignBank }: { sheet: SalesSheet; onAssignBank: (caseId: string, bank: string) => void }) {
+function SheetTable({ sheet, onAssignBank, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
   const t = sheet.totals
   const unassigned = !sheet.bank
   return (
@@ -166,6 +178,8 @@ function SheetTable({ sheet, onAssignBank }: { sheet: SalesSheet; onAssignBank: 
               <th className={TXT}>案件番号</th><th className={TXT}>クライアント</th>
               <th className={NUM}>報酬(税込)</th><th className={NUM}>(内税)</th>
               <th className={NUM}>立替非課税</th><th className={NUM}>立替課税</th><th className={NUM}>(内税)</th><th className={NUM}>立替計</th>
+              <th className={NUM} title="立替のうち今回請求から差し引く分（非課税）">差引(非税)</th>
+              <th className={NUM} title="立替のうち今回請求から差し引く分（課税税込）">差引(課税)</th>
               <th className={NUM}>合計</th><th className={NUM}>前受金</th><th className={NUM}>差引請求</th>
               <th className={TXT}>入金日</th><th className={TXT}>備考</th>
               <th className={TXT}>チーム</th><th className={TXT}>受注</th><th className={TXT}>管理</th>
@@ -195,6 +209,12 @@ function SheetTable({ sheet, onAssignBank }: { sheet: SalesSheet; onAssignBank: 
                 <td className={NUM}>{r.expTaxInclTax ? yen(r.expTaxInclTax) : ''}</td>
                 <td className={NUM + ' text-gray-400'}>{r.expTax ? yen(r.expTax) : ''}</td>
                 <td className={NUM}>{r.expTotal ? yen(r.expTotal) : ''}</td>
+                <td className="px-1 py-1 text-right">
+                  <DeductInput value={r.dedNonTax} onSave={v => onSaveDeduct(r.invoiceId, 'deduct_expense_nontax', v)} />
+                </td>
+                <td className="px-1 py-1 text-right">
+                  <DeductInput value={r.dedTaxIncl} onSave={v => onSaveDeduct(r.invoiceId, 'deduct_expense_tax', v)} />
+                </td>
                 <td className={NUM + ' font-semibold'}>{yen(r.total)}</td>
                 <td className={NUM}>{r.advance ? yen(r.advance) : ''}</td>
                 <td className={NUM + ' font-semibold'}>{yen(r.billed)}</td>
@@ -223,11 +243,28 @@ function TotalRow({ t }: { t: SalesTotals }) {
       <td className={NUM}>{yen(t.expTaxInclTax)}</td>
       <td className={NUM}>{yen(t.expTax)}</td>
       <td className={NUM}>{yen(t.expTotal)}</td>
+      <td className={NUM}>{t.dedNonTax ? yen(t.dedNonTax) : ''}</td>
+      <td className={NUM}>{t.dedTaxIncl ? yen(t.dedTaxIncl) : ''}</td>
       <td className={NUM}>{yen(t.total)}</td>
       <td className={NUM}>{yen(t.advance)}</td>
       <td className={NUM}>{yen(t.billed)}</td>
       <td className={TXT} colSpan={5}></td>
     </tr>
+  )
+}
+
+// 差引実費の入力（空=0。変更時のみ保存）
+function DeductInput({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [v, setV] = useState(value ? String(value) : '')
+  return (
+    <input
+      inputMode="numeric"
+      value={v}
+      onChange={e => setV(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={() => { const n = Number(v || 0); if (n !== (value ?? 0)) onSave(n) }}
+      placeholder="0"
+      className={`w-16 px-1 py-0.5 text-[11px] text-right border rounded ${v ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}
+    />
   )
 }
 

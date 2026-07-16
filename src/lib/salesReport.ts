@@ -10,6 +10,8 @@ export type SalesReportRaw = {
   fee_amount: number | null
   expenses_amount: number | null
   amount: number | null
+  deduct_expense_nontax?: number | null   // 差引実費 非課税（L列）
+  deduct_expense_tax?: number | null       // 差引実費 課税税込（M列）
   posted_date: string | null
   issued_date: string | null
   notes: string | null
@@ -153,7 +155,11 @@ export function buildSalesReport(
     const expTotal = expNonTax + expTaxInclTax
     const total = rewardInclTax + expTotal
     const advance = advanceByCase.get(inv.case_id) ?? 0
-    const billed = total - advance
+    // 立替実費差引額（L/M/N）：立て替えたが今回請求から差し引く分
+    const dedNonTax = inv.deduct_expense_nontax ?? 0
+    const dedTaxIncl = inv.deduct_expense_tax ?? 0
+    const dedTotal = dedNonTax + dedTaxIncl
+    const billed = total - advance - dedTotal
 
     // 入金日：返金でない入金があれば最新の payment_date、無ければ未入金
     const pays = toArr<{ amount: number; payment_date: string; is_refund?: boolean }>(inv.payments)
@@ -175,9 +181,9 @@ export function buildSalesReport(
       expTaxInclTax,
       expTax: innerTax(expTaxInclTax),
       expTotal,
-      dedNonTax: 0,
-      dedTaxIncl: 0,
-      dedTotal: 0,
+      dedNonTax,
+      dedTaxIncl,
+      dedTotal,
       total,
       advance,
       billed,
