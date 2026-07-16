@@ -149,10 +149,12 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
 
     const confirmPay = async (inv: InvoiceRich, row: MatchResult['row'], by: 'ai' | 'human') => {
       const note = `振込人:${row.name || '—'} / 摘要:${row.memo || '—'} / CSV取込${today()}`
-      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount: row.amount, payment_date: today(), payment_method: '振込', matched_by: by, match_note: note })
+      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount: row.amount, payment_date: today(), payment_method: '振込', matched_by: by, match_note: note, bank: row.bank || null })
       if (error) { showToast(`入金記録に失敗: ${error.message}`, 'error'); return }
       const status = row.amount >= inv.amount ? '入金済' : '入金待ち'
       await supabase.from('invoices').update({ status, needs_review: false, review_reason: null }).eq('id', inv.id)
+      // 入金元の銀行を案件へ自動記録（売上表のシート分け＝振り分け）
+      if (row.bank) await supabase.from('cases').update({ bank: row.bank }).eq('id', inv.case_id)
       if (status === '入金済') {
         await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id)
         const recipients = new Set<string>()

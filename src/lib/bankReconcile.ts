@@ -4,7 +4,8 @@
 
 import { kanaKey } from '@/lib/kana'
 
-export type BankRow = { date: string; name: string; amount: number; memo: string; raw: string }
+// bank … CSVの銀行種別（みずほ/きらぼし）。入金確定時に payments.bank / cases.bank へ記録し、売上表のシート分けに使う。
+export type BankRow = { date: string; name: string; amount: number; memo: string; raw: string; bank: string }
 
 export type InvoiceLite = {
   id: string
@@ -87,7 +88,7 @@ function parseMizuho(lines: string[]): BankRow[] {
     const amount = toAmount(f[19])
     if (!amount || amount <= 0) continue
     const payer = (f[21] ?? '').trim()
-    rows.push({ date: `${f[15] ?? ''}/${f[16] ?? ''}`, name: payer, amount, memo: payer, raw: line })
+    rows.push({ date: `${f[15] ?? ''}/${f[16] ?? ''}`, name: payer, amount, memo: payer, raw: line, bank: 'みずほ' })
   }
   return rows
 }
@@ -103,7 +104,7 @@ function parseKiraboshi(lines: string[]): BankRow[] {
     if (!amount || amount <= 0) continue
     const payer = (f[12] ?? '').trim()
     const date = (f[2] ?? '').replace(/年|月/g, '-').replace(/日/g, '')
-    rows.push({ date, name: payer, amount, memo: payer, raw: line })
+    rows.push({ date, name: payer, amount, memo: payer, raw: line, bank: 'きらぼし' })
   }
   return rows
 }
@@ -131,6 +132,7 @@ function parseGeneric(lines: string[]): BankRow[] {
       amount,
       memo: cMemo >= 0 ? (f[cMemo] ?? '') : '',
       raw: lines[i],
+      bank: '', // 汎用CSVは銀行不明（手動で振り分け）
     })
   }
   return rows
