@@ -589,7 +589,7 @@ function ListView({
   onToggleSelectAll: (visibleIds: string[]) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, kotei: 104, gyomu: 124, title: 220, status: 96, readyReason: 150, caseCol: 190, sales: 100, manager: 100, due: 100,
+    select: 40, kotei: 104, gyomu: 124, title: 220, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
     execResult: 200,
     action: 110, ops: 40,
   })
@@ -633,7 +633,8 @@ function ListView({
       {tasks.length === 0 ? (
         <div className="px-6 py-16 text-center text-sm text-gray-400">該当するタスクがありません</div>
       ) : (
-        <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+        <div className="overflow-x-auto">
+        <table className="border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
           <colgroup>
             {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
           </colgroup>
@@ -679,6 +680,7 @@ function ListView({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )
@@ -782,9 +784,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
       {/* 着手OK理由 / 受領待ち内容 */}
       <td className="px-3.5 py-2.5">
         {signal.ready && signal.reason
-          ? <span className="text-[12px] text-amber-800 line-clamp-2" title={signal.reason}>{signal.reason}</span>
+          ? <span className="text-[12px] text-amber-800 whitespace-normal break-words" title={signal.reason}>{signal.reason}</span>
           : isWaitingReceipt(task) && receiptWaitNote(task)
-          ? <span className="text-[12px] text-amber-700 line-clamp-2" title={`受領待ち：${receiptWaitNote(task)}`}>受領待ち：{receiptWaitNote(task)}</span>
+          ? <span className="text-[12px] text-amber-700 whitespace-normal break-words" title={`受領待ち：${receiptWaitNote(task)}`}>受領待ち：{receiptWaitNote(task)}</span>
           : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
