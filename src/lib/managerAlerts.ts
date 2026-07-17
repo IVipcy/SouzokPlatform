@@ -21,7 +21,7 @@ export const ALERT_CHIP_CLS: Record<AlertSeverity, string> = {
 export const MANAGER_ALERT_META: Record<ManagerAlertKey, { label: string; severity: AlertSeverity; href: (caseId: string) => string }> = {
   complaint:         { label: 'クレーム',       severity: 'claim', href: id => `/cases/${id}` },
   advanceMissing:    { label: '前受金 未請求',       severity: 'high', href: id => `/cases/${id}?tab=contract` },
-  advanceSend:       { label: '前受金 郵送・入金待ち', severity: 'high', href: id => `/cases/${id}?tab=contract` },
+  advanceSend:       { label: '前受金 郵送・入金待ち', severity: 'high', href: id => `/billing?case=${id}` },
   completionOverdue: { label: '完了予定日 超過', severity: 'high',  href: id => `/cases/${id}?tab=tasks` },
   taskOverdue:       { label: 'タスク期限超過',  severity: 'high',  href: id => `/cases/${id}?tab=tasks` },
   noTasks:           { label: 'タスク未生成',    severity: 'mid',   href: id => `/cases/${id}?tab=tasks` },

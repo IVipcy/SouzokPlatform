@@ -105,9 +105,9 @@ export async function GET() {
     }
     // 「アサイン未完了」アラートは廃止。管理担当は受注担当からの引き継ぎ時にアサインするため、受注段階で未アサインは正常。
     const advStatus = advanceStatusByCase.get(c.id)
-    // 前受金②：請求書は作成済だがまだ郵送・入金待ちにしていない → 郵送して入金待ちに（案件の請求タブでワンクリック）
+    // 前受金②：請求書は作成済だがまだ郵送・入金待ちにしていない → 郵送して請求入金タブで入金待ちに変更
     if (isMyManager && c.status === '対応中' && advStatus === '作成済') {
-      push({ id: `advance-send-${c.id}`, severity: 'high', category: '前受金 郵送・入金待ち', title: name, body: '請求書を郵送し、入金待ちに変更してください', href: `${caseHref}?tab=contract` })
+      push({ id: `advance-send-${c.id}`, severity: 'high', category: '前受金 郵送・入金待ち', title: name, body: '請求書を郵送し、請求入金タブで入金待ちに変更してください', href: `/billing?case=${c.id}` })
     }
     // 受注担当の初期対応をアラート化：オーダーシート未完成（受注案件）
     const isOrdered = c.status === '受注' || c.status === '戻り受注'
