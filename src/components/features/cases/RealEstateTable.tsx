@@ -78,9 +78,15 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const addRow = async () => {
     setBusy(true)
     const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: municipalityFilter ?? null }).select('*').single()
+    if (error || !data) { setBusy(false); showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    const prop = data as RealEstatePropertyRow
+    // 物件単位で必ず要る標準の取得資料（法務局へ請求）を自動生成。不要なら各行で削除できる。
+    const STANDARD_ACQ = ['登記情報', '公図', '地積測量図']
+    await supabase.from('real_estate_acquisitions').insert(
+      STANDARD_ACQ.map((item, idx) => ({ case_id: caseId, scope: 'property', target_property_id: prop.id, item_type: item, request_to: '法務局', sort_order: idx }))
+    )
     setBusy(false)
-    if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
-    setRows(prev => [...prev, data as RealEstatePropertyRow])
+    setRows(prev => [...prev, prop])
     onRefresh?.()
   }
 
