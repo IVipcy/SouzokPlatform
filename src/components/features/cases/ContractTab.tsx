@@ -180,6 +180,26 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
       {kakuteiOpen && <KakuteiInvoiceModal isOpen onClose={() => setKakuteiOpen(false)} caseData={caseData} tasks={tasks} onSaved={_onRefresh} />}
       {advanceInvoiceOpen && <InvoiceDocumentModal isOpen onClose={() => setAdvanceInvoiceOpen(false)} caseData={caseData} tasks={tasks} docType="請求書" onSaved={_onRefresh} />}
 
+      {/* 請求ステータス（案件としての請求完了をパターン別に判定）。パターンの上に配置。 */}
+      {!orderSheetMode && invLegs && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12.5px] font-semibold text-gray-700">請求ステータス</span>
+            {billingComplete
+              ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />請求完了</span>
+              : anyInvoice
+                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">請求中</span>
+                : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-gray-50 text-gray-400 border border-gray-200">未請求</span>}
+            <span className="ml-auto flex items-center gap-1.5 flex-wrap">
+              {legChip('前受金', invLegs.advanceExists, invLegs.advancePaid)}
+              {reqFinal
+                ? legChip(pattern.finalLegLabel, invLegs.finalExists, invLegs.finalPaid)
+                : legChip('確定請求', false, false, true)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 請求パターン（案件単位）。②③は前受金＝確定（一括）。契約時に受注担当／管理担当が選択。 */}
       {!orderSheetMode && (
         <div className="rounded-lg border border-brand-200 bg-brand-50/40 px-3.5 py-3">
@@ -202,26 +222,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 </button>
               )
             })}
-          </div>
-        </div>
-      )}
-
-      {/* 請求ステータス（案件としての請求完了をパターン別に判定） */}
-      {!orderSheetMode && invLegs && (
-        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12.5px] font-semibold text-gray-700">請求ステータス</span>
-            {billingComplete
-              ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />請求完了</span>
-              : anyInvoice
-                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">請求中</span>
-                : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-gray-50 text-gray-400 border border-gray-200">未請求</span>}
-            <span className="ml-auto flex items-center gap-1.5 flex-wrap">
-              {legChip('前受金', invLegs.advanceExists, invLegs.advancePaid)}
-              {reqFinal
-                ? legChip(pattern.finalLegLabel, invLegs.finalExists, invLegs.finalPaid)
-                : legChip('確定請求', false, false, true)}
-            </span>
           </div>
         </div>
       )}
