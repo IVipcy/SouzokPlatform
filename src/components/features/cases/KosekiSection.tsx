@@ -148,8 +148,38 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   ]
   const activePerson = sub === '__unset__' ? '' : sub
   const personRequests = requests.filter(r => personKey(r) === activePerson)
+  // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
+  const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
 
   return (
+    <div>
+      {pendingApprovals.length > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800 mb-2">
+            <Lock className="w-3.5 h-3.5" />承認待ちの追加戸籍請求　{pendingApprovals.length}件
+          </div>
+          <div className="space-y-2">
+            {pendingApprovals.map(r => (
+              <div key={r.id} className="bg-white border border-amber-200 rounded-md px-3 py-2 flex items-start gap-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <button type="button" onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')} className="text-[12.5px] font-semibold text-gray-800 hover:text-brand-700 hover:underline">
+                    {r.target_person || '対象者未定'} ／ {r.request_to || '役所未定'}
+                  </button>
+                  <div className="text-[12px] text-gray-600 mt-0.5">理由：{r.additional_reason || <span className="text-gray-400">（未記入）</span>}</div>
+                </div>
+                {isManager ? (
+                  <button type="button" onClick={() => approveAdditional(r)} className="flex-none inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
+                    <ShieldCheck className="w-3.5 h-3.5" />追加OK（承認）
+                  </button>
+                ) : (
+                  <span className="flex-none text-[11px] text-amber-700 self-center">管理担当の承認待ち</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     <div className="flex gap-3 items-start">
       {/* 左レール（対象者＝人ごと） */}
       <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
@@ -265,9 +295,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     </thead>
                     <tbody>
                       {personRequests.map((r, i) => (
-                        <KosekiRow key={r.id} r={r} i={i} me={me} isManager={isManager}
+                        <KosekiRow key={r.id} r={r} i={i} me={me}
                           saveField={saveField} saveMany={saveMany}
-                          approve={() => approveAdditional(r)} onDelete={() => delRequest(r)} />
+                          onDelete={() => delRequest(r)} />
                       ))}
                     </tbody>
                   </table>
@@ -279,6 +309,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
         )}
       </div>
       {addOpen && <AddKosekiModal targetOptions={targetOptions} defaultPerson={activePerson} onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
+    </div>
     </div>
   )
 }
@@ -324,14 +355,12 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, isManager, saveField, saveMany, approve, onDelete }: {
+function KosekiRow({ r, i, me, saveField, saveMany, onDelete }: {
   r: KosekiRequestRow
   i: number
   me: string
-  isManager: boolean
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
-  approve: () => void
   onDelete: () => void
 }) {
   // 予定外の追加（要承認・未承認）は行を帯にして承認まで編集不可。
@@ -341,8 +370,7 @@ function KosekiRow({ r, i, me, isManager, saveField, saveMany, approve, onDelete
         <td colSpan={14} className="p-0">
           <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-50 border-l-[3px] border-amber-400">
             <Lock className="w-4 h-4 flex-none text-amber-600" />
-            <span className="flex-1 text-[12px] text-amber-800"><strong className="font-semibold">{r.request_to || '役所未定'}（追加・要承認）</strong> — 管理担当の承認待ち。理由「{r.additional_reason || '—'}」。承認後にこの行で各項目を編集できます。</span>
-            {isManager && <button type="button" onClick={approve} className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-semibold text-white bg-brand-600 hover:bg-brand-700"><ShieldCheck className="w-3.5 h-3.5" />追加OK（管理担当）</button>}
+            <span className="flex-1 text-[12px] text-amber-800"><strong className="font-semibold">{r.request_to || '役所未定'}（追加・要承認）</strong> — 上部の「承認待ちの追加戸籍請求」で管理担当が承認すると、この行で各項目を編集できます。</span>
             <button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         </td>

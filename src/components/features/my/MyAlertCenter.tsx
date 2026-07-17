@@ -22,7 +22,7 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.task_id) return `/tasks/${n.task_id}`
   if (!n.case_id) return null
   if (n.type === 'doc_received') return `/cases/${n.case_id}?tab=receipts`
-  if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased`
+  if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
   // 確認依頼は該当案件の請求行で回答モーダルを自動オープン
   if (n.type === 'billing_confirm_request') return `/billing?case=${n.case_id}&respond=1`
   // その他の請求まわり（入金確定・回答・返金依頼）は請求・入金一覧の該当案件へ

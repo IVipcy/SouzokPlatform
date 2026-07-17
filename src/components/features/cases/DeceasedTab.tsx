@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
@@ -78,7 +79,9 @@ const emptyHeirForm = () => ({
 })
 
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
-  const [sub, setSub] = useState<'heirs' | 'koseki'>('heirs')
+  // アラート（追加戸籍請求の承認依頼）から ?sub=koseki で戸籍請求サブタブに直接遷移
+  const searchParams = useSearchParams()
+  const [sub, setSub] = useState<'heirs' | 'koseki'>(searchParams.get('sub') === 'koseki' ? 'koseki' : 'heirs')
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
