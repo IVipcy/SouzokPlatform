@@ -75,7 +75,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         .order('sort_order')
       const rows = ((data ?? []) as Array<Cand & { task_kind: string | null }>)
         .filter(t => {
-          if (t.id === task.id || t.task_kind === 'system' || normalizeTaskStatus(t.status) === '完了') return false
+          if (t.id === task.id || t.task_kind === 'system') return false
+          // 着手前のタスクだけが対象（対応中＝着手済み・完了は候補にしない）
+          if (normalizeTaskStatus(t.status) !== '着手前') return false
           // 既に着手OK／受領次第OK のタスクは「次に着手できる」候補から除外（引き上げる意味がないため）
           const tr = t as unknown as TaskRow
           if (getStartSignal(tr).ready || isWaitingReceipt(tr)) return false
