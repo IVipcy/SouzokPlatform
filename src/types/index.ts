@@ -921,6 +921,8 @@ export type DocumentReceiptItemRow = {
   // 共有フォルダにアップ済かの手動フラグ（migration 137）。null=未アップ
   uploaded_at: string | null
   created_at: string
+  // 紐付けタスク（document_receipt_item_tasks 経由・join用）
+  document_receipt_item_tasks?: { task: { id: string; title: string; status: string } | null }[]
 }
 
 // === 案件フォルダのファイル（migration 137） ===

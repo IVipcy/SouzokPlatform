@@ -94,7 +94,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1100 }}>
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1300 }}>
             <colgroup>
               <col style={{ width: 84 }} />{/* 番号 */}
               <col style={{ width: 148 }} />{/* 案件管理番号 */}
@@ -106,6 +106,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col style={{ width: 148 }} />{/* 原本格納先 */}
               <col style={{ width: 112 }} />{/* W-Check */}
               <col style={{ width: 120 }} />{/* 対応 */}
+              <col style={{ width: 200 }} />{/* 紐付けタスク */}
             </colgroup>
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
@@ -119,6 +120,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-gray-400 block">チームのBOX</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold">対応</th>
+                <th className="px-2.5 py-2 text-left font-semibold">紐付けタスク<span className="text-[10px] font-normal text-gray-400 block">クリックで詳細</span></th>
               </tr>
             </thead>
             <tbody>
@@ -126,7 +128,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 ? pastGroups.map(g => (
                     <Fragment key={g.date}>
                       <tr className="bg-brand-50/50 border-y border-brand-100">
-                        <td colSpan={10} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
+                        <td colSpan={11} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
                           {formatReceiptDateHeader(g.date)}
                           <span className="ml-2 font-normal text-gray-500">{g.rows.length}件</span>
                         </td>
@@ -774,6 +776,16 @@ function ReceiptRow({
   // 差出人は封筒（受信）単位。通常1名だが、項目ごとに異なる場合は重複除去で並べる。
   const senderText = [...new Set(items.map(i => (i.received_from ?? '').trim()).filter(Boolean))].join(' / ')
   const rowClass = rowBg
+  // この受信に紐付いた全タスク（到着物ごとの紐付けを集約・重複除去）。
+  const linkedTasks = (() => {
+    const seen = new Map<string, { id: string; title: string; status: string }>()
+    for (const it of items) {
+      for (const j of it.document_receipt_item_tasks ?? []) {
+        if (j.task && !seen.has(j.task.id)) seen.set(j.task.id, j.task)
+      }
+    }
+    return [...seen.values()]
+  })()
 
   const [, startTransition] = useTransition()
   const [busyKind, setBusyKind] = useState<null | 'check' | 'start' | 'storage'>(null)
@@ -1010,6 +1022,29 @@ function ReceiptRow({
                     <Hand className="w-3.5 h-3.5" />
                     対応
                   </button>
+                )}
+              </td>
+            )}
+
+            {/* 紐付けタスク（受信単位で集約・行統合）。クリックでタスク詳細へ */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-l border-gray-100">
+                {linkedTasks.length === 0 ? (
+                  <span className="text-[11px] text-gray-300">紐付けなし</span>
+                ) : (
+                  <div className="flex flex-col gap-1 items-start">
+                    {linkedTasks.map(t => (
+                      <Link
+                        key={t.id}
+                        href={`/tasks/${t.id}`}
+                        className={`inline-flex items-center gap-1 max-w-full px-2 py-0.5 rounded-full border text-[11.5px] transition-colors ${t.status === '完了' ? 'bg-gray-50 border-gray-200 text-gray-400 line-through' : 'bg-brand-50 border-brand-200 text-brand-700 hover:bg-brand-100'}`}
+                        title={t.title}
+                      >
+                        <Link2 className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{t.title}</span>
+                      </Link>
+                    ))}
+                  </div>
                 )}
               </td>
             )}
