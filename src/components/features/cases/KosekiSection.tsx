@@ -273,7 +273,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </table>
                 </div>
               )}
-              <p className="mt-2 text-[11px] text-gray-400">取得区分＝依頼者の行は、請求日・費用・ダブルチェックが「依頼者負担」になり入力不可。予定外の追加（要承認）は管理担当の承認後に編集できます。</p>
+              <p className="mt-2 text-[11px] text-gray-400">取得区分＝依頼者の行は、請求日・費用・ダブルチェックが「依頼者負担」になり入力不可。追加戸籍請求（要承認）は管理担当の承認後に編集できます。</p>
             </div>
           </div>
         )}
@@ -306,10 +306,10 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
         <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
         <label className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 cursor-pointer">
           <input type="checkbox" checked={needsApproval} onChange={e => setNeedsApproval(e.target.checked)} className="w-4 h-4 accent-amber-500 mt-0.5" />
-          <span className="flex-1"><strong>予定外の追加（要承認）</strong>にする — 管理担当の承認（追加OK）後に入力可能に。費用の歯止め用。</span>
+          <span className="flex-1"><strong>追加戸籍請求（要承認）</strong>にする — 当初の想定を超える追加の戸籍請求です。追加費用が発生するため、管理担当の承認（追加OK）を得てから請求します。</span>
         </label>
         {needsApproval && (
-          <div><label className="block text-[11px] text-gray-500 mb-1">追加が必要な理由 <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="転籍・除籍など追加が必要な戸籍と理由" className={`${inp} resize-none`} /></div>
+          <div><label className="block text-[11px] text-gray-500 mb-1">追加請求の理由（承認者に伝わるように） <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="例：手続二子の戸籍が◯◯町で転籍。さらに前の本籍地へ遡って請求が必要。" className={`${inp} resize-none`} /></div>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
