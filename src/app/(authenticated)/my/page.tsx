@@ -28,6 +28,8 @@ import {
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
 import type { TaskRow, ProgressReportRow } from '@/types'
+import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
+import { buildAlertChips, type ManagerAlertKey } from '@/lib/managerAlerts'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -190,10 +192,11 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
   let comms: Array<{ case_id: string; communicated_at: string | null; detail: string | null }> = []
+  let contractDocs: Array<{ case_id: string; status: string | null; arrival_date: string | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes, contractDocsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
         supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date,needs_review').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
@@ -217,6 +220,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           ? supabase.from('activity_log').select('entity_id,metadata').eq('entity_type', 'case').eq('action', 'assignee_change').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
         supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
+        supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIdArray),
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
@@ -229,6 +233,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
       comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
+      contractDocs = (contractDocsRes.data ?? []) as typeof contractDocs
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -308,11 +313,33 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // 週次報告アラートは「作業進行中（対応中）に入って1週間経過」からカウント（受注段階・直後は対象外）。
   const weekAgoMs = today.getTime() - 7 * 24 * 60 * 60 * 1000
+  // 案件行のアラートチップ用シグナル
+  const advanceStatusByCase = new Map<string, string>()
+  for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
+  const hasCaseTasks = new Set(boardTasks.map(t => t.case_id))
+  const contractPendingSet = new Set(contractDocs.filter(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date).map(d => d.case_id))
+  const reviewPendingSet = new Set(reviewReportsRaw.filter(r => r.status === '依頼中').map(r => r.case_id))
+
   const myCasesEnriched = myCases.map(c => {
     // アラートは管理担当のマイページ（自分が管理担当の案件）にのみ表示
     const isMgrCase = isManager && managerCaseIds.has(c.id) && MGMT_ACTIVE_STATUSES.has(c.status)
     // 週次報告の漏れ：対応中 かつ 管理開始(management_started_at)から1週間経過 かつ 直近確認なし
     const weeklyEligible = c.status === '対応中' && !!c.management_started_at && new Date(c.management_started_at).getTime() <= weekAgoMs
+    // 案件行のアラート（色＝重大度・クリックで該当箇所へ）
+    const alertKeys: ManagerAlertKey[] = []
+    if (isMgrCase) {
+      const advSt = advanceStatusByCase.get(c.id)
+      if (c.has_complaint) alertKeys.push('complaint')
+      if (c.status === '対応中' && advSt === undefined) alertKeys.push('advanceMissing')
+      if (advSt === '作成済' || advSt === '入金待ち') alertKeys.push('advanceUnpaid')
+      if (c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') alertKeys.push('completionOverdue')
+      if (overdueCaseIds.has(c.id)) alertKeys.push('taskOverdue')
+      if (c.status === '対応中' && !hasCaseTasks.has(c.id)) alertKeys.push('noTasks')
+      if (weeklyEligible && !reportConfirmedRecent.has(c.id)) alertKeys.push('weeklyMissing')
+      if (contractPendingSet.has(c.id)) alertKeys.push('contractPending')
+      if (reviewPendingSet.has(c.id)) alertKeys.push('reviewRequest')
+    }
+    const alertChips = buildAlertChips(c.id, alertKeys)
     const prog = progressByCase.get(c.id)
     const lastComm = lastCommByCase.get(c.id)
     return {
@@ -341,8 +368,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       // 直近お客様報告
       lastCommDate: lastComm?.date ?? null,
       lastCommDetail: lastComm?.detail ?? null,
-      weeklyReportMissing: isMgrCase && weeklyEligible && !reportConfirmedRecent.has(c.id),
-      taskOverdue: isMgrCase && overdueCaseIds.has(c.id),
+      alertChips,
     }
   })
 

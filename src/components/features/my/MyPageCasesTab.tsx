@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, AlertTriangle, Trash2 } from 'lucide-react'
+import { Briefcase, Trash2 } from 'lucide-react'
+import { ALERT_CHIP_CLS, type ManagerAlertChip } from '@/lib/managerAlerts'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -44,10 +45,8 @@ export type MyCaseRow = {
   lastCommDetail?: string | null
   /** 最終更新日 */
   updated_at?: string | null
-  /** 管理担当向けアラート: 週次報告の漏れ */
-  weeklyReportMissing?: boolean
-  /** 管理担当向けアラート: タスク期限超過 */
-  taskOverdue?: boolean
+  /** 管理担当向けアラート（色＝重大度・クリックで該当箇所へ） */
+  alertChips?: ManagerAlertChip[]
   /** 進捗管理ダッシュボード経由で計算済の場合 */
   flag?: CaseFlag
 }
@@ -236,9 +235,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               )}
               <td className="px-3 py-2.5 text-center">
                 {c.flag ? (
-                  <span className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold ${FLAG_BG[c.flag]}`}>
+                  <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
                     {FLAG_LABEL[c.flag]}
-                  </span>
+                  </Link>
                 ) : (
                   <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-500 border border-gray-200">
                     完了
@@ -252,18 +251,18 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[280px]">
                   {c.deal_name}
                 </Link>
-                {(c.weeklyReportMissing || c.taskOverdue) && (
-                  <div className="flex flex-wrap gap-1.5 mt-0.5">
-                    {c.weeklyReportMissing && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
-                        <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />【重要】週次報告の漏れ
-                      </span>
-                    )}
-                    {c.taskOverdue && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
-                        <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />【重要】タスク期限超過
-                      </span>
-                    )}
+                {c.alertChips && c.alertChips.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {c.alertChips.map(a => (
+                      <Link
+                        key={a.key}
+                        href={a.href}
+                        title="クリックで該当箇所へ"
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition ${ALERT_CHIP_CLS[a.severity]}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />{a.label}
+                      </Link>
+                    ))}
                   </div>
                 )}
               </td>
