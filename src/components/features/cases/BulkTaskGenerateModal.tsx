@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import {
-  categoriesOf, gyomuForCategories, CROSS_GYOMU, CROSS_SERVICE_ROWS, PROCEDURE_TEMPLATE_KEY,
+  categoriesOf, gyomuForCategories, CROSS_GYOMU, PROCEDURE_TEMPLATE_KEY,
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
@@ -62,42 +62,48 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     }
     const muniUnits = [...new Set(properties.map(muniOf).filter(Boolean))]
     const instUnits = [...new Set(financialAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))]
-    const UNIT: Record<string, { prefix: string; label: string; units: string[] }> = {
-      '不動産': { prefix: 're', label: '不動産取得', units: muniUnits },
-      '登記': { prefix: 'reg', label: '相続登記', units: muniUnits },
-      '金融資産': { prefix: 'fin', label: '金融資産調査', units: instUnits },
-      '解約': { prefix: 'cancel', label: '解約手続', units: instUnits },
+    // 単位ごとに「請求/受領」→「読込/手続き」の順で2タスク生成（登記はそのまま1タスク）。
+    // 表示・並びは「請求グループ→読込グループ」（tasks配列の順＝各単位を先に請求で全部、次に読込で全部）。
+    const UNIT: Record<string, { units: string[]; tasks: { prefix: string; label: string }[] }> = {
+      '不動産': { units: muniUnits, tasks: [{ prefix: 're', label: '不動産情報請求(登記・名寄せ等)' }, { prefix: 're-read', label: '不動産情報読込' }] },
+      '登記': { units: muniUnits, tasks: [{ prefix: 'reg', label: '相続登記' }] },
+      '金融資産': { units: instUnits, tasks: [{ prefix: 'fin', label: '金融資産情報請求' }, { prefix: 'fin-read', label: '金融資産情報読込' }] },
+      '解約': { units: instUnits, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領' }, { prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
+    const kosekiLabel = (k: KosekiRequestRow) => {
+      const dest = (k.request_to ?? '').trim() || '請求先未設定'
+      const person = (k.target_person ?? '').trim()
+      return `${dest}${person ? `（${person}）` : ''}`
+    }
 
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
-      // 戸籍収集は、戸籍請求タブで登録した請求先（役所）ごとに1タスクへ展開する。
-      // 各タスクは source_rid=koseki:<request_id> で請求先に1対1リンク（重複生成を防ぐ）。
+      // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
+      if (r.gyomu === '戸籍' && r.sagyou.includes('到着確認')) return
+      // 戸籍収集 → 請求先（役所）ごとに「戸籍請求」＋「戸籍読込」。請求グループの後に読込グループ。
+      // source_rid で請求先に1対1リンク（重複生成を防ぐ）。
       const isKosekiCollect = r.gyomu === '戸籍' && r.sagyou.includes('戸籍収集')
-      if (isKosekiCollect && kosekiRequests.length > 0) {
-        kosekiRequests.forEach(k => {
-          const dest = (k.request_to ?? '').trim() || '請求先未設定'
-          const person = (k.target_person ?? '').trim()
-          out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍収集：${dest}${person ? `（${person}）` : ''}`, rid: `koseki:${k.id}` })
-        })
+      if (isKosekiCollect) {
+        if (kosekiRequests.length > 0) {
+          kosekiRequests.forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}` }))
+          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}` }))
+        } else {
+          out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid })
+        }
         return
       }
-      // 不動産/登記/金融資産/解約は左タブ単位で1タスクに集約（個別作業は畳む）。単位が無ければ従来どおり個別作業。
+      // 不動産/登記/金融資産/解約は左タブ単位でタスク展開（請求グループ→読込グループ）。単位が無ければ従来どおり個別作業。
       const u = UNIT[r.gyomu]
       if (u && u.units.length > 0) {
         if (unitExpanded.has(r.gyomu)) return
         unitExpanded.add(r.gyomu)
-        u.units.forEach(name => out.push({ key: `${u.prefix}:${name}`, gyomu: r.gyomu, title: `${u.label}：${name}`, rid: `${u.prefix}:${name}` }))
+        u.tasks.forEach(t => u.units.forEach(name => out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}` })))
         return
       }
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
     })
-    // 経理のみ（相続税は使わないため除外）
-    for (const c of CROSS_SERVICE_ROWS) {
-      if (c.gyomu === '相続税') continue
-      out.push({ key: `cross:${c.gyomu}:${c.task}`, gyomu: c.gyomu, title: c.task, rid: `cross:${c.gyomu}:${c.task}` })
-    }
+    // 経理タスクは一括生成の対象外（今後アラートで対応）。
     // 他事業者紹介で登録した業者への「依頼／引継ぎ」タスク
     for (const r of caseReferrals) {
       const title = REFERRAL_TASK_LABEL[r.partner_type] ?? `${r.partner_type}依頼`
