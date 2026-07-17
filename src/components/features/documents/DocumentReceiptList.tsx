@@ -14,7 +14,7 @@ import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
 import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { useIsManager } from '@/components/providers/AuthProvider'
+import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
 import type { RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
@@ -47,7 +47,7 @@ function formatReceiptDateHeader(ymd: string): string {
 }
 
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
-  const canManage = useIsManager()  // 受信確定(W-Check)・タスク紐づけ等は管理担当のみ
+  const canManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
 

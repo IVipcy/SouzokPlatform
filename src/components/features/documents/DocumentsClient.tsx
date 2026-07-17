@@ -6,7 +6,7 @@ import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
-import { useIsManager } from '@/components/providers/AuthProvider'
+import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
 import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
 
 type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
@@ -21,7 +21,7 @@ type Props = {
 
 export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember }: Props) {
   const router = useRouter()
-  const isManager = useIsManager()  // 受信登録・受信確定は管理担当のみ
+  const isManager = useCanOperateReceipts()  // 受信登録・受信確定は管理担当＋事務スタッフ(assistant)
   const [, startTransition] = useTransition()
   const refresh = () => startTransition(() => router.refresh())
   // case_document_id → 受領ファイル。受信簿の各到着物から開く/未添付判定に使う。

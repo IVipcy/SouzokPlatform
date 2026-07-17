@@ -40,10 +40,24 @@ export function useHasPermission(permission: string) {
   return user.permissions.includes(permission)
 }
 
-// 管理担当系アカウントか（受信・到着物紐づけ・凍結確認など管理担当限定操作の判定用）。
+// 管理担当系アカウントか（凍結確認など管理担当限定操作の判定用）。
 export function useIsManager() {
   const user = useAuth()
   if (!user) return false
+  return (
+    user.primaryRole === 'manager' ||
+    user.primaryRole === 'sub_manager' ||
+    user.primaryRole === 'system_manager' ||
+    user.roles.includes('manager') ||
+    user.roles.includes('system_manager')
+  )
+}
+
+// 到着物受信簿を操作できるか（管理担当に加え、事務スタッフ=assistant も新規登録〜受信確定まで可）。
+export function useCanOperateReceipts() {
+  const user = useAuth()
+  if (!user) return false
+  if (user.primaryRole === 'assistant') return true
   return (
     user.primaryRole === 'manager' ||
     user.primaryRole === 'sub_manager' ||
