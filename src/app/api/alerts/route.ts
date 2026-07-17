@@ -113,9 +113,9 @@ export async function GET() {
     if (isMySales && isOrdered && !c.order_sheet_completed_at) {
       push({ id: `ordersheet-${c.id}`, severity: 'mid', category: 'オーダーシート未完成', title: name, body: '受注後のオーダーシートが未完成です', href: `${caseHref}?tab=orderSheet` })
     }
-    // 管理担当の初動①：前受金の請求（対応中で前受金の請求書が未作成）→ 管理担当マイページ
+    // 管理担当の初動①：前受金の請求（対応中で前受金の請求書が未作成）→ 案件詳細の請求タブで発行
     if (isMyManager && c.status === '対応中' && advStatus === undefined) {
-      push({ id: `advinv-${c.id}`, severity: 'high', category: '前受金の請求', title: name, body: '前受金の請求書が未作成です', href: `/billing?case=${c.id}` })
+      push({ id: `advinv-${c.id}`, severity: 'high', category: '前受金の請求', title: name, body: '前受金の請求書が未作成です', href: `${caseHref}?tab=contract` })
     }
     // 管理担当の初動②：タスク未生成（対応中で事務管理タスクが0件）→ 事務にタスク生成を依頼
     if (isMyManager && c.status === '対応中' && !hasCaseTasks.has(c.id)) {
