@@ -131,11 +131,15 @@ export default function Sidebar() {
       {/* ナビゲーション（マイページは 受注/管理/システム管理者 のみ表示） */}
       {(() => {
         const canMyPage = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
+        // アシスタント（パート）は案件一覧・事務管理タスク・到着物受信簿・請求入金のみ表示
+        const isAssistant = !!user && user.primaryRole === 'assistant' && !user.roles.includes('system_manager')
+        const ASSISTANT_ALLOWED = new Set(['/cases', '/tasks', '/documents', '/billing'])
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
+          if (isAssistant) return ASSISTANT_ALLOWED.has(it.href)
           if (it.href === '/my') return canMyPage
           return true
-        }) }))
+        }) })).filter(s => s.items.length > 0)
         return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
         {visibleSections.map((section) => (
