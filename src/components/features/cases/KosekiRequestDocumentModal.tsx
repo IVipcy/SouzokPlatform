@@ -110,10 +110,6 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
 
   const preset = KOSEKI_VARIANT_PRESETS[variant]
 
-  // 請求時W-Check（別人確認）が済んでいない戸籍請求は、請求書のAI作成を止める（費用の歯止め）。
-  const uncheckedRequests = kosekiRequests.filter(k => k.acquirer !== '依頼者' && !k.request_check_at)
-  const blockedByCheck = uncheckedRequests.length > 0
-
   const addRow = () => setRows(r => [...r, createRow({
     honseki: caseData.deceased_registered_address ?? '',
     hittousha: caseData.deceased_name ?? '',
@@ -136,10 +132,6 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   }
 
   const handleGenerate = async () => {
-    if (blockedByCheck) {
-      showToast('請求時W-Checkの完了後に作成できます', 'error')
-      return
-    }
     if (rows.length === 0) {
       showToast('請求先を1件以上追加してください', 'error')
       return
@@ -226,9 +218,8 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           </button>
           <button
             onClick={handleGenerate}
-            disabled={generating || blockedByCheck}
-            title={blockedByCheck ? '請求時W-Checkの完了後に作成できます' : undefined}
-            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={generating}
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
           >
             {generating ? '生成中…' : 'Excelで出力'}
           </button>
@@ -236,15 +227,6 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
       }
     >
       <div className="space-y-4">
-        {blockedByCheck && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800">
-            <div className="font-semibold mb-0.5">請求時W-Checkが未完了のため作成できません</div>
-            <p className="text-[12px] leading-relaxed">次の戸籍請求は、別の担当者による請求時W-Check（内容・費用の確認）が済んでいません。実務タブで確認を受けてから作成してください：</p>
-            <ul className="mt-1 list-disc pl-5 text-[12px]">
-              {uncheckedRequests.map(k => <li key={k.id}>{k.target_person || '対象者未定'} ／ {k.request_to || '役所未定'}</li>)}
-            </ul>
-          </div>
-        )}
         {/* 基本設定 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
