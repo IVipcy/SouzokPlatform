@@ -60,6 +60,17 @@ body {
   line-height: 1.6;
 }
 
+/* Tailwind v4 はボタン既定カーソルが default になったため、
+   操作可能なコントロールに指カーソルを復活させる（アプリ全体）。 */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+select:not(:disabled),
+summary {
+  cursor: pointer;
+}
+
 /* ─── Sidebar 折りたたみ連動 ───
    Sidebar.tsx が body[data-sidebar-collapsed] を切り替える。
    main(.ml-60) の左余白を、折りたたみ時は w-16(64px) に合わせる。 */

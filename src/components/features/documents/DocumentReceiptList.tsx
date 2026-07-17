@@ -519,7 +519,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     key={t.id}
                     type="button"
                     onClick={() => toggle(it.id, t.id)}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-white hover:text-brand-700'}`}
                   >
                     {on && <Play className="w-3 h-3" strokeWidth={2.5} />}{t.title}
                   </button>
@@ -559,7 +559,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                         <button
                           type="button"
                           onClick={() => setShowAll(prev => ({ ...prev, [it.id]: true }))}
-                          className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold"
+                          className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold cursor-pointer"
                         >
                           {(topTask || primary.length > 0) ? `＋ 他の業務のタスクも表示（${others.length}）` : `既存タスクから選ぶ（${others.length}）`}
                         </button>
@@ -580,7 +580,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                               key={n}
                               type="button"
                               onClick={() => setItemNew(prev => ({ ...prev, [it.id]: on ? '' : n }))}
-                              className={`inline-flex items-center px-2 py-1 rounded-full border text-[12px] transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-white border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'}`}
+                              className={`inline-flex items-center px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-white border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'}`}
                             >＋{n}</button>
                           )
                         })}
