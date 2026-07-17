@@ -20,10 +20,12 @@ export type FlowStep = {
 export function getJutakuFlowSteps(args: {
   orderSheetCompleted: boolean
   contractProcDone: boolean
+  feeReady: boolean  // 基本料金の入力 または 料金表画像のアップ（どちらか一方でOK）
 }): FlowStep[] {
   return [
     { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
     { key: 'contractProc', label: '契約書類の受領', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
+    { key: 'baseFee', label: '基本料金の入力 または 料金表画像のアップ', tab: 'contract', tabLabel: '請求', done: args.feeReady },
   ]
 }
 

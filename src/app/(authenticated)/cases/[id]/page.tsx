@@ -15,7 +15,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -109,6 +109,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('case_files').select('*').eq('case_id', id).order('created_at', { ascending: false }),
     // 財産目録。migration 143 未適用環境では error → 空配列で degrade。
     supabase.from('asset_inventory').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    // 報酬内訳（引き継ぎゲートの「基本料金入力済」判定用）。
+    supabase.from('reward_items').select('amount').eq('case_id', id),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -172,6 +174,7 @@ export default async function CaseDetailPage({ params }: Props) {
       sagyoDocuments={(sagyoDocumentsResult.data ?? []) as SagyoDocumentRow[]}
       createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
       caseFiles={(caseFilesResult.data ?? []) as CaseFileRow[]}
+      hasBaseFee={((rewardItemsResult.data ?? []) as Array<{ amount: number | null }>).some(r => (r.amount ?? 0) > 0)}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}
     />
   )

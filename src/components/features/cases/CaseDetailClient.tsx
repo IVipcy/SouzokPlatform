@@ -71,6 +71,8 @@ type Props = {
   sagyoDocuments?: SagyoDocumentRow[]
   createdDocuments?: DocumentRow[]
   caseFiles?: CaseFileRow[]
+  /** 請求料金内訳（報酬）に金額が入っているか。引き継ぎゲート判定用。 */
+  hasBaseFee?: boolean
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -79,7 +81,7 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [] }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -206,10 +208,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 検討中（契約書待ち）→受託 のゲート：契約手続き完了（初期対応タスク完了ゲートは撤去）
   const kentouContractReady = contractProcDone
 
+  // 引き継ぎゲート：基本料金の入力（報酬内訳に金額）または 料金表画像のアップ（案件フォルダに画像）
+  const hasFeeImage = caseFiles.some(f => (f.file_type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|heic|heif|bmp)$/i.test(f.file_name ?? ''))
+  const feeReady = hasBaseFee || hasFeeImage
+
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   const flowSteps = getJutakuFlowSteps({
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
     contractProcDone,
+    feeReady,
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
