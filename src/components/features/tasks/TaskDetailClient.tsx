@@ -282,6 +282,18 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   完了
                 </span>
               )}
+              {/* 管理担当にヘルプ（systemタスクでは出さない）。ステータスの左に配置 */}
+              {!isSystemTask && (
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
+                  管理担当にヘルプ
+                </button>
+              )}
+
               {/* 現在ステータス */}
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
@@ -383,20 +395,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               />
             </FieldGrid>
           </Section>
-
-          {/* 作業中に困ったら管理担当へヘルプ（systemタスクでは出さない） */}
-          {!isSystemTask && (
-            <div className="flex justify-end -mt-1">
-              <button
-                type="button"
-                onClick={() => setHelpOpen(true)}
-                className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
-              >
-                <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                管理担当にヘルプを依頼
-              </button>
-            </div>
-          )}
 
           {/* 2. 着手者・作業履歴 */}
           <Section title="着手者・作業履歴" icon="👤">
