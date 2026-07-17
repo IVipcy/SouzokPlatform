@@ -72,10 +72,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 受注区分（概念が大きいので先）／業務区分 の複数選択フィルタ（OR条件・全空=絞り込みなし）
   const [serviceFilter, setServiceFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
-  // 「着手OKだけ」トグル（着手前の中の絞り込み。別ステータスではない）
-  const [readyOnly, setReadyOnly] = useState(false)
-  // 「受領次第OK だけ」トグル（着手前の中の絞り込み）
-  const [waitOnly, setWaitOnly] = useState(false)
+  // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
+  const [readyOnly, setReadyOnly] = useState(true)
+  const [waitOnly, setWaitOnly] = useState(true)
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -132,13 +131,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (gyomuFilter.size > 0) {
       result = result.filter(t => gyomuFilter.has(gyomuOf(t)))
     }
-    // 着手OKだけ（着手前の中の絞り込み）
-    if (readyOnly) {
-      result = result.filter(t => getStartSignal(t, receipts).ready)
-    }
-    // 受領次第OKだけ
-    if (waitOnly) {
-      result = result.filter(t => isWaitingReceipt(t))
+    // 着手OK／受領次第OK（着手前の中の絞り込み・両方ONなら和集合）。着手前タブのときだけ適用。
+    if (statusFilter === '着手前' && (readyOnly || waitOnly)) {
+      result = result.filter(t => (readyOnly && getStartSignal(t, receipts).ready) || (waitOnly && isWaitingReceipt(t)))
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
