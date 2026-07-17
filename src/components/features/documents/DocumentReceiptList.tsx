@@ -513,9 +513,9 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                 <div key={i} className="flex items-center gap-1.5 text-[12.5px] text-gray-700"><Link2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />{l}</div>
               ))}
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-              <div className="text-[13px] text-amber-900">これらを<span className="font-semibold">着手OK</span>にしますか？</div>
-              <div className="text-[11.5px] text-amber-700 mt-0.5 leading-relaxed">着手OK＝必要書類が届いたので、担当者がすぐ着手できる状態（理由：{READY_REASON_DOC}）。「着手OKにせず」でも未着手のまま紐付けは完了します。</div>
+            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5">
+              <div className="text-[13px] text-brand-800">これらを<span className="font-semibold">着手OK</span>にしますか？</div>
+              <div className="text-[11.5px] text-brand-600 mt-0.5 leading-relaxed">着手OK＝必要書類が届いたので、担当者がすぐ着手できる状態（理由：{READY_REASON_DOC}）。「着手OKにせず」でも未着手のまま紐付けは完了します。</div>
             </div>
           </div>
         ) : (
