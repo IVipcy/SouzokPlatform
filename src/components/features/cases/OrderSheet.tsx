@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import { CheckCircle2, FileSpreadsheet, Eye } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { showToast } from '@/components/ui/Toast'
 import ClientInfoTab from './ClientInfoTab'
 import OrderContentTab from './OrderContentTab'
@@ -64,6 +65,9 @@ export default function OrderSheet({
   sagyoDocuments = [], receipts = [], guided = false,
 }: Props) {
   const supabase = createClient()
+  const authUser = useAuth()
+  // アシスタント（パート）はオーダーシートを参照のみ（入力・完成操作は不可）
+  const ro = !!authUser && authUser.primaryRole === 'assistant' && !authUser.roles.includes('system_manager')
   const [saving, setSaving] = useState(false)
   const completed = !!caseData.order_sheet_completed_at
 
@@ -164,7 +168,12 @@ export default function OrderSheet({
             受託案件の概要を1枚で把握・入力します。
           </p>
         </div>
-        {completed ? (
+        {ro ? (
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg">
+            <Eye className="w-4 h-4" />
+            参照のみ（アシスタント）
+          </span>
+        ) : completed ? (
           <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
             <CheckCircle2 className="w-4 h-4" />
             完成済（{caseData.order_sheet_completed_at?.slice(0, 10)}）
@@ -204,7 +213,7 @@ export default function OrderSheet({
           </div>
         </nav>
 
-        <div className="flex-1 min-w-0 space-y-5">
+        <fieldset disabled={ro} className="flex-1 min-w-0 space-y-5 border-0 p-0 m-0">
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
               {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ） */}
@@ -216,10 +225,11 @@ export default function OrderSheet({
               {s.node}
             </OSSection>
           ))}
-        </div>
+        </fieldset>
       </div>
 
       {/* 最下部の保存／完成アクション（各項目は入力時に自動保存されます） */}
+      {!ro && (
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
         <p className="flex-1 text-[12px] text-gray-500">各項目は入力した時点で自動保存されます。最後にこのボタンで保存を確定できます。</p>
         <button
@@ -241,6 +251,7 @@ export default function OrderSheet({
           {saving ? '保存中...' : completed ? '完成を更新' : 'オーダーシートを完成'}
         </button>
       </div>
+      )}
 
       <BackToTopButton />
     </div>

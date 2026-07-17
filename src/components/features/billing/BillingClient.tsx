@@ -62,6 +62,8 @@ type Props = {
   canReconcile?: boolean
   /** マイページ等に埋め込むとき（PageHeaderを出さず、検索/月だけのツールバーにする） */
   embedded?: boolean
+  /** 参照のみ（アシスタント）。一覧・パネルの編集操作を無効化する。 */
+  readOnly?: boolean
 }
 
 // 手動で選べるステータス。入金済は「入金消込」／CSV突合で payments を伴って確定するためここには含めない。
@@ -114,7 +116,7 @@ function contractDot(contractType: string | null | undefined): { cls: string; la
   }
 }
 
-export default function BillingClient({ invoices, cases, deposits = [], requests = [], currentMemberId = null, canReconcile = false, embedded = false }: Props) {
+export default function BillingClient({ invoices, cases, deposits = [], requests = [], currentMemberId = null, canReconcile = false, embedded = false, readOnly = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const caseFromUrl = searchParams.get('case')
@@ -499,6 +501,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
         <PageHeader eyebrow="Billing" title="請求・入金管理" icon={Receipt} description="請求書発行・入金消込・銀行CSV突合" right={toolbar} />
       )}
 
+      {readOnly && (
+        <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-[12.5px] text-gray-600">
+          参照のみ（アシスタント）— 閲覧できますが編集操作はできません
+        </div>
+      )}
+
       {/* 案件フィルタ表示（?case= で遷移してきた場合） */}
       {filteredCase && (
         <div className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 border border-brand-200 rounded-full text-[13px]">
@@ -667,7 +675,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       {statusFilter === 'refund' ? (
         <BillingRefundRequestsList refundReqs={refundReqs} refundEntries={refundEntries} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
       ) : (
-      <div>
+      <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {/* Table */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-x-auto">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
@@ -1061,7 +1069,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             </>
           )
         })()}
-      </div>
+      </fieldset>
       )}
 
       {/* Create Invoice Modal */}

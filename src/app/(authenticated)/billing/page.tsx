@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import BillingClient from '@/components/features/billing/BillingClient'
-import { getCurrentUser, canReconcilePayments } from '@/lib/auth'
+import { getCurrentUser, canReconcilePayments, isAssistant } from '@/lib/auth'
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -48,6 +48,7 @@ export default async function BillingPage() {
       requests={requests}
       currentMemberId={user?.memberId ?? null}
       canReconcile={canReconcilePayments(user)}
+      readOnly={isAssistant(user)}
     />
   )
 }

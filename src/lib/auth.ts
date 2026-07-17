@@ -111,6 +111,12 @@ export function isSystemManager(user: UserWithRoles | null): boolean {
   return user.primaryRole === 'system_manager' || user.roles.includes('system_manager')
 }
 
+/** アシスタント（パート）。オーダーシート・請求入金は参照のみに制限する。 */
+export function isAssistant(user: UserWithRoles | null): boolean {
+  if (!user) return false
+  return user.primaryRole === 'assistant' && !isSystemManager(user)
+}
+
 /** マイページを持つのは 受注/管理/システム管理者のみ（事務管理・経理は無し） */
 export function canSeeMyPage(user: UserWithRoles | null): boolean {
   if (!user) return false
