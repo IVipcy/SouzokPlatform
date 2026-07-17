@@ -275,12 +275,12 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物(item)ごとに、自由入力で作る新規タスクの工程・業務区分
   const [itemKotei, setItemKotei] = useState<Record<string, string>>({})
   const [itemGyomu, setItemGyomu] = useState<Record<string, string>>({})
-  // 到着物(item)ごとに「結んだタスクを着手OKにする（必要書類受領済）」
-  const [itemReady, setItemReady] = useState<Record<string, boolean>>({})
   // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
   const [showAll, setShowAll] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // 紐付けボタン押下後の「着手OKにするか」確認ステップ
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
@@ -373,8 +373,18 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   })
 
   const totalLinks = items.reduce((n, it) => n + (itemSel[it.id]?.size ?? 0) + ((itemNew[it.id] ?? '').trim() ? 1 : 0), 0)
+  // 確認ステップで一覧表示する、紐付け対象タスク名。
+  const linkedLabels: string[] = (() => {
+    const out: string[] = []
+    const titleById = new Map(tasks.map(t => [t.id, t.title]))
+    for (const it of items) {
+      for (const tid of itemSel[it.id] ?? []) { const t = titleById.get(tid); if (t) out.push(t) }
+      const nt = (itemNew[it.id] ?? '').trim(); if (nt) out.push(nt)
+    }
+    return out
+  })()
 
-  const confirm = async () => {
+  const confirm = async (markReady: boolean) => {
     if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
     setSaving(true)
     const supabase = createClient()
@@ -437,7 +447,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         firstTaskId = firstTaskId ?? taskId
         linkedThisItem.push(taskId)
       }
-      if (itemReady[it.id]) for (const id of linkedThisItem) readyTaskIds.add(id)
+      if (markReady) for (const id of linkedThisItem) readyTaskIds.add(id)
     }
 
     if (rolesChanged) await supabase.from('cases').update({ intake_roles: roles }).eq('id', receipt.case_id)
@@ -478,15 +488,38 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       title="タスクを結ぶ（到着物ごと）"
       maxWidth="max-w-lg"
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
-          <Button variant="primary" onClick={confirm} loading={saving}>
-            {totalLinks > 0 ? `タスクを紐付け (${totalLinks})` : 'タスクなしで完了'}
-          </Button>
-        </>
+        confirmOpen ? (
+          <>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={saving}>戻る</Button>
+            <Button variant="secondary" onClick={() => confirm(false)} loading={saving}>着手OKにせず紐付け</Button>
+            <Button variant="primary" onClick={() => confirm(true)} loading={saving}>着手OKにして紐付け</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
+            <Button variant="primary" onClick={() => (totalLinks > 0 ? setConfirmOpen(true) : confirm(false))} loading={saving}>
+              {totalLinks > 0 ? `タスクを紐付け (${totalLinks})` : 'タスクなしで完了'}
+            </Button>
+          </>
+        )
       }
     >
       <div className="space-y-3">
+        {confirmOpen ? (
+          <div className="space-y-3">
+            <p className="text-[13px] text-gray-600">次の <span className="font-semibold">{totalLinks}件</span> のタスクを紐付けます（未着手で保存）。</p>
+            <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto space-y-1">
+              {linkedLabels.map((l, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-[12.5px] text-gray-700"><Link2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />{l}</div>
+              ))}
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <div className="text-[13px] text-amber-900">これらを<span className="font-semibold">着手OK</span>にしますか？</div>
+              <div className="text-[11.5px] text-amber-700 mt-0.5 leading-relaxed">着手OK＝必要書類が届いたので、担当者がすぐ着手できる状態（理由：{READY_REASON_DOC}）。「着手OKにせず」でも未着手のまま紐付けは完了します。</div>
+            </div>
+          </div>
+        ) : (
+        <>
         <p className="text-[13px] text-gray-600">
           届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます。紐付けたタスクは<strong>未着手のまま</strong>保存され、シフトの担当者があとから着手します。契約書類などタスク不要なものは、何も選ばず<strong>「タスクなしで完了」</strong>（受信を処理済みとして閉じるだけ）でOK。
         </p>
@@ -625,22 +658,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     })()}
                   </>
                 )}
-                {/* 着手OKにする（この到着物に結んだタスクを「必要書類受領済」で着手OKに） */}
-                {((itemSel[it.id]?.size ?? 0) > 0 || (itemNew[it.id] ?? '').trim()) && !isContract && (
-                  <label className={`mt-2 flex items-center gap-2 text-[12px] rounded-lg px-2.5 py-1.5 cursor-pointer border transition-colors ${itemReady[it.id] ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                    <input
-                      type="checkbox"
-                      checked={!!itemReady[it.id]}
-                      onChange={e => setItemReady(prev => ({ ...prev, [it.id]: e.target.checked }))}
-                      className="w-4 h-4 accent-amber-500"
-                    />
-                    結んだタスクを<span className="font-semibold">着手OK</span>にする
-                    <span className="ml-auto text-[10.5px] text-gray-400">理由：{READY_REASON_DOC}</span>
-                  </label>
-                )}
               </div>
             )})}
           </div>
+        )}
+        </>
         )}
       </div>
     </Modal>
