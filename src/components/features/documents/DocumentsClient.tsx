@@ -17,9 +17,10 @@ type Props = {
   cases: CaseLite[]
   currentMemberId: string | null
   currentMember: MemberRow | null
+  teams: { id: string; name: string }[]
 }
 
-export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember }: Props) {
+export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember, teams }: Props) {
   const router = useRouter()
   const isManager = useCanOperateReceipts()  // 受信登録・受信確定は管理担当＋事務スタッフ(assistant)
   const [, startTransition] = useTransition()
@@ -118,6 +119,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         currentMemberId={currentMemberId}
         currentMember={currentMember}
         fileByDocId={fileByDocId}
+        teams={teams}
         onChanged={refresh}
       />
 
@@ -125,6 +127,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         isOpen={receiptModalOpen}
         onClose={() => setReceiptModalOpen(false)}
         cases={cases}
+        teams={teams}
         onSaved={refresh}
       />
     </div>

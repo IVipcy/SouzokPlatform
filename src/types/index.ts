@@ -946,6 +946,7 @@ export type DocumentReceiptRow = {
   dual_checked_at: string | null
   started_by_member_id: string | null
   started_at: string | null
+  storage_team_id: string | null   // 原本（紙）の物理格納先チーム（migration 175）
   created_at: string
   updated_at: string
   // join 用
@@ -953,6 +954,7 @@ export type DocumentReceiptRow = {
   items?: DocumentReceiptItemRow[]
   dual_check_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
   started_by_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
+  storage_team?: { id: string; name: string } | null
 }
 
 /** 旧名（後方互換用エイリアス） */

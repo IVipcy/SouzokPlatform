@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition, Fragment } from 'react'
+import { useState, useEffect, useRef, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
 import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -25,6 +25,7 @@ type Props = {
   currentMemberId: string | null
   currentMember: MemberRow | null
   fileByDocId: ReceiptFileMap
+  teams: { id: string; name: string }[]
   onChanged: () => void
 }
 
@@ -46,7 +47,7 @@ function formatReceiptDateHeader(ymd: string): string {
   return `${m}月${d}日（${wd}）`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged }: Props) {
   const canManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [cancelingReceipt, setCancelingReceipt] = useState<DocumentReceiptRow | null>(null)
@@ -102,6 +103,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col />{/* 到着物（可変） */}
               <col style={{ width: 60 }} />{/* 通数 */}
               <col style={{ width: 140 }} />{/* ファイル */}
+              <col style={{ width: 148 }} />{/* 原本格納先 */}
               <col style={{ width: 112 }} />{/* W-Check */}
               <col style={{ width: 120 }} />{/* 対応 */}
             </colgroup>
@@ -114,6 +116,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
+                <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-gray-400 block">チームのBOX</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold">対応</th>
               </tr>
@@ -123,7 +126,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 ? pastGroups.map(g => (
                     <Fragment key={g.date}>
                       <tr className="bg-brand-50/50 border-y border-brand-100">
-                        <td colSpan={9} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
+                        <td colSpan={10} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
                           {formatReceiptDateHeader(g.date)}
                           <span className="ml-2 font-normal text-gray-500">{g.rows.length}件</span>
                         </td>
@@ -135,6 +138,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                           rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
                           currentMemberId={currentMemberId}
                           currentMember={currentMember}
+                          teams={teams}
                           onChanged={onChanged}
                           onStartRequest={setStartingReceipt}
                           onCancelRequest={setCancelingReceipt}
@@ -150,6 +154,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                       rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
                       currentMemberId={currentMemberId}
                       currentMember={currentMember}
+                      teams={teams}
                       onChanged={onChanged}
                       onStartRequest={setStartingReceipt}
                       onCancelRequest={setCancelingReceipt}
@@ -747,6 +752,7 @@ function ReceiptRow({
   rowBg,
   currentMemberId,
   currentMember,
+  teams,
   onChanged,
   onStartRequest,
   onCancelRequest,
@@ -756,6 +762,7 @@ function ReceiptRow({
   rowBg: string
   currentMemberId: string | null
   currentMember: MemberRow | null
+  teams: { id: string; name: string }[]
   onChanged: () => void
   onStartRequest: (r: DocumentReceiptRow) => void
   onCancelRequest: (r: DocumentReceiptRow) => void
@@ -769,7 +776,18 @@ function ReceiptRow({
   const rowClass = rowBg
 
   const [, startTransition] = useTransition()
-  const [busyKind, setBusyKind] = useState<null | 'check' | 'start'>(null)
+  const [busyKind, setBusyKind] = useState<null | 'check' | 'start' | 'storage'>(null)
+
+  // 原本格納先チームの変更（即保存）
+  const handleStorageChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value || null
+    setBusyKind('storage')
+    const supabase = createClient()
+    const { error } = await supabase.from('document_receipts').update({ storage_team_id: v }).eq('id', receipt.id)
+    setBusyKind(null)
+    if (error) { showToast(`格納先の保存に失敗: ${error.message}`, 'error'); return }
+    startTransition(onChanged)
+  }
 
   const handleDualCheckToggle = async () => {
     if (busyKind) return
@@ -896,6 +914,26 @@ function ReceiptRow({
             {isFirst && (
               <td rowSpan={rowCount} className="px-2 py-2 text-center align-middle border-l border-gray-100">
                 <ReceiptFolderActions receipt={receipt} currentMemberId={currentMemberId} onChanged={onChanged} />
+              </td>
+            )}
+
+            {/* 原本格納先：紙の原本を格納したチームのBOX（行統合） */}
+            {isFirst && (
+              <td rowSpan={rowCount} className="px-2 py-2 align-middle border-l border-gray-100">
+                {canManage ? (
+                  <select
+                    value={receipt.storage_team_id ?? ''}
+                    onChange={handleStorageChange}
+                    disabled={busyKind === 'storage'}
+                    className={`w-full px-2 py-1.5 text-[12px] border rounded-md outline-none focus:border-brand-400 disabled:opacity-50 ${receipt.storage_team_id ? 'border-gray-300 bg-white text-gray-800' : 'border-dashed border-gray-300 bg-gray-50 text-gray-400'}`}
+                    title="原本を格納したチームのメールボックス"
+                  >
+                    <option value="">格納先を選択</option>
+                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                ) : (
+                  <span className="text-[12px] text-gray-600">{receipt.storage_team?.name ?? <span className="text-gray-300">—</span>}</span>
+                )}
               </td>
             )}
 

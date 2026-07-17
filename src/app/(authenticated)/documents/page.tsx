@@ -24,6 +24,7 @@ export default async function DocumentsPage() {
     { data: receiptsRaw },
     { data: receiptItemsRaw },
     { data: currentMemberRaw },
+    { data: teamsRaw },
   ] = await Promise.all([
     supabase
       .from('case_documents')
@@ -40,7 +41,8 @@ export default async function DocumentsPage() {
         *,
         cases(id, case_number, deal_name),
         dual_check_member:members!document_receipts_dual_check_member_id_fkey(id, name, avatar_color, avatar_url, primary_role),
-        started_by_member:members!document_receipts_started_by_member_id_fkey(id, name, avatar_color, avatar_url, primary_role)
+        started_by_member:members!document_receipts_started_by_member_id_fkey(id, name, avatar_color, avatar_url, primary_role),
+        storage_team:teams!document_receipts_storage_team_id_fkey(id, name)
       `)
       .order('received_date', { ascending: false })
       .order('sequence_no', { ascending: false }),
@@ -51,6 +53,7 @@ export default async function DocumentsPage() {
     currentMemberId
       ? supabase.from('members').select('*').eq('id', currentMemberId).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase.from('teams').select('id, name').eq('is_active', true).order('name'),
   ])
 
   const documents = (documentsRaw ?? []) as CaseDocumentRow[]
@@ -69,6 +72,7 @@ export default async function DocumentsPage() {
   }))
 
   const currentMember = (currentMemberRaw ?? null) as MemberRow | null
+  const teams = (teamsRaw ?? []) as { id: string; name: string }[]
 
   return (
     <DocumentsClient
@@ -77,6 +81,7 @@ export default async function DocumentsPage() {
       cases={cases}
       currentMemberId={currentMemberId}
       currentMember={currentMember}
+      teams={teams}
     />
   )
 }

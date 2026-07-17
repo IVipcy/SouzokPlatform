@@ -31,6 +31,7 @@ type Props = {
   isOpen: boolean
   onClose: () => void
   cases: CaseLite[]
+  teams: { id: string; name: string }[]
   onSaved: () => void
 }
 
@@ -45,13 +46,14 @@ function newItem(): ItemDraft {
   }
 }
 
-export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSaved }: Props) {
+export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved }: Props) {
   const todayYmd = new Date().toISOString().slice(0, 10)
 
   const [caseQuery, setCaseQuery] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [receivedDate, setReceivedDate] = useState(todayYmd)
   const [postalType, setPostalType] = useState('')
+  const [storageTeamId, setStorageTeamId] = useState('')  // 原本格納先チーム（案件選択時に管理担当のチームを初期選択）
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   const [saving, setSaving] = useState(false)
@@ -64,6 +66,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setSelectedCaseId(null)
     setReceivedDate(todayYmd)
     setPostalType('')
+    setStorageTeamId('')
     setItems([newItem()])
     setDeliverables([])
     setError('')
@@ -75,7 +78,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
     setSelectedCaseId(id)
     setDeliverables([])
     const supabase = createClient()
-    const [fa, re, ac, ko, cd, cs, ad, hr] = await Promise.all([
+    const [fa, re, ac, ko, cd, cs, ad, hr, mgr] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
       supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order'),
@@ -84,7 +87,12 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
       supabase.from('cases').select('intake_roles').eq('id', id).single(),
       supabase.from('agreement_dispatches').select('*').eq('case_id', id),
       supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
+      // 原本格納先の初期値：この案件の管理担当のチーム
+      supabase.from('case_members').select('members(team_id)').eq('case_id', id).eq('role', 'manager').limit(1).maybeSingle(),
     ])
+    // 管理担当のチームを原本格納先の初期選択に（未設定なら空のまま）
+    const mgrTeam = (mgr.data as { members?: { team_id?: string | null } | null } | null)?.members?.team_id ?? ''
+    if (mgrTeam && teams.some(t => t.id === mgrTeam)) setStorageTeamId(mgrTeam)
     // 案件がやっている業務(intake_roles)を候補のフィルタに使う（オーダーシートが正）
     const roles = (cs.data?.intake_roles ?? []) as Array<{ gyomu?: string | null }>
     const activeGyomu = new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))
@@ -165,6 +173,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
         case_id: selectedCaseId,
         received_date: receivedDate,
         postal_type: postalType || null,
+        storage_team_id: storageTeamId || null,
       })
       .select('id')
       .single()
@@ -341,6 +350,17 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, onSave
             >
               <option value="">選択…</option>
               {POSTAL_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-gray-500 mb-1">原本格納先<span className="ml-1 font-normal text-gray-400">チームのBOX</span></label>
+            <select
+              value={storageTeamId}
+              onChange={e => setStorageTeamId(e.target.value)}
+              className="w-48 px-3 py-2 text-[13px] border border-gray-300 rounded-lg bg-white focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+            >
+              <option value="">格納先を選択</option>
+              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
