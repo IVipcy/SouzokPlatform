@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt, Check, Send } from 'lucide-react'
+import { ExternalLink, Receipt, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { advanceTotal } from '@/lib/advancePayment'
 import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
@@ -119,18 +119,17 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   }, [caseData.id])
 
   // 請求完了バッジ用：この案件の請求書（前受金／確定請求）の入金状況
-  // 請求脚（前受金／確定）の状態。exists=作成済以上・sent=郵送済(入金待ち以降)・paid=入金済・createdId=作成済のみ(未送付)の請求書ID
-  type Leg = { exists: boolean; sent: boolean; paid: boolean; createdId: string | null }
+  // 請求脚（前受金／確定）の状態。exists=作成済以上・sent=郵送済(入金待ち以降)・paid=入金済
+  type Leg = { exists: boolean; sent: boolean; paid: boolean }
   const [invLegs, setInvLegs] = useState<{ advance: Leg; final: Leg } | null>(null)
   const loadLegs = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('invoices').select('id, invoice_type, status').eq('case_id', caseData.id)
-    const rows = (data ?? []) as { id: string; invoice_type: string; status: string }[]
+    const { data } = await supabase.from('invoices').select('invoice_type, status').eq('case_id', caseData.id)
+    const rows = (data ?? []) as { invoice_type: string; status: string }[]
     const legOf = (r: typeof rows): Leg => ({
       exists: r.length > 0,
       sent: r.some(x => ['入金待ち', '一部入金', '入金済'].includes(x.status)),
       paid: r.some(x => x.status === '入金済'),
-      createdId: r.find(x => x.status === '作成済')?.id ?? null,
     })
     setInvLegs({ advance: legOf(rows.filter(r => r.invoice_type === '前受金')), final: legOf(rows.filter(r => r.invoice_type === '確定請求')) })
   }, [caseData.id])
@@ -202,15 +201,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 : legChip('確定請求', null, true)}
             </span>
           </div>
-          {/* 作成済（未送付）→ 郵送したらメインの請求入金タブで該当レコードを「入金待ち」に。 */}
-          {(invLegs.advance.createdId || invLegs.final.createdId) && (
-            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-              <span className="text-[11.5px] text-amber-700">請求書を作成済みです。お客様に郵送したら</span>
-              <Link href={`/billing?case=${caseData.id}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100">
-                <Send className="w-3 h-3" strokeWidth={2} />請求入金タブで「入金待ち」に変更
-              </Link>
-            </div>
-          )}
         </div>
       )}
 
