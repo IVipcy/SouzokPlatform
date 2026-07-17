@@ -24,6 +24,7 @@ type Body = {
   advanceReceived: number
   expenses: ExpenseItem[]
   taskId?: string | null
+  dueDate?: string | null      // 入金期日（任意）。invoices.due_date に保存。
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
   officeId?: string           // 事務所住所（拠点: kureator/kyodo/fujisawa）
 }
@@ -232,6 +233,7 @@ export async function POST(request: NextRequest) {
         advance_deduction: advanceReceived || 0,
         status: '作成済',
         issued_date: new Date().toISOString().slice(0, 10),
+        due_date: body.dueDate ?? null,
         generated_file_path: savedPath,
       })
       if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)

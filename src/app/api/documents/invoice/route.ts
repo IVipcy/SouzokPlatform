@@ -22,6 +22,7 @@ type Body = {
   kenmei: string
   amount: number
   taskId?: string | null
+  dueDate?: string | null      // 入金期日（任意）。invoices.due_date に保存し請求入金タブに反映。
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
   kubun?: string              // 区分セル（請求書=前受金、領収書=前受金/確定請求 等）。既定は前受金
   officeId?: string           // 事務所住所（kureator/kyodo/fujisawa）。未指定はテンプレ既定
@@ -173,6 +174,7 @@ export async function POST(request: NextRequest) {
           fee_amount: amount,
           status: '作成済',
           issued_date: new Date().toISOString().slice(0, 10),
+          due_date: body.dueDate ?? null,
           generated_file_path: savedPath,
         })
         if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)

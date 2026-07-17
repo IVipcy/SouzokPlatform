@@ -34,6 +34,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
   const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
   const [kenmei, setKenmei] = useState('')
   const [amount, setAmount] = useState<number | ''>('')
+  const [dueDate, setDueDate] = useState('')
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
   const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
@@ -67,6 +68,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
     setOffice(recommendedOffice)
     setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き ${kubunLabel}`)
     setAmount(presetAmount(recommendedOffice) || '')
+    setDueDate('')
     setTaskId(defaultTaskId ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, recommendedOffice, caseData.deceased_name, defaultTaskId])
@@ -86,7 +88,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
       const res = await fetch('/api/documents/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, kubun: kakutei ? '確定請求' : '前受金', officeId }),
+        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, dueDate: dueDate || null, kubun: kakutei ? '確定請求' : '前受金', officeId }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
@@ -215,6 +217,17 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
               ? '報酬−前受金を初期表示。立替実費を含める場合は加算してください。'
               : '前受金は消費税対象外のため、合計＝入力額で出力します。'}
           </p>
+        </section>
+
+        <section>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">入金期日（任意）</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
+          />
+          <p className="text-[12px] text-gray-400 mt-1">請求入金タブの「入金期日」に反映されます（後から変更も可）。</p>
         </section>
 
         {/* 流し込みプレビュー */}

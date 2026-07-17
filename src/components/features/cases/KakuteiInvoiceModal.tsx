@@ -32,6 +32,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
   const [advance, setAdvance] = useState<number | ''>('')
   const [rows, setRows] = useState<Row[]>([])
   const [taskId, setTaskId] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const [generating, setGenerating] = useState(false)
   // 生成済みファイル（自動DLがブラウザにブロックされても、手動ボタンから確実に保存できるよう保持）
   const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
@@ -46,6 +47,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
     if (!isOpen) { setDownloadInfo(null); return }
     setOffice(recommendedOffice)
     setTaskId(defaultTaskId ?? '')
+    setDueDate('')
   }, [isOpen, recommendedOffice, defaultTaskId])
 
   // 発行主体（司法/行政）に合わせて、請求タブの内訳から報酬・前受金・立替を自動反映。
@@ -86,6 +88,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
           advanceReceived: Number(advance) || 0,
           expenses: expenses.filter(e => e.name || e.amount > 0),
           taskId: taskId || null,
+          dueDate: dueDate || null,
           officeId,
         }),
       })
@@ -208,6 +211,12 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
             <span className="font-bold text-gray-800">請求額</span>
             <span className="font-bold text-brand-700 text-base">{yen(calc.billAmount)}</span>
           </div>
+        </section>
+
+        <section>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">入金期日（任意）</label>
+          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
+          <p className="text-[12px] text-gray-400 mt-1">請求入金タブの「入金期日」に反映されます（後から変更も可）。</p>
         </section>
 
         <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
