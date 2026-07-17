@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, AlertTriangle, Check, Info, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow } from '@/types'
@@ -14,6 +14,25 @@ type Props = {
   caseTasks: TaskRow[]
   currentMemberId: string | null
 }
+
+// 前段作業の3段階評価。〇=問題なし / △=軽微な不備 / ×=やり直し
+type Rating = '問題なし' | '軽微な不備' | 'やり直し'
+
+// 保存値を正規化（旧2択データ 不備なし/不備あり も吸収）
+function normalizeRating(v: unknown): Rating | null {
+  if (v === '問題なし' || v === '軽微な不備' || v === 'やり直し') return v
+  if (v === '不備なし') return '問題なし'
+  if (v === '不備あり') return 'やり直し'
+  return null
+}
+
+// 評価の見た目定義（記号・ラベル・色）
+const RATING_META: Record<Rating, { mark: string; label: string; onCls: string }> = {
+  '問題なし': { mark: '〇', label: '問題なし', onCls: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  '軽微な不備': { mark: '△', label: '軽微な不備', onCls: 'bg-amber-50 text-amber-800 border-amber-300' },
+  'やり直し': { mark: '×', label: 'やり直し', onCls: 'bg-red-50 text-red-700 border-red-300' },
+}
+const RATING_ORDER: Rating[] = ['問題なし', '軽微な不備', 'やり直し']
 
 /**
  * 前段作業の確認セクション
@@ -42,9 +61,9 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
     return samePhase[0] ?? null
   }, [caseTasks, task.id, task.phase, ext.ready_from_task_id])
 
-  const initialResult = typeof ext.prev_task_evaluation === 'string' ? ext.prev_task_evaluation : null
-  const reviewed = initialResult === '不備なし' || initialResult === '不備あり'
-  const [result, setResult] = useState<'不備なし' | '不備あり' | null>(reviewed ? (initialResult as '不備なし' | '不備あり') : null)
+  const initialResult = normalizeRating(ext.prev_task_evaluation)
+  const reviewed = initialResult !== null
+  const [result, setResult] = useState<Rating | null>(initialResult)
   const [detail, setDetail] = useState(typeof ext.prev_task_defect_detail === 'string' ? ext.prev_task_defect_detail : '')
   const [saving, setSaving] = useState(false)
 
@@ -54,7 +73,9 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
 
   if (!prevTask) return null
 
-  const canSave = result === '不備なし' || (result === '不備あり' && detail.trim().length > 0)
+  // 〇はそのまま保存可。△・×は不備内容の記入を必須にする。
+  const needsDetail = result === '軽微な不備' || result === 'やり直し'
+  const canSave = result === '問題なし' || (needsDetail && detail.trim().length > 0)
 
   const handleSave = async () => {
     if (!canSave || saving) return
@@ -70,7 +91,7 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
         reviewed_member_id: prevTask.started_by ?? null,
         reviewer_member_id: currentMemberId,
         result,
-        defect_detail: result === '不備あり' ? detail.trim() : null,
+        defect_detail: needsDetail ? detail.trim() : null,
         gyomu: gyomu || null,
       }, { onConflict: 'reviewer_task_id,reviewed_task_id' })
       if (revErr) throw revErr
@@ -78,7 +99,7 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
       const nextExt = {
         ...ext,
         prev_task_evaluation: result,
-        prev_task_defect_detail: result === '不備あり' ? detail.trim() : null,
+        prev_task_defect_detail: needsDetail ? detail.trim() : null,
         prev_task_reviewed_at: new Date().toISOString(),
         prev_task_reviewed_by: currentMemberId,
       }
@@ -135,33 +156,35 @@ export default function PrevTaskReviewSection({ task, caseTasks, currentMemberId
           </div>
         </div>
 
-        {/* 評価（不備なし / 不備あり） */}
+        {/* 評価（〇 問題なし / △ 軽微な不備 / × やり直し） */}
         <div>
           <div className="text-[12px] font-semibold text-gray-500 mb-1.5">前段作業の評価 <span className="text-red-500">*</span></div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setResult('不備なし')}
-              className={`flex-1 inline-flex items-center justify-center gap-1 text-[13px] py-1.5 rounded-lg border transition-colors ${
-                result === '不備なし' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <Check className="w-3.5 h-3.5" strokeWidth={2.25} />不備なし
-            </button>
-            <button
-              type="button"
-              onClick={() => setResult('不備あり')}
-              className={`flex-1 inline-flex items-center justify-center gap-1 text-[13px] py-1.5 rounded-lg border transition-colors ${
-                result === '不備あり' ? 'bg-red-50 text-red-700 border-red-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.25} />不備あり
-            </button>
+            {RATING_ORDER.map(r => {
+              const meta = RATING_META[r]
+              const on = result === r
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setResult(r)}
+                  className={`flex-1 flex flex-col items-center gap-0.5 text-[12.5px] py-2 rounded-lg border transition-colors ${
+                    on ? `${meta.onCls} border-2 font-semibold` : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-[19px] leading-none">{meta.mark}</span>
+                  <span>{meta.label}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-1.5 text-[10.5px] text-gray-400 leading-relaxed">
+            〇=問題なし ／ △=一部不備あり（軽微） ／ ×=やり直し・明確に不備
           </div>
         </div>
 
-        {/* 不備内容（不備ありのみ） */}
-        {result === '不備あり' && (
+        {/* 不備内容（△・×のとき必須） */}
+        {needsDetail && (
           <div>
             <div className="text-[12px] font-semibold text-gray-500 mb-1">不備内容 <span className="text-red-500">*</span></div>
             <textarea
