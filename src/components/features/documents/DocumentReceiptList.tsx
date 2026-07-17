@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition, Fragment } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp } from 'lucide-react'
+import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
@@ -263,6 +263,10 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 }) {
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>>([])
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
+  // 筆頭候補（到着物の対応読込タスク）を source_rid で特定するための元データ。
+  const [finAssets, setFinAssets] = useState<Array<{ id: string; institution_name: string | null }>>([])
+  const [acquisitions, setAcquisitions] = useState<Array<{ id: string; target_property_id: string | null; target_municipality: string | null }>>([])
+  const [properties, setProperties] = useState<Array<{ id: string; municipality: string | null; address: string | null }>>([])
   // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
   const [contractCat, setContractCat] = useState<Map<string, string | null>>(new Map())
   // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
@@ -283,16 +287,22 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const [tk, cs, cd] = await Promise.all([
+      const [tk, cs, cd, fa, ac, re] = await Promise.all([
         // 全件取得（完了含む）。完了は候補に出さないが、「＋作成」候補の重複判定に使う。
         supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).order('sort_order'),
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
         supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
+        supabase.from('financial_assets').select('id, institution_name').eq('case_id', receipt.case_id),
+        supabase.from('real_estate_acquisitions').select('id, target_property_id, target_municipality').eq('case_id', receipt.case_id),
+        supabase.from('real_estate_properties').select('id, municipality, address').eq('case_id', receipt.case_id),
       ])
       setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>)
       const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
       setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
       setContractCat(new Map(((cd.data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
+      setFinAssets((fa.data ?? []) as Array<{ id: string; institution_name: string | null }>)
+      setAcquisitions((ac.data ?? []) as Array<{ id: string; target_property_id: string | null; target_municipality: string | null }>)
+      setProperties((re.data ?? []) as Array<{ id: string; municipality: string | null; address: string | null }>)
       setLoading(false)
     })()
   }, [receipt.case_id])
@@ -325,6 +335,36 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // タスク不要＝区分が調査系にマップされない契約書類のみ。
   const isTaskFree = (it: { linked_kind: string | null; linked_id: string | null }): boolean =>
     it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
+
+  // 到着物の「対応読込タスク」の source_rid を推定（筆頭候補の特定用）。
+  // タスク一括生成が読込タスクに埋めた source_rid と同じキーを組み立てる:
+  //   戸籍  → koseki-read:{請求ID}（linked_idが請求IDそのもの・確実）
+  //   金融  → fin-read:{金融機関名}
+  //   不動産 → re-read:{市区町村}（物件→市区町村を推定・ベストエフォート）
+  const muniOfProp = (p: { municipality: string | null; address: string | null }): string => {
+    const m = (p.municipality ?? '').trim()
+    if (m) return m
+    const a = (p.address ?? '').trim()
+    const match = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
+    return match ? `${match[1] ?? ''}${match[2]}` : ''
+  }
+  const expectedReadRid = (it: { linked_kind: string | null; linked_id: string | null }): string | null => {
+    if (!it.linked_id) return null
+    if (it.linked_kind === 'koseki') return `koseki-read:${it.linked_id}`
+    if (it.linked_kind === 'financial_asset') {
+      const name = (finAssets.find(a => a.id === it.linked_id)?.institution_name ?? '').trim()
+      return name ? `fin-read:${name}` : null
+    }
+    if (it.linked_kind === 'real_estate_acquisition') {
+      const a = acquisitions.find(x => x.id === it.linked_id)
+      if (!a) return null
+      let muni = ''
+      if (a.target_property_id) { const p = properties.find(x => x.id === a.target_property_id); if (p) muni = muniOfProp(p) }
+      if (!muni) muni = (a.target_municipality ?? '').trim()
+      return muni ? `re-read:${muni}` : null
+    }
+    return null
+  }
 
   const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
     const cur = new Set(prev[itemId] ?? [])
@@ -466,8 +506,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               const relevant = gy ? linkable.filter(t => gy.includes(gyomuOfTask(t))) : []
               const relevantIds = new Set(relevant.map(t => t.id))
               const others = linkable.filter(t => !relevantIds.has(t.id))
+              // 筆頭候補＝この到着物の請求と1対1で対応する読込タスク（source_rid一致）。
+              const wantRid = expectedReadRid(it)
+              const topTask = wantRid ? relevant.find(t => t.source_rid === wantRid) : undefined
               // 関係業務が判定できない（自由入力の到着物等）ときは絞り込めないので全件 others 扱いで畳む
-              const primary = relevant.length > 0 ? relevant : []
+              const primary = topTask ? relevant.filter(t => t.id !== topTask.id) : relevant
               const showOthers = !!showAll[it.id]
               const renderPill = (t: { id: string; title: string }) => {
                 const on = itemSel[it.id]?.has(t.id)
@@ -489,9 +532,19 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                   <p className="text-[11px] text-gray-400 mb-2">未完了の既存タスクはありません（下で作成できます）</p>
                 ) : (
                   <div className="mb-2">
-                    {/* 関係する業務のタスク（優先表示） */}
+                    {/* 筆頭候補＝この到着物の対応読込タスク（請求と1対1）。強調表示のみ・選択は手動。 */}
+                    {topTask && (
+                      <div className="mb-2 rounded-lg border border-brand-300 bg-brand-50 p-2">
+                        <div className="text-[10.5px] font-semibold text-brand-700 mb-1 flex items-center gap-1">
+                          <Target className="w-3 h-3" />この到着物の対応タスク
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">{renderPill(topTask)}</div>
+                      </div>
+                    )}
+                    {/* 同じ業務の他タスク */}
                     {primary.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
+                        {topTask && <span className="w-full text-[10px] text-gray-400">同じ業務の他タスク</span>}
                         {primary.map(renderPill)}
                       </div>
                     )}
@@ -499,7 +552,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     {others.length > 0 && (
                       showOthers ? (
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {primary.length > 0 && <span className="w-full text-[10px] text-gray-400">その他のタスク</span>}
+                          {(topTask || primary.length > 0) && <span className="w-full text-[10px] text-gray-400">その他の業務のタスク</span>}
                           {others.map(renderPill)}
                         </div>
                       ) : (
@@ -508,7 +561,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                           onClick={() => setShowAll(prev => ({ ...prev, [it.id]: true }))}
                           className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold"
                         >
-                          {primary.length > 0 ? `＋ 他の業務のタスクも表示（${others.length}）` : `既存タスクから選ぶ（${others.length}）`}
+                          {(topTask || primary.length > 0) ? `＋ 他の業務のタスクも表示（${others.length}）` : `既存タスクから選ぶ（${others.length}）`}
                         </button>
                       )
                     )}
