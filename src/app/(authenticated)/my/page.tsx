@@ -120,6 +120,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     order_route_detail: string | null
     procedure_type: string[] | null
     order_sheet_completed_at: string | null
+    management_started_at: string | null
     contract_type: string | null
     billing_pattern: string | null
     advance_payment: number | null
@@ -305,9 +306,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
   }
 
+  // 週次報告アラートは「作業進行中（対応中）に入って1週間経過」からカウント（受注段階・直後は対象外）。
+  const weekAgoMs = today.getTime() - 7 * 24 * 60 * 60 * 1000
   const myCasesEnriched = myCases.map(c => {
     // アラートは管理担当のマイページ（自分が管理担当の案件）にのみ表示
     const isMgrCase = isManager && managerCaseIds.has(c.id) && MGMT_ACTIVE_STATUSES.has(c.status)
+    // 週次報告の漏れ：対応中 かつ 管理開始(management_started_at)から1週間経過 かつ 直近確認なし
+    const weeklyEligible = c.status === '対応中' && !!c.management_started_at && new Date(c.management_started_at).getTime() <= weekAgoMs
     const prog = progressByCase.get(c.id)
     const lastComm = lastCommByCase.get(c.id)
     return {
@@ -336,7 +341,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       // 直近お客様報告
       lastCommDate: lastComm?.date ?? null,
       lastCommDetail: lastComm?.detail ?? null,
-      weeklyReportMissing: isMgrCase && !reportConfirmedRecent.has(c.id),
+      weeklyReportMissing: isMgrCase && weeklyEligible && !reportConfirmedRecent.has(c.id),
       taskOverdue: isMgrCase && overdueCaseIds.has(c.id),
     }
   })

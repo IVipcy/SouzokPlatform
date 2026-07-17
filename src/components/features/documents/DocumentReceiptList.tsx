@@ -96,11 +96,11 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
             <colgroup>
               <col style={{ width: 84 }} />{/* 番号 */}
               <col style={{ width: 148 }} />{/* 案件管理番号 */}
-              <col style={{ width: 76 }} />{/* 〒種類 */}
+              <col style={{ width: 94 }} />{/* 〒種類 */}
               <col />{/* 差出人（可変） */}
               <col />{/* 到着物（可変） */}
               <col style={{ width: 60 }} />{/* 通数 */}
-              <col style={{ width: 124 }} />{/* ファイル */}
+              <col style={{ width: 140 }} />{/* ファイル */}
               <col style={{ width: 112 }} />{/* W-Check */}
               <col style={{ width: 120 }} />{/* 対応 */}
             </colgroup>
@@ -206,12 +206,12 @@ function ReceiptFolderActions({ receipt, currentMemberId, onChanged }: {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-1 rounded text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 disabled:opacity-50"
         title="この受信の書類をまとめて案件フォルダにアップ"
       >
         {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderUp className="w-3 h-3" />}フォルダにアップ
       </button>
-      <Link href={`/cases/${receipt.case_id}?tab=docs`} className="inline-flex items-center gap-1 text-[10.5px] text-gray-500 hover:text-brand-700">
+      <Link href={`/cases/${receipt.case_id}?tab=docs`} className="inline-flex items-center gap-1 whitespace-nowrap text-[10.5px] text-gray-500 hover:text-brand-700">
         <Folder className="w-3 h-3" />フォルダを開く
       </Link>
     </div>
@@ -735,7 +735,7 @@ function ReceiptRow({
             {isFirst && (
               <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-r border-gray-100">
                 {receipt.postal_type
-                  ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{receipt.postal_type}</span>
+                  ? <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{receipt.postal_type}</span>
                   : <span className="text-gray-300 text-[12px]">—</span>}
               </td>
             )}
