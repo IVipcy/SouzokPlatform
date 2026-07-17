@@ -16,13 +16,13 @@ import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import { normalizeTaskStatus } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getStartSignal, isWaitingReceipt } from '@/lib/taskReadiness'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
 import type { TaskRow } from '@/types'
 
-type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string }
+type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null }
 type Mode = 'now' | 'receipt'
 
 // 着手OK経路に応じた ext_data を作る
@@ -70,11 +70,17 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     const supabase = createClient()
     ;(async () => {
       const { data } = await supabase.from('tasks')
-        .select('id,title,phase,sort_order,status,task_kind')
+        .select('id,title,phase,sort_order,status,task_kind,ext_data')
         .eq('case_id', task.case_id)
         .order('sort_order')
       const rows = ((data ?? []) as Array<Cand & { task_kind: string | null }>)
-        .filter(t => t.id !== task.id && t.task_kind !== 'system' && normalizeTaskStatus(t.status) !== '完了')
+        .filter(t => {
+          if (t.id === task.id || t.task_kind === 'system' || normalizeTaskStatus(t.status) === '完了') return false
+          // 既に着手OK／受領次第OK のタスクは「次に着手できる」候補から除外（引き上げる意味がないため）
+          const tr = t as unknown as TaskRow
+          if (getStartSignal(tr).ready || isWaitingReceipt(tr)) return false
+          return true
+        })
       setCands(rows)
       setLoading(false)
     })()
