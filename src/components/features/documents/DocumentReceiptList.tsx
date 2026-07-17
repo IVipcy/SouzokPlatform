@@ -49,6 +49,7 @@ function formatReceiptDateHeader(ymd: string): string {
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, onChanged }: Props) {
   const canManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
+  const [cancelingReceipt, setCancelingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
 
   const today = todayJstYmd(new Date())
@@ -136,6 +137,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                           currentMember={currentMember}
                           onChanged={onChanged}
                           onStartRequest={setStartingReceipt}
+                          onCancelRequest={setCancelingReceipt}
                           canManage={canManage}
                         />
                       ))}
@@ -150,6 +152,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                       currentMember={currentMember}
                       onChanged={onChanged}
                       onStartRequest={setStartingReceipt}
+                      onCancelRequest={setCancelingReceipt}
                       canManage={canManage}
                     />
                   ))}
@@ -166,7 +169,77 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
           onDone={() => { setStartingReceipt(null); onChanged() }}
         />
       )}
+
+      {cancelingReceipt && (
+        <ReceiptCancelModal
+          receipt={cancelingReceipt}
+          onClose={() => setCancelingReceipt(null)}
+          onDone={() => { setCancelingReceipt(null); onChanged() }}
+        />
+      )}
     </div>
+  )
+}
+
+// 「対応」の完全取り消し（確認付き）。対応スタンプ解除＋紐付け解除＋着手OK(必要書類受領済)を受領次第OKへ戻す。
+// タスク実体は削除しない（他担当が着手済みの恐れ・元から存在するタスクもあるため）。
+function ReceiptCancelModal({ receipt, onClose, onDone }: {
+  receipt: DocumentReceiptRow
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const run = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    const itemIds = (receipt.items ?? []).map(i => i.id)
+    let linkedTaskIds: string[] = []
+    if (itemIds.length > 0) {
+      const { data: joins } = await supabase.from('document_receipt_item_tasks').select('task_id').in('receipt_item_id', itemIds)
+      linkedTaskIds = [...new Set(((joins ?? []) as { task_id: string }[]).map(j => j.task_id))]
+      await supabase.from('document_receipt_item_tasks').delete().in('receipt_item_id', itemIds)
+    }
+    if (linkedTaskIds.length > 0) {
+      const { data: rows } = await supabase.from('tasks').select('id, ext_data').in('id', linkedTaskIds)
+      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null }>) {
+        const ext = (row.ext_data ?? {}) as Record<string, unknown>
+        if (ext.ready_reason === READY_REASON_DOC) {
+          await supabase.from('tasks').update({ ext_data: { ...ext, ready_reason: null, ready_on_receipt: true } }).eq('id', row.id)
+        }
+      }
+    }
+    const { error } = await supabase
+      .from('document_receipts')
+      .update({ started_by_member_id: null, started_at: null, started_task_id: null })
+      .eq('id', receipt.id)
+    setSaving(false)
+    if (error) { showToast(`取り消しに失敗しました: ${error.message}`, 'error'); return }
+    showToast('対応を取り消しました', 'success')
+    onDone()
+  }
+  return (
+    <Modal
+      isOpen
+      onClose={saving ? () => {} : onClose}
+      title="対応を取り消しますか？"
+      maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>戻る</Button>
+          <Button variant="danger" onClick={run} loading={saving}>取り消す</Button>
+        </>
+      }
+    >
+      <div className="space-y-2 text-[13px] text-gray-700 leading-relaxed">
+        <p>この到着物の<strong>対応（{receipt.started_by_member?.name} さん）</strong>を取り消します。次の状態に戻ります：</p>
+        <ul className="list-disc pl-5 space-y-0.5 text-[12.5px] text-gray-600">
+          <li>紐付けたタスクのリンクを解除</li>
+          <li>この受領で付いた「着手OK」を「受領次第OK」に戻す</li>
+          <li>対応担当の記録を解除（再度「対応」から結び直せます）</li>
+        </ul>
+        <p className="text-[12px] text-gray-500">※ タスク自体は削除しません。不要なタスクは案件のタスクタブで個別に削除してください。W-Check（受信確定）はそのままです。</p>
+      </div>
+    </Modal>
   )
 }
 
@@ -676,6 +749,7 @@ function ReceiptRow({
   currentMember,
   onChanged,
   onStartRequest,
+  onCancelRequest,
   canManage,
 }: {
   receipt: DocumentReceiptRow
@@ -684,6 +758,7 @@ function ReceiptRow({
   currentMember: MemberRow | null
   onChanged: () => void
   onStartRequest: (r: DocumentReceiptRow) => void
+  onCancelRequest: (r: DocumentReceiptRow) => void
   canManage: boolean
 }) {
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
@@ -746,29 +821,6 @@ function ReceiptRow({
     startTransition(onChanged)
   }
 
-  const handleStart = async () => {
-    if (busyKind) return
-    if (!currentMemberId) {
-      showToast('ログイン情報が取得できませんでした', 'error')
-      return
-    }
-    setBusyKind('start')
-    const supabase = createClient()
-    const isStarted = !!receipt.started_by_member_id
-    const patch = isStarted
-      ? { started_by_member_id: null, started_at: null, started_task_id: null }
-      : { started_by_member_id: currentMemberId, started_at: new Date().toISOString() }
-    const { error } = await supabase
-      .from('document_receipts')
-      .update(patch)
-      .eq('id', receipt.id)
-    setBusyKind(null)
-    if (error) {
-      showToast(`保存に失敗しました: ${error.message}`, 'error')
-      return
-    }
-    startTransition(onChanged)
-  }
 
   return (
     <>
@@ -888,10 +940,10 @@ function ReceiptRow({
                 {receipt.started_by_member ? (
                   <button
                     type="button"
-                    onClick={handleStart}
+                    onClick={() => onCancelRequest(receipt)}
                     disabled={busyKind === 'start'}
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-brand-50 border border-brand-300 hover:bg-brand-100 disabled:opacity-50"
-                    title={`${receipt.started_by_member.name} が着手中（クリックで取消）`}
+                    title={`${receipt.started_by_member.name} が対応済（クリックで取消）`}
                   >
                     <UserAvatar
                       name={receipt.started_by_member.name}
