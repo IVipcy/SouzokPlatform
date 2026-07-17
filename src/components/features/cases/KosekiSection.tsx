@@ -295,7 +295,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     </thead>
                     <tbody>
                       {personRequests.map((r, i) => (
-                        <KosekiRow key={r.id} r={r} i={i} me={me}
+                        <KosekiRow key={r.id} r={r} i={i} me={me} meId={memberId} isManager={isManager}
                           saveField={saveField} saveMany={saveMany}
                           onDelete={() => delRequest(r)} />
                       ))}
@@ -355,10 +355,12 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, saveField, saveMany, onDelete }: {
+function KosekiRow({ r, i, me, meId, isManager, saveField, saveMany, onDelete }: {
   r: KosekiRequestRow
   i: number
   me: string
+  meId: string | null
+  isManager: boolean
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
@@ -387,8 +389,8 @@ function KosekiRow({ r, i, me, saveField, saveMany, onDelete }: {
       <td className="px-2 py-1.5"><SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} /></td>
-      <td className="px-2 py-1.5">{isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span> : <DateCell value={r.request_date} onCommit={v => saveField(r.id, 'request_date', v)} />}</td>
-      <td className="px-2 py-1.5"><DateCell value={r.arrival_date} onCommit={v => saveField(r.id, 'arrival_date', v)} /></td>
+      <td className="px-2 py-1.5">{isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span> : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}</td>
+      <td className="px-2 py-1.5"><DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} /></td>
       {isClient ? (
         <>
           <td className="px-2 py-1.5 text-center"><span className="text-[11px] text-gray-400">依頼者負担</span></td>
@@ -402,8 +404,8 @@ function KosekiRow({ r, i, me, saveField, saveMany, onDelete }: {
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5 text-right"><span className="inline-block px-2 py-1 rounded text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">{yen(effConfirmed(r))}</span></td>
-          <td className="px-2 py-1.5"><DcCell name={r.request_check_name} at={r.request_check_at} me={me} onSet={(n, a) => saveMany(r.id, { request_check_name: n, request_check_at: a })} /></td>
-          <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} onSet={(n, a) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a })} /></td>
+          <td className="px-2 py-1.5"><DcCell name={r.request_check_name} at={r.request_check_at} me={me} meId={meId} workerId={r.request_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { request_check_name: n, request_check_at: a, request_check_by: id ?? null })} /></td>
+          <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} /></td>
         </>
       )}
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>

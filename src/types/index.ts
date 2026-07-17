@@ -574,6 +574,11 @@ export type KosekiRequestRow = {
   request_check_at: string | null
   receipt_check_name: string | null
   receipt_check_at: string | null
+  // W-Checkの別人判定用（migration 176）。作業者＝done_by、チェック者＝check_by（member_id）
+  request_done_by: string | null
+  receipt_done_by: string | null
+  request_check_by: string | null
+  receipt_check_by: string | null
   // 追加請求（管理担当の承認ゲート。migration 148）
   is_additional: boolean
   additional_reason: string | null
