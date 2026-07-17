@@ -27,7 +27,7 @@ type Props = {
   onSaved?: () => void
 }
 
-export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks, docType, kakutei = false, defaultTaskId, onSaved }: Props) {
+export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docType, kakutei = false, defaultTaskId, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendInvoiceOffice(caseData.contract_type), [caseData.contract_type])
   const kubunLabel = kakutei ? '確定' : '前受金'
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
@@ -233,20 +233,6 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, tasks,
           </div>
         </section>
 
-        {/* 作成タスク紐付け（任意） */}
-        <section>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">作成タスク（任意）</label>
-          <select
-            value={taskId}
-            onChange={e => setTaskId(e.target.value)}
-            className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-          >
-            <option value="">案件全体（タスク未指定）</option>
-            {tasks.map(t => (
-              <option key={t.id} value={t.id}>{t.title}</option>
-            ))}
-          </select>
-        </section>
       </div>
     </Modal>
   )

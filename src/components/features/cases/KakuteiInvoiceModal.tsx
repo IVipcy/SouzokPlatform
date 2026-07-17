@@ -23,7 +23,7 @@ type Row = { id: string; name: string; amount: number | ''; taxable: boolean; qu
 const NEW_ID = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 const yen = (n: number) => `${n.toLocaleString('en-US')}円`
 
-export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, defaultTaskId, onSaved }: Props) {
+export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, defaultTaskId, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendKakuteiOffice(caseData.contract_type), [caseData.contract_type])
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
   const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
@@ -208,15 +208,6 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, tasks, 
             <span className="font-bold text-gray-800">請求額</span>
             <span className="font-bold text-brand-700 text-base">{yen(calc.billAmount)}</span>
           </div>
-        </section>
-
-        {/* 作成タスク */}
-        <section>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">作成タスク（任意）</label>
-          <select value={taskId} onChange={e => setTaskId(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
-            <option value="">案件全体（タスク未指定）</option>
-            {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-          </select>
         </section>
 
         <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
