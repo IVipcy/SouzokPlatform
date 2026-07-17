@@ -78,7 +78,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     setSelectedCaseId(id)
     setDeliverables([])
     const supabase = createClient()
-    const [fa, re, ac, ko, cd, cs, ad, hr, mgr] = await Promise.all([
+    const [fa, re, ac, ko, cd, cs, ad, hr, salesRow] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
       supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order'),
@@ -87,12 +87,12 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       supabase.from('cases').select('intake_roles').eq('id', id).single(),
       supabase.from('agreement_dispatches').select('*').eq('case_id', id),
       supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
-      // 原本格納先の初期値：この案件の管理担当のチーム
-      supabase.from('case_members').select('members(team_id)').eq('case_id', id).eq('role', 'manager').limit(1).maybeSingle(),
+      // 原本格納先の初期値：この案件の受注担当のチーム（チームに管理担当も受注担当も所属）
+      supabase.from('case_members').select('members(team_id)').eq('case_id', id).eq('role', 'sales').limit(1).maybeSingle(),
     ])
-    // 管理担当のチームを原本格納先の初期選択に（未設定なら空のまま）
-    const mgrTeam = (mgr.data as { members?: { team_id?: string | null } | null } | null)?.members?.team_id ?? ''
-    if (mgrTeam && teams.some(t => t.id === mgrTeam)) setStorageTeamId(mgrTeam)
+    // 受注担当のチームを原本格納先の初期選択に（未設定なら空のまま）
+    const salesTeam = (salesRow.data as { members?: { team_id?: string | null } | null } | null)?.members?.team_id ?? ''
+    if (salesTeam && teams.some(t => t.id === salesTeam)) setStorageTeamId(salesTeam)
     // 案件がやっている業務(intake_roles)を候補のフィルタに使う（オーダーシートが正）
     const roles = (cs.data?.intake_roles ?? []) as Array<{ gyomu?: string | null }>
     const activeGyomu = new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))
