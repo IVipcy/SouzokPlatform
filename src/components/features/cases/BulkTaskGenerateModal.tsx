@@ -33,7 +33,8 @@ type Props = {
 }
 
 // 生成候補：実施タスク行（roleIdx付き）or 区分非依存（経理/相続税）。
-type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string }
+// ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
+type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean }
 
 /**
  * タスク一括生成。生成元は実施タスク（intake_roles の kind=task）＋経理/相続税。
@@ -60,15 +61,19 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       const match = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
       return match ? `${match[1] ?? ''}${match[2]}` : ''
     }
+    const isOwn = (a: string | null | undefined) => (a ?? '自社') !== '依頼者'  // null既定=自社
     const muniUnits = [...new Set(properties.map(muniOf).filter(Boolean))]
     const instUnits = [...new Set(financialAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))]
-    // 単位ごとに「請求/受領」→「読込/手続き」の順で2タスク生成（登記はそのまま1タスク）。
-    // 表示・並びは「請求グループ→読込グループ」（tasks配列の順＝各単位を先に請求で全部、次に読込で全部）。
-    const UNIT: Record<string, { units: string[]; tasks: { prefix: string; label: string }[] }> = {
-      '不動産': { units: muniUnits, tasks: [{ prefix: 're', label: '不動産情報請求(登記・名寄せ等)' }, { prefix: 're-read', label: '不動産情報読込' }] },
-      '登記': { units: muniUnits, tasks: [{ prefix: 'reg', label: '相続登記' }] },
-      '金融資産': { units: instUnits, tasks: [{ prefix: 'fin', label: '金融資産情報請求' }, { prefix: 'fin-read', label: '金融資産情報読込' }] },
-      '解約': { units: instUnits, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領' }, { prefix: 'cancel', label: '解約手続き' }] },
+    // 自社取得の単位（＝請求タスクが要る）。依頼者取得のみの単位は読込（到着確認）だけ。
+    const muniOwn = new Set(properties.filter(p => isOwn(p.acquirer)).map(muniOf).filter(Boolean))
+    const instOwn = new Set(financialAssets.filter(a => isOwn(a.acquirer)).map(a => (a.institution_name ?? '').trim()).filter(Boolean))
+    // 単位ごとに「請求/受領」→「読込/手続き」の順で生成。請求(onlyOwn)は自社取得の単位のみ・着手OK。読込は受領次第OK。
+    type UnitTask = { prefix: string; label: string; onlyOwn?: boolean; ready?: boolean; readyOnReceipt?: boolean }
+    const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
+      '不動産': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 're', label: '不動産情報請求(登記・名寄せ等)', onlyOwn: true, ready: true }, { prefix: 're-read', label: '不動産情報読込', readyOnReceipt: true }] },
+      '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
+      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '金融資産情報請求', onlyOwn: true, ready: true }, { prefix: 'fin-read', label: '金融資産情報読込', readyOnReceipt: true }] },
+      '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領' }, { prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
     const kosekiLabel = (k: KosekiRequestRow) => {
@@ -81,24 +86,27 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       if (!r.sagyou?.trim() || r.owner === '不要') return
       // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
       if (r.gyomu === '戸籍' && r.sagyou.includes('到着確認')) return
-      // 戸籍収集 → 請求先（役所）ごとに「戸籍請求」＋「戸籍読込」。請求グループの後に読込グループ。
-      // source_rid で請求先に1対1リンク（重複生成を防ぐ）。
+      // 戸籍収集 → 請求先（役所）ごとに展開。請求グループ(自社取得のみ・着手OK)の後に読込グループ(全件・受領次第OK)。
+      // 依頼者取得の戸籍は請求タスクを作らず、読込（到着確認）のみ。source_rid で1対1リンク（重複生成を防ぐ）。
       const isKosekiCollect = r.gyomu === '戸籍' && r.sagyou.includes('戸籍収集')
       if (isKosekiCollect) {
         if (kosekiRequests.length > 0) {
-          kosekiRequests.forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}` }))
-          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}` }))
+          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: true }))
+          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}`, readyOnReceipt: true }))
         } else {
-          out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid })
+          out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })
         }
         return
       }
-      // 不動産/登記/金融資産/解約は左タブ単位でタスク展開（請求グループ→読込グループ）。単位が無ければ従来どおり個別作業。
+      // 不動産/登記/金融資産/解約は左タブ単位でタスク展開。請求(onlyOwn)は自社取得の単位のみ。単位が無ければ従来どおり個別作業。
       const u = UNIT[r.gyomu]
       if (u && u.units.length > 0) {
         if (unitExpanded.has(r.gyomu)) return
         unitExpanded.add(r.gyomu)
-        u.tasks.forEach(t => u.units.forEach(name => out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}` })))
+        u.tasks.forEach(t => u.units.forEach(name => {
+          if (t.onlyOwn && !u.own.has(name)) return  // 依頼者取得のみの単位は請求タスクを作らない
+          out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt })
+        }))
         return
       }
       out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
@@ -177,6 +185,10 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       source_rid: ridByKey[c.key] ?? null,
       work_role: 'assistant',
       procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
+      // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
+      ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
+        : c.readyOnReceipt ? { ready_on_receipt: true }
+        : null,
       sort_order: i,
     }))
     const { error: e2 } = await supabase.from('tasks').insert(rows)
