@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Play, Check, CalendarPlus } from 'lucide-react'
+import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -26,6 +26,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [bulkDate, setBulkDate] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
 
   const allIds = tasks.map(t => t.id)
   const allSel = allIds.length > 0 && allIds.every(id => sel.has(id))
@@ -52,6 +53,18 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     onRefresh()
   }
 
+  const applyBulkDelete = async () => {
+    if (sel.size === 0) return
+    setBusy(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('tasks').delete().in('id', Array.from(sel))
+    setBusy(false)
+    if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    showToast(`${sel.size}件のタスクを削除しました`, 'success')
+    setSel(new Set()); setConfirmDel(false)
+    onRefresh()
+  }
+
   return (
     <div className="space-y-2">
       {/* 一括期限設定ツールバー（選択時のみ） */}
@@ -61,7 +74,29 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
           <span className="text-[12.5px] font-semibold text-brand-800">{sel.size}件 選択中</span>
           <input type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
           <button type="button" onClick={applyBulkDue} disabled={!bulkDate || busy} className="px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50">選択分に期限設定</button>
-          <button type="button" onClick={() => setSel(new Set())} className="px-2 py-1.5 text-[12px] text-gray-500 hover:text-gray-800">選択解除</button>
+          <span className="w-px h-5 bg-brand-200" />
+          <button type="button" onClick={() => setConfirmDel(true)} disabled={busy} className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 disabled:opacity-50">
+            <Trash2 className="w-3.5 h-3.5" />選択分を削除
+          </button>
+          <button type="button" onClick={() => setSel(new Set())} className="ml-auto px-2 py-1.5 text-[12px] text-gray-500 hover:text-gray-800">選択解除</button>
+        </div>
+      )}
+
+      {/* 一括削除の確認ダイアログ */}
+      {confirmDel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => !busy && setConfirmDel(false)}>
+          <div className="w-full max-w-sm bg-white rounded-xl border border-red-200 p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-[14px] font-bold text-red-700 mb-2">
+              <AlertTriangle className="w-4.5 h-4.5" />{sel.size}件のタスクを削除しますか？
+            </div>
+            <p className="text-[12.5px] text-gray-600 leading-relaxed mb-4">この操作は取り消せません。完了済みのタスクも削除されます。</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmDel(false)} disabled={busy} className="px-3 py-1.5 text-[12.5px] text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={applyBulkDelete} disabled={busy} className="inline-flex items-center gap-1 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50">
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}削除する
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
