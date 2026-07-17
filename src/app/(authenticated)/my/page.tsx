@@ -331,7 +331,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       const advSt = advanceStatusByCase.get(c.id)
       if (c.has_complaint) alertKeys.push('complaint')
       if (c.status === '対応中' && advSt === undefined) alertKeys.push('advanceMissing')
-      if (advSt === '作成済' || advSt === '入金待ち') alertKeys.push('advanceUnpaid')
+      if (c.status === '対応中' && advSt === '作成済') alertKeys.push('advanceSend')
       if (c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') alertKeys.push('completionOverdue')
       if (overdueCaseIds.has(c.id)) alertKeys.push('taskOverdue')
       if (c.status === '対応中' && !hasCaseTasks.has(c.id)) alertKeys.push('noTasks')

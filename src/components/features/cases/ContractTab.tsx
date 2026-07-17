@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt, Check } from 'lucide-react'
+import { ExternalLink, Receipt, Check, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
 import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
 import {
@@ -119,21 +120,32 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   }, [caseData.id])
 
   // 請求完了バッジ用：この案件の請求書（前受金／確定請求）の入金状況
-  const [invLegs, setInvLegs] = useState<{ advanceExists: boolean; advancePaid: boolean; finalExists: boolean; finalPaid: boolean } | null>(null)
-  useEffect(() => {
+  // 請求脚（前受金／確定）の状態。exists=作成済以上・sent=郵送済(入金待ち以降)・paid=入金済・createdId=作成済のみ(未送付)の請求書ID
+  type Leg = { exists: boolean; sent: boolean; paid: boolean; createdId: string | null }
+  const [invLegs, setInvLegs] = useState<{ advance: Leg; final: Leg } | null>(null)
+  const loadLegs = useCallback(async () => {
     const supabase = createClient()
-    supabase.from('invoices').select('invoice_type, status').eq('case_id', caseData.id).then(({ data }) => {
-      const rows = (data ?? []) as { invoice_type: string; status: string }[]
-      const adv = rows.filter(r => r.invoice_type === '前受金')
-      const fin = rows.filter(r => r.invoice_type === '確定請求')
-      setInvLegs({
-        advanceExists: adv.length > 0,
-        advancePaid: adv.some(r => r.status === '入金済'),
-        finalExists: fin.length > 0,
-        finalPaid: fin.some(r => r.status === '入金済'),
-      })
+    const { data } = await supabase.from('invoices').select('id, invoice_type, status').eq('case_id', caseData.id)
+    const rows = (data ?? []) as { id: string; invoice_type: string; status: string }[]
+    const legOf = (r: typeof rows): Leg => ({
+      exists: r.length > 0,
+      sent: r.some(x => ['入金待ち', '一部入金', '入金済'].includes(x.status)),
+      paid: r.some(x => x.status === '入金済'),
+      createdId: r.find(x => x.status === '作成済')?.id ?? null,
     })
+    setInvLegs({ advance: legOf(rows.filter(r => r.invoice_type === '前受金')), final: legOf(rows.filter(r => r.invoice_type === '確定請求')) })
   }, [caseData.id])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadLegs() }, [loadLegs])
+
+  // 郵送したら「入金待ち」へ（メイン請求入金タブに行かずワンクリック）
+  const markSent = async (invoiceId: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('invoices').update({ status: '入金待ち' }).eq('id', invoiceId)
+    if (error) { showToast(`更新に失敗: ${error.message}`, 'error'); return }
+    showToast('入金待ちにしました', 'success')
+    loadLegs()
+  }
 
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
@@ -150,14 +162,16 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
 
   // 請求完了判定：前受金が入金済＋（①②は確定/立替も入金済）。③は前受金のみで完了。
   const reqFinal = pattern.finalInvoiceLabel != null
-  const anyInvoice = !!invLegs && (invLegs.advanceExists || invLegs.finalExists)
-  const billingComplete = !!invLegs && invLegs.advancePaid && (!reqFinal || invLegs.finalPaid)
-  // 請求ステータスの脚チップ（前受金／確定 or 立替）
-  const legChip = (label: string, exists: boolean, paid: boolean, na = false) => {
-    const cls = na || (!exists && !paid) ? 'bg-gray-50 text-gray-400 border-gray-200'
+  const anyInvoice = !!invLegs && (invLegs.advance.exists || invLegs.final.exists)
+  const billingComplete = !!invLegs && invLegs.advance.paid && (!reqFinal || invLegs.final.paid)
+  // 請求ステータスの脚チップ（前受金／確定 or 立替）。作成済(未送付)／請求済(入金待ち)／入金済 を区別。
+  const legChip = (label: string, leg: Leg | null, na = false) => {
+    const paid = !!leg?.paid, sent = !!leg?.sent, exists = !!leg?.exists
+    const cls = na || (!exists) ? 'bg-gray-50 text-gray-400 border-gray-200'
       : paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : sent ? 'bg-sky-50 text-sky-700 border-sky-200'
       : 'bg-amber-50 text-amber-700 border-amber-200'
-    const txt = na ? '対象外' : paid ? '入金済' : exists ? '請求済' : '未請求'
+    const txt = na ? '対象外' : paid ? '入金済' : sent ? '請求済（入金待ち）' : exists ? '作成済（未送付）' : '未請求'
     return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cls}`}>{label}：{txt}</span>
   }
 
@@ -191,12 +205,28 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">請求中</span>
                 : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-gray-50 text-gray-400 border border-gray-200">未請求</span>}
             <span className="ml-auto flex items-center gap-1.5 flex-wrap">
-              {legChip('前受金', invLegs.advanceExists, invLegs.advancePaid)}
+              {legChip('前受金', invLegs.advance)}
               {reqFinal
-                ? legChip(pattern.finalLegLabel, invLegs.finalExists, invLegs.finalPaid)
-                : legChip('確定請求', false, false, true)}
+                ? legChip(pattern.finalLegLabel, invLegs.final)
+                : legChip('確定請求', null, true)}
             </span>
           </div>
+          {/* 作成済（未送付）→ 郵送したらワンクリックで入金待ちへ（メイン請求入金タブに行かなくてOK） */}
+          {(invLegs.advance.createdId || invLegs.final.createdId) && (
+            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+              <span className="text-[11.5px] text-amber-700">請求書を作成済みです。お客様に郵送したら「入金待ち」にしてください。</span>
+              {invLegs.advance.createdId && (
+                <button type="button" onClick={() => markSent(invLegs.advance.createdId!)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
+                  <Send className="w-3 h-3" strokeWidth={2} />前受金を入金待ちにする
+                </button>
+              )}
+              {invLegs.final.createdId && (
+                <button type="button" onClick={() => markSent(invLegs.final.createdId!)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
+                  <Send className="w-3 h-3" strokeWidth={2} />{pattern.finalLegLabel}を入金待ちにする
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

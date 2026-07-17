@@ -2,7 +2,7 @@
 // アラートセンター(api/alerts)と同じ判定を、案件行の色付きチップに流用する。
 
 export type ManagerAlertKey =
-  | 'complaint' | 'advanceMissing' | 'advanceUnpaid' | 'completionOverdue'
+  | 'complaint' | 'advanceMissing' | 'advanceSend' | 'completionOverdue'
   | 'taskOverdue' | 'noTasks' | 'weeklyMissing' | 'contractPending' | 'reviewRequest'
 
 export type AlertSeverity = 'claim' | 'high' | 'mid' | 'info'
@@ -20,8 +20,8 @@ export const ALERT_CHIP_CLS: Record<AlertSeverity, string> = {
 // アラート定義：ラベル・重大度・遷移先（案件ID→URL）
 export const MANAGER_ALERT_META: Record<ManagerAlertKey, { label: string; severity: AlertSeverity; href: (caseId: string) => string }> = {
   complaint:         { label: 'クレーム',       severity: 'claim', href: id => `/cases/${id}` },
-  advanceMissing:    { label: '前受金 未請求',   severity: 'high',  href: id => `/cases/${id}?tab=contract` },
-  advanceUnpaid:     { label: '前受金 未入金',   severity: 'high',  href: id => `/billing?case=${id}` },
+  advanceMissing:    { label: '前受金 未請求',       severity: 'high', href: id => `/cases/${id}?tab=contract` },
+  advanceSend:       { label: '前受金 郵送・入金待ち', severity: 'high', href: id => `/cases/${id}?tab=contract` },
   completionOverdue: { label: '完了予定日 超過', severity: 'high',  href: id => `/cases/${id}?tab=tasks` },
   taskOverdue:       { label: 'タスク期限超過',  severity: 'high',  href: id => `/cases/${id}?tab=tasks` },
   noTasks:           { label: 'タスク未生成',    severity: 'mid',   href: id => `/cases/${id}?tab=tasks` },
