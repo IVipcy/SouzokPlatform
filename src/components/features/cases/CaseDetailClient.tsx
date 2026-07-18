@@ -336,7 +336,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <CompleteTaskModal
           task={focusTask}
           onClose={() => setCompleteTaskOpen(false)}
-          onCompleted={() => { setCompleteTaskOpen(false); handleSaved() }}
+          onCompleted={() => { setCompleteTaskOpen(false); handleSaved(); dismissFocusTask() }}
         />
       )}
 
