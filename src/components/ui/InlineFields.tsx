@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
+import HintTip from '@/components/ui/HintTip'
 import { toWareki } from '@/lib/wareki'
 import type { CaseMemberRow, MemberRow } from '@/types'
 
@@ -27,7 +28,7 @@ async function withToast<T>(op: () => Promise<T>): Promise<T | undefined> {
 // これにより、案件詳細の各タブ（単体表示）は従来の青カードのまま、オーダーシート内だけ階層表示になる。
 export const NestedSectionContext = createContext(false)
 
-export function Section({ title, icon: _icon, children, actionLabel, onAction, collapsible = false, defaultOpen = true }: {
+export function Section({ title, icon: _icon, children, actionLabel, onAction, collapsible = false, defaultOpen = true, hint, titleRight }: {
   title: string
   icon?: string  // deprecated: 旧API互換のため受け取るだけ。表示はしない
   children: React.ReactNode
@@ -35,6 +36,8 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   onAction?: () => void
   collapsible?: boolean  // true でアコーディオン（タイトルクリックで開閉）
   defaultOpen?: boolean
+  hint?: string        // 見出し横の「?」ホバーで表示する補足（常時表示のヘルプ文を畳む）
+  titleRight?: React.ReactNode  // タイトル直後に置く小要素（必須バッジ等）
 }) {
   const nested = useContext(NestedSectionContext)
   const [open, setOpen] = useState(defaultOpen)
@@ -72,6 +75,8 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
         ) : (
           <h3 className={titleCls}>{title}</h3>
         )}
+        {titleRight}
+        {hint && <HintTip text={hint} />}
         {actionLabel && onAction && (
           <button onClick={onAction} className="ml-auto text-[12.5px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
         )}
@@ -666,12 +671,13 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
 }
 
 // ─── InlineTextarea ───
-export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }: {
+export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, hideLabel = false }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   fullWidth?: boolean
   placeholder?: string
+  hideLabel?: boolean   // 見出しと重複する場合にラベルを非表示（入力欄だけ表示）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -719,7 +725,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
   if (alwaysEdit) {
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
+        {!hideLabel && <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>}
         <textarea
           value={draft}
           onChange={e => setDraft(e.target.value)}
@@ -734,8 +740,8 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder }:
   }
 
   return (
-    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <div ref={containerRef} className={`py-1.5 ${hideLabel ? '' : 'border-b border-gray-50'} ${fullWidth ? 'sm:col-span-2' : ''}`}>
+      {!hideLabel && <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>}
       {editing ? (
         <div>
           <textarea

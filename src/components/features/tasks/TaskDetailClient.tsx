@@ -582,30 +582,31 @@ function TaskWorkSection({
 
   return (
     <div className="space-y-3">
-      {/* このタスクの作業内容（空欄から自由記入。テンプレの自動流し込みは廃止） */}
-      <Section title="このタスクの作業内容">
+      {/* このタスクの作業内容（見出しと重複するラベルは非表示、補足は?ホバー） */}
+      <Section title="このタスクの作業内容" hint="このタスクの作業内容・備考を自由に記入してください。完了時に次の担当へ引き継がれます。">
         <InlineTextarea
           label="作業内容"
+          hideLabel
           value={task.procedure_text ?? ''}
           onSave={v => saveField('procedure_text', v)}
+          placeholder="このタスクの作業内容・備考を記入…"
         />
-        <div className="text-[11px] text-gray-400 mt-1">
-          このタスクの作業内容・備考を自由に記入してください。
-        </div>
       </Section>
 
       {/* 実施結果・引継ぎ事項（重要なので独立セクション。システムタスクでは非表示） */}
       {task.task_kind !== 'system' && (
-        <Section title="実施結果・引継ぎ事項">
+        <Section
+          title="実施結果・引継ぎ事項"
+          titleRight={<span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">必須</span>}
+          hint="完了時に「案件進捗 → 進捗メモ」へ自動追記（タスクへのリンク付き）。次の作業者もここを読みます。完了するには入力が必須です。"
+        >
           <InlineTextarea
             label="実施結果・引継ぎ事項"
+            hideLabel
             value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
             onSave={handleSaveExecutionResult}
+            placeholder="何をして、どうなったか。次の担当への引継ぎ事項も…"
           />
-          <div className="text-[11px] text-gray-400 mt-1">
-            タスク完了時に「案件進捗 → 進捗メモ」へ自動で追記されます（タスクへのリンク付き）。次の作業者もここを読みます。
-            <span className="text-amber-600 font-medium">※完了するには入力が必須です。</span>
-          </div>
         </Section>
       )}
     </div>

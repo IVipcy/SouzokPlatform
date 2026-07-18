@@ -7,6 +7,7 @@ import { Sparkles, Upload, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
+import HintTip from '@/components/ui/HintTip'
 import CreatedDocsList from '@/components/features/cases/CreatedDocsList'
 import DocumentGenerators from '@/components/features/cases/DocumentGenerators'
 import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, DocumentRow } from '@/types'
@@ -71,34 +72,29 @@ export default function TaskCreatedDocsSection({ task, caseData, documents, task
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-        <span className="text-base">📎</span>
-        <h2 className="text-[14px] font-bold text-gray-900">作成物</h2>
-        <span className="text-[12px] text-gray-400">このタスクで作成・アップロードした書類。案件全体は書類作成タブで確認できます</span>
-        <span className="ml-auto text-[11px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">{thisTaskDocs.length}件</span>
-      </div>
-
-      {/* アクション: AI書類作成 / アップロード */}
-      <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/40 flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setAiOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-        >
-          <Sparkles className="w-4 h-4" strokeWidth={2} />
-          AI書類作成
-        </button>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-50"
-        >
-          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          アップロード
-        </button>
-        <input ref={fileRef} type="file" accept={ACCEPTED} onChange={handleUpload} className="hidden" />
-        <span className="text-[11px] text-gray-400">作成・アップロードした書類はこのタスクに紐づき、案件詳細の作成書類一覧にも表示されます</span>
+      <div className="px-4 py-2.5 bg-brand-50 border-b border-brand-100 flex items-center gap-2 flex-wrap">
+        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0" />
+        <h2 className="text-[13px] font-semibold text-brand-800 tracking-[0.02em]">作成物</h2>
+        <HintTip text="作成・アップロードした書類はこのタスクに紐づき、案件詳細の作成書類一覧にも表示されます。案件全体は書類作成タブで確認できます。" />
+        <span className="text-[11px] font-mono text-gray-400 bg-white/70 px-2 py-0.5 rounded border border-gray-200">{thisTaskDocs.length}件</span>
+        <span className="ml-auto inline-flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-lg transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />AI書類作成
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-200 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}アップロード
+          </button>
+          <input ref={fileRef} type="file" accept={ACCEPTED} onChange={handleUpload} className="hidden" />
+        </span>
       </div>
 
       <div className="p-3">
