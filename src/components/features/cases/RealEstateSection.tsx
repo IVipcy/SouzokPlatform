@@ -24,6 +24,7 @@ type Props = {
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
   contractDocs?: ContractDocumentRow[]
+  focus?: string | null   // タスク詳細からの着地：市区町村名。該当市区町村タブを初期選択。
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
@@ -38,9 +39,9 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [] }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus }: Props) {
   const supabase = createClient()
-  const [sub, setSub] = useState('top')
+  const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
 
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)

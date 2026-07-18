@@ -26,14 +26,15 @@ type Props = {
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
   contractDocs?: ContractDocumentRow[]
+  focus?: string | null   // タスク詳細からの着地：金融機関名。該当機関タブを初期選択（この種別に該当する場合のみ）。
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
 const collator = new Intl.Collator('ja')
 
-export default function FinancialSection({ caseId, kind, scopePrefix, assets, onRefresh, roles = [], receipts = [], tasks = [], contractDocs = [] }: Props) {
+export default function FinancialSection({ caseId, kind, scopePrefix, assets, onRefresh, roles = [], receipts = [], tasks = [], contractDocs = [], focus }: Props) {
   const supabase = createClient()
-  const [sub, setSub] = useState('top')
+  const [sub, setSub] = useState<string>(() => (focus && assets.some(a => a.asset_type === kind && (a.institution_name ?? '').trim() === focus)) ? focus : 'top')
 
   const kindAssets = assets.filter(a => a.asset_type === kind)
   // 金融機関ごとにグループ（空は「未設定」に集約）

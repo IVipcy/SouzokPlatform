@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
+import { municipalityOf } from './RealEstateSection'
 import {
   FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS,
 } from '@/lib/constants'
@@ -60,7 +62,16 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
-  const [sub, setSub] = useState('realestate')
+  // タスク詳細から ?focus=市区町村/金融機関 で来たとき、該当サブタブを初期選択（不動産/預金/証券/信託）。
+  const searchParams = useSearchParams()
+  const focus = searchParams.get('focus')
+  const [sub, setSub] = useState<string>(() => {
+    if (!focus) return 'realestate'
+    if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
+    const asset = financialAssets.find(a => (a.institution_name ?? '').trim() === focus)
+    if (asset) return asset.asset_type === '証券' ? 'securities' : (asset.asset_type === '信託銀行' || asset.asset_type === '信託') ? 'trust' : 'deposit'
+    return 'realestate'
+  })
 
   // オーダーシート：証券/信託/生命保険はデータが無ければ最初は非表示。「＋証券/＋信託/＋生命保険」を押すと表示。
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
@@ -135,6 +146,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               receipts={documentReceipts}
               tasks={tasks}
               contractDocs={reContractDocs}
+              focus={focus}
             />
           )}
         </div>
@@ -145,7 +157,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+            <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} focus={focus} />
           )}
         </div>
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
@@ -155,7 +167,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
@@ -165,7 +177,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>

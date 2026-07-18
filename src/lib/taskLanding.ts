@@ -21,6 +21,18 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   const km = rid.match(/^koseki(?:-read)?:(.+)$/)
   if (km) return { tab: 'deceased', sub: 'koseki', focus: km[1], label: '戸籍請求タブ' }
 
+  // 不動産（請求/読込）→ 財産調査タブ、focus=市区町村（AssetsTabが不動産サブタブ＋該当市区町村を選択）
+  const rm = rid.match(/^re(?:-read)?:(.+)$/)
+  if (rm) return { tab: 'assets', focus: rm[1], label: '財産調査タブ（不動産）' }
+
+  // 金融資産（請求/読込）→ 財産調査タブ、focus=金融機関名（AssetsTabが預金/証券/信託を判定して選択）
+  const fm = rid.match(/^fin(?:-read)?:(.+)$/)
+  if (fm) return { tab: 'assets', focus: fm[1], label: '財産調査タブ（金融）' }
+
+  // 相続登記 → 相続登記タブ（市区町村単位。タブへ遷移）
+  const gm = rid.match(/^reg:(.+)$/)
+  if (gm) return { tab: 'registration', focus: gm[1], label: '相続登記タブ' }
+
   // それ以外は業務区分からタブだけ解決（focusなし）。
   const gyomu = stripPhase(task.phase)
   const tab = GYOMU_TAB[gyomu]
