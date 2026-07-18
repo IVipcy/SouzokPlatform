@@ -8,8 +8,7 @@ import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
-import Badge from '@/components/ui/Badge'
+import { Section, InlineTextarea } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
@@ -308,44 +307,55 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 {currentStatus}
               </span>
 
-              <Badge
-                label={task.priority === '急ぎ' ? '急ぎ' : '通常'}
-                color={task.priority === '急ぎ' ? '#DC2626' : '#6B7280'}
-                variant={task.priority === '急ぎ' ? 'solid' : undefined}
-              />
+              {/* 優先度（バッジ風の編集セレクト） */}
+              <select
+                value={task.priority}
+                onChange={e => saveField('priority', e.target.value)}
+                title="優先度"
+                className={`text-xs font-semibold rounded-full border px-2.5 py-1 outline-none cursor-pointer ${task.priority === '急ぎ' ? 'bg-red-50 text-red-700 border-red-300' : 'bg-gray-50 text-gray-600 border-gray-300'}`}
+              >
+                {PRIORITIES.map(p => <option key={p.key} value={p.key}>優先度：{p.key}</option>)}
+              </select>
             </div>
           </div>
         </div>
 
-        {/* ステータスフロー（3段階） */}
-        <div className="px-5 pb-4">
-          <div className="flex items-start">
-            {STATUS_FLOW_STEPS.map((step, i) => {
-              const isPassed = currentFlowIdx >= 0 && i < currentFlowIdx
-              const isActive = step === currentStatus
-              const isLast = i === STATUS_FLOW_STEPS.length - 1
-              const def = TASK_STATUSES_V12.find(s => s.key === step)
-              return (
-                <div key={step} className="flex flex-col items-center gap-1 flex-1 relative">
-                  <div
-                    className={`rounded-full relative z-10 transition-all ${isActive ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : 'w-2.5 h-2.5'}`}
-                    style={{
-                      backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#059669' : '#CBD5E1',
-                      opacity: isPassed && !isActive ? 0.6 : 1,
-                    }}
-                  />
-                  <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-brand-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
-                    {step}
-                  </span>
-                  {!isLast && (
-                    <div
-                      className="absolute top-[5px] left-[50%] right-[-50%] h-px z-0"
-                      style={{ backgroundColor: isPassed ? '#059669' : '#CBD5E1', opacity: isPassed ? 0.5 : 1 }}
-                    />
-                  )}
-                </div>
-              )
-            })}
+        {/* 日付（縦並び）＋ ステータスフロー（矢羽根・日付注記） */}
+        <div className="px-5 pb-4 flex items-start gap-5">
+          {/* 期限・起票日・作業完了日を縦に */}
+          <div className="flex-none w-[128px] border-r border-gray-100 pr-4 space-y-1.5">
+            <div>
+              <div className="text-[10px] text-gray-400">タスク期限</div>
+              <input type="date" defaultValue={task.due_date ?? ''} key={`due-${task.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (task.due_date ?? '')) saveField('due_date', e.target.value || null) }} className="text-[12.5px] font-medium text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 w-full outline-none focus:border-brand-500 bg-gray-50 focus:bg-white" />
+            </div>
+            <div><div className="text-[10px] text-gray-400">起票日</div><div className="text-[12.5px] font-medium text-gray-800 font-mono">{task.issued_date ?? task.created_at?.slice(0, 10) ?? '—'}</div></div>
+            <div><div className="text-[10px] text-gray-400">作業完了日</div><div className="text-[12.5px] font-medium text-gray-800 font-mono">{task.completed_at?.slice(0, 10) ?? '—'}</div></div>
+          </div>
+          {/* 矢羽根 */}
+          <div className="flex-1 self-center">
+            <div className="flex items-start">
+              {STATUS_FLOW_STEPS.map((step, i) => {
+                const isPassed = currentFlowIdx >= 0 && i < currentFlowIdx
+                const isActive = step === currentStatus
+                const isLast = i === STATUS_FLOW_STEPS.length - 1
+                const def = TASK_STATUSES_V12.find(s => s.key === step)
+                const note = step === '着手前'
+                  ? ((task.issued_date ?? task.created_at)?.slice(5, 10).replace('-', '/') ? `起票 ${(task.issued_date ?? task.created_at ?? '').slice(5, 10).replace('-', '/')}` : '')
+                  : step === '対応中'
+                    ? (task.due_date ? `期限 ${task.due_date.slice(5, 10).replace('-', '/')}` : '')
+                    : (task.completed_at ? `完了 ${task.completed_at.slice(5, 10).replace('-', '/')}` : '')
+                return (
+                  <div key={step} className="flex flex-col items-center gap-1 flex-1 relative">
+                    <div className={`rounded-full relative z-10 transition-all ${isActive ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : 'w-2.5 h-2.5'}`} style={{ backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#059669' : '#CBD5E1', opacity: isPassed && !isActive ? 0.6 : 1 }} />
+                    <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-brand-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>{step}</span>
+                    <span className="text-[9px] text-gray-400 whitespace-nowrap h-3">{note}</span>
+                    {!isLast && (
+                      <div className="absolute top-[5px] left-[50%] right-[-50%] h-px z-0" style={{ backgroundColor: isPassed ? '#059669' : '#CBD5E1', opacity: isPassed ? 0.5 : 1 }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -393,94 +403,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         {/* 中央カラム — メイン */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
 
-          {/* 案件サマリー — 他人が引き継いだとき、この案件と業務の現在地を10秒で把握（幅を他セクションに合わせる） */}
-          {caseData && (
-            <CaseSummaryPanel
-              caseData={caseData}
-              taskPhase={task.phase}
-              caseTasks={caseTasks}
-              currentTaskId={task.id}
-            />
-          )}
+          {/* 基本情報は廃止（期限・起票日・作業完了日・優先度はヘッダーに集約）。案件サマリー・着手者履歴は右サイドのアコーディオンへ移動。 */}
 
-          {/* 1. 基本情報（タスク件名 / Phase / カテゴリはヘッダーに記載されているので重複除外） */}
-          <Section title="基本情報" icon="📝">
-            <FieldGrid>
-              <InlineDate label="タスク期限" value={task.due_date} onSave={v => saveField('due_date', v)} />
-              <Field label="ステータス" value={currentStatus} mono />
-              <Field label="起票日" value={task.issued_date ?? task.created_at?.slice(0, 10)} mono />
-              <Field label="作業完了日" value={task.completed_at ?? '—'} mono />
-              <InlineSelect
-                label="優先度"
-                value={task.priority}
-                options={PRIORITIES.map(p => p.key)}
-                onSave={v => saveField('priority', v)}
-              />
-            </FieldGrid>
-          </Section>
-
-          {/* 2. 着手者・作業履歴 */}
-          <Section title="着手者・作業履歴" icon="👤">
-            {/* 着手者表示 */}
-            <div className="mb-3">
-              {startedMember ? (
-                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[13px] font-bold"
-                    style={{ backgroundColor: startedMember.avatar_color }}
-                  >
-                    {startedMember.name[0]}
-                  </div>
-                  <div>
-                    <span className="text-sm font-semibold text-gray-800">{startedMember.name}</span>
-                    <span className="text-[12px] text-gray-500 ml-2">
-                      {task.started_at ? `${new Date(task.started_at).toLocaleDateString('ja-JP')} 着手` : '着手中'}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  <span className="text-sm text-gray-500">まだ誰も着手していません</span>
-                  {currentStatus === '着手前' && (
-                    <button
-                      onClick={handleAdvance}
-                      className="ml-auto text-xs font-bold text-green-700 bg-green-100 hover:bg-green-200 border border-green-300 px-3 py-1 rounded-lg transition-colors"
-                    >
-                      ▶ 着手する
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            {/* このタスクの活動履歴 */}
-            {activities.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-2">作業履歴</div>
-                <div className="space-y-1.5">
-                  {activities.map(act => (
-                    <div key={act.id} className="flex items-start gap-2 text-xs">
-                      <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                        act.activity_type === 'task_started' ? 'bg-green-500' :
-                        act.activity_type === 'task_completed' ? 'bg-brand-500' :
-                        act.activity_type === 'status_change' ? 'bg-amber-500' :
-                        'bg-gray-400'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-gray-700">{act.description}</span>
-                        <div className="text-[12px] text-gray-400">
-                          {act.members?.name && <span className="font-medium">{act.members.name}</span>}
-                          {act.members?.name && ' — '}
-                          {act.activity_date}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Section>
-
-          {/* 3. このタスクの作業内容 — 現時点では全タスク（初期対応・事務管理とも）で非表示（今後再開予定） */}
+          {/* 作業内容・実施結果 */}
           {SHOW_WORK_CONTENT && (
             <TaskWorkSection
               task={task}
@@ -500,15 +425,65 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           />
         </div>
 
-        {/* 右カラム — 後続 */}
-        <aside className="w-full lg:w-[300px] lg:flex-shrink-0">
-          <TaskDetailSidebar
-            task={task}
-            documents={documents}
-            dependencies={dependencies}
-            caseTasks={caseTasks}
-            taskTemplates={taskTemplates}
-          />
+        {/* 右カラム — 案件サマリー・着手者履歴（アコーディオン）＋関連ドキュメント */}
+        <aside className="w-full lg:w-[320px] lg:flex-shrink-0">
+          <div className="lg:sticky lg:top-[90px] flex flex-col gap-3">
+            {caseData && (
+              <AccordionPanel title="案件サマリー" defaultOpen>
+                <CaseSummaryPanel bare caseData={caseData} taskPhase={task.phase} caseTasks={caseTasks} currentTaskId={task.id} />
+              </AccordionPanel>
+            )}
+
+            <AccordionPanel title="着手者・作業履歴">
+              {/* 着手者表示 */}
+              <div className="mb-3">
+                {startedMember ? (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[13px] font-bold" style={{ backgroundColor: startedMember.avatar_color }}>{startedMember.name[0]}</div>
+                    <div>
+                      <span className="text-sm font-semibold text-gray-800">{startedMember.name}</span>
+                      <span className="text-[12px] text-gray-500 ml-2">{task.started_at ? `${new Date(task.started_at).toLocaleDateString('ja-JP')} 着手` : '着手中'}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <span className="text-sm text-gray-500">まだ誰も着手していません</span>
+                    {currentStatus === '着手前' && (
+                      <button onClick={handleAdvance} className="ml-auto text-xs font-bold text-green-700 bg-green-100 hover:bg-green-200 border border-green-300 px-3 py-1 rounded-lg transition-colors">▶ 着手する</button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {activities.length > 0 && (
+                <div>
+                  <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-2">作業履歴</div>
+                  <div className="space-y-1.5">
+                    {activities.map(act => (
+                      <div key={act.id} className="flex items-start gap-2 text-xs">
+                        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${act.activity_type === 'task_started' ? 'bg-green-500' : act.activity_type === 'task_completed' ? 'bg-brand-500' : act.activity_type === 'status_change' ? 'bg-amber-500' : 'bg-gray-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-gray-700">{act.description}</span>
+                          <div className="text-[12px] text-gray-400">
+                            {act.members?.name && <span className="font-medium">{act.members.name}</span>}
+                            {act.members?.name && ' — '}
+                            {act.activity_date}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </AccordionPanel>
+
+            <TaskDetailSidebar
+              task={task}
+              documents={documents}
+              dependencies={dependencies}
+              caseTasks={caseTasks}
+              taskTemplates={taskTemplates}
+            />
+          </div>
         </aside>
       </div>
 
@@ -637,18 +612,30 @@ function TaskWorkSection({
   )
 }
 
-// タスク詳細の上部に表示する「案件サマリー」パネル。
-// このタスクが属する業務（gyomu）にフォーカスして、
-//   - 完了したタスクの実施結果（タイムライン）
-//   - 未着手・対応中のタスク
-// を出し、引き継ぎ時に「この戦場で何が起きてた？」を即把握できるようにする。
-// 必要なら「案件全体の直近の動き」を折りたたみで展開できる。
-function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
+// 右サイドの開閉パネル（アコーディオン）。
+function AccordionPanel({ title, defaultOpen = false, children }: { title: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-2 px-3.5 py-2.5 text-[13px] font-semibold text-gray-800 hover:bg-gray-50 transition-colors">
+        <span className="flex-1 text-left">{title}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      {open && <div className="px-3.5 pb-3.5">{children}</div>}
+    </div>
+  )
+}
+
+// タスク詳細の「案件サマリー」パネル。
+// このタスクが属する業務（gyomu）にフォーカスして、完了タスクの実施結果／未着手・対応中を出す。
+// bare=true のときは外側の Section 見出しを付けず、アコーディオンの中身として描画する。
+function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare = false }: {
   caseData: CaseRow
   taskPhase: string | null
   caseTasks: TaskRow[]
   /** 今開いているタスク。一覧から自分自身を除外するため。 */
   currentTaskId: string
+  bare?: boolean
 }) {
   const [globalOpen, setGlobalOpen] = useState(false)
   const normalize = (s: string) => {
@@ -695,9 +682,8 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
   }
   events.sort((a, b) => b.at.localeCompare(a.at))
 
-  return (
-    <div>
-    <Section title="案件サマリー">
+  const body = (
+    <>
       {/* 業務フォーカス */}
       {currentGyomu ? (
         <div className="space-y-3">
@@ -827,8 +813,8 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId }: {
           </div>
         )}
       </div>
-    </Section>
-    </div>
+    </>
   )
+  return bare ? body : (<div><Section title="案件サマリー">{body}</Section></div>)
 }
 

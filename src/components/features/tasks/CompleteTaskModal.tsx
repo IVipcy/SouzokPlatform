@@ -52,6 +52,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [sel, setSel] = useState<Record<string, boolean>>({})
   const [mode, setMode] = useState<Record<string, Mode>>({})
   const [note, setNote] = useState<Record<string, string>>({})
+  const [work, setWork] = useState<Record<string, string>>({})  // 次タスクの作業内容（任意・先に記入）
   const [noNext, setNoNext] = useState(false)
   const [showOthers, setShowOthers] = useState(false)
 
@@ -127,7 +128,10 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
         if (normalizeTaskStatus(row.status) !== '着手前') continue
         const next = extForMode(row.ext_data ?? {}, modeOf(row.id), note[row.id] ?? '', task.id)
-        await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
+        const patch: Record<string, unknown> = { ext_data: next }
+        const wc = (work[row.id] ?? '').trim()
+        if (wc) patch.procedure_text = wc  // 先に記入した作業内容を次タスクへ反映
+        await supabase.from('tasks').update(patch).eq('id', row.id)
       }
     }
 
@@ -191,8 +195,19 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
           <span className="text-[13px] text-gray-800 truncate">{c.title}</span>
         </label>
         {on && (
-          <div className="px-2.5 pb-2">
+          <div className="px-2.5 pb-2 space-y-1.5">
             {renderModePicker({ value: modeOf(c.id), onChange: m => setMode(prev => ({ ...prev, [c.id]: m })), note: note[c.id] ?? '', onNote: v => setNote(prev => ({ ...prev, [c.id]: v })), idKey: c.id })}
+            <div>
+              <div className="text-[10.5px] text-gray-400 mb-0.5">作業内容（任意・先に書いておける）</div>
+              <textarea
+                value={work[c.id] ?? ''}
+                onChange={e => setWork(prev => ({ ...prev, [c.id]: e.target.value }))}
+                rows={2}
+                placeholder="例：墨田区分の戸籍を読み込み、相関図に反映。転籍先を確認。"
+                className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-500 bg-gray-50/60 focus:bg-white resize-none"
+                data-key={`work-${c.id}`}
+              />
+            </div>
           </div>
         )}
       </div>
