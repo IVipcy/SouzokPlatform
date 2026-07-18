@@ -70,7 +70,13 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 単位ごとに「請求/受領」→「読込/手続き」の順で生成。請求(onlyOwn)は自社取得の単位のみ・着手OK。読込は受領次第OK。
     type UnitTask = { prefix: string; label: string; onlyOwn?: boolean; ready?: boolean; readyOnReceipt?: boolean }
     const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
-      '不動産': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 're', label: '不動産情報請求(登記・名寄せ等)', onlyOwn: true, ready: true }, { prefix: 're-read', label: '不動産情報読込', readyOnReceipt: true }] },
+      // 不動産は請求先で2系統に分ける（市区町村役場＝名寄帳・評価証明／法務局＝登記・公図・地積）。どちらも市区町村単位。
+      '不動産': { units: muniUnits, own: muniOwn, tasks: [
+        { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true, ready: true },
+        { prefix: 're-muni-read', label: '名寄帳・評価証明を読込', readyOnReceipt: true },
+        { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true, ready: true },
+        { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
+      ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
       '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '金融資産情報請求', onlyOwn: true, ready: true }, { prefix: 'fin-read', label: '金融資産情報読込', readyOnReceipt: true }] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領' }, { prefix: 'cancel', label: '解約手続き' }] },

@@ -146,17 +146,6 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         if (sub !== t.key) return null
         return (
           <div key={t.key} className="space-y-4">
-            {/* この市区町村に紐づくタスク（不動産情報請求／読込）。単位で1タスクなので見出し的にここに1つ。 */}
-            {(() => {
-              const muniTasks = tasks.filter(x => x.source_rid === `re:${muniKey}` || x.source_rid === `re-read:${muniKey}`)
-              if (muniTasks.length === 0) return null
-              return (
-                <div className="flex items-center gap-2 flex-wrap bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2">
-                  <span className="text-[11.5px] font-semibold text-brand-700">関連タスク（{t.label}）</span>
-                  {muniTasks.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}
-                </div>
-              )
-            })()}
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             {/* 3つの表はそれぞれ枠付きカードに入れて境目をはっきりさせる */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
@@ -164,11 +153,19 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="① 市区町村へ請求（名寄帳・評価証明）" hint="評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {(() => {
+                const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muniKey}`))
+                return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
+              })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="② 物件ごとに取得（登記情報・所有者事項・公図・地積測量図・路線価）" hint="登記情報・公図・地積測量図は法務局へ請求（物件単位）。路線価は参照（路線価図・請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="登記情報・公図・地積測量図は法務局へ請求（この案件では市区町村まとめで1タスク）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {(() => {
+                const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => x.source_rid === `${p}:${muniKey}`))
+                return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
+              })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} />
             </div>
           </div>
