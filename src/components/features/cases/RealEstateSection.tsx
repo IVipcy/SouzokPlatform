@@ -154,6 +154,15 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     setApprovingId(null); onRefresh?.()
   }
 
+  // 管轄法務局（A案）：物件の registration_office を市区町村単位で読み書き。②の請求先・相続登記の提出先に使う。
+  const houmuOfMuni = (muni: string) => (properties.filter(p => municipalityOf(p) === muni).find(p => (p.registration_office ?? '').trim())?.registration_office ?? '').trim()
+  const setHoumuOfMuni = async (muni: string, val: string) => {
+    const ids = properties.filter(p => municipalityOf(p) === muni).map(p => p.id)
+    if (ids.length === 0) { showToast('先に物件を登録してください', 'error'); return }
+    const { error } = await supabase.from('real_estate_properties').update({ registration_office: val || null }).in('id', ids)
+    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !municipalityOf(p))
@@ -307,6 +316,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
+              <div className="mb-2.5 flex items-center gap-2 flex-wrap text-[12px]">
+                <span className="text-gray-500 font-medium">管轄法務局</span>
+                <input key={houmuOfMuni(muniKey)} type="text" defaultValue={houmuOfMuni(muniKey)} onBlur={e => { const v = e.target.value.trim(); if (v !== houmuOfMuni(muniKey)) setHoumuOfMuni(muniKey, v) }} placeholder="例: 東京法務局 城東出張所" className="w-64 px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                <span className="text-[11px] text-gray-400">登記情報の請求先・相続登記の提出先に使います（この市区町村の物件に反映）</span>
+              </div>
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
             </div>
           </div>

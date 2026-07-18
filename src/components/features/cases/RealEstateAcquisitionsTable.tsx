@@ -62,11 +62,17 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const fullCost = costMode === 'full'
   const confirmedOf = (r: RealEstateAcquisitionRow) => fullCost ? (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : r.cost_confirmed) : r.cost_confirmed
 
-  // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（物件所在地から。都道府県プレフィックスは省く）、②法務局＝「法務局」。
+  // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（都道府県プレフィックスは省く）、②法務局＝物件の管轄法務局（registration_office）。
   const stripPref = (m: string) => m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')
-  const officeDefault = (muni?: string | null) => {
+  const officeDefault = (muni?: string | null, propId?: string | null) => {
     if (scope === 'municipality') { const m = stripPref((muni ?? municipalityFilter ?? '').trim()); return m ? `${m}役所` : '市区町村役所' }
-    if (scope === 'property') return '法務局'
+    if (scope === 'property') {
+      // 対象物件の管轄法務局があればそれ、無ければ同市区町村の物件から拾う（A案：局名を表示・請求先に）。
+      if (propId) { const p = properties.find(x => x.id === propId); const o = (p?.registration_office ?? '').trim(); if (o) return o }
+      const pool = muni ? properties.filter(x => municipalityOf(x) === muni) : properties
+      const o2 = (pool.find(x => (x.registration_office ?? '').trim())?.registration_office ?? '').trim()
+      return o2 || '法務局'
+    }
     return ''
   }
   // ①市区町村役場タブ：請求先が空／汎用（「市区町村役所」）の行を、この市区町村の「◯◯役所」に自動補完。
@@ -127,7 +133,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const changeItem = async (id: string, key: string) => {
     const meta = itemMeta(key)
     const row = rows.find(r => r.id === id)
-    const fallbackOffice = (scope === 'municipality' || scope === 'property') ? officeDefault(row?.target_municipality) : (meta?.office ?? '')
+    const fallbackOffice = (scope === 'municipality' || scope === 'property') ? officeDefault(row?.target_municipality, row?.target_property_id) : (meta?.office ?? '')
     setRows(prev => prev.map(r => (r.id === id ? { ...r, item_type: key, request_to: r.request_to || fallbackOffice } : r)))
     await supabase.from('real_estate_acquisitions').update({ item_type: key || null, request_to: undefined }).eq('id', id)
     if (fallbackOffice) await supabase.from('real_estate_acquisitions').update({ request_to: fallbackOffice }).eq('id', id).is('request_to', null)
@@ -224,7 +230,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
                   <td className="px-2 py-1.5">
                     {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
-                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality) || meta?.office || '請求先'} className={dateCls} />}
+                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || meta?.office || '請求先'} className={dateCls} />}
                   </td>
                   {/* 状態チップ */}
                   {progressMode && (() => { const s = statusChip(r, isRef); return (
