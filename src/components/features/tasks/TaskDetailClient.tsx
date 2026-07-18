@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
-import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -652,13 +651,6 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare 
     return g
   }
   const currentGyomu = taskPhase ? stripPhasePrefix(taskPhase) : null
-  const targetTab = currentGyomu ? GYOMU_TAB[currentGyomu] : null
-  const targetTabLabel: Record<string, string> = {
-    deceased: '相続人調査', assets: '財産調査', division: '遺産分割', will: '遺言',
-    registration: '相続登記', cancellation: '解約手続', trust: '信託契約',
-    renunciation: '相続放棄', mediation: '調停', probate: '遺言検認',
-    guardianship: '成年後見', referral: '他事業者紹介', contractProc: '郵送書類確認',
-  }
 
   // 事務管理タスク（task_kind='case'）かつ同じ業務区分のもの。進捗カウントには現タスクも含める。
   const gyomuTasks = caseTasks
@@ -695,15 +687,6 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare 
               {doneTasks.length}/{gyomuTasks.length} 完了
             </span>
             <span className="text-[11px] text-gray-400">{currentGyomu === 'system' ? '受注/管理担当の初期対応タスク' : 'この業務の事務管理タスク'}</span>
-            {targetTab && (
-              <Link
-                href={`/cases/${caseData.id}?tab=${targetTab}`}
-                className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded border border-brand-200"
-              >
-                {targetTabLabel[targetTab] ?? targetTab} タブを開く
-                <ExternalLink className="w-3 h-3" strokeWidth={2.25} />
-              </Link>
-            )}
           </div>
 
           {/* これまでの作業（完了タスク + 実施結果） */}

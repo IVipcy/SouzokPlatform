@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, type RefObject } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CheckCircle2, ListChecks } from 'lucide-react'
+import { CheckCircle2, ListChecks, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
@@ -270,6 +270,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const focusTaskId = searchParams.get('task')
   const focusTask = focusTaskId ? tasks.find(t => t.id === focusTaskId) : undefined
   const focusTaskActive = !!focusTask && normalizeTaskStatus(focusTask.status) !== '完了'
+  // 完了バーを閉じる＝URLから task/focus を外す（作業を中断・完了しない）
+  const dismissFocusTask = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('task'); params.delete('focus')
+    const qs = params.toString()
+    router.replace(qs ? `?${qs}` : '?', { scroll: false })
+  }
 
   return (
     <div>
@@ -313,6 +320,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />このタスクを完了
           </button>
           <Link href={`/tasks/${focusTask.id}`} className="text-[11px] text-brand-100 hover:text-white underline flex-none">タスク詳細</Link>
+          <button
+            type="button"
+            onClick={dismissFocusTask}
+            title="このバーを閉じる（作業を中断・完了しない）"
+            className="flex-none p-1 rounded text-brand-100 hover:text-white hover:bg-white/10"
+            aria-label="バーを閉じる"
+          >
+            <X className="w-4 h-4" strokeWidth={2.25} />
+          </button>
         </div>
       )}
 
