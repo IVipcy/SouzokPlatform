@@ -189,11 +189,8 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         <div className="px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              {/* ID + 区分バッジ + Phase + Category */}
+              {/* 区分バッジ + Phase + Category（内部IDは非表示） */}
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-[13px] font-mono text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                  {task.id.slice(0, 8)}
-                </span>
                 {isSystemTask ? (
                   <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
                     受注担当/管理担当タスク
