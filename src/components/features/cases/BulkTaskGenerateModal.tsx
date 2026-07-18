@@ -36,6 +36,10 @@ type Props = {
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
 type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean }
 
+// 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
+// 残高証明・取引履歴は機関ごとの読込でカバーするため対象外。
+const CASE_WIDE_TASKS = ['全店調査', '証券保管振替機構照会', '保険照会', '年金照会', '負債調査']
+
 /**
  * タスク一括生成。生成元は実施タスク（intake_roles の kind=task）＋経理/相続税。
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
@@ -103,6 +107,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         } else {
           out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })
         }
+        return
+      }
+      // 機関単位ではない全体調査（全店調査/証券保管振替機構照会/保険照会/年金照会/負債調査）は、
+      // unit展開（機関ごとの請求/読込）に飲み込ませず、案件に1つの個別タスクとして必ず作る。
+      if (CASE_WIDE_TASKS.some(k => r.sagyou!.includes(k))) {
+        out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou!, roleIdx: idx, rid: r.rid })
         return
       }
       // 不動産/登記/金融資産/解約は左タブ単位でタスク展開。請求(onlyOwn)は自社取得の単位のみ。単位が無ければ従来どおり個別作業。
