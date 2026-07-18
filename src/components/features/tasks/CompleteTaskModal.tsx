@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -270,6 +271,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
               placeholder="追加するタスク名（任意）"
               className="w-full px-2.5 py-1.5 text-[12.5px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
             />
+            <TaskKeywordNudge title={newTitle} caseId={task.case_id} />
             {newTitle.trim() && (
               <>
                 <div className="flex items-center gap-2">

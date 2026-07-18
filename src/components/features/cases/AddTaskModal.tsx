@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
 import { gyomuForCategories } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
@@ -218,9 +219,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
             type="text"
             value={form.title}
             onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-            placeholder="例：三菱UFJ銀行 残高証明取得"
+            placeholder="例：相続人へ電話連絡、督促 など"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
+          <TaskKeywordNudge title={form.title} caseId={caseId} />
         </div>
 
         {/* Due date */}
