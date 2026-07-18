@@ -13,6 +13,7 @@ import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import SelectOrTextField from './SelectOrTextField'
 import { MoneyCell, DcCell } from './PracticeTableCells'
+import HintTip from '@/components/ui/HintTip'
 import { municipalityOf } from './RealEstateSection'
 
 const yen = (n: number | null | undefined) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
@@ -33,6 +34,8 @@ type Props = {
   scope?: 'all' | 'municipality' | 'property'
   // 市区町村タブで使用：この市区町村に紐づく行だけ表示し、新規行もこの市区町村にする
   municipalityFilter?: string
+  // 取得資料を1行足した後に呼ぶ（親が「この系統のタスク無ければ作成しますか？」を出す）
+  onAfterAddRow?: () => void
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -44,7 +47,7 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow }: Props) {
   const supabase = createClient()
   const authUser = useAuth()
   const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // W-Check（自分以外）の記録者
@@ -107,6 +110,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     const { error } = await supabase.from('real_estate_acquisitions').insert(init)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
+    // この系統のタスクが無ければ親が作成ポップアップを出す
+    if (municipalityFilter) onAfterAddRow?.()
   }
 
   const delRow = async (id: string) => {
@@ -141,8 +146,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[72px]">状態</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[104px]">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[104px]">到着日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[132px]">W-Check<span className="block text-[9px] font-normal text-gray-400">請／受</span></th>}
-              {progressMode && <th className="px-2 py-2 text-right font-semibold w-[92px]">費用</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[132px]"><span className="inline-flex items-center gap-1">W-Check<HintTip text="別の担当者が確認する二重チェック。請＝請求時（請求内容が正しいか）／受＝受信時（届いた物が正しいか＝受信確定）。自分の作業は自分で確認できません（管理担当は例外）。" /></span><span className="block text-[9px] font-normal text-gray-400">請／受</span></th>}
+              {progressMode && <th className="px-2 py-2 text-right font-semibold w-[92px]"><span className="inline-flex items-center gap-1">費用<HintTip text="小為替等の費用。予算＝請求時に用意した額、返金＝お釣り・返金額、確定＝実費（予算−返金）。①市区町村役場は予算/返金/確定、②法務局は確定のみ入力します。" /></span></th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">受領ファイル</th>}
               {!progressMode && <th className="px-2 py-2 text-left font-semibold w-40">請求先</th>}
               <th className="px-2 py-2 w-8" />

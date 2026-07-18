@@ -45,12 +45,23 @@ export function municipalityOf(p: { municipality: string | null; address: string
 export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
-  // 新しい市区町村を足したときの「タスク作成しますか？」ポップアップ対象。
-  const [taskPromptMuni, setTaskPromptMuni] = useState<string | null>(null)
+  // 市区町村を足した／取得資料を足したときの「タスク作成しますか？」ポップアップ対象。
+  // offices = 提案する系統（muni=市区町村役場 / houmu=法務局）。
+  const [taskPrompt, setTaskPrompt] = useState<{ muni: string; offices: ('muni' | 'houmu')[] } | null>(null)
   const [creatingTasks, setCreatingTasks] = useState(false)
 
   // その市区町村に不動産タスク（旧lump含む）が既にあるか。
   const hasMuniTasks = (muni: string) => tasks.some(x => ['re-muni', 're-muni-read', 're-houmu', 're-houmu-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muni}`))
+  // その市区町村の特定系統のタスクがあるか（muni=市区町村役場は旧lump re: もカバー扱い、houmu=法務局）。
+  const hasOfficeTask = (muni: string, office: 'muni' | 'houmu') => {
+    const prefixes = office === 'muni' ? ['re-muni', 're-muni-read', 're', 're-read'] : ['re-houmu', 're-houmu-read']
+    return tasks.some(x => prefixes.some(p => x.source_rid === `${p}:${muni}`))
+  }
+  // 取得資料を足したとき、その系統のタスクが無ければポップアップで作成を促す。
+  const promptIfMissing = (muni: string, office: 'muni' | 'houmu') => {
+    if (!muni) return
+    if (!hasOfficeTask(muni, office)) setTaskPrompt({ muni, offices: [office] })
+  }
 
   // 選んだ系統のタスクを生成（既存はスキップ）。
   const createMuniTasks = async (muni: string, offices: ('muni' | 'houmu')[]) => {
@@ -71,7 +82,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 80 + i,
     }))
     if (rows.length > 0) { const { error } = await supabase.from('tasks').insert(rows); if (error) showToast(`タスク生成に失敗: ${error.message}`, 'error'); else showToast(`${rows.length}件のタスクを作成しました`, 'success') }
-    setCreatingTasks(false); setTaskPromptMuni(null); onRefresh?.()
+    setCreatingTasks(false); setTaskPrompt(null); onRefresh?.()
   }
 
   // 市区町村の一覧（空は「未設定」に集約）
@@ -102,7 +113,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     setSub(name)
     // まだこの市区町村のタスクが無ければ、作成を促すポップアップを出す。
-    if (!hasMuniTasks(name)) setTaskPromptMuni(name)
+    if (!hasMuniTasks(name)) setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
     onRefresh?.()
   }
 
@@ -190,7 +201,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muniKey}`))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へ請求（この案件では市区町村まとめで1タスク）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -198,31 +209,31 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => x.source_rid === `${p}:${muniKey}`))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
             </div>
           </div>
         )
       })}
       </div>
 
-      {taskPromptMuni && (
+      {taskPrompt && (
         <Modal
           isOpen
-          onClose={() => setTaskPromptMuni(null)}
-          title={`${taskPromptMuni} のタスクを作成しますか？`}
+          onClose={() => setTaskPrompt(null)}
+          title={`${taskPrompt.muni} のタスクを作成しますか？`}
           maxWidth="max-w-md"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setTaskPromptMuni(null)} disabled={creatingTasks}>あとで</Button>
-              <Button variant="primary" onClick={() => createMuniTasks(taskPromptMuni, ['muni', 'houmu'])} loading={creatingTasks}>作成する</Button>
+              <Button variant="secondary" onClick={() => setTaskPrompt(null)} disabled={creatingTasks}>あとで</Button>
+              <Button variant="primary" onClick={() => createMuniTasks(taskPrompt.muni, taskPrompt.offices)} loading={creatingTasks}>作成する</Button>
             </>
           }
         >
           <div className="space-y-2.5 text-[13px] text-gray-700">
             <p>この市区町村の不動産調査タスクを作成します（各 請求＋読込）。既にあるものは作りません。</p>
             <div className="rounded-lg border border-gray-200 p-2.5 space-y-1.5">
-              <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">市区町村役場</span><span>名寄帳・評価証明を請求／読込</span></div>
-              <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">法務局</span><span>登記・公図・地積を請求／読込</span></div>
+              {taskPrompt.offices.includes('muni') && <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">市区町村役場</span><span>名寄帳・評価証明を請求／読込</span></div>}
+              {taskPrompt.offices.includes('houmu') && <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">法務局</span><span>登記・公図・地積を請求／読込</span></div>}
             </div>
             <p className="text-[11.5px] text-gray-400">名寄帳で物件を洗い出してから、法務局で各物件の登記等を取得する流れです。</p>
           </div>
