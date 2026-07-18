@@ -652,6 +652,10 @@ export type RealEstatePropertyRow = {
   sale_agent_name: string | null
   has_survey_map: boolean
   has_route_price: boolean
+  // 市区町村追加の承認ゲート（migration 179。事務が初期生成後に市区町村を足すと承認待ち）
+  is_additional?: boolean
+  additional_approved_at?: string | null
+  additional_approved_by?: string | null
   // 相続登記（migration 066 / 071）
   title_change_required: string | null            // 名義変更要否（要/不要/確認中）
   title_change_date: string | null                // 名義変更実施日

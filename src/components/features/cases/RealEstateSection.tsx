@@ -116,6 +116,9 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   const hasAnyReTask = tasks.some(t => { const r = t.source_rid ?? ''; return r.startsWith('re-') || r.startsWith('re:') })
   const additionsNeedApproval = !isManager && hasAnyReTask   // 事務が初期生成後に足す＝承認要
   const pendingAcqs = acquisitions.filter(a => a.is_additional && !a.additional_approved_at)
+  // 承認待ちの市区町村追加（物件側フラグ）。承認したら名寄帳・登記のタスクを生成する。
+  const pendingProps = properties.filter(p => p.is_additional && !p.additional_approved_at)
+  const pendingMunis = [...new Set(pendingProps.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   // 取得資料の市区町村・系統を割り出す（承認時のタスク生成に使う）。読込は市区町村ごと1本。
   const acqTarget = (a: RealEstateAcquisitionRow): { muni: string; office: 'muni' | 'houmu' } | null => {
     const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
@@ -138,6 +141,16 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     }
     showToast('追加取得資料を承認しました', 'success')
     setApprovingId(null); onRefresh?.()
+  }
+
+  // 市区町村追加の承認：その市区町村の承認待ち物件を承認済みにし、名寄帳・登記のタスクを生成。
+  const [approvingMuni, setApprovingMuni] = useState<string | null>(null)
+  const approveMuni = async (muni: string) => {
+    setApprovingMuni(muni)
+    const ids = pendingProps.filter(p => municipalityOf(p) === muni).map(p => p.id)
+    await supabase.from('real_estate_properties').update({ additional_approved_by: meId, additional_approved_at: new Date().toISOString() }).in('id', ids)
+    await createMuniTasks(muni, ['muni', 'houmu'])
+    setApprovingMuni(null); onRefresh?.()
   }
 
   // 追加請求（取得資料・市区町村）の承認依頼を管理担当へ通知（戸籍の追加請求と同じ仕組み）。
@@ -180,13 +193,13 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   const addMunicipality = async () => {
     const name = window.prompt('追加する市区町村名（都道府県＋市区町村。例: 東京都墨田区）')?.trim()
     if (!name) return
-    const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
+    // 承認の目印は物件(is_additional)側に持たせる。取得資料の表＝立替実費の集計元なので、そこには行を作らない。
+    const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name, is_additional: additionsNeedApproval })
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     setSub(name)
     if (additionsNeedApproval) {
-      // 事務が初期生成後に足す＝追加請求。名寄帳(①)の追加として承認待ちにし、管理担当へ通知（戸籍と同じ）。
-      await supabase.from('real_estate_acquisitions').insert({ case_id: caseId, scope: 'municipality', target_municipality: name, item_type: '名寄帳', is_additional: true })
-      await notifyManagersAdditional(`不動産の追加請求（${name}）の承認依頼`, `新しい市区町村「${name}」の名寄帳請求です。承認するとタスクを生成します。`)
+      // 事務が初期生成後に足す＝追加請求。承認待ちにし、管理担当へ通知（戸籍と同じ）。タスクは承認後に生成。
+      await notifyManagersAdditional(`不動産の追加請求（${name}）の承認依頼`, `新しい市区町村「${name}」の追加です。承認すると名寄帳・登記のタスクを生成します。`)
       showToast(`「${name}」を追加しました（要承認・管理担当へ通知）`, 'success')
     } else if (!hasMuniTasks(name)) {
       // 管理担当（or 初期設定）はそのままタスク作成を促すポップアップ。
@@ -221,6 +234,32 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         </button>
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
+
+      {/* 承認待ちの市区町村追加（案件全体）。管理担当が承認すると名寄帳・登記のタスクを生成。 */}
+      {pendingMunis.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800 mb-2">
+            <Lock className="w-3.5 h-3.5" />承認待ちの市区町村追加　{pendingMunis.length}件
+          </div>
+          <div className="space-y-2">
+            {pendingMunis.map(m => (
+              <div key={m} className="bg-white border border-amber-200 rounded-md px-3 py-2 flex items-start gap-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-semibold text-gray-800">{m}</div>
+                  <div className="text-[12px] text-gray-600 mt-0.5">承認すると名寄帳・登記のタスクを生成します。</div>
+                </div>
+                {isManager ? (
+                  <button type="button" onClick={() => approveMuni(m)} disabled={approvingMuni === m} className="flex-none inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
+                    <ShieldCheck className="w-3.5 h-3.5" />追加OK（承認）
+                  </button>
+                ) : (
+                  <span className="flex-none text-[11px] text-amber-700 self-center">管理担当の承認待ち</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 承認待ちの追加取得資料（案件全体）。管理担当が承認すると読込タスクを生成。 */}
       {pendingAcqs.length > 0 && (
