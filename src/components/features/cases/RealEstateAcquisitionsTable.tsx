@@ -124,6 +124,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (scope === 'property') return (r.target_property_id != null && muniPropIds.has(r.target_property_id)) || (r.target_property_id == null && (r.target_municipality ?? '') === municipalityFilter)
     return true
   })
+  // 確定費用の合計（＝この表の立替実費の実績）。戸籍タブと表示を揃える。
+  const confirmedTotal = visibleRows.reduce((s, r) => s + (confirmedOf(r) ?? 0), 0)
 
   const save = async (id: string, field: keyof RealEstateAcquisitionRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstateAcquisitionRow : r)))
@@ -277,6 +279,15 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               )
             })}
           </tbody>
+          {progressMode && visibleRows.length > 0 && (
+            <tfoot>
+              <tr className="bg-gray-50 font-semibold text-gray-700">
+                <td className="px-2 py-2 text-right" colSpan={fullCost ? 8 : 6}>確定費用 合計（立替実費の実績）</td>
+                <td className="px-2 py-2 text-right text-emerald-700 tabular-nums">{yen(confirmedTotal)}</td>
+                <td colSpan={4} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       <button type="button" onClick={addRow} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">

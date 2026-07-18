@@ -336,11 +336,17 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         return (
           <div key={t.key} className="space-y-4">
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
-            {/* 3つの表はそれぞれ枠付きカードに入れて境目をはっきりさせる */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="物件一覧（評価額の入力・確定）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
+            {/* この市区町村の進め方（読込結果＝物件の洗い出し→登録→取得→評価の流れを明示） */}
+            <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11.5px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <span className="font-semibold text-gray-600 mr-1">この市区町村の進め方</span>
+              {['① 役所へ請求（名寄帳）', '洗い出した物件を登録', '② 法務局へ請求（登記等）', '評価額を確定'].map((label, k) => (
+                <span key={k} className="inline-flex items-center gap-2">
+                  {k > 0 && <span className="text-gray-300">→</span>}
+                  <span className="inline-flex items-center gap-1 text-gray-600"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-100 text-brand-700 text-[10px] font-bold">{k + 1}</span>{label}</span>
+                </span>
+              ))}
             </div>
+            {/* 作業順に並べる：① 請求（洗い出し）→ 物件を登録 → ② 請求（取得）。各表は枠付きカードで区切る。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の起点。名寄帳でこの市区町村の物件を洗い出します（私道・持分も拾える）。評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
@@ -348,6 +354,10 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+              <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記等が揃ったら評価額を入れて確定してください。財産目録へ反映されるのは確定済の物件のみです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へまとめて請求（請求・読込とも市区町村ごと1件。資料別の到着日は下の表で管理）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -362,6 +372,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               </div>
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
             </div>
+            <p className="text-[11px] text-gray-400">①②の確定費用は［請求］タブの「立替実費の取り込み」で案件全体に合算されます。</p>
           </div>
         )
       })}
