@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target } from 'lucide-react'
+import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
@@ -851,6 +851,42 @@ function ReceiptRow({
     startTransition(onChanged)
   }
 
+  // 間違えて登録した受信を削除。W-Check反映（各タブの受領日）・着手OK・受領書類も巻き戻してから消す。
+  const handleDelete = async () => {
+    if (busyKind) return
+    if (!window.confirm(`受信 ${numberText} を削除しますか？\nこの受信の到着物・紐付け・W-Checkの反映（各タブの受領日）・受領書類が取り消されます。取り消せません。`)) return
+    setBusyKind('start')
+    const supabase = createClient()
+    const its = receipt.items ?? []
+    // 1. W-Check反映（linked_field＝受領日）を取り消し
+    await Promise.all(its.filter(i => i.linked_kind && i.linked_id && i.linked_field).map(i => {
+      if (i.linked_kind === 'agreement_dispatch') return supabase.from('agreement_dispatches').update({ received_date: null, received: false }).eq('id', i.linked_id as string)
+      const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
+        : i.linked_kind === 'koseki' ? 'koseki_requests'
+        : i.linked_kind === 'contract_doc' ? 'contract_documents'
+        : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
+        : 'real_estate_properties'
+      return supabase.from(table).update({ [i.linked_field as string]: null }).eq('id', i.linked_id as string)
+    }))
+    // 2. 紐付けタスクの着手OK(必要書類受領済)を受領次第OKへ戻す
+    const taskIds = [...new Set(its.flatMap(i => (i.document_receipt_item_tasks ?? []).map(j => j.task?.id).filter((v): v is string => !!v)))]
+    if (taskIds.length > 0) {
+      const { data: rows } = await supabase.from('tasks').select('id, ext_data').in('id', taskIds)
+      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null }>) {
+        const ext = (row.ext_data ?? {}) as Record<string, unknown>
+        if (ext.ready_reason === READY_REASON_DOC) await supabase.from('tasks').update({ ext_data: { ...ext, ready_reason: null, ready_on_receipt: true } }).eq('id', row.id)
+      }
+    }
+    // 3. この受信で作成した受領書類(case_documents)を削除
+    const docIds = its.map(i => i.case_document_id).filter((v): v is string => !!v)
+    if (docIds.length > 0) await supabase.from('case_documents').delete().in('id', docIds)
+    // 4. 受信レコード削除（items・item_tasksはカスケード）
+    const { error } = await supabase.from('document_receipts').delete().eq('id', receipt.id)
+    setBusyKind(null)
+    if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+    showToast('受信を削除しました', 'success')
+    startTransition(onChanged)
+  }
 
   return (
     <>
@@ -867,7 +903,14 @@ function ReceiptRow({
                 rowSpan={rowCount}
                 className="px-2.5 py-2 font-mono text-[12px] text-gray-700 align-middle border-r border-gray-100"
               >
-                {numberText}
+                <div className="flex items-center gap-1.5">
+                  <span>{numberText}</span>
+                  {canManage && (
+                    <button type="button" onClick={handleDelete} disabled={busyKind === 'start'} title="この受信を削除（間違い登録の取り消し）" className="text-gray-300 hover:text-red-500 disabled:opacity-40">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </td>
             )}
             {/* 案件管理番号（行統合） */}
