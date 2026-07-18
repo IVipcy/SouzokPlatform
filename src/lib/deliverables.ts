@@ -116,12 +116,13 @@ export function buildDeliverableOptions(
   if (gate('不動産')) {
     const propLabel = (id: string | null) => {
       const p = id ? properties.find(x => x.id === id) : undefined
-      return p ? (p.address || p.lot_number || p.property_type || '物件') : '物件'
+      // 住所が空でも市区町村（municipality）を拾って「対象未設定」を避ける。
+      return p ? (p.address || p.municipality || p.lot_number || p.property_type || '物件') : ''
     }
     for (const a of acquisitions) {
       // 路線価は参照のため除外。受領日が入っている＝受信済も除外。
       if (!a.item_type || a.item_type === '路線価' || a.arrival_date) continue
-      const where = a.target_property_id ? propLabel(a.target_property_id) : (a.target_municipality || '市区町村未入力')
+      const where = (a.target_property_id ? propLabel(a.target_property_id) : '') || (a.target_municipality ?? '').trim() || '対象未設定'
       opts.push({
         value: `real_estate_acquisition:${a.id}:arrival_date`,
         label: `${a.item_type}（${where}）`,

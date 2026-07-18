@@ -83,7 +83,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     // 物件単位で必ず要る標準の取得資料（法務局へ請求）を自動生成。不要なら各行で削除できる。
     const STANDARD_ACQ = ['登記情報', '公図', '地積測量図']
     await supabase.from('real_estate_acquisitions').insert(
-      STANDARD_ACQ.map((item, idx) => ({ case_id: caseId, scope: 'property', target_property_id: prop.id, item_type: item, request_to: '法務局', sort_order: idx }))
+      // 物件が消えても場所が分かるよう target_municipality も入れる（孤児化で「対象未設定」になるのを防ぐ）
+      STANDARD_ACQ.map((item, idx) => ({ case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: prop.municipality ?? municipalityFilter ?? null, item_type: item, request_to: '法務局', sort_order: idx }))
     )
     setBusy(false)
     setRows(prev => [...prev, prop])
@@ -92,6 +93,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   const delRow = async (row: RealEstatePropertyRow) => {
     if (!confirm(`「${row.address || '未入力の不動産'}」を削除しますか？`)) return
+    // その物件に紐づく取得資料（登記情報等）も一緒に削除（孤児＝「対象未設定」を残さない）
+    await supabase.from('real_estate_acquisitions').delete().eq('target_property_id', row.id)
     const { error } = await supabase.from('real_estate_properties').delete().eq('id', row.id)
     if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
     setRows(prev => prev.filter(r => r.id !== row.id))
