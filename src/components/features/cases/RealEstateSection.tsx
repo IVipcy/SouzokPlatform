@@ -4,7 +4,7 @@
 // TOP（一覧）＝各市区町村タブの物件を集計（確定済バッジ）。財産目録へ反映されるのは確定済のみ。
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Check, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -28,6 +28,7 @@ type Props = {
   tasks?: TaskRow[]
   contractDocs?: ContractDocumentRow[]
   focus?: string | null   // タスク詳細からの着地：市区町村名。該当市区町村タブを初期選択。
+  focusOffice?: 'muni' | 'houmu' | null  // 着地元タスクの系統：①市区町村役場/②法務局。該当表を点滅。
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
@@ -42,9 +43,18 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
+  // タスク詳細から着地したとき、対象の表（①/②）を数秒だけ青枠点滅させる。
+  // 着地時（マウント時）のみ点滅。数秒後にタイマーで消灯（同期setStateは避ける）。
+  const [flash, setFlash] = useState<boolean>(() => !!focusOffice && !!focus && sub === focus)
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(false), 4800)
+    return () => clearTimeout(t)
+  }, [flash])
+  const flashCls = (office: 'muni' | 'houmu') => (flash && focusOffice === office ? ' task-focus-blink' : '')
   // 市区町村を足した／取得資料を足したときの「タスク作成しますか？」ポップアップ対象。
   // offices = 提案する系統（muni=市区町村役場 / houmu=法務局）。
   const [taskPrompt, setTaskPrompt] = useState<{ muni: string; offices: ('muni' | 'houmu')[] } | null>(null)
@@ -195,7 +205,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <SectionHeading title="物件一覧（評価額の入力・確定）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の起点。名寄帳でこの市区町村の物件を洗い出します（私道・持分も拾える）。評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muniKey}`))
@@ -203,7 +213,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へ請求（この案件では市区町村まとめで1タスク）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
                 const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => x.source_rid === `${p}:${muniKey}`))

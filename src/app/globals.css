@@ -163,6 +163,22 @@ body[data-sidebar-collapsed="1"] .ml-60 {
   }
 }
 
+/* ─── タスク詳細から着地した対象の表を青枠で点滅（数回で停止・内容は暗くしない）─── */
+@keyframes task-focus-blink-anim {
+  0%, 100% { box-shadow: 0 0 0 2px var(--color-brand-300); }
+  50%      { box-shadow: 0 0 0 4px var(--color-brand-500); }
+}
+.task-focus-blink {
+  border-radius: 0.5rem;
+  animation: task-focus-blink-anim 0.85s ease-in-out 5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-focus-blink {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--color-brand-400);
+  }
+}
+
 /* ─── 受託フロー・ナビゲーターの対象タブ ハイライト（上品にゆっくり） ─── */
 /* 安っぽい明滅をやめ、淡いブランド背景＋リングがゆっくり呼吸するように。 */
 .nav-spotlight {

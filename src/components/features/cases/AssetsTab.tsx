@@ -65,6 +65,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   // タスク詳細から ?focus=市区町村/金融機関 で来たとき、該当サブタブを初期選択（不動産/預金/証券/信託）。
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus')
+  // 着地元タスクの source_rid から、不動産の①市区町村役場/②法務局どちらの表かを判定（該当表を点滅）。
+  const focusOffice: 'muni' | 'houmu' | null = (() => {
+    const tid = searchParams.get('task')
+    const rid = (tid ? tasks.find(t => t.id === tid)?.source_rid : null) ?? ''
+    if (/^re-houmu(?:-read)?:/.test(rid)) return 'houmu'
+    if (/^re(?:-muni)?(?:-read)?:/.test(rid)) return 'muni'
+    return null
+  })()
   const [sub, setSub] = useState<string>(() => {
     if (!focus) return 'realestate'
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
@@ -147,6 +155,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               tasks={tasks}
               contractDocs={reContractDocs}
               focus={focus}
+              focusOffice={focusOffice}
             />
           )}
         </div>

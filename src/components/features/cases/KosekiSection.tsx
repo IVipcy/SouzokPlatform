@@ -436,7 +436,7 @@ function KosekiRow({ r, i, me, meId, isManager, highlight = false, rowTasks = []
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5 text-right"><span className="inline-block px-2 py-1 rounded text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">{yen(effConfirmed(r))}</span></td>
           <td className="px-2 py-1.5"><DcCell name={r.request_check_name} at={r.request_check_at} me={me} meId={meId} workerId={r.request_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { request_check_name: n, request_check_at: a, request_check_by: id ?? null })} /></td>
-          <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} /></td>
+          <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} disabled={!r.arrival_date} disabledLabel="到着待ち" disabledTitle="到着日を入力すると受信時W-Checkできます。" onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} /></td>
         </>
       )}
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>

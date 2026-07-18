@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { useAuth } from '@/components/providers/AuthProvider'
+import { useAuth, useIsManager } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -51,12 +51,39 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const supabase = createClient()
   const authUser = useAuth()
   const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // W-Check（自分以外）の記録者
+  const meId = authUser?.memberId ?? null
+  const isManager = useIsManager()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
   const costMode = scope === 'property' ? 'confirmedOnly' : 'full'  // 物件取得=印紙(確定のみ)、市区町村請求=小為替(予算/返金/確定)
   const fullCost = costMode === 'full'
   const confirmedOf = (r: RealEstateAcquisitionRow) => fullCost ? (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : r.cost_confirmed) : r.cost_confirmed
+
+  // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（物件所在地から。都道府県プレフィックスは省く）、②法務局＝「法務局」。
+  const stripPref = (m: string) => m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')
+  const officeDefault = (muni?: string | null) => {
+    if (scope === 'municipality') { const m = stripPref((muni ?? municipalityFilter ?? '').trim()); return m ? `${m}役所` : '市区町村役所' }
+    if (scope === 'property') return '法務局'
+    return ''
+  }
+  // ①市区町村役場タブ：請求先が空／汎用（「市区町村役所」）の行を、この市区町村の「◯◯役所」に自動補完。
+  useEffect(() => {
+    if (scope !== 'municipality' || !municipalityFilter) return
+    const want = officeDefault(municipalityFilter)
+    const ids = acquisitions.filter(r => {
+      if ((r.target_municipality ?? '') !== municipalityFilter) return false
+      if (r.scope && r.scope !== 'municipality') return false
+      if (!r.scope && itemMeta(r.item_type)?.target !== '市区町村') return false
+      const cur = (r.request_to ?? '').trim()
+      return cur === '' || cur === '市区町村役所' || cur === '市区町村役場'
+    }).map(r => r.id)
+    if (ids.length === 0) return
+    supabase.from('real_estate_acquisitions').update({ request_to: want }).in('id', ids).then(({ error }) => {
+      if (!error) setRows(prev => prev.map(r => (ids.includes(r.id) ? { ...r, request_to: want } : r)))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acquisitions, municipalityFilter, scope])
 
   const saveMany = async (id: string, patch: Partial<RealEstateAcquisitionRow>) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } as RealEstateAcquisitionRow : r)))
@@ -94,19 +121,21 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  // 取得物を変更したら、請求先の既定値（法務局/市区町村役所）も自動セット
+  // 取得物を変更したら、請求先の既定値（①「◯◯役所」／②「法務局」／単体はitemの既定office）も自動セット
   const changeItem = async (id: string, key: string) => {
     const meta = itemMeta(key)
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, item_type: key, request_to: r.request_to || (meta?.office ?? '') } : r)))
+    const row = rows.find(r => r.id === id)
+    const fallbackOffice = (scope === 'municipality' || scope === 'property') ? officeDefault(row?.target_municipality) : (meta?.office ?? '')
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, item_type: key, request_to: r.request_to || fallbackOffice } : r)))
     await supabase.from('real_estate_acquisitions').update({ item_type: key || null, request_to: undefined }).eq('id', id)
-    if (meta?.office) await supabase.from('real_estate_acquisitions').update({ request_to: meta.office }).eq('id', id).is('request_to', null)
+    if (fallbackOffice) await supabase.from('real_estate_acquisitions').update({ request_to: fallbackOffice }).eq('id', id).is('request_to', null)
   }
 
   const addRow = async () => {
     const init: Partial<RealEstateAcquisitionRow> = { case_id: caseId, sort_order: rows.length }
     if (scope === 'municipality' || scope === 'property') init.scope = scope
-    // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）
-    if (municipalityFilter != null) init.target_municipality = municipalityFilter
+    // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）＋請求先の既定値をセット
+    if (municipalityFilter != null) { init.target_municipality = municipalityFilter; const o = officeDefault(municipalityFilter); if (o) init.request_to = o }
     const { error } = await supabase.from('real_estate_acquisitions').insert(init)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
@@ -133,43 +162,47 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     return { label: '未請求', cls: 'bg-gray-50 text-gray-500 border-gray-200' }
   }
 
+  const colCount = progressMode ? (fullCost ? 13 : 11) : 4  // 取得物/対象/請求先(+状態/日付/費用/W-Check/受領)/削除
+
   return (
     <div>
       {/* 契約時に受領済の不動産関係書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
-      <div className={progressMode ? '' : 'overflow-x-auto'}>
-        <table className="w-full text-[13px] border-collapse" style={progressMode ? { tableLayout: 'fixed' } : { minWidth: 720 }}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1260 : 1040) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2 py-2 text-left font-semibold">取得物<span className="block text-[9px] font-normal text-gray-400">請求先</span></th>
+              <th className="px-2 py-2 text-left font-semibold w-44">取得物</th>
               <th className="px-2 py-2 text-left font-semibold w-40">対象</th>
+              <th className="px-2 py-2 text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[72px]">状態</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[104px]">請求日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[104px]">到着日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[132px]"><span className="inline-flex items-center gap-1">W-Check<HintTip text="別の担当者が確認する二重チェック。請＝請求時（請求内容が正しいか）／受＝受信時（届いた物が正しいか＝受信確定）。自分の作業は自分で確認できません（管理担当は例外）。" /></span><span className="block text-[9px] font-normal text-gray-400">請／受</span></th>}
-              {progressMode && <th className="px-2 py-2 text-right font-semibold w-[92px]"><span className="inline-flex items-center gap-1">費用<HintTip text="小為替等の費用。予算＝請求時に用意した額、返金＝お釣り・返金額、確定＝実費（予算−返金）。①市区町村役場は予算/返金/確定、②法務局は確定のみ入力します。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">請求日</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">到着日</th>}
+              {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
+              {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-20">返金</th>}
+              {progressMode && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">確定費用<HintTip text={fullCost ? '実費＝予算−返金（お釣り）。自動計算されます。' : '実際にかかった額（印紙代など）を入力します。'} /></span></th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">請求時W-Check<HintTip text="請求内容が正しいかを、請求した本人とは別の担当者が確認します（管理担当は例外）。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">受信時W-Check<HintTip text="届いた物が正しいかを、受信した本人とは別の担当者が確認します（＝受信確定）。到着日を入れるまで押せません。" /></span></th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">受領ファイル</th>}
-              {!progressMode && <th className="px-2 py-2 text-left font-semibold w-40">請求先</th>}
               <th className="px-2 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={progressMode ? 9 : 4} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
             ) : visibleRows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
               const isProp = meta?.target === '物件'
+              const dash = <span className="text-gray-300 text-[11px]">—</span>
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  {/* 取得物（＋請求先サブテキスト） */}
+                  {/* 取得物 */}
                   <td className="px-2 py-1.5">
                     <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
-                    {progressMode ? (
-                      isRef
-                        ? <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）</div>
-                        : <input type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={meta?.office || '請求先'} className="w-full mt-0.5 px-1.5 py-0.5 text-[11px] text-gray-500 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-500 focus:bg-white rounded outline-none" />
-                    ) : (meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>)}
+                    {isRef
+                      ? <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）</div>
+                      : (!progressMode && meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>)}
                   </td>
                   {/* 対象 */}
                   <td className="px-2 py-1.5">
@@ -182,40 +215,36 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                       <input type="text" defaultValue={r.target_municipality ?? ''} onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }} placeholder="例: 名古屋市中区" className={dateCls} />
                     )}
                   </td>
+                  {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
+                  <td className="px-2 py-1.5">
+                    {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
+                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality) || meta?.office || '請求先'} className={dateCls} />}
+                  </td>
                   {/* 状態チップ */}
                   {progressMode && (() => { const s = statusChip(r, isRef); return (
                     <td className="px-2 py-1.5"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${s.cls}`}>{s.label}</span></td>
                   ) })()}
-                  {/* 請求日 */}
-                  {progressMode && <td className="px-2 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) save(r.id, 'request_date', e.target.value || null) }} className={dateCls} />}</td>}
-                  {/* 到着日 */}
-                  {progressMode && <td className="px-2 py-1.5">{isRef ? <span className="text-gray-300 text-[11px]">—</span> : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) save(r.id, 'arrival_date', e.target.value || null) }} className={dateCls} />}</td>}
-                  {/* W-Check（請／受を1セルに縦積み） */}
-                  {progressMode && (
-                    <td className="px-2 py-1.5">
-                      {isRef ? <span className="text-gray-300 text-[11px]">—</span> : (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1"><span className="text-[9px] text-gray-400 w-3 flex-none">請</span><DcCell name={r.request_check_name} at={r.request_check_at} me={me} onSet={(n, a) => saveMany(r.id, { request_check_name: n, request_check_at: a })} /></div>
-                          <div className="flex items-center gap-1"><span className="text-[9px] text-gray-400 w-3 flex-none">受</span><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} onSet={(n, a) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a })} /></div>
-                        </div>
-                      )}
-                    </td>
-                  )}
-                  {/* 費用（予算・返金・確定を1セルに集約） */}
+                  {/* 請求日（入力者を請求作業者として記録） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
+                  {/* 到着日（入力者を受信作業者として記録） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.arrival_date ?? '')) saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
+                  {/* 費用予算（fullCostのみ） */}
+                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef ? dash : <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />}</td>}
+                  {/* 返金（fullCostのみ） */}
+                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef ? dash : <MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} />}</td>}
+                  {/* 確定費用（fullCost=予算−返金の自動計算／confirmedOnly=直接入力） */}
                   {progressMode && (
                     <td className="px-2 py-1.5 text-right">
-                      {isRef ? <span className="text-gray-300 text-[11px]">—</span> : fullCost ? (
-                        <div className="flex flex-col gap-0.5 text-[10px]">
-                          <label className="flex items-center gap-1"><span className="text-gray-400 w-6 flex-none text-left">予算</span><MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} /></label>
-                          <label className="flex items-center gap-1"><span className="text-gray-400 w-6 flex-none text-left">返金</span><MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} /></label>
-                          <div className="flex items-center gap-1"><span className="text-gray-400 w-6 flex-none text-left">確定</span><span className="flex-1 text-right font-semibold text-emerald-700">{yen(confirmedOf(r))}</span></div>
-                        </div>
-                      ) : (
-                        <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />
-                      )}
+                      {isRef ? dash : fullCost
+                        ? <span className="font-semibold text-emerald-700 tabular-nums">{yen(confirmedOf(r))}</span>
+                        : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
                     </td>
                   )}
-                  {/* 受領ファイル（関連タスクは各カード見出しのチップに集約したのでここは撤去） */}
+                  {/* 請求時W-Check（請求作業者とは別人。管理担当は例外） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <DcCell name={r.request_check_name} at={r.request_check_at} me={me} meId={meId} workerId={r.request_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { request_check_name: n, request_check_at: a, request_check_by: id ?? null })} />}</td>}
+                  {/* 受信時W-Check（受信作業者とは別人。到着日が未入力なら押せない） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} disabled={!r.arrival_date} disabledLabel="到着待ち" disabledTitle="到着日を入力すると受信時W-Checkできます。" onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} />}</td>}
+                  {/* 受領ファイル */}
                   {progressMode && (
                     <td className="px-2 py-1.5">
                       {(() => {
@@ -224,13 +253,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                           ? <div className="flex flex-col gap-1 items-start">{files.map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}</div>
                           : <span className="text-[11px] text-gray-300">—</span>
                       })()}
-                    </td>
-                  )}
-                  {/* 請求先（オーダーシート＝非progress時は独立列） */}
-                  {!progressMode && (
-                    <td className="px-2 py-1.5">
-                      {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
-                        : <input type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={meta?.office || '請求先'} className={dateCls} />}
                     </td>
                   )}
                   {/* 削除 */}

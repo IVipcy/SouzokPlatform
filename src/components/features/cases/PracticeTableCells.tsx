@@ -28,7 +28,7 @@ export function MoneyCell({ value, onCommit }: { value: number | null; onCommit:
 // ダブルチェック（自分以外）。押すと現在ユーザー名＋日時を記録、×で取消。
 // meId/workerId/isManager を渡すと「作業者＝自分」の自己チェックを弾く（管理担当は例外）。
 // onSet の第3引数でチェック者の member_id を返す（*_check_by 記録用）。
-export function DcCell({ name, at, me, onSet, meId, workerId, isManager }: {
+export function DcCell({ name, at, me, onSet, meId, workerId, isManager, disabled, disabledLabel = '到着待ち', disabledTitle }: {
   name: string | null
   at: string | null
   me: string
@@ -36,20 +36,30 @@ export function DcCell({ name, at, me, onSet, meId, workerId, isManager }: {
   meId?: string | null
   workerId?: string | null
   isManager?: boolean
+  disabled?: boolean          // 前提未達（例: 到着日が未入力）でチェック不可
+  disabledLabel?: string      // 未達時のボタン表記
+  disabledTitle?: string      // 未達時のツールチップ
 }) {
   const selfBlocked = !!workerId && !!meId && workerId === meId && !isManager
   const press = () => {
+    if (disabled) { showToast(disabledTitle || 'まだW-Checkできません。', 'error'); return }
     if (selfBlocked) { showToast('自分の作業は自分でW-Checkできません。別の担当者が確認してください。', 'error'); return }
     onSet(me, new Date().toISOString(), meId ?? null)
   }
-  return name ? (
+  // 確認済みなら（前提未達でも）取消は可能にしておく
+  if (name) return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
       <UserCheck className="w-3 h-3" strokeWidth={2.25} />{name}{at ? `・${at.slice(5, 10).replace('-', '/')}` : ''}
       <button type="button" onClick={() => onSet(null, null, null)} title="確認を取消" className="text-emerald-400 hover:text-red-500"><X className="w-3 h-3" /></button>
     </span>
-  ) : selfBlocked ? (
+  )
+  if (disabled) return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-300 bg-gray-50 border border-gray-200 cursor-not-allowed" title={disabledTitle || disabledLabel}><UserCheck className="w-3 h-3" />{disabledLabel}</span>
+  )
+  if (selfBlocked) return (
     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-300 bg-gray-50 border border-gray-200 cursor-not-allowed" title="自分の作業は自分でW-Checkできません（別の担当者が確認）"><UserCheck className="w-3 h-3" />別者確認待ち</span>
-  ) : (
+  )
+  return (
     <button type="button" onClick={press} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700"><UserCheck className="w-3 h-3" />未確認</button>
   )
 }

@@ -734,6 +734,11 @@ export type RealEstateAcquisitionRow = {
   request_check_at: string | null
   receipt_check_name: string | null
   receipt_check_at: string | null
+  // W-Checkの別人判定用（migration 177）。作業者＝done_by、チェック者＝check_by（member_id）
+  request_done_by: string | null
+  receipt_done_by: string | null
+  request_check_by: string | null
+  receipt_check_by: string | null
   sort_order: number
   created_at: string
   updated_at: string
