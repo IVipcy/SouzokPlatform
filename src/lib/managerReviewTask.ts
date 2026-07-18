@@ -44,6 +44,8 @@ export async function createManagerReviewTask(opts: {
       case_id: opts.caseId,
       title: `【ヘルプ】${label}${opts.fromTaskTitle ? `：${opts.fromTaskTitle}` : ''}`,
       task_kind: 'system',
+      phase: 'system',
+      category: 'system',
       assign_role: 'manager',
       status: '着手前',
       priority: opts.helpType === 'too_hard' ? '急ぎ' : '通常',
@@ -66,12 +68,14 @@ export async function createManagerReviewTask(opts: {
     await supabase.from('task_assignees').insert({ task_id: taskId, member_id: recipients[0], role: 'primary' })
   }
   if (recipients.length === 0) return { notified: 0, error: '通知先の管理担当が見つかりませんでした' }
+  // アラートのリンク先＝依頼元の「当該タスク」（管理担当が状況を見て助けられるように）。無ければヘルプタスク。
+  const linkTaskId = opts.fromTaskId ?? taskId
   const { error: nerr } = await supabase.from('notifications').insert(
     recipients.map(id => ({
       member_id: id,
       type: 'manager_review_request',
       case_id: opts.caseId,
-      task_id: taskId,
+      task_id: linkTaskId,
       title: `管理担当ヘルプ（${label}）`,
       body: opts.content || '事務管理担当からヘルプ依頼があります',
     })),
