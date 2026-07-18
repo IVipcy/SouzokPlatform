@@ -22,7 +22,8 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   if (km) return { tab: 'deceased', sub: 'koseki', focus: km[1], label: '戸籍請求タブ' }
 
   // 不動産（市区町村役場 re-muni / 法務局 re-houmu ／旧 re）→ 財産調査タブ、focus=市区町村
-  const rm = rid.match(/^re(?:-muni|-houmu)?(?:-read)?:(.+)$/)
+  // 読込は資料単位で `re-houmu-read:{muni}:{資料}` になるため、先頭セグメント（市区町村）だけを focus に採る。
+  const rm = rid.match(/^re(?:-muni|-houmu)?(?:-read)?:([^:]+)/)
   if (rm) return { tab: 'assets', focus: rm[1], label: '財産調査タブ（不動産）' }
 
   // 金融資産（請求/読込）→ 財産調査タブ、focus=金融機関名（AssetsTabが預金/証券/信託を判定して選択）

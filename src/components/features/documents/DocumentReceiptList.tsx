@@ -8,6 +8,7 @@ import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
+import { ACQUISITION_ITEMS } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
 import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
@@ -345,7 +346,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
   // 筆頭候補（到着物の対応読込タスク）を source_rid で特定するための元データ。
   const [finAssets, setFinAssets] = useState<Array<{ id: string; institution_name: string | null }>>([])
-  const [acquisitions, setAcquisitions] = useState<Array<{ id: string; target_property_id: string | null; target_municipality: string | null }>>([])
+  const [acquisitions, setAcquisitions] = useState<Array<{ id: string; item_type: string | null; target_property_id: string | null; target_municipality: string | null }>>([])
   const [properties, setProperties] = useState<Array<{ id: string; municipality: string | null; address: string | null }>>([])
   // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
   const [contractCat, setContractCat] = useState<Map<string, string | null>>(new Map())
@@ -373,7 +374,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
         supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
         supabase.from('financial_assets').select('id, institution_name').eq('case_id', receipt.case_id),
-        supabase.from('real_estate_acquisitions').select('id, target_property_id, target_municipality').eq('case_id', receipt.case_id),
+        supabase.from('real_estate_acquisitions').select('id, item_type, target_property_id, target_municipality').eq('case_id', receipt.case_id),
         supabase.from('real_estate_properties').select('id, municipality, address').eq('case_id', receipt.case_id),
       ])
       setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>)
@@ -381,7 +382,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
       setContractCat(new Map(((cd.data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
       setFinAssets((fa.data ?? []) as Array<{ id: string; institution_name: string | null }>)
-      setAcquisitions((ac.data ?? []) as Array<{ id: string; target_property_id: string | null; target_municipality: string | null }>)
+      setAcquisitions((ac.data ?? []) as Array<{ id: string; item_type: string | null; target_property_id: string | null; target_municipality: string | null }>)
       setProperties((re.data ?? []) as Array<{ id: string; municipality: string | null; address: string | null }>)
       setLoading(false)
     })()
@@ -437,11 +438,16 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     }
     if (it.linked_kind === 'real_estate_acquisition') {
       const a = acquisitions.find(x => x.id === it.linked_id)
-      if (!a) return null
+      if (!a || !a.item_type) return null
       let muni = ''
       if (a.target_property_id) { const p = properties.find(x => x.id === a.target_property_id); if (p) muni = muniOfProp(p) }
       if (!muni) muni = (a.target_municipality ?? '').trim()
-      return muni ? `re-read:${muni}` : null
+      if (!muni) return null
+      // 読込タスクは資料単位（re-{muni|houmu}-read:{市区町村}:{資料}）。取得物の種別から系統と資料を割り出す。
+      const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
+      if (!meta || meta.method === '参照') return null   // 路線価など参照は読込タスクなし
+      const office = meta.target === '物件' ? 'houmu' : 'muni'
+      return `re-${office}-read:${muni}:${a.item_type}`
     }
     return null
   }

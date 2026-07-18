@@ -68,14 +68,15 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     const muniOwn = new Set(properties.filter(p => isOwn(p.acquirer)).map(muniOf).filter(Boolean))
     const instOwn = new Set(financialAssets.filter(a => isOwn(a.acquirer)).map(a => (a.institution_name ?? '').trim()).filter(Boolean))
     // 単位ごとに「請求/受領」→「読込/手続き」の順で生成。請求(onlyOwn)は自社取得の単位のみ・着手OK。読込は受領次第OK。
-    type UnitTask = { prefix: string; label: string; onlyOwn?: boolean; ready?: boolean; readyOnReceipt?: boolean }
+    // resources を持つタスクは「資料ごと」に展開（例: 公図を読込：墨田区）。source_rid=`${prefix}:${muni}:${資料}`。
+    type UnitTask = { prefix: string; label: string; onlyOwn?: boolean; ready?: boolean; readyOnReceipt?: boolean; resources?: string[] }
     const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
-      // 不動産は請求先で2系統に分ける（市区町村役場＝名寄帳・評価証明／法務局＝登記・公図・地積）。どちらも市区町村単位。
+      // 不動産は請求先で2系統（市区町村役場／法務局）。請求はまとめて1本、読込は資料単位に分ける（受信簿の到着＝1タスクで綺麗に着手OKへ）。
       '不動産': { units: muniUnits, own: muniOwn, tasks: [
         { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true, ready: true },
-        { prefix: 're-muni-read', label: '名寄帳・評価証明を読込', readyOnReceipt: true },
+        { prefix: 're-muni-read', label: '読込', readyOnReceipt: true, resources: ['名寄帳', '評価証明'] },
         { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true, ready: true },
-        { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
+        { prefix: 're-houmu-read', label: '読込', readyOnReceipt: true, resources: ['登記情報', '公図', '地積測量図'] },
       ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
       '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '金融資産情報請求', onlyOwn: true, ready: true }, { prefix: 'fin-read', label: '金融資産情報読込', readyOnReceipt: true }] },
@@ -111,7 +112,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         unitExpanded.add(r.gyomu)
         u.tasks.forEach(t => u.units.forEach(name => {
           if (t.onlyOwn && !u.own.has(name)) return  // 依頼者取得のみの単位は請求タスクを作らない
-          out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt })
+          if (t.resources) {
+            // 資料ごとに1タスク（読込）。source_rid=`${prefix}:${muni}:${資料}`。
+            t.resources.forEach(res => out.push({ key: `${t.prefix}:${name}:${res}`, gyomu: r.gyomu, title: `${res}を読込：${name}`, rid: `${t.prefix}:${name}:${res}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt }))
+          } else {
+            out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt })
+          }
         }))
         return
       }

@@ -33,6 +33,9 @@ type Props = {
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
 const collator = new Intl.Collator('ja')
+// 読込タスクは資料単位（①市区町村役場＝名寄帳/評価証明、②法務局＝登記情報/公図/地積測量図）。
+const RE_MUNI_READ_RES = ['名寄帳', '評価証明']
+const RE_HOUMU_READ_RES = ['登記情報', '公図', '地積測量図']
 
 // 市区町村キー：明示の municipality があればそれ、無ければ所在地から「都道府県＋市区町村」を抽出。
 export function municipalityOf(p: { municipality: string | null; address: string | null }): string {
@@ -69,12 +72,14 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   const [taskPrompt, setTaskPrompt] = useState<{ muni: string; offices: ('muni' | 'houmu')[] } | null>(null)
   const [creatingTasks, setCreatingTasks] = useState(false)
 
+  // source_rid が「prefix:muni」または「prefix:muni:資料」に一致するか（読込は資料単位で分割されるため後方も許容）。
+  const ridHits = (rid: string | null, prefix: string, muni: string) => !!rid && (rid === `${prefix}:${muni}` || rid.startsWith(`${prefix}:${muni}:`))
   // その市区町村に不動産タスク（旧lump含む）が既にあるか。
-  const hasMuniTasks = (muni: string) => tasks.some(x => ['re-muni', 're-muni-read', 're-houmu', 're-houmu-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muni}`))
+  const hasMuniTasks = (muni: string) => tasks.some(x => ['re-muni', 're-muni-read', 're-houmu', 're-houmu-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muni)))
   // その市区町村の特定系統のタスクがあるか（muni=市区町村役場は旧lump re: もカバー扱い、houmu=法務局）。
   const hasOfficeTask = (muni: string, office: 'muni' | 'houmu') => {
     const prefixes = office === 'muni' ? ['re-muni', 're-muni-read', 're', 're-read'] : ['re-houmu', 're-houmu-read']
-    return tasks.some(x => prefixes.some(p => x.source_rid === `${p}:${muni}`))
+    return tasks.some(x => prefixes.some(p => ridHits(x.source_rid, p, muni)))
   }
   // 取得資料を足したとき、その系統のタスクが無ければポップアップで作成を促す。
   const promptIfMissing = (muni: string, office: 'muni' | 'houmu') => {
@@ -88,11 +93,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     const plan: { source_rid: string; title: string; ext_data: Record<string, unknown> }[] = []
     if (offices.includes('muni')) {
       plan.push({ source_rid: `re-muni:${muni}`, title: `名寄帳・評価証明を請求：${muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
-      plan.push({ source_rid: `re-muni-read:${muni}`, title: `名寄帳・評価証明を読込：${muni}`, ext_data: { ready_on_receipt: true } })
+      RE_MUNI_READ_RES.forEach(res => plan.push({ source_rid: `re-muni-read:${muni}:${res}`, title: `${res}を読込：${muni}`, ext_data: { ready_on_receipt: true } }))
     }
     if (offices.includes('houmu')) {
       plan.push({ source_rid: `re-houmu:${muni}`, title: `登記・公図・地積を請求：${muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
-      plan.push({ source_rid: `re-houmu-read:${muni}`, title: `登記・公図・地積を読込：${muni}`, ext_data: { ready_on_receipt: true } })
+      RE_HOUMU_READ_RES.forEach(res => plan.push({ source_rid: `re-houmu-read:${muni}:${res}`, title: `${res}を読込：${muni}`, ext_data: { ready_on_receipt: true } }))
     }
     const { data: existing } = await supabase.from('tasks').select('source_rid').eq('case_id', caseId).in('source_rid', plan.map(p => p.source_rid))
     const have = new Set(((existing ?? []) as { source_rid: string }[]).map(x => x.source_rid))
@@ -217,15 +222,15 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の起点。名寄帳でこの市区町村の物件を洗い出します（私道・持分も拾える）。評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
-                const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muniKey}`))
+                const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
-              <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へ請求（この案件では市区町村まとめで1タスク）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へまとめて請求（請求は1件、読込は登記情報／公図／地積の資料ごと）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
-                const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => x.source_rid === `${p}:${muniKey}`))
+                const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
