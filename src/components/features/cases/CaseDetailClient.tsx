@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, type RefObject } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { CheckCircle2, ListChecks } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { useModal } from '@/hooks/useModal'
+import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
@@ -96,6 +100,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
   const [navDismissed, setNavDismissed] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
+  const [completeTaskOpen, setCompleteTaskOpen] = useState(false)
   // タブ↔ナビのリードライン描画用ラッパ
   const navWrapRef = useRef<HTMLDivElement>(null)
 
@@ -261,6 +266,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
   const flatOrderTabs = minimal || FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
 
+  // タスク詳細から ?task= で来たとき、実務タブ上に「このタスクを完了」バーを出す（戻らず完了）。
+  const focusTaskId = searchParams.get('task')
+  const focusTask = focusTaskId ? tasks.find(t => t.id === focusTaskId) : undefined
+  const focusTaskActive = !!focusTask && normalizeTaskStatus(focusTask.status) !== '完了'
+
   return (
     <div>
       <CaseHeader
@@ -286,6 +296,33 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseMembers={caseMembers}
         allMembers={allMembers}
       />
+
+      {/* 実務タブでタスクを完了するバー（タスク詳細から ?task= で来たとき） */}
+      {focusTask && focusTaskActive && (
+        <div className="sticky top-0 z-30 mb-3 flex items-center gap-3 bg-brand-600 text-white rounded-lg px-4 py-2.5 shadow-md">
+          <ListChecks className="w-5 h-5 flex-none" strokeWidth={2} />
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] text-brand-100">作業中のタスク</div>
+            <div className="text-[13px] font-bold truncate">{focusTask.title}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCompleteTaskOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-brand-700 bg-white hover:bg-brand-50 shadow-sm flex-none"
+          >
+            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />このタスクを完了
+          </button>
+          <Link href={`/tasks/${focusTask.id}`} className="text-[11px] text-brand-100 hover:text-white underline flex-none">タスク詳細</Link>
+        </div>
+      )}
+
+      {completeTaskOpen && focusTask && (
+        <CompleteTaskModal
+          task={focusTask}
+          onClose={() => setCompleteTaskOpen(false)}
+          onCompleted={() => { setCompleteTaskOpen(false); handleSaved() }}
+        />
+      )}
 
       <div ref={navWrapRef} className="relative">
         <CaseTabs
