@@ -93,6 +93,23 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
   const approveAdditional = async (r: KosekiRequestRow) => {
     await saveMany(r.id, { additional_approved_by: memberId, additional_approved_at: new Date().toISOString() })
+    // 承認された追加戸籍請求に、通常の戸籍と同じく紐づきタスクを自動生成（source_rid付き・既存はスキップ）。
+    // これでタスク詳細から「実務タブで作業」→ 該当行にハイライト着地できる。
+    const dest = (r.request_to ?? '').trim() || '請求先未設定'
+    const person = (r.target_person ?? '').trim()
+    const label = `${dest}${person ? `（${person}）` : ''}`
+    const isOwn = (r.acquirer ?? '自社') !== '依頼者'  // 自社取得＝請求＋読込／依頼者取得＝読込のみ
+    const plan: { source_rid: string; title: string; ext_data: Record<string, unknown> }[] = []
+    if (isOwn) plan.push({ source_rid: `koseki:${r.id}`, title: `戸籍請求：${label}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
+    plan.push({ source_rid: `koseki-read:${r.id}`, title: `戸籍読込：${label}`, ext_data: { ready_on_receipt: true } })
+    const { data: existing } = await supabase.from('tasks').select('source_rid').eq('case_id', caseId).in('source_rid', plan.map(p => p.source_rid))
+    const have = new Set(((existing ?? []) as { source_rid: string }[]).map(x => x.source_rid))
+    const toInsert = plan.filter(p => !have.has(p.source_rid)).map((p, i) => ({
+      case_id: caseId, task_kind: 'case', title: p.title, phase: '戸籍', category: '戸籍',
+      status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 90 + i,
+    }))
+    if (toInsert.length > 0) await supabase.from('tasks').insert(toInsert)
+    onRefresh?.()
   }
 
   const delRequest = async (r: KosekiRequestRow) => {
