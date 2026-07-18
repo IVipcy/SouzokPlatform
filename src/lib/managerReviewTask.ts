@@ -21,7 +21,7 @@ export async function createManagerReviewTask(opts: {
   fromTaskTitle?: string
   fromTaskId?: string | null
   requestedBy?: string | null
-}): Promise<void> {
+}): Promise<{ notified: number; error?: string }> {
   const supabase = createClient()
   const label = opts.helpType ? HELP_TYPE_LABEL[opts.helpType] : '確認'
 
@@ -65,17 +65,17 @@ export async function createManagerReviewTask(opts: {
   if (taskId && recipients[0]) {
     await supabase.from('task_assignees').insert({ task_id: taskId, member_id: recipients[0], role: 'primary' })
   }
-  if (recipients.length > 0) {
-    const { error: nerr } = await supabase.from('notifications').insert(
-      recipients.map(id => ({
-        member_id: id,
-        type: 'manager_review_request',
-        case_id: opts.caseId,
-        task_id: taskId,
-        title: `管理担当ヘルプ（${label}）`,
-        body: opts.content || '事務管理担当からヘルプ依頼があります',
-      })),
-    )
-    if (nerr) console.error('createManagerReviewTask: notification insert failed', nerr)
-  }
+  if (recipients.length === 0) return { notified: 0, error: '通知先の管理担当が見つかりませんでした' }
+  const { error: nerr } = await supabase.from('notifications').insert(
+    recipients.map(id => ({
+      member_id: id,
+      type: 'manager_review_request',
+      case_id: opts.caseId,
+      task_id: taskId,
+      title: `管理担当ヘルプ（${label}）`,
+      body: opts.content || '事務管理担当からヘルプ依頼があります',
+    })),
+  )
+  if (nerr) { console.error('createManagerReviewTask: notification insert failed', nerr); return { notified: 0, error: nerr.message } }
+  return { notified: recipients.length }
 }

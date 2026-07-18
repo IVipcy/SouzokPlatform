@@ -25,9 +25,10 @@ export default function ManagerHelpModal({ isOpen, onClose, caseId, taskId, task
   const submit = async () => {
     if (!content.trim()) return
     setSaving(true)
-    await createManagerReviewTask({ caseId, content: content.trim(), helpType: 'how_to', fromTaskTitle: taskTitle, fromTaskId: taskId, requestedBy })
+    const res = await createManagerReviewTask({ caseId, content: content.trim(), helpType: 'how_to', fromTaskTitle: taskTitle, fromTaskId: taskId, requestedBy })
     setSaving(false)
-    showToast('管理担当にヘルプを依頼しました', 'success')
+    if (res.notified > 0) showToast(`管理担当${res.notified}名にヘルプを依頼しました`, 'success')
+    else showToast(res.error ?? 'ヘルプ依頼の通知に失敗しました', 'error')
     onSubmitted?.()
     onClose()
   }
