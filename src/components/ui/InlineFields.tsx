@@ -93,11 +93,12 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
 // ─── SectionHeading ───
 // Section と同じ見出しスタイル（縦棒＋12.5px bold gray-700）。
 // カードヘッダー等、Section コンポーネントを使えない場所で見出しを揃えたいとき用。
-export function SectionHeading({ title, right, className = '' }: { title: string; right?: React.ReactNode; className?: string }) {
+export function SectionHeading({ title, right, hint, className = '' }: { title: string; right?: React.ReactNode; hint?: string; className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
       <h3 className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{title}</h3>
+      {hint && <HintTip text={hint} />}
       {right && <div className="ml-auto flex items-center">{right}</div>}
     </div>
   )

@@ -260,13 +260,12 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
             {/* 戸籍取得状況図：相続関係説明図に状態を枠色で反映＋ホバーで進捗/結果 */}
             <div>
-              <SectionHeading title="戸籍の取得状況（相続関係説明図）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="戸籍の取得状況（相続関係説明図）" hint="枠色＝戸籍の取得状況（緑=完了／青=対応中／橙=追加調査中／灰=未着手）。ノードにマウスを乗せると進捗/結果を表示します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {heirs.length === 0 ? (
                 <p className="text-[12px] text-gray-400 text-center py-4">相続人が未登録です。「相続人」タブで登録すると、ここに相続関係説明図が表示されます。</p>
               ) : (
                 <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} statusByName={statusByName} /></div>
               )}
-              <p className="mt-2 text-[11px] text-gray-400">枠色＝戸籍の取得状況（<span className="text-emerald-700">緑=完了</span>／<span className="text-blue-600">青=対応中</span>／<span className="text-amber-600">橙=追加調査中</span>／灰=未着手）。ノードにマウスを乗せると進捗/結果を表示。</p>
             </div>
           </div>
         ) : (
@@ -274,7 +273,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
               onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）／全項目を直接編集（横スクロール）`} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）`} hint="取得区分＝依頼者の行は、請求日・費用・ダブルチェックが「依頼者負担」になり入力不可です。追加戸籍請求（要承認）は管理担当の承認後に編集できます。全項目はその場で直接編集できます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この人の戸籍請求がありません。「戸籍を追加」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
@@ -309,7 +308,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </table>
                 </div>
               )}
-              <p className="mt-2 text-[11px] text-gray-400">取得区分＝依頼者の行は、請求日・費用・ダブルチェックが「依頼者負担」になり入力不可。追加戸籍請求（要承認）は管理担当の承認後に編集できます。</p>
             </div>
           </div>
         )}

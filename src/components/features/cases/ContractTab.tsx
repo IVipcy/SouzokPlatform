@@ -10,6 +10,7 @@ import {
   Section, FieldGrid, Field,
   InlineTextarea,
 } from '@/components/ui/InlineFields'
+import HintTip from '@/components/ui/HintTip'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
 import RewardBreakdownSection from './RewardBreakdownSection'
@@ -281,7 +282,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               <div className="mt-3 pt-3 border-t border-rose-100">
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <span className="text-[12px] font-bold text-rose-700">返金（請求タブで記録）</span>
-                  <span className="text-[11px] text-gray-400">実際の受領額はこの分だけ減ります（売上集計への反映は別途）</span>
+                  <HintTip text="実際の受領額はこの分だけ減ります（売上集計への反映は別途）。" />
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
                   <span className="text-[13px]"><span className="text-gray-500">返金額合計</span> <span className="font-mono font-bold text-rose-600">▲{yen(refund.total)}</span></span>

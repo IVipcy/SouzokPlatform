@@ -6,6 +6,7 @@ import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
+import HintTip from '@/components/ui/HintTip'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
 import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
 
@@ -90,8 +91,9 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
       />
 
       {!isManager && (
-        <div className="mb-3 text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-          到着物の受信登録・受信確定（W-Check）・タスク紐づけは<strong className="font-semibold">管理担当のみ</strong>が操作できます（閲覧は可能）。
+        <div className="mb-3 inline-flex items-center gap-1.5 text-[12px] text-gray-500">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-600 font-semibold">参照のみ</span>
+          <HintTip text="到着物の受信登録・受信確定（W-Check）・タスク紐づけは管理担当のみが操作できます。閲覧は可能です。" />
         </div>
       )}
 

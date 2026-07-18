@@ -103,7 +103,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       {sub === 'top' && (
         <div className="space-y-3.5">
           <div>
-            <SectionHeading title="物件一覧（各市区町村タブの集計）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="財産目録へ反映されるのは「確定済」の物件のみです。評価額の入力・確定は各市区町村タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
                 <thead>
@@ -134,7 +134,6 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-[11px] text-gray-400">財産目録へ反映されるのは「確定済」の物件のみです。評価額の入力・確定は各市区町村タブで行います。</p>
           </div>
         </div>
       )}
@@ -152,11 +151,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="① 市区町村へ請求（名寄帳・評価証明）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="① 市区町村へ請求（名寄帳・評価証明）" hint="評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="② 物件ごとに取得（登記情報・所有者事項・公図・地積測量図・路線価）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="② 物件ごとに取得（登記情報・所有者事項・公図・地積測量図・路線価）" hint="登記情報・公図・地積測量図は法務局へ請求（物件単位）。路線価は参照（路線価図・請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} />
             </div>
           </div>

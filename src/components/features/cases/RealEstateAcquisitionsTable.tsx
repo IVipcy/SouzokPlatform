@@ -240,7 +240,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       <button type="button" onClick={addRow} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
         <Plus className="w-3.5 h-3.5" /> 取得資料を追加
       </button>
-      <p className="mt-1 text-[11px] text-gray-400">登記情報・公図・地積測量図は法務局へ（物件単位）、評価証明・名寄帳は市区町村へ（市区町村単位）、路線価は参照（路線価図）です。</p>
     </div>
   )
 }
