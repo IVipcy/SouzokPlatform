@@ -172,6 +172,11 @@ body[data-sidebar-collapsed="1"] .ml-60 {
   border-radius: 0.5rem;
   animation: task-focus-blink-anim 0.85s ease-in-out 5;
 }
+/* 点滅が終わったあとも枠は残す（スクロールして辿り着いても対象が分かるように）。 */
+.task-focus-steady {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 2px var(--color-brand-400);
+}
 @media (prefers-reduced-motion: reduce) {
   .task-focus-blink {
     animation: none;
