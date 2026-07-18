@@ -187,7 +187,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
     <div className="flex gap-3 items-start">
       {/* 左レール（対象者＝人ごと） */}
-      <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
+      <div className="flex-none w-52 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
           const person = t.id === '__unset__' ? '' : t.id
@@ -199,7 +199,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
               <button type="button" onClick={() => setSub(t.id)}
                 className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
-                <span className="truncate flex-1">{t.label}</span>
+                <span className="flex-1 break-words leading-tight">{t.label}</span>
                 {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
                 {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
               </button>
