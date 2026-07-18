@@ -11,6 +11,7 @@ import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { FinancialAssetRow, TaskRow, ContractDocumentRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -127,6 +128,16 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
           const instKey = t.key === '__unset__' ? '' : t.key
           return (
             <div key={t.key} className="space-y-3.5">
+              {(() => {
+                const instTasks = tasks.filter(x => x.source_rid === `fin:${instKey}` || x.source_rid === `fin-read:${instKey}`)
+                if (instTasks.length === 0) return null
+                return (
+                  <div className="flex items-center gap-2 flex-wrap bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2">
+                    <span className="text-[11.5px] font-semibold text-brand-700">関連タスク（{t.label}）</span>
+                    {instTasks.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}
+                  </div>
+                )
+              })()}
               <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${instKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
               <div className="bg-white border border-gray-200 rounded-lg p-3.5">
                 <SectionHeading title="口座一覧（残高の入力・確定）" hint="各項目は横スクロールで表示し、その場で直接編集できます。財産目録へ反映されるのは確定済の口座のみです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />

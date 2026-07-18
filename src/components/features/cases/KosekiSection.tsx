@@ -16,7 +16,8 @@ import ProgressSummary from './ProgressSummary'
 import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import Modal from '@/components/ui/Modal'
-import type { KosekiRequestRow, HeirRow, CaseRow } from '@/types'
+import RowTaskChip from '@/components/features/tasks/RowTaskChip'
+import type { KosekiRequestRow, HeirRow, CaseRow, TaskRow } from '@/types'
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 const ACQUIRERS = ['自社', '依頼者']
@@ -24,11 +25,12 @@ const ACQUIRERS = ['自社', '依頼者']
 const effConfirmed = (r: KosekiRequestRow) => (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : null)
 const reqLabel = (r: KosekiRequestRow) => [r.request_to, r.target_person].filter(Boolean).join('・') || '新規請求'
 
-export default function KosekiSection({ caseId, caseData, requests, heirs = [], onRefresh }: {
+export default function KosekiSection({ caseId, caseData, requests, heirs = [], tasks = [], onRefresh }: {
   caseId: string
   caseData: CaseRow
   requests: KosekiRequestRow[]
   heirs?: HeirRow[]
+  tasks?: TaskRow[]
   onRefresh?: () => void
 }) {
   const supabase = createClient()
@@ -311,6 +313,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <th className="px-2 py-2 text-left font-semibold w-32">請求時W-Check</th>
                         <th className="px-2 py-2 text-left font-semibold w-32">受信時W-Check</th>
                         <th className="px-2 py-2 text-left font-semibold w-36">特記</th>
+                        <th className="px-2 py-2 text-left font-semibold w-40">関連タスク</th>
                         <th className="px-2 py-2 w-8" />
                       </tr>
                     </thead>
@@ -318,6 +321,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                       {personRequests.map((r, i) => (
                         <KosekiRow key={r.id} r={r} i={i} me={me} meId={memberId} isManager={isManager}
                           highlight={r.id === focusId}
+                          rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
+                          onRefresh={onRefresh}
                           saveField={saveField} saveMany={saveMany}
                           onDelete={() => delRequest(r)} />
                       ))}
@@ -376,13 +381,15 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, meId, isManager, highlight = false, saveField, saveMany, onDelete }: {
+function KosekiRow({ r, i, me, meId, isManager, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete }: {
   r: KosekiRequestRow
   i: number
   me: string
   meId: string | null
   isManager: boolean
   highlight?: boolean
+  rowTasks?: TaskRow[]
+  onRefresh?: () => void
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
@@ -433,6 +440,11 @@ function KosekiRow({ r, i, me, meId, isManager, highlight = false, saveField, sa
         </>
       )}
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>
+      <td className="px-2 py-1.5">
+        {rowTasks.length > 0
+          ? <div className="flex flex-col gap-1 items-start">{rowTasks.map(t => <RowTaskChip key={t.id} task={t} onRefresh={onRefresh} />)}</div>
+          : <span className="text-[11px] text-gray-300">—</span>}
+      </td>
       <td className="px-2 py-1.5 text-center"><button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></td>
     </tr>
   )

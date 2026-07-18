@@ -13,6 +13,7 @@ import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
+import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { RealEstatePropertyRow, RealEstateAcquisitionRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -145,6 +146,17 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         if (sub !== t.key) return null
         return (
           <div key={t.key} className="space-y-4">
+            {/* この市区町村に紐づくタスク（不動産情報請求／読込）。単位で1タスクなので見出し的にここに1つ。 */}
+            {(() => {
+              const muniTasks = tasks.filter(x => x.source_rid === `re:${muniKey}` || x.source_rid === `re-read:${muniKey}`)
+              if (muniTasks.length === 0) return null
+              return (
+                <div className="flex items-center gap-2 flex-wrap bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2">
+                  <span className="text-[11.5px] font-semibold text-brand-700">関連タスク（{t.label}）</span>
+                  {muniTasks.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}
+                </div>
+              )
+            })()}
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             {/* 3つの表はそれぞれ枠付きカードに入れて境目をはっきりさせる */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">

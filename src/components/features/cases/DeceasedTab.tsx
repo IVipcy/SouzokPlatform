@@ -303,7 +303,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {!orderSheetMode && sub === 'koseki' && (
         <div className="space-y-3.5">
           {/* 案件詳細（実務）：TOP＋左レール（請求単位）＋相関図 */}
-          <KosekiSection caseId={caseData.id} caseData={caseData} requests={kosekiRequests} heirs={heirs} onRefresh={onRefresh} />
+          <KosekiSection caseId={caseData.id} caseData={caseData} requests={kosekiRequests} heirs={heirs} tasks={tasks} onRefresh={onRefresh} />
         </div>
       )}
 
