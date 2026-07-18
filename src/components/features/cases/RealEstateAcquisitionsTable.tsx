@@ -8,8 +8,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
-import RelatedTaskChips from './RelatedTaskChips'
+import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import SelectOrTextField from './SelectOrTextField'
@@ -144,7 +143,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[104px]">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[132px]">W-Check<span className="block text-[9px] font-normal text-gray-400">請／受</span></th>}
               {progressMode && <th className="px-2 py-2 text-right font-semibold w-[92px]">費用</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-32">関連タスク</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">受領ファイル</th>}
               {!progressMode && <th className="px-2 py-2 text-left font-semibold w-40">請求先</th>}
               <th className="px-2 py-2 w-8" />
             </tr>
@@ -211,13 +210,15 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                       )}
                     </td>
                   )}
-                  {/* 関連タスク（受領ファイルも） */}
+                  {/* 受領ファイル（関連タスクは各カード見出しのチップに集約したのでここは撤去） */}
                   {progressMode && (
                     <td className="px-2 py-1.5">
-                      <div className="flex flex-col gap-1 items-start">
-                        <RelatedTaskChips tasks={relatedTasksFor(receipts, 'real_estate_acquisition', r.id)} />
-                        {receiptFilesFor(receipts, 'real_estate_acquisition', r.id).map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}
-                      </div>
+                      {(() => {
+                        const files = receiptFilesFor(receipts, 'real_estate_acquisition', r.id)
+                        return files.length > 0
+                          ? <div className="flex flex-col gap-1 items-start">{files.map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}</div>
+                          : <span className="text-[11px] text-gray-300">—</span>
+                      })()}
                     </td>
                   )}
                   {/* 請求先（オーダーシート＝非progress時は独立列） */}
