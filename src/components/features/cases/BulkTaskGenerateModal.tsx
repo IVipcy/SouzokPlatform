@@ -126,6 +126,11 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     return out
   }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets])
 
+  // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
+  const kosekiCoarse = useMemo(() =>
+    kosekiRequests.length === 0 && intakeRoles.some(r => r.gyomu === '戸籍' && (r.sagyou ?? '').includes('戸籍収集') && r.owner !== '不要'),
+    [intakeRoles, kosekiRequests])
+
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))
 
@@ -220,6 +225,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       }
     >
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">{error}</div>}
+
+      {kosekiCoarse && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
+          <span className="font-semibold">戸籍の請求先（役所）が未入力です。</span>
+          先に実務タブ＞戸籍表へ役所を入れてから生成すると、<span className="font-semibold">役所ごと</span>に請求・読込タスクが分かれます。
+          このまま生成すると粗い「戸籍請求」1件になります（あとから戸籍表で「役所ごとに展開」も可能）。
+        </div>
+      )}
 
       {candidates.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">

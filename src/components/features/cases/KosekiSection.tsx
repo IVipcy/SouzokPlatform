@@ -5,9 +5,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
@@ -175,8 +176,42 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
 
+  // 請求先未入力で一括生成された「粗い戸籍請求」タスク（役所ごとに割れていない）。役所を入れた後に展開し直せる。
+  const [expanding, setExpanding] = useState(false)
+  const coarseKoseki = tasks.find(t => normalizeTaskStatus(t.status) !== '完了' && t.title === '戸籍請求' && !(t.source_rid ?? '').startsWith('koseki'))
+  const expandCoarseKoseki = async () => {
+    if (!coarseKoseki || requests.length === 0) return
+    setExpanding(true)
+    const isOwn = (a: string | null) => (a ?? '自社') !== '依頼者'
+    const label = (r: KosekiRequestRow) => { const dest = (r.request_to ?? '').trim() || '請求先未設定'; const p = (r.target_person ?? '').trim(); return `${dest}${p ? `（${p}）` : ''}` }
+    const plan: { rid: string; title: string; ext: Record<string, unknown> }[] = []
+    requests.filter(r => isOwn(r.acquirer)).forEach(r => plan.push({ rid: `koseki:${r.id}`, title: `戸籍請求：${label(r)}`, ext: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } }))
+    requests.forEach(r => plan.push({ rid: `koseki-read:${r.id}`, title: `戸籍読込：${label(r)}`, ext: { ready_on_receipt: true } }))
+    const existing = new Set(tasks.map(t => t.source_rid).filter(Boolean) as string[])
+    const rows = plan.filter(p => !existing.has(p.rid)).map((p, i) => ({
+      case_id: caseId, task_kind: 'case', title: p.title, phase: '戸籍', category: '戸籍',
+      status: '着手前', priority: '通常', source_rid: p.rid, work_role: 'assistant', ext_data: p.ext, sort_order: 80 + i,
+    }))
+    if (rows.length > 0) { const { error } = await supabase.from('tasks').insert(rows); if (error) { showToast(`展開に失敗しました: ${error.message}`, 'error'); setExpanding(false); return } }
+    await supabase.from('tasks').delete().eq('id', coarseKoseki.id)   // 粗いタスクは消して二重生成を防ぐ
+    showToast(`役所ごとに${rows.length}件のタスクへ展開しました`, 'success')
+    setExpanding(false); onRefresh?.()
+  }
+
   return (
     <div>
+      {coarseKoseki && requests.length > 0 && (
+        <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50 p-3 flex items-start gap-2 flex-wrap">
+          <Split className="w-4 h-4 text-brand-700 mt-0.5 flex-none" />
+          <div className="flex-1 min-w-0 text-[12.5px] text-brand-800">
+            <span className="font-semibold">粗い「戸籍請求」タスクがあります。</span>
+            現在の役所（{requests.length}件）ごとに、請求・読込タスクへ展開できます（元の粗いタスクは消えます）。
+          </div>
+          <button type="button" onClick={expandCoarseKoseki} disabled={expanding} className="flex-none inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
+            <Split className="w-3.5 h-3.5" />{expanding ? '展開中…' : '役所ごとに展開'}
+          </button>
+        </div>
+      )}
       {pendingApprovals.length > 0 && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800 mb-2">
