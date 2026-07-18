@@ -23,6 +23,7 @@ function notificationHref(n: NotificationItem): string | null {
   if (!n.case_id) return null
   if (n.type === 'doc_received') return `/cases/${n.case_id}?tab=receipts`
   if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
+  if (n.type === 'realestate_additional') return `/cases/${n.case_id}?tab=assets`
   // 確認依頼は該当案件の請求行で回答モーダルを自動オープン
   if (n.type === 'billing_confirm_request') return `/billing?case=${n.case_id}&respond=1`
   // その他の請求まわり（入金確定・回答・返金依頼）は請求・入金一覧の該当案件へ

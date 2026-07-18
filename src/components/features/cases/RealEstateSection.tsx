@@ -140,6 +140,13 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     setApprovingId(null); onRefresh?.()
   }
 
+  // 追加請求（取得資料・市区町村）の承認依頼を管理担当へ通知（戸籍の追加請求と同じ仕組み）。
+  const notifyManagersAdditional = async (title: string, body: string) => {
+    const { data: mgrs } = await supabase.from('members').select('id').eq('primary_role', 'manager').eq('is_active', true)
+    const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'realestate_additional', case_id: caseId, title, body }))
+    if (rows.length) await supabase.from('notifications').insert(rows)
+  }
+
   // 管轄法務局（A案）：物件の registration_office を市区町村単位で読み書き。②の請求先・相続登記の提出先に使う。
   const houmuOfMuni = (muni: string) => (properties.filter(p => municipalityOf(p) === muni).find(p => (p.registration_office ?? '').trim())?.registration_office ?? '').trim()
   const setHoumuOfMuni = async (muni: string, val: string) => {
@@ -176,8 +183,15 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     setSub(name)
-    // まだこの市区町村のタスクが無ければ、作成を促すポップアップを出す。
-    if (!hasMuniTasks(name)) setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
+    if (additionsNeedApproval) {
+      // 事務が初期生成後に足す＝追加請求。名寄帳(①)の追加として承認待ちにし、管理担当へ通知（戸籍と同じ）。
+      await supabase.from('real_estate_acquisitions').insert({ case_id: caseId, scope: 'municipality', target_municipality: name, item_type: '名寄帳', is_additional: true })
+      await notifyManagersAdditional(`不動産の追加請求（${name}）の承認依頼`, `新しい市区町村「${name}」の名寄帳請求です。承認するとタスクを生成します。`)
+      showToast(`「${name}」を追加しました（要承認・管理担当へ通知）`, 'success')
+    } else if (!hasMuniTasks(name)) {
+      // 管理担当（or 初期設定）はそのままタスク作成を促すポップアップ。
+      setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
+    }
     onRefresh?.()
   }
 
@@ -294,7 +308,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へまとめて請求（請求・読込とも市区町村ごと1件。資料別の到着日は下の表で管理）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -307,7 +321,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 <input key={houmuOfMuni(muniKey)} type="text" defaultValue={houmuOfMuni(muniKey)} onBlur={e => { const v = e.target.value.trim(); if (v !== houmuOfMuni(muniKey)) setHoumuOfMuni(muniKey, v) }} placeholder="例: 東京法務局 城東出張所" className="w-64 px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                 <span className="text-[11px] text-gray-400">登記情報の請求先・相続登記の提出先に使います（この市区町村の物件に反映）</span>
               </div>
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
             </div>
           </div>
         )
