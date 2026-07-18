@@ -443,11 +443,11 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       if (a.target_property_id) { const p = properties.find(x => x.id === a.target_property_id); if (p) muni = muniOfProp(p) }
       if (!muni) muni = (a.target_municipality ?? '').trim()
       if (!muni) return null
-      // 読込タスクは資料単位（re-{muni|houmu}-read:{市区町村}:{資料}）。取得物の種別から系統と資料を割り出す。
+      // 読込タスクは市区町村ごと1本（①市区町村役場=re-muni-read / ②法務局=re-houmu-read）。取得物の種別から系統を判定。
       const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
       if (!meta || meta.method === '参照') return null   // 路線価など参照は読込タスクなし
       const office = meta.target === '物件' ? 'houmu' : 'muni'
-      return `re-${office}-read:${muni}:${a.item_type}`
+      return `re-${office}-read:${muni}`
     }
     return null
   }
