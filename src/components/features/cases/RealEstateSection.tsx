@@ -10,6 +10,8 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import ProgressSummary from './ProgressSummary'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
@@ -43,6 +45,34 @@ export function municipalityOf(p: { municipality: string | null; address: string
 export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
+  // 新しい市区町村を足したときの「タスク作成しますか？」ポップアップ対象。
+  const [taskPromptMuni, setTaskPromptMuni] = useState<string | null>(null)
+  const [creatingTasks, setCreatingTasks] = useState(false)
+
+  // その市区町村に不動産タスク（旧lump含む）が既にあるか。
+  const hasMuniTasks = (muni: string) => tasks.some(x => ['re-muni', 're-muni-read', 're-houmu', 're-houmu-read', 're', 're-read'].some(p => x.source_rid === `${p}:${muni}`))
+
+  // 選んだ系統のタスクを生成（既存はスキップ）。
+  const createMuniTasks = async (muni: string, offices: ('muni' | 'houmu')[]) => {
+    setCreatingTasks(true)
+    const plan: { source_rid: string; title: string; ext_data: Record<string, unknown> }[] = []
+    if (offices.includes('muni')) {
+      plan.push({ source_rid: `re-muni:${muni}`, title: `名寄帳・評価証明を請求：${muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
+      plan.push({ source_rid: `re-muni-read:${muni}`, title: `名寄帳・評価証明を読込：${muni}`, ext_data: { ready_on_receipt: true } })
+    }
+    if (offices.includes('houmu')) {
+      plan.push({ source_rid: `re-houmu:${muni}`, title: `登記・公図・地積を請求：${muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
+      plan.push({ source_rid: `re-houmu-read:${muni}`, title: `登記・公図・地積を読込：${muni}`, ext_data: { ready_on_receipt: true } })
+    }
+    const { data: existing } = await supabase.from('tasks').select('source_rid').eq('case_id', caseId).in('source_rid', plan.map(p => p.source_rid))
+    const have = new Set(((existing ?? []) as { source_rid: string }[]).map(x => x.source_rid))
+    const rows = plan.filter(p => !have.has(p.source_rid)).map((p, i) => ({
+      case_id: caseId, task_kind: 'case', title: p.title, phase: '不動産', category: '不動産',
+      status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 80 + i,
+    }))
+    if (rows.length > 0) { const { error } = await supabase.from('tasks').insert(rows); if (error) showToast(`タスク生成に失敗: ${error.message}`, 'error'); else showToast(`${rows.length}件のタスクを作成しました`, 'success') }
+    setCreatingTasks(false); setTaskPromptMuni(null); onRefresh?.()
+  }
 
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
@@ -71,6 +101,8 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     setSub(name)
+    // まだこの市区町村のタスクが無ければ、作成を促すポップアップを出す。
+    if (!hasMuniTasks(name)) setTaskPromptMuni(name)
     onRefresh?.()
   }
 
@@ -172,6 +204,30 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         )
       })}
       </div>
+
+      {taskPromptMuni && (
+        <Modal
+          isOpen
+          onClose={() => setTaskPromptMuni(null)}
+          title={`${taskPromptMuni} のタスクを作成しますか？`}
+          maxWidth="max-w-md"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setTaskPromptMuni(null)} disabled={creatingTasks}>あとで</Button>
+              <Button variant="primary" onClick={() => createMuniTasks(taskPromptMuni, ['muni', 'houmu'])} loading={creatingTasks}>作成する</Button>
+            </>
+          }
+        >
+          <div className="space-y-2.5 text-[13px] text-gray-700">
+            <p>この市区町村の不動産調査タスクを作成します（各 請求＋読込）。既にあるものは作りません。</p>
+            <div className="rounded-lg border border-gray-200 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">市区町村役場</span><span>名寄帳・評価証明を請求／読込</span></div>
+              <div className="flex items-center gap-2"><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">法務局</span><span>登記・公図・地積を請求／読込</span></div>
+            </div>
+            <p className="text-[11.5px] text-gray-400">名寄帳で物件を洗い出してから、法務局で各物件の登記等を取得する流れです。</p>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
