@@ -36,6 +36,8 @@ type Props = {
   municipalityFilter?: string
   // 取得資料を1行足した後に呼ぶ（親が「この系統のタスク無ければ作成しますか？」を出す）
   onAfterAddRow?: () => void
+  // 初期生成後に事務が足す取得資料は承認ゲート対象（is_additional=true・タスクは承認後）
+  additionsNeedApproval?: boolean
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -47,7 +49,7 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false }: Props) {
   const supabase = createClient()
   const authUser = useAuth()
   const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // W-Check（自分以外）の記録者
@@ -136,10 +138,13 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (scope === 'municipality' || scope === 'property') init.scope = scope
     // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）＋請求先の既定値をセット
     if (municipalityFilter != null) { init.target_municipality = municipalityFilter; const o = officeDefault(municipalityFilter); if (o) init.request_to = o }
+    // 初期生成後に事務が足す＝承認ゲート対象（承認までタスクは作らない）
+    if (additionsNeedApproval) init.is_additional = true
     const { error } = await supabase.from('real_estate_acquisitions').insert(init)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
-    // この系統のタスクが無ければ親が作成ポップアップを出す
+    if (additionsNeedApproval) { showToast('追加取得資料を登録しました。取得物を選ぶと管理担当が承認できます。', 'success'); return }
+    // この系統のタスクが無ければ親が作成ポップアップを出す（承認要のときはパネル経由なので出さない）
     if (municipalityFilter) onAfterAddRow?.()
   }
 
@@ -200,6 +205,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {/* 取得物 */}
                   <td className="px-2 py-1.5">
                     <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
+                    {r.is_additional && !r.additional_approved_at && <div className="mt-0.5"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
                     {isRef
                       ? <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）</div>
                       : (!progressMode && meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>)}

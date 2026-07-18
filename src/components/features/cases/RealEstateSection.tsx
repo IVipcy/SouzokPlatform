@@ -5,9 +5,11 @@
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Check, Lock } from 'lucide-react'
+import { Plus, Check, Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
+import { ACQUISITION_ITEMS } from '@/lib/constants'
 import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
@@ -109,6 +111,49 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     setCreatingTasks(false); setTaskPrompt(null); onRefresh?.()
   }
 
+  // 追加取得資料の承認ゲート（migration 178。戸籍と同方式）。
+  // 初期生成後（案件に不動産タスクがある状態）に事務が取得資料を足すと承認待ちになり、
+  // 管理担当が承認したら、その資料の読込タスク（＋系統の請求タスクが無ければ）を作る。
+  const isManager = useIsManager()
+  const meId = useAuth()?.memberId ?? null
+  const hasAnyReTask = tasks.some(t => { const r = t.source_rid ?? ''; return r.startsWith('re-') || r.startsWith('re:') })
+  const additionsNeedApproval = !isManager && hasAnyReTask   // 事務が初期生成後に足す＝承認要
+  const pendingAcqs = acquisitions.filter(a => a.is_additional && !a.additional_approved_at)
+  // 取得資料の市区町村・系統・資料名を割り出す（承認時のタスク生成に使う）。
+  const acqTarget = (a: RealEstateAcquisitionRow): { muni: string; office: 'muni' | 'houmu'; res: string } | null => {
+    const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
+    if (!meta || meta.method === '参照') return null
+    const office: 'muni' | 'houmu' = meta.target === '物件' ? 'houmu' : 'muni'
+    let muni = (a.target_municipality ?? '').trim()
+    if (!muni && a.target_property_id) { const p = properties.find(x => x.id === a.target_property_id); if (p) muni = municipalityOf(p) }
+    return muni ? { muni, office, res: a.item_type as string } : null
+  }
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const approveAdditional = async (a: RealEstateAcquisitionRow) => {
+    setApprovingId(a.id)
+    await supabase.from('real_estate_acquisitions').update({ additional_approved_by: meId, additional_approved_at: new Date().toISOString() }).eq('id', a.id)
+    const t = acqTarget(a)
+    if (t) {
+      const plan: { source_rid: string; title: string; ext_data: Record<string, unknown> }[] = [
+        { source_rid: `re-${t.office}-read:${t.muni}:${t.res}`, title: `${t.res}を読込：${t.muni}`, ext_data: { ready_on_receipt: true } },
+      ]
+      // その系統の請求タスクがまだ無ければ一緒に作る（起点）。
+      if (!hasOfficeTask(t.muni, t.office)) {
+        plan.unshift(t.office === 'muni'
+          ? { source_rid: `re-muni:${t.muni}`, title: `名寄帳・評価証明を請求：${t.muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } }
+          : { source_rid: `re-houmu:${t.muni}`, title: `登記・公図・地積を請求：${t.muni}`, ext_data: { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' } })
+      }
+      const existing = new Set(tasks.map(x => x.source_rid).filter(Boolean) as string[])
+      const rows = plan.filter(p => !existing.has(p.source_rid)).map((p, i) => ({
+        case_id: caseId, task_kind: 'case', title: p.title, phase: '不動産', category: '不動産',
+        status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 80 + i,
+      }))
+      if (rows.length > 0) await supabase.from('tasks').insert(rows)
+    }
+    showToast('追加取得資料を承認しました', 'success')
+    setApprovingId(null); onRefresh?.()
+  }
+
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !municipalityOf(p))
@@ -168,6 +213,35 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
 
+      {/* 承認待ちの追加取得資料（案件全体）。管理担当が承認すると読込タスクを生成。 */}
+      {pendingAcqs.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800 mb-2">
+            <Lock className="w-3.5 h-3.5" />承認待ちの追加取得資料　{pendingAcqs.length}件
+          </div>
+          <div className="space-y-2">
+            {pendingAcqs.map(a => {
+              const t = acqTarget(a)
+              return (
+                <div key={a.id} className="bg-white border border-amber-200 rounded-md px-3 py-2 flex items-start gap-2 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-semibold text-gray-800">{a.item_type || '（取得物 未選択）'}{t ? ` ／ ${t.muni}` : ''}</div>
+                    <div className="text-[12px] text-gray-600 mt-0.5">理由：{a.additional_reason || <span className="text-gray-400">（未記入）</span>}</div>
+                  </div>
+                  {isManager ? (
+                    <button type="button" onClick={() => approveAdditional(a)} disabled={approvingId === a.id || !t} title={!t ? '取得物を選択すると承認できます' : ''} className="flex-none inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
+                      <ShieldCheck className="w-3.5 h-3.5" />追加OK（承認）
+                    </button>
+                  ) : (
+                    <span className="flex-none text-[11px] text-amber-700 self-center">管理担当の承認待ち</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* TOP（一覧）：確定済を集計した読み取り専用一覧 */}
       {sub === 'top' && (
         <div className="space-y-3.5">
@@ -225,7 +299,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へまとめて請求（請求は1件、読込は登記情報／公図／地積の資料ごと）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -233,7 +307,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
-              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
+              <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} scope="property" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAfterAddRow={() => promptIfMissing(muniKey, 'houmu')} />
             </div>
           </div>
         )

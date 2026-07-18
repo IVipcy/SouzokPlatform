@@ -739,6 +739,11 @@ export type RealEstateAcquisitionRow = {
   receipt_done_by: string | null
   request_check_by: string | null
   receipt_check_by: string | null
+  // 追加請求の承認ゲート（migration 178。戸籍と同方式）
+  is_additional: boolean
+  additional_reason: string | null
+  additional_approved_at: string | null
+  additional_approved_by: string | null
   sort_order: number
   created_at: string
   updated_at: string
