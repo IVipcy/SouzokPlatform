@@ -3,8 +3,9 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck, HelpCircle } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
+import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, Field, InlineSelect, InlineDate, InlineTextarea } from '@/components/ui/InlineFields'
@@ -348,6 +349,28 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           </div>
         </div>
       </div>
+
+      {/* 実務タブで作業する導線（構造化タスクのみ。B案：ヘッダー直下の全幅バナー） */}
+      {(() => {
+        if (!caseData || currentStatus === '完了' || isSystemTask) return null
+        const landing = resolveTaskLanding(task)
+        if (!landing) return null
+        return (
+          <div className="mb-5 flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-xl px-4 py-3">
+            <ArrowRightCircle className="w-6 h-6 text-brand-600 flex-none" strokeWidth={2} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-bold text-gray-900">このタスクの作業は実務タブで行います</div>
+              <div className="text-[12px] text-gray-500">前段を確認したら、{landing.label}の該当行で入力し、その場で完了できます</div>
+            </div>
+            <Link
+              href={taskLandingUrl(caseData.id, task.id, landing)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm flex-none"
+            >
+              <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}で作業する
+            </Link>
+          </div>
+        )
+      })()}
 
       {/* 3カラムレイアウト
           左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)

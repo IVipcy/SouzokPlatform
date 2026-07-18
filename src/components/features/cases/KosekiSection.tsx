@@ -3,7 +3,8 @@
 // 戸籍請求（実務）：TOP（進捗サマリー＋取得状況表＋相続相関図）＋左レール（請求単位タブ）。
 // 各請求はカード形式。費用（予算/返金/確定）＋ダブルチェック（自分以外）。追加請求は管理担当の承認ゲート。
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -35,7 +36,11 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const authUser = useAuth()
   const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // ダブルチェック記録者
   const memberId = useCurrentMember(null)
-  const [sub, setSub] = useState('top')            // 'top' | 対象者(人) | '__unset__'
+  // タスク詳細からの着地：?focus=戸籍請求ID。該当行の対象者レールを開き、行をハイライト。
+  const searchParams = useSearchParams()
+  const focusId = searchParams.get('focus')
+  const focusReq = focusId ? requests.find(r => r.id === focusId) : undefined
+  const [sub, setSub] = useState<string>(focusReq ? ((focusReq.target_person ?? '').trim() || '__unset__') : 'top')
   const [addOpen, setAddOpen] = useState(false)
   const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
@@ -296,6 +301,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     <tbody>
                       {personRequests.map((r, i) => (
                         <KosekiRow key={r.id} r={r} i={i} me={me} meId={memberId} isManager={isManager}
+                          highlight={r.id === focusId}
                           saveField={saveField} saveMany={saveMany}
                           onDelete={() => delRequest(r)} />
                       ))}
@@ -355,16 +361,19 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, meId, isManager, saveField, saveMany, onDelete }: {
+function KosekiRow({ r, i, me, meId, isManager, highlight = false, saveField, saveMany, onDelete }: {
   r: KosekiRequestRow
   i: number
   me: string
   meId: string | null
   isManager: boolean
+  highlight?: boolean
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
 }) {
+  const rowRef = useRef<HTMLTableRowElement | null>(null)
+  useEffect(() => { if (highlight && rowRef.current) rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [highlight])
   // 予定外の追加（要承認・未承認）は行を帯にして承認まで編集不可。
   if (r.is_additional && !r.additional_approved_at) {
     return (
@@ -383,7 +392,7 @@ function KosekiRow({ r, i, me, meId, isManager, saveField, saveMany, onDelete }:
   const isClient = r.acquirer === '依頼者'  // 依頼者取得＝請求日・費用・DCは依頼者負担
   const muted = <span className="text-[11px] text-gray-400">—</span>
   return (
-    <tr className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+    <tr ref={rowRef} className={`border-b border-gray-100 last:border-b-0 ${highlight ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
       <td className="px-2 py-1.5"><TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" /></td>
       <td className="px-2 py-1.5"><SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} /></td>
