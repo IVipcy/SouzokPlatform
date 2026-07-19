@@ -150,11 +150,15 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   mono?: boolean
   fullWidth?: boolean
   required?: boolean
-  action?: React.ReactNode  // ラベル横に置く補助ボタン（例: 「依頼者と同じ」自動入力）
+  // ラベル横に置く補助ボタン（例: 「依頼者と同じ」自動入力）。
+  // 関数を渡すと「現在の入力値」を受け取れる（例: 郵便番号→住所取得ボタンが入力中の値で有効化される）。
+  action?: React.ReactNode | ((current: string) => React.ReactNode)
   hint?: string             // 値の下に出す補助説明（例: 郵便番号で住所自動入力）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
+  // action に「現在の値」を渡す（編集中は draft、非編集時は保存値）。ボタン側が入力中の値で判定できる。
+  const renderAction = (current: string) => (typeof action === 'function' ? action(current) : action)
   const [saving, setSaving] = useState(false)
   const composingRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -193,7 +197,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="flex items-center gap-2 mb-1">
           <div className="text-[13px] font-medium text-slate-600">{label}</div>
-          {action}
+          {renderAction(draft)}
         </div>
         <input
           type="text"
@@ -216,7 +220,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
         <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
           {label}
         </div>
-        {action}
+        {renderAction(editing ? draft : (value ?? ''))}
       </div>
       {editing ? (
         <input

@@ -336,7 +336,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
                 value={caseData.deceased_postal_code}
                 onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))}
-                action={<PostalLookupButton zip={caseData.deceased_postal_code} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
+                action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
               />
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
               <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
