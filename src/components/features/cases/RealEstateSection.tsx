@@ -323,6 +323,20 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                     </tr>
                   ))}
                 </tbody>
+                {properties.length > 0 && (() => {
+                  const conf = properties.filter(p => p.confirmed)
+                  const confSum = conf.reduce((s, p) => s + (p.appraisal_value ?? 0), 0)
+                  const unconfSum = properties.filter(p => !p.confirmed).reduce((s, p) => s + (p.appraisal_value ?? 0), 0)
+                  return (
+                    <tfoot>
+                      <tr className="bg-gray-50 font-semibold text-gray-700">
+                        <td className="px-2.5 py-2 text-right" colSpan={3}>評価額 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
+                        <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
+                        <td className="px-2.5 py-2 text-center text-[11px] text-gray-500">{conf.length}/{properties.length}件</td>
+                      </tr>
+                    </tfoot>
+                  )
+                })()}
               </table>
             </div>
           </div>

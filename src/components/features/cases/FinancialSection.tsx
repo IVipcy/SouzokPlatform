@@ -38,6 +38,8 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
   const [sub, setSub] = useState<string>(() => (focus && assets.some(a => a.asset_type === kind && (a.institution_name ?? '').trim() === focus)) ? focus : 'top')
 
   const kindAssets = assets.filter(a => a.asset_type === kind)
+  // 金額列のラベル：証券は「評価額」、預貯金・信託は「残高」。
+  const balanceLabel = kind === '証券' ? '評価額' : '残高'
   // 金融機関ごとにグループ（空は「未設定」に集約）
   const institutions = [...new Set(kindAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = kindAssets.some(a => !(a.institution_name ?? '').trim())
@@ -91,7 +93,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                   <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                     <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-40">支店/銘柄</th>
-                    <th className="px-2.5 py-2 text-right font-semibold w-36">残高/評価額</th>
+                    <th className="px-2.5 py-2 text-right font-semibold w-36">{balanceLabel}</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-20">受信済</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
                   </tr>
@@ -117,6 +119,20 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                     </tr>
                   ))}
                 </tbody>
+                {kindAssets.length > 0 && (() => {
+                  const conf = kindAssets.filter(a => a.balance_confirmed)
+                  const confSum = conf.reduce((s, a) => s + (a.balance_amount ?? 0), 0)
+                  const unconfSum = kindAssets.filter(a => !a.balance_confirmed).reduce((s, a) => s + (a.balance_amount ?? 0), 0)
+                  return (
+                    <tfoot>
+                      <tr className="bg-gray-50 font-semibold text-gray-700">
+                        <td className="px-2.5 py-2 text-right" colSpan={2}>{balanceLabel} 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
+                        <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
+                        <td className="px-2.5 py-2 text-center text-[11px] text-gray-500" colSpan={2}>確定 {conf.length}/{kindAssets.length}件</td>
+                      </tr>
+                    </tfoot>
+                  )
+                })()}
               </table>
             </div>
           </div>
