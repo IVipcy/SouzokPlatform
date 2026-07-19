@@ -38,6 +38,8 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   const gyomu = stripPhase(task.phase)
   // 戸籍系タスク（追加請求など source_rid が無いもの）は、戸籍請求サブタブまでは寄せる。
   if (gyomu === '戸籍') return { tab: 'deceased', sub: 'koseki', label: '戸籍請求タブ' }
+  // 法定相続情報取得 → 相続人調査＞法定相続情報一覧図サブタブへ直接着地。
+  if (gyomu === '法定相続情報取得') return { tab: 'deceased', sub: 'family_tree', label: '法定相続情報一覧図' }
   const tab = GYOMU_TAB[gyomu]
   if (!tab) return null
   const label = tab === 'deceased' ? '相続人調査タブ' : tab === 'assets' ? '財産調査タブ' : `${gyomu}タブ`

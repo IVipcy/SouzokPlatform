@@ -22,7 +22,7 @@ export const WORK_CONTENT_PLACEHOLDERS: Record<string, string> = {
   will: '例）遺言の種別・内容の希望、付言事項、遺言執行者 など',
   registration: '例）対象物件・登記の種別、管轄法務局、登録免許税の見込み など',
   cancellation: '例）解約対象の口座、凍結状況、必要書類・注意点 など',
-  letter: '例）送付先・目的、文面の要点 など',
+  letter: '例）相続人ごとの送付先／送付日／内容（通知・案内文）、返信の有無 など',
   execution: '例）通知先・時期、注意点 など',
   contractCreate: '例）作成する契約書の種類、特約・注意点 など',
 }

@@ -195,7 +195,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           <FieldGrid>
             <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
             <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />
-            <InlineTextarea label="照会結果備考" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth />
+            <InlineTextarea label="照会結果・保険金メモ" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth placeholder="例）受取人／保険金額／請求日／入金日／課税区分（みなし相続財産）／協会照会の結果 など" />
           </FieldGrid>
         </div>
         {/* オーダーシート：証券/信託/生命保険が未表示なら追加ボタンで出す（優先度: 証券→信託→生命保険） */}

@@ -198,6 +198,12 @@ export type CaseRow = {
   life_insurance_amount: number | null
   life_insurance_inquiry: boolean
   life_insurance_inquiry_notes: string | null
+  // 法定相続情報一覧図（migration 180）
+  family_tree_apply_date: string | null
+  family_tree_obtain_date: string | null
+  family_tree_count: number | null
+  family_tree_office: string | null
+  family_tree_note: string | null
   // 被相続人追加
   deceased_has_special_chars: boolean
   // 被相続人年齢（相続ステーション連携で受信。生年月日と併存）
@@ -705,6 +711,8 @@ export type RealEstatePropertyRow = {
   appraisal_value: number | null                   // 評価額（migration 143。目録・精算書へ）
   survey_result: string | null                     // 調査結果（migration 146）
   registration_result: string | null               // 相続登記 実施結果（migration 146）
+  registration_acquirer: string | null              // 相続登記 取得者（相続人名。migration 180）
+  registration_share: string | null                 // 相続登記 持分（例: 1/2。migration 180）
   municipality: string | null                      // 都道府県＋市区町村（migration 147。タブのキー）
   confirmed: boolean                               // 確定済（管理担当のみ。TOP・目録へ反映。migration 147）
   confirmed_by: string | null

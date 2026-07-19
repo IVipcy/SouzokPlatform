@@ -302,18 +302,20 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                     <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
                     <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                     <th className="px-2.5 py-2 text-right font-semibold w-36">評価額</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
                   </tr>
                 </thead>
                 <tbody>
                   {properties.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
+                    <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
                   ) : properties.map((p, i) => (
                     <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                       <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
                       <td className="px-2.5 py-2">{p.property_type || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={p.survey_result ?? ''}>{p.survey_result || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 text-right">{yen(p.appraisal_value)}</td>
                       <td className="px-2.5 py-2 text-center">
                         {p.confirmed
@@ -330,7 +332,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                   return (
                     <tfoot>
                       <tr className="bg-gray-50 font-semibold text-gray-700">
-                        <td className="px-2.5 py-2 text-right" colSpan={3}>評価額 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
+                        <td className="px-2.5 py-2 text-right" colSpan={4}>評価額 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
                         <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
                         <td className="px-2.5 py-2 text-center text-[11px] text-gray-500">{conf.length}/{properties.length}件</td>
                       </tr>

@@ -63,17 +63,19 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                     <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                       <th className="px-2.5 py-2 text-left font-semibold w-36">市区町村</th>
                       <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
+                      <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-20">申請日</th>
                       <th className="px-2.5 py-2 text-right font-semibold w-28">登録免許税</th>
                     </tr>
                   </thead>
                   <tbody>
                     {properties.length === 0 ? (
-                      <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">財産調査タブで不動産を登録すると、ここで相続登記を管理できます。</td></tr>
+                      <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">財産調査タブで不動産を登録すると、ここで相続登記を管理できます。</td></tr>
                     ) : properties.map((p, i) => (
                       <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub(municipalityOf(p) || '__unset__')}>
                         <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={p.registration_result ?? ''}>{p.registration_result || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{p.registration_apply_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-right">{p.registration_cost != null ? `¥${Math.round(p.registration_cost).toLocaleString('ja-JP')}` : '—'}</td>
                       </tr>
@@ -81,7 +83,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-semibold text-gray-700">
-                      <td className="px-2.5 py-2 text-right" colSpan={3}>登録免許税 合計（立替実費の実績）</td>
+                      <td className="px-2.5 py-2 text-right" colSpan={4}>登録免許税 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{`¥${Math.round(costTotal).toLocaleString('ja-JP')}`}</td>
                     </tr>
                   </tfoot>
@@ -98,11 +100,13 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
               <div className="bg-white border border-gray-200 rounded-lg p-3.5">
                 <SectionHeading title="物件ごとの登記（1物件=1行）／全項目を直接編集（横スクロール）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
                 <div className="overflow-x-auto">
-                  <table className="text-[12px] border-collapse" style={{ minWidth: 1610, width: 'max-content' }}>
+                  <table className="text-[12px] border-collapse" style={{ minWidth: 1780, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                         <th className="px-2 py-2 text-left font-semibold w-20">種別</th>
                         <th className="px-2 py-2 text-left font-semibold w-44">所在地</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">取得者（相続人）</th>
+                        <th className="px-2 py-2 text-left font-semibold w-20">持分</th>
                         <th className="px-2 py-2 text-left font-semibold w-56">相続登記の種別</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">登記原因</th>
                         <th className="px-2 py-2 text-left font-semibold w-36">管轄法務局</th>
@@ -118,6 +122,8 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                         <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-2 py-1.5 text-gray-700">{p.property_type || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2 py-1.5 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-2 py-1.5"><TxtCell value={p.registration_acquirer} onCommit={v => saveField(p.id, 'registration_acquirer', v)} placeholder="相続人名" /></td>
+                          <td className="px-2 py-1.5"><TxtCell value={p.registration_share} onCommit={v => saveField(p.id, 'registration_share', v)} placeholder="例: 1/2" /></td>
                           <td className="px-2 py-1.5"><TypesCell value={p.registration_types} options={REGISTRATION_TYPES} onSave={v => saveField(p.id, 'registration_types', v.length ? v : null)} /></td>
                           <td className="px-2 py-1.5"><SelCell value={p.registration_cause} options={[...REGISTRATION_CAUSES]} onChange={v => saveField(p.id, 'registration_cause', v)} /></td>
                           <td className="px-2 py-1.5"><TxtCell value={p.registration_office} onCommit={v => saveField(p.id, 'registration_office', v)} placeholder="法務局" /></td>

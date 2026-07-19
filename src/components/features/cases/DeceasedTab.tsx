@@ -25,6 +25,9 @@ import {
   Section,
   FieldGrid,
   InlineEdit,
+  InlineDate,
+  InlineNumber,
+  InlineTextarea,
   InlineCheckbox,
   FormField,
 } from '@/components/ui/InlineFields'
@@ -57,9 +60,10 @@ type Props = {
   tasks?: TaskRow[]
 }
 
-const SUBTABS: { key: 'heirs' | 'koseki'; label: string }[] = [
+const SUBTABS: { key: 'heirs' | 'koseki' | 'family_tree'; label: string }[] = [
   { key: 'heirs', label: '相続人' },
   { key: 'koseki', label: '戸籍請求' },
+  { key: 'family_tree', label: '法定相続情報一覧図' },
 ]
 
 const RELATIONSHIP_OPTIONS = HEIR_RELATIONSHIPS
@@ -81,7 +85,7 @@ const emptyHeirForm = () => ({
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
   // アラート（追加戸籍請求の承認依頼）から ?sub=koseki で戸籍請求サブタブに直接遷移
   const searchParams = useSearchParams()
-  const [sub, setSub] = useState<'heirs' | 'koseki'>(searchParams.get('sub') === 'koseki' ? 'koseki' : 'heirs')
+  const [sub, setSub] = useState<'heirs' | 'koseki' | 'family_tree'>(() => { const s = searchParams.get('sub'); return s === 'koseki' ? 'koseki' : s === 'family_tree' ? 'family_tree' : 'heirs' })
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
@@ -91,7 +95,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   const diagramRef = useRef<HTMLDivElement>(null)
   const [savingDiagram, setSavingDiagram] = useState(false)
 
-  const saveCaseField = async (field: string, value: string | boolean | string[]) => {
+  const saveCaseField = async (field: string, value: string | boolean | string[] | number | null) => {
     await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
 
@@ -297,7 +301,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
       {/* 子タブ（相続人 / 戸籍請求）。オーダーシートではサブタブを廃止し、相続人→戸籍を縦積み表示。 */}
       {!orderSheetMode && (
-        <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki')} className="mb-3.5" />
+        <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'heirs' | 'koseki' | 'family_tree')} className="mb-3.5" />
       )}
 
       {!orderSheetMode && sub === 'koseki' && (
@@ -305,6 +309,19 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
           {/* 案件詳細（実務）：TOP＋左レール（請求単位）＋相関図 */}
           <KosekiSection caseId={caseData.id} caseData={caseData} requests={kosekiRequests} heirs={heirs} tasks={tasks} onRefresh={onRefresh} />
         </div>
+      )}
+
+      {!orderSheetMode && sub === 'family_tree' && (
+        <Section title="法定相続情報一覧図">
+          <p className="text-[11.5px] text-gray-400 mb-2.5">戸籍が揃ったら法務局に申出→認証付きの一覧図を取得。各銀行・法務局に戸籍の束の代わりに提出するので、必要な数だけ発行してもらう（枚数を管理）。</p>
+          <FieldGrid>
+            <InlineDate label="申出日" value={caseData.family_tree_apply_date} onSave={v => saveCaseField('family_tree_apply_date', v || null)} />
+            <InlineDate label="取得日" value={caseData.family_tree_obtain_date} onSave={v => saveCaseField('family_tree_obtain_date', v || null)} />
+            <InlineNumber label="必要枚数（通）" value={caseData.family_tree_count} onSave={v => saveCaseField('family_tree_count', v)} />
+            <InlineEdit label="提出先の法務局" value={caseData.family_tree_office} onSave={v => saveCaseField('family_tree_office', v)} />
+            <InlineTextarea label="認証番号・備考" value={caseData.family_tree_note} onSave={v => saveCaseField('family_tree_note', v)} fullWidth />
+          </FieldGrid>
+        </Section>
       )}
 
       {(orderSheetMode || sub === 'heirs') && (

@@ -68,11 +68,12 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                       <th className="px-2.5 py-2 text-left font-semibold w-24">解約予定日</th>
                       <th className="px-2.5 py-2 text-center font-semibold w-20">書類受領</th>
                       <th className="px-2.5 py-2 text-center font-semibold w-20">完了</th>
+                      <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">財産調査タブで金融機関を登録すると、ここで解約手続を管理できます。</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">財産調査タブで金融機関を登録すると、ここで解約手続を管理できます。</td></tr>
                     ) : rows.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.institution_name ?? '').trim() || '__unset__')}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{(r.institution_name ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
@@ -81,6 +82,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                         <td className="px-2.5 py-2">{r.cancellation_date || '—'}</td>
                         <td className="px-2.5 py-2 text-center">{r.cancellation_arrival_date ? <span className="text-emerald-600">受領</span> : <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2 text-center">{r.cancellation_done ? <span className="text-emerald-600">✓</span> : <span className="text-gray-300">—</span>}</td>
+                        <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={r.cancellation_result ?? ''}>{r.cancellation_result || <span className="text-gray-300">—</span>}</td>
                       </tr>
                     ))}
                   </tbody>

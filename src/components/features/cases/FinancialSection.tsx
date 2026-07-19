@@ -93,6 +93,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                   <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                     <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-40">支店/銘柄</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                     <th className="px-2.5 py-2 text-right font-semibold w-36">{balanceLabel}</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-20">受信済</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
@@ -100,11 +101,12 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                 </thead>
                 <tbody>
                   {kindAssets.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
+                    <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
                   ) : kindAssets.map((a, i) => (
                     <tr key={a.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                       <td className="px-2.5 py-2 font-medium text-gray-800">{(a.institution_name ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
                       <td className="px-2.5 py-2 text-gray-700">{a.branch_name || a.stock_name || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={a.survey_result ?? ''}>{a.survey_result || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 text-right">{yen(a.balance_amount)}</td>
                       <td className="px-2.5 py-2 text-center">
                         {a.arrival_date
@@ -126,7 +128,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                   return (
                     <tfoot>
                       <tr className="bg-gray-50 font-semibold text-gray-700">
-                        <td className="px-2.5 py-2 text-right" colSpan={2}>{balanceLabel} 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
+                        <td className="px-2.5 py-2 text-right" colSpan={3}>{balanceLabel} 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
                         <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
                         <td className="px-2.5 py-2 text-center text-[11px] text-gray-500" colSpan={2}>確定 {conf.length}/{kindAssets.length}件</td>
                       </tr>
