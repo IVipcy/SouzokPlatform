@@ -5,13 +5,12 @@ import { Trash2, Plus, ChevronRight, ChevronDown, Lock, Check } from 'lucide-rea
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
-import { PROPERTY_EVALUATION_METHODS } from '@/lib/constants'
+import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES } from '@/lib/constants'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
 import type { RealEstatePropertyRow } from '@/types'
 
-const PROPERTY_TYPES = ['戸建', 'マンション', '土地', '収益物件', 'その他']
 const REQ = ['要', '不要', '確認中']
 
 type Props = {

@@ -569,13 +569,17 @@ export const DISPATCH_DOCUMENT_NAMES = [
 export const INVESTIGATION_DOCUMENTS = ['委任状', '契約書'] as const
 
 // === 不動産: 物件区分 ===
+// 物件種別。土地・建物は登記簿・固定資産評価とも別々なので、土地/建物を別行で持てるよう先頭に置く。
+// 戸建（土地＋建物をまとめた類型）も残し、分けない運用も可能にする。
 export const PROPERTY_TYPES = [
+  '土地',
+  '建物',
   '戸建',
   'マンション',
-  '土地',
   '農地',
   '山林',
   '駐車場',
+  '収益物件',
   'その他',
 ] as const
 
