@@ -31,25 +31,48 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   const [income, setIncome] = useState<SettlementIncomeItemRow[]>([])
   const [expense, setExpense] = useState<SettlementExpenseItemRow[]>([])
   const [instr, setInstr] = useState<InstructionItemRow[]>([])
+  // 代理支払（到着物）＝「精算書作成」タスクに紐づいた受信簿アイテム。ここでチェック＋金額を入れて支出に入れる。
+  const [payItems, setPayItems] = useState<{ id: string; name: string; reflect: boolean; amount: number | null }[]>([])
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const [inc, exp, ins] = await Promise.all([
+      const [inc, exp, ins, rec] = await Promise.all([
         supabase.from('settlement_income_items').select('*').eq('case_id', caseData.id).order('sort_order'),
         supabase.from('settlement_expense_items').select('*').eq('case_id', caseData.id).order('sort_order'),
         supabase.from('instruction_items').select('*').eq('case_id', caseData.id).order('sort_order'),
+        supabase.from('document_receipts').select('items:document_receipt_items(id, item_name, settlement_reflect, settlement_amount, item_tasks:document_receipt_item_tasks(task:tasks(title)))').eq('case_id', caseData.id),
       ])
       if (!alive) return
       setIncome((inc.data ?? []) as SettlementIncomeItemRow[])
       setExpense((exp.data ?? []) as SettlementExpenseItemRow[])
       setInstr((ins.data ?? []) as InstructionItemRow[])
+      // 「精算書作成」タスクに紐づいたアイテムだけを代理支払候補にする（戸籍等は出ない）。
+      // ※Supabase の埋め込みリレーション（task）は配列で返ることがあるため両対応。
+      type RecTask = { title: string | null }
+      type RecItem = { id: string; item_name: string | null; settlement_reflect: boolean | null; settlement_amount: number | null; item_tasks: Array<{ task: RecTask | RecTask[] | null }> | null }
+      const items = ((rec.data ?? []) as unknown as Array<{ items: RecItem[] | null }>).flatMap(r => r.items ?? [])
+        .filter(it => (it.item_tasks ?? []).some(t => { const task = Array.isArray(t.task) ? t.task[0] : t.task; return task?.title === '精算書作成' }))
+        .map(it => ({ id: it.id, name: it.item_name ?? '請求書', reflect: it.settlement_reflect === true, amount: it.settlement_amount ?? null }))
+      setPayItems(items)
     })()
     return () => { alive = false }
   }, [caseData.id, supabase])
 
+  // 代理支払（到着物）の編集：チェック（含める）／金額。document_receipt_items を更新。
+  const setPayReflect = (id: string, reflect: boolean) => {
+    setPayItems(prev => prev.map(r => r.id === id ? { ...r, reflect } : r))
+    supabase.from('document_receipt_items').update({ settlement_reflect: reflect }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
+  }
+  const setPayAmount = (id: string, amount: number | null) => {
+    setPayItems(prev => prev.map(r => r.id === id ? { ...r, amount } : r))
+    supabase.from('document_receipt_items').update({ settlement_amount: amount }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
+  }
+  const payTotal = payItems.filter(r => r.reflect).reduce((s, r) => s + (r.amount ?? 0), 0)
+
   const incomeTotal = income.reduce((s, r) => s + (r.amount ?? 0), 0)
-  const expenseTotal = expense.reduce((s, r) => s + (r.amount ?? 0), 0)
+  // 旧・receipt由来（代理支払）は下の到着物一覧に移行済みなので支出合計から除外し、代わりに payTotal を足す。
+  const expenseTotal = expense.filter(r => r.source !== 'receipt').reduce((s, r) => s + (r.amount ?? 0), 0) + payTotal
   const remaining = incomeTotal - expenseTotal
 
   // ── 収入 ──
@@ -93,18 +116,14 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     const expGy = expRows.filter(r => r.shigyo === '行政').reduce((n, e) => n + (e.amount ?? 0), 0)
     if (expSh > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費（司法）', amount: expSh, source: 'expense', sort_order: order++ })
     if (expGy > 0) rows.push({ case_id: caseData.id, kind: '立替', label: '立替実費（行政）', amount: expGy, source: 'expense', sort_order: order++ })
-    // 受信簿で「精算書に反映」した代理支払（介護施設・葬儀費用等）
-    const rec = await supa.from('document_receipts').select('items:document_receipt_items(item_name, settlement_amount, settlement_reflect)').eq('case_id', caseData.id)
-    const payItems = ((rec.data ?? []) as Array<{ items: Array<{ item_name: string; settlement_amount: number | null; settlement_reflect: boolean }> | null }>)
-      .flatMap(r => r.items ?? []).filter(i => i.settlement_reflect)
-    for (const p of payItems) rows.push({ case_id: caseData.id, kind: '代理支払', label: p.item_name, amount: p.settlement_amount ?? 0, source: 'receipt', sort_order: order++ })
-    if (rows.length === 0) { showToast('取り込む報酬・立替・代理支払がありません', 'info'); return }
-    // 既存の reward/expense/receipt 由来は作り直す（重複防止。手動の代理支払は残す）
+    // ※代理支払（介護施設・葬儀費用等）は下の「代理支払（到着物から）」でチェック＋金額を入れる（ここでは取り込まない）。
+    if (rows.length === 0) { showToast('取り込む報酬・立替がありません', 'info'); return }
+    // 既存の reward/expense 由来は作り直す。旧・receipt由来（代理支払）は下の一覧に移行したので削除だけする（重複防止）。
     await supabase.from('settlement_expense_items').delete().eq('case_id', caseData.id).in('source', ['reward', 'expense', 'receipt'])
     const { data, error } = await supabase.from('settlement_expense_items').insert(rows).select('*')
     if (error) { showToast(`取込に失敗: ${error.message}`, 'error'); return }
     setExpense(prev => [...prev.filter(r => !['reward', 'expense', 'receipt'].includes(r.source ?? '')), ...((data ?? []) as SettlementExpenseItemRow[])])
-    showToast('請求タブ・受信簿から取り込みました', 'success')
+    showToast('請求タブから取り込みました', 'success')
   }
   const addExpense = async () => {
     const { data, error } = await supabase.from('settlement_expense_items').insert({ case_id: caseData.id, kind: '代理支払', source: 'manual', sort_order: expense.length }).select('*').single()
@@ -167,13 +186,13 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
         <Section title="支出（報酬・立替・代理支払）">
           <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={importExpense} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 請求・受信簿から取込</button>
-            <span className="text-[11px] text-gray-400">報酬・立替（請求タブ）＋代理支払（受信簿で精算反映した分）を取込</span>
+            <button type="button" onClick={importExpense} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 請求タブから取込</button>
+            <span className="text-[11px] text-gray-400">報酬・立替（請求タブ）を取込。代理支払は下の「到着物から」で入れます</span>
           </div>
           <table className="w-full text-[12px] border-collapse" style={{ minWidth: 560 }}>
             <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-24">区分</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 text-center font-medium w-20">振込済</th><th className="px-2 py-1.5 text-left font-medium w-40">備考</th><th className="px-2 py-1.5 w-7" /></tr></thead>
             <tbody>
-              {expense.length === 0 ? <tr><td colSpan={6} className="px-2 py-4 text-center text-gray-400">「請求タブから取込」または行を追加</td></tr> : expense.map(r => (
+              {expense.filter(r => r.source !== 'receipt').length === 0 ? <tr><td colSpan={6} className="px-2 py-4 text-center text-gray-400">「請求タブから取込」または行を追加</td></tr> : expense.filter(r => r.source !== 'receipt').map(r => (
                 <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
                   <td className="px-2 py-1.5"><select value={r.kind ?? ''} onChange={e => commitExpense(r.id, 'kind', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white">{['報酬', '立替', '代理支払'].map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                   <td className="px-2 py-1.5"><input type="text" defaultValue={r.label ?? ''} onBlur={e => commitExpense(r.id, 'label', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded" />{r.source && r.source !== 'manual' && <span className="text-[10px] text-brand-500 ml-1">連動</span>}</td>
@@ -184,9 +203,33 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
                 </tr>
               ))}
             </tbody>
-            <tfoot><tr className="border-t border-red-200 bg-red-50/30 font-semibold text-red-800"><td className="px-2 py-1.5" colSpan={2}>支出合計</td><td className="px-2 py-1.5 text-right tabular-nums">{yen(expenseTotal)}</td><td colSpan={3} /></tr></tfoot>
           </table>
           <button type="button" onClick={addExpense} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 行を追加</button>
+
+          {/* 代理支払（到着物から）＝「精算書作成」タスクに紐づいた受信簿アイテム。チェック＋金額で支出に入る。 */}
+          <div className="mt-4">
+            <div className="text-[12px] font-semibold text-gray-700 mb-1.5">代理支払（到着物から）<span className="text-[11px] font-normal text-gray-400 ml-1">「精算書作成」タスクに紐づいた請求書。チェック＋金額で支出に入ります</span></div>
+            {payItems.length === 0 ? (
+              <div className="text-[11.5px] text-gray-400 px-2 py-3 border border-dashed border-gray-200 rounded">到着物がありません。届いた請求書を受信簿で「精算書作成」タスクに紐づけると、ここに並びます。</div>
+            ) : (
+              <table className="w-full text-[12px] border-collapse" style={{ minWidth: 480 }}>
+                <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-center font-medium w-16">含める</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th></tr></thead>
+                <tbody>
+                  {payItems.map(p => (
+                    <tr key={p.id} className={`border-b border-gray-50 last:border-b-0 ${p.reflect ? '' : 'opacity-60'}`}>
+                      <td className="px-2 py-1.5 text-center"><input type="checkbox" checked={p.reflect} onChange={e => setPayReflect(p.id, e.target.checked)} className="w-4 h-4 accent-brand-600" /></td>
+                      <td className="px-2 py-1.5 text-gray-800">{p.name}</td>
+                      <td className="px-2 py-1.5"><MoneyInput value={p.amount} onCommit={v => setPayAmount(p.id, v === '' ? null : Number(v))} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-end gap-3 border-t border-red-200 pt-2 font-semibold text-red-800">
+            <span className="text-[13px]">支出合計</span><span className="text-[15px] tabular-nums">{yen(expenseTotal)}</span>
+          </div>
         </Section>
 
         <div className="flex items-center justify-end gap-3 px-4 py-3 rounded-xl border-2 border-brand-200 bg-brand-50/50">
