@@ -109,7 +109,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
-              <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
+              <th className="px-2.5 py-2 text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
               {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
@@ -280,6 +280,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
         )}
         <FieldBlock label="所在地">
           <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地" className={inputCls} />
+          <p className="mt-0.5 text-[11px] text-gray-400">名寄帳取得後に地番を要確認</p>
         </FieldBlock>
         <FieldBlock label="評価額">
           <MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} />
