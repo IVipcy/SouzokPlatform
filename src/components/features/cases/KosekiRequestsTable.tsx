@@ -26,8 +26,9 @@ type Props = {
   roles?: CaseRow['intake_roles']
   // 対象者の選択肢（被相続人＋相続人一覧）
   deceasedName?: string | null
-  // 被相続人の本籍（対象者=被相続人を選んだとき、請求先の自動入力に使う）
+  // 被相続人の本籍・住所（請求先の自動入力に使う。自社取得=本籍地／依頼者取得=住所地）
   deceasedRegisteredAddress?: string | null
+  deceasedAddress?: string | null
   heirs?: HeirRow[]
   // 受信簿＋タスク（受信トリガーで着手したタスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
@@ -41,7 +42,7 @@ type Props = {
  * 1行=1戸籍請求。請求先・対象者・種別・取得目的を主列に、請求理由・その他・特記は
  * 行展開で編集する。請求日・到着日は実務タブ（オーダーシート後）でのみ表示する。
  */
-export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, deceasedName, deceasedRegisteredAddress, heirs = [], receipts = [], contractDocs = [] }: Props) {
+export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, deceasedName, deceasedRegisteredAddress, deceasedAddress, heirs = [], receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
@@ -75,21 +76,38 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  // 対象者の本籍から請求先（◯◯役所）を割り出す。被相続人は deceasedRegisteredAddress、相続人は各自の本籍。
-  const officeOf = (name: string): string | null => {
+  // 請求先の元になる住所：自社取得＝本籍地に職務上請求／依頼者取得＝広域交付で住所地の役所に請求。
+  const addrForOffice = (name: string, acquirer: string | null | undefined): string | null => {
     if (!name) return null
-    const addr = name === deceasedName ? deceasedRegisteredAddress : (heirs.find(h => h.name === name)?.registered_address ?? null)
-    return kosekiOfficeFromAddress(addr)
+    const isClient = acquirer === '依頼者'
+    if (name === deceasedName) return (isClient ? deceasedAddress : deceasedRegisteredAddress) ?? null
+    const h = heirs.find(x => x.name === name)
+    return (isClient ? h?.address : h?.registered_address) ?? null
   }
-  // 対象者を選んだら、その人の本籍の市区町村役所を請求先へ自動入力（請求先が空のときだけ。手入力は上書きしない）。
-  const pickTarget = async (r: KosekiRequestRow, name: string) => {
-    const office = officeOf(name)
-    const autofill = !!office && !(r.request_to ?? '').trim()
-    setRows(prev => prev.map(x => (x.id === r.id ? { ...x, target_person: name || null, ...(autofill ? { request_to: office } : {}) } as KosekiRequestRow : x)))
-    const { error } = await supabase.from('koseki_requests')
-      .update({ target_person: name || null, ...(autofill ? { request_to: office } : {}) })
-      .eq('id', r.id)
+  const officeOf = (name: string, acquirer: string | null | undefined): string | null => kosekiOfficeFromAddress(addrForOffice(name, acquirer))
+  // 現在の請求先が「自動入力された値」か（空、またはその対象者の本籍/住所いずれかの役所と一致）。手入力は上書きしない判定に使う。
+  const isAutoRequestTo = (cur: string | null | undefined, name: string | null | undefined): boolean => {
+    const c = (cur ?? '').trim()
+    if (c === '') return true
+    if (!name) return false
+    return c === officeOf(name, '自社') || c === officeOf(name, '依頼者')
+  }
+  const applyPatch = async (r: KosekiRequestRow, patch: Partial<KosekiRequestRow>) => {
+    setRows(prev => prev.map(x => (x.id === r.id ? { ...x, ...patch } as KosekiRequestRow : x)))
+    const { error } = await supabase.from('koseki_requests').update(patch).eq('id', r.id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+  }
+  // 対象者を選んだら、取得区分に応じた市区町村役所を請求先へ自動入力（空 or 自動入力済みのときだけ。手入力は上書きしない）。
+  const pickTarget = async (r: KosekiRequestRow, name: string) => {
+    const auto = isAutoRequestTo(r.request_to, r.target_person)
+    const office = name ? officeOf(name, r.acquirer ?? '自社') : null
+    await applyPatch(r, { target_person: (name || null) as KosekiRequestRow['target_person'], ...(auto && office ? { request_to: office } : {}) })
+  }
+  // 取得区分を変えたら請求先の元（本籍⇄住所）が変わるので、自動入力済みなら請求先も入れ替える。
+  const pickAcquirer = async (r: KosekiRequestRow, acquirer: string) => {
+    const auto = isAutoRequestTo(r.request_to, r.target_person)
+    const office = r.target_person ? officeOf(r.target_person, acquirer) : null
+    await applyPatch(r, { acquirer, ...(auto && office ? { request_to: office } : {}) })
   }
 
   const addRow = async () => {
@@ -145,7 +163,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                 <Row key={r.id} r={r} odd={i % 2 === 1} progressMode={progressMode}
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
-                  setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)}
+                  setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)}
                   onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} receiptFiles={receiptFilesFor(receipts, 'koseki', r.id)} />
               ))
             ) : (
@@ -161,7 +179,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</div>
         ) : (
           rows.map(r => (
-            <KosekiCard key={r.id} r={r} progressMode={progressMode} setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onDelete={() => delRow(r)} targetOptions={targetOptions} />
+            <KosekiCard key={r.id} r={r} progressMode={progressMode} setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)} onDelete={() => delRow(r)} targetOptions={targetOptions} />
           ))
         )}
       </div>
@@ -172,6 +190,9 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
         </button>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
+        請求先は対象者を選ぶと自動入力します（自社取得＝本籍地に職務上請求／依頼者取得＝広域交付で住所地の役所）。手入力で上書きも可能です。
+      </p>
+      <p className="mt-1 text-[11px] text-gray-400">
         取得区分「依頼者取得」は、依頼者が取得して送付→「書類受信簿」で受信すると到着日が入り受信済になります。
         {progressMode ? '自社取得は請求日→到着日で管理します。' : ''}
       </p>
@@ -179,7 +200,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -189,6 +210,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   commit: (id: string, field: keyof KosekiRequestRow, value: string) => void
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   onPickTarget: (value: string) => void
+  onPickAcquirer: (value: string) => void
   onDelete: () => void
   colCount: number
   targetOptions: string[]
@@ -208,7 +230,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <td className="px-2.5 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></td>
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
-        <AcquirerCell value={r.acquirer} onSave={v => saveField(r.id, 'acquirer', v)} />
+        <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
         {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
         {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
         {progressMode && <ReceivedCell received={!!r.arrival_date} />}
@@ -250,13 +272,14 @@ function KFieldBlock({ label, children }: { label: string; children: React.React
   return <div><div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>{children}</div>
 }
 
-function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget, onDelete, targetOptions }: {
+function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onDelete, targetOptions }: {
   r: KosekiRequestRow
   progressMode: boolean
   setLocal: (id: string, field: keyof KosekiRequestRow, value: string) => void
   commit: (id: string, field: keyof KosekiRequestRow, value: string) => void
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   onPickTarget: (value: string) => void
+  onPickAcquirer: (value: string) => void
   onDelete: () => void
   targetOptions: string[]
 }) {
@@ -279,7 +302,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
             </select>
           </KFieldBlock>
           <KFieldBlock label="取得区分">
-            <select value={r.acquirer ?? '自社'} onChange={e => saveField(r.id, 'acquirer', e.target.value)} className={selectCls}>
+            <select value={r.acquirer ?? '自社'} onChange={e => onPickAcquirer(e.target.value)} className={selectCls}>
               {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
             </select>
           </KFieldBlock>

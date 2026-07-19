@@ -591,7 +591,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {orderSheetMode && (
         <div className="mt-3.5">
           <Section title="戸籍請求一覧" icon="🗂️">
-            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} deceasedRegisteredAddress={caseData.deceased_registered_address} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
+            <KosekiRequestsTable caseId={caseData.id} requests={kosekiRequests} onRefresh={onRefresh} orderSheetMode roles={caseData.intake_roles ?? []} deceasedName={caseData.deceased_name} deceasedRegisteredAddress={caseData.deceased_registered_address} deceasedAddress={caseData.deceased_address} heirs={heirs} receipts={documentReceipts} tasks={tasks} contractDocs={contractDocuments.filter(d => d.category === '戸籍')} />
           </Section>
         </div>
       )}
