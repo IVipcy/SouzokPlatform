@@ -283,7 +283,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   return (
     <div>
-      {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人の確定と、戸籍請求の管理" />}
+      {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人を確定し、戸籍の請求を進めます。" />}
       {!orderSheetMode && (
         <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
           <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
@@ -350,7 +350,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </div>
               <InlineEdit
                 label="被相続人郵便番号"
-                hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
+                hint="郵便番号7桁を入れて「住所を取得」を押すと住所が入ります（番地・建物は自分で足してください）"
                 value={caseData.deceased_postal_code}
                 onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))}
                 action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}

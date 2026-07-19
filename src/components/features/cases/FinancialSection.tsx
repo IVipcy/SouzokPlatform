@@ -86,7 +86,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
         {/* TOP（一覧）：この種別の全口座を確定済バッジ付きで集計（読み取り専用） */}
         {sub === 'top' && (
           <div>
-            <SectionHeading title="口座一覧（各金融機関の集計）" hint="財産目録へ反映されるのは「確定済」の口座のみです。残高の入力・確定は各金融機関タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading title="口座一覧（各金融機関の集計）" hint="財産目録に載るのは「確定済」の口座だけです。残高の入力と確定は、各金融機関タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 680 }}>
                 <thead>
@@ -158,7 +158,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
               })()}
               <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${instKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
               <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-                <SectionHeading title="口座一覧（残高の入力・確定）" hint="各項目は横スクロールで表示し、その場で直接編集できます。財産目録へ反映されるのは確定済の口座のみです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                <SectionHeading title="口座一覧（残高の入力・確定）" hint="各項目は横スクロールで見られます。表の上で直接編集できます。財産目録に載るのは確定済の口座だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
                 <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={instKey} showConfirmed />
               </div>
             </div>

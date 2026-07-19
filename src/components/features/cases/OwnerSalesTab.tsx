@@ -24,7 +24,7 @@ export default function OwnerSalesTab({ caseData, patchCase }: Props) {
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="案件管理" description="案件番号・保管場所・受注日などの基本情報（担当者は上部ヘッダーで管理）" />
+      <TabHeader title="案件管理" description="案件番号・保管場所・受注日などの基本情報です（担当者は上のヘッダーで設定）。" />
 
       {/* 案件情報（被相続人情報・手続詳細はオーダーシートで入力） */}
       <Section title="案件情報">

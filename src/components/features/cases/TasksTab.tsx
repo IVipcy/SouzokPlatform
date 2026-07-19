@@ -191,7 +191,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     <div className="space-y-3.5">
       <TabHeader
         title="タスク"
-        description="案件のタスク（事務管理・受注/管理担当）の進捗管理"
+        description="この案件のタスク（事務管理・受注／管理担当）の進み具合を見ます。"
         right={
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" leftIcon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onBulkGenerate}>

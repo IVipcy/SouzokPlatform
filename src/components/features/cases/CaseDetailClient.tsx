@@ -419,7 +419,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <FreeWorkTab caseData={caseState} gyomu="execution" title="執行通知" patchCase={patchCase} />
       )}
       {effectiveTab === 'contractCreate' && (
-        <FreeWorkTab caseData={caseState} gyomu="contractCreate" title="契約書作成" description="契約書の作成作業を管理します（残手続きとは別。詳細な管理項目は今後追加予定）" patchCase={patchCase} />
+        <FreeWorkTab caseData={caseState} gyomu="contractCreate" title="契約書作成" description="契約書を作る作業です（残手続きとは別。項目は今後増やします）。" patchCase={patchCase} />
       )}
       {effectiveTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCaseFromMeeting} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />

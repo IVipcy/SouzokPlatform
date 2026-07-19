@@ -71,7 +71,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
             <InlineEdit
               label="郵便番号"
               value={client.postal_code}
-              hint="7桁を入力→「住所を取得」で住所欄に反映（番地・建物は追記）"
+              hint="郵便番号7桁を入れて「住所を取得」を押すと住所が入ります（番地・建物は自分で足してください）"
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
               action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
             />
@@ -180,7 +180,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
   // 案件詳細の依頼者連絡タブ：やり取り履歴のみ（依頼者情報はオーダーシートに集約）
   return (
     <div className="space-y-3.5">
-      <TabHeader title="依頼者連絡" description="依頼者との連絡・やり取り履歴の管理（依頼者情報はオーダーシートで入力）" />
+      <TabHeader title="依頼者連絡" description="依頼者とのやり取りをここに記録します（依頼者の基本情報はオーダーシートで入力）。" />
       <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
     </div>
   )

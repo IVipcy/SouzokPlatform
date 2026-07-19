@@ -84,7 +84,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="案件進捗" description="案件全体のステータス・進捗・タスク・受信・履歴の俯瞰" />
+      <TabHeader title="案件進捗" description="この案件の今の状況・進み具合・タスク・届いた物・履歴をまとめて見られます。" />
       <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'history')} />
 
       {sub === 'progress' && (

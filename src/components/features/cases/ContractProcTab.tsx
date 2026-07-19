@@ -23,10 +23,10 @@ type Props = {
 export default function ContractProcTab({ caseId, contractDocuments, documentReceipts = [], onRefresh }: Props) {
   return (
     <div className="space-y-3.5">
-      <TabHeader title="契約手続き" description="契約関連書類（契約書・委任状・本人確認・印鑑証明等）の受領管理" />
+      <TabHeader title="契約手続き" description="契約書・委任状・本人確認・印鑑証明など、契約に関わる書類を受け取ったか確認します。" />
       <Section title="契約書類の受領状況">
         <div className="flex items-start justify-between gap-3 mb-2">
-          <p className="text-[12px] text-gray-400">契約関連書類を、いつお客様から受け取るかを管理します。書類受信簿で受信すると到着日が入り「受信済」になります。<span className="text-brand-600 font-semibold">未受信の書類が残っていると作業進行中に進めません。</span>ファイルは案件フォルダに集約します（個別添付は廃止）。</p>
+          <p className="text-[12px] text-gray-400">契約に関わる書類を、いつお客様から受け取るかをここで確認します。書類受信簿で受信すると到着日が入り「受信済」になります。<span className="text-brand-600 font-semibold">受け取っていない書類が残っていると、作業を先に進められません。</span>ファイルは案件フォルダにまとめます。</p>
           <Link href={`/cases/${caseId}?tab=docs`} className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100">
             <Folder className="w-3.5 h-3.5" />案件フォルダを開く
           </Link>

@@ -169,7 +169,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && (
-        <TabHeader title="請求" description="請求料金内訳（司法/行政）・立替実費・請求書の発行・入金確認の管理"
+        <TabHeader title="請求" description="請求料金の内訳（司法／行政）・立替実費・請求書の発行・入金の確認をここで行います。"
           right={
             <div className="flex items-center gap-2">
               {!canBill && <span className="text-[11px] text-gray-400">受注（戻り受注含む）以降で発行できます</span>}
@@ -282,7 +282,7 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
               <div className="mt-3 pt-3 border-t border-rose-100">
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <span className="text-[12px] font-bold text-rose-700">返金（請求タブで記録）</span>
-                  <HintTip text="実際の受領額はこの分だけ減ります（売上集計への反映は別途）。" />
+                  <HintTip text="この分だけ実際の受取額が減ります（売上への反映は別で行います）。" />
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
                   <span className="text-[13px]"><span className="text-gray-500">返金額合計</span> <span className="font-mono font-bold text-rose-600">▲{yen(refund.total)}</span></span>

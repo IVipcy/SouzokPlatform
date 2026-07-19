@@ -190,7 +190,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   if (mode === 'folder') {
     return (
       <div className="space-y-3.5">
-        <TabHeader title="案件フォルダ" description="書類一式のアップロード・AI作成書類の管理" />
+        <TabHeader title="案件フォルダ" description="書類一式のアップロードと、AIで作った書類をここにまとめます。" />
 
         <CaseFolderSection caseId={caseData.id} files={caseFiles} aiDocs={aiDocs} pendingItems={pendingItems} currentMemberId={currentMemberId} onRefresh={() => router.refresh()} />
 
@@ -209,7 +209,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   // 到着物一覧（受信簿）タブ
   return (
     <div className="space-y-3.5">
-      <TabHeader title="到着物" description="受信簿に登録された到着物（受領台帳）とタスク紐づけの管理" />
+      <TabHeader title="到着物" description="受信簿に登録された到着物の一覧です。どのタスクで使うかをここで結び付けます。" />
 
       <Section title="到着物一覧（受信簿）">
         {/* フィルタ（タスク紐づけ系＋ファイルアップ系の2系統） */}
@@ -551,7 +551,7 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
             placeholder="例: 戸籍内容の確認・整理"
             className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-400"
           />
-          <p className="text-[10px] text-gray-400 mt-1">新規タスクは status=着手前 で作成されます。</p>
+          <p className="text-[10px] text-gray-400 mt-1">新しく作るタスクは「着手前」の状態ではじまります。</p>
         </div>
 
         <Link href={`/cases/${caseId}?tab=tasks`} className="inline-flex items-center gap-1 text-[11px] text-brand-600 hover:underline">

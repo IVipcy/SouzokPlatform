@@ -86,7 +86,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="面談情報" description="案件・面談・被相続人の基本情報と、面談時に聴取した内容の管理" />
+      <TabHeader title="面談情報" description="案件・面談・被相続人の基本情報と、面談で聞き取った内容をここに書きます。" />
 
       {/* 面談結果（報告書式の項目をそのまま） */}
       <Section title="面談結果">

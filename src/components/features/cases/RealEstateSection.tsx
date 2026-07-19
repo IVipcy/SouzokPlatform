@@ -294,7 +294,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       {sub === 'top' && (
         <div className="space-y-3.5">
           <div>
-            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="財産目録へ反映されるのは「確定済」の物件のみです。評価額の入力・確定は各市区町村タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="財産目録に載るのは「確定済」の物件だけです。評価額の入力と確定は、各市区町村タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
                 <thead>
@@ -364,7 +364,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             </div>
             {/* 作業順に並べる：① 請求（洗い出し）→ 物件を登録 → ② 請求（取得）。各表は枠付きカードで区切る。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
-              <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の起点。名寄帳でこの市区町村の物件を洗い出します（私道・持分も拾える）。評価証明・名寄帳は市区町村役場へ請求（市区町村単位）。小為替の費用（予算/返金/確定）を管理します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の出発点です。名寄帳でこの市区町村にある物件を洗い出します（私道・持分も拾えます）。評価証明・名寄帳は市区町村役場へ請求します（市区町村ごと）。小為替の費用（予算／返金／確定）もここで記録します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
@@ -372,11 +372,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記等が揃ったら評価額を入れて確定してください。財産目録へ反映されるのは確定済の物件のみです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
-              <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出し→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取得。登記情報等は法務局へまとめて請求（請求・読込とも市区町村ごと1件。資料別の到着日は下の表で管理）。路線価は参照（請求や日付なし）です。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出す→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取ります。登記情報などは法務局へまとめて請求します（請求・読込とも市区町村ごと1件。資料ごとの到着日は下の表に入れます）。路線価は見るだけ（請求も日付もありません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
                 const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null

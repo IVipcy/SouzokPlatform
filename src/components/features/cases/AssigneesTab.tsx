@@ -24,7 +24,7 @@ export default function AssigneesTab({ caseData, caseMembers, allMembers, onRefr
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="担当者" description="受注担当・管理担当の割り振り（ヘッダーには表示のみ）" />
+      <TabHeader title="担当者" description="この案件の受注担当・管理担当を決めます（上のヘッダーは表示だけ）。" />
       <Section title="担当者">
         <FieldGrid>
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />

@@ -251,7 +251,7 @@ function ImportModal({ items, importing, onClose, onSetShigyo, onToggleTaxable, 
   return (
     <Modal isOpen onClose={onClose} title="立替実費の取り込み">
       <div className="space-y-3">
-        <p className="text-[12px] text-gray-500 leading-relaxed">課税/非課税は名目からシステムが自動判定します。<span className="font-semibold text-gray-700">司法・行政の振り分けだけ</span>選んでください（前回の選択は保持されます）。</p>
+        <p className="text-[12px] text-gray-500 leading-relaxed">課税／非課税は名目から自動で決まります。<span className="font-semibold text-gray-700">司法・行政の振り分けだけ</span>選んでください（前回選んだ内容は残ります）。</p>
         <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
           <span className="text-[12px] text-gray-500">一括:</span>
           {SHIGYO.map(s => (

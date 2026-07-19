@@ -132,7 +132,7 @@ export default function MailingConfirmationModal({ isOpen, onClose, caseData, co
       }
     >
       <div className="space-y-4">
-        <ListEditor label="ご返送書類一覧" hint="お客様に返送してもらう書類（契約残手続きから初期表示）" list={returnDocs} ops={ret} />
+        <ListEditor label="ご返送書類一覧" hint="お客様に返送してもらう書類です（契約残手続きの内容が最初に入ります）" list={returnDocs} ops={ret} />
         <ListEditor label="送付書類一覧" hint="こちらから送る書類（任意）" list={sendDocs} ops={snd} />
         <div className="grid grid-cols-2 gap-3">
           <div>

@@ -19,7 +19,7 @@ type Props = {
 export default function DocumentCreateTab({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], onRefresh }: Props) {
   return (
     <div className="space-y-3.5">
-      <TabHeader title="書類作成" description="戸籍請求書・委任状・契約書・領収書など、自社で作成する書類の生成。作成したファイルは「案件フォルダ」のAI作成タブに表示されます。" />
+      <TabHeader title="書類作成" description="戸籍請求書・委任状・契約書・領収書など、自社で作る書類をここで作れます。作った書類は「案件フォルダ」のAI作成タブに入ります。" />
       <DocumentGenerators
         caseData={caseData}
         tasks={tasks}
