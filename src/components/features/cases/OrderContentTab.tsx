@@ -75,7 +75,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     }
 
     const removed = selectedKeys.filter(k => !newKeys.includes(k))
-    if (removed.length > 0 && !confirm('受注区分を外すと、その区分の業務が役割分担から消えます。よろしいですか？')) return
+    if (removed.length > 0 && !confirm('受注区分を外すと、その区分の実務タブ／セクションが表示されなくなります（入力済みのデータは削除されません）。よろしいですか？')) return
 
     // 並行進行モデル：順序だけ持つフラットな配列に作り直す（status は使わないが互換のため進行中固定）。
     const nextParts: ServicePart[] = buildParts(newKeys)
