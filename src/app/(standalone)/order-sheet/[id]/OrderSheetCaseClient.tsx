@@ -47,9 +47,12 @@ export default function OrderSheetCaseClient({ caseData, ...rest }: Props) {
 
   const patchClient = async (patch: Record<string, unknown>) => {
     if (!caseData.client_id) return
+    // 楽観更新：caseState.clients にも反映する。router.refresh() は client state を保持するため
+    // caseState を更新しないと、住所取得など「プログラムで入れた値」が画面に反映されずブランクに見える。
+    const prev = caseState.clients
+    setCaseState(c => ({ ...c, clients: c.clients ? { ...c.clients, ...patch } as typeof c.clients : c.clients }))
     const { error } = await supabase.from('clients').update(patch).eq('id', caseData.client_id)
-    if (error) throw new Error(error.message)
-    router.refresh()
+    if (error) { setCaseState(c => ({ ...c, clients: prev })); throw new Error(error.message) }
   }
 
   const onRefresh = () => router.refresh()
