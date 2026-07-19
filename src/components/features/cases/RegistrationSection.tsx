@@ -123,7 +123,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                           <td className="px-2 py-1.5 text-gray-700">{p.property_type || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2 py-1.5 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2 py-1.5"><TxtCell value={p.registration_acquirer} onCommit={v => saveField(p.id, 'registration_acquirer', v)} placeholder="相続人名" /></td>
-                          <td className="px-2 py-1.5"><TxtCell value={p.registration_share} onCommit={v => saveField(p.id, 'registration_share', v)} placeholder="例: 1/2" /></td>
+                          <td className="px-2 py-1.5"><ShareCell key={p.registration_share ?? 'empty'} value={p.registration_share} onSave={v => saveField(p.id, 'registration_share', v)} /></td>
                           <td className="px-2 py-1.5"><TypesCell value={p.registration_types} options={REGISTRATION_TYPES} onSave={v => saveField(p.id, 'registration_types', v.length ? v : null)} /></td>
                           <td className="px-2 py-1.5"><SelCell value={p.registration_cause} options={[...REGISTRATION_CAUSES]} onChange={v => saveField(p.id, 'registration_cause', v)} /></td>
                           <td className="px-2 py-1.5"><TxtCell value={p.registration_office} onCommit={v => saveField(p.id, 'registration_office', v)} placeholder="法務局" /></td>
@@ -165,6 +165,32 @@ function TypesCell({ value, options, onSave }: { value: string[] | null; options
           <button type="button" onClick={() => setOpen(false)} className="ml-auto px-1.5 py-0.5 text-[11px] text-gray-400 hover:text-gray-600">閉じる</button>
         </div>
       )}
+    </div>
+  )
+}
+
+// 持分の入力補助：分子／分母の2枠＋「全部（単独相続）」。保存値は "1/2" or "全部"（フリー列と互換）。
+function ShareCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
+  const parsed = (value ?? '').trim()
+  const m = parsed.match(/^(\d+)\s*\/\s*(\d+)$/)
+  const [whole, setWhole] = useState(parsed === '全部')
+  const [num, setNum] = useState(m ? m[1] : '')
+  const [den, setDen] = useState(m ? m[2] : '')
+  const commit = (w: boolean, n: string, d: string) => { onSave(w ? '全部' : (n && d ? `${n}/${d}` : '')) }
+  if (whole) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200">全部</span>
+        <button type="button" onClick={() => { setWhole(false); commit(false, num, den) }} title="共有に戻す" className="text-gray-300 hover:text-gray-500 text-[12px]">✕</button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-0.5">
+      <input type="number" min="1" value={num} onChange={e => setNum(e.target.value)} onBlur={() => commit(false, num, den)} placeholder="分子" className="w-9 px-1 py-1 text-[12px] text-center bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+      <span className="text-gray-400">/</span>
+      <input type="number" min="1" value={den} onChange={e => setDen(e.target.value)} onBlur={() => commit(false, num, den)} placeholder="分母" className="w-9 px-1 py-1 text-[12px] text-center bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+      <button type="button" onClick={() => { setWhole(true); commit(true, num, den) }} title="単独相続（全部取得）" className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 whitespace-nowrap">全部</button>
     </div>
   )
 }
