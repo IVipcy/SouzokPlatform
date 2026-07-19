@@ -21,6 +21,7 @@ import PrevTaskReviewSection from './PrevTaskReviewSection'
 import TaskCreatedDocsSection from './TaskCreatedDocsSection'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { useIsManager } from '@/components/providers/AuthProvider'
 import type { TaskRow, MemberRow, CaseRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
@@ -64,6 +65,8 @@ const normalizeStatus = (status: string) => {
 export default function TaskDetailClient({ task, allMembers, documents, createdDocuments = [], activities, currentMemberId: serverMemberId, dependencies = [], caseTasks = [], taskTemplates = [], heirs = [], properties = [], contractDocuments = [], financeFreezeBlocked = false }: Props) {
   const router = useRouter()
   const currentMemberId = useCurrentMember(serverMemberId)
+  const isManager = useIsManager()
+  const [reverting, setReverting] = useState(false)
   const caseData = task.cases
   const clientData = caseData?.clients
 
@@ -162,6 +165,30 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
       setAdvancing(false)
     }
   }, [advancing, currentMemberId, currentStatus, task, router, financeFreezeBlocked])
+
+  // ステータスを1段戻す（押し間違いの訂正用）。対応中→着手前（着手記録も消す）／完了→対応中。
+  // 差戻しワークフローではなく単なる訂正。本人または管理担当のみ。理由・通知なし。
+  const canRevert = isManager || (!!task.started_by && task.started_by === currentMemberId)
+  const handleRevert = useCallback(async () => {
+    if (reverting) return
+    const to = currentStatus === '完了' ? '対応中' : '着手前'
+    if (!window.confirm(`このタスクを「${to}」に戻しますか？（押し間違いの訂正用）`)) return
+    setReverting(true)
+    try {
+      const supabase = createClient()
+      const updates: Record<string, unknown> = { status: to }
+      if (to === '着手前') { updates.started_by = null; updates.started_at = null }
+      if (to === '対応中') { updates.completed_at = null }
+      const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+      if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
+      showToast(`「${to}」に戻しました`)
+      router.refresh()
+    } catch {
+      showToast('通信エラーが発生しました', 'error')
+    } finally {
+      setReverting(false)
+    }
+  }, [reverting, currentStatus, task, router])
 
   // ─── 着手者情報 ───
   const startedMember = task.started_by ? allMembers.find(m => m.id === task.started_by) ?? task.started_by_member : null
@@ -269,14 +296,20 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />}
                     {advancing ? '処理中...' : '完了にする'}
                   </button>
-                  <span className="text-[12px] text-gray-400 mt-0.5">完了条件を満たしたら押す</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[12px] text-gray-400">完了条件を満たしたら押す</span>
+                    {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
+                  </div>
                 </div>
               )}
               {currentStatus === '完了' && (
-                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold text-green-700 bg-green-50 border border-green-200">
-                  <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-                  完了
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold text-green-700 bg-green-50 border border-green-200">
+                    <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
+                    完了
+                  </span>
+                  {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">対応中に戻す</button>}
+                </div>
               )}
               {/* 管理担当にヘルプ（systemタスクでは出さない）。ステータスの左に配置 */}
               {!isSystemTask && (
