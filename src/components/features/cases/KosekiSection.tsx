@@ -335,8 +335,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   <table className="text-[12px] border-collapse" style={{ minWidth: 1660, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
-                        <th className="px-2 py-2 text-left font-semibold w-40">請求先（役所）</th>
                         <th className="px-2 py-2 text-left font-semibold w-20">取得区分</th>
+                        <th className="px-2 py-2 text-left font-semibold w-40">請求先（役所）</th>
                         <th className="px-2 py-2 text-left font-semibold w-32">範囲</th>
                         <th className="px-2 py-2 text-left font-semibold w-24">種別</th>
                         <th className="px-2 py-2 text-left font-semibold w-36">戸籍請求理由</th>
@@ -450,8 +450,8 @@ function KosekiRow({ r, i, me, meId, isManager, highlight = false, rowTasks = []
   const muted = <span className="text-[11px] text-gray-400">—</span>
   return (
     <tr ref={rowRef} className={`border-b border-gray-100 last:border-b-0 ${highlight ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-      <td className="px-2 py-1.5"><TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" /></td>
       <td className="px-2 py-1.5"><SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} /></td>
+      <td className="px-2 py-1.5"><TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" /></td>
       <td className="px-2 py-1.5"><SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} /></td>
