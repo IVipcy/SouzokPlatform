@@ -81,6 +81,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const cols = COLUMNS[kind]
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)
     : institutionFilter != null ? rows.filter(r => (r.institution_name ?? '') === institutionFilter) : rows
+  // 財産調査禁止期間：終了日が未来のうちは調査を止める（＝この口座の調査セルは編集不可）。
+  const todayYmd = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+  const isSurveyBanned = (r: FinancialAssetRow) => !!r.survey_prohibited_end && todayYmd < r.survey_prohibited_end
 
   // 残高確定のトグル（管理担当のみ）。確定→TOP一覧・財産目録へ反映。
   const toggleBalanceConfirmed = async (row: FinancialAssetRow) => {
@@ -137,8 +140,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 6 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
-  const renderCard = (r: FinancialAssetRow) => (
-    <div key={r.id} className="rounded-xl border border-gray-200 bg-white">
+  const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
+    <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
+      {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 禁止期間中（〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}）調査は編集できません</div>}
       {progressMode && (
         <CardRow label="凍結確認（管理担当）">
           {r.freeze_confirmed
@@ -154,7 +158,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />}
         </CardRow>
       ))}
-      <CardRow label="残高/評価額"><MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} /></CardRow>
+      <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
       {showConfirmed && (
         <CardRow label="確定済（管理担当）">
           {r.balance_confirmed
@@ -185,7 +189,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <button type="button" onClick={() => delRow(r)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />この口座を削除</button>
       </div>
     </div>
-  )
+  ) }
 
   // 口座カード（口座タブ用・1口座）。
   if (cardLayout) {
@@ -225,8 +229,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             {visibleRows.length === 0 ? (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
-              visibleRows.map(r => (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
+              visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
                   {/* 凍結確認済（一番左・管理担当のみチェック可。オーダーシートでは非表示） */}
                   {progressMode && (
                   <td className="px-2 py-1.5 text-center">
@@ -244,7 +248,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   </td>
                   )}
                   {cols.map(c => (
-                    <td key={c.key} className="px-2 py-1.5">
+                    <td key={c.key} className={`px-2 py-1.5 ${lock}`}>
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
@@ -252,12 +256,14 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       )}
                     </td>
                   ))}
-                  {/* 残高/評価額（目録・精算書の収入の源泉） */}
+                  {/* 残高/評価額（目録・精算書の収入の源泉）。禁止期間中は入力不可＝禁止バッジを表示 */}
                   <td className="px-2 py-1.5">
-                    <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />
+                    {banned
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-gray-500 bg-gray-100 border border-gray-300" title={r.survey_prohibited_reason ?? '財産調査禁止期間中'}><Lock className="w-3 h-3" strokeWidth={2} />禁止期間中〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}</span>
+                      : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}
                   </td>
                   {showConfirmed && (
-                    <td className="px-2 py-1.5 text-center">
+                    <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {r.balance_confirmed ? (
                         <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} title={isManager ? '確定を取消' : '確定は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
                           <Check className="w-3 h-3" strokeWidth={2.5} />確定済
@@ -272,7 +278,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   )}
                   {/* 取得区分 */}
-                  <td className="px-2 py-1.5">
+                  <td className={`px-2 py-1.5 ${lock}`}>
                     <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
                     </select>
@@ -291,10 +297,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   <td className="px-2 py-1.5"><input type="date" value={r.survey_prohibited_end ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_end', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_end', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   <td className="px-2 py-1.5"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></td>
                   {progressMode && (
-                    <td className="px-2 py-1.5"><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                    <td className={`px-2 py-1.5 ${lock}`}><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
                   {progressMode && (
-                    <td className="px-2 py-1.5"><input type="date" value={r.arrival_date ?? ''} onChange={e => setLocal(r.id, 'arrival_date', e.target.value)} onBlur={e => commit(r.id, 'arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
+                    <td className={`px-2 py-1.5 ${lock}`}><input type="date" value={r.arrival_date ?? ''} onChange={e => setLocal(r.id, 'arrival_date', e.target.value)} onBlur={e => commit(r.id, 'arrival_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
                   {progressMode && (
                     <td className="px-2 py-1.5">
@@ -314,12 +320,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   )}
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
-                  {progressMode && <td className="px-2 py-1.5"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></td>}
+                  {progressMode && <td className={`px-2 py-1.5 ${lock}`}><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></td>}
                   <td className="px-2 py-1.5 text-center">
                     <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
-              ))
+              ) })
             )}
           </tbody>
         </table>

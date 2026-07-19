@@ -4,6 +4,7 @@
 // 口座は財産調査(financial_assets)を共有。ここでは解約有無・予定日・完了・禁止事項を管理する。
 
 import { useState, useEffect } from 'react'
+import { Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
@@ -109,15 +110,17 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                       </tr>
                     </thead>
                     <tbody>
-                      {instRows(activeInst).map((r, i) => (
-                        <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                      {instRows(activeInst).map((r, i) => { const locked = !r.freeze_confirmed; const lock = locked ? 'pointer-events-none opacity-50' : ''; return (
+                        <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${locked ? 'bg-gray-100/60' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-2.5 py-1.5 font-medium text-gray-800">{r.branch_name || r.stock_name || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2.5 py-1.5">
-                            <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                              <option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
+                            {locked
+                              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結確認済になると解約手続を編集できます"><Lock className="w-3 h-3" strokeWidth={2} />凍結確認待ち</span>
+                              : <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                                  <option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>}
                           </td>
-                          <td className="px-2.5 py-1.5">
+                          <td className={`px-2.5 py-1.5 ${lock}`}>
                             <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                           </td>
                           <td className="px-2.5 py-1.5">
@@ -125,15 +128,15 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                               ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">受領済</span>
                               : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
                           </td>
-                          <td className="px-2.5 py-1.5 text-center">
+                          <td className={`px-2.5 py-1.5 text-center ${lock}`}>
                             <input type="checkbox" checked={!!r.cancellation_done} onChange={e => save(r.id, 'cancellation_done', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
                           </td>
-                          <td className="px-2.5 py-1.5">
+                          <td className={`px-2.5 py-1.5 ${lock}`}>
                             <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="例：相続人全員の同意が必要 等" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                           </td>
                           <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                         </tr>
-                      ))}
+                      ) })}
                     </tbody>
                   </table>
                 </div>

@@ -1,13 +1,14 @@
 import type { TaskRow } from '@/types'
 import { stripGyomu } from '@/lib/kotei'
 
-// 金融資産の凍結確認（財産調査禁止期間）ゲート。
-// 管理担当が口座凍結を確認するまで、金融資産調査・解約の作業は着手不可。
+// 口座凍結ゲート：管理担当が口座凍結を確認するまで「解約（お金を動かす作業）」は着手不可。
+// ※調査（金融資産）は凍結ではなく「財産調査禁止期間（最終入金待ち）」で止める（別ゲート）ため、
+//   ここには含めない。凍結が要るのは解約だけ。
 
-// 凍結ゲートの対象となる業務区分（金融資産・解約）。
-const FREEZE_GATED_GYOMU = new Set(['金融資産', '解約'])
+// 凍結ゲートの対象となる業務区分（解約のみ）。
+const FREEZE_GATED_GYOMU = new Set(['解約'])
 
-// そのタスクが金融凍結ゲートの対象か（業務区分が金融資産 or 解約）。
+// そのタスクが凍結ゲートの対象か（業務区分が解約）。
 export function isFinanceFreezeTask(task: Pick<TaskRow, 'phase'>): boolean {
   return FREEZE_GATED_GYOMU.has(stripGyomu(task.phase))
 }
