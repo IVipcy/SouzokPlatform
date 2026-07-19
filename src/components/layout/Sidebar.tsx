@@ -9,6 +9,7 @@ import {
   Briefcase,
   PenSquare,
   ListChecks,
+  ClipboardCheck,
   FileText,
   Receipt,
   BookOpen,
@@ -54,6 +55,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: '書類・経理',
     items: [
+      { href: '/confirm',   label: '確認簿',       Icon: ClipboardCheck },
       { href: '/documents', label: '到着物受信簿', Icon: FileText },
       { href: '/billing',   label: '請求・入金',   Icon: Receipt },
       { href: '/workload',  label: '稼働状況一覧', Icon: Gauge },
@@ -133,7 +135,7 @@ export default function Sidebar() {
         const canMyPage = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
         // アシスタント（パート）はダッシュボード・案件一覧・事務管理タスク・到着物受信簿・請求入金のみ表示
         const isAssistant = !!user && user.primaryRole === 'assistant' && !user.roles.includes('system_manager')
-        const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/documents', '/billing'])
+        const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/confirm', '/documents', '/billing'])
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (isAssistant) return ASSISTANT_ALLOWED.has(it.href)
