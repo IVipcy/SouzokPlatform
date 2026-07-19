@@ -417,7 +417,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
 }
 
 // ─── InlineDate ───
-export function InlineDate({ label, value, onSave, fullWidth, required, max, wareki }: {
+export function InlineDate({ label, value, onSave, fullWidth, required, max, wareki, hint }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -427,6 +427,8 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   max?: string
   /** 値の下に和暦を表示する（生年月日など役所申請で和暦が要る項目用） */
   wareki?: boolean
+  /** 値の下に出す補助説明（目安の期間など） */
+  hint?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -460,6 +462,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
         <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
         {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
+        {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
     )
   }
@@ -501,6 +504,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
       {wareki && value && toWareki(value) && (
         <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
+      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
     </div>
   )
 }
