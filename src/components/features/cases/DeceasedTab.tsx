@@ -339,7 +339,20 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
               />
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
-              <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} onSave={v => saveCaseField('deceased_registered_address', v)} fullWidth />
+              <InlineEdit
+                label="被相続人本籍"
+                value={caseData.deceased_registered_address}
+                onSave={v => saveCaseField('deceased_registered_address', v)}
+                fullWidth
+                action={
+                  <button
+                    type="button"
+                    disabled={!(caseData.deceased_address ?? '').trim()}
+                    onClick={() => saveCaseField('deceased_registered_address', caseData.deceased_address ?? '')}
+                    className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >住所と同じ</button>
+                }
+              />
               <InlineCheckbox label="被相続人外字有無" value={caseData.deceased_has_special_chars} onSave={v => saveCaseField('deceased_has_special_chars', v)} fullWidth />
             </FieldGrid>
           </Section>
@@ -513,12 +526,20 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   />
                 </FormField>
                 <FormField label="本籍">
-                  <input
-                    type="text"
-                    value={heirForm.registered_address}
-                    onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={heirForm.registered_address}
+                      onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
+                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                    />
+                    <button
+                      type="button"
+                      disabled={!heirForm.address.trim()}
+                      onClick={() => setHeirForm(f => ({ ...f, registered_address: f.address }))}
+                      className="flex-none inline-flex items-center text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >住所と同じ</button>
+                  </div>
                 </FormField>
               </div>
               <div className="flex gap-2 justify-end">
