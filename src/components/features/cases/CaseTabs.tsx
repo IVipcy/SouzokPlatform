@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Check } from 'lucide-react'
+import {
+  ChevronDown, Check, Star, Activity, MessageCircle, Receipt, ListChecks, Users, Wallet,
+  Handshake, Split, Feather, Home, Landmark, Shield, FileX, Scale, FileSearch, ShieldCheck,
+  Coins, Mail, Send, FileSignature, Settings, UserCheck, CalendarClock, FileCheck, History,
+  Inbox, Folder, FilePlus2, Contact, type LucideIcon,
+} from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
@@ -57,6 +62,16 @@ const TAB_LABELS: Record<TabKey, string> = {
   history: '履歴',
 }
 
+// タブごとのアイコン。orderSheet だけ特別（金の★・大事なタブ）。will は筆。
+const TAB_ICONS: Record<TabKey, LucideIcon> = {
+  orderSheet: Star, basicInfo: Activity, clientInfo: MessageCircle, contract: Receipt, tasks: ListChecks,
+  deceased: Users, assets: Wallet, referral: Handshake, division: Split, will: Feather,
+  registration: Home, cancellation: Landmark, trust: Shield, renunciation: FileX, mediation: Scale,
+  probate: FileSearch, guardianship: ShieldCheck, succession: Coins, letter: Mail, execution: Send,
+  contractCreate: FileSignature, ownerSales: Settings, assignees: UserCheck, meeting: CalendarClock,
+  contractProc: FileCheck, history: History, receipts: Inbox, docs: Folder, documentCreate: FilePlus2,
+}
+
 const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
   tasks: 'taskCount',
 }
@@ -105,7 +120,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   if (flatOrder) {
     const flatTabs = all.filter(key => TAB_GROUP[key] !== 'header' && !BASIC_INFO_TABS.includes(key))
     return (
-      <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
+      <div data-tabbar className="flex items-center gap-0.5 border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         {flatTabs.map(key => (
           <Tab key={key} tabKey={key}
             isActive={activeTab === key}
@@ -113,7 +128,6 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
             count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
             onClick={() => onTabChange(key)} />
         ))}
-        {flatTabs.length > 0 && basicInfoTabs.length > 0 && <VDivider />}
         {renderBasicInfo()}
       </div>
     )
@@ -121,14 +135,13 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
   const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
-  const hasPreceding = mainTabs.length > 0 || practiceTabs.length > 0
   // 対応中以降（groupInfoTabs）は info を1つの「案件情報」に統合（案件基本情報も含めて重複させない）。
   // それ以前はドロップダウンにせず、info は個別タブ＋案件基本情報グループだけ別立てにする。
   const infoAll = all.filter(t => TAB_GROUP[t] === 'info')
   const infoTabs = infoAll.filter(t => !BASIC_INFO_TABS.includes(t))
 
   return (
-    <div data-tabbar className="flex items-center gap-1.5 flex-wrap mb-5">
+    <div data-tabbar className="flex items-center gap-0.5 border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
       {mainTabs.map(key => (
         <Tab key={key} tabKey={key}
           isActive={activeTab === key}
@@ -136,7 +149,6 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
           onClick={() => onTabChange(key)} />
       ))}
-      {mainTabs.length > 0 && practiceTabs.length > 0 && <VDivider />}
       {practiceTabs.map(key => (
         <Tab key={key} tabKey={key}
           isActive={activeTab === key}
@@ -144,22 +156,17 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           onClick={() => onTabChange(key)} />
       ))}
       {groupInfoTabs ? (
-        <>
-          {hasPreceding && infoAll.length > 0 && <VDivider />}
-          {infoAll.length > 0 && (
-            <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
-          )}
-        </>
+        infoAll.length > 0 && (
+          <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
+        )
       ) : (
         <>
-          {hasPreceding && infoTabs.length > 0 && <VDivider />}
           {infoTabs.map(key => (
             <Tab key={key} tabKey={key}
               isActive={activeTab === key}
               isHighlight={highlightSet.has(key)}
               onClick={() => onTabChange(key)} />
           ))}
-          {(hasPreceding || infoTabs.length > 0) && basicInfoTabs.length > 0 && <VDivider />}
           {renderBasicInfo()}
         </>
       )}
@@ -167,16 +174,12 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   )
 }
 
-function VDivider() {
-  return <span aria-hidden="true" className="w-px h-5 bg-gray-300 self-center mx-1" />
-}
-
-// 各タブは独立した枠付きピル。コンテナ無し、グレー背景に直置き。
-//   通常       = 白bg + 1px灰border + 灰文字
-//   ホバー     = 薄ブランド色bg + ブランド色文字
-//   アクティブ = ブランド色solid + 白文字
-//   ナビ強調   = 白bg + 1.5px青outline + 青文字 + ●（現状踏襲）
-//   両方       = アクティブの上に薄青outlineをグロー（box-shadow）として乗せる
+// 各タブは下線＋アイコンの枠なし（案件一覧ページと同じ意匠）。
+//   通常       = グレー文字・下線なし
+//   ホバー     = 文字が濃くなる
+//   アクティブ = 青文字＋青の下線
+//   ナビ強調   = ● を付ける（data-nav-tab で案内線と連動）
+//   orderSheet = 金の★（大事なタブ・選択状態に関わらず★は金）／will = 筆
 function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
   tabKey: TabKey
   isActive: boolean
@@ -184,36 +187,29 @@ function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
   count?: number
   onClick: () => void
 }) {
-  const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap transition-colors cursor-pointer'
-  let state: string
-  let extraStyle: React.CSSProperties = {}
-  if (isActive && isHighlight) {
-    state = 'bg-brand-600 text-white font-medium border border-brand-600'
-    extraStyle = { boxShadow: '0 0 0 2px rgba(182, 199, 244, 0.7)' }
-  } else if (isActive) {
-    state = 'bg-brand-600 text-white font-medium border border-brand-600'
-  } else if (isHighlight) {
-    state = 'bg-white text-brand-800 font-medium border-[1.5px] border-brand-200 hover:bg-brand-50/60'
-  } else {
-    state = 'bg-white text-gray-600 border border-gray-200 hover:bg-brand-50/60 hover:text-brand-700 hover:border-brand-200'
-  }
+  const Icon = TAB_ICONS[tabKey]
+  const isStar = tabKey === 'orderSheet'
+  const base = 'inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer'
+  const state = isActive
+    ? 'text-brand-600 border-brand-600 font-medium'
+    : isHighlight
+      ? 'text-brand-700 border-transparent font-medium hover:text-brand-800'
+      : 'text-gray-500 border-transparent hover:text-gray-700'
   return (
     <button
       type="button"
       onClick={onClick}
       data-nav-tab={isHighlight ? tabKey : undefined}
-      style={extraStyle}
       className={`${base} ${state}`}
     >
-      {TAB_LABELS[tabKey]}
+      {isStar
+        ? <Star className="w-[17px] h-[17px]" strokeWidth={1.75} style={{ fill: '#E8A317', color: '#E8A317' }} />
+        : <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.25 : 1.9} />}
+      <span className={isStar && !isActive ? 'font-medium text-gray-800' : undefined}>{TAB_LABELS[tabKey]}</span>
       {count !== undefined && (
-        <span className={`text-[11px] font-mono px-1.5 rounded-full ${
-          isActive ? 'bg-white/20 text-white' : isHighlight ? 'bg-white text-brand-700 border border-brand-200' : 'bg-gray-100 text-gray-500'
-        }`}>{count}</span>
+        <span className={`text-[10.5px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{count}</span>
       )}
-      {isHighlight && (
-        <span className={`font-bold text-[10px] leading-none ${isActive ? 'text-white' : 'text-brand-600'}`}>●</span>
-      )}
+      {isHighlight && <span className="font-bold text-[10px] leading-none text-brand-600">●</span>}
     </button>
   )
 }
@@ -247,12 +243,14 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
   const isOnInfo = tabs.includes(activeTab)
   const hasHighlight = tabs.some(t => highlightSet.has(t))
   const buttonLabel = isOnInfo ? TAB_LABELS[activeTab] : label
-  const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap transition-colors cursor-pointer'
+  // 閉じてる時のアイコン：選択中の子があればその子のアイコン、無ければグループ（人カード）。
+  const TriggerIcon = isOnInfo ? TAB_ICONS[activeTab] : Contact
+  const base = 'inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer'
   const state = isOnInfo
-    ? 'bg-brand-600 text-white font-medium border border-brand-600'
+    ? 'text-brand-600 border-brand-600 font-medium'
     : hasHighlight
-      ? 'bg-white text-brand-800 font-medium border-[1.5px] border-brand-200 hover:bg-brand-50/60'
-      : 'bg-white text-gray-600 border border-gray-200 hover:bg-brand-50/60 hover:text-brand-700 hover:border-brand-200'
+      ? 'text-brand-700 border-transparent font-medium hover:text-brand-800'
+      : 'text-gray-500 border-transparent hover:text-gray-700'
 
   return (
     <div ref={ref} className="relative inline-flex">
@@ -261,6 +259,7 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
         onClick={() => setOpen(o => !o)}
         className={`${base} ${state}`}
       >
+        <TriggerIcon className="w-[17px] h-[17px]" strokeWidth={isOnInfo ? 2.25 : 1.9} />
         {buttonLabel}
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2.25} />
         {hasHighlight && !isOnInfo && (
@@ -272,6 +271,7 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
           {tabs.map(key => {
             const isItemActive = activeTab === key
             const isItemHighlight = highlightSet.has(key)
+            const ItemIcon = TAB_ICONS[key]
             return (
               <button
                 key={key}
@@ -281,7 +281,8 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
                   isItemActive ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-800 hover:bg-gray-50'
                 }`}
               >
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-2">
+                  <ItemIcon className={`w-4 h-4 ${isItemActive ? 'text-brand-600' : 'text-gray-500'}`} strokeWidth={1.9} />
                   {TAB_LABELS[key]}
                   {isItemHighlight && <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>}
                 </span>
