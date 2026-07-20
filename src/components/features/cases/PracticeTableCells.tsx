@@ -12,12 +12,13 @@ const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-
 const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 const cellSel = 'w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
-export function TxtCell({ value, onCommit, placeholder }: { value: string | null; onCommit: (v: string) => void; placeholder?: string }) {
-  return <input type="text" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} placeholder={placeholder} className={cellInp} />
+export function TxtCell({ value, onCommit, placeholder, list }: { value: string | null; onCommit: (v: string) => void; placeholder?: string; list?: string }) {
+  return <input type="text" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} placeholder={placeholder} list={list} className={cellInp} />
 }
 
 export function SelCell({ value, options, onChange }: { value: string | null; options: readonly string[]; onChange: (v: string) => void }) {
-  return <select value={value ?? ''} onChange={e => onChange(e.target.value)} className={cellSel}><option value="">—</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
+  // font-family を継承（ネイティブselectはシステムフォントで描画され、入力欄より大きく見えるため）
+  return <select value={value ?? ''} onChange={e => onChange(e.target.value)} style={{ fontFamily: 'inherit' }} className={cellSel}><option value="">—</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
 }
 
 export function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {

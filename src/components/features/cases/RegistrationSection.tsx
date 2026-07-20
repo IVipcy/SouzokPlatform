@@ -47,9 +47,13 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
   ]
   const activeMuni = sub === '__unset__' ? '' : sub
   const costTotal = properties.reduce((s, p) => s + (p.registration_cost ?? 0), 0)
+  // 管轄法務局の予測候補：この案件で入力済みの法務局（自由入力も可）。
+  const officeListId = `reg-office-${caseId}`
+  const officeOptions = [...new Set(properties.map(p => (p.registration_office ?? '').trim()).filter(Boolean))]
 
   return (
     <div className="flex gap-3 items-start">
+      {officeOptions.length > 0 && <datalist id={officeListId}>{officeOptions.map(o => <option key={o} value={o} />)}</datalist>}
       <LeftRail items={items} active={sub} onChange={setSub} />
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
@@ -126,7 +130,7 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                           <td className="px-2 py-1.5"><ShareCell key={p.registration_share ?? 'empty'} value={p.registration_share} onSave={v => saveField(p.id, 'registration_share', v)} /></td>
                           <td className="px-2 py-1.5"><TypesCell value={p.registration_types} options={REGISTRATION_TYPES} onSave={v => saveField(p.id, 'registration_types', v.length ? v : null)} /></td>
                           <td className="px-2 py-1.5"><SelCell value={p.registration_cause} options={[...REGISTRATION_CAUSES]} onChange={v => saveField(p.id, 'registration_cause', v)} /></td>
-                          <td className="px-2 py-1.5"><TxtCell value={p.registration_office} onCommit={v => saveField(p.id, 'registration_office', v)} placeholder="法務局" /></td>
+                          <td className="px-2 py-1.5"><TxtCell value={p.registration_office} onCommit={v => saveField(p.id, 'registration_office', v)} placeholder="法務局（予測）" list={officeListId} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_apply_date} onCommit={v => saveField(p.id, 'registration_apply_date', v)} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_complete_date} onCommit={v => saveField(p.id, 'registration_complete_date', v)} /></td>
                           <td className="px-2 py-1.5"><MoneyCell value={p.registration_cost} onCommit={v => saveField(p.id, 'registration_cost', v === '' ? null : Number(v))} /></td>
