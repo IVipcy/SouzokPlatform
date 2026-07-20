@@ -331,7 +331,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         receiptCount={unhandledReceiptCount}
         showDocsAction={minimal ? false : tabVis.visible.includes('docs')}
         showDocumentCreateAction={minimal ? true : tabVis.visible.includes('documentCreate')}
-        docCount={documents.length}
+        docCount={caseFiles.length + createdDocuments.filter(d => !!d.file_path).length}
         highlightTabs={navHighlightTabs}
         onActivateTab={setActiveTab}
         caseMembers={caseMembers}
