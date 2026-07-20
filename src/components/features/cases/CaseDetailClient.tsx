@@ -603,7 +603,8 @@ function NavConnectors({ wrapRef, deps }: { wrapRef: RefObject<HTMLDivElement | 
       const next: { x1: number; y1: number; x2: number; y2: number }[] = []
       el.querySelectorAll<HTMLElement>('[data-nav-step]').forEach(stepEl => {
         const tab = stepEl.getAttribute('data-nav-step')
-        const tabEl = el.querySelector<HTMLElement>(`[data-nav-tab="${tab}"]`)
+        // 対象タブはタブバー内が基本だが、案件フォルダ(docs)等はヘッダー側（wrapRefの外）にあるので document もフォールバック。
+        const tabEl = el.querySelector<HTMLElement>(`[data-nav-tab="${tab}"]`) ?? document.querySelector<HTMLElement>(`[data-nav-tab="${tab}"]`)
         if (!tabEl) return
         const s = stepEl.getBoundingClientRect()
         const t = tabEl.getBoundingClientRect()
