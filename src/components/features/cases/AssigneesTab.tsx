@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
 import { Section, FieldGrid, InlineMemberSelect } from '@/components/ui/InlineFields'
+import { createClient } from '@/lib/supabase/client'
 import { isMinimalMode } from '@/lib/featureMode'
 import type { CaseRow, CaseMemberRow, MemberRow } from '@/types'
 import TabHeader from './TabHeader'
@@ -21,6 +23,13 @@ type Props = {
 export default function AssigneesTab({ caseData, caseMembers, allMembers, onRefresh }: Props) {
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
   const managerMembers = caseMembers.filter(cm => cm.role === 'manager')
+
+  // 管理担当がアサインされたら、チームへ出した引き継ぎアラート（case_handoff通知）を全員分解消する。
+  const hasManager = managerMembers.length > 0
+  useEffect(() => {
+    if (!hasManager) return
+    void createClient().from('notifications').delete().eq('case_id', caseData.id).eq('type', 'case_handoff')
+  }, [hasManager, caseData.id])
 
   return (
     <div className="space-y-3.5">
