@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Trash2, Plus, ChevronRight, ChevronDown, Lock, Check } from 'lucide-react'
+import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
 import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES } from '@/lib/constants'
-import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
+import CheckRequestControl from './CheckRequestControl'
 import type { RealEstatePropertyRow } from '@/types'
 
 const REQ = ['要', '不要', '確認中']
@@ -28,7 +28,6 @@ type Props = {
 /** 不動産を表形式でインライン編集・行追加。行展開で詳細項目も編集できる（財産調査） */
 export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false }: Props) {
   const supabase = createClient()
-  const isManager = useIsManager()
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
@@ -50,15 +49,14 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   // [市区町村] +物件種別 +所在地 +評価額 +備考 +[確定済] +削除
   const colCount = (showMuni ? 1 : 0) + 4 + (showConfirmed ? 1 : 0) + 1
 
-  const toggleConfirmed = async (row: RealEstatePropertyRow) => {
-    const next = !row.confirmed
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, confirmed: next } : r))
-    const { error } = await supabase.from('real_estate_properties')
-      .update({ confirmed: next, confirmed_by: next ? memberId : null, confirmed_at: next ? new Date().toISOString() : null })
-      .eq('id', row.id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
-    else onRefresh?.()
+  // 評価額確定は「確認簿で確認」に一本化。ここでは依頼（confirm_requested_at）を出す／取り消すだけ。
+  const patchConfirmReq = async (row: RealEstatePropertyRow, patch: Partial<RealEstatePropertyRow>) => {
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } as RealEstatePropertyRow : r))
+    const { error } = await supabase.from('real_estate_properties').update(patch).eq('id', row.id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error'); else onRefresh?.()
   }
+  const reqConfirm = (row: RealEstatePropertyRow) => patchConfirmReq(row, { confirm_requested_at: new Date().toISOString(), confirm_requested_by: memberId })
+  const cancelConfirm = (row: RealEstatePropertyRow) => patchConfirmReq(row, { confirm_requested_at: null, confirm_requested_by: null })
 
   const setLocal = (id: string, field: keyof RealEstatePropertyRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
@@ -112,7 +110,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               <th className="px-2.5 py-2 text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
-              {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
+              {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-28">評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -129,8 +127,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
                   onDelete={() => delRow(r)}
                   showMuni={showMuni}
                   showConfirmed={showConfirmed}
-                  isManager={isManager}
-                  onToggleConfirmed={() => toggleConfirmed(r)}
+                  onRequestConfirm={() => reqConfirm(r)}
+                  onCancelConfirm={() => cancelConfirm(r)}
                 />
               ))
             )}
@@ -156,8 +154,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               orderSheetMode={orderSheetMode}
               showMuni={showMuni}
               showConfirmed={showConfirmed}
-              isManager={isManager}
-              onToggleConfirmed={() => toggleConfirmed(r)}
+              onRequestConfirm={() => reqConfirm(r)}
+              onCancelConfirm={() => cancelConfirm(r)}
             />
           ))
         )}
@@ -170,15 +168,15 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   )
 }
 
-function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, isManager, onToggleConfirmed }: {
+function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   onDelete: () => void
   showMuni: boolean
   showConfirmed: boolean
-  isManager: boolean
-  onToggleConfirmed: () => void
+  onRequestConfirm: () => void
+  onCancelConfirm: () => void
 }) {
   const sel = (field: keyof RealEstatePropertyRow, options: readonly string[]) => (
     <td className="px-2.5 py-1.5">
@@ -199,17 +197,9 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, isMan
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
         {showConfirmed && (
           <td className="px-2.5 py-1.5 text-center">
-            {r.confirmed ? (
-              <button type="button" onClick={onToggleConfirmed} disabled={!isManager} title={isManager ? '確定を取消' : '確定は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
-                <Check className="w-3 h-3" strokeWidth={2.5} />確定済
-              </button>
-            ) : isManager ? (
-              <button type="button" onClick={onToggleConfirmed} title="評価額を確定したらチェック（TOP一覧・財産目録へ反映）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
-                <Lock className="w-3 h-3" strokeWidth={2} />未確定
-              </button>
-            ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
-            )}
+            {r.appraisal_value != null
+              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
+              : <span className="text-[11px] text-gray-300">評価額待ち</span>}
           </td>
         )}
         <td className="px-2.5 py-1.5 text-center">
@@ -246,7 +236,7 @@ function FieldBlock({ label, children }: { label: string; children: ReactNode })
 }
 
 // スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
-function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, isManager, onToggleConfirmed }: {
+function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   open: boolean
   onToggle: () => void
@@ -257,8 +247,8 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
   orderSheetMode: boolean
   showMuni: boolean
   showConfirmed: boolean
-  isManager: boolean
-  onToggleConfirmed: () => void
+  onRequestConfirm: () => void
+  onCancelConfirm: () => void
 }) {
   const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
   return (
@@ -294,14 +284,10 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           </FieldBlock>
         )}
         {showConfirmed && (
-          <FieldBlock label="確定（管理担当のみ）">
-            {r.confirmed ? (
-              <button type="button" onClick={onToggleConfirmed} disabled={!isManager} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" strokeWidth={2.5} />確定済</button>
-            ) : isManager ? (
-              <button type="button" onClick={onToggleConfirmed} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" strokeWidth={2} />未確定</button>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
-            )}
+          <FieldBlock label="評価額確定（確認簿で確認）">
+            {r.appraisal_value != null
+              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
+              : <span className="text-[12px] text-gray-400">評価額を入れると依頼できます</span>}
           </FieldBlock>
         )}
       </div>

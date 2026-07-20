@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { useAuth, useIsManager } from '@/components/providers/AuthProvider'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -12,7 +12,8 @@ import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import SelectOrTextField from './SelectOrTextField'
-import { MoneyCell, DcCell } from './PracticeTableCells'
+import CheckRequestControl from './CheckRequestControl'
+import { MoneyCell } from './PracticeTableCells'
 import HintTip from '@/components/ui/HintTip'
 import { municipalityOf } from './RealEstateSection'
 
@@ -54,9 +55,7 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
 export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending }: Props) {
   const supabase = createClient()
   const authUser = useAuth()
-  const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // W-Check（自分以外）の記録者
   const meId = authUser?.memberId ?? null
-  const isManager = useIsManager()
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
@@ -99,6 +98,19 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } as RealEstateAcquisitionRow : r)))
     const { error } = await supabase.from('real_estate_acquisitions').update(patch).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+
+  // 確認依頼を出す／取り消す（発送＝request・着＝receipt）。確認簿の受信箱に上げる/下ろす。
+  const reqCheck = (r: RealEstateAcquisitionRow, kind: 'request' | 'receipt') => {
+    const at = new Date().toISOString()
+    void saveMany(r.id, kind === 'request'
+      ? { request_check_requested_at: at, request_check_requested_by: meId }
+      : { receipt_check_requested_at: at, receipt_check_requested_by: meId })
+  }
+  const cancelCheck = (r: RealEstateAcquisitionRow, kind: 'request' | 'receipt') => {
+    void saveMany(r.id, kind === 'request'
+      ? { request_check_requested_at: null, request_check_requested_by: null }
+      : { receipt_check_requested_at: null, receipt_check_requested_by: null })
   }
 
   // scope に応じて取得物の選択肢を絞る（市区町村単位＝評価証明/名寄帳、物件単位＝登記情報 等）
@@ -196,8 +208,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
               {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-20">返金</th>}
               {progressMode && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">確定費用<HintTip text={fullCost ? '実費＝予算−返金（お釣り）。自動計算されます。' : '実際にかかった額（印紙代など）を入力します。'} /></span></th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">請求時W-Check<HintTip text="請求内容が正しいかを、請求した本人とは別の担当者が確認します（管理担当は例外）。" /></span></th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">受信時W-Check<HintTip text="届いた物が正しいかを、受信した本人とは別の担当者が確認します（＝受信確定）。到着日を入れるまで押せません。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">発送チェック<HintTip text="請求（発送）が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。請求日を入れると押せます。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">到着チェック<HintTip text="届いた物が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。到着日を入れると押せます。" /></span></th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">受領ファイル</th>}
               <th className="px-2 py-2 w-8" />
             </tr>
@@ -256,10 +268,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                         : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
                     </td>
                   )}
-                  {/* 請求時W-Check（請求作業者とは別人。管理担当は例外） */}
-                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <DcCell name={r.request_check_name} at={r.request_check_at} me={me} meId={meId} workerId={r.request_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { request_check_name: n, request_check_at: a, request_check_by: id ?? null })} />}</td>}
-                  {/* 受信時W-Check（受信作業者とは別人。到着日が未入力なら押せない） */}
-                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} disabled={!r.arrival_date} disabledLabel="到着待ち" disabledTitle="到着日を入力すると受信時W-Checkできます。" onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} />}</td>}
+                  {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.request_date
+                    ? <CheckRequestControl label="発送を依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
+                    : <span className="text-[11px] text-gray-300">請求日待ち</span>)}</td>}
+                  {/* 着チェック依頼（到着日を入れると押せる） */}
+                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.arrival_date
+                    ? <CheckRequestControl label="到着を依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
+                    : <span className="text-[11px] text-gray-300">到着待ち</span>)}</td>}
                   {/* 受領ファイル */}
                   {progressMode && (
                     <td className="px-2 py-1.5">

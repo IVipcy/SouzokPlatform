@@ -87,11 +87,11 @@ export default async function ConfirmPage() {
       items.push({ ...b, key: `aa-${id}`, tab: 'approve', action: 're_acq_approve', target: requestTo || muni || '追加取得資料', content: itemType || '取得資料', amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { item_type: itemType, target_municipality: muni, target_property_id: (r.target_property_id as string) ?? null } })
       continue
     }
-    if (requestTo && !r.request_check_at) {
-      items.push({ ...b, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemType || '取得資料', amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
+    if (r.request_check_requested_at && !r.request_check_at) {
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemType || '取得資料', amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
     }
-    if (r.arrival_date && !r.receipt_check_at) {
-      items.push({ ...b, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemType || '取得資料', amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
+    if (r.receipt_check_requested_at && !r.receipt_check_at) {
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemType || '取得資料', amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
     }
   }
 
@@ -108,8 +108,8 @@ export default async function ConfirmPage() {
       items.push({ ...b, key: `pa-${id}`, tab: 'approve', action: 're_prop_approve', target: muni || '市区町村', content: '市区町村追加', amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { municipality: muni } })
       continue
     }
-    if (r.appraisal_value != null && !r.confirmed) {
-      items.push({ ...b, key: `pc-${id}`, tab: 'confirm', action: 're_confirm', target: muni || '未設定', content: `${(r.property_type as string) || ''} ${address}`.trim() || '物件', amount: yen(r.appraisal_value as number), workerId: null, workerName: null, reviewer: 'jimu' })
+    if (r.confirm_requested_at && !r.confirmed) {
+      items.push({ ...b, stamp: (r.confirm_requested_at as string) ?? b.stamp, key: `pc-${id}`, tab: 'confirm', action: 're_confirm', target: muni || '未設定', content: `${(r.property_type as string) || ''} ${address}`.trim() || '物件', amount: yen(r.appraisal_value as number), workerId: null, workerName: null, reviewer: 'jimu' })
     }
   }
 
