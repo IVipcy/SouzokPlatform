@@ -15,6 +15,7 @@ import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
+import HintNote from '@/components/ui/HintNote'
 import OrderSheetGuided from './OrderSheetGuided'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
@@ -115,9 +116,9 @@ export default function OrderSheet({
       node: <PracticeProcedureTab caseData={caseData} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={receipts} onRefresh={onRefresh} embedded />,
     })),
     // 専用の管理項目が無い業務（手紙・執行通知・契約書作成）は作業内容（フリー）のみ
-    { title: '手紙', gate: 'letter', node: <p className="text-[12px] text-gray-400">作業内容を下欄に記載してください（詳細な管理項目は今後追加予定）。</p> },
-    { title: '執行通知', gate: 'execution', node: <p className="text-[12px] text-gray-400">作業内容を下欄に記載してください（詳細な管理項目は今後追加予定）。</p> },
-    { title: '契約書作成', gate: 'contractCreate', node: <p className="text-[12px] text-gray-400">契約書の作成作業を下欄に記載してください（残手続きとは別。詳細な管理項目は今後追加予定）。</p> },
+    { title: '手紙', gate: 'letter', node: <HintNote>作業内容を下の欄に書いてください（専用の入力項目は今後追加予定です）。</HintNote> },
+    { title: '執行通知', gate: 'execution', node: <HintNote>作業内容を下の欄に書いてください（専用の入力項目は今後追加予定です）。</HintNote> },
+    { title: '契約書作成', gate: 'contractCreate', node: <HintNote>契約書を作る作業を下の欄に書いてください（残りの手続きとは別です。専用の入力項目は今後追加予定）。</HintNote> },
     // 契約・報酬・請求はオーダーシートでは扱わない（請求タブで管理）
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))

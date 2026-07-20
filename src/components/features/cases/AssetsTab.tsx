@@ -20,6 +20,7 @@ import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
+import HintNote from '@/components/ui/HintNote'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -119,7 +120,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
           </FieldGrid>
-          <p className="mt-2 text-[11px] text-gray-400">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</p>
+          <HintNote className="mt-2">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</HintNote>
         </Section>
       ) : (
         <Section title="財産調査条件（開始条件・使用書類）" collapsible defaultOpen={false}>
@@ -127,7 +128,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
             <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
           </FieldGrid>
-          <p className="mt-2 text-[11px] text-gray-400">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</p>
+          <HintNote className="mt-2">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</HintNote>
         </Section>
       )}
 
