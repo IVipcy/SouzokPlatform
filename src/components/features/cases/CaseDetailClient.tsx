@@ -236,7 +236,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
   const navHighlightTabs: TabKey[] = [
-    ...activeNavSteps.filter(s => !s.done).map(s => s.tab),
+    ...activeNavSteps.filter(s => !s.done).flatMap(s => s.targets.map(t => t.tab)),
     ...(kickoffNeeded ? ['basicInfo' as TabKey] : []),
   ]
 

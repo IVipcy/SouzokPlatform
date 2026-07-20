@@ -291,6 +291,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     type="button"
                     onClick={() => onActivateTab?.('docs')}
                     title="案件フォルダ（書類一式）を開く"
+                    data-nav-tab={(highlightTabs ?? []).includes('docs') ? 'docs' : undefined}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
                   >
                     <FolderOpen className="w-3.5 h-3.5" strokeWidth={2} />

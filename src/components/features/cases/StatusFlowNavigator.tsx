@@ -7,11 +7,11 @@ import type { TabKey } from './CaseTabs'
 // ナビゲーター。条件の対応順は順不同（どれから着手してもよい）なので、未完了をすべて
 // 並列に提示し、該当タブを同時にハイライトする。完了判定は呼び出し側で算出して渡す。
 
+export type FlowTarget = { tab: TabKey; label: string }
 export type FlowStep = {
   key: string
   label: string
-  tab: TabKey
-  tabLabel: string
+  targets: FlowTarget[]   // この対応を行うタブ（複数可。例：基本料金＝請求／料金表画像＝案件フォルダ）
   done: boolean
 }
 
@@ -23,9 +23,10 @@ export function getJutakuFlowSteps(args: {
   feeReady: boolean  // 基本料金の入力 または 料金表画像のアップ（どちらか一方でOK）
 }): FlowStep[] {
   return [
-    { key: 'orderSheet', label: 'オーダーシート作成', tab: 'orderSheet', tabLabel: 'オーダーシート', done: args.orderSheetCompleted },
-    { key: 'contractProc', label: '契約書類の受領', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
-    { key: 'baseFee', label: '基本料金の入力 または 料金表画像のアップ', tab: 'contract', tabLabel: '請求', done: args.feeReady },
+    { key: 'orderSheet', label: 'オーダーシート作成', targets: [{ tab: 'orderSheet', label: 'オーダーシートタブ' }], done: args.orderSheetCompleted },
+    { key: 'contractProc', label: '契約書類の受領', targets: [{ tab: 'contractProc', label: '契約手続きタブ' }], done: args.contractProcDone },
+    // 基本料金の入力は請求タブ／料金表画像のアップは案件フォルダ。どちらか一方でOKなので両方を案内する。
+    { key: 'baseFee', label: '基本料金の入力 または 料金表画像のアップ', targets: [{ tab: 'contract', label: '請求タブ' }, { tab: 'docs', label: '案件フォルダ' }], done: args.feeReady },
   ]
 }
 
@@ -34,7 +35,7 @@ export function getKentouContractFlowSteps(args: {
   contractProcDone: boolean
 }): FlowStep[] {
   return [
-    { key: 'contractProc', label: '契約手続き完了', tab: 'contractProc', tabLabel: '契約手続き', done: args.contractProcDone },
+    { key: 'contractProc', label: '契約手続き完了', targets: [{ tab: 'contractProc', label: '契約手続きタブ' }], done: args.contractProcDone },
   ]
 }
 
@@ -83,7 +84,6 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
         {steps.map(s => (
           <span
             key={s.key}
-            data-nav-step={s.tab}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] ${
               s.done
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -92,11 +92,11 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
           >
             {s.done ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
             {s.label}
-            {!s.done && (
-              <span className="ml-0.5 inline-flex items-center rounded bg-brand-100 px-1.5 py-0.5 text-[10.5px] font-medium text-brand-700">
-                {s.tabLabel}タブ
+            {!s.done && s.targets.map(t => (
+              <span key={t.tab} data-nav-step={t.tab} className="ml-0.5 inline-flex items-center rounded bg-brand-100 px-1.5 py-0.5 text-[10.5px] font-medium text-brand-700">
+                {t.label}
               </span>
-            )}
+            ))}
           </span>
         ))}
 
