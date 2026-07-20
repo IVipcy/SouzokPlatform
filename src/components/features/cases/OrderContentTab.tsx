@@ -11,6 +11,7 @@ import {
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
+import HintNote from '@/components/ui/HintNote'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -110,8 +111,8 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
       {!orderSheetMode && <TabHeader title="受注内容" description="この案件で引き受けた仕事の種類と、実際にやる作業を選びます" />}
       <Section title="受注内容">
         <div className="mb-3">
-          <div className="text-[13px] text-gray-600 mb-0.5">受注区分（複数選択できます）</div>
-          <p className="text-[11.5px] text-gray-400 mb-1.5">この案件で引き受けた仕事の種類です。当てはまるものを選んでください（いくつでもOK）。</p>
+          <div className="text-[13px] text-gray-600 mb-1.5">受注区分（複数選択できます）</div>
+          <HintNote className="mb-2">この案件で引き受けた仕事の種類です。当てはまるものを選んでください（いくつでもOK）。</HintNote>
           <MultiPills value={selectedKeys} options={[...ORDER_CATEGORIES]} onChange={setCategories} />
           {selectedKeys.length > 1 && (
             <p className="mt-2 text-[12px] text-gray-500">選んだ仕事は同時に進めます。あとから足したり外したりもできます。</p>
@@ -120,8 +121,8 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
         {/* 実施予定業務（受注区分のすぐ下・選択式）。外すと該当タブ／セクションに表示されません。 */}
         <div className="mb-3">
-          <div className="text-[13px] text-gray-600 mb-0.5">実施予定業務</div>
-          <p className="text-[11.5px] text-gray-400 mb-1.5">この案件で実際にやる作業を選びます。</p>
+          <div className="text-[13px] text-gray-600 mb-1.5">実施予定業務</div>
+          <HintNote className="mb-2">この案件で実際にやる作業を選びます。選んだ作業だけ、下のタブに出てきます。やらない作業は外してOKです。</HintNote>
           {isReferralOnly ? (
             <p className="text-[12px] text-gray-400">「紹介のみ」の場合、自社でやる相続手続きはありません。紹介先（税理士・不動産・遺品整理・弁護士など）は「他事業者紹介」タブに書いてください。</p>
           ) : selectedKeys.length > 0 ? (
@@ -141,7 +142,6 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
                   )
                 })}
               </div>
-              <p className="text-[11px] text-gray-400 mt-2">選んだ作業だけ、下のタブに出てきます。やらない作業は外してOKです。</p>
             </>
           ) : (
             <p className="text-[12px] text-gray-400">先に「受注区分」を選んでください。</p>
