@@ -585,6 +585,11 @@ export type KosekiRequestRow = {
   receipt_done_by: string | null
   request_check_by: string | null
   receipt_check_by: string | null
+  // 確認依頼（依頼→確認モデル。migration 181）。押すと確認簿の受信箱に上がる。
+  request_check_requested_at: string | null
+  request_check_requested_by: string | null
+  receipt_check_requested_at: string | null
+  receipt_check_requested_by: string | null
   // 追加請求（管理担当の承認ゲート。migration 148）
   is_additional: boolean
   additional_reason: string | null

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentMember } from '@/lib/useCurrentMember'
+import CheckRequestControl from './CheckRequestControl'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
@@ -44,6 +46,7 @@ type Props = {
  */
 export default function KosekiRequestsTable({ caseId, requests, onRefresh, orderSheetMode = false, deceasedName, deceasedRegisteredAddress, deceasedAddress, heirs = [], receipts = [], contractDocs = [] }: Props) {
   const supabase = createClient()
+  const meId = useCurrentMember(null)
   const [rows, setRows] = useState<KosekiRequestRow[]>(requests)
   const [busy, setBusy] = useState(false)
   // requests（DB再取得）と行集合を同期する。行の追加・削除はpropsに合わせつつ、
@@ -110,6 +113,21 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     await applyPatch(r, { acquirer, ...(auto && office ? { request_to: office } : {}) })
   }
 
+  // 確認依頼を出す／取り消す（発送＝request・着＝receipt）。確認簿の受信箱に上げる/下ろす。
+  const reqCheck = (r: KosekiRequestRow, kind: 'request' | 'receipt') => {
+    const at = new Date().toISOString()
+    const patch = kind === 'request'
+      ? { request_check_requested_at: at, request_check_requested_by: meId }
+      : { receipt_check_requested_at: at, receipt_check_requested_by: meId }
+    void applyPatch(r, patch as Partial<KosekiRequestRow>)
+  }
+  const cancelCheck = (r: KosekiRequestRow, kind: 'request' | 'receipt') => {
+    const patch = kind === 'request'
+      ? { request_check_requested_at: null, request_check_requested_by: null }
+      : { receipt_check_requested_at: null, receipt_check_requested_by: null }
+    void applyPatch(r, patch as Partial<KosekiRequestRow>)
+  }
+
   const addRow = async () => {
     setBusy(true)
     // 取得区分の既定は常に「自社取得」。役割分担（面談時の戸籍担当）には引っ張られない。
@@ -164,6 +182,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   open={expanded === r.id}
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)}
+                  onReqCheck={kind => reqCheck(r, kind)} onCancelCheck={kind => cancelCheck(r, kind)}
                   onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} receiptFiles={receiptFilesFor(receipts, 'koseki', r.id)} />
               ))
             ) : (
@@ -179,7 +198,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
           <div className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</div>
         ) : (
           rows.map(r => (
-            <KosekiCard key={r.id} r={r} progressMode={progressMode} setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)} onDelete={() => delRow(r)} targetOptions={targetOptions} />
+            <KosekiCard key={r.id} r={r} progressMode={progressMode} setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)} onReqCheck={kind => reqCheck(r, kind)} onCancelCheck={kind => cancelCheck(r, kind)} onDelete={() => delRow(r)} targetOptions={targetOptions} />
           ))
         )}
       </div>
@@ -200,7 +219,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onReqCheck, onCancelCheck, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -211,12 +230,16 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   onPickTarget: (value: string) => void
   onPickAcquirer: (value: string) => void
+  onReqCheck: (kind: 'request' | 'receipt') => void
+  onCancelCheck: (kind: 'request' | 'receipt') => void
   onDelete: () => void
   colCount: number
   targetOptions: string[]
   relatedTasks: RelatedTask[]
   receiptFiles: ReceiptFile[]
 }) {
+  // 依頼者取得は自社のW-checkが無い（確認簿にも上げない）ので依頼ボタンも出さない。
+  const isSelf = (r.acquirer ?? '自社') !== '依頼者'
   return (
     <>
       <tr className={`border-b border-gray-100 ${odd ? 'bg-gray-50/40' : ''}`}>
@@ -231,8 +254,18 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
-        {progressMode && <DateCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)} />}
-        {progressMode && <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />}
+        {progressMode && (
+          <DateReqCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)}
+            show={isSelf && !!r.request_date} label="発送を依頼"
+            requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name}
+            onRequest={() => onReqCheck('request')} onCancel={() => onCancelCheck('request')} />
+        )}
+        {progressMode && (
+          <DateReqCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)}
+            show={isSelf && !!r.arrival_date} label="到着を依頼"
+            requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
+            onRequest={() => onReqCheck('receipt')} onCancel={() => onCancelCheck('receipt')} />
+        )}
         {progressMode && <ReceivedCell received={!!r.arrival_date} />}
         {progressMode && (
           <td className="px-2.5 py-1.5">
@@ -272,7 +305,7 @@ function KFieldBlock({ label, children }: { label: string; children: React.React
   return <div><div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>{children}</div>
 }
 
-function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onDelete, targetOptions }: {
+function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onReqCheck, onCancelCheck, onDelete, targetOptions }: {
   r: KosekiRequestRow
   progressMode: boolean
   setLocal: (id: string, field: keyof KosekiRequestRow, value: string) => void
@@ -280,6 +313,8 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   onPickTarget: (value: string) => void
   onPickAcquirer: (value: string) => void
+  onReqCheck: (kind: 'request' | 'receipt') => void
+  onCancelCheck: (kind: 'request' | 'receipt') => void
   onDelete: () => void
   targetOptions: string[]
 }) {
@@ -288,6 +323,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
   // オーダーシート(progressMode=false)は1項目=1行。案件詳細のスマホは従来どおり2列。
   const gridCls = progressMode ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-1 gap-2.5'
   const targetOpts = r.target_person && !targetOptions.includes(r.target_person) ? [...targetOptions, r.target_person] : targetOptions
+  const isSelf = (r.acquirer ?? '自社') !== '依頼者'
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
       <div className="flex items-center justify-end -mt-1 mb-1">
@@ -325,8 +361,18 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
         </div>
         {progressMode && (
           <div className="grid grid-cols-2 gap-2.5">
-            <KFieldBlock label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className={inputCls} /></KFieldBlock>
-            <KFieldBlock label="到着日"><input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) commit(r.id, 'arrival_date', e.target.value) }} className={inputCls} /></KFieldBlock>
+            <KFieldBlock label="請求日">
+              <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className={inputCls} />
+              {isSelf && r.request_date && (
+                <div className="mt-1.5"><CheckRequestControl label="発送を依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => onReqCheck('request')} onCancel={() => onCancelCheck('request')} /></div>
+              )}
+            </KFieldBlock>
+            <KFieldBlock label="到着日">
+              <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) commit(r.id, 'arrival_date', e.target.value) }} className={inputCls} />
+              {isSelf && r.arrival_date && (
+                <div className="mt-1.5"><CheckRequestControl label="到着を依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => onReqCheck('receipt')} onCancel={() => onCancelCheck('receipt')} /></div>
+              )}
+            </KFieldBlock>
           </div>
         )}
         <FieldGrid cols={1}>
@@ -385,15 +431,31 @@ function Cell({ value, onChange, onCommit, placeholder }: { value: string | null
   )
 }
 
-function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
+// 日付セル＋その下に確認依頼コントロール（発送＝請求日／着＝到着日の真下に同居）。
+function DateReqCell({ value, onCommit, show, label, requestedAt, checkedAt, checkedName, onRequest, onCancel }: {
+  value: string | null
+  onCommit: (v: string) => void
+  show: boolean
+  label: string
+  requestedAt: string | null
+  checkedAt: string | null
+  checkedName: string | null
+  onRequest: () => void
+  onCancel: () => void
+}) {
   return (
-    <td className="px-2.5 py-1.5">
+    <td className="px-2.5 py-1.5 align-top">
       <input
         type="date"
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
       />
+      {show && (
+        <div className="mt-1">
+          <CheckRequestControl label={label} requestedAt={requestedAt} checkedAt={checkedAt} checkedName={checkedName} onRequest={onRequest} onCancel={onCancel} />
+        </div>
+      )}
     </td>
   )
 }

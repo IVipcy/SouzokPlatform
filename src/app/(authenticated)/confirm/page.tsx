@@ -62,13 +62,13 @@ export default async function ConfirmPage() {
       continue
     }
     if (isClient) continue // 依頼者取得は自社のW-checkなし
-    // 発送✓待ち：請求先が入っていて未チェック
-    if (requestTo && !r.request_check_at) {
-      items.push({ ...b, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
+    // 発送✓待ち：発送チェック依頼が出ていて未チェック（依頼→確認モデル）
+    if (r.request_check_requested_at && !r.request_check_at) {
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
     }
-    // 着✓待ち：到着日ありで未チェック
-    if (r.arrival_date && !r.receipt_check_at) {
-      items.push({ ...b, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
+    // 着✓待ち：着チェック依頼が出ていて未チェック
+    if (r.receipt_check_requested_at && !r.receipt_check_at) {
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
     }
   }
 
