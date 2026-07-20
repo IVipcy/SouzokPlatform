@@ -120,11 +120,11 @@ export default async function ConfirmPage() {
     const b = base({ id, case_id: caseId }, '金融')
     const inst = ((r.institution_name as string) ?? '').trim()
     const sub = ((r.branch_name as string) || (r.stock_name as string) || '') as string
-    if (r.balance_amount != null && !r.balance_confirmed) {
-      items.push({ ...b, key: `fc-${id}`, tab: 'confirm', action: 'fin_confirm', target: inst || '未設定', content: sub || '口座', amount: yen(r.balance_amount as number), workerId: null, workerName: null, reviewer: 'jimu' })
+    if (r.balance_confirm_requested_at && !r.balance_confirmed) {
+      items.push({ ...b, stamp: (r.balance_confirm_requested_at as string) ?? b.stamp, key: `fc-${id}`, tab: 'confirm', action: 'fin_confirm', target: inst || '未設定', content: sub || '口座', amount: yen(r.balance_amount as number), workerId: null, workerName: null, reviewer: 'jimu' })
     }
-    if (!r.freeze_confirmed) {
-      items.push({ ...b, key: `ff-${id}`, tab: 'freeze', action: 'fin_freeze', target: inst || '未設定', content: sub || '口座', amount: null, workerId: null, workerName: null, reviewer: 'manager' })
+    if (r.freeze_confirm_requested_at && !r.freeze_confirmed) {
+      items.push({ ...b, stamp: (r.freeze_confirm_requested_at as string) ?? b.stamp, key: `ff-${id}`, tab: 'freeze', action: 'fin_freeze', target: inst || '未設定', content: sub || '口座', amount: null, workerId: null, workerName: null, reviewer: 'manager' })
     }
   }
 

@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { Trash2, Plus, Lock, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
+import CheckRequestControl from './CheckRequestControl'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
@@ -74,7 +74,6 @@ type Props = {
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
 export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [], institutionFilter, accountId, cardLayout = false, showConfirmed = false }: Props) {
   const supabase = createClient()
-  const isManager = useIsManager()  // 凍結確認・残高確定のチェックは管理担当のみ
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   const [busy, setBusy] = useState(false)
@@ -85,29 +84,17 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const todayYmd = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const isSurveyBanned = (r: FinancialAssetRow) => !!r.survey_prohibited_end && todayYmd < r.survey_prohibited_end
 
-  // 残高確定のトグル（管理担当のみ）。確定→TOP一覧・財産目録へ反映。
-  const toggleBalanceConfirmed = async (row: FinancialAssetRow) => {
-    if (!isManager) return
-    const next = !row.balance_confirmed
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, balance_confirmed: next } : r))
-    const { error } = await supabase.from('financial_assets')
-      .update({ balance_confirmed: next, balance_confirmed_by: next ? memberId : null, balance_confirmed_at: next ? new Date().toISOString() : null })
-      .eq('id', row.id)
+  // 残高確定・凍結確認は「確認簿で確認」に一本化。ここでは依頼を出す／取り消すだけ。
+  const patchReq = async (row: FinancialAssetRow, patch: Partial<FinancialAssetRow>) => {
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } as FinancialAssetRow : r))
+    const { error } = await supabase.from('financial_assets').update(patch).eq('id', row.id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
-
-  // 凍結確認のトグル（管理担当のみ）。確認済→調査・解約タスクが着手可になる。
-  const toggleFreeze = async (row: FinancialAssetRow) => {
-    if (!isManager) return
-    const next = !row.freeze_confirmed
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, freeze_confirmed: next } : r))
-    const { error } = await supabase.from('financial_assets')
-      .update({ freeze_confirmed: next, freeze_confirmed_by: next ? memberId : null, freeze_confirmed_at: next ? new Date().toISOString() : null })
-      .eq('id', row.id)
-    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
-    onRefresh?.()
-  }
+  const reqBalance = (row: FinancialAssetRow) => patchReq(row, { balance_confirm_requested_at: new Date().toISOString(), balance_confirm_requested_by: memberId })
+  const cancelBalance = (row: FinancialAssetRow) => patchReq(row, { balance_confirm_requested_at: null, balance_confirm_requested_by: null })
+  const reqFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: new Date().toISOString(), freeze_confirm_requested_by: memberId })
+  const cancelFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: null, freeze_confirm_requested_by: null })
 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -144,11 +131,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
       {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 禁止期間中（〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}）調査は編集できません</div>}
       {progressMode && (
-        <CardRow label="凍結確認（管理担当）">
-          {r.freeze_confirmed
-            ? <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確認済</button>
-            : isManager ? <button type="button" onClick={() => toggleFreeze(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確認</button>
-            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200">調査不可</span>}
+        <CardRow label="凍結確認（確認簿で確認）">
+          <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />
         </CardRow>
       )}
       {cols.map(c => (
@@ -160,11 +144,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
       {showConfirmed && (
-        <CardRow label="確定済（管理担当）">
-          {r.balance_confirmed
-            ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default"><Check className="w-3 h-3" />確定済</button>
-            : isManager ? <button type="button" onClick={() => toggleBalanceConfirmed(r)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300"><Lock className="w-3 h-3" />未確定</button>
-            : <span className="text-[11px] text-gray-400">未確定</span>}
+        <CardRow label="残高確定（確認簿で確認）">
+          {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
+            : r.balance_amount != null
+              ? <CheckRequestControl label="残高確定を依頼" requestedAt={r.balance_confirm_requested_at} checkedAt={r.balance_confirmed_at} onRequest={() => reqBalance(r)} onCancel={() => cancelBalance(r)} />
+              : <span className="text-[12px] text-gray-400">残高を入れると依頼できます</span>}
         </CardRow>
       )}
       <CardRow label="取得区分">
@@ -207,10 +191,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
-              {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">確定済<span className="block text-[10px] font-normal text-gray-400">管理担当のみ</span></th>}
+              {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               <th className="px-2 py-2 text-left font-semibold w-28">調査禁止 開始</th>
@@ -231,20 +215,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             ) : (
               visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
-                  {/* 凍結確認済（一番左・管理担当のみチェック可。オーダーシートでは非表示） */}
+                  {/* 凍結確認（一番左・依頼→確認簿で確認。オーダーシートでは非表示） */}
                   {progressMode && (
                   <td className="px-2 py-1.5 text-center">
-                    {r.freeze_confirmed ? (
-                      <button type="button" onClick={() => toggleFreeze(r)} disabled={!isManager} title={isManager ? '凍結確認を取消' : '凍結確認は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
-                        <Check className="w-3 h-3" strokeWidth={2.5} />確認済
-                      </button>
-                    ) : isManager ? (
-                      <button type="button" onClick={() => toggleFreeze(r)} title="口座凍結を確認したらチェック（調査・解約タスクが着手可になる）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
-                        <Lock className="w-3 h-3" strokeWidth={2} />未確認
-                      </button>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結未確認のため調査不可">調査不可</span>
-                    )}
+                    <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />
                   </td>
                   )}
                   {cols.map(c => (
@@ -264,17 +238,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   </td>
                   {showConfirmed && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
-                      {r.balance_confirmed ? (
-                        <button type="button" onClick={() => toggleBalanceConfirmed(r)} disabled={!isManager} title={isManager ? '確定を取消' : '確定は管理担当のみ'} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 disabled:cursor-default hover:bg-emerald-100 disabled:hover:bg-emerald-50">
-                          <Check className="w-3 h-3" strokeWidth={2.5} />確定済
-                        </button>
-                      ) : isManager ? (
-                        <button type="button" onClick={() => toggleBalanceConfirmed(r)} title="残高を確定したらチェック（TOP一覧・財産目録へ反映）" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700">
-                          <Lock className="w-3 h-3" strokeWidth={2} />未確定
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未確定</span>
-                      )}
+                      {banned ? <span className="text-[11px] text-gray-300">—</span>
+                        : r.balance_amount != null
+                          ? <CheckRequestControl label="残高確定を依頼" requestedAt={r.balance_confirm_requested_at} checkedAt={r.balance_confirmed_at} onRequest={() => reqBalance(r)} onCancel={() => cancelBalance(r)} />
+                          : <span className="text-[11px] text-gray-300">残高待ち</span>}
                     </td>
                   )}
                   {/* 取得区分 */}
