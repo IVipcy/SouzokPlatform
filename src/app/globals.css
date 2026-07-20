@@ -169,6 +169,15 @@ body[data-sidebar-collapsed="1"] .ml-60 {
   .nav-step-complete, .nav-alldone-pop { animation: none; }
 }
 
+/* ─── 確認簿：確認を押した瞬間の判子スタンプ ─── */
+@keyframes confirm-stamp-pop {
+  0%   { opacity: 0; transform: scale(1.6) rotate(-8deg); }
+  55%  { opacity: 1; transform: scale(0.92) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1)   rotate(0); }
+}
+.confirm-stamp { animation: confirm-stamp-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@media (prefers-reduced-motion: reduce) { .confirm-stamp { animation: none; } }
+
 /* ─── 要進捗連絡（点滅）─── */
 @keyframes followup-blink-anim {
   0%, 100% { opacity: 1; }

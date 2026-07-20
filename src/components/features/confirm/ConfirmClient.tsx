@@ -3,12 +3,31 @@
 // 確認簿：作業者以外／管理担当が「発送✓・着✓・確定・承認・凍結確認」を横断で処理するメインページ。
 // 実体は各業務レコードのビュー（新テーブルは作らない）。押すと業務タブと同じ列を更新する。
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Download } from 'lucide-react'
+import { Download, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth, useIsManager } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS } from '@/lib/constants'
+import HintTip from '@/components/ui/HintTip'
+import HintNote from '@/components/ui/HintNote'
 import Link from 'next/link'
+
+// 各タブで「何を確認してほしいか」の説明（注意書きデザイン）
+const TAB_HINT: Record<ConfirmItem['tab'], string> = {
+  request: '戸籍・不動産の「発送（請求）」と「到着」が正しいかを、依頼した人とは別の人が確認します。発送✓／着✓を押すと確認完了です。',
+  confirm: '物件の評価額・口座の残高が正しいかを確認して確定します。確定すると財産目録・精算書に反映されます。',
+  approve: '初回のあとに追加された請求（戸籍・取得資料・市区町村）を、管理担当が承認します。承認するとタスクが作られます。',
+  freeze: '口座が凍結されたかを管理担当が確認します。確認すると、その口座の調査・解約の作業に進めます。',
+}
+
+// 確認済みスタンプ（誰が確認したか）。到着物受信簿のW-Check確定バッジと同じ意匠。
+function ConfirmStamp({ name, at, animate = false }: { name: string; at?: string | null; animate?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 ${animate ? 'confirm-stamp' : ''}`}>
+      <UserCheck className="w-3 h-3" strokeWidth={2.25} />{name}{at ? `・${at.slice(5, 10).replace('-', '/')}` : ''}
+    </span>
+  )
+}
 
 export type ConfirmAction =
   | 'koseki_send' | 'koseki_recv' | 're_send' | 're_recv'
@@ -102,6 +121,8 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
   const [mineOnly, setMineOnly] = useState(false)
   const [caseQuery, setCaseQuery] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  // 確認直後に一瞬スタンプを見せてから消す（誰が確認したかを見せる演出）
+  const [stamped, setStamped] = useState<Record<string, { name: string; at: string }>>({})
 
   const propMuni = useMemo(() => new Map(properties.map(p => [p.id, (p.municipality ?? '').trim()])), [properties])
 
@@ -211,8 +232,13 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         source_table: SOURCE_TABLE[it.action], source_row_id: it.rowId,
       })
       if (logErr) console.warn('confirm_events 記録に失敗:', logErr.message)
-      setItems(prev => prev.filter(x => x.key !== it.key))
+      // まずスタンプを表示（誰が確認したか）→ 少し見せてから未処理リストから外す。
+      setStamped(prev => ({ ...prev, [it.key]: { name: meName ?? '確認', at } }))
       showToast(`${ACTION_LABEL[it.action]}しました`, 'success')
+      setTimeout(() => {
+        setStamped(prev => { const n = { ...prev }; delete n[it.key]; return n })
+        setItems(prev => prev.filter(x => x.key !== it.key))
+      }, 1400)
     } catch (e) {
       showToast(`処理に失敗しました: ${e instanceof Error ? e.message : ''}`, 'error')
     } finally {
@@ -253,14 +279,15 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         <HistoryView />
       ) : (
         <>
-          <div className="flex items-center gap-3 flex-wrap mb-4">
+          <div className="flex items-center gap-2 flex-wrap mb-3">
             <label className="inline-flex items-center gap-1.5 text-[12px] text-gray-600">
-              <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} className="w-4 h-4 accent-brand-600" />自分が押せるものだけ
+              <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} className="w-4 h-4 accent-brand-600" />自分が確認できるものだけ表示
             </label>
+            <HintTip text="自分がした作業は、自分では確認できません（別の人が確認します）。チェックを入れると、いま自分がチェックできる項目だけに絞り込みます。" />
             <input type="text" value={caseQuery} onChange={e => setCaseQuery(e.target.value)} placeholder="案件名・番号で絞込" className="ml-auto w-48 px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-md outline-none focus:border-brand-500" />
           </div>
 
-          <div className="flex gap-1.5 flex-wrap mb-4">
+          <div className="flex gap-1.5 flex-wrap mb-3">
             {TABS.map(t => (
               <button key={t.key} type="button" onClick={() => setTab(t.key)}
                 className={`text-[12px] px-3 py-1.5 rounded-full border transition-colors ${tab === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -269,16 +296,18 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
             ))}
           </div>
 
+          <HintNote className="mb-4">{TAB_HINT[tab]}</HintNote>
+
           {visible.length === 0 ? (
             <div className="text-center text-[13px] text-gray-400 py-16 border border-dashed border-gray-200 rounded-lg">未処理はありません</div>
           ) : tab === 'request' ? (
             <div className="space-y-4">
               {(['戸籍', '不動産', '金融'] as const).filter(g => (grouped[g] ?? []).length > 0).map(g => (
-                <GyomuSection key={g} gyomu={g} rows={grouped[g]} busy={busy} canAct={canAct} onAct={act} />
+                <GyomuSection key={g} gyomu={g} rows={grouped[g]} busy={busy} stamped={stamped} canAct={canAct} onAct={act} />
               ))}
             </div>
           ) : (
-            <FlatTable rows={visible} busy={busy} canAct={canAct} onAct={act} />
+            <FlatTable rows={visible} busy={busy} stamped={stamped} canAct={canAct} onAct={act} />
           )}
         </>
       )}
@@ -399,14 +428,14 @@ function HistoryView() {
               {filtered.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-2 text-gray-500 text-[11px] whitespace-nowrap">{fmtDate(r.checked_at)}</td>
-                  <td className="px-2.5 py-2">{r.gyomu && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${GYOMU_CLS[r.gyomu] ?? ''}`}>{r.gyomu}</span>}</td>
+                  <td className="px-2.5 py-2">{r.gyomu && <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap ${GYOMU_CLS[r.gyomu] ?? ''}`}>{r.gyomu}</span>}</td>
                   <td className="px-2.5 py-2"><div className="font-medium text-gray-800">{r.case_name || '—'}</div><div className="text-[10px] text-gray-400 font-mono">{r.case_number}</div></td>
                   <td className="px-2.5 py-2"><div className="text-gray-800">{r.target || '—'}</div><div className="text-[11px] text-gray-500">{r.content}</div></td>
                   <td className="px-2.5 py-2 text-gray-600">{r.kind}</td>
                   <td className="px-2.5 py-2 text-right tabular-nums text-gray-700">{r.amount != null ? `¥${Math.round(r.amount).toLocaleString('ja-JP')}` : '—'}</td>
                   <td className="px-2.5 py-2">
-                    <div className="flex items-center gap-1 text-[11px] text-gray-500">{r.requested_by_name || '—'}{r.requested_at && <span className="text-[9px] text-gray-400">{fmtDay(r.requested_at)}</span>}</div>
-                    <div className="flex items-center gap-1 mt-0.5"><Check className="w-3 h-3 text-emerald-600" strokeWidth={2.5} /><span className="font-medium text-gray-800">{r.checked_by_name || '—'}</span></div>
+                    {r.requested_by_name && <div className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">依頼 {r.requested_by_name}{r.requested_at && <span className="text-[9px] text-gray-400">{fmtDay(r.requested_at)}</span>}</div>}
+                    <ConfirmStamp name={r.checked_by_name || '—'} at={r.checked_at} />
                   </td>
                 </tr>
               ))}
@@ -418,22 +447,24 @@ function HistoryView() {
   )
 }
 
-function GyomuSection({ gyomu, rows, busy, canAct, onAct }: { gyomu: string; rows: ConfirmItem[]; busy: string | null; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void }) {
+type Stamped = Record<string, { name: string; at: string }>
+
+function GyomuSection({ gyomu, rows, busy, stamped, canAct, onAct }: { gyomu: string; rows: ConfirmItem[]; busy: string | null; stamped: Stamped; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void }) {
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-        <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full border ${GYOMU_CLS[gyomu]}`}>{gyomu}</span>
+        <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${GYOMU_CLS[gyomu]}`}>{gyomu}</span>
         <span className="text-[11px] text-gray-400">{rows.length}件</span>
       </div>
-      <ItemTable rows={rows} busy={busy} canAct={canAct} onAct={onAct} />
+      <ItemTable rows={rows} busy={busy} stamped={stamped} canAct={canAct} onAct={onAct} />
     </div>
   )
 }
 
-function FlatTable({ rows, busy, canAct, onAct }: { rows: ConfirmItem[]; busy: string | null; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void }) {
+function FlatTable({ rows, busy, stamped, canAct, onAct }: { rows: ConfirmItem[]; busy: string | null; stamped: Stamped; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void }) {
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <ItemTable rows={rows} busy={busy} canAct={canAct} onAct={onAct} showGyomu />
+      <ItemTable rows={rows} busy={busy} stamped={stamped} canAct={canAct} onAct={onAct} showGyomu />
     </div>
   )
 }
@@ -444,14 +475,14 @@ function fmt(iso: string | null) {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function ItemTable({ rows, busy, canAct, onAct, showGyomu = false }: { rows: ConfirmItem[]; busy: string | null; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void; showGyomu?: boolean }) {
+function ItemTable({ rows, busy, stamped, canAct, onAct, showGyomu = false }: { rows: ConfirmItem[]; busy: string | null; stamped: Stamped; canAct: (it: ConfirmItem) => boolean; onAct: (it: ConfirmItem) => void; showGyomu?: boolean }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
           <tr className="bg-white border-b border-gray-200 text-[10.5px] text-gray-500">
             <th className="px-2.5 py-2 text-left font-semibold w-24">起票</th>
-            {showGyomu && <th className="px-2.5 py-2 text-left font-semibold w-16">業務</th>}
+            {showGyomu && <th className="px-2.5 py-2 text-left font-semibold w-20">業務</th>}
             <th className="px-2.5 py-2 text-left font-semibold w-28">案件</th>
             <th className="px-2.5 py-2 text-left font-semibold">対象 / 内容</th>
             <th className="px-2.5 py-2 text-left font-semibold w-24">種類</th>
@@ -467,7 +498,7 @@ function ItemTable({ rows, busy, canAct, onAct, showGyomu = false }: { rows: Con
             return (
               <tr key={it.key} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 <td className="px-2.5 py-2 text-gray-400 text-[11px]">{fmt(it.stamp)}</td>
-                {showGyomu && <td className="px-2.5 py-2"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${GYOMU_CLS[it.gyomu]}`}>{it.gyomu}</span></td>}
+                {showGyomu && <td className="px-2.5 py-2"><span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap ${GYOMU_CLS[it.gyomu]}`}>{it.gyomu}</span></td>}
                 <td className="px-2.5 py-2">
                   <Link href={`/cases/${it.caseId}`} className="font-medium text-gray-800 hover:text-brand-700 hover:underline">{it.caseName || '—'}</Link>
                   <div className="text-[10px] text-gray-400 font-mono">{it.caseNumber}</div>
@@ -485,11 +516,13 @@ function ItemTable({ rows, busy, canAct, onAct, showGyomu = false }: { rows: Con
                   </span>
                 </td>
                 <td className="px-2.5 py-2 text-right">
-                  <button type="button" onClick={() => onAct(it)} disabled={!enabled || busy === it.key}
-                    title={enabled ? '' : (it.reviewer === 'manager' ? '管理担当のみ' : '自分の作業は確認できません')}
-                    className="inline-flex items-center px-3 py-1.5 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                    {busy === it.key ? '…' : ACTION_LABEL[it.action]}
-                  </button>
+                  {stamped[it.key]
+                    ? <ConfirmStamp name={stamped[it.key].name} at={stamped[it.key].at} animate />
+                    : <button type="button" onClick={() => onAct(it)} disabled={!enabled || busy === it.key}
+                        title={enabled ? '' : (it.reviewer === 'manager' ? '管理担当のみ' : '自分の作業は確認できません')}
+                        className="inline-flex items-center px-3 py-1.5 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                        {busy === it.key ? '…' : ACTION_LABEL[it.action]}
+                      </button>}
                 </td>
               </tr>
             )
