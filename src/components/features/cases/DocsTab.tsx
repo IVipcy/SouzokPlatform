@@ -50,7 +50,6 @@ type ReceiptItemRow = {
   manualFlag: boolean | null  // link_not_required の生値（null=自動判定）
 }
 
-type FilterKey = 'all' | 'linked' | 'unlinked' | 'notrequired'
 
 /**
  * 案件詳細「到着物」タブ。
@@ -65,8 +64,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   const router = useRouter()
   const isManager = useIsManager()  // 到着物のタスク紐づけ・受信操作は管理担当のみ
   const [, startTransition] = useTransition()
-  const [filter, setFilter] = useState<FilterKey>('all')
-  const [fileFilter, setFileFilter] = useState<'all' | 'uploaded' | 'notuploaded'>('all')
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
 
   // 契約時受領書類の区分（id → category）。紐づけ不要の自動判定に使う。
@@ -124,24 +121,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
     )
     return out
   }, [documentReceipts, tasks, contractCat])
-
-  const filtered = useMemo(() => rows.filter(r => {
-    const linked = r.linkedTasks.length > 0
-    // タスク紐づけフィルタ
-    if (filter === 'linked' && !linked) return false
-    if (filter === 'notrequired' && !(!linked && r.notRequired)) return false
-    if (filter === 'unlinked' && !(!linked && !r.notRequired)) return false
-    // ファイルアップフィルタ
-    const uploaded = !!r.uploadedAt || !!r.file
-    if (fileFilter === 'uploaded' && !uploaded) return false
-    if (fileFilter === 'notuploaded' && uploaded) return false
-    return true
-  }), [rows, filter, fileFilter])
-
-  const linkedCount = rows.filter(r => r.linkedTasks.length > 0).length
-  const notRequiredCount = rows.filter(r => r.linkedTasks.length === 0 && r.notRequired).length
-  const unlinkedCount = rows.length - linkedCount - notRequiredCount
-  const uploadedCount = rows.filter(r => !!r.uploadedAt || !!r.file).length
 
   // 受信簿外の case_documents（item.case_document_id に登録されていないもの）。
   // 到着物タブは「受領した書類」だけを扱うので、受領ファイル(received_file)があるものに限る。
@@ -212,33 +191,17 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
       <TabHeader title="到着物" description="受信簿に登録された到着物の一覧です。どのタスクで使うかをここで結び付けます。" />
 
       <Section title="到着物一覧（受信簿）">
-        {/* フィルタ（タスク紐づけ系＋ファイルアップ系の2系統） */}
-        <div className="space-y-1.5 mb-2.5">
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-[11px] text-gray-400 w-14 flex-shrink-0">タスク</span>
-            <FilterPill label="すべて" count={rows.length} active={filter === 'all'} onClick={() => setFilter('all')} />
-            <FilterPill label="タスク紐づけ済" count={linkedCount} active={filter === 'linked'} onClick={() => setFilter('linked')} />
-            <FilterPill label="タスク未紐づけ" count={unlinkedCount} active={filter === 'unlinked'} onClick={() => setFilter('unlinked')} />
-            <FilterPill label="タスク紐づけ不要" count={notRequiredCount} active={filter === 'notrequired'} onClick={() => setFilter('notrequired')} />
+        {unuploadedCount > 0 && (
+          <div className="flex justify-end mb-2">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
+              <CloudOff className="w-3 h-3" strokeWidth={2} />未アップ {unuploadedCount}件
+            </span>
           </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-[11px] text-gray-400 w-14 flex-shrink-0">ファイル</span>
-            <FilterPill label="すべて" count={rows.length} active={fileFilter === 'all'} onClick={() => setFileFilter('all')} />
-            <FilterPill label="ファイルアップ済" count={uploadedCount} active={fileFilter === 'uploaded'} onClick={() => setFileFilter('uploaded')} />
-            <FilterPill label="ファイル未アップ" count={unuploadedCount} active={fileFilter === 'notuploaded'} onClick={() => setFileFilter('notuploaded')} />
-            {unuploadedCount > 0 && (
-              <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded">
-                <CloudOff className="w-3 h-3" strokeWidth={2} />未アップ {unuploadedCount}件
-              </span>
-            )}
-          </div>
-        </div>
+        )}
 
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg p-8 text-center text-[13px] text-gray-400">
-            {rows.length === 0
-              ? '受信簿に登録された到着物はまだありません。受信簿（書類管理→受信簿）から登録できます。'
-              : '該当する到着物はありません'}
+            受信簿に登録された到着物はまだありません。受信簿（書類管理→受信簿）から登録できます。
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -260,7 +223,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(row => (
+                {rows.map(row => (
                   <tr key={row.itemId} className="border-b border-gray-100 hover:bg-gray-50/40 align-top">
                     <td className="px-3 py-2 text-gray-800 font-medium">{row.itemName}</td>
                     <td className="px-3 py-2 font-mono text-[12px] text-gray-600">{row.receivedDate ?? '—'}</td>
@@ -356,20 +319,6 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   )
 }
 
-function FilterPill({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${
-        active ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-      }`}
-    >
-      {label}
-      <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'text-gray-400'}`}>{count}</span>
-    </button>
-  )
-}
 
 // 到着物アイテムにタスクを紐付けるモーダル。
 // 既存タスクから選ぶ / その場で新規タスクを作成して紐付ける、の両方をサポート。
