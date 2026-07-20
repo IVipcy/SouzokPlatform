@@ -722,6 +722,8 @@ export type RealEstatePropertyRow = {
   confirmed: boolean                               // 確定済（管理担当のみ。TOP・目録へ反映。migration 147）
   confirmed_by: string | null
   confirmed_at: string | null
+  confirm_requested_at: string | null              // 評価額確定の依頼（依頼→確認モデル。migration 181）
+  confirm_requested_by: string | null
   registration_cost: number | null                 // 相続登記 確定費用＝登録免許税（migration 148）
   registration_check_name: string | null           // 相続登記 申請時ダブルチェック（migration 148）
   registration_check_at: string | null
@@ -756,6 +758,11 @@ export type RealEstateAcquisitionRow = {
   receipt_done_by: string | null
   request_check_by: string | null
   receipt_check_by: string | null
+  // 確認依頼（依頼→確認モデル。migration 181）
+  request_check_requested_at: string | null
+  request_check_requested_by: string | null
+  receipt_check_requested_at: string | null
+  receipt_check_requested_by: string | null
   // 追加請求の承認ゲート（migration 178。戸籍と同方式）
   is_additional: boolean
   additional_reason: string | null
@@ -814,6 +821,8 @@ export type FinancialAssetRow = {
   freeze_confirmed: boolean                   // 凍結確認済（migration 142。未確認だと金融タスク着手不可）
   freeze_confirmed_by: string | null          // 凍結確認した管理担当
   freeze_confirmed_at: string | null          // 凍結確認日時
+  freeze_confirm_requested_at: string | null  // 凍結確認の依頼（依頼→確認モデル。migration 181）
+  freeze_confirm_requested_by: string | null
   balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
   oc_transferred: boolean                      // オーシャンへ残高移管済（預金。精算書）
   survey_result: string | null                // 調査結果（migration 146）
@@ -821,6 +830,8 @@ export type FinancialAssetRow = {
   balance_confirmed: boolean                  // 残高確定（管理担当のみ。TOP・目録へ反映。migration 147）
   balance_confirmed_by: string | null
   balance_confirmed_at: string | null
+  balance_confirm_requested_at: string | null // 残高確定の依頼（依頼→確認モデル。migration 181）
+  balance_confirm_requested_by: string | null
   created_at: string
 }
 
