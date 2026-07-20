@@ -224,7 +224,16 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
   label?: string
 }) {
   const [open, setOpen] = useState(false)
+  // メニューは position: fixed で出す（タブバーの overflow-x-auto に縦もクリップされるのを回避）。
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+    }
+    setOpen(o => !o)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -256,7 +265,7 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
     <div ref={ref} className="relative inline-flex">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={`${base} ${state}`}
       >
         <TriggerIcon className="w-[17px] h-[17px]" strokeWidth={isOnInfo ? 2.25 : 1.9} />
@@ -266,8 +275,8 @@ function InfoDropdown({ tabs, activeTab, highlightSet, onTabChange, label = '案
           <span className="text-brand-600 font-bold text-[10px] leading-none ml-0.5">●</span>
         )}
       </button>
-      {open && (
-        <div className="absolute top-full mt-1.5 right-0 z-50 bg-white border border-gray-200 rounded-lg p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)] min-w-[220px]">
+      {open && pos && (
+        <div style={{ position: 'fixed', top: pos.top, right: pos.right }} className="z-50 bg-white border border-gray-200 rounded-lg p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)] min-w-[220px]">
           {tabs.map(key => {
             const isItemActive = activeTab === key
             const isItemHighlight = highlightSet.has(key)
