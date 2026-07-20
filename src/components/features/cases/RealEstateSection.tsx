@@ -31,6 +31,7 @@ type Props = {
   contractDocs?: ContractDocumentRow[]
   focus?: string | null   // タスク詳細からの着地：市区町村名。該当市区町村タブを初期選択。
   focusOffice?: 'muni' | 'houmu' | null  // 着地元タスクの系統：①市区町村役場/②法務局。該当表を点滅。
+  addressSuggestions?: string[]  // 所在地の予測住所（被相続人の住所・本籍など）
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
@@ -45,7 +46,7 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, addressSuggestions = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
   // タスク詳細から着地したとき、対象の表（①/②）を青枠点滅→点滅後も枠は残す。
@@ -373,7 +374,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed />
+              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出す→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取ります。登記情報などは法務局へまとめて請求します（請求・読込とも市区町村ごと1件。資料ごとの到着日は下の表に入れます）。路線価は見るだけ（請求も日付もありません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />

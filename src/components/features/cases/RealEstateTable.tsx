@@ -23,14 +23,19 @@ type Props = {
   municipalityFilter?: string
   /** 市区町村タブで使用：確定済トグル列を表示（管理担当のみ操作可） */
   showConfirmed?: boolean
+  /** 所在地の予測住所リスト（被相続人の住所・本籍など）。自由入力も可。 */
+  addressSuggestions?: string[]
 }
 
 /** 不動産を表形式でインライン編集・行追加。行展開で詳細項目も編集できる（財産調査） */
-export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false }: Props) {
+export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false, addressSuggestions = [] }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
+  // 予測住所：被相続人の住所・本籍＋この案件で既に入力済みの所在地。datalistで候補表示（自由入力可）。
+  const addrListId = `re-addr-${caseId}`
+  const addrOptions = [...new Set([...addressSuggestions, ...rows.map(r => r.address ?? '')].map(s => s.trim()).filter(Boolean))]
   const [expanded, setExpanded] = useState<string | null>(null)
   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）。
   // オーダーシートでは所在地だけ入力し、市区町村は所在地から自動抽出するため列を隠す。
@@ -100,6 +105,8 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   return (
     <div>
+      {/* 所在地の予測住所（被相続人の住所・本籍＋入力済み。自由入力も可） */}
+      {addrOptions.length > 0 && <datalist id={addrListId}>{addrOptions.map(a => <option key={a} value={a} />)}</datalist>}
       {/* PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一）。 */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
@@ -127,6 +134,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
                   onDelete={() => delRow(r)}
                   showMuni={showMuni}
                   showConfirmed={showConfirmed}
+                  addrListId={addrListId}
                   onRequestConfirm={() => reqConfirm(r)}
                   onCancelConfirm={() => cancelConfirm(r)}
                 />
@@ -154,6 +162,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               orderSheetMode={orderSheetMode}
               showMuni={showMuni}
               showConfirmed={showConfirmed}
+              addrListId={addrListId}
               onRequestConfirm={() => reqConfirm(r)}
               onCancelConfirm={() => cancelConfirm(r)}
             />
@@ -168,13 +177,14 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   )
 }
 
-function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: {
+function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrListId, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   onDelete: () => void
   showMuni: boolean
   showConfirmed: boolean
+  addrListId: string
   onRequestConfirm: () => void
   onCancelConfirm: () => void
 }) {
@@ -192,7 +202,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, onReq
       <tr className="border-b border-gray-100">
         {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
         {sel('property_type', PROPERTY_TYPES)}
-        <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地" />
+        <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" list={addrListId} />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
         {showConfirmed && (
@@ -210,7 +220,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, onReq
   )
 }
 
-function CellInput({ value, onChange, onCommit, placeholder }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string }) {
+function CellInput({ value, onChange, onCommit, placeholder, list }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; list?: string }) {
   return (
     <td className="px-2.5 py-1.5">
       <input
@@ -219,6 +229,7 @@ function CellInput({ value, onChange, onCommit, placeholder }: { value: string |
         onChange={e => onChange(e.target.value)}
         onBlur={e => onCommit(e.target.value)}
         placeholder={placeholder}
+        list={list}
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
       />
     </td>
@@ -236,7 +247,7 @@ function FieldBlock({ label, children }: { label: string; children: ReactNode })
 }
 
 // スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
-function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: {
+function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, addrListId, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   open: boolean
   onToggle: () => void
@@ -247,6 +258,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
   orderSheetMode: boolean
   showMuni: boolean
   showConfirmed: boolean
+  addrListId: string
   onRequestConfirm: () => void
   onCancelConfirm: () => void
 }) {
@@ -269,7 +281,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           </FieldBlock>
         )}
         <FieldBlock label="所在地">
-          <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地" className={inputCls} />
+          <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地（住所を予測）" list={addrListId} className={inputCls} />
           <p className="mt-0.5 text-[11px] text-gray-400">名寄帳取得後に地番を要確認</p>
         </FieldBlock>
         <FieldBlock label="評価額">

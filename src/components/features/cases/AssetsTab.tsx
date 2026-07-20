@@ -82,6 +82,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
     return 'realestate'
   })
 
+  // 所在地の予測住所：被相続人の住所・本籍（物件は被相続人の自宅であることが多い）。
+  const addrSuggestions = [caseData.deceased_address, caseData.deceased_registered_address].filter((s): s is string => !!s && s.trim() !== '')
+
   // オーダーシート：証券/信託/生命保険はデータが無ければ最初は非表示。「＋証券/＋信託/＋生命保険」を押すと表示。
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
   const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
@@ -143,7 +146,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             <div>
               <SectionHeading title="物件一覧（どこに物件があるか／所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode />
+              <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode addressSuggestions={addrSuggestions} />
             </div>
           ) : (
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計
@@ -157,6 +160,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               contractDocs={reContractDocs}
               focus={focus}
               focusOffice={focusOffice}
+              addressSuggestions={addrSuggestions}
             />
           )}
         </div>

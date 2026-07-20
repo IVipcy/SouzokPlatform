@@ -3,10 +3,13 @@
 // 実務タブの「1行=1明細」表で使う共通インライン編集セル。
 // 戸籍・相続登記など、詳細をカードでなく表にマージした画面で共有する。
 
+import { useState } from 'react'
 import { UserCheck, X } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 
 const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
+// 全角→半角、数字以外を除去した「生の数字文字列」を返す。
+const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 const cellSel = 'w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
 export function TxtCell({ value, onCommit, placeholder }: { value: string | null; onCommit: (v: string) => void; placeholder?: string }) {
@@ -22,7 +25,9 @@ export function DateCell({ value, onCommit }: { value: string | null; onCommit: 
 }
 
 export function MoneyCell({ value, onCommit }: { value: number | null; onCommit: (v: string) => void }) {
-  return <input type="text" inputMode="numeric" defaultValue={value != null ? String(value) : ''} onBlur={e => onCommit(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" className={`${cellInp} text-right tabular-nums`} />
+  const [raw, setRaw] = useState(value != null ? String(value) : '')
+  const display = raw ? Number(raw).toLocaleString('en-US') : ''
+  return <input type="text" inputMode="numeric" value={display} onChange={e => setRaw(toDigits(e.target.value))} onBlur={() => onCommit(raw)} placeholder="0" className={`${cellInp} text-right tabular-nums`} />
 }
 
 // ダブルチェック（自分以外）。押すと現在ユーザー名＋日時を記録、×で取消。

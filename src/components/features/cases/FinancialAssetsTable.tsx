@@ -339,15 +339,20 @@ function TextInput({ value, onChange, onCommit, placeholder }: { value: string |
   )
 }
 
+// 全角→半角、数字以外を除去した「生の数字文字列」を返す。
+const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
+
+// 金額入力：数字だけ受け付け、全角は半角化、表示は3桁カンマ区切り。保存は生の数値文字列。
 export function MoneyInput({ value, onCommit, placeholder }: { value: number | null | undefined; onCommit: (v: string) => void; placeholder?: string }) {
-  const [text, setText] = useState(value != null ? String(value) : '')
+  const [raw, setRaw] = useState(value != null ? String(value) : '')
+  const display = raw ? Number(raw).toLocaleString('en-US') : ''
   return (
     <input
       type="text"
       inputMode="numeric"
-      value={text}
-      onChange={e => setText(e.target.value.replace(/[^\d.]/g, ''))}
-      onBlur={() => onCommit(text)}
+      value={display}
+      onChange={e => setRaw(toDigits(e.target.value))}
+      onBlur={() => onCommit(raw)}
       placeholder={placeholder ?? '0'}
       className="w-full px-1.5 py-1.5 text-[12px] text-right bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition tabular-nums"
     />
