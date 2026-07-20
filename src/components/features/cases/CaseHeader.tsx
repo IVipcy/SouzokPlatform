@@ -32,6 +32,7 @@ type Props = {
   showReceiptsAction?: boolean
   /** 到着物の未対応件数（タスク紐づけ待ち）。バッジ表示に使う。 */
   receiptCount?: number
+  receiptTotal?: number
   showDocsAction?: boolean
   showDocumentCreateAction?: boolean
   docCount?: number
@@ -55,7 +56,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [] }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [] }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
@@ -281,8 +282,11 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     {(highlightTabs ?? []).includes('receipts') && (
                       <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
                     )}
-                    {receiptCount > 0 && (
-                      <span className="bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-1.5 text-[11px] font-mono leading-tight" title="未対応（タスク紐づけ待ち）の到着物">{receiptCount}</span>
+                    {receiptTotal > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 text-[11px] font-mono leading-tight border ${receiptCount > 0 ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-white text-brand-700 border-brand-200'}`}
+                        title={receiptCount > 0 ? `到着物 ${receiptTotal}件（うち未対応 ${receiptCount}件）` : `到着物 ${receiptTotal}件`}
+                      >{receiptTotal}</span>
                     )}
                   </button>
                 )}

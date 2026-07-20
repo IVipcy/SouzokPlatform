@@ -329,6 +329,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         }}
         showReceiptsAction={minimal ? false : tabVis.visible.includes('receipts')}
         receiptCount={unhandledReceiptCount}
+        receiptTotal={(documentReceipts ?? []).reduce((n, r) => n + (r.items?.length ?? 0), 0)}
         showDocsAction={minimal ? false : tabVis.visible.includes('docs')}
         showDocumentCreateAction={minimal ? true : tabVis.visible.includes('documentCreate')}
         docCount={caseFiles.length + createdDocuments.filter(d => !!d.file_path).length}
