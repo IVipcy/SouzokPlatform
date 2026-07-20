@@ -9,6 +9,8 @@ import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { useModal } from '@/hooks/useModal'
 import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
+import CompletionCautionModal from '@/components/features/tasks/CompletionCautionModal'
+import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
@@ -101,6 +103,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [navDismissed, setNavDismissed] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
   const [completeTaskOpen, setCompleteTaskOpen] = useState(false)
+  // 完了前の注意ポップアップ（依頼のし忘れ・凍結確認漏れ等）
+  const [caution, setCaution] = useState<CompletionCaution | null>(null)
+  const [cautionBusy, setCautionBusy] = useState(false)
+  const [checkingCaution, setCheckingCaution] = useState(false)
   // タブ↔ナビのリードライン描画用ラッパ
   const navWrapRef = useRef<HTMLDivElement>(null)
 
@@ -138,6 +144,29 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   const handleSaved = () => {
     router.refresh()
+  }
+
+  // 「このタスクを完了」→ まず注意（依頼のし忘れ等）を判定。該当なければそのまま完了モーダルへ。
+  const handleCompleteClick = async (t: TaskRow) => {
+    setCheckingCaution(true)
+    try {
+      const c = await getCompletionCaution(t, currentMemberId ?? null)
+      if (c) setCaution(c)
+      else setCompleteTaskOpen(true)
+    } catch {
+      setCompleteTaskOpen(true)  // 判定に失敗しても完了は妨げない
+    } finally {
+      setCheckingCaution(false)
+    }
+  }
+  const cautionRequestNow = async () => {
+    if (!caution) return
+    setCautionBusy(true)
+    try { await caution.request() } catch { /* 依頼失敗でも完了は進める */ }
+    setCautionBusy(false)
+    setCaution(null)
+    setCompleteTaskOpen(true)
+    handleSaved()
   }
 
   /** 案件フィールドの楽観的更新 */
@@ -319,8 +348,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           </div>
           <button
             type="button"
-            onClick={() => setCompleteTaskOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-brand-700 bg-white hover:bg-brand-50 shadow-sm flex-none"
+            onClick={() => handleCompleteClick(focusTask)}
+            disabled={checkingCaution}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-brand-700 bg-white hover:bg-brand-50 shadow-sm flex-none disabled:opacity-60"
           >
             <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />このタスクを完了
           </button>
@@ -335,6 +365,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             <X className="w-4 h-4" strokeWidth={2.25} />
           </button>
         </div>
+      )}
+
+      {caution && (
+        <CompletionCautionModal
+          caution={caution}
+          busy={cautionBusy}
+          onRequest={cautionRequestNow}
+          onProceed={() => { setCaution(null); setCompleteTaskOpen(true) }}
+          onClose={() => setCaution(null)}
+        />
       )}
 
       {completeTaskOpen && focusTask && (
