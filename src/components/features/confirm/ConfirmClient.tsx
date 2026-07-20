@@ -2,7 +2,8 @@
 
 // 確認簿：作業者以外／管理担当が「発送✓・着✓・確定・承認・凍結確認」を横断で処理するメインページ。
 // 実体は各業務レコードのビュー（新テーブルは作らない）。押すと業務タブと同じ列を更新する。
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth, useIsManager } from '@/components/providers/AuthProvider'
@@ -31,6 +32,10 @@ export type ConfirmItem = {
   workerId: string | null    // 作業者（この人は押せない）
   workerName: string | null
   reviewer: 'jimu' | 'manager'
+  // 依頼者（依頼→確認モデル。履歴＝confirm_events へ残す）
+  requestedAt?: string | null
+  requestedBy?: string | null
+  requestedByName?: string | null
   // 承認のタスク生成に使う付帯情報
   meta?: {
     acquirer?: string | null
@@ -73,12 +78,26 @@ const KIND_LABEL: Record<ConfirmAction, string> = {
 
 const nowIso = () => new Date().toISOString()
 
+// 各アクションの元テーブル（監査ログのスナップショット用）
+const SOURCE_TABLE: Record<ConfirmAction, string> = {
+  koseki_send: 'koseki_requests', koseki_recv: 'koseki_requests', koseki_approve: 'koseki_requests',
+  re_send: 'real_estate_acquisitions', re_recv: 'real_estate_acquisitions', re_acq_approve: 'real_estate_acquisitions',
+  re_confirm: 'real_estate_properties', re_prop_approve: 'real_estate_properties',
+  fin_confirm: 'financial_assets', fin_freeze: 'financial_assets',
+}
+const amountToNumber = (s: string | null): number | null => {
+  if (!s) return null
+  const n = Number(s.replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
 export default function ConfirmClient({ items: initialItems, properties }: { items: ConfirmItem[]; properties: PropLite[] }) {
   const supabase = createClient()
   const meId = useAuth()?.memberId ?? null
   const meName = useAuth()?.memberName ?? null
   const isManager = useIsManager()
   const [items, setItems] = useState<ConfirmItem[]>(initialItems)
+  const [view, setView] = useState<'pending' | 'history'>('pending')
   const [tab, setTab] = useState<ConfirmItem['tab']>('request')
   const [mineOnly, setMineOnly] = useState(false)
   const [caseQuery, setCaseQuery] = useState('')
@@ -182,6 +201,16 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
           break
         }
       }
+      // 監査ログ（追記専用）。元行を後で変更・削除しても履歴は当時のまま残す。失敗しても確認自体は成立させる。
+      const { error: logErr } = await supabase.from('confirm_events').insert({
+        case_id: it.caseId, case_number: it.caseNumber, case_name: it.caseName,
+        gyomu: it.gyomu, kind: KIND_LABEL[it.action], action: it.action,
+        target: it.target, content: it.content, amount: amountToNumber(it.amount),
+        requested_by: it.requestedBy ?? null, requested_by_name: it.requestedByName ?? null, requested_at: it.requestedAt ?? null,
+        checked_by: meId, checked_by_name: meName, checked_at: at,
+        source_table: SOURCE_TABLE[it.action], source_row_id: it.rowId,
+      })
+      if (logErr) console.warn('confirm_events 記録に失敗:', logErr.message)
       setItems(prev => prev.filter(x => x.key !== it.key))
       showToast(`${ACTION_LABEL[it.action]}しました`, 'success')
     } catch (e) {
@@ -206,32 +235,184 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
     <div className="p-6 max-w-[1200px] mx-auto">
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <h1 className="text-lg font-bold text-gray-900">確認簿</h1>
-        <span className="text-[12px] text-gray-500">全案件・未処理 {items.length}件</span>
-        <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-gray-600">
-          <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} className="w-4 h-4 accent-brand-600" />自分が押せるものだけ
-        </label>
-        <input type="text" value={caseQuery} onChange={e => setCaseQuery(e.target.value)} placeholder="案件名・番号で絞込" className="w-48 px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-md outline-none focus:border-brand-500" />
-      </div>
-
-      <div className="flex gap-1.5 flex-wrap mb-4">
-        {TABS.map(t => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)}
-            className={`text-[12px] px-3 py-1.5 rounded-full border transition-colors ${tab === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-            {t.label}<span className="ml-1.5 opacity-70">{counts[t.key] ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
-      {visible.length === 0 ? (
-        <div className="text-center text-[13px] text-gray-400 py-16 border border-dashed border-gray-200 rounded-lg">未処理はありません</div>
-      ) : tab === 'request' ? (
-        <div className="space-y-4">
-          {(['戸籍', '不動産', '金融'] as const).filter(g => (grouped[g] ?? []).length > 0).map(g => (
-            <GyomuSection key={g} gyomu={g} rows={grouped[g]} busy={busy} canAct={canAct} onAct={act} />
+        {view === 'pending'
+          ? <span className="text-[12px] text-gray-500">全案件・未処理 {items.length}件</span>
+          : <span className="text-[12px] text-gray-500">確認済みの記録を検索</span>}
+        {/* 未処理／履歴 の切替 */}
+        <div className="ml-auto inline-flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          {(['pending', 'history'] as const).map(v => (
+            <button key={v} type="button" onClick={() => setView(v)}
+              className={`text-[12px] px-3 py-1 rounded-md transition-colors ${view === v ? 'bg-white text-gray-900 font-semibold border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
+              {v === 'pending' ? '未処理' : '履歴'}
+            </button>
           ))}
         </div>
+      </div>
+
+      {view === 'history' ? (
+        <HistoryView />
       ) : (
-        <FlatTable rows={visible} busy={busy} canAct={canAct} onAct={act} />
+        <>
+          <div className="flex items-center gap-3 flex-wrap mb-4">
+            <label className="inline-flex items-center gap-1.5 text-[12px] text-gray-600">
+              <input type="checkbox" checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} className="w-4 h-4 accent-brand-600" />自分が押せるものだけ
+            </label>
+            <input type="text" value={caseQuery} onChange={e => setCaseQuery(e.target.value)} placeholder="案件名・番号で絞込" className="ml-auto w-48 px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-md outline-none focus:border-brand-500" />
+          </div>
+
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            {TABS.map(t => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                className={`text-[12px] px-3 py-1.5 rounded-full border transition-colors ${tab === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                {t.label}<span className="ml-1.5 opacity-70">{counts[t.key] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="text-center text-[13px] text-gray-400 py-16 border border-dashed border-gray-200 rounded-lg">未処理はありません</div>
+          ) : tab === 'request' ? (
+            <div className="space-y-4">
+              {(['戸籍', '不動産', '金融'] as const).filter(g => (grouped[g] ?? []).length > 0).map(g => (
+                <GyomuSection key={g} gyomu={g} rows={grouped[g]} busy={busy} canAct={canAct} onAct={act} />
+              ))}
+            </div>
+          ) : (
+            <FlatTable rows={visible} busy={busy} canAct={canAct} onAct={act} />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── 履歴（確認済みの監査ログ）───────────────────────────────
+type ConfirmEvent = {
+  id: string; checked_at: string | null; gyomu: string | null; kind: string | null
+  case_name: string | null; case_number: string | null; target: string | null; content: string | null
+  amount: number | null; requested_by_name: string | null; requested_at: string | null; checked_by_name: string | null
+}
+const fmtDate = (iso: string | null) => { if (!iso) return '—'; const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+const fmtDay = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}` }
+
+function HistoryView() {
+  const supabase = createClient()
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [checker, setChecker] = useState('')
+  const [requester, setRequester] = useState('')
+  const [caseQ, setCaseQ] = useState('')
+  const [gyomuSel, setGyomuSel] = useState<Set<string>>(new Set())
+  const [kind, setKind] = useState('')
+  const [rows, setRows] = useState<ConfirmEvent[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const gyomuKey = [...gyomuSel].sort().join(',')
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      setLoading(true)
+      let q = supabase.from('confirm_events').select('id,checked_at,gyomu,kind,case_name,case_number,target,content,amount,requested_by_name,requested_at,checked_by_name').order('checked_at', { ascending: false }).limit(500)
+      if (from) q = q.gte('checked_at', from)
+      if (to) q = q.lte('checked_at', `${to}T23:59:59`)
+      if (gyomuKey) q = q.in('gyomu', gyomuKey.split(','))
+      if (kind) q = q.eq('kind', kind)
+      const { data } = await q
+      if (alive) { setRows((data ?? []) as ConfirmEvent[]); setLoading(false) }
+    })()
+    return () => { alive = false }
+  }, [from, to, gyomuKey, kind, supabase])
+
+  // 確認者・依頼者・案件はクライアント側で絞込（打鍵ごとの再取得を避ける）
+  const filtered = useMemo(() => rows.filter(r =>
+    (!checker || (r.checked_by_name ?? '').includes(checker)) &&
+    (!requester || (r.requested_by_name ?? '').includes(requester)) &&
+    (!caseQ || (r.case_name ?? '').includes(caseQ) || (r.case_number ?? '').includes(caseQ))
+  ), [rows, checker, requester, caseQ])
+  const kindOptions = useMemo(() => [...new Set(rows.map(r => r.kind).filter((k): k is string => !!k))], [rows])
+
+  const csv = () => {
+    const head = ['確認日時', '業務', '案件番号', '案件', '対象', '内容', '種類', '金額', '依頼者', '依頼日', '確認者']
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+    const lines = filtered.map(r => [fmtDate(r.checked_at), r.gyomu ?? '', r.case_number ?? '', r.case_name ?? '', r.target ?? '', r.content ?? '', r.kind ?? '', r.amount != null ? String(r.amount) : '', r.requested_by_name ?? '', fmtDay(r.requested_at), r.checked_by_name ?? ''].map(x => esc(String(x))).join(','))
+    const blob = new Blob(['﻿' + [head.map(esc).join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '確認履歴.csv'; a.click(); URL.revokeObjectURL(a.href)
+  }
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <div>
+            <div className="text-[11px] text-gray-500 mb-1">期間（確認日）</div>
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="flex-1 px-2 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" />
+              <span className="text-gray-400 text-[12px]">〜</span>
+              <input type="date" value={to} onChange={e => setTo(e.target.value)} className="flex-1 px-2 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" />
+            </div>
+          </div>
+          <div><div className="text-[11px] text-gray-500 mb-1">確認者</div><input type="text" value={checker} onChange={e => setChecker(e.target.value)} placeholder="名前で絞込" className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" /></div>
+          <div><div className="text-[11px] text-gray-500 mb-1">依頼者</div><input type="text" value={requester} onChange={e => setRequester(e.target.value)} placeholder="名前で絞込" className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" /></div>
+          <div><div className="text-[11px] text-gray-500 mb-1">案件名・番号</div><input type="text" value={caseQ} onChange={e => setCaseQ(e.target.value)} placeholder="案件名・番号" className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" /></div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-3">
+          <span className="text-[11px] text-gray-500">業務</span>
+          {(['戸籍', '不動産', '金融'] as const).map(g => {
+            const on = gyomuSel.has(g)
+            return <button key={g} type="button" onClick={() => setGyomuSel(prev => { const n = new Set(prev); if (n.has(g)) n.delete(g); else n.add(g); return n })}
+              className={`text-[11.5px] px-2.5 py-0.5 rounded-full border ${on ? GYOMU_CLS[g] : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{g}</button>
+          })}
+          <span className="w-px h-4 bg-gray-200 mx-1" />
+          <span className="text-[11px] text-gray-500">種類</span>
+          <select value={kind} onChange={e => setKind(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+            <option value="">すべて</option>
+            {kindOptions.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <button type="button" onClick={csv} className="ml-auto inline-flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"><Download className="w-3.5 h-3.5" />CSV出力</button>
+        </div>
+      </div>
+
+      <div className="flex items-baseline gap-2 mb-2 px-1">
+        <span className="text-[12px] text-gray-500">該当 <span className="text-gray-800 font-semibold">{filtered.length}</span> 件</span>
+        <span className="text-[11px] text-gray-400">確認日の新しい順{rows.length >= 500 ? '・最新500件' : ''}</span>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-[13px] text-gray-400 py-16">読み込み中…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-[13px] text-gray-400 py-16 border border-dashed border-gray-200 rounded-lg">記録がありません</div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-x-auto">
+          <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[10.5px] text-gray-500">
+                <th className="px-2.5 py-2 text-left font-semibold w-28">確認日時</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-14">業務</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-28">案件</th>
+                <th className="px-2.5 py-2 text-left font-semibold">対象 / 内容</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-24">種類</th>
+                <th className="px-2.5 py-2 text-right font-semibold w-28">金額</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-32">依頼 → 確認</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  <td className="px-2.5 py-2 text-gray-500 text-[11px] whitespace-nowrap">{fmtDate(r.checked_at)}</td>
+                  <td className="px-2.5 py-2">{r.gyomu && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${GYOMU_CLS[r.gyomu] ?? ''}`}>{r.gyomu}</span>}</td>
+                  <td className="px-2.5 py-2"><div className="font-medium text-gray-800">{r.case_name || '—'}</div><div className="text-[10px] text-gray-400 font-mono">{r.case_number}</div></td>
+                  <td className="px-2.5 py-2"><div className="text-gray-800">{r.target || '—'}</div><div className="text-[11px] text-gray-500">{r.content}</div></td>
+                  <td className="px-2.5 py-2 text-gray-600">{r.kind}</td>
+                  <td className="px-2.5 py-2 text-right tabular-nums text-gray-700">{r.amount != null ? `¥${Math.round(r.amount).toLocaleString('ja-JP')}` : '—'}</td>
+                  <td className="px-2.5 py-2">
+                    <div className="flex items-center gap-1 text-[11px] text-gray-500">{r.requested_by_name || '—'}{r.requested_at && <span className="text-[9px] text-gray-400">{fmtDay(r.requested_at)}</span>}</div>
+                    <div className="flex items-center gap-1 mt-0.5"><Check className="w-3 h-3 text-emerald-600" strokeWidth={2.5} /><span className="font-medium text-gray-800">{r.checked_by_name || '—'}</span></div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

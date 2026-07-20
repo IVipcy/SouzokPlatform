@@ -64,11 +64,11 @@ export default async function ConfirmPage() {
     if (isClient) continue // 依頼者取得は自社のW-checkなし
     // 発送✓待ち：発送チェック依頼が出ていて未チェック（依頼→確認モデル）
     if (r.request_check_requested_at && !r.request_check_at) {
-      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
     }
     // 着✓待ち：着チェック依頼が出ていて未チェック
     if (r.receipt_check_requested_at && !r.receipt_check_at) {
-      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
     }
   }
 
@@ -88,10 +88,10 @@ export default async function ConfirmPage() {
       continue
     }
     if (r.request_check_requested_at && !r.request_check_at) {
-      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemType || '取得資料', amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemType || '取得資料', amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
     }
     if (r.receipt_check_requested_at && !r.receipt_check_at) {
-      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemType || '取得資料', amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemType || '取得資料', amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
     }
   }
 
@@ -109,7 +109,7 @@ export default async function ConfirmPage() {
       continue
     }
     if (r.confirm_requested_at && !r.confirmed) {
-      items.push({ ...b, stamp: (r.confirm_requested_at as string) ?? b.stamp, key: `pc-${id}`, tab: 'confirm', action: 're_confirm', target: muni || '未設定', content: `${(r.property_type as string) || ''} ${address}`.trim() || '物件', amount: yen(r.appraisal_value as number), workerId: null, workerName: null, reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.confirm_requested_at as string) ?? b.stamp, key: `pc-${id}`, tab: 'confirm', action: 're_confirm', target: muni || '未設定', content: `${(r.property_type as string) || ''} ${address}`.trim() || '物件', amount: yen(r.appraisal_value as number), workerId: null, workerName: null, reviewer: 'jimu', requestedAt: (r.confirm_requested_at as string) ?? null, requestedBy: (r.confirm_requested_by as string) ?? null, requestedByName: nameOf(r.confirm_requested_by as string) })
     }
   }
 
@@ -121,10 +121,10 @@ export default async function ConfirmPage() {
     const inst = ((r.institution_name as string) ?? '').trim()
     const sub = ((r.branch_name as string) || (r.stock_name as string) || '') as string
     if (r.balance_confirm_requested_at && !r.balance_confirmed) {
-      items.push({ ...b, stamp: (r.balance_confirm_requested_at as string) ?? b.stamp, key: `fc-${id}`, tab: 'confirm', action: 'fin_confirm', target: inst || '未設定', content: sub || '口座', amount: yen(r.balance_amount as number), workerId: null, workerName: null, reviewer: 'jimu' })
+      items.push({ ...b, stamp: (r.balance_confirm_requested_at as string) ?? b.stamp, key: `fc-${id}`, tab: 'confirm', action: 'fin_confirm', target: inst || '未設定', content: sub || '口座', amount: yen(r.balance_amount as number), workerId: null, workerName: null, reviewer: 'jimu', requestedAt: (r.balance_confirm_requested_at as string) ?? null, requestedBy: (r.balance_confirm_requested_by as string) ?? null, requestedByName: nameOf(r.balance_confirm_requested_by as string) })
     }
     if (r.freeze_confirm_requested_at && !r.freeze_confirmed) {
-      items.push({ ...b, stamp: (r.freeze_confirm_requested_at as string) ?? b.stamp, key: `ff-${id}`, tab: 'freeze', action: 'fin_freeze', target: inst || '未設定', content: sub || '口座', amount: null, workerId: null, workerName: null, reviewer: 'manager' })
+      items.push({ ...b, stamp: (r.freeze_confirm_requested_at as string) ?? b.stamp, key: `ff-${id}`, tab: 'freeze', action: 'fin_freeze', target: inst || '未設定', content: sub || '口座', amount: null, workerId: null, workerName: null, reviewer: 'manager', requestedAt: (r.freeze_confirm_requested_at as string) ?? null, requestedBy: (r.freeze_confirm_requested_by as string) ?? null, requestedByName: nameOf(r.freeze_confirm_requested_by as string) })
     }
   }
 
