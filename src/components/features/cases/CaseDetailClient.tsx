@@ -402,7 +402,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           <StatusFlowNavigator
             steps={flowSteps}
             targetLabel="作業進行中"
-            advanceLabel="チームへ引き継ぐ"
+            advanceLabel="管理担当へ引き継ぐ"
             onAdvance={() => setHandoffOpen(true)}
             onDismiss={() => setNavDismissed(true)}
           />

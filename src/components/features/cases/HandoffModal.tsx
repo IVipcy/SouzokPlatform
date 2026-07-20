@@ -50,7 +50,7 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="チームへ引き継ぐ"
+      title="管理担当へ引き継ぐ"
       maxWidth="max-w-md"
       footer={
         <>
