@@ -8,8 +8,10 @@ import ConfirmClient, { type ConfirmItem } from '@/components/features/confirm/C
 
 type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
 
-// 実務のチェックが発生する状態の案件だけ対象にする。
-const ACTIVE = new Set(['対応中', '受注', '戻り受注'])
+// 実務のチェック（発送/着/確定/承認/凍結確認）が発生するのは「対応中（＝作業進行中）」だけ。
+// 受注・戻り受注はオーダーシート作成段階（相談案件）で、見込みの評価額・残高などが入っていても
+// 確定対象ではないため確認簿には載せない。完了案件も対象外（残チェックは意味を持たない）。
+const ACTIVE = new Set(['対応中'])
 
 const yen = (n: number | null | undefined) => (n == null ? null : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 
