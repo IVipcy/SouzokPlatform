@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowRight, Check, Circle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, Check, Circle, Sparkles } from 'lucide-react'
 import type { TabKey } from './CaseTabs'
 
 // 受託（受注）→対応中へ進むための前提条件を、対象タブのスポットライトと連動して案内する
@@ -53,17 +54,43 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
   const remaining = total - doneCount
   const allDone = remaining === 0
 
+  // 完了した瞬間を検知して、その場でポップ／祝福アニメを出す（リロード・タブ移動不要）。
+  const doneKey = steps.map(s => (s.done ? '1' : '0')).join('')
+  const prevDoneRef = useRef<Set<string>>(new Set())
+  const initedRef = useRef(false)
+  const [justDone, setJustDone] = useState<Set<string>>(new Set())
+  const [celebrate, setCelebrate] = useState(false)
+
+  useEffect(() => {
+    const now = new Set(steps.filter(s => s.done).map(s => s.key))
+    // 初回マウント時は既存の完了をアニメさせない（開いた瞬間に一斉に光るのを防ぐ）。
+    if (!initedRef.current) { initedRef.current = true; prevDoneRef.current = now; return }
+    const prev = prevDoneRef.current
+    const newly = [...now].filter(k => !prev.has(k))
+    prevDoneRef.current = now
+    if (newly.length === 0) return
+    setJustDone(new Set(newly))
+    const timers: ReturnType<typeof setTimeout>[] = []
+    timers.push(setTimeout(() => setJustDone(new Set()), 900))
+    if (now.size === steps.length) {
+      setCelebrate(true)
+      timers.push(setTimeout(() => setCelebrate(false), 2600))
+    }
+    return () => timers.forEach(clearTimeout)
+  }, [doneKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="mb-5 rounded-xl border border-brand-300 bg-brand-50/40 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-bold text-brand-700">
-              {allDone ? '準備完了' : `「${targetLabel}」に進むための残り対応`}
+            <span className={`text-[13px] font-bold ${allDone ? 'text-emerald-700' : 'text-brand-700'} ${celebrate ? 'nav-alldone-pop inline-flex items-center gap-1' : ''}`}>
+              {celebrate && <Sparkles className="w-4 h-4 text-emerald-500" />}
+              {allDone ? (celebrate ? '準備完了！' : '準備完了') : `「${targetLabel}」に進むための残り対応`}
             </span>
             <span className="text-[11px] text-gray-400">（{doneCount}/{total} 完了{allDone ? '' : `・残り${remaining}件`}）</span>
           </div>
-          <p className="text-[12.5px] text-gray-500 leading-relaxed mt-0.5">
+          <p className={`text-[12.5px] leading-relaxed mt-0.5 ${celebrate ? 'text-emerald-600 font-medium' : 'text-gray-500'}`}>
             {allDone
               ? `すべての前提条件が揃いました。「${targetLabel}」に進められます。`
               : '点滅しているタブを開いて対応してください。順番は問いません（どれからでもOK）。'}
@@ -88,7 +115,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
               s.done
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                 : 'border-brand-300 bg-white text-brand-700 font-semibold'
-            }`}
+            } ${justDone.has(s.key) ? 'nav-step-complete' : ''}`}
           >
             {s.done ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
             {s.label}
@@ -104,7 +131,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
           <button
             type="button"
             onClick={onAdvance}
-            className="ml-auto inline-flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg"
+            className={`ml-auto inline-flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg ${celebrate ? 'nav-alldone-pop' : ''}`}
           >
             {advanceLabel ?? `${targetLabel}に進める`} <ArrowRight className="w-3.5 h-3.5" />
           </button>

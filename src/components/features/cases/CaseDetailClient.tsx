@@ -215,7 +215,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // 引き継ぎゲート：基本料金の入力（報酬内訳に金額）または 料金表画像のアップ（案件フォルダに画像）
   const hasFeeImage = caseFiles.some(f => (f.file_type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|heic|heif|bmp)$/i.test(f.file_name ?? ''))
-  const feeReady = hasBaseFee || hasFeeImage
+  // hasBaseFee はサーバー取得の prop（reward_items に金額>0）。ただし請求タブで料金を入力しても
+  // その場では reward 合計が caseState.fee_judicial/administrative に楽観反映されるだけで
+  // hasBaseFee は再取得（router.refresh）まで古いまま。ナビをその場で完了にするため、
+  // 楽観更新済みの確定報酬（ライブ値）も OR で見る。
+  const hasBaseFeeLive = (caseState.fee_judicial ?? 0) > 0 || (caseState.fee_administrative ?? 0) > 0
+  const feeReady = hasBaseFee || hasBaseFeeLive || hasFeeImage
 
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   const flowSteps = getJutakuFlowSteps({

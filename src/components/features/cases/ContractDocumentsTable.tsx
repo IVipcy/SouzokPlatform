@@ -56,7 +56,9 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
 
   const commit = async (id: string, field: keyof ContractDocumentRow, value: string) => {
     const { error } = await supabase.from('contract_documents').update({ [field]: value === '' ? null : value }).eq('id', id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // 受領判定（status / arrival_date）に関わる変更は、受託フロー・ナビをその場で更新させるため親に通知。
+    if (field === 'status' || field === 'arrival_date') onRefresh?.()
   }
   const saveNow = (id: string, field: keyof ContractDocumentRow, value: string) => { setLocal(id, field, value); commit(id, field, value) }
 
@@ -67,7 +69,8 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
       const today = new Date().toISOString().slice(0, 10)
       setLocal(row.id, 'arrival_date', today)
       const { error } = await supabase.from('contract_documents').update({ status: value, arrival_date: today }).eq('id', row.id)
-      if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+      if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+      onRefresh?.()
     } else {
       commit(row.id, 'status', value)
     }
