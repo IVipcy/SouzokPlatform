@@ -231,7 +231,7 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         checked_by: meId, checked_by_name: meName, checked_at: at,
         source_table: SOURCE_TABLE[it.action], source_row_id: it.rowId,
       })
-      if (logErr) console.warn('confirm_events 記録に失敗:', logErr.message)
+      if (logErr) { console.warn('confirm_events 記録に失敗:', logErr.message); showToast(`履歴の記録に失敗しました（確認は完了）: ${logErr.message}`, 'error') }
       // まずスタンプを表示（誰が確認したか）→ 少し見せてから未処理リストから外す。
       setStamped(prev => ({ ...prev, [it.key]: { name: meName ?? '確認', at } }))
       showToast(`${ACTION_LABEL[it.action]}しました`, 'success')
