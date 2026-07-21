@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2 } from 'lucide-react'
+import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2, X } from 'lucide-react'
+import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
@@ -12,7 +13,6 @@ import { ACQUISITION_ITEMS } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
 import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
-import UserAvatar from '@/components/ui/UserAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
@@ -1022,21 +1022,16 @@ function ReceiptRow({
             {isFirst && (
               <td rowSpan={rowCount} className="px-2 py-2 text-center align-middle border-l border-gray-100">
                 {receipt.dual_check_member ? (
-                  <button
-                    type="button"
-                    onClick={handleDualCheckToggle}
-                    disabled={busyKind === 'check'}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                    title={`${receipt.dual_check_member.name} がダブルチェック済み（クリックで取消）`}
-                  >
-                    <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    <UserAvatar
-                      name={receipt.dual_check_member.name}
-                      role={receipt.dual_check_member.primary_role as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null}
-                      url={receipt.dual_check_member.avatar_url}
-                      size="xs"
-                    />
-                  </button>
+                  <span className="inline-flex items-center relative">
+                    <HankoStamp name={receipt.dual_check_member.name} at={receipt.dual_checked_at} size="sm" />
+                    <button
+                      type="button"
+                      onClick={handleDualCheckToggle}
+                      disabled={busyKind === 'check'}
+                      title="ダブルチェック済み（クリックで取消）"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center disabled:opacity-50"
+                    ><X className="w-2.5 h-2.5" /></button>
+                  </span>
                 ) : !canManage ? (
                   <span className="text-[11px] text-gray-300" title="受信確定(W-Check)は管理担当のみ">未確認</span>
                 ) : (
@@ -1057,23 +1052,16 @@ function ReceiptRow({
             {isFirst && (
               <td rowSpan={rowCount} className="px-2 py-2 text-center align-middle border-l border-gray-100">
                 {receipt.started_by_member ? (
-                  <button
-                    type="button"
-                    onClick={() => onCancelRequest(receipt)}
-                    disabled={busyKind === 'start'}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-brand-50 border border-brand-300 hover:bg-brand-100 disabled:opacity-50"
-                    title={`${receipt.started_by_member.name} が対応済（クリックで取消）`}
-                  >
-                    <UserAvatar
-                      name={receipt.started_by_member.name}
-                      role={receipt.started_by_member.primary_role as 'sales' | 'manager' | 'assistant' | 'accounting' | 'lp' | null}
-                      url={receipt.started_by_member.avatar_url}
-                      size="xs"
-                    />
-                    <span className="text-[12px] font-semibold text-brand-700">
-                      {receipt.started_by_member.name}
-                    </span>
-                  </button>
+                  <span className="inline-flex items-center relative">
+                    <HankoStamp name={receipt.started_by_member.name} at={receipt.started_at} size="sm" />
+                    <button
+                      type="button"
+                      onClick={() => onCancelRequest(receipt)}
+                      disabled={busyKind === 'start'}
+                      title="対応済（クリックで取消）"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center disabled:opacity-50"
+                    ><X className="w-2.5 h-2.5" /></button>
+                  </span>
                 ) : !receipt.dual_check_member_id ? (
                   <span className="text-[11px] text-gray-400" title="W-Check（受信確定）後にタスク着手できます">
                     W-Check待ち
