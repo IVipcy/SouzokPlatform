@@ -176,7 +176,14 @@ body[data-sidebar-collapsed="1"] .ml-60 {
   100% { opacity: 1; transform: scale(1)   rotate(0); }
 }
 .confirm-stamp { animation: confirm-stamp-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-@media (prefers-reduced-motion: reduce) { .confirm-stamp { animation: none; } }
+/* ハンコが押される瞬間：斜め上からドスッと落ちて少し傾く */
+@keyframes hanko-pop-anim {
+  0%   { opacity: 0; transform: rotate(4deg) scale(1.6); }
+  55%  { opacity: 1; transform: rotate(-8deg) scale(0.92); }
+  100% { opacity: 1; transform: rotate(-4deg) scale(1); }
+}
+.hanko-pop { animation: hanko-pop-anim 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@media (prefers-reduced-motion: reduce) { .confirm-stamp, .hanko-pop { animation: none; } }
 
 /* ─── 要進捗連絡（点滅）─── */
 @keyframes followup-blink-anim {

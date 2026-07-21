@@ -3,7 +3,8 @@
 // 確認簿：作業者以外／管理担当が「発送✓・着✓・確定・承認・凍結確認」を横断で処理するメインページ。
 // 実体は各業務レコードのビュー（新テーブルは作らない）。押すと業務タブと同じ列を更新する。
 import { useEffect, useMemo, useState } from 'react'
-import { Download, UserCheck } from 'lucide-react'
+import { Download } from 'lucide-react'
+import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth, useIsManager } from '@/components/providers/AuthProvider'
@@ -20,14 +21,9 @@ const TAB_HINT: Record<ConfirmItem['tab'], string> = {
   freeze: '口座が凍結されたかを管理担当が確認します。確認すると、その口座の調査・解約の作業に進めます。',
 }
 
-// 確認済みスタンプ（誰が確認したか）。到着物受信簿のW-Check確定バッジと同じ意匠。
-function ConfirmStamp({ name, at, animate = false }: { name: string; at?: string | null; animate?: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 ${animate ? 'confirm-stamp' : ''}`}>
-      <UserCheck className="w-3 h-3" strokeWidth={2.25} />{name}{at ? `・${at.slice(5, 10).replace('-', '/')}` : ''}
-    </span>
-  )
-}
+// 確認済みハンコ（全システム共通の朱印風スタンプ）。
+const ConfirmStamp = ({ name, at, animate = false }: { name: string; at?: string | null; animate?: boolean }) =>
+  <HankoStamp name={name} at={at} animate={animate} />
 
 export type ConfirmAction =
   | 'koseki_send' | 'koseki_recv' | 're_send' | 're_recv'

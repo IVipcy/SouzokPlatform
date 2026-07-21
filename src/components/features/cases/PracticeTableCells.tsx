@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { UserCheck, X } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
+import HankoStamp from '@/components/ui/HankoStamp'
 
 const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
 // 全角→半角、数字以外を除去した「生の数字文字列」を返す。
@@ -52,11 +53,12 @@ export function DcCell({ name, at, me, onSet, meId, workerId, isManager, disable
     if (selfBlocked) { showToast('自分の作業は自分でW-Checkできません。別の担当者が確認してください。', 'error'); return }
     onSet(me, new Date().toISOString(), meId ?? null)
   }
-  // 確認済みなら（前提未達でも）取消は可能にしておく
+  // 確認済みなら朱印スタンプ＋右上に取消ボタン（前提未達でも取消は可）
   if (name) return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
-      <UserCheck className="w-3 h-3" strokeWidth={2.25} />{name}{at ? `・${at.slice(5, 10).replace('-', '/')}` : ''}
-      <button type="button" onClick={() => onSet(null, null, null)} title="確認を取消" className="text-emerald-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+    <span className="inline-flex items-center gap-1 relative">
+      <HankoStamp name={name} at={at} size="sm" />
+      <button type="button" onClick={() => onSet(null, null, null)} title="確認を取消"
+        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center"><X className="w-2.5 h-2.5" /></button>
     </span>
   )
   if (disabled) return (

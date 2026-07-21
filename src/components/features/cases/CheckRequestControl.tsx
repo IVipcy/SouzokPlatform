@@ -5,7 +5,8 @@
 //   ② 確認待ち → 依頼済みピル＋「取消」（確認前なら依頼を取り消せる）
 //   ③ 確認済 → 緑チェック＋確認者
 // 完了は止めない・軽い促し。確認（✓）は確認簿側で押す。
-import { Send, Clock, CircleCheck } from 'lucide-react'
+import { Send, Clock } from 'lucide-react'
+import HankoStamp from '@/components/ui/HankoStamp'
 
 export default function CheckRequestControl({
   label, requestedAt, checkedAt, checkedName, onRequest, onCancel, disabled = false,
@@ -18,13 +19,9 @@ export default function CheckRequestControl({
   onCancel: () => void
   disabled?: boolean
 }) {
-  // ③ 確認済
+  // ③ 確認済（ハンコ）
   if (checkedAt) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-700">
-        <CircleCheck className="w-3.5 h-3.5" strokeWidth={2} />確認済{checkedName ? ` · ${checkedName}` : ''}
-      </span>
-    )
+    return <HankoStamp name={checkedName} at={checkedAt} size="sm" />
   }
   // ② 確認待ち（依頼済み・未確認）
   if (requestedAt) {
