@@ -261,28 +261,11 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             </div>
           )}
 
-          {/* 候補に無い → 新規追加（区分＋経路） */}
-          <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-2.5 py-2 space-y-2">
-            <div className="text-[11.5px] text-gray-500 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" />候補に無い → タスクを追加</div>
-            <input
-              type="text"
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              placeholder="追加するタスク名（任意）"
-              className="w-full px-2.5 py-1.5 text-[12.5px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-            />
-            <TaskKeywordNudge title={newTitle} caseId={task.case_id} />
-            {newTitle.trim() && (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-gray-500">区分</span>
-                  <button type="button" onClick={() => setNewRole('manager')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'manager' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200'}`}><Compass className="w-3 h-3" />管理担当</button>
-                  <button type="button" onClick={() => setNewRole('assistant')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'assistant' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200'}`}><Puzzle className="w-3 h-3" />事務管理</button>
-                </div>
-                {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
-              </>
-            )}
-          </div>
+          {/* 該当なし（次に進められるタスクはまだ無い）→ 候補選択のすぐ下に配置（多いケースを上に） */}
+          <label className={`mt-2 flex items-center gap-2 text-[12.5px] rounded-lg px-2.5 py-1.5 cursor-pointer border transition-colors ${noNext ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-white border-dashed border-gray-300 text-gray-500 hover:bg-gray-50'}`}>
+            <input type="checkbox" checked={noNext} onChange={e => { setNoNext(e.target.checked); if (e.target.checked) setSel({}) }} className="w-4 h-4 accent-gray-500" />
+            該当なし（次に進められるタスクはまだ無い）
+          </label>
 
           {/* 管理担当にヘルプ（完了時＝①次を教えて／②巻き取り） */}
           <div className={`mt-2 rounded-lg border px-2.5 py-2 transition-colors ${mgrOn ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
@@ -319,10 +302,28 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             )}
           </div>
 
-          <label className={`mt-2 flex items-center gap-2 text-[12.5px] rounded-lg px-2.5 py-1.5 cursor-pointer border transition-colors ${noNext ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-white border-dashed border-gray-300 text-gray-500 hover:bg-gray-50'}`}>
-            <input type="checkbox" checked={noNext} onChange={e => { setNoNext(e.target.checked); if (e.target.checked) setSel({}) }} className="w-4 h-4 accent-gray-500" />
-            該当なし（次に進められるタスクはまだ無い）
-          </label>
+          {/* 候補に無い → 新規追加（区分＋経路）。使用頻度が低いので一番下。 */}
+          <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-2.5 py-2 space-y-2">
+            <div className="text-[11.5px] text-gray-500 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" />候補に無い → タスクを追加</div>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder="追加するタスク名（任意）"
+              className="w-full px-2.5 py-1.5 text-[12.5px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
+            />
+            <TaskKeywordNudge title={newTitle} caseId={task.case_id} />
+            {newTitle.trim() && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-500">区分</span>
+                  <button type="button" onClick={() => setNewRole('manager')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'manager' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200'}`}><Compass className="w-3 h-3" />管理担当</button>
+                  <button type="button" onClick={() => setNewRole('assistant')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'assistant' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200'}`}><Puzzle className="w-3 h-3" />事務管理</button>
+                </div>
+                {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </Modal>
