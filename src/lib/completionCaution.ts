@@ -87,8 +87,10 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
   }
   // ── 不動産 読込：進捗に応じて段階的に警告 ──
   if (rid && (rid.prefix === 're-muni-read' || rid.prefix === 're-houmu-read')) {
+    const scope = rid.prefix === 're-houmu-read' ? 'property' : 'municipality'
     const { data } = await supabase.from('real_estate_acquisitions').select('id,scope,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('case_id', task.case_id).eq('target_municipality', rid.key)
-    const rows = ((data ?? []) as AcqLite[])
+    // 同じ市区町村でも ①市区町村役場行(名寄帳/評価証明) と ②法務局行(登記/公図/…) は別タスクなので scope で絞る。
+    const rows = ((data ?? []) as AcqLite[]).filter(r => (r.scope ?? scope) === scope)
     const remain = rows.filter(r => !r.receipt_check_at)
     if (remain.length === 0) return null
     const noArr = remain.filter(r => !r.arrival_date)
