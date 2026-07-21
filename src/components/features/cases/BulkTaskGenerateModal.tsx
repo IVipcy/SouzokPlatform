@@ -37,8 +37,11 @@ type Props = {
 type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean }
 
 // 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
-// 残高証明・取引履歴は機関ごとの読込でカバーするため対象外。
-const CASE_WIDE_TASKS = ['全店調査', '証券保管振替機構照会', '保険照会', '年金照会', '負債調査']
+// 全店調査・残高証明・経過利息・取引履歴は銀行ごとにまとめて請求するため、機関単位の「資料請求」に内包（対象外）。
+// ここに残すのは本当に案件単位のもの：ほふり照会・保険照会・年金照会・負債（信用情報）調査。
+const CASE_WIDE_TASKS = ['証券保管振替機構照会', '保険照会', '年金照会', '負債調査']
+// 解約のうち金融機関単位でない作業（機関ごとのunit展開に飲み込ませず個別タスクにする）。
+const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
 
 /**
  * タスク一括生成。生成元は実施タスク（intake_roles の kind=task）＋経理/相続税。
@@ -83,7 +86,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
       ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
-      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '金融資産情報請求', onlyOwn: true, ready: true }, { prefix: 'fin-read', label: '金融資産情報読込', readyOnReceipt: true }] },
+      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true, ready: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴）', readyOnReceipt: true }] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領', readyOnReceipt: true }, { prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
@@ -112,6 +115,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       // 機関単位ではない全体調査（全店調査/証券保管振替機構照会/保険照会/年金照会/負債調査）は、
       // unit展開（機関ごとの請求/読込）に飲み込ませず、案件に1つの個別タスクとして必ず作る。
       if (CASE_WIDE_TASKS.some(k => r.sagyou!.includes(k))) {
+        out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou!, roleIdx: idx, rid: r.rid })
+        return
+      }
+      // 解約のうち金融機関単位でない作業（自動車名義変更・保険金請求）は、機関ごとのunit展開に
+      // 飲み込ませず個別タスクとして生成する（従来は展開に埋もれて生成されなかった）。
+      if (r.gyomu === '解約' && CANCEL_NON_UNIT_TASKS.some(k => r.sagyou!.includes(k))) {
         out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou!, roleIdx: idx, rid: r.rid })
         return
       }
