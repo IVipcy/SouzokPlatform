@@ -9,12 +9,13 @@ import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split } from 'lucide-re
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
-import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
+import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
-import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
+import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
+import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import Modal from '@/components/ui/Modal'
 import RowTaskChip from '@/components/features/tasks/RowTaskChip'
@@ -36,8 +37,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
-  const authUser = useAuth()
-  const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // ダブルチェック記録者
   const memberId = useCurrentMember(null)
   // タスク詳細からの着地：?focus=戸籍請求ID。該当行の対象者レールを開き、行をハイライト。
   const searchParams = useSearchParams()
@@ -358,8 +357,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <th className="px-2 py-2 text-right font-semibold w-24">費用予算</th>
                         <th className="px-2 py-2 text-right font-semibold w-20">返金</th>
                         <th className="px-2 py-2 text-right font-semibold w-24">確定費用</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">請求時W-Check</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">受信時W-Check</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">発送チェック<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">到着チェック<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>
                         <th className="px-2 py-2 text-left font-semibold w-36">特記</th>
                         <th className="px-2 py-2 text-left font-semibold w-40">関連タスク</th>
                         <th className="px-2 py-2 w-8" />
@@ -367,7 +366,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     </thead>
                     <tbody>
                       {personRequests.map((r, i) => (
-                        <KosekiRow key={r.id} r={r} i={i} me={me} meId={memberId} isManager={isManager}
+                        <KosekiRow key={r.id} r={r} i={i} meId={memberId}
                           highlight={r.id === focusId}
                           rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
                           onRefresh={onRefresh}
@@ -429,12 +428,10 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, me, meId, isManager, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete }: {
+function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete }: {
   r: KosekiRequestRow
   i: number
-  me: string
   meId: string | null
-  isManager: boolean
   highlight?: boolean
   rowTasks?: TaskRow[]
   onRefresh?: () => void
@@ -483,8 +480,18 @@ function KosekiRow({ r, i, me, meId, isManager, highlight = false, rowTasks = []
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5 text-right"><span className="inline-block px-2 py-1 rounded text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">{yen(effConfirmed(r))}</span></td>
-          <td className="px-2 py-1.5"><DcCell name={r.request_check_name} at={r.request_check_at} me={me} meId={meId} workerId={r.request_done_by} isManager={isManager} onSet={(n, a, id) => saveMany(r.id, { request_check_name: n, request_check_at: a, request_check_by: id ?? null })} /></td>
-          <td className="px-2 py-1.5"><DcCell name={r.receipt_check_name} at={r.receipt_check_at} me={me} meId={meId} workerId={r.receipt_done_by} isManager={isManager} disabled={!r.arrival_date} disabledLabel="到着待ち" disabledTitle="到着日を入力すると受信時W-Checkできます。" onSet={(n, a, id) => saveMany(r.id, { receipt_check_name: n, receipt_check_at: a, receipt_check_by: id ?? null })} /></td>
+          {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
+          <td className="px-2 py-1.5">{r.request_date
+            ? <CheckRequestControl label="発送を依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name}
+                onRequest={() => saveMany(r.id, { request_check_requested_at: new Date().toISOString(), request_check_requested_by: meId })}
+                onCancel={() => saveMany(r.id, { request_check_requested_at: null, request_check_requested_by: null })} />
+            : <span className="text-[11px] text-gray-300">請求日待ち</span>}</td>
+          {/* 着チェック依頼（到着日を入れると押せる） */}
+          <td className="px-2 py-1.5">{r.arrival_date
+            ? <CheckRequestControl label="到着を依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
+                onRequest={() => saveMany(r.id, { receipt_check_requested_at: new Date().toISOString(), receipt_check_requested_by: meId })}
+                onCancel={() => saveMany(r.id, { receipt_check_requested_at: null, receipt_check_requested_by: null })} />
+            : <span className="text-[11px] text-gray-300">到着待ち</span>}</td>
         </>
       )}
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>
