@@ -522,6 +522,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
+        roleScope={roleScope}
       />
       </>
 
@@ -574,6 +575,7 @@ function ListView({
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
+  roleScope,
 }: {
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
@@ -587,6 +589,7 @@ function ListView({
   selectedIds: Set<string>
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
+  roleScope: 'assistant' | 'manager'
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
     select: 40, kotei: 104, gyomu: 124, title: 220, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
@@ -676,6 +679,7 @@ function ListView({
                 onDelete={onDelete}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
+                roleScope={roleScope}
               />
             ))}
           </tbody>
@@ -687,7 +691,7 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, selected, onToggleSelect }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, selected, onToggleSelect, roleScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
@@ -698,6 +702,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
   onDelete: (task: TaskRow) => void
   selected: boolean
   onToggleSelect: () => void
+  roleScope: 'assistant' | 'manager'
 }) {
   const status = normalizeStatus(task.status)
   const caseInfo = caseMap[task.case_id]
@@ -737,7 +742,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           />
         )}
         <div className="flex items-center gap-1.5 min-w-0 pl-1">
-          {workRole && (
+          {/* 一覧のスコープと同じ担当区分のバッジは自明なので出さない（例：事務管理タスク一覧で「事務」を出さない）。 */}
+          {workRole && workRole.key !== roleScope && (
             <span
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold border flex-shrink-0 ${workRole.pill}`}
               title={workRole.label}
