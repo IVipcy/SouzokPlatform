@@ -228,6 +228,14 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         source_table: SOURCE_TABLE[it.action], source_row_id: it.rowId,
       })
       if (logErr) { console.warn('confirm_events 記録に失敗:', logErr.message); showToast(`履歴の記録に失敗しました（確認は完了）: ${logErr.message}`, 'error') }
+      // 依頼者（requested_by）へ「承認されたよ」通知。自分が自分に出す通知は抑止。
+      if (it.requestedBy && it.requestedBy !== meId) {
+        await supabase.from('notifications').insert({
+          member_id: it.requestedBy, type: 'confirm_approved', case_id: it.caseId,
+          title: `${KIND_LABEL[it.action]}が確認されました`,
+          body: `${it.caseNumber ? `${it.caseNumber} ` : ''}${it.caseName}／${it.target}${it.content ? `（${it.content}）` : ''} — ${meName ?? ''} が確認しました。`,
+        })
+      }
       // まずスタンプを表示（誰が確認したか）→ 少し見せてから未処理リストから外す。
       setStamped(prev => ({ ...prev, [it.key]: { name: meName ?? '確認', at } }))
       showToast(`${ACTION_LABEL[it.action]}しました`, 'success')
