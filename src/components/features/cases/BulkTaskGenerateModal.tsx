@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import {
-  categoriesOf, gyomuForCategories, CROSS_GYOMU, PROCEDURE_TEMPLATE_KEY,
+  categoriesOf, gyomuForCategories, CROSS_GYOMU,
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
@@ -52,6 +53,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // 全部生成済みの業務は畳んでおき、開いたものだけ中身を表示する（⑤）
+  const [doneExpanded, setDoneExpanded] = useState<Set<string>>(new Set())
 
   const cats = categoriesOf(serviceCategory, serviceCategory2)
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
@@ -150,9 +153,23 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   const kosekiCoarse = useMemo(() =>
     kosekiRequests.length === 0 && intakeRoles.some(r => r.gyomu === '戸籍' && (r.sagyou ?? '').includes('戸籍収集') && r.owner !== '不要'),
     [intakeRoles, kosekiRequests])
+  // 金融資産/解約をやるのに金融機関が未入力＝銀行ごとに分かれず粗い1件になる。
+  const finCoarse = useMemo(() =>
+    financialAssets.length === 0 && intakeRoles.some(r => (r.gyomu === '金融資産' || r.gyomu === '解約') && (r.sagyou ?? '').trim() && r.owner !== '不要'),
+    [intakeRoles, financialAssets])
+  // 不動産/登記をやるのに物件が未入力＝市区町村ごとに分かれない。
+  const reCoarse = useMemo(() =>
+    properties.length === 0 && intakeRoles.some(r => (r.gyomu === '不動産' || r.gyomu === '登記') && (r.sagyou ?? '').trim() && r.owner !== '不要'),
+    [intakeRoles, properties])
 
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))
+
+  // ① 開いた瞬間、未生成の候補を全部チェック済みにする（外したいものだけ外す運用）。
+  useEffect(() => {
+    if (isOpen) setSelected(new Set(candidates.filter(c => !isGenerated(c)).map(c => c.key)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   const groups = useMemo(() => {
     const order = [...gyomuForCategories(cats), ...CROSS_GYOMU]
@@ -253,6 +270,18 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
           このまま生成すると粗い「戸籍請求」1件になります（あとから戸籍表で「役所ごとに展開」も可能）。
         </div>
       )}
+      {finCoarse && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
+          <span className="font-semibold">金融機関が未入力です。</span>
+          先に財産調査＞金融の表へ金融機関を入れてから生成すると、<span className="font-semibold">銀行ごと</span>に資料請求・読込タスクが分かれます。
+        </div>
+      )}
+      {reCoarse && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
+          <span className="font-semibold">物件が未入力です。</span>
+          先に財産調査＞不動産の表へ物件を入れてから生成すると、<span className="font-semibold">市区町村ごと</span>に請求・読込タスクが分かれます。
+        </div>
+      )}
 
       {candidates.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">
@@ -277,6 +306,19 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
               {gyomuGroups.map(group => {
               const sel = group.items.filter(c => !isGenerated(c))
               const selectedInGyomu = sel.filter(c => selected.has(c.key)).length
+              // ⑤ 全部生成済みの業務は畳んで薄く表示（開いたら中身を見せる）。
+              const allDone = sel.length === 0 && group.items.length > 0
+              if (allDone && !doneExpanded.has(group.gyomu)) {
+                return (
+                  <button key={group.gyomu} onClick={() => setDoneExpanded(prev => new Set(prev).add(group.gyomu))}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 flex items-center gap-2.5 bg-gray-50/60 opacity-70 hover:opacity-100 transition-opacity">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" strokeWidth={2.25} />
+                    <span className="text-sm font-medium text-gray-600 flex-1 text-left">{group.gyomu}</span>
+                    <span className="text-xs text-gray-400">すべて生成済み（{group.items.length}）</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  </button>
+                )
+              }
               return (
                 <div key={group.gyomu} className="border border-gray-200 rounded-lg overflow-hidden">
                   <button onClick={() => toggleGyomu(group.gyomu)} className="w-full px-4 py-2.5 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors">
@@ -287,12 +329,10 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
                   <div className="divide-y divide-gray-50">
                     {group.items.map(c => {
                       const gen = isGenerated(c)
-                      const hasProc = !!PROCEDURE_TEMPLATE_KEY[c.title]
                       return (
                         <label key={c.key} className={`flex items-center gap-3 px-4 py-2 text-sm ${gen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
                           <input type="checkbox" checked={selected.has(c.key)} disabled={gen} onChange={() => toggle(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
                           <span className="flex-1 text-gray-700">{c.title}</span>
-                          {hasProc && <span className="text-[11px] text-gray-400" title="手順テンプレあり">手順</span>}
                           {gen && (
                             <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">生成済</span>
                           )}
