@@ -128,7 +128,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">業務区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">タスク名</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-44">ゲート/着手OK理由</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-44">着手フラグ</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">実施結果</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">到着物</th>
