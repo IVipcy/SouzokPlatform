@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isNavVisible } from '@/lib/featureMode'
+import { useConfirmPendingCount } from '@/lib/useConfirmPendingCount'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useAlertCenter } from '@/components/providers/AlertCenterProvider'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -72,6 +73,7 @@ export default function Sidebar() {
   const supabase = createClient()
   const user = useAuth()
   const { totalCount } = useAlertCenter()
+  const confirmPending = useConfirmPendingCount()
   // 初期値は false。マウント後 localStorage から復元 + body の data 属性を同期。
   const [collapsed, setCollapsed] = useState(false)
 
@@ -161,6 +163,7 @@ export default function Sidebar() {
                   isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`
                 const showAlertBadge = item.href === '/my' && totalCount > 0
+                const showConfirmBadge = item.href === '/confirm' && confirmPending > 0
                 return (
                   <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} className={itemClass}>
                     {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />}
@@ -175,6 +178,13 @@ export default function Sidebar() {
                     )}
                     {showAlertBadge && collapsed && (
                       <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+                    )}
+                    {/* 確認簿の未処理件数（新規の確認依頼）。赤バッジで件数表示。 */}
+                    {showConfirmBadge && !collapsed && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold leading-none">{confirmPending > 99 ? '99+' : confirmPending}</span>
+                    )}
+                    {showConfirmBadge && collapsed && (
+                      <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">{confirmPending > 99 ? '99+' : confirmPending}</span>
                     )}
                   </Link>
                 )
