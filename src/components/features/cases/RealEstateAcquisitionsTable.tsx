@@ -154,8 +154,12 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  // 行の資料配列を取得（item_types 優先、旧item_type にフォールバック）
-  const itemsOf = (r: RealEstateAcquisitionRow): string[] => r.item_types ?? (r.item_type ? [r.item_type] : [])
+  // 行の資料配列を取得。item_types 優先。空配列(null含む)なら旧 item_type にフォールバック。
+  const itemsOf = (r: RealEstateAcquisitionRow): string[] => {
+    const arr = r.item_types ?? []
+    if (arr.length > 0) return arr
+    return r.item_type ? [r.item_type] : []
+  }
   // 資料チップのトグル。空になったら item_types=[] のまま残す（削除は行の×で行う）。
   const toggleItem = async (id: string, key: string) => {
     const row = rows.find(r => r.id === id); if (!row) return
