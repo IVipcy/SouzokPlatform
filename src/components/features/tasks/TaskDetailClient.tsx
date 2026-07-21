@@ -11,7 +11,9 @@ import { Section, InlineTextarea } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
+import CompletionCautionModal from './CompletionCautionModal'
 import ManagerHelpModal from './ManagerHelpModal'
+import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
 import { isFinanceFreezeTask } from '@/lib/financeFreeze'
 import { getPhaseLabel } from '@/lib/phases'
@@ -97,6 +99,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [advancing, setAdvancing] = useState(false)
   // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
   const [completeOpen, setCompleteOpen] = useState(false)
+  // 完了前の注意（依頼のし忘れ・凍結確認漏れ等）。ソフトなアナウンス、完了は止めない。
+  const [caution, setCaution] = useState<CompletionCaution | null>(null)
+  const [cautionBusy, setCautionBusy] = useState(false)
+  const [checkingCaution, setCheckingCaution] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   // 着手OKは「次やる目印」（ソフト）。着手OKでなくても着手はできる。
   // 着手不可（ハード制限）は口座凍結未確認の金融タスクのみ。
@@ -111,9 +117,18 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
 
   const handleAdvance = useCallback(async () => {
     if (advancing) return
-    // 事務管理タスクの完了は完了ゲートを通す
+    // 事務管理タスクの完了は完了ゲートを通す。ゲート前に「依頼のし忘れ等」の軽い注意を挟む（止めない）。
     if (currentStatus === '対応中' && task.task_kind !== 'system') {
-      setCompleteOpen(true)
+      setCheckingCaution(true)
+      try {
+        const c = await getCompletionCaution(task, currentMemberId ?? null)
+        if (c) setCaution(c)
+        else setCompleteOpen(true)
+      } catch {
+        setCompleteOpen(true)  // 判定失敗しても完了は妨げない
+      } finally {
+        setCheckingCaution(false)
+      }
       return
     }
     // 金融資産調査・解約タスクは、口座凍結が未確認だと着手不可（ハード制限）
@@ -289,9 +304,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 <div className="flex flex-col items-end">
                   <button
                     onClick={handleAdvance}
-                    disabled={advancing}
+                    disabled={advancing || checkingCaution}
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
-                      ${advancing ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}
+                      ${advancing || checkingCaution ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}
                   >
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />}
                     {advancing ? '処理中...' : '完了にする'}
@@ -515,6 +530,25 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           </div>
         </aside>
       </div>
+
+      {/* 完了前の注意（実務タブでの依頼のし忘れ・凍結確認漏れ等）。止めない・軽い促し。 */}
+      {caution && (
+        <CompletionCautionModal
+          caution={caution}
+          busy={cautionBusy}
+          onRequest={async () => {
+            if (!caution) return
+            setCautionBusy(true)
+            try { await caution.request() } catch { /* 依頼失敗でも完了は進める */ }
+            setCautionBusy(false)
+            setCaution(null)
+            setCompleteOpen(true)
+            router.refresh()
+          }}
+          onProceed={() => { setCaution(null); setCompleteOpen(true) }}
+          onClose={() => setCaution(null)}
+        />
+      )}
 
       {/* 完了ゲート（実施結果＋次に着手OKにするタスク選択） */}
       {completeOpen && (
