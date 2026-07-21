@@ -11,6 +11,7 @@ import {
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
+import AcquisitionPlanEditor from './AcquisitionPlanEditor'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import FinancialSection from './FinancialSection'
 import RealEstateSection from './RealEstateSection'
@@ -147,6 +148,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <div>
               <SectionHeading title="物件一覧（どこに物件があるか／所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode addressSuggestions={addrSuggestions} />
+              {/* 取得予定資料（市区町村ごと＋物件ごと）。物件追加時に自動生成されたものを可視化＋トグル編集。 */}
+              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} />
             </div>
           ) : (
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計
