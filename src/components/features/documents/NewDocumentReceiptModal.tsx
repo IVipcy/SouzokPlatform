@@ -401,7 +401,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                             updateItem(it.key, { otherMode: false, linked: v, item_name: opt?.label ?? '' })
                           }
                         }}
-                        className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
+                        className="w-full min-w-0 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
                       >
                         <option value="">受領待ちの到着物から選ぶ</option>
                         {groupedForRow.map(([group, opts]) => (
@@ -417,7 +417,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                         value={it.item_name}
                         onChange={e => updateItem(it.key, { item_name: e.target.value })}
                         placeholder="到着物（例: 戸籍）"
-                        className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                        className="w-full min-w-0 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                       />
                     )}
                     <input
@@ -426,14 +426,14 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                       value={it.quantity}
                       onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
                       placeholder="通数"
-                      className="px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                      className="w-full min-w-0 px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                     />
                     <input
                       type="text"
                       value={it.received_from}
                       onChange={e => updateItem(it.key, { received_from: e.target.value })}
                       placeholder="差出人（例: 名古屋市区役所）"
-                      className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                      className="w-full min-w-0 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                     />
                     <button
                       type="button"
