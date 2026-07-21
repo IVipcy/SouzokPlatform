@@ -120,12 +120,15 @@ export function buildDeliverableOptions(
       return p ? (p.address || p.municipality || p.lot_number || p.property_type || '物件') : ''
     }
     for (const a of acquisitions) {
-      // 路線価は参照のため除外。受領日が入っている＝受信済も除外。
-      if (!a.item_type || a.item_type === '路線価' || a.arrival_date) continue
+      // 1宛先=1請求(=1行)＋資料は複数選択(item_types text[])。ラベルは配列を「・」連結。
+      const arr = Array.isArray(a.item_types) ? (a.item_types as string[]).map(s => (s ?? '').trim()).filter(Boolean) : []
+      const items = arr.length > 0 ? arr : (a.item_type ? [a.item_type] : [])
+      // 参照のみ(路線価だけ)は請求無しで受領なし。受領日が入っている＝受信済も除外。
+      if (items.length === 0 || items.every(x => x === '路線価') || a.arrival_date) continue
       const where = (a.target_property_id ? propLabel(a.target_property_id) : '') || (a.target_municipality ?? '').trim() || '対象未設定'
       opts.push({
         value: `real_estate_acquisition:${a.id}:arrival_date`,
-        label: `${a.item_type}（${where}）`,
+        label: `${items.join('・')}（${where}）`,
         group: '不動産',
         kind: 'real_estate_acquisition',
         id: a.id,
