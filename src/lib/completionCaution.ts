@@ -35,46 +35,72 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
   const landingUrl = landing ? taskLandingUrl(task.case_id, task.id, landing) : undefined
   const landingLabel = landing?.label
 
-  // ── 戸籍請求：発送チェックの依頼 ──
+  // ── 戸籍請求：進捗に応じて段階的に警告 ──
+  //   ①請求日なし → 「まだ請求していない」
+  //   ②請求日あり／依頼なし → 「発送チェック依頼まだ」
+  //   ③依頼済／未確認 → 「発送チェック確認まだ」
+  //   ④確認済 → 警告なし
   if (rid?.prefix === 'koseki') {
     const { data } = await supabase.from('koseki_requests').select('id,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('id', rid.key).maybeSingle()
     const r = data as KosekiLite | null
-    if (r && r.request_date && !r.request_check_requested_at && !r.request_check_at) {
-      return { title: '発送チェックの依頼は出しましたか？', note: 'この戸籍請求は、まだ発送チェックの確認依頼が出ていません。', requestLabel: '発送を依頼',
+    if (!r || r.request_check_at) return null
+    if (!r.request_date) {
+      return { title: 'まだ請求していないようです', note: '実務タブに請求日が入っていません。実務タブで内容を確認してから完了するのがおすすめです。', requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+    }
+    if (!r.request_check_requested_at) {
+      return { title: '発送チェックの依頼は出しましたか？', note: 'この戸籍請求は、まだ発送チェックの確認依頼が出ていません。', requestLabel: '発送チェックを依頼',
         request: async () => { await supabase.from('koseki_requests').update({ request_check_requested_at: nowIso(), request_check_requested_by: meId }).eq('id', rid.key) }, landingUrl, landingLabel }
     }
-    return null
+    return { title: '発送チェックがまだ確認されていません', note: '依頼は出ていますが、確認簿でまだ確認されていません。', requestLabel: '', request: async () => {}, landingUrl, landingLabel }
   }
-  // ── 戸籍読込：到着確認の依頼 ──
+  // ── 戸籍読込：進捗に応じて段階的に警告（到着 → 到着チェック依頼 → 確認済） ──
   if (rid?.prefix === 'koseki-read') {
     const { data } = await supabase.from('koseki_requests').select('id,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('id', rid.key).maybeSingle()
     const r = data as KosekiLite | null
-    if (r && r.arrival_date && !r.receipt_check_requested_at && !r.receipt_check_at) {
-      return { title: '到着確認（着チェック）の依頼は出しましたか？', note: 'この戸籍は、まだ到着確認の依頼が出ていません。', requestLabel: '到着を依頼',
+    if (!r || r.receipt_check_at) return null
+    if (!r.arrival_date) {
+      return { title: 'まだ届いていないようです', note: '実務タブに到着日が入っていません。実務タブで内容を確認してから完了するのがおすすめです。', requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+    }
+    if (!r.receipt_check_requested_at) {
+      return { title: '到着チェックの依頼は出しましたか？', note: 'この戸籍は、まだ到着確認の依頼が出ていません。', requestLabel: '到着チェックを依頼',
         request: async () => { await supabase.from('koseki_requests').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).eq('id', rid.key) }, landingUrl, landingLabel }
     }
-    return null
+    return { title: '到着チェックがまだ確認されていません', note: '依頼は出ていますが、確認簿でまだ確認されていません。', requestLabel: '', request: async () => {}, landingUrl, landingLabel }
   }
-  // ── 不動産 請求（市区町村単位）：発送チェックの依頼 ──
+  // ── 不動産 請求（市区町村単位）：進捗に応じて段階的に警告 ──
   if (rid && (rid.prefix === 're-muni' || rid.prefix === 're-houmu')) {
     const scope = rid.prefix === 're-houmu' ? 'property' : 'municipality'
     const { data } = await supabase.from('real_estate_acquisitions').select('id,scope,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('case_id', task.case_id).eq('target_municipality', rid.key)
-    const targets = ((data ?? []) as AcqLite[]).filter(r => (r.scope ?? scope) === scope && r.request_date && !r.request_check_requested_at && !r.request_check_at)
-    if (targets.length > 0) {
-      return { title: '発送チェックの依頼は出しましたか？', note: `${rid.key}の取得資料で、まだ発送チェックの依頼が出ていないものが ${targets.length}件 あります。`, requestLabel: `${targets.length}件を依頼`,
-        request: async () => { await supabase.from('real_estate_acquisitions').update({ request_check_requested_at: nowIso(), request_check_requested_by: meId }).in('id', targets.map(t => t.id)) }, landingUrl, landingLabel }
+    const rows = ((data ?? []) as AcqLite[]).filter(r => (r.scope ?? scope) === scope)
+    const remain = rows.filter(r => !r.request_check_at)  // 発送チェック確認がまだの行
+    if (remain.length === 0) return null
+    const noDate = remain.filter(r => !r.request_date)
+    if (noDate.length > 0) {
+      return { title: 'まだ請求していない資料があります', note: `${rid.key}の取得資料で、請求日が未入力のものが ${noDate.length}件 あります。実務タブで内容を確認してから完了するのがおすすめです。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
     }
-    return null
+    const noReq = remain.filter(r => !r.request_check_requested_at)
+    if (noReq.length > 0) {
+      return { title: '発送チェックの依頼は出しましたか？', note: `${rid.key}の取得資料で、発送チェックの依頼が出ていないものが ${noReq.length}件 あります。`, requestLabel: `${noReq.length}件を依頼`,
+        request: async () => { await supabase.from('real_estate_acquisitions').update({ request_check_requested_at: nowIso(), request_check_requested_by: meId }).in('id', noReq.map(t => t.id)) }, landingUrl, landingLabel }
+    }
+    return { title: '発送チェックがまだ確認されていません', note: `依頼は出ていますが、まだ確認されていない資料が ${remain.length}件 あります。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
   }
-  // ── 不動産 読込：到着確認の依頼 ──
+  // ── 不動産 読込：進捗に応じて段階的に警告 ──
   if (rid && (rid.prefix === 're-muni-read' || rid.prefix === 're-houmu-read')) {
     const { data } = await supabase.from('real_estate_acquisitions').select('id,scope,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('case_id', task.case_id).eq('target_municipality', rid.key)
-    const targets = ((data ?? []) as AcqLite[]).filter(r => r.arrival_date && !r.receipt_check_requested_at && !r.receipt_check_at)
-    if (targets.length > 0) {
-      return { title: '到着確認の依頼は出しましたか？', note: `${rid.key}の取得資料で、まだ到着確認の依頼が出ていないものが ${targets.length}件 あります。`, requestLabel: `${targets.length}件を依頼`,
-        request: async () => { await supabase.from('real_estate_acquisitions').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).in('id', targets.map(t => t.id)) }, landingUrl, landingLabel }
+    const rows = ((data ?? []) as AcqLite[])
+    const remain = rows.filter(r => !r.receipt_check_at)
+    if (remain.length === 0) return null
+    const noArr = remain.filter(r => !r.arrival_date)
+    if (noArr.length > 0) {
+      return { title: 'まだ届いていない資料があります', note: `${rid.key}の取得資料で、到着日が未入力のものが ${noArr.length}件 あります。実務タブで内容を確認してから完了するのがおすすめです。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
     }
-    return null
+    const noReq = remain.filter(r => !r.receipt_check_requested_at)
+    if (noReq.length > 0) {
+      return { title: '到着チェックの依頼は出しましたか？', note: `${rid.key}の取得資料で、到着チェックの依頼が出ていないものが ${noReq.length}件 あります。`, requestLabel: `${noReq.length}件を依頼`,
+        request: async () => { await supabase.from('real_estate_acquisitions').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).in('id', noReq.map(t => t.id)) }, landingUrl, landingLabel }
+    }
+    return { title: '到着チェックがまだ確認されていません', note: `依頼は出ていますが、まだ確認されていない資料が ${remain.length}件 あります。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
   }
 
   // ── 解約：口座は凍結確認済みか（前提の確認）──
