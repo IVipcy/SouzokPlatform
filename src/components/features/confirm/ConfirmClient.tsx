@@ -193,9 +193,9 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         case 'koseki_recv':
           await upd('koseki_requests', it.rowId, { receipt_check_by: meId, receipt_check_at: at, receipt_check_name: meName }); break
         case 're_send':
-          await upd('real_estate_acquisitions', it.rowId, { request_check_by: meId, request_check_at: at }); break
+          await upd('real_estate_acquisitions', it.rowId, { request_check_by: meId, request_check_at: at, request_check_name: meName }); break
         case 're_recv':
-          await upd('real_estate_acquisitions', it.rowId, { receipt_check_by: meId, receipt_check_at: at }); break
+          await upd('real_estate_acquisitions', it.rowId, { receipt_check_by: meId, receipt_check_at: at, receipt_check_name: meName }); break
         case 're_confirm':
           await upd('real_estate_properties', it.rowId, { confirmed: true, confirmed_by: meId, confirmed_at: at }); break
         case 'fin_confirm':
