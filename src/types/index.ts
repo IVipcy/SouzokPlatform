@@ -734,7 +734,8 @@ export type RealEstatePropertyRow = {
 export type RealEstateAcquisitionRow = {
   id: string
   case_id: string
-  item_type: string | null            // 登記情報/公図/地積測量図/評価証明/名寄帳/路線価
+  item_type: string | null            // 登記情報/公図/地積測量図/評価証明/名寄帳/路線価 ※互換用（新規は item_types を使う）
+  item_types: string[] | null         // 1宛先＝1請求＋資料は複数選択（migration 183）。表示は item_types 優先。
   scope: 'municipality' | 'property' | null  // ①市区町村へ請求 / ②物件ごとに取得（migration 151）
   target_property_id: string | null   // 物件単位の対象
   target_municipality: string | null  // 市区町村単位の対象
