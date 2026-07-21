@@ -372,7 +372,9 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            {/* 物件一覧：re-muni-read（名寄帳・評価証明読込）タスク詳細から着地した場合、
+                評価額の転記までがこのタスクの守備範囲になるので同時にハイライト。 */}
+            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
             </div>

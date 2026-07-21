@@ -92,17 +92,35 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
     // 同じ市区町村でも ①市区町村役場行(名寄帳/評価証明) と ②法務局行(登記/公図/…) は別タスクなので scope で絞る。
     const rows = ((data ?? []) as AcqLite[]).filter(r => (r.scope ?? scope) === scope)
     const remain = rows.filter(r => !r.receipt_check_at)
-    if (remain.length === 0) return null
-    const noArr = remain.filter(r => !r.arrival_date)
-    if (noArr.length > 0) {
-      return { title: 'まだ届いていない資料があります', note: `${rid.key}の取得資料で、到着日が未入力のものが ${noArr.length}件 あります。実務タブで内容を確認してから完了するのがおすすめです。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+    if (remain.length > 0) {
+      const noArr = remain.filter(r => !r.arrival_date)
+      if (noArr.length > 0) {
+        return { title: 'まだ届いていない資料があります', note: `${rid.key}の取得資料で、到着日が未入力のものが ${noArr.length}件 あります。実務タブで内容を確認してから完了するのがおすすめです。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+      }
+      const noReq = remain.filter(r => !r.receipt_check_requested_at)
+      if (noReq.length > 0) {
+        return { title: '到着チェックの依頼は出しましたか？', note: `${rid.key}の取得資料で、到着チェックの依頼が出ていないものが ${noReq.length}件 あります。`, requestLabel: `${noReq.length}件を依頼`,
+          request: async () => { await supabase.from('real_estate_acquisitions').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).in('id', noReq.map(t => t.id)) }, landingUrl, landingLabel }
+      }
+      return { title: '到着チェックがまだ確認されていません', note: `依頼は出ていますが、まだ確認されていない資料が ${remain.length}件 あります。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
     }
-    const noReq = remain.filter(r => !r.receipt_check_requested_at)
-    if (noReq.length > 0) {
-      return { title: '到着チェックの依頼は出しましたか？', note: `${rid.key}の取得資料で、到着チェックの依頼が出ていないものが ${noReq.length}件 あります。`, requestLabel: `${noReq.length}件を依頼`,
-        request: async () => { await supabase.from('real_estate_acquisitions').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).in('id', noReq.map(t => t.id)) }, landingUrl, landingLabel }
+    // 受領チェックが全部OKでも、re-muni-read（名寄帳・評価証明の読込）はそのまま評価額転記まで守備範囲。
+    // → この市区町村の物件で「評価額入力済み・未確定・未依頼」があれば評価確定依頼を促す。
+    if (rid.prefix === 're-muni-read') {
+      const { data: pdata } = await supabase.from('real_estate_properties').select('id,municipality,address,appraisal_value,confirmed,confirm_requested_at').eq('case_id', task.case_id)
+      const propsInMuni = ((pdata ?? []) as (PropLite & { municipality: string | null; address: string | null })[])
+        .filter(p => (p.municipality ?? '').trim() === rid.key || ((p.address ?? '').trim().startsWith(rid.key)))
+      const needReq = propsInMuni.filter(p => p.appraisal_value != null && !p.confirmed && !p.confirm_requested_at)
+      if (needReq.length > 0) {
+        return { title: '評価額確定の依頼は出しましたか？', note: `${rid.key}の物件で、評価額が入っているのに確定依頼が出ていないものが ${needReq.length}件 あります。`, requestLabel: `${needReq.length}件を依頼`,
+          request: async () => { await supabase.from('real_estate_properties').update({ confirm_requested_at: nowIso(), confirm_requested_by: meId }).in('id', needReq.map(p => p.id)) }, landingUrl, landingLabel }
+      }
+      const pending = propsInMuni.filter(p => p.appraisal_value != null && !p.confirmed && p.confirm_requested_at)
+      if (pending.length > 0) {
+        return { title: '評価額の確定がまだされていません', note: `依頼は出ていますが、まだ確認されていない物件が ${pending.length}件 あります。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+      }
     }
-    return { title: '到着チェックがまだ確認されていません', note: `依頼は出ていますが、まだ確認されていない資料が ${remain.length}件 あります。`, requestLabel: '', request: async () => {}, landingUrl, landingLabel }
+    return null
   }
 
   // ── 解約：口座は凍結確認済みか（前提の確認）──
