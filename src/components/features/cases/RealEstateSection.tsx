@@ -355,7 +355,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             {/* この市区町村の進め方（読込結果＝物件の洗い出し→登録→取得→評価の流れを明示） */}
             <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11.5px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <span className="font-semibold text-gray-600 mr-1">この市区町村の進め方</span>
+              <span className="font-semibold text-gray-600 mr-1">進め方</span>
               {['① 役所へ請求（名寄帳）', '洗い出した物件を登録', '② 法務局へ請求（登記等）', '評価額を確定'].map((label, k) => (
                 <span key={k} className="inline-flex items-center gap-2">
                   {k > 0 && <span className="text-gray-300">→</span>}
