@@ -43,7 +43,7 @@ export default function CheckRequestControl({
       type="button"
       onClick={onRequest}
       disabled={disabled}
-      className="inline-flex items-center gap-1 h-[24px] px-2 rounded-md text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 hover:-translate-y-px transition disabled:opacity-50 disabled:hover:translate-y-0"
+      className="inline-flex items-center gap-1 h-[24px] px-2 rounded-md text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 hover:-translate-y-px transition disabled:opacity-50 disabled:hover:translate-y-0 whitespace-nowrap"
     >
       <Send className="w-3 h-3" strokeWidth={2} />{label}
     </button>
