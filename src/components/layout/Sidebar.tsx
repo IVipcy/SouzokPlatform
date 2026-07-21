@@ -25,6 +25,7 @@ import { isNavVisible } from '@/lib/featureMode'
 import { useConfirmPendingCount } from '@/lib/useConfirmPendingCount'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useAlertCenter } from '@/components/providers/AlertCenterProvider'
+import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import UserAvatar from '@/components/ui/UserAvatar'
 
 const ROLE_LABEL: Record<string, string> = {
@@ -196,8 +197,11 @@ export default function Sidebar() {
         )
       })()}
 
-      {/* プロフィール + ログアウト（通知/アラートはマイページに集約） */}
+      {/* プロフィール + ログアウト。事務管理/経理はマイページを持たないため、ここにベルを置いてアラートセンターを開けるようにする。 */}
       <div className={`${collapsed ? 'p-2' : 'p-3'} border-t border-gray-100 space-y-1`}>
+        {!!user && ['assistant', 'accounting'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager') && (
+          <MyAlertCenter variant={collapsed ? 'sidebarCollapsed' : 'sidebar'} />
+        )}
         {user?.memberId && (
           <Link
             href="/profile"

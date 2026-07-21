@@ -33,27 +33,59 @@ function notificationHref(n: NotificationItem): string | null {
   return `/cases/${n.case_id}`
 }
 
-export default function MyAlertCenter() {
+export default function MyAlertCenter({ variant = 'default' }: { variant?: 'default' | 'sidebar' | 'sidebarCollapsed' } = {}) {
   const { alerts, notifications, unreadCount, totalCount, markRead, markAllRead, removeOne } = useAlertCenter()
   const [open, setOpen] = useState(false)
 
+  // トリガーボタン。variant によって見た目を切り替える（マイページ通常／サイドバー下部）。
+  const trigger = variant === 'sidebarCollapsed' ? (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="relative w-full flex items-center justify-center py-2 rounded-lg hover:bg-gray-50 transition"
+      aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+      title={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+    >
+      <Bell className={`w-5 h-5 ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={1.75} />
+      {totalCount > 0 && (
+        <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+      )}
+    </button>
+  ) : variant === 'sidebar' ? (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition"
+      aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+    >
+      <span className="relative inline-flex">
+        <Bell className={`w-[18px] h-[18px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={1.75} />
+        {totalCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+        )}
+      </span>
+      <span className="flex-1 text-left">アラート</span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition"
+      aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
+    >
+      <span className="relative inline-flex">
+        <Bell className={`w-[17px] h-[17px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={2} />
+        {totalCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+        )}
+      </span>
+      <span className="text-[12px] font-semibold text-gray-700">アラート</span>
+    </button>
+  )
+
   return (
     <>
-      {/* コンパクト表示（名前のすぐ右）。押すとモーダル */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition"
-        aria-label={`アラート${totalCount > 0 ? ` ${totalCount}件` : ''}`}
-      >
-        <span className="relative inline-flex">
-          <Bell className={`w-[17px] h-[17px] ${totalCount > 0 ? 'text-red-500' : 'text-gray-400'}`} strokeWidth={2} />
-          {totalCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
-          )}
-        </span>
-        <span className="text-[12px] font-semibold text-gray-700">アラート</span>
-      </button>
+      {trigger}
 
       {/* モーダル（アラート＋通知を統合した一覧） */}
       {open && (
