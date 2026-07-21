@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle } from 'lucide-react'
+import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle, Zap, Clock, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { normalizeTaskStatus, getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, getStartSignal, isWaitingReceipt, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import type { TaskRow } from '@/types'
 
@@ -50,6 +50,23 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     if (error) { showToast(`一括設定に失敗: ${error.message}`, 'error'); return }
     showToast(`${sel.size}件に期限を設定しました`, 'success')
     setSel(new Set()); setBulkDate('')
+    onRefresh()
+  }
+
+  // 着手前タスクにだけ「着手OK」「受領次第OK」を1クリックでトグル。
+  // ext_data.ready_reason = 手動着手OK理由、ready_on_receipt = 受領次第OK。両者は排他。
+  const toggleReady = async (t: TaskRow, kind: 'manual' | 'receipt') => {
+    const supabase = createClient()
+    const ext = { ...((t.ext_data ?? {}) as Record<string, unknown>) }
+    const isOnManual = !!(ext.ready === true || (typeof ext.ready_reason === 'string' && ext.ready_reason.trim()))
+    const isOnReceipt = isWaitingReceipt(t)
+    if (kind === 'manual') {
+      if (isOnManual) { delete ext.ready_reason; delete ext.ready } else { ext.ready_reason = '手動で着手OK'; ext.ready = true; delete ext.ready_on_receipt }
+    } else {
+      if (isOnReceipt) { delete ext.ready_on_receipt } else { ext.ready_on_receipt = true; delete ext.ready_reason; delete ext.ready }
+    }
+    const { error } = await supabase.from('tasks').update({ ext_data: ext }).eq('id', t.id)
+    if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
     onRefresh()
   }
 
@@ -111,7 +128,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">業務区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">タスク名</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-36">着手OK理由</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-44">ゲート/着手OK理由</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">実施結果</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">到着物</th>
@@ -141,9 +158,33 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                       : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
                   </td>
                   <td className="px-2.5 py-2 align-top">
-                    {signal.ready && signal.reason
-                      ? <span className="block text-[11.5px] text-amber-800 line-clamp-2" title={signal.reason}>{signal.reason}</span>
-                      : <span className="text-gray-300 text-[12px]">—</span>}
+                    {status === '着手前' ? (
+                      (() => {
+                        const isReadyManual = !!(signal.ready && signal.source !== 'doc')
+                        const isReadyDoc = !!(signal.ready && signal.source === 'doc')
+                        const isOnReceipt = isWaitingReceipt(t)
+                        // 書類受領起因の自動着手OKは編集不可（受信簿由来なので表示のみ）。
+                        if (isReadyDoc) return <span className="block text-[11.5px] text-amber-800 line-clamp-2" title={signal.reason ?? ''}>{signal.reason}</span>
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-wrap gap-1">
+                              <button type="button" onClick={() => toggleReady(t, 'manual')} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors ${isReadyManual ? 'bg-brand-50 text-brand-700 border-brand-300' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`} title={isReadyManual ? '解除する' : '前段未完でも着手OKにする'}>
+                                <Zap className="w-3 h-3" />着手OK{isReadyManual && <Check className="w-2.5 h-2.5" />}
+                              </button>
+                              <button type="button" onClick={() => toggleReady(t, 'receipt')} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors ${isOnReceipt ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300 hover:text-amber-700'}`} title={isOnReceipt ? '解除する' : '書類受領を待たずに着手可'}>
+                                <Clock className="w-3 h-3" />受領次第{isOnReceipt && <Check className="w-2.5 h-2.5" />}
+                              </button>
+                              {isReadyManual && (
+                                <button type="button" onClick={() => toggleReady(t, 'manual')} className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[10px] text-gray-400 hover:text-red-600" title="着手OKを解除" aria-label="解除"><X className="w-2.5 h-2.5" /></button>
+                              )}
+                            </div>
+                            {isReadyManual && signal.reason && <span className="block text-[10.5px] text-brand-700 line-clamp-1" title={signal.reason}>{signal.reason}</span>}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <span className="text-gray-300 text-[12px]">—</span>
+                    )}
                   </td>
                   <td className="px-2.5 py-2">
                     <input type="date" defaultValue={t.due_date ?? ''} key={`d-${t.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (t.due_date ?? '')) saveDue(t.id, e.target.value) }} className={`w-full px-1.5 py-1 text-[12px] border rounded outline-none focus:border-brand-500 ${overdue ? 'border-red-300 bg-red-50/40 text-red-700' : 'border-gray-200 bg-gray-50'}`} />
