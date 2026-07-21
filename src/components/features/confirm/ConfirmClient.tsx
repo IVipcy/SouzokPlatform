@@ -125,8 +125,12 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
   // その項目を今のユーザーが押せるか。W-check=作業者以外（管理担当は例外）／確定=誰でも／承認・凍結=管理担当のみ。
   const canAct = (it: ConfirmItem): boolean => {
     if (it.reviewer === 'manager') return isManager
-    // reviewer === 'jimu'（ピア）：作業者本人はNG（管理担当は例外）
-    if (it.workerId && meId && it.workerId === meId && !isManager) return false
+    // reviewer === 'jimu'（ピア）：作業者本人 or 依頼者本人はNG（管理担当は例外）。
+    // 到着日を入れた作業者(workerId)が未記録でも、依頼を出した本人(requestedBy)で自己確認をブロックする。
+    if (!isManager && meId) {
+      if (it.workerId && it.workerId === meId) return false
+      if (it.requestedBy && it.requestedBy === meId) return false
+    }
     return true
   }
 
