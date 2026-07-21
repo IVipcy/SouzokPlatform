@@ -73,25 +73,30 @@ export default async function ConfirmPage() {
   }
 
   // ── 不動産・取得資料 ──
+  // 1宛先=1請求(=1行)＋資料は複数選択(item_types text[])に統合済のため、確認簿の「内容」は配列を「・」で連結。
   for (const r of (acqRaw ?? []) as Record<string, unknown>[]) {
     const id = r.id as string, caseId = r.case_id as string
     if (!caseMap.has(caseId)) continue
-    const itemType = ((r.item_type as string) ?? '').trim()
-    if (itemType === '路線価') continue // 参照は請求なし
+    const itemTypesArr = Array.isArray(r.item_types) ? (r.item_types as string[]).map(s => (s ?? '').trim()).filter(Boolean) : []
+    const itemTypeSingle = ((r.item_type as string) ?? '').trim()
+    const itemsArr = itemTypesArr.length > 0 ? itemTypesArr : (itemTypeSingle ? [itemTypeSingle] : [])
+    // 参照のみ(路線価だけ)の行は請求無しで確認不要
+    if (itemsArr.length > 0 && itemsArr.every(x => x === '路線価')) continue
+    const itemsLabel = itemsArr.length > 0 ? itemsArr.join('・') : '取得資料'
     const b = base({ id, case_id: caseId }, '不動産')
     const requestTo = ((r.request_to as string) ?? '').trim()
     const muni = ((r.target_municipality as string) ?? '').trim()
     const isAdd = !!r.is_additional, approved = !!r.additional_approved_at
     const fee = yen(r.cost_confirmed as number)
     if (isAdd && !approved) {
-      items.push({ ...b, key: `aa-${id}`, tab: 'approve', action: 're_acq_approve', target: requestTo || muni || '追加取得資料', content: itemType || '取得資料', amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { item_type: itemType, target_municipality: muni, target_property_id: (r.target_property_id as string) ?? null } })
+      items.push({ ...b, key: `aa-${id}`, tab: 'approve', action: 're_acq_approve', target: requestTo || muni || '追加取得資料', content: itemsLabel, amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { item_type: itemsArr[0] ?? '', target_municipality: muni, target_property_id: (r.target_property_id as string) ?? null } })
       continue
     }
     if (r.request_check_requested_at && !r.request_check_at) {
-      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemType || '取得資料', amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `as-${id}`, tab: 'request', action: 're_send', target: requestTo, content: itemsLabel, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
     }
     if (r.receipt_check_requested_at && !r.receipt_check_at) {
-      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemType || '取得資料', amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `ar-${id}`, tab: 'request', action: 're_recv', target: requestTo || '請求先未設定', content: itemsLabel, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
     }
   }
 

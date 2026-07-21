@@ -44,6 +44,8 @@ type Props = {
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
 const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.property_type || '未入力の物件'
+// selectのoption表示は先頭に[土地]/[建物]を付けて、同じ住所の物件を判別可能に。
+const propLabelWithType = (p: RealEstatePropertyRow) => `${p.property_type ? `[${p.property_type}] ` : ''}${propLabel(p)}`
 
 /**
  * 不動産の取得資料管理（戸籍請求一覧と同じ思想）。1行＝1取得物。
@@ -208,9 +210,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1190 : 970) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2 py-2 text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
               <th className="px-2 py-2 text-left font-semibold w-40">対象</th>
               <th className="px-2 py-2 text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
+              <th className="px-2 py-2 text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">到着日</th>}
               {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
@@ -239,6 +241,22 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               const dash = <span className="text-gray-300 text-[11px]">—</span>
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  {/* 対象（先頭列。物件select は [土地]/[建物] 付きで判別可能に） */}
+                  <td className="px-2 py-1.5">
+                    {(scope === 'property' || (scope === 'all' && isProp)) ? (
+                      <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={selCls}>
+                        <option value="">— 物件を選択 —</option>
+                        {muniProps.map(p => <option key={p.id} value={p.id}>{propLabelWithType(p)}</option>)}
+                      </select>
+                    ) : (
+                      <input type="text" defaultValue={r.target_municipality ?? ''} onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }} placeholder="例: 名古屋市中区" className={dateCls} />
+                    )}
+                  </td>
+                  {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
+                  <td className="px-2 py-1.5">
+                    {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
+                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
+                  </td>
                   {/* 取得する資料（チップ複数選択・1行=1宛先＝1請求） */}
                   <td className="px-2 py-1.5">
                     <div className="flex flex-wrap gap-1">
@@ -254,22 +272,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     </div>
                     {r.is_additional && !r.additional_approved_at && <div className="mt-1"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
                     {isRef && <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）のみ</div>}
-                  </td>
-                  {/* 対象 */}
-                  <td className="px-2 py-1.5">
-                    {(scope === 'property' || (scope === 'all' && isProp)) ? (
-                      <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={selCls}>
-                        <option value="">— 物件を選択 —</option>
-                        {muniProps.map(p => <option key={p.id} value={p.id}>{propLabel(p)}</option>)}
-                      </select>
-                    ) : (
-                      <input type="text" defaultValue={r.target_municipality ?? ''} onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }} placeholder="例: 名古屋市中区" className={dateCls} />
-                    )}
-                  </td>
-                  {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
-                  <td className="px-2 py-1.5">
-                    {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
-                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
                   </td>
                   {/* 請求日（入力者を請求作業者として記録） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
