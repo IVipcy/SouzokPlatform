@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import { ensureReceiptTask } from '@/lib/receiptTask'
+import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { InvoiceRow, PaymentRow } from '@/types'
@@ -69,8 +70,11 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
     // 手動で入金消込した時点で「要確認（CSV突合②③）」は解消したものとしてフラグを落とす
     await supabase.from('invoices').update({ status: newStatus, needs_review: false, review_reason: null }).eq('id', invoice.id)
 
-    // 入金確定したら、開いている入金状況確認依頼を自動でクローズ
-    if (newStatus === '入金済') { await autoClosePaymentChecks(invoice.id); await ensureReceiptTask(invoice.id) }
+    // 入金確定したら、確認依頼を自動クローズ＋受注担当・管理担当の両方へ通知
+    if (newStatus === '入金済') {
+      await autoClosePaymentChecks(invoice.id); await ensureReceiptTask(invoice.id)
+      if (invoice.status !== '入金済') await notifyPaymentConfirmed(invoice.case_id, invoice.amount)
+    }
 
     setSaving(false)
     onSaved()

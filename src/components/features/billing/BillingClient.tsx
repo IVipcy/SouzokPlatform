@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
+import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
 import Link from 'next/link'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import EditInvoiceModal from './EditInvoiceModal'
@@ -376,6 +377,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       if (nextStatus === '入金済') { update.needs_review = false; update.review_reason = null }
       const { error } = await supabase.from('invoices').update(update).eq('id', invoiceId)
       if (error) throw error
+      // 入金済にした瞬間、案件の受注担当・管理担当の両方へ通知（CSV突合と同じ）。
+      const inv = invoices.find(i => i.id === invoiceId)
+      if (nextStatus === '入金済' && inv && inv.status !== '入金済') await notifyPaymentConfirmed(inv.case_id, inv.amount)
       showToast(`ステータスを「${nextStatus}」に変更しました`, 'success')
       router.refresh()
     } catch (e) {
@@ -414,8 +418,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     try {
       const supabase = createClient()
       const ids = Array.from(bulkSelected)
+      // 入金済にする対象のうち、まだ入金済でないものは通知対象（受注担当・管理担当へ）。
+      const toNotify = nextStatus === '入金済' ? invoices.filter(i => ids.includes(i.id) && i.status !== '入金済') : []
       const { error } = await supabase.from('invoices').update({ status: nextStatus }).in('id', ids)
       if (error) throw error
+      for (const inv of toNotify) await notifyPaymentConfirmed(inv.case_id, inv.amount)
       showToast(`${ids.length} 件のステータスを「${nextStatus}」に変更しました`, 'success')
       clearBulkSelection()
       router.refresh()
