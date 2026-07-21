@@ -2,9 +2,10 @@
 
 // タスク完了ボタンを押した直後、完了モーダルの前に軽く挟む注意ポップアップ。
 // 「今すぐ依頼」で確認依頼をその場で出して完了へ／「このまま完了へ」で注意だけ見て進む。止めない。
+import Link from 'next/link'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { AlertTriangle, Send, ArrowRight } from 'lucide-react'
+import { AlertTriangle, Send, ArrowRight, ExternalLink } from 'lucide-react'
 import type { CompletionCaution } from '@/lib/completionCaution'
 
 export default function CompletionCautionModal({ caution, busy, onRequest, onProceed, onClose }: {
@@ -37,9 +38,16 @@ export default function CompletionCautionModal({ caution, busy, onRequest, onPro
         <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-none">
           <AlertTriangle className="w-5 h-5 text-amber-600" strokeWidth={2} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[15px] font-semibold text-gray-800 leading-snug">{caution.title}</div>
           <p className="text-[12.5px] text-gray-500 mt-1 leading-relaxed">{caution.note}</p>
+          {caution.landingUrl && (
+            <p className="text-[12px] text-gray-500 mt-2 leading-relaxed">
+              念のため<Link href={caution.landingUrl} onClick={onClose} className="inline-flex items-center gap-0.5 text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2 mx-0.5">
+                実務タブ{caution.landingLabel ? `（${caution.landingLabel}）` : ''}<ExternalLink className="w-3 h-3" />
+              </Link>で内容を確認してから完了するのがおすすめです。
+            </p>
+          )}
         </div>
       </div>
       <p className="text-[11px] text-gray-400 text-center mt-3">確認していなくても完了はできます（念のための確認です）</p>
