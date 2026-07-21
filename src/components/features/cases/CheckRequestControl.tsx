@@ -26,11 +26,11 @@ export default function CheckRequestControl({
   // ② 確認待ち（依頼済み・未確認）
   if (requestedAt) {
     return (
-      <span className="inline-flex items-center gap-1">
-        <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-[10.5px] font-medium bg-amber-50 text-amber-800">
-          <Clock className="w-3 h-3" strokeWidth={2} />確認待ち
+      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-[10.5px] font-medium bg-amber-50 text-amber-800 whitespace-nowrap">
+          <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />確認待ち
         </span>
-        <button type="button" onClick={onCancel} disabled={disabled} className="text-[10px] text-gray-400 hover:text-gray-600 underline disabled:opacity-50">取消</button>
+        <button type="button" onClick={onCancel} disabled={disabled} className="text-[10px] text-gray-400 hover:text-gray-600 underline disabled:opacity-50 whitespace-nowrap">取消</button>
       </span>
     )
   }
