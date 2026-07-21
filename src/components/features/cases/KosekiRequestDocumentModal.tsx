@@ -27,11 +27,14 @@ type Props = {
   defaultTaskId?: string
 }
 
-/** doc_types の自由記述文字列から請求種別を抽出（マッチしなければ既定） */
+/** doc_types の自由記述文字列から請求種別を抽出（マッチしなければ空＝未選択）。
+ *  ①勝手に「戸籍・謄本」を付けない。実務タブで選んでいればそれを反映、無ければ空。 */
 function parseRequestTypes(docTypes: string | null | undefined): string[] {
-  const found = KOSEKI_REQUEST_TYPES.filter(t => (docTypes ?? '').includes(t))
-  return found.length > 0 ? found : ['戸籍', '謄本']
+  return KOSEKI_REQUEST_TYPES.filter(t => (docTypes ?? '').includes(t))
 }
+
+// 全角→半角、数字以外を除去
+const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 
 type RequestRow = {
   id: string
@@ -54,7 +57,7 @@ function createRow(partial: Partial<RequestRow> = {}): RequestRow {
     honseki: '',
     hittousha: '',
     targetName: '',
-    requestTypes: ['戸籍', '謄本'],
+    requestTypes: [],  // ① デフォルト解除（勝手に「戸籍・謄本」を付けない）
     copyCount: 1,
     kogawaseAmount: '',
     notes: '',
@@ -109,6 +112,35 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   }, [isOpen, prefilledCities, kosekiRequests, caseData.contract_type, caseData.deceased_name, caseData.deceased_registered_address])
 
   const preset = KOSEKI_VARIANT_PRESETS[variant]
+
+  // ② 「請求に係る者」プルダウン用の候補（被相続人＋相続人＋その他）。
+  //   選ぶと本籍・筆頭者もその人のものにセットする（違えば手で直せる）。
+  type TargetOption = { key: string; label: string; name: string; honseki: string; hittousha: string }
+  const deceasedOpt: TargetOption | null = caseData.deceased_name
+    ? { key: 'deceased', label: `${caseData.deceased_name}（被相続人）`, name: caseData.deceased_name, honseki: caseData.deceased_registered_address ?? '', hittousha: caseData.deceased_name }
+    : null
+  const heirOpts: TargetOption[] = heirs
+    .filter(h => (h.name ?? '').trim())
+    .map(h => ({
+      key: `heir:${h.id}`,
+      label: `${h.name}${h.relationship_type ? `（${h.relationship_type}）` : h.relationship ? `（${h.relationship}）` : ''}`,
+      name: h.name!,
+      // 相続人が結婚済で自分の戸籍を持っていれば本人が筆頭者。分からなければ本人名にしておき、手で直せるようにする。
+      honseki: h.registered_address ?? '',
+      hittousha: h.name!,
+    }))
+  const targetOptions: TargetOption[] = [...(deceasedOpt ? [deceasedOpt] : []), ...heirOpts]
+  const findTargetKey = (row: RequestRow): string => {
+    const hit = targetOptions.find(o => o.name === row.targetName)
+    return hit ? hit.key : (row.targetName ? 'other' : '')
+  }
+  const pickTarget = (id: string, key: string) => {
+    if (key === 'other' || key === '') { updateRow(id, { targetName: '' }); return }
+    const opt = targetOptions.find(o => o.key === key)
+    if (!opt) return
+    // 対象者を選んだら本籍・筆頭者もその人のものに合わせる（違えば手で直せる）。
+    updateRow(id, { targetName: opt.name, honseki: opt.honseki, hittousha: opt.hittousha })
+  }
 
   const addRow = () => setRows(r => [...r, createRow({
     honseki: caseData.deceased_registered_address ?? '',
@@ -337,11 +369,12 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                   </Field>
                   <Field label="通数">
                     <input
-                      type="number"
-                      min={1}
-                      value={row.copyCount}
-                      onChange={e => updateRow(row.id, { copyCount: Number(e.target.value) || 1 })}
+                      type="text"
+                      inputMode="numeric"
+                      value={row.copyCount ? String(row.copyCount) : ''}
+                      onChange={e => { const n = Number(toDigits(e.target.value)); updateRow(row.id, { copyCount: n > 0 ? n : 1 }) }}
                       className="input-base"
+                      style={{ textAlign: 'right' }}
                     />
                   </Field>
                   <Field label="本籍・住所">
@@ -360,22 +393,52 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                       className="input-base"
                     />
                   </Field>
-                  <Field label="請求に係る者の氏名">
-                    <input
-                      type="text"
-                      value={row.targetName}
-                      onChange={e => updateRow(row.id, { targetName: e.target.value })}
-                      className="input-base"
-                    />
+                  <Field label="請求に係る者">
+                    {targetOptions.length > 0 ? (
+                      <>
+                        <select
+                          value={findTargetKey(row)}
+                          onChange={e => {
+                            const k = e.target.value
+                            if (k === 'other') updateRow(row.id, { targetName: '' })
+                            else pickTarget(row.id, k)
+                          }}
+                          className="input-base"
+                          style={{ background: 'white' }}
+                        >
+                          <option value="">— 選択 —</option>
+                          {targetOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                          <option value="other">その他（自由入力）</option>
+                        </select>
+                        {findTargetKey(row) === 'other' && (
+                          <input
+                            type="text"
+                            value={row.targetName}
+                            onChange={e => updateRow(row.id, { targetName: e.target.value })}
+                            placeholder="氏名を入力"
+                            className="input-base"
+                            style={{ marginTop: 4 }}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        value={row.targetName}
+                        onChange={e => updateRow(row.id, { targetName: e.target.value })}
+                        className="input-base"
+                      />
+                    )}
                   </Field>
                   <Field label="同封小為替（円）">
                     <input
-                      type="number"
-                      min={0}
-                      value={row.kogawaseAmount}
-                      onChange={e => updateRow(row.id, { kogawaseAmount: e.target.value === '' ? '' : Number(e.target.value) })}
+                      type="text"
+                      inputMode="numeric"
+                      value={row.kogawaseAmount === '' ? '' : Number(row.kogawaseAmount).toLocaleString('en-US')}
+                      onChange={e => { const d = toDigits(e.target.value); updateRow(row.id, { kogawaseAmount: d === '' ? '' : Number(d) }) }}
                       placeholder="例: 750"
                       className="input-base"
+                      style={{ textAlign: 'right' }}
                     />
                   </Field>
                 </div>
