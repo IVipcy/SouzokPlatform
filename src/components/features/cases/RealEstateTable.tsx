@@ -230,7 +230,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
         {showConfirmed && (
           <td className="px-2.5 py-1.5 text-center">
             {r.appraisal_value != null
-              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
+              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
               : <span className="text-[11px] text-gray-300">評価額待ち</span>}
           </td>
         )}
@@ -320,7 +320,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
         {showConfirmed && (
           <FieldBlock label="評価額確定（確認簿で確認）">
             {r.appraisal_value != null
-              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
+              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
               : <span className="text-[12px] text-gray-400">評価額を入れると依頼できます</span>}
           </FieldBlock>
         )}

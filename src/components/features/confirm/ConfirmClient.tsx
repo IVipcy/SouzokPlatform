@@ -197,7 +197,7 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         case 're_recv':
           await upd('real_estate_acquisitions', it.rowId, { receipt_check_by: meId, receipt_check_at: at, receipt_check_name: meName }); break
         case 're_confirm':
-          await upd('real_estate_properties', it.rowId, { confirmed: true, confirmed_by: meId, confirmed_at: at }); break
+          await upd('real_estate_properties', it.rowId, { confirmed: true, confirmed_by: meId, confirmed_at: at, confirmed_name: meName }); break
         case 'fin_confirm':
           await upd('financial_assets', it.rowId, { balance_confirmed: true, balance_confirmed_by: meId, balance_confirmed_at: at }); break
         case 'fin_freeze':

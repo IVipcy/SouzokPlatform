@@ -722,6 +722,7 @@ export type RealEstatePropertyRow = {
   confirmed: boolean                               // 確定済（管理担当のみ。TOP・目録へ反映。migration 147）
   confirmed_by: string | null
   confirmed_at: string | null
+  confirmed_name: string | null                    // ハンコ表示用（migration 186）
   confirm_requested_at: string | null              // 評価額確定の依頼（依頼→確認モデル。migration 181）
   confirm_requested_by: string | null
   registration_cost: number | null                 // 相続登記 確定費用＝登録免許税（migration 148）
