@@ -256,13 +256,13 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
         {progressMode && (
           <DateReqCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)}
-            show={isSelf && !!r.request_date} label="発送を依頼"
+            show={isSelf && !!r.request_date} label="発送チェックを依頼"
             requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name}
             onRequest={() => onReqCheck('request')} onCancel={() => onCancelCheck('request')} />
         )}
         {progressMode && (
           <DateReqCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)}
-            show={isSelf && !!r.arrival_date} label="到着を依頼"
+            show={isSelf && !!r.arrival_date} label="到着チェックを依頼"
             requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
             onRequest={() => onReqCheck('receipt')} onCancel={() => onCancelCheck('receipt')} />
         )}
@@ -364,13 +364,13 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
             <KFieldBlock label="請求日">
               <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className={inputCls} />
               {isSelf && r.request_date && (
-                <div className="mt-1.5"><CheckRequestControl label="発送を依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => onReqCheck('request')} onCancel={() => onCancelCheck('request')} /></div>
+                <div className="mt-1.5"><CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => onReqCheck('request')} onCancel={() => onCancelCheck('request')} /></div>
               )}
             </KFieldBlock>
             <KFieldBlock label="到着日">
               <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { if (e.target.value !== (r.arrival_date ?? '')) commit(r.id, 'arrival_date', e.target.value) }} className={inputCls} />
               {isSelf && r.arrival_date && (
-                <div className="mt-1.5"><CheckRequestControl label="到着を依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => onReqCheck('receipt')} onCancel={() => onCancelCheck('receipt')} /></div>
+                <div className="mt-1.5"><CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => onReqCheck('receipt')} onCancel={() => onCancelCheck('receipt')} /></div>
               )}
             </KFieldBlock>
           </div>

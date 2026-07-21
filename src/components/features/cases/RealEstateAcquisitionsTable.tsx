@@ -270,11 +270,11 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   )}
                   {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.request_date
-                    ? <CheckRequestControl label="発送を依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
+                    ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
                     : <span className="text-[11px] text-gray-300">請求日待ち</span>)}</td>}
                   {/* 着チェック依頼（到着日を入れると押せる） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.arrival_date
-                    ? <CheckRequestControl label="到着を依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
+                    ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
                     : <span className="text-[11px] text-gray-300">到着待ち</span>)}</td>}
                   {/* 受領ファイル */}
                   {progressMode && (
