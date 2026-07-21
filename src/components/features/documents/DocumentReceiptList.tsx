@@ -458,6 +458,26 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     return { ...prev, [itemId]: cur }
   })
 
+  // 筆頭候補（この到着物の対応タスク）は最初から選択済みで開く（チェック漏れ防止）。
+  // ユーザーが後で外した場合はその意思を尊重するため、まだ触っていない item だけに適用。
+  useEffect(() => {
+    if (loading) return
+    setItemSel(prev => {
+      const next = { ...prev }
+      let changed = false
+      for (const it of items) {
+        if (prev[it.id]) continue  // 既に選択操作がある item は触らない
+        const wantRid = expectedReadRid(it)
+        if (!wantRid) continue
+        const top = tasks.find(t => t.task_kind !== 'system' && t.status !== '完了' && t.status !== 'キャンセル' && t.source_rid === wantRid)
+        if (!top) continue
+        next[it.id] = new Set([top.id]); changed = true
+      }
+      return changed ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, tasks, items.length])
+
   const totalLinks = items.reduce((n, it) => n + (itemSel[it.id]?.size ?? 0) + ((itemNew[it.id] ?? '').trim() ? 1 : 0), 0)
   // 確認ステップで一覧表示する、紐付け対象タスク名。
   const linkedLabels: string[] = (() => {
