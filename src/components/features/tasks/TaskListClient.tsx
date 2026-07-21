@@ -733,8 +733,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
       {/* タスク名 */}
       <td className="px-3.5 py-2.5 relative">
-        {/* 担当区分カラーバー（左端） */}
-        {(workRole || isOverdue) && (
+        {/* 担当区分カラーバー（左端）。一覧スコープと同じ区分なら自明なので出さない。期限超過の赤バーは常に出す。 */}
+        {(isOverdue || (workRole && workRole.key !== roleScope)) && (
           <span
             className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
             style={{ backgroundColor: isOverdue ? '#DC2626' : workRole?.bar }}
