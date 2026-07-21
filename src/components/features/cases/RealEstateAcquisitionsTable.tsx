@@ -180,12 +180,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const dateCls = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
   const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
-  // 行の状態を 請求日・到着日・W-Check から自動判定して1つのチップに（未請求→請求済→到着→確認済）。
+  // 行の状態を 請求日・到着日・依頼→確認モデル から自動判定して1つのチップに。
+  // 「請求日ありで請求済」ではなく、発送チェック✓が付いて初めて「請求済」。到着後は到着チェック✓で「確認済」。
   const statusChip = (r: RealEstateAcquisitionRow, isRef: boolean) => {
     if (isRef) return { label: r.arrival_date ? '取得済' : '参照', cls: 'bg-gray-50 text-gray-400 border-gray-200' }
-    if (r.request_check_at && r.receipt_check_at) return { label: '確認済', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-    if (r.arrival_date) return { label: '到着', cls: 'bg-amber-50 text-amber-800 border-amber-200' }
-    if (r.request_date) return { label: '請求済', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
+    if (r.receipt_check_at) return { label: '確認済', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+    if (r.arrival_date) return { label: '到着チェック待ち', cls: 'bg-amber-50 text-amber-800 border-amber-200' }
+    if (r.request_check_at) return { label: '請求済', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
+    if (r.request_date) return { label: '発送チェック待ち', cls: 'bg-amber-50 text-amber-800 border-amber-200' }
     return { label: '未請求', cls: 'bg-gray-50 text-gray-500 border-gray-200' }
   }
 

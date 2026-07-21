@@ -137,14 +137,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
   const confirmedTotal = requests.reduce((s, r) => s + (effConfirmed(r) ?? 0), 0)
 
-  // 人ごとの状態は戸籍請求の実績（請求日/到着日）から自動判定。②はメモ専用（手動状態は廃止）。
-  // 全て到着＝完了 / 1件でも請求or到着あり＝対応中 / それ以外＝未着手（依頼者取得のみの人は依頼者取得分で判定）。
+  // 人ごとの状態は戸籍請求の実績から自動判定（依頼→確認モデルに合わせる）。②はメモ専用。
+  // 完了＝依頼者取得は到着済／自社取得は到着チェック✓済。1件でも動きあり＝対応中。
   const statusForName = (name: string) => {
     const reqs = requests.filter(r => (r.target_person ?? '').trim() === name.trim())
     if (!reqs.length) return '未着手'
     const rel = reqs.filter(r => r.acquirer !== '依頼者')
     const use = rel.length ? rel : reqs
-    if (use.every(r => !!r.arrival_date)) return '完了'
+    const allDone = use.every(r => r.acquirer === '依頼者' ? !!r.arrival_date : !!r.receipt_check_at)
+    if (allDone) return '完了'
     if (use.some(r => !!r.request_date || !!r.arrival_date)) return '対応中'
     return '未着手'
   }
