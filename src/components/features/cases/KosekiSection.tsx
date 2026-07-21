@@ -301,10 +301,16 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-center">
                           {(() => {
-                            // 状態は到着日ベース（相続関係説明図の色ロジックと一致）。到着=完了／請求のみ=請求済／無し=未着手。
+                            // 依頼→確認モデルに合わせて判定。依頼者取得はチェック不要なので到着/請求日で判定。
+                            // 自社取得は「発送チェック✓」が付いて初めて「請求済」。到着後は「到着チェック✓」で「完了」。
+                            const isClient = r.acquirer === '依頼者'
                             const s = r.is_additional && !r.additional_approved_at ? { l: '承認待ち', c: 'bg-amber-50 text-amber-700 border-amber-200' }
-                              : r.arrival_date ? { l: '完了', c: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-                              : r.request_date ? { l: '請求済', c: 'bg-sky-50 text-sky-700 border-sky-200' }
+                              : (r.arrival_date && (isClient || r.receipt_check_at)) ? { l: '完了', c: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                              : r.arrival_date ? { l: '到着チェック待ち', c: 'bg-amber-50 text-amber-800 border-amber-200' }
+                              : (!isClient && r.request_check_at) ? { l: '請求済', c: 'bg-sky-50 text-sky-700 border-sky-200' }
+                              : r.request_date ? (isClient
+                                  ? { l: '請求済', c: 'bg-sky-50 text-sky-700 border-sky-200' }
+                                  : { l: '発送チェック待ち', c: 'bg-amber-50 text-amber-800 border-amber-200' })
                               : { l: '未着手', c: 'bg-gray-50 text-gray-500 border-gray-200' }
                             return <span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${s.c}`}>{s.l}</span>
                           })()}
