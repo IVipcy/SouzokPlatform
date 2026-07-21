@@ -229,9 +229,14 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
       })
       if (logErr) { console.warn('confirm_events 記録に失敗:', logErr.message); showToast(`履歴の記録に失敗しました（確認は完了）: ${logErr.message}`, 'error') }
       // 依頼者（requested_by）へ「承認されたよ」通知。自分が自分に出す通知は抑止。
+      // typeに実務タブ種別を含めて、クリック時に該当タブへ直接飛べるようにする。
       if (it.requestedBy && it.requestedBy !== meId) {
+        const notifType =
+          it.action.startsWith('koseki') ? 'confirm_approved_koseki'    // → 相続人調査＞戸籍請求
+          : it.action.startsWith('fin')   ? 'confirm_approved_fin'      // → 財産調査（金融）
+                                          : 'confirm_approved_re'       // → 財産調査（不動産）
         await supabase.from('notifications').insert({
-          member_id: it.requestedBy, type: 'confirm_approved', case_id: it.caseId,
+          member_id: it.requestedBy, type: notifType, case_id: it.caseId,
           title: `${KIND_LABEL[it.action]}が確認されました`,
           body: `${it.caseNumber ? `${it.caseNumber} ` : ''}${it.caseName}／${it.target}${it.content ? `（${it.content}）` : ''} — ${meName ?? ''} が確認しました。`,
         })

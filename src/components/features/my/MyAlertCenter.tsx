@@ -26,7 +26,11 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'realestate_additional') return `/cases/${n.case_id}?tab=assets`
   // チーム引き継ぎ：担当者タブへ飛ばし、その場で管理担当をアサインさせる
   if (n.type === 'case_handoff') return `/cases/${n.case_id}?tab=assignees`
-  // 確認簿での承認（発送✓/着✓/確定/凍結確認/承認）→ 案件詳細トップへ
+  // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）
+  if (n.type === 'confirm_approved_koseki') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
+  if (n.type === 'confirm_approved_re')     return `/cases/${n.case_id}?tab=assets`
+  if (n.type === 'confirm_approved_fin')    return `/cases/${n.case_id}?tab=assets`
+  // 旧type（互換）：案件詳細トップへ
   if (n.type === 'confirm_approved') return `/cases/${n.case_id}`
   // 確認依頼は該当案件の請求行で回答モーダルを自動オープン
   if (n.type === 'billing_confirm_request') return `/billing?case=${n.case_id}&respond=1`
