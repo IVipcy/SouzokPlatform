@@ -1,10 +1,10 @@
 'use client'
 
 // オーダーシート＞財産調査＞不動産 の「取得予定資料」を編集する軽量エディタ。
+// 1宛先＝1請求＝1行、資料は複数選択（item_types）方式。migration 183 で導入。
 // - 市区町村ごと（scope=municipality）＝名寄帳・固定資産評価証明。市区町村役場へ請求。
 // - 物件ごと（scope=property）＝登記情報・公図・地積測量図・路線価。法務局へ請求。
 // 物件を追加すると RealEstateTable 側で自動insertされる（is_additional=false）。
-// ここではそのリストをチップで表示・追加・削除できるようにする。オーダーシート段階＝日付や費用は編集しない。
 
 import { Files, Sparkles, Building, Landmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,7 @@ const PROP_ITEMS = ['登記情報', '公図', '地積測量図', '路線価'] as
 
 const stripPref = (m: string) => m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')
 const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.property_type || '未入力の物件'
+const itemsOf = (r: RealEstateAcquisitionRow): string[] => r.item_types ?? (r.item_type ? [r.item_type] : [])
 
 export default function AcquisitionPlanEditor({ caseId, properties, acquisitions, onRefresh }: {
   caseId: string
@@ -29,39 +30,59 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
   // 市区町村一覧（物件から抽出）
   const munis = [...new Set(properties.map(municipalityOf).filter(Boolean))]
 
-  const hasMuniItem = (muni: string, item: string) =>
-    acquisitions.some(a => (a.scope ?? 'municipality') === 'municipality' && (a.target_municipality ?? '') === muni && a.item_type === item)
-  const hasPropItem = (propId: string, item: string) =>
-    acquisitions.some(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId && a.item_type === item)
+  // 該当行を探す（宛先×対象で一意）
+  const findMuniRow = (muni: string) => acquisitions.find(a => (a.scope ?? 'municipality') === 'municipality' && (a.target_municipality ?? '') === muni)
+  const findPropRow = (propId: string) => acquisitions.find(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId)
 
+  const hasMuniItem = (muni: string, item: string) => {
+    const r = findMuniRow(muni); return !!r && itemsOf(r).includes(item)
+  }
+  const hasPropItem = (propId: string, item: string) => {
+    const r = findPropRow(propId); return !!r && itemsOf(r).includes(item)
+  }
+
+  // 資料の追加/削除は「行の item_types を書き換え」。行が無ければ新規作成、資料ゼロなら行を削除。
   const toggleMuni = async (muni: string, item: string) => {
-    if (hasMuniItem(muni, item)) {
-      const target = acquisitions.find(a => (a.scope ?? 'municipality') === 'municipality' && (a.target_municipality ?? '') === muni && a.item_type === item)
-      if (!target) return
-      const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', target.id)
-      if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
-    } else {
+    const row = findMuniRow(muni)
+    if (!row) {
       const { error } = await supabase.from('real_estate_acquisitions').insert({
-        case_id: caseId, scope: 'municipality', target_municipality: muni, item_type: item,
+        case_id: caseId, scope: 'municipality', target_municipality: muni,
+        item_type: item, item_types: [item],
         request_to: `${stripPref(muni)}役所`, sort_order: 0,
       })
       if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+    } else {
+      const cur = itemsOf(row)
+      const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
+      if (next.length === 0) {
+        const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', row.id)
+        if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+      } else {
+        const { error } = await supabase.from('real_estate_acquisitions').update({ item_types: next, item_type: next[0] }).eq('id', row.id)
+        if (error) { showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
+      }
     }
     onRefresh?.()
   }
   const toggleProp = async (prop: RealEstatePropertyRow, item: string) => {
-    if (hasPropItem(prop.id, item)) {
-      const target = acquisitions.find(a => (a.scope ?? 'property') === 'property' && a.target_property_id === prop.id && a.item_type === item)
-      if (!target) return
-      const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', target.id)
-      if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
-    } else {
+    const row = findPropRow(prop.id)
+    if (!row) {
       const propMuni = (prop.municipality ?? '').trim() || null
       const { error } = await supabase.from('real_estate_acquisitions').insert({
         case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni,
-        item_type: item, request_to: '法務局', sort_order: 0,
+        item_type: item, item_types: [item], request_to: '法務局', sort_order: 0,
       })
       if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+    } else {
+      const cur = itemsOf(row)
+      const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
+      if (next.length === 0) {
+        const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', row.id)
+        if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+      } else {
+        const { error } = await supabase.from('real_estate_acquisitions').update({ item_types: next, item_type: next[0] }).eq('id', row.id)
+        if (error) { showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
+      }
     }
     onRefresh?.()
   }
@@ -77,7 +98,10 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
           <Sparkles className="w-3 h-3" strokeWidth={2} />物件から自動
         </span>
       </div>
-      <p className="text-[11.5px] text-gray-500 mb-3 leading-relaxed">物件を登録すると、市区町村と物件ごとの取得予定資料が自動で入ります。要らないものは外す、必要なら追加できます。ここで登録した資料は実務タブに<strong className="font-medium">「予定通り」として反映</strong>（承認不要）。</p>
+      <p className="text-[11.5px] text-gray-500 mb-3 leading-relaxed">
+        物件を登録すると、市区町村と物件ごとの取得予定資料が自動で入ります。要らないものは外す、必要なら追加できます。
+        <strong className="font-medium">1宛先＝1請求</strong>としてまとめて扱います（発送/到着/費用も1件で管理）。
+      </p>
 
       {/* 市区町村ごと */}
       {munis.length > 0 && (
@@ -85,7 +109,7 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
           {munis.map(muni => (
             <div key={muni} className="mb-2 last:mb-0">
               <div className="text-[11px] text-gray-500 mb-1 inline-flex items-center gap-1">
-                <Building className="w-3 h-3" strokeWidth={2} />{muni}（市区町村役場へ請求）
+                <Building className="w-3 h-3" strokeWidth={2} />{muni}（市区町村役場へ請求・1件にまとめて）
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {MUNI_ITEMS.map(item => {
@@ -106,7 +130,7 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
       {/* 物件ごと */}
       <div>
         <div className="text-[11px] text-gray-500 mb-1 inline-flex items-center gap-1">
-          <Landmark className="w-3 h-3" strokeWidth={2} />法務局へ請求（物件ごと）
+          <Landmark className="w-3 h-3" strokeWidth={2} />法務局へ請求（物件ごと・1件にまとめて）
         </div>
         <div className="flex flex-col gap-2">
           {properties.map(p => (

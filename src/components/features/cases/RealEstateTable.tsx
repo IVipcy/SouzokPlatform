@@ -83,23 +83,31 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     if (error || !data) { setBusy(false); showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     const prop = data as RealEstatePropertyRow
     const propMuni = (prop.municipality ?? municipalityFilter ?? '').trim() || null
-    // 物件単位で必ず要る標準の取得資料（法務局へ請求）を自動生成。不要なら各行で削除できる。
+    // 物件単位で必ず要る標準の取得資料（法務局へ請求・1行にまとめて）を自動生成。
+    // 物件が消えても場所が分かるよう target_municipality も入れる（孤児化で「対象未設定」になるのを防ぐ）。
     const STANDARD_PROP = ['登記情報', '公図', '地積測量図']
-    await supabase.from('real_estate_acquisitions').insert(
-      // 物件が消えても場所が分かるよう target_municipality も入れる（孤児化で「対象未設定」になるのを防ぐ）
-      STANDARD_PROP.map((item, idx) => ({ case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni, item_type: item, request_to: '法務局', sort_order: idx }))
-    )
-    // 市区町村単位で必ず要る標準の取得資料（市区町村役場へ請求）を、その市区町村で未生成なら自動生成。
+    await supabase.from('real_estate_acquisitions').insert({
+      case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni,
+      item_type: STANDARD_PROP[0], item_types: STANDARD_PROP, request_to: '法務局', sort_order: 0,
+    })
+    // 市区町村単位で必ず要る標準の取得資料（市区町村役場へ請求・1行にまとめて）を、
+    // その市区町村でまだ行が無いときだけ自動生成。既存行があれば足りない資料だけ足す。
     if (propMuni) {
       const { data: existing } = await supabase.from('real_estate_acquisitions')
-        .select('item_type').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', propMuni)
-      const has = new Set(((existing ?? []) as { item_type: string | null }[]).map(r => r.item_type))
+        .select('id,item_type,item_types').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', propMuni).maybeSingle()
       const STANDARD_MUNI = ['名寄帳', '固定資産評価証明']
-      const toAdd = STANDARD_MUNI.filter(x => !has.has(x))
-      if (toAdd.length > 0) {
-        await supabase.from('real_estate_acquisitions').insert(
-          toAdd.map((item, idx) => ({ case_id: caseId, scope: 'municipality', target_municipality: propMuni, item_type: item, request_to: `${propMuni.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')}役所`, sort_order: idx }))
-        )
+      const office = `${propMuni.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')}役所`
+      if (!existing) {
+        await supabase.from('real_estate_acquisitions').insert({
+          case_id: caseId, scope: 'municipality', target_municipality: propMuni,
+          item_type: STANDARD_MUNI[0], item_types: STANDARD_MUNI, request_to: office, sort_order: 0,
+        })
+      } else {
+        const cur = ((existing as { item_types: string[] | null; item_type: string | null }).item_types) ?? [(existing as { item_type: string | null }).item_type].filter((x): x is string => !!x)
+        const merged = Array.from(new Set([...cur, ...STANDARD_MUNI]))
+        if (merged.length !== cur.length) {
+          await supabase.from('real_estate_acquisitions').update({ item_types: merged }).eq('id', (existing as { id: string }).id)
+        }
       }
     }
     setBusy(false)

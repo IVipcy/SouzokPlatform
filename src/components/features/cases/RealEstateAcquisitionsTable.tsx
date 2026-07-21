@@ -5,13 +5,12 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { ACQUISITION_ITEMS, ACQUISITION_ITEM_KEYS } from '@/lib/constants'
+import { ACQUISITION_ITEMS } from '@/lib/constants'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
-import SelectOrTextField from './SelectOrTextField'
 import CheckRequestControl from './CheckRequestControl'
 import { MoneyCell } from './PracticeTableCells'
 import HintTip from '@/components/ui/HintTip'
@@ -115,7 +114,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
 
   // scope に応じて取得物の選択肢を絞る（市区町村単位＝評価証明/名寄帳、物件単位＝登記情報 等）
   const scopeTarget = scope === 'municipality' ? '市区町村' : scope === 'property' ? '物件' : null
-  const itemKeys = scopeTarget ? ACQUISITION_ITEMS.filter(i => i.target === scopeTarget).map(i => i.key) : ACQUISITION_ITEM_KEYS
   // この市区町村に属する物件（物件単位の対象を絞る）。タブキーは municipalityOf（住所からの派生）なので揃える。
   const muniProps = municipalityFilter != null ? properties.filter(p => municipalityOf(p) === municipalityFilter) : properties
   const muniPropIds = new Set(muniProps.map(p => p.id))
@@ -156,14 +154,18 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  // 取得物を変更したら、請求先の既定値（①「◯◯役所」／②「法務局」／単体はitemの既定office）も自動セット
-  const changeItem = async (id: string, key: string) => {
+  // 行の資料配列を取得（item_types 優先、旧item_type にフォールバック）
+  const itemsOf = (r: RealEstateAcquisitionRow): string[] => r.item_types ?? (r.item_type ? [r.item_type] : [])
+  // 資料チップのトグル。空になったら item_types=[] のまま残す（削除は行の×で行う）。
+  const toggleItem = async (id: string, key: string) => {
+    const row = rows.find(r => r.id === id); if (!row) return
+    const cur = itemsOf(row)
+    const next = cur.includes(key) ? cur.filter(x => x !== key) : [...cur, key]
     const meta = itemMeta(key)
-    const row = rows.find(r => r.id === id)
-    const fallbackOffice = (scope === 'municipality' || scope === 'property') ? officeDefault(row?.target_municipality, row?.target_property_id) : (meta?.office ?? '')
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, item_type: key, request_to: r.request_to || fallbackOffice } : r)))
-    await supabase.from('real_estate_acquisitions').update({ item_type: key || null, request_to: undefined }).eq('id', id)
-    if (fallbackOffice) await supabase.from('real_estate_acquisitions').update({ request_to: fallbackOffice }).eq('id', id).is('request_to', null)
+    const fallbackOffice = (scope === 'municipality' || scope === 'property') ? officeDefault(row.target_municipality, row.target_property_id) : (meta?.office ?? '')
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, item_types: next, item_type: next[0] ?? null, request_to: r.request_to || fallbackOffice } : r)))
+    await supabase.from('real_estate_acquisitions').update({ item_types: next, item_type: next[0] ?? null }).eq('id', id)
+    if (fallbackOffice && !row.request_to) await supabase.from('real_estate_acquisitions').update({ request_to: fallbackOffice }).eq('id', id).is('request_to', null)
   }
 
   const addRow = async () => {
@@ -212,7 +214,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1260 : 1040) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2 py-2 text-left font-semibold w-44">取得物</th>
+              <th className="px-2 py-2 text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
               <th className="px-2 py-2 text-left font-semibold w-40">対象</th>
               <th className="px-2 py-2 text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-[72px]">状態</th>}
@@ -234,19 +236,31 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                 <div className="text-[11.5px] text-gray-400 leading-relaxed">オーダーシート ＞ 財産調査 ＞ 不動産 で物件を登録すると、市区町村と物件に必要な資料が自動でここに並びます。<br />急ぎで足したい場合は下の「＋取得資料を追加」でこの場でも追加できます（追加は承認要）。</div>
               </td></tr>
             ) : visibleRows.map((r, i) => {
-              const meta = itemMeta(r.item_type)
-              const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし
-              const isProp = meta?.target === '物件'
+              const items = itemsOf(r)
+              // isRef=行の資料が路線価のみ（実務上路線価は他資料と一緒に取ることは稀）。この時は請求先・日付なし。
+              const isRef = items.length > 0 && items.every(x => itemMeta(x)?.method === '参照')
+              const rowScope = rowScopeOf(r) ?? (itemMeta(items[0])?.target === '物件' ? 'property' : 'municipality')
+              const isProp = rowScope === 'property'
+              // 選択可能な資料キー：scope に応じて絞る（市区町村＝名寄帳/評価証明、物件＝登記情報/公図/地積/所有者事項/路線価）
+              const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
               const dash = <span className="text-gray-300 text-[11px]">—</span>
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  {/* 取得物 */}
+                  {/* 取得する資料（チップ複数選択・1行=1宛先＝1請求） */}
                   <td className="px-2 py-1.5">
-                    <SelectOrTextField value={r.item_type} options={itemKeys} onSave={v => changeItem(r.id, v)} placeholder="取得物" />
-                    {r.is_additional && !r.additional_approved_at && <div className="mt-0.5"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
-                    {isRef
-                      ? <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）</div>
-                      : (!progressMode && meta && <div className="text-[10px] text-gray-400 mt-0.5">{meta.method}</div>)}
+                    <div className="flex flex-wrap gap-1">
+                      {availableItems.map(key => {
+                        const on = items.includes(key)
+                        return (
+                          <button key={key} type="button" onClick={() => toggleItem(r.id, key)}
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10.5px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`}>
+                            {on && '✓'}{key}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {r.is_additional && !r.additional_approved_at && <div className="mt-1"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
+                    {isRef && <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）のみ</div>}
                   </td>
                   {/* 対象 */}
                   <td className="px-2 py-1.5">
@@ -262,7 +276,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
                   <td className="px-2 py-1.5">
                     {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
-                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || meta?.office || '請求先'} className={dateCls} />}
+                      : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
                   </td>
                   {/* 状態チップ */}
                   {progressMode && (() => { const s = statusChip(r, isRef); return (
