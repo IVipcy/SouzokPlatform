@@ -279,43 +279,26 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             <div>
               <SectionHeading title="戸籍の取得状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 680 }}>
+                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 620 }}>
                   <thead>
                     <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                       <th className="px-2.5 py-2 text-left font-semibold w-28">対象者</th>
                       <th className="px-2.5 py-2 text-left font-semibold">請求先</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-20">請求日</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-20">到着日</th>
-                      <th className="px-2.5 py-2 text-center font-semibold w-24">状態</th>
                       <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                       <th className="px-2.5 py-2 text-right font-semibold w-28">確定費用</th>
                     </tr>
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
                         <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
-                        <td className="px-2.5 py-2 text-center">
-                          {(() => {
-                            // 依頼→確認モデルに合わせて判定。依頼者取得はチェック不要なので到着/請求日で判定。
-                            // 自社取得は「発送チェック✓」が付いて初めて「請求済」。到着後は「到着チェック✓」で「完了」。
-                            const isClient = r.acquirer === '依頼者'
-                            const s = r.is_additional && !r.additional_approved_at ? { l: '承認待ち', c: 'bg-amber-50 text-amber-700 border-amber-200' }
-                              : (r.arrival_date && (isClient || r.receipt_check_at)) ? { l: '完了', c: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-                              : r.arrival_date ? { l: '到着チェック待ち', c: 'bg-amber-50 text-amber-800 border-amber-200' }
-                              : (!isClient && r.request_check_at) ? { l: '請求済', c: 'bg-sky-50 text-sky-700 border-sky-200' }
-                              : r.request_date ? (isClient
-                                  ? { l: '請求済', c: 'bg-sky-50 text-sky-700 border-sky-200' }
-                                  : { l: '発送チェック待ち', c: 'bg-amber-50 text-amber-800 border-amber-200' })
-                              : { l: '未着手', c: 'bg-gray-50 text-gray-500 border-gray-200' }
-                            return <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${s.c}`}>{s.l}</span>
-                          })()}
-                        </td>
                         <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[240px] truncate" title={r.read_result ?? ''}>{r.read_result || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
                       </tr>
@@ -323,7 +306,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-semibold text-gray-700">
-                      <td className="px-2.5 py-2 text-right" colSpan={6}>確定費用 合計（立替実費の実績）</td>
+                      <td className="px-2.5 py-2 text-right" colSpan={5}>確定費用 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confirmedTotal)}</td>
                     </tr>
                   </tfoot>

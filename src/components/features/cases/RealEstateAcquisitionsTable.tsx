@@ -197,31 +197,20 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const dateCls = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
   const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
-  // 行の状態を 請求日・到着日・依頼→確認モデル から自動判定して1つのチップに。
-  // 「請求日ありで請求済」ではなく、発送チェック✓が付いて初めて「請求済」。到着後は到着チェック✓で「確認済」。
-  const statusChip = (r: RealEstateAcquisitionRow, isRef: boolean) => {
-    if (isRef) return { label: r.arrival_date ? '取得済' : '参照', cls: 'bg-gray-50 text-gray-400 border-gray-200' }
-    if (r.receipt_check_at) return { label: '確認済', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-    if (r.arrival_date) return { label: '到着チェック待ち', cls: 'bg-amber-50 text-amber-800 border-amber-200' }
-    if (r.request_check_at) return { label: '請求済', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
-    if (r.request_date) return { label: '発送チェック待ち', cls: 'bg-amber-50 text-amber-800 border-amber-200' }
-    return { label: '未請求', cls: 'bg-gray-50 text-gray-500 border-gray-200' }
-  }
-
-  const colCount = progressMode ? (fullCost ? 13 : 11) : 4  // 取得物/対象/請求先(+状態/日付/費用/W-Check/受領)/削除
+  // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
+  const colCount = progressMode ? (fullCost ? 12 : 10) : 4  // 取得物/対象/請求先(+日付/費用/W-Check/受領)/削除
 
   return (
     <div>
       {/* 契約時に受領済の不動産関係書類（依頼者取得分）は別ブロックで上に表示。新規請求の表とは分ける。 */}
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1260 : 1040) : 640 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1190 : 970) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2 py-2 text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
               <th className="px-2 py-2 text-left font-semibold w-40">対象</th>
               <th className="px-2 py-2 text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-[72px]">状態</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">到着日</th>}
               {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
@@ -282,10 +271,6 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
                       : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
                   </td>
-                  {/* 状態チップ */}
-                  {progressMode && (() => { const s = statusChip(r, isRef); return (
-                    <td className="px-2 py-1.5"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${s.cls}`}>{s.label}</span></td>
-                  ) })()}
                   {/* 請求日（入力者を請求作業者として記録） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
                   {/* 到着日（入力者を受信作業者として記録） */}
@@ -332,7 +317,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           {progressMode && visibleRows.length > 0 && (
             <tfoot>
               <tr className="bg-gray-50 font-semibold text-gray-700">
-                <td className="px-2 py-2 text-right" colSpan={fullCost ? 8 : 6}>確定費用 合計（立替実費の実績）</td>
+                <td className="px-2 py-2 text-right" colSpan={fullCost ? 7 : 5}>確定費用 合計（立替実費の実績）</td>
                 <td className="px-2 py-2 text-right text-emerald-700 tabular-nums">{yen(confirmedTotal)}</td>
                 <td colSpan={4} />
               </tr>
