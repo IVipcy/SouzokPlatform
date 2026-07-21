@@ -116,8 +116,10 @@ export function buildDeliverableOptions(
   if (gate('不動産')) {
     const propLabel = (id: string | null) => {
       const p = id ? properties.find(x => x.id === id) : undefined
-      // 住所が空でも市区町村（municipality）を拾って「対象未設定」を避ける。
-      return p ? (p.address || p.municipality || p.lot_number || p.property_type || '物件') : ''
+      if (!p) return ''
+      // 同じ地番の土地/建物を判別できるよう、先頭に[土地]/[建物]を付ける。
+      const base = p.address || p.municipality || p.lot_number || p.property_type || '物件'
+      return p.property_type ? `[${p.property_type}] ${base}` : base
     }
     for (const a of acquisitions) {
       // 1宛先=1請求(=1行)＋資料は複数選択(item_types text[])。ラベルは配列を「・」連結。
