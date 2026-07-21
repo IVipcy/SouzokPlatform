@@ -136,6 +136,17 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (scope === 'property') return (r.target_property_id != null && muniPropIds.has(r.target_property_id)) || (r.target_property_id == null && (r.target_municipality ?? '') === municipalityFilter)
     return true
   })
+  // 並び順：①市区町村役場 → ②法務局 の順にまとめ、法務局内は物件ごとにまとまるよう物件IDでソート。
+  //   scope 未設定の行は item_type の対象から推定して②扱いに寄せる。
+  visibleRows.sort((a, b) => {
+    const sa = rowScopeOf(a) === 'property' ? 1 : 0
+    const sb = rowScopeOf(b) === 'property' ? 1 : 0
+    if (sa !== sb) return sa - sb
+    const pa = a.target_property_id ?? ''
+    const pb = b.target_property_id ?? ''
+    if (pa !== pb) return pa.localeCompare(pb)
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
   // 確定費用の合計（＝この表の立替実費の実績）。戸籍タブと表示を揃える。
   const confirmedTotal = visibleRows.reduce((s, r) => s + (confirmedOf(r) ?? 0), 0)
 
@@ -218,7 +229,10 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">取得資料が登録されていません</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-6 text-center">
+                <div className="text-[13px] text-gray-600 mb-1">取得資料はまだ登録されていません</div>
+                <div className="text-[11.5px] text-gray-400 leading-relaxed">オーダーシート ＞ 財産調査 ＞ 不動産 で物件を登録すると、市区町村と物件に必要な資料が自動でここに並びます。<br />急ぎで足したい場合は下の「＋取得資料を追加」でこの場でも追加できます（追加は承認要）。</div>
+              </td></tr>
             ) : visibleRows.map((r, i) => {
               const meta = itemMeta(r.item_type)
               const isRef = meta?.method === '参照'   // 路線価など参照は請求先・日付なし

@@ -82,9 +82,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
       // 不動産は請求先で2系統（市区町村役場＝名寄帳・評価証明／法務局＝登記・公図・地積）。どちらも市区町村単位。
       // 資料（登記/公図/地積）はまとめて請求・まとめて届くので読込も1本。資料ごとの到着状況は実務タブの表で管理。
-      // 請求タスクには着手OK（起点）を付けない。着手OKにするのは戸籍請求だけ（他は戸籍が揃ってから着手する運用）。
+      // 着手OK（起点）は「戸籍を待たずに並行請求できるもの」だけ。
+      //   ・戸籍請求／名寄帳・評価証明の請求（市区町村役場）＝ヒアリング段階の情報で着手可
+      //   ・登記・公図・地積（法務局）＝物件の地番が要る＝名寄帳到着後に着手
+      //   ・金融の資料請求＝金融機関が戸籍を求める＝戸籍到着後に着手
       '不動産': { units: muniUnits, own: muniOwn, tasks: [
-        { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true },
+        { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true, ready: true },
         { prefix: 're-muni-read', label: '名寄帳・評価証明を読込', readyOnReceipt: true },
         { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true },
         { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
