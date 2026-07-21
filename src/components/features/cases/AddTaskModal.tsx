@@ -105,6 +105,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           task_kind: 'system',
           assign_role: role,
           title: form.title.trim(),
+          phase: '',
+          category: '',
           status: '未着手',
           priority: form.priority,
           due_date: form.dueDate || null,
