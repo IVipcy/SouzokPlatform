@@ -21,7 +21,7 @@ function parseRid(rid: string | null): { prefix: string; key: string } | null {
   return i < 0 ? null : { prefix: rid.slice(0, i), key: rid.slice(i + 1) }
 }
 
-type KosekiLite = { id: string; request_date: string | null; arrival_date: string | null; request_check_requested_at: string | null; request_check_at: string | null; receipt_check_requested_at: string | null; receipt_check_at: string | null }
+type KosekiLite = { id: string; acquirer: string | null; request_date: string | null; arrival_date: string | null; request_check_requested_at: string | null; request_check_at: string | null; receipt_check_requested_at: string | null; receipt_check_at: string | null }
 type AcqLite = { id: string; scope: string | null; request_date: string | null; arrival_date: string | null; request_check_requested_at: string | null; request_check_at: string | null; receipt_check_requested_at: string | null; receipt_check_at: string | null }
 type FinLite = { id: string; cancellation_required: string | null; freeze_confirmed: boolean; freeze_confirm_requested_at: string | null; balance_amount: number | null; balance_confirmed: boolean; balance_confirm_requested_at: string | null }
 type PropLite = { id: string; appraisal_value: number | null; confirmed: boolean; confirm_requested_at: string | null }
@@ -55,12 +55,15 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
   }
   // ── 戸籍読込：進捗に応じて段階的に警告（到着 → 到着チェック依頼 → 確認済） ──
   if (rid?.prefix === 'koseki-read') {
-    const { data } = await supabase.from('koseki_requests').select('id,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('id', rid.key).maybeSingle()
+    const { data } = await supabase.from('koseki_requests').select('id,acquirer,request_date,arrival_date,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').eq('id', rid.key).maybeSingle()
     const r = data as KosekiLite | null
     if (!r || r.receipt_check_at) return null
     if (!r.arrival_date) {
       return { title: 'まだ届いていないようです', note: '実務タブに到着日が入っていません。実務タブで内容を確認してから完了するのがおすすめです。', requestLabel: '', request: async () => {}, landingUrl, landingLabel }
     }
+    // 依頼者取得＝依頼者が自分で取得して渡す戸籍。役所への請求も無く、到着チェック(W-Check)は不要。
+    // 到着日が入っていれば完了扱い（KosekiSection の状態判定と揃える）。
+    if (r.acquirer === '依頼者') return null
     if (!r.receipt_check_requested_at) {
       return { title: '到着チェックの依頼は出しましたか？', note: 'この戸籍は、まだ到着確認の依頼が出ていません。', requestLabel: '到着チェックを依頼',
         request: async () => { await supabase.from('koseki_requests').update({ receipt_check_requested_at: nowIso(), receipt_check_requested_by: meId }).eq('id', rid.key) }, landingUrl, landingLabel }
