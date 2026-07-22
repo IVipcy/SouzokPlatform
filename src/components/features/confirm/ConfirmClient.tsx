@@ -199,9 +199,9 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         case 're_confirm':
           await upd('real_estate_properties', it.rowId, { confirmed: true, confirmed_by: meId, confirmed_at: at, confirmed_name: meName }); break
         case 'fin_confirm':
-          await upd('financial_assets', it.rowId, { balance_confirmed: true, balance_confirmed_by: meId, balance_confirmed_at: at }); break
+          await upd('financial_assets', it.rowId, { balance_confirmed: true, balance_confirmed_by: meId, balance_confirmed_at: at, balance_confirmed_name: meName }); break
         case 'fin_freeze':
-          await upd('financial_assets', it.rowId, { freeze_confirmed: true, freeze_confirmed_by: meId, freeze_confirmed_at: at }); break
+          await upd('financial_assets', it.rowId, { freeze_confirmed: true, freeze_confirmed_by: meId, freeze_confirmed_at: at, freeze_confirmed_name: meName }); break
         case 'koseki_approve':
           await upd('koseki_requests', it.rowId, { additional_approved_by: meId, additional_approved_at: at })
           await genKosekiTasks(it); break

@@ -824,6 +824,7 @@ export type FinancialAssetRow = {
   freeze_confirmed: boolean                   // 凍結確認済（migration 142。未確認だと金融タスク着手不可）
   freeze_confirmed_by: string | null          // 凍結確認した管理担当
   freeze_confirmed_at: string | null          // 凍結確認日時
+  freeze_confirmed_name: string | null        // 凍結確認者の氏名（ハンコ表示用。migration 189）
   freeze_confirm_requested_at: string | null  // 凍結確認の依頼（依頼→確認モデル。migration 181）
   freeze_confirm_requested_by: string | null
   balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
@@ -833,6 +834,7 @@ export type FinancialAssetRow = {
   balance_confirmed: boolean                  // 残高確定（管理担当のみ。TOP・目録へ反映。migration 147）
   balance_confirmed_by: string | null
   balance_confirmed_at: string | null
+  balance_confirmed_name: string | null       // 残高確定者の氏名（ハンコ表示用。migration 189）
   balance_confirm_requested_at: string | null // 残高確定の依頼（依頼→確認モデル。migration 181）
   balance_confirm_requested_by: string | null
   created_at: string
