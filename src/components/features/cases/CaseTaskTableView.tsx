@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle, Zap, Clock, X, Lightbulb } from 'lucide-react'
+import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle, Zap, Clock, X, Lightbulb, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, getStartSignal, isWaitingReceipt, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -28,6 +28,42 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
   const [bulkDate, setBulkDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  // 金融資産（案件分）を先読みして、タスク行のゲート（禁止期間中/凍結未確認）を一覧で先出しする。
+  const [assets, setAssets] = useState<FinancialAssetRow[]>([])
+  useEffect(() => {
+    const caseId = tasks[0]?.case_id
+    if (!caseId) return
+    createClient().from('financial_assets').select('*').eq('case_id', caseId)
+      .then(({ data }) => setAssets((data ?? []) as FinancialAssetRow[]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks[0]?.case_id])
+  // タスクのゲート状態を判定：
+  //   locked    … 着手不可（禁止期間中 or 解約の凍結未確認）。着手OKボタンも無効化。
+  //   attention … 禁止期間の予定日が到来（要確認）。ボタンは押せるが確認モーダル経由。
+  //   none      … 通常。
+  const gateOf = (t: TaskRow): { state: 'locked' | 'attention' | 'none'; reason: string } => {
+    const rid = t.source_rid ?? ''
+    // 金融の資料請求/読込：その銀行の口座に禁止期間があるか
+    const fm = rid.match(/^fin(?:-read)?:(.+)$/)
+    if (fm) {
+      const bank = fm[1]
+      const accts = assets.filter(a => a.institution_name === bank)
+      const bannedNow = accts.find(a => a.survey_prohibited_end && a.survey_prohibited_end > today)
+      if (bannedNow) return { state: 'locked', reason: `禁止期間中〜${(bannedNow.survey_prohibited_end ?? '').slice(5).replace('-', '/')}` }
+      const pastProhibition = accts.find(a => (a.survey_prohibited_end && a.survey_prohibited_end <= today) || (a.survey_prohibited_reason ?? '').trim())
+      if (pastProhibition) return { state: 'attention', reason: '禁止期間 終了予定（要確認）' }
+      return { state: 'none', reason: '' }
+    }
+    // 解約：その銀行に凍結未確認の口座があるか
+    const cm = rid.match(/^cancel:(.+)$/)
+    if (cm) {
+      const bank = cm[1]
+      const accts = assets.filter(a => a.institution_name === bank)
+      if (accts.some(a => !a.freeze_confirmed)) return { state: 'locked', reason: '凍結確認待ち' }
+      return { state: 'none', reason: '' }
+    }
+    return { state: 'none', reason: '' }
+  }
   // 禁止期間終了時の⚡確認モーダル（金融タスク用）。理由テキストを見せて「解消したか」を人に確認させる。
   const [prohibitionGate, setProhibitionGate] = useState<null | {
     task: TaskRow; bankName: string; reason: string; endDate: string | null; daysPassed: number
@@ -278,12 +314,14 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               const ext = (t.ext_data ?? {}) as Record<string, unknown>
               const result = typeof ext.execution_result === 'string' ? ext.execution_result.trim() : ''
               const checked = sel.has(t.id)
+              const gate = status === '着手前' ? gateOf(t) : { state: 'none' as const, reason: '' }
+              const locked = gate.state === 'locked'
               return (
-                <tr key={t.id} className={`border-b border-gray-100 last:border-b-0 ${checked ? 'bg-brand-50/50' : overdue ? 'bg-red-50/30' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <tr key={t.id} className={`border-b border-gray-100 last:border-b-0 ${checked ? 'bg-brand-50/50' : overdue ? 'bg-red-50/30' : locked ? 'bg-gray-100/50' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-2 text-center"><input type="checkbox" checked={checked} onChange={() => toggle(t.id)} className="w-4 h-4 accent-brand-600 cursor-pointer" aria-label={`${t.title}を選択`} /></td>
                   <td className="px-2.5 py-2"><KoteiBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><GyomuBadge phase={t.phase} /></td>
-                  <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className="text-gray-800 hover:text-brand-700 hover:underline">{t.title}</Link></td>
+                  <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className={`hover:text-brand-700 hover:underline ${locked ? 'text-gray-400' : 'text-gray-800'}`}>{t.title}</Link></td>
                   <td className="px-2.5 py-2">
                     {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
                       : status === '対応中' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
@@ -298,8 +336,18 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                         const isOnReceipt = isWaitingReceipt(t)
                         // 書類受領起因の自動着手OKは編集不可（受信簿由来なので表示のみ）。
                         if (isReadyDoc) return <span className="block text-[11.5px] text-amber-800 line-clamp-2" title={signal.reason ?? ''}>{signal.reason}</span>
+                        // ロック（禁止期間中/凍結未確認）：🔒理由＋着手OK無効。ポップアップより手前で"見える化"。
+                        if (locked) return (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-gray-100 text-gray-600 border border-gray-200" title={`着手不可：${gate.reason}`}><Lock className="w-3 h-3" />{gate.reason}</span>
+                            <button type="button" disabled className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed"><Zap className="w-3 h-3" />着手OK</button>
+                          </div>
+                        )
                         return (
                           <div className="flex flex-col gap-1">
+                            {gate.state === 'attention' && (
+                              <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200" title="押すと禁止期間の解消を確認するポップアップが出ます"><AlertTriangle className="w-2.5 h-2.5" />{gate.reason}</span>
+                            )}
                             <div className="flex flex-wrap gap-1">
                               <button type="button" onClick={() => toggleReady(t, 'manual')} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors ${isReadyManual ? 'bg-brand-50 text-brand-700 border-brand-300' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`} title={isReadyManual ? '解除する' : '前段未完でも着手OKにする'}>
                                 <Zap className="w-3 h-3" />着手OK{isReadyManual && <Check className="w-2.5 h-2.5" />}

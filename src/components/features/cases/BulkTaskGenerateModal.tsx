@@ -77,6 +77,21 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 自社取得の単位（＝請求タスクが要る）。依頼者取得のみの単位は読込（到着確認）だけ。
     const muniOwn = new Set(properties.filter(p => isOwn(p.acquirer)).map(muniOf).filter(Boolean))
     const instOwn = new Set(financialAssets.filter(a => isOwn(a.acquirer)).map(a => (a.institution_name ?? '').trim()).filter(Boolean))
+    // 銀行→口座種別リスト（普通・定期 等）。1銀行に複数口座があるとき、タスク名に併記して判別しやすく。
+    const instAcctTypes = new Map<string, string[]>()
+    for (const a of financialAssets) {
+      const nm = (a.institution_name ?? '').trim(); const at = (a.account_type ?? '').trim()
+      if (!nm || !at) continue
+      const arr = instAcctTypes.get(nm) ?? []
+      if (!arr.includes(at)) arr.push(at)
+      instAcctTypes.set(nm, arr)
+    }
+    // 金融/解約タスクの銀行名に口座種別を併記（例: 三菱UFJ銀行（普通・定期））。種別未登録なら何も足さない。
+    const withAcctTypes = (gyomu: string, name: string) => {
+      if (gyomu !== '金融資産' && gyomu !== '解約') return name
+      const types = instAcctTypes.get(name)
+      return types && types.length > 0 ? `${name}（${types.join('・')}）` : name
+    }
     // 単位ごとに「請求/受領」→「読込/手続き」の順で生成。請求(onlyOwn)は自社取得の単位のみ・着手OK。読込は受領次第OK。
     type UnitTask = { prefix: string; label: string; onlyOwn?: boolean; ready?: boolean; readyOnReceipt?: boolean }
     const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
@@ -138,7 +153,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         unitExpanded.add(r.gyomu)
         u.tasks.forEach(t => u.units.forEach(name => {
           if (t.onlyOwn && !u.own.has(name)) return  // 依頼者取得のみの単位は請求タスクを作らない
-          out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${name}`, rid: `${t.prefix}:${name}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt })
+          // rid/key は銀行名のみ（source_rid の後方一致・ゲート判定は銀行単位）。表示title だけ口座種別を併記。
+          out.push({ key: `${t.prefix}:${name}`, gyomu: r.gyomu, title: `${t.label}：${withAcctTypes(r.gyomu, name)}`, rid: `${t.prefix}:${name}`, ready: t.ready, readyOnReceipt: t.readyOnReceipt })
         }))
         return
       }
