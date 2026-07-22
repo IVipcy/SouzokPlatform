@@ -32,7 +32,7 @@ type Props = {
 /**
  * 解約手続タブ
  * 財産調査で登録した金融機関を 預金/証券/信託 の子タブで表示し、機関ごとに
- * 「いつ解約するか（解約予定日）・終わったか（解約完了）」の進捗を管理する。
+ * オーダーシートでは解約有無・禁止事項のみ（予定日は手続き後半で決まるため持たない）。実績の解約完了日は実務タブで入力。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
 export default function CancellationTab({ caseId, caseData, financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
@@ -66,7 +66,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                 <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                   <th className="px-2.5 py-2 text-left font-semibold">{st.kind === '預貯金' ? '金融機関名' : st.kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
-                  <th className="px-2.5 py-2 text-left font-semibold w-32">解約予定日</th>
                   <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
                 </tr>
               </thead>
@@ -80,7 +79,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                         {CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                     </td>
-                    <DateCell value={r.cancellation_date} onSave={v => save(r.id, 'cancellation_date', v || null)} />
                     <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
                   </tr>
                 ))}
@@ -94,7 +92,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                 <div className="text-[15px] font-semibold text-gray-900 mb-2.5">{r.institution_name || '未入力'}</div>
                 <div className="space-y-2.5">
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
-                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約予定日</div><input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} className="w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">禁止事項</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                 </div>
               </div>
@@ -125,14 +122,6 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
         </div>
       )}
     </div>
-  )
-}
-
-function DateCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
-  return (
-    <td className="px-2.5 py-1.5">
-      <input type="date" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
-    </td>
   )
 }
 
