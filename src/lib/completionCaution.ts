@@ -141,8 +141,11 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
   // 事務が銀行別の資料読込を終えたタイミングで、その銀行の口座について「残高確定依頼まだ」「凍結確認依頼まだ」の両方を検知。
   // 両方とも管理担当へのW-Check依頼＝送り先が同じなので、まとめて依頼できるようにする。
   if (rid?.prefix === 'fin-read') {
-    const { data } = await supabase.from('financial_assets').select('id,institution_name,freeze_confirmed,freeze_confirm_requested_at,balance_amount,balance_confirmed,balance_confirm_requested_at').eq('case_id', task.case_id).eq('institution_name', rid.key)
-    const rows = ((data ?? []) as (FinLite & { institution_name: string })[])
+    const { data } = await supabase.from('financial_assets').select('id,institution_name,survey_prohibited_end,freeze_confirmed,freeze_confirm_requested_at,balance_amount,balance_confirmed,balance_confirm_requested_at').eq('case_id', task.case_id).eq('institution_name', rid.key)
+    const rowsAll = ((data ?? []) as (FinLite & { institution_name: string; survey_prohibited_end: string | null })[])
+    // 禁止期間中の口座は「まだ凍結しない・調査しない」ため、凍結確認・残高確定の依頼漏れ検知から除外する。
+    const todayYmd = new Date().toISOString().slice(0, 10)
+    const rows = rowsAll.filter(r => !(r.survey_prohibited_end && r.survey_prohibited_end > todayYmd))
     const needBalance = rows.filter(r => r.balance_amount != null && !r.balance_confirmed && !r.balance_confirm_requested_at)
     const needFreeze = rows.filter(r => !r.freeze_confirmed && !r.freeze_confirm_requested_at)
     const total = needBalance.length + needFreeze.length
