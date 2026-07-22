@@ -86,6 +86,15 @@ export function getStartOkSuggestions(
       continue
     }
 
+    // 相関図作成・法定相続情報一覧図：戸籍が全揃って相続人が確定してからの作業。
+    // source_rid は intake role 由来で構造化されていないため、業務区分（phase）で判定する。
+    const gyomu = (t.phase ?? t.category ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
+    if (gyomu === '相関図' || gyomu === '法定相続情報取得') {
+      if (!kosekiOk) continue  // 戸籍未揃いなら提案しない
+      out.push({ taskId: t.id, taskTitle: t.title, reason: `戸籍が全揃い(${kosekiCount}件)` })
+      continue
+    }
+
     // 相続登記（reg:{muni}）：戸籍全揃い＋対象市区町村の物件登録＋登記情報取得済 は複雑なので今回はスキップ
     // 他タスクも判定条件を追加する場合はここに続ける
   }
