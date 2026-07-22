@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isDashboardHiddenTeam } from '@/lib/constants'
 import { Megaphone } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import SalesKpiTable from '@/components/features/dashboard/SalesKpiTable'
@@ -108,8 +109,11 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
   // 他事業者紹介フラグ（相続税申告/不動産査定KPIの集計元）を各案件に付与
   const cases = applyReferralFlags((casesRaw ?? []) as DashCase[], (referralsRaw ?? []) as DashReferral[])
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
-  const salesMembers = (membersRaw ?? []) as MemberRow[]
-  const teams = (teamsRaw ?? []) as TeamRow[]
+  // ダッシュボード非表示チーム（経理/LP/身元保証/法人営業）はチーム・所属メンバーとも集計対象から外す。
+  const allTeams = (teamsRaw ?? []) as TeamRow[]
+  const excludedTeamIds = new Set(allTeams.filter(t => isDashboardHiddenTeam(t.name)).map(t => t.id))
+  const salesMembers = ((membersRaw ?? []) as MemberRow[]).filter(m => !m.team_id || !excludedTeamIds.has(m.team_id))
+  const teams = allTeams.filter(t => !excludedTeamIds.has(t.id))
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const properties = (propertiesRaw ?? []) as DashProperty[]
   const memberTargets = (memberTargetsRaw ?? []) as Array<{ member_id: string; ym: string; new_orders_count: number }>

@@ -583,6 +583,13 @@ export const PROPERTY_TYPES = [
   'その他',
 ] as const
 
+// === ダッシュボードに載せないチーム ===
+// 相続業務以外の支援・別事業チーム（経理担当/LP/身元保証/法人営業）はダッシュボードの集計・一覧に載せない。
+// チームは {id,name} しか無いため名称キーワードで判定する。
+export const DASHBOARD_HIDDEN_TEAM_KEYWORDS = ['経理', 'LP', '身元保証', '法人営業'] as const
+export const isDashboardHiddenTeam = (name: string | null | undefined): boolean =>
+  DASHBOARD_HIDDEN_TEAM_KEYWORDS.some(k => (name ?? '').includes(k))
+
 // === 契約形態 ===
 // 契約形態（相続案件の受任法人）。いきいきライフ協会は終活サービスの別法人で
 // 相続案件の契約形態には含めない（officeProfiles の ikiiki は戸籍/固定資産の遺言執行用途で別途利用）。

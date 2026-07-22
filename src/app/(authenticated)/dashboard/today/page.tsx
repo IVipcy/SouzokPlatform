@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isDashboardHiddenTeam } from '@/lib/constants'
 import { CalendarDays } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import DailyKpis from '@/components/features/dashboard/DailyKpis'
@@ -56,8 +57,11 @@ export default async function DeptTodayDashboard() {
 
   const cases = (casesRaw ?? []) as DashCase[]
   const caseMembers = (caseMembersRaw ?? []) as DashCaseMember[]
-  const members = (membersRaw ?? []) as MemberRow[]
-  const teams = (teamsRaw ?? []) as TeamRow[]
+  // ダッシュボード非表示チーム（経理/LP/身元保証/法人営業）はチーム・所属メンバーとも集計対象から外す。
+  const allTeams = (teamsRaw ?? []) as TeamRow[]
+  const excludedTeamIds = new Set(allTeams.filter(t => isDashboardHiddenTeam(t.name)).map(t => t.id))
+  const teams = allTeams.filter(t => !excludedTeamIds.has(t.id))
+  const members = ((membersRaw ?? []) as MemberRow[]).filter(m => !m.team_id || !excludedTeamIds.has(m.team_id))
   const statusChanges = (changesRaw ?? []) as DashStatusChange[]
   const teamNameById = new Map(teams.map(t => [t.id, t.name]))
 
