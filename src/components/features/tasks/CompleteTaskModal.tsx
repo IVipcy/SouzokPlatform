@@ -10,7 +10,7 @@
 //   いずれの次タスクにも ext_data.ready_from_task_id（このタスク）を記録し前段表示に使う。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package, Lightbulb } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
@@ -18,10 +18,11 @@ import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { normalizeTaskStatus, getStartSignal, isWaitingReceipt } from '@/lib/taskReadiness'
+import { getStartOkSuggestions } from '@/lib/startOkSuggest'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
-import type { TaskRow } from '@/types'
+import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null }
 type Mode = 'now' | 'receipt'
@@ -44,6 +45,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [cands, setCands] = useState<Cand[]>([])
+  // 着手OK提案（中判定）：候補行に💡バッジ＋理由。提案対象はデフォルトチェックONに。
+  const [suggestReasons, setSuggestReasons] = useState<Record<string, string>>({})
 
   const initialResult = (() => {
     const ext = (task.ext_data ?? {}) as Record<string, unknown>
@@ -71,21 +74,41 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const { data } = await supabase.from('tasks')
-        .select('id,title,phase,sort_order,status,task_kind,ext_data')
-        .eq('case_id', task.case_id)
-        .order('sort_order')
-      const rows = ((data ?? []) as Array<Cand & { task_kind: string | null }>)
+      const [{ data: tsData }, { data: kkData }, { data: faData }] = await Promise.all([
+        supabase.from('tasks').select('id,title,phase,sort_order,status,task_kind,ext_data,case_id,source_rid').eq('case_id', task.case_id).order('sort_order'),
+        supabase.from('koseki_requests').select('*').eq('case_id', task.case_id),
+        supabase.from('financial_assets').select('*').eq('case_id', task.case_id),
+      ])
+      const rows = ((tsData ?? []) as Array<Cand & { task_kind: string | null }>)
         .filter(t => {
           if (t.id === task.id || t.task_kind === 'system') return false
-          // 着手前のタスクだけが対象（対応中＝着手済み・完了は候補にしない）
           if (normalizeTaskStatus(t.status) !== '着手前') return false
-          // 既に着手OK／受領次第OK のタスクは「次に着手できる」候補から除外（引き上げる意味がないため）
           const tr = t as unknown as TaskRow
           if (getStartSignal(tr).ready || isWaitingReceipt(tr)) return false
           return true
         })
       setCands(rows)
+      // 中判定：条件が明確に揃っているタスクだけ提案。禁止期間絡み(requiresConfirmation)は完了モーダルでは扱わない（センター側で処理）。
+      const todayYmd = new Date().toISOString().slice(0, 10)
+      const suggestions = getStartOkSuggestions(
+        (tsData ?? []) as unknown as TaskRow[],
+        (kkData ?? []) as KosekiRequestRow[],
+        (faData ?? []) as FinancialAssetRow[],
+        todayYmd,
+      ).filter(s => !s.requiresConfirmation && rows.some(r => r.id === s.taskId))
+      const reasonMap: Record<string, string> = {}
+      const selInit: Record<string, boolean> = {}
+      const noteInit: Record<string, string> = {}
+      for (const s of suggestions) {
+        reasonMap[s.taskId] = s.reason
+        selInit[s.taskId] = true
+        noteInit[s.taskId] = s.reason  // ready_reason に自動で入る
+      }
+      setSuggestReasons(reasonMap)
+      if (Object.keys(selInit).length > 0) {
+        setSel(prev => ({ ...prev, ...selInit }))
+        setNote(prev => ({ ...prev, ...noteInit }))
+      }
       setLoading(false)
     })()
   }, [task.case_id, task.id])
@@ -187,13 +210,19 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
 
   const renderCand = (c: Cand) => {
     const on = !!sel[c.id]
+    const reason = suggestReasons[c.id]
     return (
-      <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : 'border-gray-200'}`}>
-        <label className="flex items-center gap-2 px-2.5 py-2 cursor-pointer">
+      <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : reason ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`}>
+        <label className="flex items-center gap-2 px-2.5 py-2 cursor-pointer flex-wrap">
           <input type="checkbox" checked={on} onChange={() => toggle(c.id)} className="w-4 h-4 accent-brand-600" />
           <KoteiBadge phase={c.phase} width={92} />
           <GyomuBadge phase={c.phase} width={52} />
           <span className="text-[13px] text-gray-800 truncate">{c.title}</span>
+          {reason && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-amber-800 bg-amber-100 border border-amber-200" title={reason}>
+              <Lightbulb className="w-2.5 h-2.5" />{reason}
+            </span>
+          )}
         </label>
         {on && (
           <div className="px-2.5 pb-2 space-y-1.5">
