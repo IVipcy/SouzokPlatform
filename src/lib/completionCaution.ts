@@ -134,7 +134,28 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
     }
     return null
   }
-  // ── 金融資産：残高確定の依頼 ──
+  // ── 金融資産・読込（fin-read）：残高確定と凍結確認をセットで検知して1プロンプトに集約 ──
+  // 事務が銀行別の資料読込を終えたタイミングで、その銀行の口座について「残高確定依頼まだ」「凍結確認依頼まだ」の両方を検知。
+  // 両方とも管理担当へのW-Check依頼＝送り先が同じなので、まとめて依頼できるようにする。
+  if (rid?.prefix === 'fin-read') {
+    const { data } = await supabase.from('financial_assets').select('id,institution_name,freeze_confirmed,freeze_confirm_requested_at,balance_amount,balance_confirmed,balance_confirm_requested_at').eq('case_id', task.case_id).eq('institution_name', rid.key)
+    const rows = ((data ?? []) as (FinLite & { institution_name: string })[])
+    const needBalance = rows.filter(r => r.balance_amount != null && !r.balance_confirmed && !r.balance_confirm_requested_at)
+    const needFreeze = rows.filter(r => !r.freeze_confirmed && !r.freeze_confirm_requested_at)
+    const total = needBalance.length + needFreeze.length
+    if (total > 0) {
+      const parts: string[] = []
+      if (needBalance.length > 0) parts.push(`残高確定 ${needBalance.length}件`)
+      if (needFreeze.length > 0) parts.push(`凍結確認 ${needFreeze.length}件`)
+      return { title: 'W-Check依頼が漏れています', note: `${rid.key}の口座で、管理担当へのW-Check依頼がまだ出ていないものがあります：${parts.join('・')}`, requestLabel: `まとめて${total}件を依頼`,
+        request: async () => {
+          if (needBalance.length > 0) await supabase.from('financial_assets').update({ balance_confirm_requested_at: nowIso(), balance_confirm_requested_by: meId }).in('id', needBalance.map(r => r.id))
+          if (needFreeze.length > 0) await supabase.from('financial_assets').update({ freeze_confirm_requested_at: nowIso(), freeze_confirm_requested_by: meId }).in('id', needFreeze.map(r => r.id))
+        }, landingUrl, landingLabel }
+    }
+    return null
+  }
+  // ── 金融資産：残高確定の依頼（fin-read 以外の金融資産系タスク用フォールバック） ──
   if (gyomu === '金融資産') {
     const { data } = await supabase.from('financial_assets').select('id,cancellation_required,freeze_confirmed,freeze_confirm_requested_at,balance_amount,balance_confirmed,balance_confirm_requested_at').eq('case_id', task.case_id)
     const targets = ((data ?? []) as FinLite[]).filter(r => r.balance_amount != null && !r.balance_confirmed && !r.balance_confirm_requested_at)
