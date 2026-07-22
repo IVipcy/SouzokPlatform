@@ -84,7 +84,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order'),
       supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
       supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order'),
-      supabase.from('cases').select('intake_roles, family_tree_obtain_date').eq('id', id).single(),
+      supabase.from('cases').select('intake_roles, family_tree_obtain_date, family_tree_apply_date, family_tree_office, family_tree_count').eq('id', id).single(),
       supabase.from('agreement_dispatches').select('*').eq('case_id', id),
       supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
       // 原本格納先の初期値：この案件の受注担当のチーム（チームに管理担当も受注担当も所属）
@@ -94,9 +94,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     const salesTeam = (salesRow.data as { members?: { team_id?: string | null } | null } | null)?.members?.team_id ?? ''
     if (salesTeam && teams.some(t => t.id === salesTeam)) setStorageTeamId(salesTeam)
     // 案件がやっている業務(intake_roles)を候補のフィルタに使う（オーダーシートが正）
-    const csData = cs.data as { intake_roles?: Array<{ gyomu?: string | null }> | null; family_tree_obtain_date?: string | null } | null
+    const csData = cs.data as { intake_roles?: Array<{ gyomu?: string | null }> | null; family_tree_obtain_date?: string | null; family_tree_apply_date?: string | null; family_tree_office?: string | null; family_tree_count?: number | null } | null
     const roles = (csData?.intake_roles ?? []) as Array<{ gyomu?: string | null }>
     const activeGyomu = new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))
+    // 法定相続情報：業務未選択でも「申出日・提出先・枚数」が入っていれば実際にやっている＝候補に出す。
+    if (!!(csData?.family_tree_apply_date || csData?.family_tree_office || csData?.family_tree_count)) activeGyomu.add('法定相続情報取得')
     setDeliverables(buildDeliverableOptions(
       activeGyomu,
       (fa.data ?? []) as FinancialAssetRow[],
