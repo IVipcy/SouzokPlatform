@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Trash2, Plus, Lock, LockOpen, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -78,6 +78,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
+  // assets prop（親のonRefresh後の最新データ）が変わったら rows を同期。
+  // これが無いと、オーダーシートで追加した口座が実務タブに反映されない等の不整合が起きる。
+  useEffect(() => { setRows(assets.filter(a => a.asset_type === kind)) }, [assets, kind])
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)
