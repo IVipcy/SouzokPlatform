@@ -32,7 +32,7 @@ type Props = {
  * 登記情報等の取得進捗は財産調査タブの不動産側で管理する。
  * 不動産の追加・削除は財産調査タブで行う。
  */
-export default function RegistrationTab({ caseData, properties, onRefresh, contractDocuments = [], orderSheetMode = false }: Props) {
+export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => { setRows(properties) }, [properties])
