@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Plus, Lock, Check } from 'lucide-react'
+import { Trash2, Plus, Lock, LockOpen, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -123,16 +123,18 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結確認(progressMode時のみ) +列 +残高 +確定済(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = (progressMode ? 1 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 6 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
+  // 凍結状態(progressMode) +列 +残高 +凍結確認依頼(progressMode) +残高確定(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
+  const colCount = (progressMode ? 2 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 6 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
   const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
     <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
       {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 禁止期間中（〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}）調査は編集できません</div>}
       {progressMode && (
-        <CardRow label="凍結確認（確認簿で確認）">
-          <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />
+        <CardRow label="凍結状態">
+          {r.freeze_confirmed
+            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結済</span>
+            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未凍結</span>}
         </CardRow>
       )}
       {cols.map(c => (
@@ -143,6 +145,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         </CardRow>
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
+      {progressMode && (
+        <CardRow label="凍結確認（確認簿で確認）">
+          {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
+            : <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+        </CardRow>
+      )}
       {showConfirmed && (
         <CardRow label="残高確定（確認簿で確認）">
           {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
@@ -191,9 +199,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結状態</th>}
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
@@ -215,10 +224,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             ) : (
               visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
-                  {/* 凍結確認（一番左・依頼→確認簿で確認。オーダーシートでは非表示） */}
+                  {/* 凍結状態バッジ（左端・目視用。依頼ボタンは右側の「凍結確認」列に別途配置） */}
                   {progressMode && (
                   <td className="px-2 py-1.5 text-center">
-                    <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />
+                    {r.freeze_confirmed
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結済</span>
+                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未凍結</span>}
                   </td>
                   )}
                   {cols.map(c => (
@@ -236,6 +247,13 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-gray-500 bg-gray-100 border border-gray-300" title={r.survey_prohibited_reason ?? '財産調査禁止期間中'}><Lock className="w-3 h-3" strokeWidth={2} />禁止期間中〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}</span>
                       : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}
                   </td>
+                  {/* 凍結確認依頼（右側にW-Check系依頼ボタンを集約） */}
+                  {progressMode && (
+                    <td className={`px-2 py-1.5 text-center ${lock}`}>
+                      {banned ? <span className="text-[11px] text-gray-300">—</span>
+                        : <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+                    </td>
+                  )}
                   {showConfirmed && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {banned ? <span className="text-[11px] text-gray-300">—</span>
