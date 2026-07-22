@@ -93,7 +93,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
       ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
-      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴）', readyOnReceipt: true }] },
+      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '預金関連書類請求', onlyOwn: true }, { prefix: 'fin-read', label: '預金調査結果の登録', readyOnReceipt: true }] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel-recv', label: '解約書類の受領', readyOnReceipt: true }, { prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
