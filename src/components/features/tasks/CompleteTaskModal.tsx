@@ -24,8 +24,19 @@ import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
 import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
-type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null }
+type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null }
 type Mode = 'now' | 'receipt'
+
+// 請求タスクの source_rid → 対になる読込/受領タスクの source_rid。
+//   koseki:{id} → koseki-read:{id} ／ re-muni:{muni} → re-muni-read:{muni} ／ fin:{name} → fin-read:{name} ／ family-tree → family-tree-recv
+function pairedReadRid(rid: string | null | undefined): string | null {
+  if (!rid) return null
+  if (rid === 'family-tree') return 'family-tree-recv'
+  const m = rid.match(/^(koseki|re-muni|re-houmu|fin):(.+)$/)
+  return m ? `${m[1]}-read:${m[2]}` : null
+}
+// 読込/受領タスクか（source_rid が -read: か family-tree-recv）。
+const isReadRid = (rid: string | null | undefined): boolean => !!rid && (/-read:/.test(rid) || rid === 'family-tree-recv')
 
 // 着手OK経路に応じた ext_data を作る
 function extForMode(base: Record<string, unknown>, mode: Mode, note: string, fromTaskId: string): Record<string, unknown> {
@@ -104,11 +115,20 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         selInit[s.taskId] = true
         noteInit[s.taskId] = s.reason  // ready_reason に自動で入る
       }
+      // 対になる読込/受領タスク：この請求タスクの完了で「受領次第OK」に設定して手渡す（自動チェック＋モード=受領次第）。
+      // 読込タスクは受信簿で受領が紐づくと自動着手するので、ここで受領次第OKにしておくのが筋。
+      const modeInit: Record<string, Mode> = {}
+      const pairRid = pairedReadRid(task.source_rid)
+      const pairCand = pairRid ? rows.find(r => (r as Cand).source_rid === pairRid) : undefined
+      if (pairCand) { selInit[pairCand.id] = true; modeInit[pairCand.id] = 'receipt'; if (!noteInit[pairCand.id]) noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
+      // 読込/受領系タスクは（手動で選ぶ場合も）既定モードを「受領次第OK」に。
+      for (const r of rows) if (isReadRid((r as Cand).source_rid)) modeInit[r.id] = modeInit[r.id] ?? 'receipt'
       setSuggestReasons(reasonMap)
       if (Object.keys(selInit).length > 0) {
         setSel(prev => ({ ...prev, ...selInit }))
         setNote(prev => ({ ...prev, ...noteInit }))
       }
+      if (Object.keys(modeInit).length > 0) setMode(prev => ({ ...prev, ...modeInit }))
       setLoading(false)
     })()
   }, [task.case_id, task.id])

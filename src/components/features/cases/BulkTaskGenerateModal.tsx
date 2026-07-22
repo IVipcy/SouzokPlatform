@@ -101,14 +101,15 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       //   ・戸籍請求／名寄帳・評価証明の請求（市区町村役場）＝ヒアリング段階の情報で着手可
       //   ・登記・公図・地積（法務局）＝物件の地番が要る＝名寄帳到着後に着手
       //   ・金融の資料請求＝金融機関が戸籍を求める＝戸籍到着後に着手
+      // 読込(-read)は最初はフラグ無し（着手前）。対になる請求タスクの完了モーダルで「次に着手＝受領次第OK」に設定する運用。
       '不動産': { units: muniUnits, own: muniOwn, tasks: [
         { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true, ready: true },
-        { prefix: 're-muni-read', label: '名寄帳・評価証明を読込', readyOnReceipt: true },
+        { prefix: 're-muni-read', label: '名寄帳・評価証明を読込' },
         { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true },
-        { prefix: 're-houmu-read', label: '登記・公図・地積を読込', readyOnReceipt: true },
+        { prefix: 're-houmu-read', label: '登記・公図・地積を読込' },
       ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
-      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）', readyOnReceipt: true }] },
+      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' }] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
@@ -128,7 +129,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       if (isKosekiCollect) {
         if (kosekiRequests.length > 0) {
           kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: true }))
-          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}`, readyOnReceipt: true }))
+          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}` }))
         } else {
           out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })
         }
@@ -150,7 +151,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       // 戸籍・不動産・金融の「請求/読込」と同じく、送る作業と受け取る作業を別タスクにして進捗を細かく管理。
       if (r.gyomu === '法定相続情報取得') {
         out.push({ key: 'family-tree', gyomu: r.gyomu, title: '法定相続情報一覧図の申出', rid: 'family-tree' })
-        out.push({ key: 'family-tree-recv', gyomu: r.gyomu, title: '法定相続情報一覧図の受領', rid: 'family-tree-recv', readyOnReceipt: true })
+        out.push({ key: 'family-tree-recv', gyomu: r.gyomu, title: '法定相続情報一覧図の受領', rid: 'family-tree-recv' })
         return
       }
       // 不動産/登記/金融資産/解約は左タブ単位でタスク展開。請求(onlyOwn)は自社取得の単位のみ。単位が無ければ従来どおり個別作業。
