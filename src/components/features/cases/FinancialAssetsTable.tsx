@@ -83,8 +83,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   useEffect(() => { setRows(assets.filter(a => a.asset_type === kind)) }, [assets, kind])
   const [busy, setBusy] = useState(false)
   const cols = COLUMNS[kind]
+  // institutionFilter（左レールのキー）は trim 済み。r.institution_name もtrimして比較しないと、
+  // 名称に前後空白があるとレール(=trim)には出るのに口座一覧(=非trim比較)が0件になる不整合が起きる。
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)
-    : institutionFilter != null ? rows.filter(r => (r.institution_name ?? '') === institutionFilter) : rows
+    : institutionFilter != null ? rows.filter(r => (r.institution_name ?? '').trim() === institutionFilter.trim()) : rows
   // 財産調査禁止期間：終了日が未来のうちは調査を止める（＝この口座の調査セルは編集不可）。
   const todayYmd = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const isSurveyBanned = (r: FinancialAssetRow) => !!r.survey_prohibited_end && todayYmd < r.survey_prohibited_end
