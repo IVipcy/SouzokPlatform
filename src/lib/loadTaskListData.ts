@@ -28,6 +28,8 @@ export async function loadTaskListData(): Promise<{
   receipts: ReadinessReceipt[]
   /** 金融凍結が未確認の口座を持つ案件ID（金融タスクの着手不可判定用） */
   financeBlockedCaseIds: string[]
+  /** 案件ID→金融資産(機関名・凍結確認)。解約タスクの機関単位ゲート判定に使う */
+  freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>>
 }> {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
@@ -50,15 +52,19 @@ export async function loadTaskListData(): Promise<{
       .select('received_date, started_task_id, items:document_receipt_items(item_name, item_tasks:document_receipt_item_tasks(task:tasks(id)))'),
     supabase
       .from('financial_assets')
-      .select('case_id, freeze_confirmed'),
+      .select('case_id, institution_name, freeze_confirmed'),
   ])
 
+  const financeAssets = (financeResult.data ?? []) as Array<{ case_id: string; institution_name: string | null; freeze_confirmed: boolean | null }>
   // 凍結未確認の口座を持つ案件ID
   const financeBlockedCaseIds = [...new Set(
-    ((financeResult.data ?? []) as Array<{ case_id: string; freeze_confirmed: boolean | null }>)
-      .filter(a => a.freeze_confirmed !== true)
-      .map(a => a.case_id),
+    financeAssets.filter(a => a.freeze_confirmed !== true).map(a => a.case_id),
   )]
+  // 案件ID→金融資産（機関単位ゲート用）
+  const freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>> = {}
+  for (const a of financeAssets) {
+    ;(freezeAssetsByCase[a.case_id] ??= []).push({ institution_name: a.institution_name, freeze_confirmed: a.freeze_confirmed })
+  }
 
   type RawCaseRow = {
     id: string
@@ -98,5 +104,6 @@ export async function loadTaskListData(): Promise<{
     currentMemberId: currentUser?.memberId ?? null,
     receipts,
     financeBlockedCaseIds,
+    freezeAssetsByCase,
   }
 }

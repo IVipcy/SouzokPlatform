@@ -19,7 +19,7 @@ import TabHeader from './TabHeader'
 import { toReadinessReceipts, getStartSignal } from '@/lib/taskReadiness'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
-import { isFinanceFreezeTask } from '@/lib/financeFreeze'
+import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import type { TimelineReceipt } from './CaseTimeline'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -32,8 +32,8 @@ type Props = {
   documentReceipts?: TimelineReceipt[]
   /** 案件ステータス。対応中以降は事務管理タスクを先頭・既定にする */
   caseStatus?: string
-  /** 案件に凍結未確認の金融資産があるか（金融タスクの着手ハード制限） */
-  financeFreezeBlocked?: boolean
+  /** 金融資産（凍結ゲート判定用）。解約タスクは機関単位で凍結確認済みかを見る。 */
+  financeAssets?: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
 }
 
 // ステータス正規化（進捗バーの集計用）
@@ -44,7 +44,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeFreezeBlocked = false }: Props) {
+export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -73,8 +73,8 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
       setCompleteTask(task)
       return
     }
-    // 金融資産調査・解約タスクは口座凍結が未確認だと着手不可（ハード制限）
-    if (current === '着手前' && financeFreezeBlocked && isFinanceFreezeTask(task)) {
+    // 解約タスクは対象機関の口座凍結が未確認だと着手不可（機関単位のハード制限）
+    if (current === '着手前' && isTaskFreezeBlocked(task, financeAssets)) {
       showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error')
       return
     }

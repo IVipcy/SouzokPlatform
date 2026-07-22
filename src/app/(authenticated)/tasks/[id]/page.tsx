@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import TaskDetailClient from '@/components/features/tasks/TaskDetailClient'
+import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import type { TaskRow, MemberRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 
 type Props = {
@@ -71,12 +72,13 @@ export default async function TaskDetailPage({ params }: Props) {
     supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order'),
     supabase.from('real_estate_properties').select('*').eq('case_id', caseId),
     supabase.from('contract_documents').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
-    supabase.from('financial_assets').select('freeze_confirmed').eq('case_id', caseId),
+    supabase.from('financial_assets').select('institution_name, freeze_confirmed').eq('case_id', caseId),
   ])
 
-  // 金融凍結が未確認の口座があるか（金融資産調査・解約タスクの着手ハード制限に使う）
-  const financeFreezeBlocked = ((financeResult.data ?? []) as Array<{ freeze_confirmed: boolean | null }>)
-    .some(a => a.freeze_confirmed !== true)
+  // 解約タスクの着手ハード制限：機関単位で判定（cancel:{機関名}はその機関の口座だけを見る）。
+  // 案件全体で判定すると、別口座（禁止期間中で未凍結 等）が原因で凍結済の機関の解約まで止まってしまう。
+  const financeAssets = (financeResult.data ?? []) as Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>
+  const financeFreezeBlocked = isTaskFreezeBlocked(task, financeAssets)
 
   // 依存関係に関連タスク情報を付与
   // Supabase の埋め込みリレーション (members!tasks_started_by_fkey) は配列で返るので

@@ -16,7 +16,7 @@ import { ORDER_CATEGORIES, GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
-import { isFreezeBlocked } from '@/lib/financeFreeze'
+import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
@@ -45,6 +45,8 @@ type Props = {
   roleScope?: 'assistant' | 'manager'
   /** 金融凍結が未確認の口座を持つ案件ID（金融タスク着手不可） */
   financeBlockedCaseIds?: string[]
+  /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
+  freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -59,8 +61,7 @@ const normalizeStatus = (status: string) => {
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [] }: Props) {
-  const financeBlockedSet = useMemo(() => new Set(financeBlockedCaseIds), [financeBlockedCaseIds])
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {} }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -231,8 +232,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       setCompleteTask(task)
       return
     }
-    // 着手OKは目印（ソフト）。着手不可（ハード）は口座凍結未確認の金融タスクのみ。
-    if (current === '着手前' && isFreezeBlocked(task, financeBlockedSet)) {
+    // 着手不可（ハード）は解約タスクの凍結未確認のみ。解約は機関単位で判定（その機関の口座が凍結済なら着手可）。
+    if (current === '着手前' && isTaskFreezeBlocked(task, freezeAssetsByCase[task.case_id] ?? [])) {
       showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error'); return
     }
 
@@ -285,7 +286,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     } finally {
       setLoadingTaskId(null)
     }
-  }, [currentMemberId, loadingTaskId, router, financeBlockedSet])
+  }, [currentMemberId, loadingTaskId, router, freezeAssetsByCase])
 
   const handleDelete = async () => {
     if (!deleteTask) return

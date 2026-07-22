@@ -23,3 +23,19 @@ export function caseHasUnconfirmedFreeze(assets: Array<{ freeze_confirmed?: bool
 export function isFreezeBlocked(task: Pick<TaskRow, 'phase' | 'case_id'>, blockedCaseIds: Set<string>): boolean {
   return isFinanceFreezeTask(task) && blockedCaseIds.has(task.case_id)
 }
+
+// 機関単位の凍結ゲート判定。解約タスク(cancel:{金融機関名})はその機関の口座だけを見る。
+//   - cancel:{機関名} … その機関の口座に未凍結があれば着手不可（口座0件なら不可にしない）
+//   - 機関を特定できない解約タスク（自動車名義変更・保険金請求 等） … 案件全体で判定
+//   - 解約以外のタスク … 対象外(false)
+type FreezeAsset = { institution_name?: string | null; freeze_confirmed?: boolean | null }
+export function isTaskFreezeBlocked(task: Pick<TaskRow, 'phase' | 'source_rid'>, assets: FreezeAsset[]): boolean {
+  if (!isFinanceFreezeTask(task)) return false
+  const m = (task.source_rid ?? '').match(/^cancel:(.+)$/)
+  if (m) {
+    const bank = m[1].trim()
+    const accts = assets.filter(a => (a.institution_name ?? '').trim() === bank)
+    return accts.some(a => a.freeze_confirmed !== true)
+  }
+  return assets.some(a => a.freeze_confirmed !== true)
+}
