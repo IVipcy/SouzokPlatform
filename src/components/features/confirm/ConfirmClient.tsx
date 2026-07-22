@@ -301,12 +301,18 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
           </div>
 
           <div className="flex gap-1.5 flex-wrap mb-3">
-            {TABS.map(t => (
+            {TABS.map(t => {
+              const n = counts[t.key] ?? 0
+              return (
               <button key={t.key} type="button" onClick={() => setTab(t.key)}
-                className={`text-[12px] px-3 py-1.5 rounded-full border transition-colors ${tab === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                {t.label}<span className="ml-1.5 opacity-70">{counts[t.key] ?? 0}</span>
+                className={`inline-flex items-center text-[12px] px-3 py-1.5 rounded-full border transition-colors ${tab === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                {t.label}
+                {n > 0
+                  ? <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-red-500 text-white leading-none">{n}</span>
+                  : <span className="ml-1.5 opacity-60 text-[11px]">0</span>}
               </button>
-            ))}
+              )
+            })}
           </div>
 
           <HintNote className="mb-4">{TAB_HINT[tab]}</HintNote>
