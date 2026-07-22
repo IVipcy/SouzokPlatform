@@ -5,6 +5,7 @@
 // - 市区町村ごと（scope=municipality）＝名寄帳・固定資産評価証明
 // - 物件ごと（scope=property）＝登記情報・公図・地積測量図・路線価
 
+import { useState, useEffect } from 'react'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -31,30 +32,38 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
 }) {
   const supabase = createClient()
   const munis = [...new Set(properties.map(municipalityOf).filter(Boolean))]
+  // ローカル状態で楽観的更新（DBラウンドトリップ待ちのタイムラグを潰す）。propsが変わったら同期。
+  const [localAcq, setLocalAcq] = useState<RealEstateAcquisitionRow[]>(acquisitions)
+  useEffect(() => { setLocalAcq(acquisitions) }, [acquisitions])
 
-  const findMuniRow = (muni: string) => acquisitions.find(a => (a.scope ?? 'municipality') === 'municipality' && (a.target_municipality ?? '') === muni)
-  const findPropRow = (propId: string) => acquisitions.find(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId)
+  const findMuniRow = (muni: string) => localAcq.find(a => (a.scope ?? 'municipality') === 'municipality' && (a.target_municipality ?? '') === muni)
+  const findPropRow = (propId: string) => localAcq.find(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId)
   const hasMuniItem = (muni: string, item: string) => { const r = findMuniRow(muni); return !!r && itemsOf(r).includes(item) }
   const hasPropItem = (propId: string, item: string) => { const r = findPropRow(propId); return !!r && itemsOf(r).includes(item) }
 
   const toggleMuni = async (muni: string, item: string) => {
     const row = findMuniRow(muni)
     if (!row) {
-      const { error } = await supabase.from('real_estate_acquisitions').insert({
-        case_id: caseId, scope: 'municipality', target_municipality: muni,
-        item_type: item, item_types: [item],
-        request_to: `${stripPref(muni)}役所`, sort_order: 0,
-      })
-      if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+      // 楽観的追加：先に画面に反映（IDは一時値）→ DB挿入 → 実IDで差し替え
+      const tempId = `__tmp_${Date.now()}`
+      const tempRow = { id: tempId, case_id: caseId, scope: 'municipality', target_municipality: muni, item_type: item, item_types: [item], request_to: `${stripPref(muni)}役所`, sort_order: 0 } as unknown as RealEstateAcquisitionRow
+      setLocalAcq(prev => [...prev, tempRow])
+      const { data, error } = await supabase.from('real_estate_acquisitions').insert({ case_id: caseId, scope: 'municipality', target_municipality: muni, item_type: item, item_types: [item], request_to: `${stripPref(muni)}役所`, sort_order: 0 }).select().single()
+      if (error) { setLocalAcq(prev => prev.filter(r => r.id !== tempId)); showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+      if (data) setLocalAcq(prev => prev.map(r => r.id === tempId ? (data as unknown as RealEstateAcquisitionRow) : r))
     } else {
       const cur = itemsOf(row)
       const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
       if (next.length === 0) {
+        // 楽観的削除
+        setLocalAcq(prev => prev.filter(r => r.id !== row.id))
         const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', row.id)
-        if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+        if (error) { setLocalAcq(prev => [...prev, row]); showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
       } else {
+        // 楽観的更新
+        setLocalAcq(prev => prev.map(r => r.id === row.id ? { ...r, item_types: next, item_type: next[0] } : r))
         const { error } = await supabase.from('real_estate_acquisitions').update({ item_types: next, item_type: next[0] }).eq('id', row.id)
-        if (error) { showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
+        if (error) { setLocalAcq(prev => prev.map(r => r.id === row.id ? row : r)); showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
       }
     }
     onRefresh?.()
@@ -63,20 +72,23 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
     const row = findPropRow(prop.id)
     if (!row) {
       const propMuni = (prop.municipality ?? '').trim() || null
-      const { error } = await supabase.from('real_estate_acquisitions').insert({
-        case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni,
-        item_type: item, item_types: [item], request_to: '法務局', sort_order: 0,
-      })
-      if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+      const tempId = `__tmp_${Date.now()}`
+      const tempRow = { id: tempId, case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni, item_type: item, item_types: [item], request_to: '法務局', sort_order: 0 } as unknown as RealEstateAcquisitionRow
+      setLocalAcq(prev => [...prev, tempRow])
+      const { data, error } = await supabase.from('real_estate_acquisitions').insert({ case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni, item_type: item, item_types: [item], request_to: '法務局', sort_order: 0 }).select().single()
+      if (error) { setLocalAcq(prev => prev.filter(r => r.id !== tempId)); showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+      if (data) setLocalAcq(prev => prev.map(r => r.id === tempId ? (data as unknown as RealEstateAcquisitionRow) : r))
     } else {
       const cur = itemsOf(row)
       const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
       if (next.length === 0) {
+        setLocalAcq(prev => prev.filter(r => r.id !== row.id))
         const { error } = await supabase.from('real_estate_acquisitions').delete().eq('id', row.id)
-        if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+        if (error) { setLocalAcq(prev => [...prev, row]); showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
       } else {
+        setLocalAcq(prev => prev.map(r => r.id === row.id ? { ...r, item_types: next, item_type: next[0] } : r))
         const { error } = await supabase.from('real_estate_acquisitions').update({ item_types: next, item_type: next[0] }).eq('id', row.id)
-        if (error) { showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
+        if (error) { setLocalAcq(prev => prev.map(r => r.id === row.id ? row : r)); showToast(`更新に失敗しました: ${error.message}`, 'error'); return }
       }
     }
     onRefresh?.()

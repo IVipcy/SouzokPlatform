@@ -127,8 +127,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
 
   return (
     <div>
-      {/* 所在地の予測住所（被相続人の住所・本籍＋入力済み。自由入力も可） */}
-      {addrOptions.length > 0 && <datalist id={addrListId}>{addrOptions.map(a => <option key={a} value={a} />)}</datalist>}
+      {/* 所在地の予測住所（被相続人の住所・本籍＋入力済み。自由入力も可）— CellInputに suggestions を渡してカスタムドロップダウンで表示（datalistは廃止） */}
       {/* PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一）。 */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
@@ -224,7 +223,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
       <tr className="border-b border-gray-100">
         {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
         {sel('property_type', PROPERTY_TYPES)}
-        <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" list={addrListId} />
+        <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
         {showConfirmed && (
@@ -242,18 +241,35 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
   )
 }
 
-function CellInput({ value, onChange, onCommit, placeholder, list }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; list?: string }) {
+function CellInput({ value, onChange, onCommit, placeholder, list, suggestions }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; list?: string; suggestions?: string[] }) {
+  // 候補が渡されたら「datalistの▼」ではなく自前のクリック候補ドロップダウンを表示（アプリのUIトーンに揃える）。
+  const [open, setOpen] = useState(false)
+  const cur = value ?? ''
+  const filtered = (suggestions ?? []).filter(s => s && (cur.length === 0 || s.includes(cur)) && s !== cur)
   return (
     <td className="px-2.5 py-1.5">
-      <input
-        type="text"
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value)}
-        onBlur={e => onCommit(e.target.value)}
-        placeholder={placeholder}
-        list={list}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={cur}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => suggestions && suggestions.length > 0 && setOpen(true)}
+          onBlur={e => { setTimeout(() => setOpen(false), 150); onCommit(e.target.value) }}
+          placeholder={placeholder}
+          list={list}
+          className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
+        />
+        {open && filtered.length > 0 && (
+          <div className="absolute z-20 top-full left-0 right-0 mt-0.5 max-h-40 overflow-y-auto bg-white border border-gray-200 rounded shadow-md">
+            {filtered.map(s => (
+              <button key={s} type="button" onMouseDown={() => { onChange(s); onCommit(s); setOpen(false) }}
+                className="w-full text-left px-2 py-1.5 text-[12px] hover:bg-brand-50">
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </td>
   )
 }
@@ -303,7 +319,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           </FieldBlock>
         )}
         <FieldBlock label="所在地">
-          <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地（住所を予測）" list={addrListId} className={inputCls} />
+          <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地（住所を予測）" className={inputCls} />
           <p className="mt-0.5 text-[11px] text-gray-400">名寄帳取得後に地番を要確認</p>
         </FieldBlock>
         <FieldBlock label="評価額">
