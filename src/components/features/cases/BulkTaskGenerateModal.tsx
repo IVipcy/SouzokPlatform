@@ -146,6 +146,13 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou!, roleIdx: idx, rid: r.rid })
         return
       }
+      // 法定相続情報一覧図：申出（戸籍全揃いで着手）と受領（受領次第OK）を分ける。1案件1件（cases に保存）。
+      // 戸籍・不動産・金融の「請求/読込」と同じく、送る作業と受け取る作業を別タスクにして進捗を細かく管理。
+      if (r.gyomu === '法定相続情報取得') {
+        out.push({ key: 'family-tree', gyomu: r.gyomu, title: '法定相続情報一覧図の申出', rid: 'family-tree' })
+        out.push({ key: 'family-tree-recv', gyomu: r.gyomu, title: '法定相続情報一覧図の受領', rid: 'family-tree-recv', readyOnReceipt: true })
+        return
+      }
       // 不動産/登記/金融資産/解約は左タブ単位でタスク展開。請求(onlyOwn)は自社取得の単位のみ。単位が無ければ従来どおり個別作業。
       const u = UNIT[r.gyomu]
       if (u && u.units.length > 0) {
