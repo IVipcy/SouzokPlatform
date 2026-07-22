@@ -95,13 +95,13 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1300 }}>
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1520 }}>
             <colgroup>
               <col style={{ width: 84 }} />{/* 番号 */}
               <col style={{ width: 148 }} />{/* 案件管理番号 */}
               <col style={{ width: 94 }} />{/* 〒種類 */}
-              <col />{/* 差出人（可変） */}
-              <col />{/* 到着物（可変） */}
+              <col style={{ width: 130 }} />{/* 差出人 */}
+              <col style={{ width: 280 }} />{/* 到着物（複数項目＋種別チップが入るため広め） */}
               <col style={{ width: 60 }} />{/* 通数 */}
               <col style={{ width: 140 }} />{/* ファイル */}
               <col style={{ width: 148 }} />{/* 原本格納先 */}
