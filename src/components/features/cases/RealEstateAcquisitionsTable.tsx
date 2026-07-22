@@ -327,8 +327,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           )}
         </table>
       </div>
-      <button type="button" onClick={addRow} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-        <Plus className="w-3.5 h-3.5" /> 取得資料を追加
+      <button type="button" onClick={addRow} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
+        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 取得資料を追加
       </button>
     </div>
   )

@@ -328,8 +328,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       </div>
 
       <div className="mt-2">
-        <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
-          <Plus className="w-3.5 h-3.5" /> 追加
+        <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
+          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {kind === '証券' ? '証券を追加' : kind === '信託銀行' ? '信託を追加' : '口座を追加'}
         </button>
       </div>
     </div>

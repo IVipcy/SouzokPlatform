@@ -573,15 +573,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
             </div>
           )}
           {!showAddHeir && (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={startAdd} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-                <Plus className="w-3.5 h-3.5" /> 相続人を追加
+            <div className="mt-3">
+              <button type="button" onClick={startAdd} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 相続人を追加
               </button>
-              {(mainClient?.name || caseData.clients?.name) && (
-                <button type="button" onClick={startAddFromClient} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700" title="氏名・生年月日・住所を面談情報からプリセット（本籍は空欄）">
-                  <Plus className="w-3.5 h-3.5" /> 依頼者を相続人に追加
-                </button>
-              )}
             </div>
           )}
         </Section>
