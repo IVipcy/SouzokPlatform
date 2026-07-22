@@ -87,7 +87,11 @@ export default async function ConfirmPage() {
     const requestTo = ((r.request_to as string) ?? '').trim()
     const muni = ((r.target_municipality as string) ?? '').trim()
     const isAdd = !!r.is_additional, approved = !!r.additional_approved_at
-    const fee = yen(r.cost_confirmed as number)
+    // 確定費用：市区町村請求(小為替)は「予算−返金」で算出（cost_confirmed列は未保存）。法務局(印紙)は cost_confirmed 直接入力。
+    // 予算があれば予算−返金、無ければ cost_confirmed にフォールバック（両scope共通の式）。
+    const costBudget = r.cost_budget as number | null
+    const costConfirmed = costBudget != null ? costBudget - ((r.cost_refund as number | null) ?? 0) : (r.cost_confirmed as number | null)
+    const fee = yen(costConfirmed as number)
     if (isAdd && !approved) {
       items.push({ ...b, key: `aa-${id}`, tab: 'approve', action: 're_acq_approve', target: requestTo || muni || '追加取得資料', content: itemsLabel, amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { item_type: itemsArr[0] ?? '', target_municipality: muni, target_property_id: (r.target_property_id as string) ?? null } })
       continue
