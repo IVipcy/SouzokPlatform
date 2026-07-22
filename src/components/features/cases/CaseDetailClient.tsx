@@ -409,11 +409,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           />
         )}
 
-        {/* 検討フロー・ナビゲーター：依頼確定待ちで、即受注への前提条件（契約残手続き＋タスク）を案内 */}
+        {/* 検討フロー・ナビゲーター：依頼確定待ちで、受注への前提条件（契約残手続き＋タスク）を案内。
+            ※ここは「依頼確定待ち→受注」の通常受注（order_win_type=null）。即受注/面談なし受注は面談設定済からの獲得区分で別物。 */}
         {kentouNavVisible && (
           <StatusFlowNavigator
             steps={kentouSteps}
-            targetLabel="即受注"
+            targetLabel="受注"
             onAdvance={() => patchCase({ status: '受注' })}
             onDismiss={() => setNavDismissed(true)}
           />
