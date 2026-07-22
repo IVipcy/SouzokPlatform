@@ -4,12 +4,13 @@ import { useState, Fragment } from 'react'
 import { Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, CaseReferralRow } from '@/types'
+import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
 import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS } from '@/lib/constants'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 
@@ -17,6 +18,7 @@ type Props = {
   caseData: CaseRow
   referrals: CaseReferralRow[]
   onRefresh?: () => void
+  tasks?: TaskRow[]
   // オーダーシート埋め込み時は報酬請求状態を出さない（請求は個別タブ/請求機能で管理）
   orderSheetMode?: boolean
 }
@@ -27,7 +29,7 @@ type Props = {
  * サブタブは「紹介あり（case_referrals 行が存在する）業者」だけ表示し、「＋業者追加」で増やせる（B-1）。
  * 各業者: 紹介先法人名 / 紹介日付 / 紹介内容 / 見込み報酬 / 報酬請求状態。
  */
-export default function ReferralTab({ caseData, referrals, onRefresh, orderSheetMode = false }: Props) {
+export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
   const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
@@ -170,6 +172,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, orderSheet
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="他事業者紹介" description="税理士・弁護士・不動産・遺品整理など、外部へ紹介した先と依頼内容をここに書きます。" />}
+      {!orderSheetMode && <div className="mb-3.5"><TabTasksSection gyomus={['他事業者紹介']} tasks={tasks} /></div>}
       {!orderSheetMode && (
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
           <WorkContentField caseData={caseData} gyomu="referral" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" collapsible />

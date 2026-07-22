@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
 import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
@@ -111,6 +112,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
   return (
     <div>
       {!orderSheetMode && <TabHeader title="解約手続" description="預貯金・証券・信託の解約手続きと、入金の確認・名義書換をここで進めます。" />}
+      {!orderSheetMode && <div className="mb-3.5"><TabTasksSection gyomus={['解約']} tasks={tasks} /></div>}
       {!orderSheetMode && caseData && (
         <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
           <WorkContentField caseData={caseData} gyomu="cancellation" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" collapsible />

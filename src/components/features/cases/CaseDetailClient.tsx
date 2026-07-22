@@ -515,19 +515,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />
       )}
       {effectiveTab === 'succession' && (
-        <SuccessionTab caseData={caseState} heirs={heirs} assetInventory={assetInventory} onRefresh={handleSaved} />
+        <SuccessionTab caseData={caseState} heirs={heirs} assetInventory={assetInventory} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'assets' && (
         <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} assetInventory={assetInventory} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
       )}
       {effectiveTab === 'division' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} assetInventory={assetInventory} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} mode="division" />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} assetInventory={assetInventory} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} tasks={tasks} mode="division" />
       )}
       {effectiveTab === 'will' && (
-        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} mode="will" />
+        <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} tasks={tasks} mode="will" />
       )}
       {effectiveTab === 'registration' && (
-        <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} />
+        <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} tasks={tasks} />
       )}
       {effectiveTab === 'cancellation' && (
         <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} onRefresh={handleSaved} receipts={documentReceipts} tasks={tasks} />
@@ -536,7 +536,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
       ))}
       {effectiveTab === 'referral' && (
-        <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} onRefresh={handleSaved} />
+        <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'receipts' && (
         <DocsTab mode="receipts" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />

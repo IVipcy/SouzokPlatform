@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import DivisionDetailsTable from './DivisionDetailsTable'
 import AgreementDispatchTable from './AgreementDispatchTable'
-import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow, AssetInventoryRow } from '@/types'
+import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow, AssetInventoryRow, TaskRow } from '@/types'
 import {
   WILL_CREATION_PLACES,
   WILL_TYPES,
@@ -20,6 +20,7 @@ import {
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 
@@ -43,13 +44,14 @@ type Props = {
   agreementDispatches?: AgreementDispatchRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  tasks?: TaskRow[]
   /** 'division' = 遺産分割＋分割内容 / 'will' = 遺言＋信託 */
   mode?: 'division' | 'will'
   /** オーダーシート埋め込み時は TabHeader を出さない */
   orderSheetMode?: boolean
 }
 
-export default function DivisionTab({ caseData, divisionDetails, heirs, assetInventory = [], agreementDispatches = [], onRefresh, patchCase, mode = 'division', orderSheetMode = false }: Props) {
+export default function DivisionTab({ caseData, divisionDetails, heirs, assetInventory = [], agreementDispatches = [], onRefresh, patchCase, tasks = [], mode = 'division', orderSheetMode = false }: Props) {
   const [divSub, setDivSub] = useState<'plan' | 'mail'>('plan')
 
   const saveCaseField = async (field: string, value: string) => {
@@ -88,6 +90,9 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
           title={mode === 'will' ? '遺言' : '遺産分割'}
           description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
         />
+      )}
+      {!orderSheetMode && (
+        <TabTasksSection gyomus={mode === 'will' ? ['遺言作成'] : ['協議書', '目録']} tasks={tasks} />
       )}
       {!orderSheetMode && (
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">

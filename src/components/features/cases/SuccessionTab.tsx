@@ -12,19 +12,21 @@ import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 import { MoneyInput } from './FinancialAssetsTable'
-import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow } from '@/types'
+import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow, TaskRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 const INCOME_CLASSES = ['金融', '不動産', 'その他']
 
-export default function SuccessionTab({ caseData, heirs = [], assetInventory = [] }: {
+export default function SuccessionTab({ caseData, heirs = [], assetInventory = [], tasks = [] }: {
   caseData: CaseRow
   heirs?: HeirRow[]
   assetInventory?: AssetInventoryRow[]
   onRefresh?: () => void
+  tasks?: TaskRow[]
 }) {
   const supabase = createClient()
   const [sub, setSub] = useState<'settlement' | 'instruction'>('settlement')
@@ -154,6 +156,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   return (
     <div className="space-y-3.5">
       <TabHeader title="遺産承継" description="精算書（収入−支出＝残り）と指図書（相続人への振込）をここで作ります。" />
+      <div className="mb-3.5"><TabTasksSection gyomus={['精算書作成', '指図書作成']} tasks={tasks} /></div>
       <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
         <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
       </div>

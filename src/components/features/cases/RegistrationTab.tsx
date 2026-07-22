@@ -9,9 +9,10 @@ import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '
 import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import TabHeader from './TabHeader'
+import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import RegistrationSection from './RegistrationSection'
-import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow, HeirRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow, HeirRow, TaskRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -20,6 +21,7 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // 契約残手続きの書類（区分=登記 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
+  tasks?: TaskRow[]
   /** オーダーシート埋め込み時は TabHeader を出さない */
   orderSheetMode?: boolean
 }
@@ -31,7 +33,7 @@ type Props = {
  * 登記情報等の取得進捗は財産調査タブの不動産側で管理する。
  * 不動産の追加・削除は財産調査タブで行う。
  */
-export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], orderSheetMode = false }: Props) {
+export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], tasks = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => { setRows(properties) }, [properties])
@@ -59,6 +61,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
     return (
       <div className="space-y-3.5">
         <TabHeader title="相続登記" description="物件ごとに、登記の種類・管轄の法務局・申請日・登録免許税を記録します。" />
+        <TabTasksSection gyomus={['登記']} tasks={tasks} />
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
           <WorkContentField caseData={caseData} gyomu="registration" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
