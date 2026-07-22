@@ -75,9 +75,12 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // システムタスクは前後関係を持たないので、関連セクションを非表示
   const isSystemTask = task.task_kind === 'system'
 
+  // 前段タスク評価は一旦オフ（並列タスクが多く前段が不明瞭・タスク詳細を経由しない運用のため）。
+  // データ(task_reviews)は残置し、将来「確認簿にW-Check相乗り評価」へ導線を付け替える想定。UIのみ非表示。
+  const SHOW_PREV_TASK_REVIEW = false
   // 前段確認の表示判定（実体のある前段だけ）：①完了ゲートでこのタスクを着手OKにした
   // 元タスクがある、または ②同じ業務区分で完了したタスクがある
-  const hasPrevContext = !isSystemTask && (() => {
+  const hasPrevContext = SHOW_PREV_TASK_REVIEW && !isSystemTask && (() => {
     const readyFrom = (task.ext_data as { ready_from_task_id?: string } | null)?.ready_from_task_id
     if (readyFrom && caseTasks.some(t => t.id === readyFrom && t.status === '完了')) return true
     return caseTasks.some(t => t.id !== task.id && t.status === '完了' && t.phase === task.phase)
