@@ -782,6 +782,7 @@ export type FinancialAssetRow = {
   asset_type: string
   institution_name: string
   branch_name: string | null
+  account_type: string | null                 // 口座種別（普通/定期/当座/積立/貯蓄/その他。migration 187）
   required_docs: string[] | null
   existence_check: string | null
   balance_cert_date: string | null

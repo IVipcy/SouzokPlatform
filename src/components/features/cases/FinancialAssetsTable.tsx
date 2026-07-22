@@ -16,9 +16,10 @@ import ContractReceivedBlock from './ContractReceivedBlock'
 
 const REQ = ['要', '不要', '確認中']
 const CANCEL = ['有', '無', '確認中']
+const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その他']
 
 type Kind = '預貯金' | '証券' | '信託銀行'
-type ColType = 'text' | 'req' | 'cancel'
+type ColType = 'text' | 'req' | 'cancel' | 'accountType'
 type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?: string }
 
 // 種別ごとの列定義（調査期間・備考・進捗列は共通で末尾に付与）
@@ -26,6 +27,7 @@ const COLUMNS: Record<Kind, Col[]> = {
   '預貯金': [
     { key: 'institution_name', label: '金融機関名', type: 'text' },
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
+    { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
@@ -141,7 +143,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <CardRow key={c.key} label={c.label}>
           {c.type === 'text'
             ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
-            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />}
+            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />}
         </CardRow>
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
@@ -237,7 +239,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
-                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : REQ} onChange={v => save(r.id, c.key, v)} />
+                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />
                       )}
                     </td>
                   ))}
