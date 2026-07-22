@@ -158,16 +158,8 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
     }
     return null
   }
-  // ── 金融資産：残高確定の依頼（fin-read 以外の金融資産系タスク用フォールバック） ──
-  if (gyomu === '金融資産') {
-    const { data } = await supabase.from('financial_assets').select('id,cancellation_required,freeze_confirmed,freeze_confirm_requested_at,balance_amount,balance_confirmed,balance_confirm_requested_at').eq('case_id', task.case_id)
-    const targets = ((data ?? []) as FinLite[]).filter(r => r.balance_amount != null && !r.balance_confirmed && !r.balance_confirm_requested_at)
-    if (targets.length > 0) {
-      return { title: '残高確定の依頼は出しましたか？', note: `残高が入っているのに、まだ残高確定の依頼が出ていない口座が ${targets.length}件 あります。`, requestLabel: `${targets.length}件を依頼`,
-        request: async () => { await supabase.from('financial_assets').update({ balance_confirm_requested_at: nowIso(), balance_confirm_requested_by: meId }).in('id', targets.map(t => t.id)) }, landingUrl, landingLabel }
-    }
-    return null
-  }
+  // 金融資産の「残高確定／凍結確認」W-Checkは 資料読込(fin-read) の完了時にのみ促す（上のブロック）。
+  // 資料請求(fin:)や全店調査など受領前のタスクでは、まだ残高が届いていないので確認プロンプトは出さない。
   // ── 不動産（評価証明の取得系）：評価額確定の依頼 ──
   if (gyomu === '不動産' && /評価/.test(task.title ?? '')) {
     const { data } = await supabase.from('real_estate_properties').select('id,appraisal_value,confirmed,confirm_requested_at').eq('case_id', task.case_id)
