@@ -27,6 +27,10 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
   const [bulkDate, setBulkDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  // 禁止期間終了時の⚡確認モーダル（金融タスク用）。理由テキストを見せて「解消したか」を人に確認させる。
+  const [prohibitionGate, setProhibitionGate] = useState<null | {
+    task: TaskRow; bankName: string; reason: string; endDate: string | null; daysPassed: number
+  }>(null)
 
   const allIds = tasks.map(t => t.id)
   const allSel = allIds.length > 0 && allIds.every(id => sel.has(id))
@@ -55,19 +59,42 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
 
   // 着手前タスクにだけ「着手OK」「受領次第OK」を1クリックでトグル。
   // ext_data.ready_reason = 手動着手OK理由、ready_on_receipt = 受領次第OK。両者は排他。
-  const toggleReady = async (t: TaskRow, kind: 'manual' | 'receipt') => {
+  const applyReady = async (t: TaskRow, kind: 'manual' | 'receipt', reason?: string) => {
     const supabase = createClient()
     const ext = { ...((t.ext_data ?? {}) as Record<string, unknown>) }
     const isOnManual = !!(ext.ready === true || (typeof ext.ready_reason === 'string' && ext.ready_reason.trim()))
     const isOnReceipt = isWaitingReceipt(t)
     if (kind === 'manual') {
-      if (isOnManual) { delete ext.ready_reason; delete ext.ready } else { ext.ready_reason = '手動で着手OK'; ext.ready = true; delete ext.ready_on_receipt }
+      if (isOnManual) { delete ext.ready_reason; delete ext.ready } else { ext.ready_reason = reason || '手動で着手OK'; ext.ready = true; delete ext.ready_on_receipt }
     } else {
       if (isOnReceipt) { delete ext.ready_on_receipt } else { ext.ready_on_receipt = true; delete ext.ready_reason; delete ext.ready }
     }
     const { error } = await supabase.from('tasks').update({ ext_data: ext }).eq('id', t.id)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
     onRefresh()
+  }
+  // 金融タスク(fin:/fin-read:)の着手OK切替時、口座に禁止期間が設定されていて期日到来していれば確認モーダル。
+  // 禁止期間が過ぎていない場合は通常運用外なので警告出しつつも押させない（手動で禁止期間を短く更新してから）。
+  const toggleReady = async (t: TaskRow, kind: 'manual' | 'receipt') => {
+    if (kind !== 'manual') { void applyReady(t, kind); return }
+    const isOnManual = !!(((t.ext_data ?? {}) as Record<string, unknown>).ready === true || (typeof ((t.ext_data ?? {}) as Record<string, unknown>).ready_reason === 'string' && ((t.ext_data ?? {}) as Record<string, string>).ready_reason?.trim()))
+    // 解除方向はモーダル不要
+    if (isOnManual) { void applyReady(t, 'manual'); return }
+    // 金融タスクなら関連口座の禁止期間を確認
+    const rid = t.source_rid ?? ''
+    const m = rid.match(/^fin(?:-read)?:(.+)$/)
+    if (!m) { void applyReady(t, 'manual'); return }
+    const bankName = m[1]
+    const supabase = createClient()
+    const { data } = await supabase.from('financial_assets')
+      .select('survey_prohibited_end,survey_prohibited_reason')
+      .eq('case_id', t.case_id).eq('institution_name', bankName).limit(1).maybeSingle()
+    const endDate = (data?.survey_prohibited_end as string | null) ?? null
+    const reason = ((data?.survey_prohibited_reason as string | null) ?? '').trim()
+    if (!endDate && !reason) { void applyReady(t, 'manual'); return }
+    // 禁止期間ありのケース：モーダルで理由と経過日数を提示して人の判断を仰ぐ
+    const daysPassed = endDate ? Math.floor((new Date(today).getTime() - new Date(endDate).getTime()) / 86400000) : 0
+    setProhibitionGate({ task: t, bankName, reason: reason || '(理由未入力)', endDate, daysPassed })
   }
 
   const applyBulkDelete = async () => {
@@ -96,6 +123,37 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
             <Trash2 className="w-3.5 h-3.5" />選択分を削除
           </button>
           <button type="button" onClick={() => setSel(new Set())} className="ml-auto px-2 py-1.5 text-[12px] text-gray-500 hover:text-gray-800">選択解除</button>
+        </div>
+      )}
+
+      {/* 禁止期間終了時の⚡確認モーダル（金融タスク用） */}
+      {prohibitionGate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setProhibitionGate(null)}>
+          <div className="w-full max-w-sm bg-white rounded-xl border border-gray-200 p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-[15px] font-semibold text-gray-800 mb-1">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />禁止期間の解消を確認しましたか？
+            </div>
+            <div className="text-[12px] text-gray-500 mb-3">{prohibitionGate.bankName}</div>
+            <div className="bg-gray-50 rounded-md p-2.5 mb-3">
+              <div className="text-[11px] text-gray-500 mb-0.5">禁止理由</div>
+              <div className="text-[13px] text-gray-800 leading-relaxed">{prohibitionGate.reason}</div>
+              {prohibitionGate.endDate && (
+                <>
+                  <div className="text-[11px] text-gray-500 mt-2 mb-0.5">終了予定日</div>
+                  <div className="text-[13px] text-gray-800">{prohibitionGate.endDate}
+                    <span className="text-[11px] text-gray-500 ml-1">（{prohibitionGate.daysPassed >= 0 ? `${prohibitionGate.daysPassed}日経過` : `あと${-prohibitionGate.daysPassed}日`}）</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <p className="text-[12.5px] text-gray-700 leading-relaxed mb-3">上記の禁止理由が<b>実際に解消されたこと</b>を確認しましたか？<br/><span className="text-[11.5px] text-gray-500">確認方法は状況に応じて（通帳・電話・依頼者確認・書面 等）</span></p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setProhibitionGate(null)} className="px-3 py-1.5 text-[12.5px] text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">まだ</button>
+              <button type="button" onClick={async () => { const g = prohibitionGate; setProhibitionGate(null); await applyReady(g.task, 'manual', `禁止期間終了確認済（${g.endDate ?? '期日未設定'}）: ${g.reason}`) }} className="inline-flex items-center gap-1 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700">
+                <Check className="w-3.5 h-3.5" />確認済み・着手OKに
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
