@@ -322,6 +322,7 @@ const KIND_GYOMU: Record<string, string[]> = {
   real_estate_acquisition: ['不動産'],
   real_estate: ['不動産'],
   agreement_dispatch: ['協議書'],
+  legal_info: ['法定相続情報取得'],
 }
 
 // 契約時受領書類の区分(category) → 関係する業務。
@@ -432,6 +433,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   const expectedReadRid = (it: { linked_kind: string | null; linked_id: string | null }): string | null => {
     if (!it.linked_id) return null
     if (it.linked_kind === 'koseki') return `koseki-read:${it.linked_id}`
+    if (it.linked_kind === 'legal_info') return 'family-tree-recv'  // 法定相続情報一覧図の受領タスク（案件単位1本）
     if (it.linked_kind === 'financial_asset') {
       const name = (finAssets.find(a => a.id === it.linked_id)?.institution_name ?? '').trim()
       return name ? `fin-read:${name}` : null
@@ -863,6 +865,7 @@ function ReceiptRow({
           : i.linked_kind === 'koseki' ? 'koseki_requests'
           : i.linked_kind === 'contract_doc' ? 'contract_documents'
           : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
+          : i.linked_kind === 'legal_info' ? 'cases'  // 法定相続情報一覧図の取得日は cases.family_tree_obtain_date
           : 'real_estate_properties'
         return supabase.from(table).update({ [i.linked_field as string]: linkVal }).eq('id', i.linked_id as string)
       })
@@ -891,6 +894,7 @@ function ReceiptRow({
         : i.linked_kind === 'koseki' ? 'koseki_requests'
         : i.linked_kind === 'contract_doc' ? 'contract_documents'
         : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
+        : i.linked_kind === 'legal_info' ? 'cases'
         : 'real_estate_properties'
       return supabase.from(table).update({ [i.linked_field as string]: null }).eq('id', i.linked_id as string)
     }))

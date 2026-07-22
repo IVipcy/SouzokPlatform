@@ -13,14 +13,14 @@ import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, Contra
 export type DeliverableOption = {
   value: string          // `${kind}:${id}:${field}`
   label: string          // 表示名（例: ○○銀行 残高証明）
-  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍 / 契約書類 / 遺産分割協議書）
-  kind: 'financial_asset' | 'real_estate' | 'real_estate_acquisition' | 'koseki' | 'contract_doc' | 'agreement_dispatch'
+  group: string          // グルーピング用（預金 / 証券 / 信託 / 不動産 / 戸籍 / 契約書類 / 遺産分割協議書 / 法定相続情報）
+  kind: 'financial_asset' | 'real_estate' | 'real_estate_acquisition' | 'koseki' | 'contract_doc' | 'agreement_dispatch' | 'legal_info'
   id: string
-  field: string          // 受領日カラム名
+  field: string          // 受領日カラム名（legal_info は cases.family_tree_obtain_date）
 }
 
 // 受信簿の候補ソースを持つ業務(gyomu)。intake_roles にこの業務があるとき候補に出す。
-export const RECEIPT_SOURCE_GYOMU = ['戸籍', '金融資産', '解約', '不動産', '協議書'] as const
+export const RECEIPT_SOURCE_GYOMU = ['戸籍', '金融資産', '解約', '不動産', '協議書', '法定相続情報取得'] as const
 
 const FA_GROUP: Record<string, string> = {
   預貯金: '預金',
@@ -45,6 +45,7 @@ export function deliverableLinkLabel(linkedKind: string | null, linkedField: str
   if (linkedKind === 'contract_doc') return '契約書類'
   if (linkedKind === 'agreement_dispatch') return '遺産分割協議書'
   if (linkedKind === 'real_estate_acquisition') return '不動産・取得資料'
+  if (linkedKind === 'legal_info') return '法定相続情報一覧図'
   const item = FIELD_LABELS[linkedField] ?? '取得物'
   const cat = linkedKind === 'real_estate' ? '不動産' : '金融機関'
   return `${cat}・${item}`
@@ -63,6 +64,9 @@ export function buildDeliverableOptions(
   contractDocuments: ContractDocumentRow[] = [],
   agreementDispatches: AgreementDispatchRow[] = [],
   heirs: HeirRow[] = [],
+  // 法定相続情報一覧図（案件単位1件・cases に保存）。受領で family_tree_obtain_date をセット。
+  caseId: string | null = null,
+  familyTreeObtainDate: string | null = null,
 ): DeliverableOption[] {
   const opts: DeliverableOption[] = []
   // 業務が分からない（intake_roles 未設定の旧データ等）ときは全部出す
@@ -155,6 +159,18 @@ export function buildDeliverableOptions(
         field: 'arrival_date',
       })
     }
+  }
+
+  // 法定相続情報一覧図（案件単位1件。受領で cases.family_tree_obtain_date をセット。既に取得済なら候補から除外）
+  if (gate('法定相続情報取得') && caseId && !familyTreeObtainDate) {
+    opts.push({
+      value: `legal_info:${caseId}:family_tree_obtain_date`,
+      label: '法定相続情報一覧図',
+      group: '法定相続情報',
+      kind: 'legal_info',
+      id: caseId,
+      field: 'family_tree_obtain_date',
+    })
   }
 
   // 遺産分割協議書の返送（送付済かつ未受領の相続人を候補に）
