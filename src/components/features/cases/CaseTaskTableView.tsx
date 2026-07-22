@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle, Zap, Clock, X } from 'lucide-react'
+import { Loader2, Play, Check, CalendarPlus, Trash2, AlertTriangle, Zap, Clock, X, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, getStartSignal, isWaitingReceipt, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { getStartOkSuggestions, type StartOkSuggestion } from '@/lib/startOkSuggest'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
-import type { TaskRow } from '@/types'
+import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
 /**
  * 案件詳細・タスクタブの事務管理タスクのテーブルビュー。
@@ -31,6 +32,35 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
   const [prohibitionGate, setProhibitionGate] = useState<null | {
     task: TaskRow; bankName: string; reason: string; endDate: string | null; daysPassed: number
   }>(null)
+  // 着手OKセンター：条件が揃ったタスクを提案。判定強度は「中」（getStartOkSuggestions）。
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const [suggestions, setSuggestions] = useState<StartOkSuggestion[] | null>(null)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const openSuggestCenter = async () => {
+    if (tasks.length === 0) { setSuggestions([]); setSuggestOpen(true); return }
+    setSuggestOpen(true); setSuggestLoading(true)
+    const supabase = createClient()
+    const caseId = tasks[0]?.case_id
+    const [{ data: koseki }, { data: fa }] = await Promise.all([
+      supabase.from('koseki_requests').select('*').eq('case_id', caseId),
+      supabase.from('financial_assets').select('*').eq('case_id', caseId),
+    ])
+    const result = getStartOkSuggestions(tasks, (koseki ?? []) as KosekiRequestRow[], (fa ?? []) as FinancialAssetRow[], today)
+    setSuggestions(result)
+    setSuggestLoading(false)
+  }
+  // 提案からのワンクリック着手OK。禁止期間絡み(requiresConfirmation)はモーダル経由。
+  const applySuggestion = async (s: StartOkSuggestion) => {
+    const t = tasks.find(x => x.id === s.taskId); if (!t) return
+    if (s.requiresConfirmation) { setSuggestOpen(false); await toggleReady(t, 'manual'); return }
+    await applyReady(t, 'manual', s.reason)
+    setSuggestions(prev => (prev ?? []).filter(x => x.taskId !== s.taskId))
+  }
+  const applyAllSuggestions = async () => {
+    const list = (suggestions ?? []).filter(s => !s.requiresConfirmation)
+    for (const s of list) { const t = tasks.find(x => x.id === s.taskId); if (t) await applyReady(t, 'manual', s.reason) }
+    setSuggestions(prev => (prev ?? []).filter(x => x.requiresConfirmation))
+  }
 
   const allIds = tasks.map(t => t.id)
   const allSel = allIds.length > 0 && allIds.every(id => sel.has(id))
@@ -111,6 +141,51 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
 
   return (
     <div className="space-y-2">
+      {/* 着手OKセンター（右上）：中レベル判定で条件が揃ったタスクを提案 */}
+      <div className="flex items-center justify-end">
+        <button type="button" onClick={openSuggestCenter} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100">
+          <Lightbulb className="w-3.5 h-3.5" />着手OKセンター
+        </button>
+      </div>
+
+      {/* 着手OKセンターのドロップダウン（提案リスト） */}
+      {suggestOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 py-10 overflow-y-auto" onClick={() => setSuggestOpen(false)}>
+          <div className="w-full max-w-lg bg-white rounded-xl border border-amber-200 p-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-amber-900"><Lightbulb className="w-4 h-4" />着手OKにできそうなタスク {suggestions ? suggestions.length : ''}件</div>
+              <button type="button" onClick={() => setSuggestOpen(false)} className="text-gray-400 hover:text-gray-700" aria-label="閉じる"><X className="w-4 h-4" /></button>
+            </div>
+            {suggestLoading ? (
+              <div className="py-8 text-center text-[12.5px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />判定中…</div>
+            ) : (suggestions ?? []).length === 0 ? (
+              <div className="py-6 text-center text-[12.5px] text-gray-500">条件が揃ったタスクはありません。前段（戸籍・受領・凍結確認等）が進むとここに提案が並びます。</div>
+            ) : (
+              <>
+                {(suggestions ?? []).filter(s => !s.requiresConfirmation).length > 1 && (
+                  <div className="flex justify-end mb-2">
+                    <button type="button" onClick={applyAllSuggestions} className="text-[11.5px] font-semibold text-amber-800 hover:text-amber-900">確認不要のものを全部まとめて着手OKに ↗</button>
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  {(suggestions ?? []).map(s => (
+                    <div key={s.taskId} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12.5px] text-gray-800 truncate" title={s.taskTitle}>{s.taskTitle}</div>
+                        <div className="text-[11px] text-brand-700 mt-0.5"><Check className="w-3 h-3 inline mr-0.5" />{s.reason}</div>
+                      </div>
+                      <button type="button" onClick={() => applySuggestion(s)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-white bg-brand-600 hover:bg-brand-700 whitespace-nowrap">
+                        <Zap className="w-3 h-3" />{s.requiresConfirmation ? '確認して着手OK' : '着手OKに'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 一括期限設定ツールバー（選択時のみ） */}
       {sel.size > 0 && (
         <div className="flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2 flex-wrap">
