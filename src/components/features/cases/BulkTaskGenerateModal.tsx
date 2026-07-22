@@ -94,7 +94,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       ] },
       '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
       '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）', readyOnReceipt: true }] },
-      '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き', readyOnReceipt: true }] },
+      '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
     const kosekiLabel = (k: KosekiRequestRow) => {
