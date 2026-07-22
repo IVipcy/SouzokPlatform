@@ -125,8 +125,18 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       requested_date: today,
       review_point: reviewPointInput.trim() || null,
     })
+    if (error) { setRequesting(false); showToast('依頼に失敗しました', 'error'); return }
+    // 確認者＝受注担当へ通知（依頼が届いたことを知らせる）。salesMemberId が無ければ通知はスキップ。
+    if (salesMemberId) {
+      await supabase.from('notifications').insert({
+        member_id: salesMemberId,
+        type: 'progress_review_requested',
+        case_id: caseData.id,
+        title: '進捗確認の依頼が届きました',
+        body: `${caseData.case_number} ${caseData.deal_name}：${reviewPointInput.trim() || '進捗確認をお願いします'}`,
+      })
+    }
     setRequesting(false)
-    if (error) { showToast('依頼に失敗しました', 'error'); return }
     setReviewPointInput('')
     setRequestOpen(false)
     showToast('進捗確認を依頼しました。その場で確認してもらいましょう', 'success')
@@ -185,6 +195,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       priority: taskPriority,
       due_date: taskDue || null,
       procedure_text: taskWork.trim() || null,
+      phase: '',                 // phase/category は NOT NULL。受注/管理担当タスクは業務区分を持たないため空文字。
+      category: '',
       sort_order: 99,
     }).select('id').single()
     if (e1 || !nt) { setTaskSaving(false); showToast(`タスク作成に失敗: ${e1?.message ?? ''}`, 'error'); return }
