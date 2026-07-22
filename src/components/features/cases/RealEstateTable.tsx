@@ -156,6 +156,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
                   showMuni={showMuni}
                   showConfirmed={showConfirmed}
                   addrListId={addrListId}
+                  addrOptions={addrOptions}
                   onRequestConfirm={() => reqConfirm(r)}
                   onCancelConfirm={() => cancelConfirm(r)}
                 />
@@ -198,7 +199,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   )
 }
 
-function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrListId, onRequestConfirm, onCancelConfirm }: {
+function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrListId, addrOptions, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
@@ -206,6 +207,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
   showMuni: boolean
   showConfirmed: boolean
   addrListId: string
+  addrOptions: string[]
   onRequestConfirm: () => void
   onCancelConfirm: () => void
 }) {
