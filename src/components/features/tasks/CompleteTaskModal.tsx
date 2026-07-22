@@ -161,8 +161,10 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     setSaving(true)
     const supabase = createClient()
 
-    // 1) 完了本体（実施結果をmerge）
-    const ext = { ...((task.ext_data ?? {}) as Record<string, unknown>), execution_result: result.trim() }
+    // 1) 完了本体（実施結果・完了者・完了日時を merge。関連タスク一覧の実施ログ表示に使う）
+    let meName: string | null = null
+    if (memberId) { const { data: m } = await supabase.from('members').select('name').eq('id', memberId).maybeSingle(); meName = (m as { name?: string } | null)?.name ?? null }
+    const ext = { ...((task.ext_data ?? {}) as Record<string, unknown>), execution_result: result.trim(), completed_at: new Date().toISOString(), completed_by_name: meName }
     const { error } = await supabase.from('tasks').update({ status: '完了', ext_data: ext }).eq('id', task.id)
     if (error) { setSaving(false); showToast(`完了に失敗しました: ${error.message}`, 'error'); return }
 
