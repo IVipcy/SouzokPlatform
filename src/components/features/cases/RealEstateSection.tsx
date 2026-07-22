@@ -31,6 +31,7 @@ type Props = {
   contractDocs?: ContractDocumentRow[]
   focus?: string | null   // タスク詳細からの着地：市区町村名。該当市区町村タブを初期選択。
   focusOffice?: 'muni' | 'houmu' | null  // 着地元タスクの系統：①市区町村役場/②法務局。該当表を点滅。
+  focusIsRead?: boolean                  // 着地元が「読込」タスクか。読込のときだけ物件一覧もハイライト（請求段階では物件未確定）。
   addressSuggestions?: string[]  // 所在地の予測住所（被相続人の住所・本籍など）
 }
 
@@ -46,7 +47,7 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, addressSuggestions = [] }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
   // タスク詳細から着地したとき、対象の表（①/②）を青枠点滅→点滅後も枠は残す。
@@ -372,9 +373,9 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
-            {/* 物件一覧：re-muni-read（名寄帳・評価証明読込）タスク詳細から着地した場合、
-                評価額の転記までがこのタスクの守備範囲になるので同時にハイライト。 */}
-            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
+            {/* 物件一覧：re-muni-read（名寄帳・評価証明「読込」）タスクから着地した場合のみハイライト。
+                「請求」タスク（名寄帳未着）では物件が未確定なのでハイライトしない。 */}
+            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
               <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
             </div>

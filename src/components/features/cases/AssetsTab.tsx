@@ -68,13 +68,18 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus')
   // 着地元タスクの source_rid から、不動産の①市区町村役場/②法務局どちらの表かを判定（該当表を点滅）。
-  const focusOffice: 'muni' | 'houmu' | null = (() => {
+  const focusRid: string = (() => {
     const tid = searchParams.get('task')
-    const rid = (tid ? tasks.find(t => t.id === tid)?.source_rid : null) ?? ''
-    if (/^re-houmu(?:-read)?:/.test(rid)) return 'houmu'
-    if (/^re(?:-muni)?(?:-read)?:/.test(rid)) return 'muni'
+    return (tid ? tasks.find(t => t.id === tid)?.source_rid : null) ?? ''
+  })()
+  const focusOffice: 'muni' | 'houmu' | null = (() => {
+    if (/^re-houmu(?:-read)?:/.test(focusRid)) return 'houmu'
+    if (/^re(?:-muni)?(?:-read)?:/.test(focusRid)) return 'muni'
     return null
   })()
+  // 着地元が「読込」タスクか（re-*-read）。読込タスクは物件洗い出し＋評価額確定まで守備範囲なので物件一覧もハイライト。
+  // 「請求」タスクはまだ名寄帳が届いていないので物件一覧はハイライトしない。
+  const focusIsRead = /-read:/.test(focusRid)
   const [sub, setSub] = useState<string>(() => {
     if (!focus) return 'realestate'
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
@@ -163,6 +168,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               contractDocs={reContractDocs}
               focus={focus}
               focusOffice={focusOffice}
+              focusIsRead={focusIsRead}
               addressSuggestions={addrSuggestions}
             />
           )}
