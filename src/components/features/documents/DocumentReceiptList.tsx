@@ -643,7 +643,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               // この到着物に関係する業務区分。判定できれば既存タスクを「関係する業務」だけに絞る。
               const gy = gyomuForItem(it)
               // 事務管理タスク(task_kind='case')のうち、未完了のものだけ候補に（完了/キャンセルは出さない）。
-              const linkable = tasks.filter(t => t.task_kind !== 'system' && t.status !== '完了' && t.status !== 'キャンセル')
+              // 状態は normalizeTaskStatus で正規化して判定（'キャンセル'→'完了' 等の表記ゆれを吸収）。
+              const linkable = tasks.filter(t => t.task_kind !== 'system' && normalizeTaskStatus(t.status) !== '完了')
               const relevant = gy ? linkable.filter(t => gy.includes(gyomuOfTask(t))) : []
               const relevantIds = new Set(relevant.map(t => t.id))
               const others = linkable.filter(t => !relevantIds.has(t.id))
