@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, ListChecks, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { kosekiOfficeFromAddress } from '@/lib/address'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { useModal } from '@/hooks/useModal'
@@ -145,6 +146,36 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const handleSaved = () => {
     router.refresh()
   }
+
+  // 戸籍請求の自動シード：戸籍業務が有効な案件で、被相続人＋相続人のうち koseki_requests 行が無い人の行を作る。
+  // 戸籍タスクは koseki_requests の行から生成されるため、行が無い人はタスクも出ない（相続人分が生成されない事象の対策）。
+  // 取得区分は既定「自社取得」、請求先は本籍地から自動推定。人の追加後にオーダーシートの戸籍請求一覧へ反映される。
+  const kosekiSeededRef = useRef(false)
+  useEffect(() => {
+    if (kosekiSeededRef.current) return
+    const roles = (caseState.intake_roles ?? []) as Array<{ gyomu?: string | null; owner?: string | null }>
+    if (!roles.some(r => r.gyomu === '戸籍' && (r.owner ?? '') !== '不要')) return
+    const people: { name: string; office: string | null }[] = []
+    const dn = (caseState.deceased_name ?? '').trim()
+    if (dn) people.push({ name: dn, office: kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null) })
+    for (const h of heirs) {
+      const nm = (h.name ?? '').trim()
+      if (nm && !people.some(p => p.name === nm)) people.push({ name: nm, office: kosekiOfficeFromAddress(h.registered_address ?? null) })
+    }
+    if (people.length === 0) return
+    const existing = new Set(kosekiRequests.map(r => (r.target_person ?? '').trim()).filter(Boolean))
+    const missing = people.filter(p => !existing.has(p.name))
+    if (missing.length === 0) return
+    kosekiSeededRef.current = true
+    ;(async () => {
+      const supabase = createClient()
+      const base = kosekiRequests.length
+      const rows = missing.map((p, i) => ({ case_id: caseState.id, target_person: p.name, acquirer: '自社', request_to: p.office, sort_order: base + i }))
+      const { error } = await supabase.from('koseki_requests').insert(rows)
+      if (!error) handleSaved()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseState.id, heirs.length, kosekiRequests.length])
 
   // 「このタスクを完了」→ まず注意（依頼のし忘れ等）を判定。該当なければそのまま完了モーダルへ。
   const handleCompleteClick = async (t: TaskRow) => {
