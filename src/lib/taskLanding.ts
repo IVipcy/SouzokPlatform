@@ -30,6 +30,10 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   const fm = rid.match(/^fin(?:-read)?:(.+)$/)
   if (fm) return { tab: 'assets', focus: fm[1], label: '財産調査タブ（金融）' }
 
+  // 解約（cancel:{金融機関名}）→ 解約手続タブ、focus=金融機関名（該当機関サブタブを選択）
+  const cm = rid.match(/^cancel:(.+)$/)
+  if (cm) return { tab: 'cancellation', focus: cm[1], label: '解約手続タブ' }
+
   // 相続登記 → 相続登記タブ（市区町村単位。タブへ遷移）
   const gm = rid.match(/^reg:(.+)$/)
   if (gm) return { tab: 'registration', focus: gm[1], label: '相続登記タブ' }

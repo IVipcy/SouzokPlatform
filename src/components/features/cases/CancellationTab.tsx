@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
-import type { FinancialAssetRow, CaseRow } from '@/types'
+import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 const CANCEL = ['有', '無', '確認中']
@@ -25,6 +26,8 @@ type Props = {
   onRefresh?: () => void
   // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
+  // 事務管理タスク（各機関サブタブの「関連タスク」表示・タスク詳細からの着地用）
+  tasks?: TaskRow[]
   /** オーダーシート埋め込み時は TabHeader を出さない */
   orderSheetMode?: boolean
 }
@@ -35,8 +38,10 @@ type Props = {
  * オーダーシートでは解約有無・禁止事項のみ（予定日は手続き後半で決まるため持たない）。実績の解約完了日は実務タブで入力。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
-export default function CancellationTab({ caseId, caseData, financialAssets, onRefresh, receipts = [], orderSheetMode = false }: Props) {
+export default function CancellationTab({ caseId, caseData, financialAssets, onRefresh, receipts = [], tasks = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const focus = searchParams.get('focus')
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   // 財産調査で金融機関が追加/削除されたら（router.refresh で props 更新）一覧へ反映。
   // オーダーシート等で常時マウントされる場合に初期 props のまま固まるのを防ぐ。
@@ -114,7 +119,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
 
       {!orderSheetMode && caseId ? (
         // 案件詳細（実務）：金融機関単位の左レール＋カード
-        <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} />
+        <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} tasks={tasks} focus={focus} />
       ) : (
         // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開
         <div className="space-y-4">

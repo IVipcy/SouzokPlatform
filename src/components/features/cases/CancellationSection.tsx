@@ -11,24 +11,28 @@ import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { relatedTasksFor } from '@/lib/relatedTasks'
 import RelatedTaskChips from './RelatedTaskChips'
+import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
-import type { FinancialAssetRow } from '@/types'
+import type { FinancialAssetRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 const CANCEL = ['有', '無', '確認中']
 const collator = new Intl.Collator('ja')
 
-export default function CancellationSection({ caseId, financialAssets, onRefresh, receipts = [] }: {
+export default function CancellationSection({ caseId, financialAssets, onRefresh, receipts = [], tasks = [], focus }: {
   caseId: string
   financialAssets: FinancialAssetRow[]
   onRefresh?: () => void
   receipts?: TimelineReceipt[]
+  tasks?: TaskRow[]
+  focus?: string | null   // タスク詳細からの着地：金融機関名。該当機関サブタブを初期選択。
 }) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(financialAssets)
   useEffect(() => { setRows(financialAssets) }, [financialAssets])
-  const [sub, setSub] = useState('top')
+  // タスク詳細から ?focus=金融機関名 で来たら該当機関サブタブを初期選択（その機関の口座がある場合のみ）。
+  const [sub, setSub] = useState(() => (focus && financialAssets.some(a => (a.institution_name ?? '').trim() === focus)) ? focus : 'top')
 
   const institutions = [...new Set(rows.map(r => (r.institution_name ?? '').trim()).filter(Boolean))].sort(collator.compare)
   const hasUnset = rows.some(r => !(r.institution_name ?? '').trim())
@@ -91,6 +95,17 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
           </div>
         ) : (
           <div className="space-y-3.5">
+            {/* 関連タスク（この機関の解約タスク cancel:{機関名}）。他タブと体裁を揃える。 */}
+            {(() => {
+              const instTasks = tasks.filter(x => x.source_rid === `cancel:${activeInst}`)
+              if (instTasks.length === 0) return null
+              return (
+                <div className="flex items-center gap-2 flex-wrap bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2">
+                  <span className="text-[11.5px] font-semibold text-brand-700">関連タスク（{sub === '__unset__' ? '機関名 未設定' : activeInst}）</span>
+                  {instTasks.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}
+                </div>
+              )
+            })()}
             <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗/結果（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
             {instRows(activeInst).length === 0 ? (
               <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この金融機関の口座がありません。</div>

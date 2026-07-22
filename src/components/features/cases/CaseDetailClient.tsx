@@ -530,7 +530,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} />
       )}
       {effectiveTab === 'cancellation' && (
-        <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} onRefresh={handleSaved} receipts={documentReceipts} />
+        <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} onRefresh={handleSaved} receipts={documentReceipts} tasks={tasks} />
       )}
       {PROCEDURE_TABS.map(p => effectiveTab === p.tab && (
         <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
