@@ -113,15 +113,15 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     setHeirForm({
       ...emptyHeirForm(),
       name: mainClient?.name ?? caseData.clients?.name ?? '',
-      furigana: mainClient?.furigana ?? '',
+      furigana: mainClient?.furigana ?? caseData.clients?.furigana ?? '',
       relationship: '',
       birth_date: mainClient?.birth_date ?? '',
       address: caseData.clients?.address ?? '',
       registered_address: '',
-      phone: mainClient?.phone ?? '',
-      email: mainClient?.email ?? '',
+      phone: mainClient?.phone ?? caseData.clients?.phone ?? '',
+      email: mainClient?.email ?? caseData.clients?.email ?? '',
     })
-    setHeirPostal('')
+    setHeirPostal(caseData.clients?.postal_code ?? '')
     setShowAddHeir(true)
   }
 
@@ -186,19 +186,24 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   const startEdit = (heir: HeirRow) => {
     setEditingHeirId(heir.id)
+    // 依頼者と同名の相続人（=自動投入された1人目）を編集するときは、依頼者側の情報で空欄を埋めて開く。
+    //   - 郵便番号は heirs テーブルに列がないので、依頼者(clients)の郵便番号を初期値に。
+    //   - 生年月日・住所・連絡先など既に heirs に入っていればそれを優先、無ければ依頼者から補完。
+    const isMainClientHeir = mainClient?.name?.trim() === heir.name.trim() || (caseData.clients?.name?.trim() ?? '') === heir.name.trim()
     setHeirForm({
       name: heir.name,
-      furigana: heir.furigana ?? '',
+      furigana: heir.furigana ?? (isMainClientHeir ? (mainClient?.furigana ?? caseData.clients?.furigana ?? '') : ''),
       relationship: (heir.relationship_type ?? heir.relationship ?? '') as RelType | '',
-      birth_date: heir.birth_date ?? '',
-      address: heir.address ?? '',
+      birth_date: heir.birth_date ?? (isMainClientHeir ? (mainClient?.birth_date ?? '') : ''),
+      address: heir.address ?? (isMainClientHeir ? (caseData.clients?.address ?? '') : ''),
       registered_address: heir.registered_address ?? '',
-      phone: heir.phone ?? '',
-      email: heir.email ?? '',
+      phone: heir.phone ?? (isMainClientHeir ? (mainClient?.phone ?? caseData.clients?.phone ?? '') : ''),
+      email: heir.email ?? (isMainClientHeir ? (mainClient?.email ?? caseData.clients?.email ?? '') : ''),
       is_legal_heir: heir.is_legal_heir,
       is_applicant: heir.is_applicant,
     })
-    setHeirPostal('')
+    // 郵便番号は heirs に保存しないので、依頼者の郵便番号を編集時の初期値に載せる
+    setHeirPostal(isMainClientHeir ? (caseData.clients?.postal_code ?? '') : '')
     setShowAddHeir(true)
   }
 
