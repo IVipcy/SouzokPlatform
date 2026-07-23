@@ -6,7 +6,7 @@
 //   - 面談シート＝オーダーシート構成のまま、相続人一覧・受注内容・財産情報だけ開き他は閉じる。各セクションに埋め込みメモ(A)。
 //   - オーダーシート＝全開。面談シートから「切り替え」で一方向遷移（戻れない）。
 //   - メモ＝各セクション名だけの白紙キャンバス(B)。
-// ・手書き→テキスト化は Handwriting Recognition API（Chromeのオンデバイス手書き認識・日本語）。未対応環境ではその旨を表示。
+// ・手書き→テキスト化は Claude(vision) で文字起こし（/api/ocr）。既存の ANTHROPIC_API_KEY を使用。
 
 import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
 import {
@@ -17,7 +17,7 @@ import {
 type Field = { label: string; wide?: boolean }
 type Section = { key: string; title: string; openInSheet: boolean; pills?: string[]; fields: Field[] }
 type MemoItem = { id: string; image: string; text: string }
-type Pt = { x: number; y: number; t: number }
+type Pt = { x: number; y: number }
 
 const STORE_KEY = 'meeting-sheet-memos-v1'
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
@@ -47,39 +47,17 @@ const SECTIONS: Section[] = [
   ] },
 ]
 
-// Handwriting Recognition API（Chrome オンデバイス）でストローク→テキスト。未対応なら null。
-async function ocrStrokes(strokes: Pt[][]): Promise<string | null> {
-  const nav = navigator as unknown as {
-    createHandwritingRecognizer?: (c: unknown) => Promise<{
-      startDrawing: (h: unknown) => { addStroke: (s: unknown) => void; getPrediction: () => Promise<Array<{ text: string }>> }
-      finish?: () => void
-    }>
-  }
-  if (typeof nav.createHandwritingRecognizer !== 'function') return null
-  try {
-    const recognizer = await nav.createHandwritingRecognizer({ languages: ['ja'] })
-    const drawing = recognizer.startDrawing({ recognitionType: 'text' })
-    for (const s of strokes) if (s.length) drawing.addStroke({ points: s })
-    const preds = await drawing.getPrediction()
-    try { recognizer.finish?.() } catch { /* noop */ }
-    return preds?.[0]?.text ?? ''
-  } catch {
-    return null
-  }
-}
-
-// 手書きキャンバス。ペン（pointer・筆圧対応）で描画→ストローク記録。保存で画像化、テキスト化でOCR。
-function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: boolean | null; onSave: (image: string, text: string) => void; height?: number }) {
+// 手書きキャンバス。ペン（pointer・筆圧対応）で描画。保存で画像化、テキスト化でClaude OCR(/api/ocr)。
+function HandwriteCanvas({ onSave, height = 160 }: { onSave: (image: string, text: string) => void; height?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
   const last = useRef<Pt | null>(null)
-  const strokes = useRef<Pt[][]>([])
+  const readyRef = useRef(false)
   const [empty, setEmpty] = useState(true)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
 
   // 実寸×DPRでビットマップを確保し、以降はCSS座標で描画（setTransformでDPR分だけ拡大）。
-  const readyRef = useRef(false)
   const setup = useCallback(() => {
     const c = canvasRef.current; if (!c) return
     const rect = c.getBoundingClientRect()
@@ -93,19 +71,18 @@ function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: b
   }, [height])
   useEffect(() => {
     setup()
-    const onResize = () => { if (strokes.current.length === 0) { readyRef.current = false; setup() } }
+    const onResize = () => { if (empty) { readyRef.current = false; setup() } }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [setup])
+  }, [setup, empty])
 
   const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => {
     const r = canvasRef.current!.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top, t: Math.round(e.timeStamp) }
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
   const down = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (!readyRef.current) setup()
-    drawing.current = true
-    const p = pos(e); last.current = p; strokes.current.push([p])
+    drawing.current = true; last.current = pos(e)
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
   }
   const move = (e: RPointerEvent<HTMLCanvasElement>) => {
@@ -114,29 +91,37 @@ function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: b
     const p = pos(e)
     ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
-    last.current = p; strokes.current[strokes.current.length - 1]?.push(p); setEmpty(false)
+    last.current = p; setEmpty(false)
   }
   const up = () => { drawing.current = false; last.current = null }
   const clear = () => {
     const c = canvasRef.current; if (!c) return
     const ctx = c.getContext('2d')
     if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() }
-    strokes.current = []; setEmpty(true); setText('')
+    setEmpty(true); setText('')
   }
   const toText = async () => {
-    if (empty) return
+    const c = canvasRef.current; if (!c || empty) return
     setBusy(true)
-    const r = await ocrStrokes(strokes.current)
-    setBusy(false)
-    if (r === null) setText('__UNSUPPORTED__')
-    else setText(r || '（認識できませんでした）')
+    try {
+      const res = await fetch('/api/ocr', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: c.toDataURL('image/png') }),
+      })
+      const j = (await res.json()) as { text?: string; error?: string }
+      if (!res.ok) setText(`__ERROR__${j.error ?? '認識に失敗しました'}`)
+      else setText(j.text || '（認識できませんでした）')
+    } catch {
+      setText('__ERROR__通信に失敗しました')
+    } finally { setBusy(false) }
   }
   const save = () => {
     const c = canvasRef.current; if (!c || empty) return
-    onSave(c.toDataURL('image/png'), text && text !== '__UNSUPPORTED__' ? text : '')
+    onSave(c.toDataURL('image/png'), text && !text.startsWith('__ERROR__') ? text : '')
     clear()
   }
 
+  const isError = text.startsWith('__ERROR__')
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2.5">
       <canvas
@@ -149,22 +134,21 @@ function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: b
         <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Eraser className="w-3.5 h-3.5" />消す</button>
         <button type="button" onClick={toText} disabled={empty || busy} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Type className="w-3.5 h-3.5" />{busy ? '認識中…' : 'テキスト化'}</button>
         <button type="button" onClick={save} disabled={empty} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-brand-300 bg-white text-brand-700 hover:bg-brand-50 disabled:opacity-40"><Save className="w-3.5 h-3.5" />このセクションに保存</button>
-        {hwSupported === false && <span className="text-[10.5px] text-gray-400">※この端末は手書き認識に未対応</span>}
       </div>
-      {text === '__UNSUPPORTED__'
-        ? <p className="mt-1.5 text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">この端末/ブラウザは手書き認識(OCR)に未対応です。画像として保存はできます。</p>
-        : text && <p className="mt-1.5 text-[12.5px] text-gray-800 bg-white border border-gray-200 rounded px-2 py-1.5">認識結果：{text}</p>}
+      {text && (isError
+        ? <p className="mt-1.5 text-[11.5px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">テキスト化に失敗：{text.replace('__ERROR__', '')}</p>
+        : <p className="mt-1.5 text-[12.5px] text-gray-800 bg-white border border-gray-200 rounded px-2 py-1.5 whitespace-pre-wrap">認識結果：{text}</p>)}
     </div>
   )
 }
 
 // セクションの手書きメモ：キャンバス＋保存済みメモ（画像＋テキスト）の一覧。
-function SectionMemo({ hwSupported, items, onAdd, onDelete }: {
-  hwSupported: boolean | null; items: MemoItem[]; onAdd: (m: MemoItem) => void; onDelete: (id: string) => void
+function SectionMemo({ items, onAdd, onDelete }: {
+  items: MemoItem[]; onAdd: (m: MemoItem) => void; onDelete: (id: string) => void
 }) {
   return (
     <div>
-      <HandwriteCanvas hwSupported={hwSupported} onSave={(image, text) => onAdd({ id: uid(), image, text })} />
+      <HandwriteCanvas onSave={(image, text) => onAdd({ id: uid(), image, text })} />
       {items.length > 0 && (
         <div className="mt-2 space-y-1.5">
           {items.map(m => (
@@ -173,7 +157,7 @@ function SectionMemo({ hwSupported, items, onAdd, onDelete }: {
               <img src={m.image} alt="手書きメモ" className="h-16 rounded border border-gray-200 flex-none" />
               <div className="flex-1 min-w-0">
                 {m.text
-                  ? <p className="text-[12.5px] text-gray-800 break-words">{m.text}</p>
+                  ? <p className="text-[12.5px] text-gray-800 whitespace-pre-wrap break-words">{m.text}</p>
                   : <p className="text-[11.5px] text-gray-400">テキスト未変換（画像のみ）</p>}
               </div>
               <button type="button" onClick={() => onDelete(m.id)} className="flex-none p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
@@ -219,15 +203,11 @@ export default function MeetingSheetClient() {
   const [open, setOpen] = useState<Set<string>>(() => new Set(SECTIONS.filter(s => s.openInSheet).map(s => s.key)))
   const [memoOpen, setMemoOpen] = useState<Set<string>>(new Set())
   const [memos, setMemos] = useState<Record<string, MemoItem[]>>({})
-  const [hwSupported, setHwSupported] = useState<boolean | null>(null)
 
-  // localStorage から復元＋手書き認識の対応判定
   useEffect(() => {
     try { const raw = localStorage.getItem(STORE_KEY); if (raw) setMemos(JSON.parse(raw)) } catch { /* noop */ }
-    setHwSupported(typeof (navigator as unknown as { createHandwritingRecognizer?: unknown }).createHandwritingRecognizer === 'function')
   }, [])
 
-  // 追加/削除は関数型setStateで最新を参照。localStorageはユーザー操作時のみ書込み（読込effectとの競合回避）。
   const addMemo = useCallback((key: string, m: MemoItem) => setMemos(prev => {
     const next = { ...prev, [key]: [...(prev[key] ?? []), m] }
     try { localStorage.setItem(STORE_KEY, JSON.stringify(next)) } catch { /* 容量超過等は無視（仮版） */ }
@@ -296,7 +276,7 @@ export default function MeetingSheetClient() {
                 </div>
                 {isOpen && (
                   <div className="p-4 space-y-3">
-                    {memoOpen.has(s.key) && <SectionMemo hwSupported={hwSupported} items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} />}
+                    {memoOpen.has(s.key) && <SectionMemo items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} />}
                     <SheetFields s={s} />
                   </div>
                 )}
@@ -334,7 +314,7 @@ export default function MeetingSheetClient() {
                 <span className="text-[13.5px] font-bold text-gray-700">{s.title}</span>
                 {(memos[s.key]?.length ?? 0) > 0 && <span className="text-[10px] text-gray-400">保存 {memos[s.key]!.length} 件</span>}
               </div>
-              <div className="p-3"><SectionMemo hwSupported={hwSupported} items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} /></div>
+              <div className="p-3"><SectionMemo items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} /></div>
             </section>
           ))}
         </div>
