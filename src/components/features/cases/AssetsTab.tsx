@@ -150,11 +150,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
+            // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
+            // 公図・登記など物件単位は、名寄帳で物件が確定してから実務タブの②法務局で扱う（muniOnly）。
             <div>
-              <SectionHeading title="物件一覧（どこに物件があるか／所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="物件一覧（想定される物件と所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode addressSuggestions={addrSuggestions} />
-              {/* 取得予定資料（市区町村ごと＋物件ごと）。物件追加時に自動生成されたものを可視化＋トグル編集。 */}
-              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} />
+              {/* オーダーシートは市区町村単位（名寄帳・評価証明）だけ。物件単位は物件確定後に実務タブで。 */}
+              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} muniOnly />
             </div>
           ) : (
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計

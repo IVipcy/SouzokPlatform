@@ -66,9 +66,41 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const setLocal = (id: string, field: keyof RealEstatePropertyRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
 
+  // 市区町村単位の標準取得資料（名寄帳・固定資産評価証明）を、その市区町村でまだ無ければ自動生成。
+  // 既存行があれば足りない資料だけ足す。オーダーシートは「行を先に足して後から住所を入力」する流れなので、
+  // 物件追加時だけでなく所在地(市区町村)が判明したタイミングでも呼ぶ。
+  const STANDARD_MUNI = ['名寄帳', '固定資産評価証明']
+  const ensureMuniSeed = async (muni: string) => {
+    const m = muni.trim()
+    if (!m) return
+    const { data: existing } = await supabase.from('real_estate_acquisitions')
+      .select('id,item_type,item_types').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', m).maybeSingle()
+    const office = `${m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')}役所`
+    if (!existing) {
+      await supabase.from('real_estate_acquisitions').insert({
+        case_id: caseId, scope: 'municipality', target_municipality: m,
+        item_type: STANDARD_MUNI[0], item_types: STANDARD_MUNI, request_to: office, sort_order: 0,
+      })
+    } else {
+      const cur = ((existing as { item_types: string[] | null; item_type: string | null }).item_types) ?? [(existing as { item_type: string | null }).item_type].filter((x): x is string => !!x)
+      const merged = Array.from(new Set([...cur, ...STANDARD_MUNI]))
+      if (merged.length !== cur.length) {
+        await supabase.from('real_estate_acquisitions').update({ item_types: merged }).eq('id', (existing as { id: string }).id)
+      }
+    }
+  }
+
   const commit = async (id: string, field: keyof RealEstatePropertyRow, value: string) => {
     const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // 所在地/市区町村が入力されて市区町村が判明したら、名寄帳・評価証明を自動生成（追加時は空でスキップされているため）。
+    if (field === 'address' || field === 'municipality') {
+      const v = (value ?? '').trim()
+      let muni = ''
+      if (field === 'municipality') muni = v
+      else { const x = v.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/); muni = x ? `${x[1] ?? ''}${x[2]}` : '' }
+      if (muni) { await ensureMuniSeed(muni); onRefresh?.() }
+    }
   }
 
   const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
@@ -90,26 +122,9 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
       case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni,
       item_type: STANDARD_PROP[0], item_types: STANDARD_PROP, request_to: '法務局', sort_order: 0,
     })
-    // 市区町村単位で必ず要る標準の取得資料（市区町村役場へ請求・1行にまとめて）を、
-    // その市区町村でまだ行が無いときだけ自動生成。既存行があれば足りない資料だけ足す。
-    if (propMuni) {
-      const { data: existing } = await supabase.from('real_estate_acquisitions')
-        .select('id,item_type,item_types').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', propMuni).maybeSingle()
-      const STANDARD_MUNI = ['名寄帳', '固定資産評価証明']
-      const office = `${propMuni.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')}役所`
-      if (!existing) {
-        await supabase.from('real_estate_acquisitions').insert({
-          case_id: caseId, scope: 'municipality', target_municipality: propMuni,
-          item_type: STANDARD_MUNI[0], item_types: STANDARD_MUNI, request_to: office, sort_order: 0,
-        })
-      } else {
-        const cur = ((existing as { item_types: string[] | null; item_type: string | null }).item_types) ?? [(existing as { item_type: string | null }).item_type].filter((x): x is string => !!x)
-        const merged = Array.from(new Set([...cur, ...STANDARD_MUNI]))
-        if (merged.length !== cur.length) {
-          await supabase.from('real_estate_acquisitions').update({ item_types: merged }).eq('id', (existing as { id: string }).id)
-        }
-      }
-    }
+    // 市区町村が判明していれば市区町村単位の標準資料（名寄帳・評価証明）も自動生成。
+    // オーダーシートは追加時点で市区町村が空なので、後から所在地入力時に commit 側で生成される。
+    if (propMuni) await ensureMuniSeed(propMuni)
     setBusy(false)
     setRows(prev => [...prev, prop])
     onRefresh?.()
