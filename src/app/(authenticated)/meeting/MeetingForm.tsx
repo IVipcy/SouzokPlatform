@@ -19,7 +19,7 @@ import {
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
-  CONSIDERATION_PERIODS, considerationDueMax, HEARING_MEMO_SAMPLE,
+  CONSIDERATION_PERIODS, PROSPECT_LEVELS, considerationDueMax, HEARING_MEMO_SAMPLE,
 } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
@@ -408,6 +408,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         procedure_type: formData.serviceCategories.length > 0 ? formData.serviceCategories : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         consideration_period: formData.considerationPeriod || null,
+        prospect_level: formData.prospectLevel || null,
         meeting_executed_date: formData.meetingDate || null,
         order_route: formData.orderRoute || null,
         order_route_detail: formData.orderRouteDetail || null,
@@ -565,10 +566,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   }, [selectedCase, currentMemberId])
 
   const nextStep = useCallback(async () => {
-    // 基本情報: 検討中／検討中（契約書待ち）は検討期間が必須。見込み不明以外は回答予定日も必須。
+    // 基本情報: 検討中／検討中（契約書待ち）は検討期間が必須。回答予定日は上限が読める期間（見込み不明・四十九日以降以外）で必須。
     if (STEPS[step].id === 'basic' && RESPONSE_DUE_REQUIRED.has(data.caseStatus)) {
       if (!data.considerationPeriod) { setSaveError('検討期間を選択してください'); return }
-      if (data.considerationPeriod !== '見込み不明' && !data.clientResponseDueDate) {
+      if (considerationDueMax(data.considerationPeriod) !== null && !data.clientResponseDueDate) {
         setSaveError('お客様回答予定日を入力してください')
         return
       }
@@ -667,12 +668,15 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
               <Card label="検討期間" required><Select value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v)} placeholder="検討期間を選択" /></Card>
-              {data.considerationPeriod && data.considerationPeriod !== '見込み不明' && (
+              {/* 見込み不明・四十九日以降は起点が読めないため回答予定日カレンダーは出さない（上限null＝日付制御なし） */}
+              {data.considerationPeriod && considerationDueMax(data.considerationPeriod) !== null && (
                 <Card label="お客様回答予定日" required>
                   <Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} max={considerationDueMax(data.considerationPeriod) ?? undefined} />
                   <p className="mt-1 text-[11px] text-gray-400">「{data.considerationPeriod}」以内（〜{considerationDueMax(data.considerationPeriod)}）で選べます。</p>
                 </Card>
               )}
+              {/* 見込み度合い（検討期間・日付の次）。検討期間と同じ体裁のプルダウン。 */}
+              <Card label="見込み度合い"><Select value={data.prospectLevel} options={[...PROSPECT_LEVELS]} onChange={v => update('prospectLevel', v)} placeholder="見込み度合いを選択" /></Card>
             </>
           )}
           {/* ③ 理由セレクト直下：検討中/失注→詳細理由、それ以外→面談内容詳細（申し送りとは別） */}
@@ -780,7 +784,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             </Card>
           )}
           {/* ⑬ その他申し送り事項（旧・面談内容詳細）: 全ステータス共通・フォーム最下部 */}
-          <Card label="その他申し送り事項"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="顧客のパーソナリティ、お付き合い先の会社の社員 等" /></Card>
+          <Card label="その他申し送り事項"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="お客様の懸念事項、顧客のパーソナリティ、お付き合い先の会社の社員 等" /></Card>
         </div>
       )
       case 'client': return (
@@ -1055,7 +1059,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <ConfirmRow label="面談分類" value={data.meetingType} />
               <ConfirmRow label="面談結果" value={getMeetingResultOption(data.meetingResult)?.label ?? data.meetingResult} />
               {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && <ConfirmRow label="検討期間" value={data.considerationPeriod} />}
-              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && data.considerationPeriod !== '見込み不明' && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && considerationDueMax(data.considerationPeriod) !== null && <ConfirmRow label="お客様回答予定日" value={data.clientResponseDueDate} />}
+              {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && data.prospectLevel && <ConfirmRow label="見込み度合い" value={data.prospectLevel} />}
             </ConfirmSection>
             <ConfirmSection title="依頼者">
               <ConfirmRow label="メイン依頼人" value={(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.name ?? ''} />

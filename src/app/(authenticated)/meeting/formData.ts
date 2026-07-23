@@ -32,7 +32,8 @@ export type FormData = {
   pastClientId: string      // 過去客経由で既存依頼者を選択した場合の client_id
   meetingPlace: string      // 面談場所
   clientResponseDueDate: string  // お客様回答予定日（検討中/検討中（契約書待ち）で必須）
-  considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明）
+  considerationPeriod: string    // 検討期間区分（1週間/2週間/1ヶ月/見込み不明/四十九日以降）
+  prospectLevel: string          // 見込み度合い（高/中/低/不明。検討中のとき入力）
   followUpCallNeeded: string  // 追い電話の必要性（不要/要。検討中のとき入力）
   // 他事業者紹介：依頼内容
   taxAdvisorBusinessType: string  // 税理士紹介の理由（選択） — case_referrals(partner_type='税理士').content と連動
@@ -92,6 +93,7 @@ export const INITIAL_DATA: FormData = {
   meetingPlace: '',
   clientResponseDueDate: '',
   considerationPeriod: '',
+  prospectLevel: '',
   followUpCallNeeded: '',
   taxAdvisorBusinessType: '',
   taxAdvisorReferralNote: '',
