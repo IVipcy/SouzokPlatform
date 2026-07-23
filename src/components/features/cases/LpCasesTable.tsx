@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Megaphone, AlertTriangle, Trash2, Download } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
+import ProspectBadge from '@/components/ui/ProspectBadge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { CASE_STATUSES } from '@/lib/constants'
 import { useCaseBulkDelete } from '@/components/features/cases/useCaseBulkDelete'
@@ -27,8 +28,10 @@ export type LpCaseRow = {
   consideration_decline_reason_detail?: string | null
   /** お客様回答予定日 */
   client_response_due_date: string | null
-  /** 検討期間区分（1週間/2週間/1ヶ月/見込み不明） */
+  /** 検討期間区分（1週間/2週間/1ヶ月/見込み不明/四十九日以降） */
   consideration_period?: string | null
+  /** 見込み度合い（高/中/低/不明） */
+  prospect_level?: string | null
   /** 受注担当者名 */
   sales_name: string | null
   /** 担当チーム名（受注担当の所属チーム。検索用） */
@@ -93,7 +96,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
       const HEADERS = [
         '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
         '案件ステータス', '検討中・失注理由', 'その他理由詳細', 'お客様回答予定日',
-        '検討期間', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
+        '検討期間', '見込み度合い', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
         '完了予定日', '税理士業務', '不動産登記', '面談内容詳細', '最終更新日',
       ]
       const flagLabel = (ct: string | null) => ct === '行政書士法人単独' ? '行' : ct === '司法書士法人単独' ? '司' : ct === '行・司連名' ? '連' : ''
@@ -115,7 +118,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
             flagLabel(c.contract_type), c.case_number, c.lp_case_number ?? '', c.referral_source ?? '',
             c.client_name ?? '', c.status, c.consideration_decline_reason ?? '',
             c.consideration_decline_reason_detail ?? '', c.client_response_due_date ?? '',
-            c.consideration_period ?? '', daysLabel, c.sales_name ?? '', c.manager_name ?? '',
+            c.consideration_period ?? '', c.prospect_level ?? '', daysLabel, c.sales_name ?? '', c.manager_name ?? '',
             fmtYen(c.advance_payment), fmtYen(c.confirmed_revenue),
             c.expected_completion_date ?? '',
             c.tax_advisor_business ?? '', c.real_estate_registration ?? '',
@@ -193,6 +196,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">詳細理由</th>
                 <th className="px-3 py-2 text-left font-bold">お客様回答予定日</th>
                 <th className="px-3 py-2 text-left font-bold">検討期間</th>
+                <th className="px-3 py-2 text-left font-bold">見込み度合い</th>
                 <th className="px-3 py-2 text-left font-bold">残り日数</th>
                 <th className="px-3 py-2 text-left font-bold">受注担当</th>
                 <th className="px-3 py-2 text-left font-bold">管理担当</th>
@@ -264,6 +268,8 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                     </td>
                     {/* 検討期間 */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.consideration_period || <span className="text-gray-300">—</span>}</td>
+                    {/* 見込み度合い */}
+                    <td className="px-3 py-2.5 whitespace-nowrap"><ProspectBadge level={c.prospect_level} /></td>
                     {/* 残り日数 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono">
                       {daysRemaining === null ? (
