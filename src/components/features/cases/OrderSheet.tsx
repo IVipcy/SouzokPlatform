@@ -264,7 +264,7 @@ export default function OrderSheet({
 // 親は「濃い青の見出し＋薄グレー地の容器」にして、中の白カード群を包む＝親子の階層を視覚化する。
 function OSSection({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="scroll-mt-24 bg-white border border-gray-200 rounded-lg">
+    <section id={id} className="scroll-mt-24 bg-[#FEF8EA] border border-[#EADFC7] rounded-lg">
       <div className="px-4 py-2.5 bg-brand-600 rounded-t-lg">
         <h2 className="text-[14px] font-bold text-white tracking-[0.02em]">{title}</h2>
       </div>
