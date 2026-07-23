@@ -110,7 +110,8 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
         hint={hintText}
         className="mb-2.5 pb-1.5 border-b border-gray-200"
       />
-      <div className="overflow-x-auto">
+      {/* PC(sm以上)＝表。横スクロールなしで全項目。 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
@@ -155,6 +156,46 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* スマホ(sm未満)＝カード積み。1宛先=1カード（請求先＋対象を上・資料チップを下に折返し）。横スクロールなし。 */}
+      <div className="sm:hidden space-y-2">
+        {munis.map(muni => (
+          <div key={`mc-${muni}`} className="rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 font-semibold">役所</span>
+              <span className="text-[13px] font-semibold text-gray-800">{stripPref(muni)}役所</span>
+            </div>
+            <div className="text-[11.5px] text-gray-500 mb-2">対象：{muni}</div>
+            <div className="text-[10.5px] text-gray-400 mb-1.5">取得する資料（複数選択）</div>
+            <div className="flex flex-wrap gap-2">
+              {MUNI_ITEMS.map(item => {
+                const on = hasMuniItem(muni, item)
+                return <button key={item} type="button" onClick={() => toggleMuni(muni, item)}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200'}`}>{on && '✓'}{item}</button>
+              })}
+            </div>
+          </div>
+        ))}
+        {properties.map(p => (
+          <div key={`pc-${p.id}`} className="rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 font-semibold">法務局</span>
+              <span className="text-[13px] font-semibold text-gray-800">法務局</span>
+            </div>
+            <div className="text-[11.5px] text-gray-500 mb-2">
+              対象：<span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] mr-1">{p.property_type || '—'}</span>{propLabel(p)}
+            </div>
+            <div className="text-[10.5px] text-gray-400 mb-1.5">取得する資料（複数選択）</div>
+            <div className="flex flex-wrap gap-2">
+              {PROP_ITEMS.map(item => {
+                const on = hasPropItem(p.id, item)
+                return <button key={item} type="button" onClick={() => toggleProp(p, item)}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200'}`}>{on && '✓'}{item}</button>
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
