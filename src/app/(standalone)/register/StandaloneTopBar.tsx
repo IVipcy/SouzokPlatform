@@ -10,8 +10,9 @@ export default function StandaloneTopBar() {
   const router = useRouter()
   const pathname = usePathname()
   const isOrderSheet = pathname?.startsWith('/order-sheet') ?? false
-  const title = isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
-  const next = isOrderSheet ? '/order-sheet' : '/register'
+  const isMeetingSheet = pathname?.startsWith('/meeting-sheet') ?? false
+  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
+  const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : '/register'
 
   const logout = async () => {
     await createClient().auth.signOut()

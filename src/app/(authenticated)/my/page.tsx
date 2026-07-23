@@ -570,6 +570,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         afterTitle={<MyAlertCenter />}
         right={isSales ? (
           <>
+            <Link href="/meeting-sheet" target="_blank" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors">
+              <ClipboardList className="w-4 h-4" strokeWidth={2} />面談シート（仮）
+            </Link>
             <Link href="/register" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
               <PenSquare className="w-4 h-4" strokeWidth={2} />相談結果登録
             </Link>
