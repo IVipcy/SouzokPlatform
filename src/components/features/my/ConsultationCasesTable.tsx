@@ -248,19 +248,19 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                 )}
                 <SortableTh label="案件管理番号"    sortKey="case_number"      currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="案件名"          sortKey="deal_name"        currentKey={sortKey} order={sortOrder} onClick={handleSort} />
-                <th className="px-3 py-2 text-left font-bold">送客元</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">送客元</th>
                 <SortableTh label="面談実施日"      sortKey="meeting_executed" currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="面談結果"        sortKey="status"           currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="お客様回答予定日" sortKey="response_due"     currentKey={sortKey} order={sortOrder} onClick={handleSort} />
-                <th className="px-3 py-2 text-left font-bold">検討期間</th>
-                <th className="px-3 py-2 text-left font-bold">残り日数</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">検討期間</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>
                 {manageMode && <th className="px-3 py-2 text-left font-bold">チーム</th>}
                 {manageMode && <th className="px-3 py-2 text-left font-bold">受注担当</th>}
-                <th className="px-3 py-2 text-left font-bold">管理担当</th>
-                <th className="px-3 py-2 text-left font-bold">オーダーシート</th>
-                <th className="px-3 py-2 text-left font-bold">受注内容</th>
-                <th className="px-3 py-2 text-right font-bold">受注金額</th>
-                <th className="px-3 py-2 text-left font-bold">最終更新日</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
+                <th className="px-3 py-2 text-right font-bold whitespace-nowrap">受注金額</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">最終更新日</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -355,7 +355,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                       {procedures.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {procedures.map(p => (
-                            <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                            <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{p}</span>
                           ))}
                         </div>
                       ) : (

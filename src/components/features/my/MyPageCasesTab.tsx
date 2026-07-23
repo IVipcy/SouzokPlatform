@@ -282,7 +282,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 {c.procedure_type && c.procedure_type.filter(Boolean).length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {c.procedure_type.filter(Boolean).map(p => (
-                      <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">{p}</span>
+                      <span key={p} className="inline-block text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{p}</span>
                     ))}
                   </div>
                 ) : <span className="text-gray-300">—</span>}
