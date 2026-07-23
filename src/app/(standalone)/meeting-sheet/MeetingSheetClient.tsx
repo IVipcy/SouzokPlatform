@@ -78,31 +78,39 @@ function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: b
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const ctxOf = () => {
-    const c = canvasRef.current
-    if (!c) return null
-    if (c.width === 0) {
-      const dpr = window.devicePixelRatio || 1
-      const rect = c.getBoundingClientRect()
-      c.width = Math.max(1, rect.width) * dpr
-      c.height = height * dpr
-      const ctx = c.getContext('2d')
-      if (ctx) { ctx.scale(dpr, dpr); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2937' }
-    }
-    return c.getContext('2d')
-  }
+  // 実寸×DPRでビットマップを確保し、以降はCSS座標で描画（setTransformでDPR分だけ拡大）。
+  const readyRef = useRef(false)
+  const setup = useCallback(() => {
+    const c = canvasRef.current; if (!c) return
+    const rect = c.getBoundingClientRect()
+    if (rect.width < 1) return
+    const dpr = window.devicePixelRatio || 1
+    c.width = Math.round(rect.width * dpr)
+    c.height = Math.round(height * dpr)
+    const ctx = c.getContext('2d')
+    if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2937' }
+    readyRef.current = true
+  }, [height])
+  useEffect(() => {
+    setup()
+    const onResize = () => { if (strokes.current.length === 0) { readyRef.current = false; setup() } }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [setup])
+
   const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => {
     const r = canvasRef.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top, t: Math.round(e.timeStamp) }
   }
   const down = (e: RPointerEvent<HTMLCanvasElement>) => {
-    ctxOf(); drawing.current = true
+    if (!readyRef.current) setup()
+    drawing.current = true
     const p = pos(e); last.current = p; strokes.current.push([p])
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
   }
   const move = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (!drawing.current) return
-    const ctx = ctxOf(); if (!ctx || !last.current) return
+    const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
     const p = pos(e)
     ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
@@ -111,7 +119,8 @@ function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: b
   const up = () => { drawing.current = false; last.current = null }
   const clear = () => {
     const c = canvasRef.current; if (!c) return
-    const ctx = c.getContext('2d'); if (ctx) ctx.clearRect(0, 0, c.width, c.height)
+    const ctx = c.getContext('2d')
+    if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() }
     strokes.current = []; setEmpty(true); setText('')
   }
   const toText = async () => {
