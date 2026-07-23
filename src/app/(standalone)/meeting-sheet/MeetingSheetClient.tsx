@@ -1,22 +1,26 @@
 'use client'
 
 // 面談シート（仮版）。面談時にタブレット/PC＋ペンで入力する想定の試作。
-// ・DB連携なし・保存はブラウザ内メモリのみ（見た目・操作感の確認用）。
+// ・DB連携なし。手書きメモの画像はブラウザの localStorage に保持（リロードしても残る／その端末内のみ）。
 // ・3タブ：面談シート / オーダーシート / メモ。
-//   - 面談シート＝オーダーシートの構成のまま、相続人一覧・受注内容・財産情報だけ開き他は閉じる。
-//     各セクションに埋め込みメモ(A)＝「＋メモ」で手書きキャンバスを展開しつつ項目入力も可能。
-//   - オーダーシート＝全セクション展開。面談シートから「切り替え」で一方向遷移（戻れない）。
-//   - メモ＝各セクション名だけの白紙キャンバス(B)に自由に手書き。
-// ・手書きは画像として保持、テキスト化はダミー（後日OCR実装）。
+//   - 面談シート＝オーダーシート構成のまま、相続人一覧・受注内容・財産情報だけ開き他は閉じる。各セクションに埋め込みメモ(A)。
+//   - オーダーシート＝全開。面談シートから「切り替え」で一方向遷移（戻れない）。
+//   - メモ＝各セクション名だけの白紙キャンバス(B)。
+// ・手書き→テキスト化は Handwriting Recognition API（Chromeのオンデバイス手書き認識・日本語）。未対応環境ではその旨を表示。
 
-import { useRef, useState, useCallback, type PointerEvent as RPointerEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
 import {
   ClipboardList, FileSpreadsheet, PencilLine, ChevronDown, Plus, ArrowRight,
-  Lock, Eraser, Save, Type, Users, Check,
+  Lock, Eraser, Save, Type, Users, Check, X,
 } from 'lucide-react'
 
 type Field = { label: string; wide?: boolean }
 type Section = { key: string; title: string; openInSheet: boolean; pills?: string[]; fields: Field[] }
+type MemoItem = { id: string; image: string; text: string }
+type Pt = { x: number; y: number; t: number }
+
+const STORE_KEY = 'meeting-sheet-memos-v1'
+const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 
 // オーダーシートのセクション構成を踏襲（仮の項目）。openInSheet=面談シートで初期展開。
 const SECTIONS: Section[] = [
@@ -43,19 +47,40 @@ const SECTIONS: Section[] = [
   ] },
 ]
 
-// 手書きキャンバス。ペンタブ/タブレットのペン（pointer pressure対応）で描画→画像保持・テキスト化はダミー。
-function HandwriteCanvas({ height = 150 }: { height?: number }) {
+// Handwriting Recognition API（Chrome オンデバイス）でストローク→テキスト。未対応なら null。
+async function ocrStrokes(strokes: Pt[][]): Promise<string | null> {
+  const nav = navigator as unknown as {
+    createHandwritingRecognizer?: (c: unknown) => Promise<{
+      startDrawing: (h: unknown) => { addStroke: (s: unknown) => void; getPrediction: () => Promise<Array<{ text: string }>> }
+      finish?: () => void
+    }>
+  }
+  if (typeof nav.createHandwritingRecognizer !== 'function') return null
+  try {
+    const recognizer = await nav.createHandwritingRecognizer({ languages: ['ja'] })
+    const drawing = recognizer.startDrawing({ recognitionType: 'text' })
+    for (const s of strokes) if (s.length) drawing.addStroke({ points: s })
+    const preds = await drawing.getPrediction()
+    try { recognizer.finish?.() } catch { /* noop */ }
+    return preds?.[0]?.text ?? ''
+  } catch {
+    return null
+  }
+}
+
+// 手書きキャンバス。ペン（pointer・筆圧対応）で描画→ストローク記録。保存で画像化、テキスト化でOCR。
+function HandwriteCanvas({ hwSupported, onSave, height = 160 }: { hwSupported: boolean | null; onSave: (image: string, text: string) => void; height?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
-  const last = useRef<{ x: number; y: number } | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
-  const [text, setText] = useState('')
+  const last = useRef<Pt | null>(null)
+  const strokes = useRef<Pt[][]>([])
   const [empty, setEmpty] = useState(true)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const ctxOf = () => {
     const c = canvasRef.current
     if (!c) return null
-    // 初回に実寸へ合わせる（Retina対応）
     if (c.width === 0) {
       const dpr = window.devicePixelRatio || 1
       const rect = c.getBoundingClientRect()
@@ -66,12 +91,13 @@ function HandwriteCanvas({ height = 150 }: { height?: number }) {
     }
     return c.getContext('2d')
   }
-  const pos = (e: RPointerEvent<HTMLCanvasElement>) => {
+  const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => {
     const r = canvasRef.current!.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
+    return { x: e.clientX - r.left, y: e.clientY - r.top, t: Math.round(e.timeStamp) }
   }
   const down = (e: RPointerEvent<HTMLCanvasElement>) => {
-    ctxOf(); drawing.current = true; last.current = pos(e)
+    ctxOf(); drawing.current = true
+    const p = pos(e); last.current = p; strokes.current.push([p])
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
   }
   const move = (e: RPointerEvent<HTMLCanvasElement>) => {
@@ -80,16 +106,27 @@ function HandwriteCanvas({ height = 150 }: { height?: number }) {
     const p = pos(e)
     ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
-    last.current = p; setEmpty(false)
+    last.current = p; strokes.current[strokes.current.length - 1]?.push(p); setEmpty(false)
   }
   const up = () => { drawing.current = false; last.current = null }
   const clear = () => {
     const c = canvasRef.current; if (!c) return
     const ctx = c.getContext('2d'); if (ctx) ctx.clearRect(0, 0, c.width, c.height)
-    setSaved(null); setText(''); setEmpty(true)
+    strokes.current = []; setEmpty(true); setText('')
   }
-  const save = () => { const c = canvasRef.current; if (c) setSaved(c.toDataURL('image/png')) }
-  const toText = () => setText('（テキスト化はダミー）手書き内容をここに自動認識して表示します')
+  const toText = async () => {
+    if (empty) return
+    setBusy(true)
+    const r = await ocrStrokes(strokes.current)
+    setBusy(false)
+    if (r === null) setText('__UNSUPPORTED__')
+    else setText(r || '（認識できませんでした）')
+  }
+  const save = () => {
+    const c = canvasRef.current; if (!c || empty) return
+    onSave(c.toDataURL('image/png'), text && text !== '__UNSUPPORTED__' ? text : '')
+    clear()
+  }
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2.5">
@@ -101,14 +138,38 @@ function HandwriteCanvas({ height = 150 }: { height?: number }) {
       />
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
         <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Eraser className="w-3.5 h-3.5" />消す</button>
-        <button type="button" onClick={save} disabled={empty} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40"><Save className="w-3.5 h-3.5" />画像で保存</button>
-        <button type="button" onClick={toText} disabled={empty} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Type className="w-3.5 h-3.5" />テキスト化</button>
-        {saved && <span className="inline-flex items-center gap-1 text-[11px] text-gray-500"><Check className="w-3.5 h-3.5 text-emerald-600" />画像を保存しました</span>}
+        <button type="button" onClick={toText} disabled={empty || busy} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Type className="w-3.5 h-3.5" />{busy ? '認識中…' : 'テキスト化'}</button>
+        <button type="button" onClick={save} disabled={empty} className="inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border border-brand-300 bg-white text-brand-700 hover:bg-brand-50 disabled:opacity-40"><Save className="w-3.5 h-3.5" />このセクションに保存</button>
+        {hwSupported === false && <span className="text-[10.5px] text-gray-400">※この端末は手書き認識に未対応</span>}
       </div>
-      {text && <p className="mt-1.5 text-[12px] text-gray-700 bg-white border border-gray-200 rounded px-2 py-1.5">{text}</p>}
-      {saved && (
-        <div className="mt-1.5">
-          <img src={saved} alt="手書きメモ" className="max-h-24 rounded border border-gray-200" />
+      {text === '__UNSUPPORTED__'
+        ? <p className="mt-1.5 text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">この端末/ブラウザは手書き認識(OCR)に未対応です。画像として保存はできます。</p>
+        : text && <p className="mt-1.5 text-[12.5px] text-gray-800 bg-white border border-gray-200 rounded px-2 py-1.5">認識結果：{text}</p>}
+    </div>
+  )
+}
+
+// セクションの手書きメモ：キャンバス＋保存済みメモ（画像＋テキスト）の一覧。
+function SectionMemo({ hwSupported, items, onAdd, onDelete }: {
+  hwSupported: boolean | null; items: MemoItem[]; onAdd: (m: MemoItem) => void; onDelete: (id: string) => void
+}) {
+  return (
+    <div>
+      <HandwriteCanvas hwSupported={hwSupported} onSave={(image, text) => onAdd({ id: uid(), image, text })} />
+      {items.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {items.map(m => (
+            <div key={m.id} className="flex items-start gap-2 bg-white border border-gray-200 rounded-lg p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.image} alt="手書きメモ" className="h-16 rounded border border-gray-200 flex-none" />
+              <div className="flex-1 min-w-0">
+                {m.text
+                  ? <p className="text-[12.5px] text-gray-800 break-words">{m.text}</p>
+                  : <p className="text-[11.5px] text-gray-400">テキスト未変換（画像のみ）</p>}
+              </div>
+              <button type="button" onClick={() => onDelete(m.id)} className="flex-none p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -124,21 +185,6 @@ function FieldBox({ label, wide }: Field) {
   )
 }
 
-function SheetFields({ s }: { s: Section }) {
-  return (
-    <>
-      {s.pills && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {s.pills.map(p => <Pill key={p} label={p} />)}
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {s.fields.map(f => <FieldBox key={f.label} {...f} />)}
-      </div>
-    </>
-  )
-}
-
 function Pill({ label }: { label: string }) {
   const [on, setOn] = useState(false)
   return (
@@ -149,11 +195,40 @@ function Pill({ label }: { label: string }) {
   )
 }
 
+function SheetFields({ s }: { s: Section }) {
+  return (
+    <>
+      {s.pills && <div className="flex flex-wrap gap-1.5 mb-3">{s.pills.map(p => <Pill key={p} label={p} />)}</div>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">{s.fields.map(f => <FieldBox key={f.label} {...f} />)}</div>
+    </>
+  )
+}
+
 export default function MeetingSheetClient() {
   const [tab, setTab] = useState<'sheet' | 'order' | 'memo'>('sheet')
-  const [locked, setLocked] = useState(false) // オーダーシートに切り替え済み＝面談シートに戻れない
+  const [locked, setLocked] = useState(false)
   const [open, setOpen] = useState<Set<string>>(() => new Set(SECTIONS.filter(s => s.openInSheet).map(s => s.key)))
   const [memoOpen, setMemoOpen] = useState<Set<string>>(new Set())
+  const [memos, setMemos] = useState<Record<string, MemoItem[]>>({})
+  const [hwSupported, setHwSupported] = useState<boolean | null>(null)
+
+  // localStorage から復元＋手書き認識の対応判定
+  useEffect(() => {
+    try { const raw = localStorage.getItem(STORE_KEY); if (raw) setMemos(JSON.parse(raw)) } catch { /* noop */ }
+    setHwSupported(typeof (navigator as unknown as { createHandwritingRecognizer?: unknown }).createHandwritingRecognizer === 'function')
+  }, [])
+
+  // 追加/削除は関数型setStateで最新を参照。localStorageはユーザー操作時のみ書込み（読込effectとの競合回避）。
+  const addMemo = useCallback((key: string, m: MemoItem) => setMemos(prev => {
+    const next = { ...prev, [key]: [...(prev[key] ?? []), m] }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(next)) } catch { /* 容量超過等は無視（仮版） */ }
+    return next
+  }), [])
+  const delMemo = useCallback((key: string, id: string) => setMemos(prev => {
+    const next = { ...prev, [key]: (prev[key] ?? []).filter(x => x.id !== id) }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(next)) } catch { /* noop */ }
+    return next
+  }), [])
 
   const toggleOpen = useCallback((k: string) => setOpen(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n }), [])
   const toggleMemo = useCallback((k: string) => setMemoOpen(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n }), [])
@@ -163,21 +238,18 @@ export default function MeetingSheetClient() {
     <button type="button" disabled={disabled} onClick={() => !disabled && setTab(id)}
       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
         tab === id ? 'bg-white text-brand-700 border border-gray-200 shadow-sm'
-        : disabled ? 'text-gray-300 cursor-not-allowed'
-        : 'text-gray-500 hover:text-gray-700'}`}>
+        : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}>
       <Icon className="w-4 h-4" strokeWidth={2} />{label}{disabled && <Lock className="w-3 h-3" />}
     </button>
   )
 
   return (
     <div>
-      {/* 仮版バナー */}
       <div className="mb-3 flex items-center gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
         <ClipboardList className="w-4 h-4 flex-none" />
-        面談シート（仮版）— 見た目・操作感の確認用です。入力内容は保存されません（DB未連携）。
+        面談シート（仮版）— 手書きメモはこの端末内（ブラウザ）に保存されます。項目入力は保存されません。
       </div>
 
-      {/* タブ＋切り替え */}
       <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1.5 mb-2">
         <TabBtn id="sheet" icon={ClipboardList} label="面談シート" disabled={locked} />
         <TabBtn id="order" icon={FileSpreadsheet} label="オーダーシート" />
@@ -206,6 +278,7 @@ export default function MeetingSheetClient() {
                   <button type="button" onClick={() => toggleOpen(s.key)} className="flex items-center gap-2 text-white flex-1 text-left">
                     <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
                     <span className="text-[14px] font-bold">{s.title}</span>
+                    {(memos[s.key]?.length ?? 0) > 0 && <span className="text-[10px] bg-white/25 rounded-full px-1.5 py-0.5">メモ{memos[s.key]!.length}</span>}
                   </button>
                   <button type="button" onClick={() => toggleMemo(s.key)}
                     className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-1 rounded border ${memoOpen.has(s.key) ? 'bg-white text-brand-700 border-white' : 'bg-brand-500/40 text-white border-white/50 hover:bg-brand-500/60'}`}>
@@ -214,7 +287,7 @@ export default function MeetingSheetClient() {
                 </div>
                 {isOpen && (
                   <div className="p-4 space-y-3">
-                    {memoOpen.has(s.key) && <HandwriteCanvas />}
+                    {memoOpen.has(s.key) && <SectionMemo hwSupported={hwSupported} items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} />}
                     <SheetFields s={s} />
                   </div>
                 )}
@@ -224,12 +297,11 @@ export default function MeetingSheetClient() {
         </div>
       )}
 
-      {/* オーダーシート（全開・一方向） */}
+      {/* オーダーシート */}
       {tab === 'order' && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[12px] text-brand-800 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">
-            <FileSpreadsheet className="w-4 h-4 flex-none" />
-            オーダーシート＝全項目を展開。貴社後に詳細を入力します。
+            <FileSpreadsheet className="w-4 h-4 flex-none" />オーダーシート＝全項目を展開。貴社後に詳細を入力します。
           </div>
           {SECTIONS.map(s => (
             <section key={s.key} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -240,20 +312,20 @@ export default function MeetingSheetClient() {
         </div>
       )}
 
-      {/* メモ（白紙キャンバス・セクション名だけ） */}
+      {/* メモ（白紙キャンバス） */}
       {tab === 'memo' && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <PencilLine className="w-4 h-4 flex-none" />
-            各セクションの白紙キャンバスに自由に手書き → 画像で保存・テキスト化（ダミー）。
+            <PencilLine className="w-4 h-4 flex-none" />各セクションに自由に手書き → 「テキスト化」で文字化・「このセクションに保存」で画像として保持。
           </div>
           {SECTIONS.map(s => (
             <section key={s.key} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100">
                 <Users className="w-4 h-4 text-gray-400" />
                 <span className="text-[13.5px] font-bold text-gray-700">{s.title}</span>
+                {(memos[s.key]?.length ?? 0) > 0 && <span className="text-[10px] text-gray-400">保存 {memos[s.key]!.length} 件</span>}
               </div>
-              <div className="p-3"><HandwriteCanvas height={180} /></div>
+              <div className="p-3"><SectionMemo hwSupported={hwSupported} items={memos[s.key] ?? []} onAdd={m => addMemo(s.key, m)} onDelete={id => delMemo(s.key, id)} /></div>
             </section>
           ))}
         </div>
