@@ -456,27 +456,30 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       </div>
 
       {effectiveTab === 'orderSheet' && (
-        <OrderSheet
-          caseData={caseState}
-          patchCase={patchCase}
-          patchClient={patchClient}
-          onRefresh={handleSaved}
-          heirs={heirs}
-          kosekiRequests={kosekiRequests}
-          properties={properties}
-          acquisitions={acquisitions}
-          financialAssets={financialAssets}
-          divisionDetails={divisionDetails}
-          agreementDispatches={agreementDispatches}
-          expenses={expenses}
-          tasks={tasks}
-          clientCommunications={clientCommunications}
-          referrals={caseReferrals ?? []}
-          caseClients={caseClients ?? []}
-          contractDocuments={contractDocuments}
-          sagyoDocuments={sagyoDocuments}
-          receipts={documentReceipts ?? []}
-        />
+        // オーダーシートタブは背景を薄いクリーム色に（独立アプリと統一）。認証レイアウトの p-6 に合わせて左右をfull-bleed。
+        <div className="bg-[#FEF8EA] -mx-6 px-6 py-6">
+          <OrderSheet
+            caseData={caseState}
+            patchCase={patchCase}
+            patchClient={patchClient}
+            onRefresh={handleSaved}
+            heirs={heirs}
+            kosekiRequests={kosekiRequests}
+            properties={properties}
+            acquisitions={acquisitions}
+            financialAssets={financialAssets}
+            divisionDetails={divisionDetails}
+            agreementDispatches={agreementDispatches}
+            expenses={expenses}
+            tasks={tasks}
+            clientCommunications={clientCommunications}
+            referrals={caseReferrals ?? []}
+            caseClients={caseClients ?? []}
+            contractDocuments={contractDocuments}
+            sagyoDocuments={sagyoDocuments}
+            receipts={documentReceipts ?? []}
+          />
+        </div>
       )}
       {effectiveTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
