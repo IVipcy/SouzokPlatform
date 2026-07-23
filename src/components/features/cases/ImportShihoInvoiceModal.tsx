@@ -2,11 +2,12 @@
 
 // 司法（司法書士）の請求は別システム「相続の力」で発行するため、PDFの正はあちら。
 // 金額は請求タブの既存欄（報酬内訳＝reward_items、立替＝billing_expense_items）に入れておき、
-// このモーダルはExcelを作らずに確定請求レコードを「入金待ち」で登録するだけ（＝発行済にする）。
+// このモーダルはExcelを作らずに確定請求レコードを「作成済」で登録するだけ（＝確定請求済にする）。
+// 行政の請求書生成と同じく「作成済」で作り、請求ステータス→入金待ちは請求・入金タブで行う。
 // 入力するのは請求日だけ。金額は入力済みから自動。入金CSV突合・売上表・精算書(司法)へ流れる。
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FileUp, ExternalLink } from 'lucide-react'
+import { FileUp, ExternalLink, CheckCircle2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
@@ -36,6 +37,7 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
   const [expense, setExpense] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
 
   // 報酬（司法）＝確定報酬・前受金（司法）は cases に維持済み。立替（司法）だけ billing_expense_items から集計。
   const fee = caseData.fee_judicial ?? 0
@@ -59,36 +61,59 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
     if (!canSave || saving) return
     setSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.from('invoices').insert({
+    // 行政の請求書生成と同じく「作成済」で登録。入金待ちへの移行は請求・入金タブで行う。
+    const { data, error } = await supabase.from('invoices').insert({
       case_id: caseData.id, invoice_type: '確定請求', firm_type: 'shiho',
       amount: billAmount, fee_amount: fee, expenses_amount: expense, advance_deduction: advance,
-      status: '入金待ち', issued_date: issuedDate,
+      status: '作成済', issued_date: issuedDate,
       invoice_number: invoiceNo.trim() || null,
       notes: '相続の力で発行（取り込み）',
-    })
+    }).select('id').single()
     setSaving(false)
-    if (error) { showToast(`発行済にできませんでした: ${error.message}`, 'error'); return }
-    showToast('司法を発行済（入金待ち）にしました', 'success')
+    if (error) { showToast(`確定請求済にできませんでした: ${error.message}`, 'error'); return }
+    showToast('司法書士の確定請求レコードを作成しました', 'success')
+    setSavedId((data as { id: string } | null)?.id ?? '')
     onSaved()
-    onClose()
   }
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="司法：相続の力で発行済にする"
+      title="司法書士：確定請求済にする"
       maxWidth="max-w-md"
-      footer={
+      footer={savedId !== null ? (
+        <Button variant="primary" onClick={onClose}>閉じる</Button>
+      ) : (
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
-          <Button variant="primary" onClick={submit} disabled={!canSave || saving}>{saving ? '処理中...' : '入金待ちにする'}</Button>
+          <Button variant="primary" onClick={submit} disabled={!canSave || saving}>{saving ? '処理中...' : '確定請求済にする'}</Button>
         </>
-      }
+      )}
     >
+      {savedId !== null ? (
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-none mt-0.5" strokeWidth={2} />
+            <div className="text-[12.5px] text-emerald-800 leading-relaxed">
+              司法書士の<strong>確定請求レコードを作成</strong>しました（作成済）。<br />
+              <strong>請求・入金タブ</strong>で請求ステータスを<strong>「入金待ち」</strong>にしてください。
+            </div>
+          </div>
+          <Link
+            href={`/billing?case=${caseData.id}${savedId ? `&invoice=${savedId}` : ''}`}
+            className="flex items-center justify-center gap-1.5 w-full px-3 py-2.5 text-[13px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700"
+          >
+            請求・入金タブで該当行を開く <ExternalLink className="w-4 h-4" />
+          </Link>
+          <p className="text-[11.5px] text-gray-500 leading-relaxed">
+            相続の力のPDF原本は案件フォルダにアップしておいてください（控え）。
+          </p>
+        </div>
+      ) : (
       <div className="space-y-3">
         <p className="text-[12.5px] text-gray-600 leading-relaxed">
-          請求タブの<strong>報酬内訳（司法）・立替実費</strong>に入れた金額から、司法の確定請求を「入金待ち」で登録します（Excelは作りません＝PDFは相続の力）。
+          請求タブの<strong>報酬内訳（司法）・立替実費</strong>に入れた金額から、司法の確定請求を<strong>「作成済」</strong>で登録します（Excelは作りません＝PDFは相続の力）。入金待ちへの変更は請求・入金タブで行います。
         </p>
 
         {loading ? (
@@ -127,6 +152,7 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
           </div>
         </div>
       </div>
+      )}
     </Modal>
   )
 }

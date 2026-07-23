@@ -133,6 +133,15 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     setCaseFilter(caseFromUrl)
   }, [caseFromUrl])
 
+  // ?invoice= で来たら該当行までスクロール＋ハイライト（司法：確定請求済モーダルのリンク等から）
+  const invoiceFromUrl = searchParams.get('invoice')
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null)
+  useEffect(() => {
+    if (!invoiceFromUrl) return
+    const t = setTimeout(() => highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+    return () => clearTimeout(t)
+  }, [invoiceFromUrl])
+
   const filteredCase = useMemo(() =>
     caseFilter ? cases.find(c => c.id === caseFilter) ?? null : null,
     [caseFilter, cases]
@@ -759,10 +768,13 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   const isBulkSelected = bulkSelected.has(inv.id)
                   const typeLabel = INVOICE_TYPE_LABEL[inv.invoice_type] ?? inv.invoice_type
                   const typeStyle = INVOICE_TYPE_STYLES[inv.invoice_type] ?? { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' }
+                  const isLinkTarget = inv.id === invoiceFromUrl
                   return (
                     <tr
                       key={inv.id}
+                      ref={isLinkTarget ? highlightRowRef : undefined}
                       className={`border-b border-gray-100 last:border-b-0 transition ${
+                        isLinkTarget ? 'bg-amber-50/70 ring-2 ring-inset ring-amber-300' :
                         isBulkSelected ? 'bg-brand-50/60' :
                         isChecked ? 'bg-brand-50/80' :
                         selectedId === inv.id ? 'bg-brand-50/40' :

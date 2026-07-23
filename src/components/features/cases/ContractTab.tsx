@@ -180,8 +180,8 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
                 <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> {pattern.finalInvoiceLabel}</button>
               )}
               {pattern.lumpNote && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md" title="前受金に確定請求ぶんを含む一括パターンです">{pattern.lumpNote}</span>}
-              {/* 司法は相続の力で発行 → 金額を取り込んで入金待ちにする */}
-              <button type="button" disabled={!canBill} onClick={() => canBill && setImportShihoOpen(true)} title={canBill ? '司法（相続の力）で発行済にする：報酬内訳（司法）・立替から入金待ちで登録' : '受注／戻り受注以降で登録できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><Download className="w-3.5 h-3.5" /> 司法：発行済にする</button>
+              {/* 司法は相続の力で発行 → 金額を取り込んで確定請求レコードを作成済で登録（入金待ちは請求・入金タブで） */}
+              <button type="button" disabled={!canBill} onClick={() => canBill && setImportShihoOpen(true)} title={canBill ? '司法書士 確定請求済にする：報酬内訳（司法）・立替から確定請求レコードを作成（作成済）。入金待ちは請求・入金タブで' : '受注／戻り受注以降で登録できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><Download className="w-3.5 h-3.5" /> 司法書士 確定請求済</button>
             </div>
           }
         />
