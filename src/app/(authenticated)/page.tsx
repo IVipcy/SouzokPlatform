@@ -5,6 +5,7 @@ import {
   Compass,
   Users,
   LayoutDashboard,
+  Trophy,
   type LucideIcon,
 } from 'lucide-react'
 import { redirect } from 'next/navigation'
@@ -71,6 +72,13 @@ export default async function DashboardTopPage() {
           title: '部全体',
           description: '相続事業部全体のサマリー。新規受注・管理案件・完了件数・完了金額。期間切替対応。',
           Icon: Building2,
+          tone: 'blue',
+        },
+        {
+          href: '/dashboard/ranking',
+          title: 'ランキング',
+          description: '月間ランキング。管理担当／受注担当／チームの業完件数・金額・サイクル・受注・綜合。',
+          Icon: Trophy,
           tone: 'blue',
         },
       ],
