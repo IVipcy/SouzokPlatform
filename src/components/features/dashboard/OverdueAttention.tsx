@@ -25,24 +25,26 @@ export default function OverdueAttention({ bills, tasks, currentMemberId }: {
 
   const cnt = (s: OverdueSeverity) => bills.filter(b => b.severity === s).length + tasks.filter(t => t.severity === s).length
   const nKakunin = cnt('kakunin'), nChui = cnt('chui')
-  if (nKakunin + nChui === 0) return null
+  const hasAny = nKakunin + nChui > 0
 
   const fBills = (sev ? bills.filter(b => b.severity === sev) : bills)
     .slice().sort((a, b) => b.over - a.over)
   const fTasks = (sev ? tasks.filter(t => t.severity === sev) : tasks)
     .slice().sort((a, b) => b.over - a.over)
 
-  const Banner = ({ s, label, sub, count, bg }: { s: OverdueSeverity; label: string; sub: string; count: number; bg: string }) => (
-    <button type="button" onClick={() => setSev(sev === s ? null : s)}
-      className={`flex-1 min-w-[200px] flex items-center gap-3 rounded-lg px-4 py-3 text-left transition ${sev === s ? 'ring-4 ring-black/10' : ''}`}
-      style={{ background: bg }}>
-      <div>
-        <div className="text-[15px] font-bold text-[#3a2600] leading-tight">{label}</div>
-        <div className="text-[11px] font-medium text-[#5a3d00]">{sub}</div>
-      </div>
-      <span className="ml-auto w-9 h-9 rounded-full bg-[#E23B3B] text-white flex items-center justify-center text-[17px] font-bold flex-none">{count}</span>
-    </button>
-  )
+  // コンパクトなチップ型。0件＝グレー（押せない見た目）、1件以上で点灯＋赤丸件数。
+  const Banner = ({ s, label, sub, count, activeBg }: { s: OverdueSeverity; label: string; sub: string; count: number; activeBg: string }) => {
+    const active = count > 0
+    return (
+      <button type="button" disabled={!active} onClick={() => active && setSev(sev === s ? null : s)}
+        className={`inline-flex items-center gap-2 rounded-lg pl-3 pr-2 py-1.5 text-left transition ${active ? (sev === s ? 'ring-2 ring-black/15' : '') : 'cursor-default'}`}
+        style={{ background: active ? activeBg : '#ECEAE4' }} title={sub}>
+        <span className={`text-[13px] font-bold leading-none ${active ? 'text-[#3a2600]' : 'text-[#9a978f]'}`}>{label}</span>
+        <span className={`text-[10.5px] font-medium ${active ? 'text-[#5a3d00]' : 'text-[#aca9a0]'} hidden sm:inline`}>{sub}</span>
+        <span className="w-6 h-6 rounded-full text-white flex items-center justify-center text-[13px] font-bold flex-none" style={{ background: active ? '#E23B3B' : '#CFCCC4' }}>{count}</span>
+      </button>
+    )
+  }
 
   const ovr = (o: number, s: OverdueSeverity) => (
     <span className="inline-flex items-baseline gap-0.5">
@@ -53,11 +55,13 @@ export default function OverdueAttention({ bills, tasks, currentMemberId }: {
 
   return (
     <div className="mb-4">
-      <div className="flex gap-3 flex-wrap mb-3">
-        <Banner s="kakunin" label="要確認案件" sub="入金期日・タスク期日が 5営業日超過" count={nKakunin} bg="#F7B733" />
-        <Banner s="chui" label="要注意案件" sub="2週間以上 超過" count={nChui} bg="#F5842A" />
+      <div className="flex gap-2 flex-wrap items-center mb-2.5">
+        <Banner s="kakunin" label="要確認案件" sub="5営業日超過" count={nKakunin} activeBg="#F7B733" />
+        <Banner s="chui" label="要注意案件" sub="2週間以上超過" count={nChui} activeBg="#F5842A" />
+        {!hasAny && <span className="text-[11px] text-gray-400">期日超過（5営業日〜）はありません</span>}
       </div>
 
+      {hasAny && (
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap">
           <span className="text-[13.5px] font-semibold text-gray-800">要対応一覧</span>
@@ -108,6 +112,7 @@ export default function OverdueAttention({ bills, tasks, currentMemberId }: {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
