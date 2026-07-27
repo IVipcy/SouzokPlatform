@@ -34,6 +34,8 @@ type Props = {
   caseStatus?: string
   /** 金融資産（凍結ゲート判定用）。解約タスクは機関単位で凍結確認済みかを見る。 */
   financeAssets?: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
+  /** 管理担当の閲覧時：事務管理タスク(case)を隠し、受注担当/管理担当タスク(system)のみ表示する。 */
+  hideCaseTasks?: boolean
 }
 
 // ステータス正規化（進捗バーの集計用）
@@ -44,14 +46,15 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [] }: Props) {
+export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
   // 対応中以降（管理案件フェーズ）は事務管理タスク中心。それ以前は受注/管理担当タスク中心。
+  // ただし管理担当の閲覧時は常に system（事務管理は非表示）。
   const isManagementPhase = caseStatus === '対応中' || caseStatus === '完了'
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
-  const [kind, setKind] = useState<'system' | 'case'>(isManagementPhase ? 'case' : 'system')
+  const [kind, setKind] = useState<'system' | 'case'>(hideCaseTasks ? 'system' : isManagementPhase ? 'case' : 'system')
   // ステータス絞り込み（/tasks と同じ：単一選択 'all'/着手前/対応中/完了）＋着手OKトグル
   const [statusFilter, setStatusFilter] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
   const [readyOnly, setReadyOnly] = useState(false)
@@ -111,7 +114,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   // 対応中以降は事務管理タスクを先頭、それ以前は受注/管理担当タスクを先頭にする
   const caseTab = { key: 'case', label: `事務管理タスク ${caseCount}` }
   const systemTab = { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` }
-  const KIND_TABS = isManagementPhase ? [caseTab, systemTab] : [systemTab, caseTab]
+  const KIND_TABS = hideCaseTasks ? [systemTab] : isManagementPhase ? [caseTab, systemTab] : [systemTab, caseTab]
 
   const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
   // 業務区分の選択肢（事務管理タスクに存在するものを正準順序で）

@@ -36,6 +36,8 @@ import ContractProcTab from './ContractProcTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
+import ProgressBoard from './ProgressBoard'
+import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
@@ -69,6 +71,8 @@ type Props = {
   documents: CaseDocumentRow[]
   clientCommunications: ClientCommunicationRow[]
   currentMemberId: string | null
+  /** 閲覧者の全体ロール（primaryRole）。管理担当は案件詳細を進捗サマリー/案件情報/請求/タスクに絞る。 */
+  viewerRole?: string | null
   caseAlerts?: import('@/lib/alerts').CaseAlertChip[]
   statusHistory?: TimelineStatusEvent[]
   documentReceipts?: TimelineReceipt[]
@@ -86,9 +90,9 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -321,9 +325,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // ミニマム運用モードでは、ステータス非依存で固定順のタブだけ表示
   const minimal = isMinimalMode()
+  // 管理担当（manager/sub_manager）は実務を見せず、進捗サマリー/案件情報/請求/タスクに絞る。
+  // ※システム管理者(system_manager)や受注担当・事務管理担当は従来どおり全タブ。
+  const isManagerViewer = viewerRole === 'manager' || viewerRole === 'sub_manager'
+  const MANAGER_TABS: TabKey[] = ['progress', 'basicInfo', 'contract', 'tasks']
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
-    : tabVisRaw
+    : isManagerViewer
+      ? { visible: MANAGER_TABS, collapsed: [] as TabKey[] }
+      : tabVisRaw
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
   const HEADER_TABS: TabKey[] = ['receipts', 'docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
@@ -478,6 +488,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           receipts={documentReceipts ?? []}
         />
       )}
+      {effectiveTab === 'progress' && (
+        <ProgressBoard board={buildProgressBoard(caseState, tasks, financialAssets)} dealName={caseState.deal_name ?? ''} />
+      )}
       {effectiveTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
       )}
@@ -506,7 +519,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />

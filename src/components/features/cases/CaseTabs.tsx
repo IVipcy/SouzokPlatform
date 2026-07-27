@@ -5,12 +5,12 @@ import {
   ChevronDown, Check, Star, Activity, MessageCircle, Receipt, ListChecks, Users, Wallet,
   Handshake, Split, Feather, Home, Landmark, Shield, FileX, Scale, FileSearch, ShieldCheck,
   Coins, Mail, Send, FileSignature, Settings, UserCheck, CalendarClock, FileCheck, History,
-  Inbox, Folder, FilePlus2, Contact, type LucideIcon,
+  Inbox, Folder, FilePlus2, Contact, TrendingUp, type LucideIcon,
 } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'progress' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -31,6 +31,7 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
+  progress: '進捗サマリー',
   ownerSales: '案件管理',
   assignees: '担当者',
   contractProc: '契約手続き',
@@ -64,7 +65,7 @@ const TAB_LABELS: Record<TabKey, string> = {
 
 // タブごとのアイコン。orderSheet だけ特別（金の★・大事なタブ）。will は筆。
 const TAB_ICONS: Record<TabKey, LucideIcon> = {
-  orderSheet: Star, basicInfo: Activity, clientInfo: MessageCircle, contract: Receipt, tasks: ListChecks,
+  orderSheet: Star, basicInfo: Activity, progress: TrendingUp, clientInfo: MessageCircle, contract: Receipt, tasks: ListChecks,
   deceased: Users, assets: Wallet, referral: Handshake, division: Split, will: Feather,
   registration: Home, cancellation: Landmark, trust: Shield, renunciation: FileX, mediation: Scale,
   probate: FileSearch, guardianship: ShieldCheck, succession: Coins, letter: Mail, execution: Send,
@@ -79,7 +80,7 @@ const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
 type Group = 'main' | 'practice' | 'info' | 'header'
 const TAB_GROUP: Record<TabKey, Group> = {
   // 請求(contract)は依頼者連絡(clientInfo)の右に置くため main グループに含める。
-  basicInfo: 'main', orderSheet: 'main', clientInfo: 'main', contract: 'main', tasks: 'main',
+  basicInfo: 'main', progress: 'main', orderSheet: 'main', clientInfo: 'main', contract: 'main', tasks: 'main',
   deceased: 'practice', assets: 'practice', division: 'practice', will: 'practice',
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',

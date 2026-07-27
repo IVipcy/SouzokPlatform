@@ -166,6 +166,7 @@ export default async function CaseDetailPage({ params }: Props) {
       documents={(documentsResult.data ?? []) as CaseDocumentRow[]}
       clientCommunications={(clientCommsResult.data ?? []) as ClientCommunicationRow[]}
       currentMemberId={currentUser?.memberId ?? null}
+      viewerRole={currentUser?.primaryRole ?? null}
       statusHistory={(statusHistoryResult.data ?? []) as Array<{ new_value: string | null; created_at: string }>}
       documentReceipts={(receiptsResult.data ?? []) as unknown as TimelineReceipt[]}
       caseReferrals={(referralsResult.data ?? []) as CaseReferralRow[]}
