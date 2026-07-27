@@ -13,6 +13,8 @@ import BillingClient from '@/components/features/billing/BillingClient'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import RankingBadges, { type RankBadge } from '@/components/features/dashboard/RankingBadges'
 import { buildRankings } from '@/lib/rankingMetrics'
+import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
+import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -496,6 +498,24 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const roleTaskTitle = isSales ? '受注担当タスク' : isManager ? '管理担当タスク' : '自分のタスク'
   const taskTabCount = roleTasks.length
 
+  // === 要対応（入金期日・タスク期日の超過）===
+  const normStatus = (s: string) => s === '未着手' ? '着手前' : (['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s)
+  const caseNameById = new Map(myCaseRowsArr.map(r => [r.case_id, ((r.cases as { deal_name?: string } | null)?.deal_name) ?? '']))
+  const firmLabelOf = (f: string | null) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
+  const overdueBills: OverdueBill[] = invoices
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .filter((x): x is { inv: typeof invoices[number]; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ inv, sev }) => ({
+      id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',
+      typeLabel: inv.invoice_type ?? '', firmLabel: firmLabelOf(inv.firm_type ?? null),
+      amount: inv.amount ?? 0, dueDate: inv.due_date as string,
+      over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
+    }))
+  const overdueTasks: OverdueTaskItem[] = roleTasks
+    .map(t => ({ t, sev: ['着手前', '対応中'].includes(normStatus(t.status)) ? overdueSeverity(t.due_date, todayStr) : null }))
+    .filter((x): x is { t: typeof roleTasks[number]; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ t, sev }) => ({ task: t, severity: sev, over: calDaysOverdue(t.due_date as string, todayStr) }))
+
 
   // 期間切替の選択肢（本日／当月／当期累計）
   const periodOptions: Array<{ key: string; label: string }> = [
@@ -617,6 +637,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           </>
         ) : undefined}
       />
+
+      {/* 要対応（入金期日・タスク期日の超過）バナー＋遷移先サブタブ */}
+      {(isSales || isManager) && <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />}
 
       {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
       {sysMgr && (

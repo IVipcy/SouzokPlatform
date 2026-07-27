@@ -1,0 +1,31 @@
+// 入金期日・タスク期日の超過判定。要確認＝5営業日超過〜2週間未満／要注意＝2週間(14日)以上。
+// 営業日＝日曜のみ休み（土曜は営業日）。dueDate/todayStr は 'YYYY-MM-DD'。
+export type OverdueSeverity = 'kakunin' | 'chui'
+
+// 期日の翌日〜今日までの営業日数（日曜を除く）。超過していなければ0。
+export function bizDaysOverdue(dueDate: string, todayStr: string): number {
+  const due = new Date(dueDate + 'T00:00:00')
+  const today = new Date(todayStr + 'T00:00:00')
+  if (isNaN(due.getTime()) || isNaN(today.getTime()) || today <= due) return 0
+  let n = 0
+  const d = new Date(due)
+  d.setDate(d.getDate() + 1)
+  while (d <= today) { if (d.getDay() !== 0) n++; d.setDate(d.getDate() + 1) } // 0=日曜を除外
+  return n
+}
+
+// カレンダー超過日数（今日 − 期日）。
+export function calDaysOverdue(dueDate: string, todayStr: string): number {
+  const due = new Date(dueDate + 'T00:00:00')
+  const today = new Date(todayStr + 'T00:00:00')
+  if (isNaN(due.getTime()) || isNaN(today.getTime())) return 0
+  return Math.round((today.getTime() - due.getTime()) / 86400000)
+}
+
+// 排他判定：2週間(14日)以上=要注意／5営業日超過=要確認／それ未満=null。
+export function overdueSeverity(dueDate: string | null | undefined, todayStr: string): OverdueSeverity | null {
+  if (!dueDate) return null
+  if (calDaysOverdue(dueDate, todayStr) >= 14) return 'chui'
+  if (bizDaysOverdue(dueDate, todayStr) >= 5) return 'kakunin'
+  return null
+}
