@@ -39,6 +39,33 @@ function statusOfCancel(a: FinancialAssetRow): ItemStatus {
   return 'todo'
 }
 
+// タスクの ext_data.execution_result（実施結果）
+function extResult(t: TaskRow): string {
+  const ext = (t.ext_data ?? {}) as Record<string, unknown>
+  return typeof ext.execution_result === 'string' ? ext.execution_result.trim() : ''
+}
+// 業務のメモをタスクから自動生成：進行中=対応中タスク名(＋前回実施結果)／完了=最新実施結果／未着手=次タスク名。
+function noteFromTasks(tasks: TaskRow[], gyomu: string): string | undefined {
+  const ts = tasks.filter(t => stripGyomu(t.phase) === gyomu)
+  if (ts.length === 0) return undefined
+  const norm = (t: TaskRow) => normalizeTaskStatus(t.status)
+  const completed = ts.filter(t => norm(t) === '完了').sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
+  const doing = ts.filter(t => norm(t) === '対応中')
+  const todo = ts.filter(t => norm(t) === '着手前')
+  const lastResult = completed.map(extResult).find(r => !!r) // 最新の実施結果
+  if (doing.length > 0) {
+    const cur = doing.map(t => t.title).slice(0, 2).join('・')
+    return lastResult ? `${cur}（前回：${lastResult}）` : cur
+  }
+  if (completed.length > 0 && todo.length > 0) {
+    if (lastResult && todo[0]) return `${lastResult} → 次：${todo[0].title}`
+    return lastResult || todo[0]?.title
+  }
+  if (completed.length > 0) return lastResult || undefined
+  if (todo.length > 0) return todo[0].title
+  return undefined
+}
+
 export function buildProgressBoard(
   caseData: Pick<CaseRow, 'service_category' | 'service_category_2' | 'procedure_type' | 'work_content'>,
   tasks: TaskRow[],
@@ -75,7 +102,9 @@ export function buildProgressBoard(
         continue
       }
     }
-    groups.push({ title: label(gyomu), items: [{ name: label(gyomu), status: statusOfTasks(tasks, gyomu), note: noteFor(gyomu) }] })
+    // メモ優先順位：① 人が書いたフリー欄 → ② タスクの実施結果を自動集約
+    const note = noteFor(gyomu) ?? noteFromTasks(tasks, gyomu)
+    groups.push({ title: label(gyomu), items: [{ name: label(gyomu), status: statusOfTasks(tasks, gyomu), note }] })
   }
 
   const leaves = groups.flatMap(g => g.items)
