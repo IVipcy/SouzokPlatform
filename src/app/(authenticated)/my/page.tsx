@@ -11,6 +11,8 @@ import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import BillingClient from '@/components/features/billing/BillingClient'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
+import RankingBadges, { type RankBadge } from '@/components/features/dashboard/RankingBadges'
+import { buildRankings } from '@/lib/rankingMetrics'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -106,6 +108,34 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     supabase.from('members').select('id, name, avatar_url').eq('is_active', true),
     supabase.from('clients').select('id, name'),
   ])
+
+  // === 月間ランキングのバッジ（自分の名前の右）===
+  // 綜合1位＝月間MVP、各ランキング1位＝「◯◯ 1位」。受注担当=受注軸、管理担当=業完軸。
+  let myBadges: RankBadge[] = []
+  if (isSales || isManager) {
+    const [{ data: rCases }, { data: rMembers }, { data: rTeams }] = await Promise.all([
+      supabase.from('cases').select('id,order_received_date,completion_date,contract_type,fee_administrative,fee_judicial,fee_total'),
+      supabase.from('members').select('id,name,avatar_color,avatar_url,team_id').eq('is_active', true),
+      supabase.from('teams').select('id,name').eq('is_active', true),
+    ])
+    const ranking = buildRankings(
+      (rCases ?? []) as Parameters<typeof buildRankings>[0],
+      (allCaseMembersRaw ?? []) as Parameters<typeof buildRankings>[1],
+      (rMembers ?? []) as Parameters<typeof buildRankings>[2],
+      (rTeams ?? []) as Parameters<typeof buildRankings>[3],
+      ymToday,
+    )
+    const axisRank = isSales ? ranking.sales : ranking.manager
+    const tone: RankBadge['tone'] = isSales ? 'sales' : 'manager'
+    for (const r of axisRank.rankings) {
+      if (r.key === 'composite') {
+        if (r.entries.some(e => e.id === memberId && e.rank === 1)) myBadges.unshift({ label: '月間MVP', tone: 'mvp' })
+      } else {
+        const e = r.entries.find(x => x.id === memberId)
+        if (e && e.rank === 1) myBadges.push({ label: r.title.replace('ランキング', ' 1位'), tone })
+      }
+    }
+  }
 
   type MyCase = {
     id: string
@@ -567,7 +597,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         title={`${user.memberName ?? 'マイページ'}`}
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
-        afterTitle={<MyAlertCenter />}
+        afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
         right={isSales ? (
           <>
             <Link href="/meeting-sheet" target="_blank" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors">
