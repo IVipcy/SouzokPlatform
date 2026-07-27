@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
 import { gyomuForCategories } from '@/lib/serviceMaster'
+import { useCurrentMember } from '@/lib/useCurrentMember'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
@@ -35,6 +36,7 @@ const PRIORITIES = [
 ] as const
 
 export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase }: Props) {
+  const currentMemberId = useCurrentMember(null)
   const [form, setForm] = useState({
     title: '',
     roleKind: 'assistant' as RoleKind,
@@ -93,6 +95,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           priority: form.priority,
           due_date: form.dueDate || null,
           sort_order: 99,
+          created_by: currentMemberId,
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
     } else {
@@ -111,6 +114,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           priority: form.priority,
           due_date: form.dueDate || null,
           sort_order: 99,
+          created_by: currentMemberId,
         })
         .select('id')
         .single()

@@ -487,7 +487,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // === 自分宛タスク（担当者ベース） ===
   // task_assignees で自分に紐付く未完了タスク（roleTaskRows は既にDB側で絞り込み済み）。
   // システムタスク・案件タスクを問わず「自分が担当のもの」を1リストに統合表示する。
-  const roleTasks = roleTaskRows
+  // 作成者名は既存のメンバー一覧から解決（migration191未適用でも created_by が無いだけで安全）
+  const memberNameById = new Map((allMembersRaw ?? []).map(m => [m.id, m.name]))
+  const roleTasks = roleTaskRows.map(t => ({
+    ...t,
+    created_by_member: t.created_by ? ({ name: memberNameById.get(t.created_by) ?? null } as TaskRow['created_by_member']) : null,
+  }))
   const roleTaskTitle = isSales ? '受注担当タスク' : isManager ? '管理担当タスク' : '自分のタスク'
   const taskTabCount = roleTasks.length
 
@@ -746,6 +751,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             showCase={true}
             includeCompleted={false}
             currentMemberId={memberId}
+            showMeta={true}
           />
         </div>
       )}

@@ -92,6 +92,7 @@ export default function MyTaskCreateButton({ currentMemberId }: { currentMemberI
         due_date: form.dueDate || null,
         team_id: form.teamId || null,
         sort_order: 99,
+        created_by: currentMemberId,
       })
       .select('id')
       .single()

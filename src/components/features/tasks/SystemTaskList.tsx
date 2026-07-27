@@ -54,6 +54,8 @@ type Props = {
   hideCategory?: boolean
   /** 最左に「業務」列（task.phase の業務名）を表示する（事務管理タスク一覧で使用） */
   showGyomu?: boolean
+  /** 優先度・作成者・起票日の列を表示する（マイページのタスクタブ等で使用） */
+  showMeta?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -97,6 +99,7 @@ export default function SystemTaskList({
   showKindLabel = false,
   hideCategory = false,
   showGyomu = false,
+  showMeta = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -215,6 +218,9 @@ export default function SystemTaskList({
                 {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
+                {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>}
+                {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作成者</th>}
+                {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">起票日</th>}
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件ステータス</th>}
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">面談実施日</th>}
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注日</th>}
@@ -307,6 +313,26 @@ export default function SystemTaskList({
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
+                    {/* 優先度 */}
+                    {showMeta && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                        {task.priority === '急ぎ'
+                          ? <span className="inline-flex items-center text-[10.5px] font-bold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">急ぎ</span>
+                          : <span className="text-[11.5px] text-gray-500">通常</span>}
+                      </td>
+                    )}
+                    {/* 作成者（起票者。自動生成はnull） */}
+                    {showMeta && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap text-[12px]">
+                        {task.created_by_member?.name
+                          ? <span className="text-gray-700">{task.created_by_member.name}</span>
+                          : <span className="text-gray-400">自動生成</span>}
+                      </td>
+                    )}
+                    {/* 起票日 */}
+                    {showMeta && (
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px] text-gray-600">{task.created_at ? task.created_at.slice(0, 10) : <span className="text-gray-300">—</span>}</td>
+                    )}
                     {/* ── チームタスク用の案件コンテキスト列 ── */}
                     {teamMode && (
                       <td className="px-3 py-2.5 align-top whitespace-nowrap">

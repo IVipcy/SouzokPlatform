@@ -399,8 +399,10 @@ export type TaskRow = {
   completed_at: string | null
   created_at: string
   updated_at: string
+  created_by: string | null        // migration 191: 作成者（起票者）。自動生成はnull
   task_assignees?: TaskAssigneeRow[]
   started_by_member?: MemberRow | null
+  created_by_member?: MemberRow | null
   cases?: CaseRow & { clients?: ClientRow | null }
 }
 
