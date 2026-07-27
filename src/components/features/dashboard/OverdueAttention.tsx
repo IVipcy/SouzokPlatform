@@ -104,7 +104,7 @@ export default function OverdueAttention({ bills, tasks, currentMemberId }: {
           </div>
         ) : (
           <div className="p-2">
-            <SystemTaskList tasks={fTasks.map(t => t.task)} title="" emptyText="該当なし" showCase includeCompleted={false} currentMemberId={currentMemberId} showMeta />
+            <SystemTaskList tasks={fTasks.map(t => t.task)} title="" emptyText="該当なし" showCase includeCompleted={false} currentMemberId={currentMemberId} showMeta showRemain />
           </div>
         )}
       </div>

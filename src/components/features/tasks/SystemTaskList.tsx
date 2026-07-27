@@ -56,6 +56,8 @@ type Props = {
   showGyomu?: boolean
   /** 優先度・作成者・起票日の列を表示する（マイページのタスクタブ等で使用） */
   showMeta?: boolean
+  /** タスク期日の残り/超過日数を大きく表示する列（要対応一覧で使用） */
+  showRemain?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -100,6 +102,7 @@ export default function SystemTaskList({
   hideCategory = false,
   showGyomu = false,
   showMeta = false,
+  showRemain = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -218,6 +221,7 @@ export default function SystemTaskList({
                 {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
+                {showRemain && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作成者</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">起票日</th>}
@@ -313,6 +317,18 @@ export default function SystemTaskList({
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
+                    {/* 残り日数（タスク期日の超過を大きく表示） */}
+                    {showRemain && (() => {
+                      const over = task.due_date ? Math.round((new Date(today + 'T00:00:00').getTime() - new Date(task.due_date + 'T00:00:00').getTime()) / 86400000) : null
+                      return (
+                        <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                          {over === null ? <span className="text-gray-300">—</span>
+                            : over > 0 ? <span className="inline-flex items-baseline gap-0.5"><span className="text-[20px] font-bold leading-none tabular-nums text-red-600">{over}</span><span className="text-[10.5px] text-gray-500">日超過</span></span>
+                            : over === 0 ? <span className="text-amber-600 font-bold text-[13px]">本日</span>
+                            : <span className="text-gray-600 text-[13px]">あと{-over}日</span>}
+                        </td>
+                      )
+                    })()}
                     {/* 優先度 */}
                     {showMeta && (
                       <td className="px-3 py-2.5 align-top whitespace-nowrap">

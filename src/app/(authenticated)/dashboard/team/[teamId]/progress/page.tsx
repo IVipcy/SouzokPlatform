@@ -8,7 +8,8 @@ import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/d
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
-import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
+import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import {
   computeProgressKpis,
@@ -46,6 +47,7 @@ type InvoiceFull = DashInvoice & {
   status: string
   invoice_type: string
   firm_type: string | null
+  due_date: string | null
 }
 
 type Props = {
@@ -178,7 +180,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase
       .from('invoices')
-      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,firm_type')
+      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,firm_type,due_date')
       .in('case_id', caseIdArray),
   ])
 
@@ -199,10 +201,27 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       .limit(100)
     systemTasksRaw = data
   } catch { /* migration 046 未適用 → 空扱い */ }
-  const taskHorizon = new Date(today)
-  taskHorizon.setDate(taskHorizon.getDate() + 2)
-  const taskHorizonStr = todayJstYmd(taskHorizon)
-  const urgentTeamTasks = ((systemTasksRaw ?? []) as TaskRow[]).filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
+  // === 要対応（入金期日・タスク期日の超過）— チームスコープ ===
+  const todayStr = todayJstYmd(today)
+  const caseNameById = new Map(cases.map(c => [c.id, c.deal_name]))
+  const firmLabelOf = (f: string | null) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
+  const teamOverdueBills: OverdueBill[] = invoices
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .filter((x): x is { inv: InvoiceFull; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ inv, sev }) => ({
+      id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',
+      typeLabel: inv.invoice_type ?? '', firmLabel: firmLabelOf(inv.firm_type),
+      amount: inv.amount ?? 0, dueDate: inv.due_date as string,
+      over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
+    }))
+  const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : (['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s)
+  const teamOverdueTasks: OverdueTaskItem[] = ((systemTasksRaw ?? []) as TaskRow[])
+    .map(t => ({ t, sev: ['着手前', '対応中'].includes(normTaskStatus(t.status)) ? overdueSeverity(t.due_date, todayStr) : null }))
+    .filter((x): x is { t: TaskRow; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ t, sev }) => ({
+      task: { ...t, created_by_member: t.created_by ? ({ name: memberById.get(t.created_by)?.name ?? null } as TaskRow['created_by_member']) : null },
+      severity: sev, over: calDaysOverdue(t.due_date as string, todayStr),
+    }))
 
   // 入金額（請求タブの入金済額・差額）用に payments を取得
   let billingPayments: Array<{ invoice_id: string; amount: number }> = []
@@ -333,23 +352,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       />
       {currentView === 'progress' ? (
         <>
+          {/* 要対応バナー（入金期日・タスク期日の超過）＝旧チームタスク欄を統合 */}
+          <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} />
           <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
-          {/* チームタスク欄（要対応のシステムタスク。管理担当の進捗管理でも表示） */}
-          {urgentTeamTasks.length > 0 && (
-            <div className="mt-4">
-              <SystemTaskList
-                tasks={urgentTeamTasks}
-                title="チームタスク（要対応）"
-                emptyText="要対応のチームタスクはありません"
-                showCase={true}
-                includeCompleted={false}
-                showAssignRole={true}
-                teamMode={true}
-                currentMemberId={currentMemberId ?? undefined}
-                seeAllHref="/tasks?kind=system"
-              />
-            </div>
-          )}
         </>
       ) : (
         <BillingCaseTable rows={billingCaseRows} />
