@@ -1,8 +1,6 @@
-import MeetingSheetClient from './MeetingSheetClient'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: '面談シート（仮）' }
-
-// 面談シート（仮版）。受注担当マイページのリンクから開く。DB連携なし・見た目/操作感の確認用。
+// 面談シート（仮版）は統合入力アプリ /intake の①タブに統合（DB化）。旧URLはリダイレクト。
 export default function MeetingSheetPage() {
-  return <MeetingSheetClient />
+  redirect('/intake')
 }

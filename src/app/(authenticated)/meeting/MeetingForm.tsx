@@ -37,6 +37,8 @@ type Props = {
   standalone?: boolean
   onBack?: () => void
   onDirtyChange?: (dirty: boolean) => void
+  /** 保存成功時に呼ばれる（指定時は既定の遷移/完了画面ではなくこのコールバックに委ねる）。統合入力アプリの③へ進むために使う。 */
+  onSaved?: (caseId: string) => void
 }
 
 // 面談結果の選択肢（面談ルートで絞る）。税理士経由・過去客経由は面談なし前提なので「面談なし受注／失注」のみ。
@@ -196,7 +198,7 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange }: Props) {
+export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -582,7 +584,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       const caseId = await saveToDatabase(data)
       if (caseId) {
         showToast('案件を保存しました', 'success')
-        if (standalone) {
+        if (onSaved) {
+          // 統合入力アプリ：完了画面/遷移はせず、呼び出し元（③オーダーシートへ進む）に委ねる
+          onSaved(caseId)
+        } else if (standalone) {
           // スマホ独立ルート：案件詳細（初期対応タスクのポップアップ）には遷移せず完了画面を出す
           setDone(true)
           window.scrollTo(0, 0)
@@ -592,7 +597,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         }
       }
     }
-  }, [step, data, saveToDatabase, router, standalone])
+  }, [step, data, saveToDatabase, router, standalone, onSaved])
 
   const prevStep = useCallback(() => {
     if (step > 0) {
