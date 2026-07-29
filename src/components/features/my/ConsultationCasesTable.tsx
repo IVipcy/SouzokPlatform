@@ -314,12 +314,16 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.order_route_detail || <span className="text-gray-300">—</span>}</td>
-                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{c.meeting_executed_date ?? '—'}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">
+                      {c.order_route_detail
+                        ? <span className="block max-w-[140px] truncate" title={c.order_route_detail}>{c.order_route_detail}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.meeting_executed_date ?? '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
                       {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-[12px] font-mono">
+                    <td className="px-3 py-2.5 text-[12px] font-mono whitespace-nowrap">
                       {c.client_response_due_date ? (
                         <span className={dueOverdue ? 'text-red-600 font-bold inline-flex items-center gap-1' : 'text-gray-700'}>
                           {dueOverdue && <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />}
@@ -348,7 +352,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                     {manageMode && (
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
                     )}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.manager_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5">
                       {c.order_sheet_completed_at ? (
                         <Link href={`/cases/${c.id}?tab=orderSheet`} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">作成済</Link>
