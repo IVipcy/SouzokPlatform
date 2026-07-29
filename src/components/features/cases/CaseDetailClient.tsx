@@ -437,7 +437,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <CaseTabs
           activeTab={effectiveTab}
           onTabChange={setActiveTab}
-          taskCount={tasks.length}
+          taskCount={isManagerViewer ? tasks.filter(t => t.task_kind === 'system').length : tasks.length}
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}

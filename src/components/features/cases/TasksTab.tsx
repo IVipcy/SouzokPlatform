@@ -102,12 +102,15 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     }
   }
 
-  // 進捗率
-  const totalTasks = tasks.length
-  const completedTasks = tasks.filter(t => normalizeStatus(t.status) === '完了').length
-  const doingTasks = tasks.filter(t => normalizeStatus(t.status) === '対応中').length
-  const todoTasks = tasks.filter(t => normalizeStatus(t.status) === '着手前').length
+  // 進捗率。管理担当ビュー(hideCaseTasks)は受注担当/管理担当タスク(system)のみで集計する。それ以外は全タスク。
+  const progressTasks = hideCaseTasks ? tasks.filter(t => t.task_kind === 'system') : tasks
+  const totalTasks = progressTasks.length
+  const completedTasks = progressTasks.filter(t => normalizeStatus(t.status) === '完了').length
+  const doingTasks = progressTasks.filter(t => normalizeStatus(t.status) === '対応中').length
+  const todoTasks = progressTasks.filter(t => normalizeStatus(t.status) === '着手前').length
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  // 空状態・区分タブ等の構造判定は全タスクで（管理担当でsystemが0でも一覧構造は維持）
+  const hasAnyTask = tasks.length > 0
 
   const systemCount = tasks.filter(t => t.task_kind === 'system').length
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
@@ -231,7 +234,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
         </Section>
       )}
 
-      {totalTasks === 0 ? (
+      {!hasAnyTask ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-gray-400 text-sm mb-3">タスクがありません</p>
           <button onClick={onBulkGenerate} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
