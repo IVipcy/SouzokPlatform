@@ -494,22 +494,30 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           receipts={documentReceipts ?? []}
         />
       )}
-      {effectiveTab === 'progress' && (
-        <ProgressBoard
-          board={buildProgressBoard(caseState, tasks, financialAssets)}
-          dealName={caseState.deal_name ?? ''}
-          caseData={caseState}
-          tasks={tasks}
-          allMembers={allMembers}
-          currentMemberId={currentMemberId}
-          salesMemberId={salesMemberId}
-          canRequestReview={isCaseManager}
-          // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブ表示。
-          renderOfficeProgress={isManagerViewer ? () => (
-            <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
-          ) : undefined}
-        />
-      )}
+      {effectiveTab === 'progress' && (() => {
+        // 通知遷移で ?sub=report|memo&openReport=<id> が来たら該当サブタブ＋確認モーダルを自動オープン
+        const subParam = searchParams.get('sub')
+        const initSub = subParam === 'report' || subParam === 'memo' || subParam === 'office' || subParam === 'board' ? subParam : undefined
+        const openReportId = searchParams.get('openReport')
+        return (
+          <ProgressBoard
+            board={buildProgressBoard(caseState, tasks, financialAssets)}
+            dealName={caseState.deal_name ?? ''}
+            caseData={caseState}
+            tasks={tasks}
+            allMembers={allMembers}
+            currentMemberId={currentMemberId}
+            salesMemberId={salesMemberId}
+            canRequestReview={isCaseManager}
+            initialSub={initSub}
+            openReportId={openReportId}
+            // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブ表示。
+            renderOfficeProgress={isManagerViewer ? () => (
+              <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
+            ) : undefined}
+          />
+        )
+      })()}
       {effectiveTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
       )}

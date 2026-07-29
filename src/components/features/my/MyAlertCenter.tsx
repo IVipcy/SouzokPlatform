@@ -24,6 +24,16 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'doc_received') return `/cases/${n.case_id}?tab=receipts`
   if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
   if (n.type === 'realestate_additional') return `/cases/${n.case_id}?tab=assets`
+  // 案件報告：案件報告タブ(sub=report)へ飛ばして確認モーダル自動オープン
+  if (n.type === 'progress_review_requested' || n.type === 'progress_review_confirmed') {
+    // n.data?.report_id が入っていれば openReport で対象を特定できる。
+    // 通知テーブルに data JSON 列がない環境では最新の依頼中を対象にする（HistoryTab側で処理）。
+    return `/cases/${n.case_id}?tab=progress&sub=report`
+  }
+  // 報連相：報連相・メモタブ(sub=memo)へ
+  if (n.type === 'case_report' || n.type === 'case_report_confirmed') {
+    return `/cases/${n.case_id}?tab=progress&sub=memo`
+  }
   // チーム引き継ぎ：担当者タブへ飛ばし、その場で管理担当をアサインさせる
   if (n.type === 'case_handoff') return `/cases/${n.case_id}?tab=assignees`
   // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus } from 'lucide-react'
+import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus, MessageSquare, Plus } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
@@ -12,7 +12,9 @@ import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
-import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow } from '@/types'
+import HourenSouModal from './HourenSouModal'
+import AddTaskModal from './AddTaskModal'
+import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow, CaseReportRow } from '@/types'
 
 // 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
 const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
@@ -31,6 +33,8 @@ type Props = {
   tasks?: { id: string; status: string }[]
   /** 表示セクション。'report'=案件報告(依頼履歴)のみ／'memo'=報連相・メモのみ／未指定=両方 */
   section?: 'report' | 'memo'
+  /** 通知から遷移した時に自動オープンする案件報告/報連相のID */
+  openReportId?: string | null
 }
 
 /**
@@ -38,7 +42,7 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section, openReportId }: Props) {
   const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
@@ -66,6 +70,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   // 担当区分（受注担当/管理担当）。進捗報告からのタスクは既定「管理担当」。
   const [taskRole, setTaskRole] = useState<'sales' | 'manager'>('manager')
   const [taskSaving, setTaskSaving] = useState(false)
+  // 報連相（case_reports）と、右上ボタンのモーダル制御
+  const [caseReports, setCaseReports] = useState<CaseReportRow[]>([])
+  const [houRenSouOpen, setHouRenSouOpen] = useState(false)
+  const [addTaskOpen, setAddTaskOpen] = useState(false)
+  // 報連相の確認モーダル
+  const [confirmReport, setConfirmReport] = useState<CaseReportRow | null>(null)
+  const [confirmReportComment, setConfirmReportComment] = useState('')
+  const [confirmReportSaving, setConfirmReportSaving] = useState(false)
 
   const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
 
@@ -86,6 +98,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         .order('requested_date', { ascending: false })
       setProgressReports((prData ?? []) as ProgressReportRow[])
     } catch { /* migration 未適用環境では空扱い */ }
+    try {
+      const { data: crData } = await supabase
+        .from('case_reports')
+        .select('*')
+        .eq('case_id', caseData.id)
+        .order('requested_date', { ascending: false })
+      setCaseReports((crData ?? []) as CaseReportRow[])
+    } catch { /* migration 196 未適用環境では空扱い */ }
     setLoading(false)
   }
 
@@ -171,6 +191,41 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
+  // 報連相の確認：確認者＝自分で確定し、依頼者へ通知
+  const handleConfirmReport = async (cr: CaseReportRow) => {
+    if (!currentMemberId) return
+    setConfirmReportSaving(true)
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const { error } = await supabase.from('case_reports')
+      .update({ status: '確認済', confirmed_date: today, confirmer_id: currentMemberId, confirm_comment: confirmReportComment.trim() || null })
+      .eq('id', cr.id)
+    setConfirmReportSaving(false)
+    if (error) { showToast('確認に失敗しました', 'error'); return }
+    if (cr.requester_id) {
+      await supabase.from('notifications').insert({
+        member_id: cr.requester_id,
+        type: 'case_report_confirmed',
+        case_id: caseData.id,
+        title: `${cr.kind}が確認されました`,
+        body: `${caseData.case_number} ${caseData.deal_name}：${memberName(currentMemberId)} さんが確認しました`,
+      })
+    }
+    setConfirmReport(null); setConfirmReportComment('')
+    showToast('確認済にしました', 'success')
+    fetchActivities()
+  }
+
+  // 通知から遷移した時：該当ID(progress_reports/case_reports)の確認モーダルを自動オープン
+  useEffect(() => {
+    if (!openReportId) return
+    const pr = progressReports.find(r => r.id === openReportId)
+    if (pr) { setConfirmTarget(pr); setConfirmComment(''); return }
+    const cr = caseReports.find(r => r.id === openReportId)
+    if (cr) { setConfirmReport(cr); setConfirmReportComment('') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openReportId, progressReports, caseReports])
+
   // 「確認してタスク化」→ 確認モーダルからタスク作成モーダルへ
   const openTaskModal = (pr: ProgressReportRow) => {
     setTaskModalPr(pr)
@@ -246,13 +301,19 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* 案件報告（確認依頼の履歴） */}
       {section !== 'memo' && (
       <Section title="案件報告依頼">
-        {canRequestReview && (
-          <div className="flex justify-end mb-2.5">
+        <div className="flex flex-wrap justify-end gap-2 mb-2.5">
+          {canRequestReview && (
             <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setRequestOpen(true) }}>
               案件報告依頼
             </Button>
-          </div>
-        )}
+          )}
+          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
+            報連相
+          </Button>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
+            タスク化
+          </Button>
+        </div>
         <p className="text-[11px] text-gray-400 mb-2.5">「案件報告依頼」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（依頼者本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
         {progressReports.length === 0 ? (
           <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告依頼はまだありません</div>
@@ -312,6 +373,73 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* 報連相・メモ */}
       {section !== 'report' && (
       <Section title="報連相・メモ">
+        <div className="flex flex-wrap justify-end gap-2 mb-2.5">
+          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
+            報連相
+          </Button>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
+            タスク化
+          </Button>
+        </div>
+
+        {/* 報連相の履歴（案件報告と同じテイスト） */}
+        {caseReports.length > 0 && (
+          <div className="mb-4 overflow-x-auto">
+            <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
+              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">種別</th>
+                  <th className="px-3 py-2 text-left font-medium">依頼者</th>
+                  <th className="px-3 py-2 text-left font-medium">依頼日</th>
+                  <th className="px-3 py-2 text-left font-medium">通知先</th>
+                  <th className="px-3 py-2 text-left font-medium">内容</th>
+                  <th className="px-3 py-2 text-left font-medium">確認コメント</th>
+                  <th className="px-3 py-2 text-left font-medium">確認者</th>
+                  <th className="px-3 py-2 text-left font-medium">ステータス</th>
+                  <th className="px-3 py-2 text-left font-medium">確認日付</th>
+                  <th className="px-3 py-2 w-28" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {caseReports.map(cr => {
+                  const confirmer = allMembers.find(m => m.id === cr.confirmer_id)
+                  const isRequester = !!currentMemberId && cr.requester_id === currentMemberId
+                  const canConfirm = cr.status === '依頼中' && !!currentMemberId && !isRequester
+                  const kindColor = cr.kind === '相談' ? 'bg-amber-50 text-amber-700' : cr.kind === '連絡' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'
+                  return (
+                    <tr key={cr.id} className="hover:bg-gray-50/60">
+                      <td className="px-3 py-2.5"><span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold ${kindColor}`}>{cr.kind}</span></td>
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700">{memberName(cr.requester_id)}</td>
+                      <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{cr.requested_date}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700">{(cr.recipient_ids ?? []).map(memberName).join(', ') || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{cr.message || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{cr.confirm_comment || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2.5">
+                        {confirmer ? (
+                          <span className="inline-flex items-center gap-1.5"><UserAvatar name={confirmer.name} url={confirmer.avatar_url} size="sm" /><span className="text-[12px] text-gray-700">{confirmer.name}</span></span>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${cr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{cr.status}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{cr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        {canConfirm && (
+                          <button type="button" onClick={() => { setConfirmReport(cr); setConfirmReportComment('') }} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
+                            <Check className="w-3 h-3" strokeWidth={2.25} />確認する
+                          </button>
+                        )}
+                        {cr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* メモ入力欄（従来） */}
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
             <div className="flex gap-2 flex-wrap">
@@ -544,6 +672,59 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         )}
       </Modal>
       </>)}
+
+      {/* 報連相の確認モーダル（案件報告と同じテイスト） */}
+      <Modal
+        isOpen={!!confirmReport}
+        onClose={() => { setConfirmReport(null); setConfirmReportComment('') }}
+        title={confirmReport ? `${confirmReport.kind}を確認` : '確認'}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setConfirmReport(null); setConfirmReportComment('') }} disabled={confirmReportSaving}>キャンセル</Button>
+            <Button variant="primary" onClick={() => confirmReport && handleConfirmReport(confirmReport)} loading={confirmReportSaving} leftIcon={<Check className="w-3.5 h-3.5" strokeWidth={2.25} />}>確認した</Button>
+          </>
+        }
+      >
+        {confirmReport && (
+          <div className="space-y-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="text-[11px] text-gray-400 mb-0.5">{confirmReport.kind} の内容</div>
+              <div className="text-[13px] text-gray-700 whitespace-pre-wrap">{confirmReport.message || <span className="text-gray-400">（本文なし）</span>}</div>
+              <div className="text-[11px] text-gray-400 mt-1">{memberName(confirmReport.requester_id)} ・ {confirmReport.requested_date} 送信</div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[13px] font-semibold text-gray-600">確認した内容 <span className="font-normal text-gray-400">（任意）</span></label>
+              <textarea
+                value={confirmReportComment}
+                onChange={e => setConfirmReportComment(e.target.value)}
+                placeholder="例：内容を確認しました／◯◯の方針で対応します"
+                rows={4}
+                className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 報連相モーダル（右上ボタンから） */}
+      <HourenSouModal
+        isOpen={houRenSouOpen}
+        onClose={() => setHouRenSouOpen(false)}
+        caseData={caseData}
+        currentMemberId={currentMemberId}
+        salesMemberId={salesMemberId}
+        allMembers={allMembers}
+        onSent={fetchActivities}
+      />
+
+      {/* タスク化モーダル（右上ボタンから：受注/管理担当タスクを新規作成） */}
+      <AddTaskModal
+        isOpen={addTaskOpen}
+        onClose={() => setAddTaskOpen(false)}
+        caseId={caseData.id}
+        allMembers={allMembers}
+        onSaved={fetchActivities}
+      />
     </div>
   )
 }

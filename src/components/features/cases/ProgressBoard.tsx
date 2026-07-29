@@ -56,10 +56,14 @@ type ProgressBoardProps = {
   canRequestReview?: boolean
   // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブとして差し込む。
   renderOfficeProgress?: () => ReactNode
+  /** URL ?sub= から復元する初期サブタブ（通知遷移で 'report' | 'memo' 指定される） */
+  initialSub?: 'board' | 'office' | 'report' | 'memo'
+  /** 通知遷移で確認モーダルを自動オープンするための ID（progress_reports か case_reports） */
+  openReportId?: string | null
 }
 
-export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress }: ProgressBoardProps) {
-  const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo'>('board')
+export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId }: ProgressBoardProps) {
+  const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo'>(initialSub ?? 'board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -99,6 +103,7 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
       ) : sub === 'report' || sub === 'memo' ? (
         <HistoryTab
           section={sub}
+          openReportId={openReportId ?? undefined}
           caseData={caseData}
           allMembers={allMembers}
           currentMemberId={currentMemberId}

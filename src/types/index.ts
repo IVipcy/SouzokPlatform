@@ -1083,3 +1083,21 @@ export type ProgressReportRow = {
   created_at: string
   updated_at: string
 }
+
+// === 報連相（報告/連絡/相談。migration 196） ===
+export type CaseReportKind = '報告' | '連絡' | '相談'
+export type CaseReportRow = {
+  id: string
+  case_id: string
+  kind: CaseReportKind
+  requester_id: string | null
+  recipient_ids: string[]         // 通知先メンバー（複数可）
+  message: string | null
+  requested_date: string
+  status: ProgressReportStatus
+  confirmer_id: string | null
+  confirmed_date: string | null
+  confirm_comment: string | null
+  created_at: string
+  updated_at: string
+}
