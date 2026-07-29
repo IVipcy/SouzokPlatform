@@ -4,7 +4,7 @@
 // 項目は案件(caseData)に保存＝②面談結果登録・③オーダーシートへ自動で引き継がれる（同じ列を編集するため）。
 // 手書きは meeting_memos に section キー付きで保存し、③でも参照できる（親でstate管理）。
 import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
-import { Eraser, Sparkles, Save, Trash2, Plus, ChevronDown } from 'lucide-react'
+import { Eraser, Sparkles, Save, Trash2, Plus, Pen, Highlighter } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, FieldGrid, InlineEdit, InlineDate } from '@/components/ui/InlineFields'
@@ -29,6 +29,10 @@ function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: s
   const emptyRef = useRef(true)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  // 描画ツール：pen=黒ペン / marker=蛍光ペン(黄・半透明・太) / eraser=消しゴム(一部消し)
+  const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
+  const modeRef = useRef(mode)
+  modeRef.current = mode
 
   // 実寸×DPRでビットマップを確保。リサイズ時は既存の描画を退避→再設定→再描画で保持。
   const setup = useCallback(() => {
@@ -59,9 +63,25 @@ function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: s
     if (!drawing.current) return
     const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
     const p = pos(e)
-    ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
+    const m = modeRef.current
+    if (m === 'eraser') {
+      // 一部消し：透明にくり抜く（キャンバスは透明・下地は白枠）
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)'
+      ctx.lineWidth = 20
+    } else if (m === 'marker') {
+      // 蛍光ペン：黄・半透明・太
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.strokeStyle = 'rgba(250,204,21,0.4)'
+      ctx.lineWidth = 16
+    } else {
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.strokeStyle = '#1f2937'
+      ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
+    }
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
-    last.current = p; if (emptyRef.current) { emptyRef.current = false; setEmpty(false) }
+    ctx.globalCompositeOperation = 'source-over'
+    last.current = p; if (emptyRef.current && m !== 'eraser') { emptyRef.current = false; setEmpty(false) }
   }
   const up = () => { drawing.current = false; last.current = null }
   const clear = () => {
@@ -91,7 +111,16 @@ function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: s
         <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-300">↕ 下端をドラッグで拡大</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 mt-2">
-        <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Eraser className="w-3.5 h-3.5" />消す</button>
+        {/* ツール切替：ペン／蛍光ペン（黄）／消しゴム（一部消し） */}
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+          {([['pen', 'ペン', Pen], ['marker', '蛍光ペン', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
+            <button key={k} type="button" onClick={() => setMode(k)}
+              className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              <Icon className="w-3.5 h-3.5" />{label}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Trash2 className="w-3.5 h-3.5" />全消去</button>
         <button type="button" onClick={toText} disabled={empty || busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy ? '認識中…' : 'テキスト化（AI）'}</button>
         <button type="button" onClick={doSave} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[12px] px-3.5 py-1.5 rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-3.5 h-3.5" />{saving ? '保存中…' : 'このセクションに保存'}</button>
       </div>
