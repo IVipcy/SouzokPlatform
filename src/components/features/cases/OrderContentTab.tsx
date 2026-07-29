@@ -13,6 +13,7 @@ import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } 
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
 import HintNote from '@/components/ui/HintNote'
+import { WorkContentField } from './WorkContentField'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -101,6 +102,10 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="受注内容" description="この案件で引き受けた仕事の種類と、実際にやる作業を選びます" />}
       <Section title="受注内容">
+        {/* 受注内容（提案内容）＝フリー欄。面談シート(order)と同じキーで共有・引き継ぎ（エクセルR24） */}
+        <div className="mb-4">
+          <WorkContentField caseData={caseData} gyomu="order" patchCase={patchCase} label="受注内容（提案内容）／面談シートと共有" />
+        </div>
         {/* 受注区分（3行・複数選択） */}
         <div className="mb-4">
           <div className="text-[13px] text-gray-600 mb-1.5">受注区分（複数選択できます）</div>

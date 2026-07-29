@@ -318,11 +318,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
   }
 
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
-  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (d: string) => Promise<void>) => (
+  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (d: string) => Promise<void>, hideMemo?: boolean) => (
     <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
-        <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} />
+        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} />}
         {body}
       </div>
     </div>
@@ -344,7 +344,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
 
       {sec('order', '受注内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode />
-      ))}
+      ), undefined, true)}
 
       {sec('deceased', '相続人調査', null, (
         <div className="space-y-3">
