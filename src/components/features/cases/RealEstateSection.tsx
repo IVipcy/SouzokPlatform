@@ -17,6 +17,7 @@ import Button from '@/components/ui/Button'
 import ProgressSummary from './ProgressSummary'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
+import EvalCertTable from './EvalCertTable'
 import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { RealEstatePropertyRow, RealEstateAcquisitionRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -378,6 +379,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
               <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
+            </div>
+            {/* 評価証明（物件ごと・別表）：名寄帳とは分ける。家屋番号・近傍宅地価格・年度を物件単位で管理（エクセルR69）。 */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+              <SectionHeading title="評価証明（物件ごと）" hint="固定資産評価証明は物件ごとに、家屋番号・近傍宅地価格の有無・年度（和暦）を記録します。請求先は市区町村役所（①と同じ）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <EvalCertTable caseId={caseId} properties={properties.filter(p => municipalityOf(p) === muniKey)} requestTo={muniKey} onRefresh={onRefresh} />
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出す→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取ります。登記情報などは法務局へまとめて請求します（請求・読込とも市区町村ごと1件。資料ごとの到着日は下の表に入れます）。路線価は見るだけ（請求も日付もありません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
