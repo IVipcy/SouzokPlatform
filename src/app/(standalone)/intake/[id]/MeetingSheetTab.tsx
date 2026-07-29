@@ -19,8 +19,25 @@ type Pt = { x: number; y: number }
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 const BUCKET = 'meeting-memos'
 
+// 「AIで項目に反映」用のセクション別スキーマ（手書き→構造化抽出→フィールドへ）。target=保存先。
+type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' }
+const EXTRACT_SCHEMA: Record<string, XField[]> = {
+  client: [
+    { key: 'name', label: '氏名', target: 'client' },
+    { key: 'furigana', label: 'ふりがな', target: 'client' },
+    { key: 'relationship_to_deceased', label: '続柄', target: 'client', enum: [...HEIR_RELATIONSHIPS] },
+    { key: 'mobile_phone', label: '携帯電話', target: 'client' },
+    { key: 'address', label: '住所', target: 'client' },
+  ],
+  deceased: [
+    { key: 'deceased_name', label: '被相続人氏名', target: 'case' },
+    { key: 'deceased_furigana', label: '被相続人ふりがな', target: 'case' },
+    { key: 'date_of_death', label: '相続開始日（死亡日）', target: 'case', type: 'date' },
+  ],
+}
+
 // 縦に自由に広げられる手書きキャンバス（ペン・筆圧対応）。リサイズしても描画は保持。
-function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: string) => void; saving: boolean }) {
+function HandwriteCanvas({ onSave, saving, onExtract }: { onSave: (dataUrl: string, text: string) => void; saving: boolean; onExtract?: (dataUrl: string) => Promise<void> }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -33,6 +50,8 @@ function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: s
   const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
   const modeRef = useRef(mode)
   modeRef.current = mode
+  const [extracting, setExtracting] = useState(false)
+  const doExtract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setExtracting(true); try { await onExtract(c.toDataURL('image/png')) } finally { setExtracting(false) } }
 
   // 実寸×DPRでビットマップを確保。リサイズ時は既存の描画を退避→再設定→再描画で保持。
   const setup = useCallback(() => {
@@ -122,6 +141,7 @@ function HandwriteCanvas({ onSave, saving }: { onSave: (dataUrl: string, text: s
         </div>
         <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Trash2 className="w-3.5 h-3.5" />全消去</button>
         <button type="button" onClick={toText} disabled={empty || busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy ? '認識中…' : 'テキスト化（AI）'}</button>
+        {onExtract && <button type="button" onClick={doExtract} disabled={empty || extracting} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{extracting ? '反映中…' : 'AIで項目に反映'}</button>}
         <button type="button" onClick={doSave} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[12px] px-3.5 py-1.5 rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-3.5 h-3.5" />{saving ? '保存中…' : 'このセクションに保存'}</button>
       </div>
       {text && (isError
@@ -202,9 +222,29 @@ type SecKey = 'client' | 'order' | 'deceased' | 'assets' | 'referral'
 export default function MeetingSheetTab({ caseData, patchCase, patchClient, currentMemberId, memos, setMemos }: Props) {
   const [openMemo, setOpenMemo] = useState<Set<SecKey>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const cl = caseData.clients
 
   const toggleMemo = (k: SecKey) => setOpenMemo(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
+  const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
+
+  // 手書き画像 → 構造化抽出 → 該当セクションの項目に自動反映。反映した項目は青文字(aiFilled)。
+  const runExtract = async (sec: string, dataUrl: string) => {
+    const schema = EXTRACT_SCHEMA[sec]; if (!schema) return
+    try {
+      const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl, fields: schema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type })) }) })
+      const j = (await res.json()) as { values?: Record<string, string>; error?: string }
+      if (!res.ok) { showToast(j.error ?? '反映に失敗しました', 'error'); return }
+      const values = j.values ?? {}
+      const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
+      const filled: string[] = []
+      for (const f of schema) { const v = values[f.key]; if (!v) continue; if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v; filled.push(f.key) }
+      if (Object.keys(casePatch).length) await patchCase(casePatch as Partial<CaseRow>)
+      if (Object.keys(clientPatch).length) await patchClient(clientPatch)
+      if (filled.length) { setAiFilled(prev => new Set([...prev, ...filled])); showToast(`${filled.length}項目をAIで反映しました（青字＝要確認）`, 'success') }
+      else showToast('反映できる項目が読み取れませんでした', 'error')
+    } catch { showToast('通信に失敗しました', 'error') }
+  }
 
   const addMemo = async (section: SecKey, dataUrl: string, text: string) => {
     setSaving(true)
@@ -247,7 +287,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
         </div>
         {open && (
           <div className="px-4 pt-3 pb-1 bg-[#FBFCFE] border-b border-gray-100">
-            <HandwriteCanvas onSave={(d, t) => addMemo(sec, d, t)} saving={saving} />
+            <HandwriteCanvas onSave={(d, t) => addMemo(sec, d, t)} saving={saving} onExtract={EXTRACT_SCHEMA[sec] ? (d) => runExtract(sec, d) : undefined} />
             <SavedMemos memos={secMemos} onDelete={delMemo} />
           </div>
         )}
@@ -263,11 +303,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
       {/* 依頼者情報 */}
       <SecCard sec="client" title="依頼者情報">
         <FieldGrid>
-          <InlineEdit label="氏名" value={cl?.name ?? null} onSave={v => patchClient({ name: v || null })} />
-          <InlineEdit label="ふりがな" value={cl?.furigana ?? null} onSave={v => patchClient({ furigana: v || null })} />
+          <InlineEdit label="氏名" value={cl?.name ?? null} ai={aiFilled.has('name')} onSave={v => { clearAi('name'); return patchClient({ name: v || null }) }} />
+          <InlineEdit label="ふりがな" value={cl?.furigana ?? null} ai={aiFilled.has('furigana')} onSave={v => { clearAi('furigana'); return patchClient({ furigana: v || null }) }} />
           <InlineSelect label="続柄" value={cl?.relationship_to_deceased ?? null} options={[...HEIR_RELATIONSHIPS]} onSave={v => patchClient({ relationship_to_deceased: v || null })} />
-          <InlineEdit label="携帯電話" value={cl?.mobile_phone ?? null} onSave={v => patchClient({ mobile_phone: v || null })} />
-          <InlineEdit label="住所" value={cl?.address ?? null} onSave={v => patchClient({ address: v || null })} fullWidth />
+          <InlineEdit label="携帯電話" value={cl?.mobile_phone ?? null} ai={aiFilled.has('mobile_phone')} onSave={v => { clearAi('mobile_phone'); return patchClient({ mobile_phone: v || null }) }} />
+          <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
         </FieldGrid>
       </SecCard>
 
@@ -279,8 +319,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
       {/* 相続人調査（要点） */}
       <SecCard sec="deceased" title="相続人調査（要点）">
         <FieldGrid>
-          <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => patchCase({ deceased_name: v || null })} />
-          <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => patchCase({ deceased_furigana: v || null })} />
+          <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
+          <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
           <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => patchCase({ date_of_death: v || null })} />
         </FieldGrid>
         <div className="mt-2">

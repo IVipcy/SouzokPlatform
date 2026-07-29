@@ -143,7 +143,7 @@ export function QIRow({ label, children }: { label: string; children: React.Reac
 }
 
 // ─── InlineEdit (text) ───
-export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint }: {
+export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint, ai }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -154,6 +154,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   // 関数を渡すと「現在の入力値」を受け取れる（例: 郵便番号→住所取得ボタンが入力中の値で有効化される）。
   action?: React.ReactNode | ((current: string) => React.ReactNode)
   hint?: string             // 値の下に出す補助説明（例: 郵便番号で住所自動入力）
+  ai?: boolean              // AIが自動入力した値は青文字で表示（人が手直しすると消す運用）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -207,7 +208,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder="入力"
-          className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''}`}
+          className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
         />
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
@@ -241,7 +242,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
           title="クリックして編集"
         >
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400' : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
             {value ?? 'クリックして入力'}
           </span>
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
