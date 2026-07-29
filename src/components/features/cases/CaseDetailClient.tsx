@@ -497,7 +497,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       {effectiveTab === 'progress' && (() => {
         // 通知遷移で ?sub=report|memo&openReport=<id> が来たら該当サブタブ＋確認モーダルを自動オープン
         const subParam = searchParams.get('sub')
-        const initSub = subParam === 'report' || subParam === 'memo' || subParam === 'office' || subParam === 'board' ? subParam : undefined
+        const initSub = subParam === 'report' || subParam === 'memo' || subParam === 'office' || subParam === 'board' || subParam === 'complaint' ? subParam : undefined
         const openReportId = searchParams.get('openReport')
         return (
           <ProgressBoard

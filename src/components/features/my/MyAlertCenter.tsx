@@ -34,6 +34,10 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'case_report' || n.type === 'case_report_confirmed') {
     return `/cases/${n.case_id}?tab=progress&sub=memo`
   }
+  // 不満・クレーム：不満・クレームタブ(sub=complaint)へ
+  if (n.type === 'case_complaint') {
+    return `/cases/${n.case_id}?tab=progress&sub=complaint`
+  }
   // チーム引き継ぎ：担当者タブへ飛ばし、その場で管理担当をアサインさせる
   if (n.type === 'case_handoff') return `/cases/${n.case_id}?tab=assignees`
   // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）

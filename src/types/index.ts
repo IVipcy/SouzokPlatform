@@ -1084,6 +1084,22 @@ export type ProgressReportRow = {
   updated_at: string
 }
 
+// === 不満・クレーム（migration 197） ===
+export type ComplaintSeverity = '少し不満' | '不満' | 'クレーム' | '大クレーム'
+export type ComplaintAction = '謝罪・即対応（完結）' | '謝罪・受注相談'
+export type CaseComplaintRow = {
+  id: string
+  case_id: string
+  occurred_at: string           // YYYY-MM-DD
+  severity: ComplaintSeverity
+  contact_method: string | null // 電話/LINE/メール/手紙
+  detail: string | null
+  action: ComplaintAction | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 // === 報連相（報告/連絡/相談。migration 196） ===
 export type CaseReportKind = '報告' | '連絡' | '相談'
 export type CaseReportRow = {

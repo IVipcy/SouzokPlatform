@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react'
 import { Check, Sparkles, Wand2 } from 'lucide-react'
 import { SubTabs } from '@/components/ui/SubTabs'
 import HistoryTab from './HistoryTab'
+import ComplaintsTab from './ComplaintsTab'
 import type { ProgressBoard as Board, ItemStatus } from '@/lib/caseProgressBoard'
 import type { CaseRow, TaskRow, MemberRow } from '@/types'
 
@@ -56,14 +57,14 @@ type ProgressBoardProps = {
   canRequestReview?: boolean
   // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブとして差し込む。
   renderOfficeProgress?: () => ReactNode
-  /** URL ?sub= から復元する初期サブタブ（通知遷移で 'report' | 'memo' 指定される） */
-  initialSub?: 'board' | 'office' | 'report' | 'memo'
+  /** URL ?sub= から復元する初期サブタブ（通知遷移で 'report' | 'memo' | 'complaint' 指定される） */
+  initialSub?: 'board' | 'office' | 'report' | 'memo' | 'complaint'
   /** 通知遷移で確認モーダルを自動オープンするための ID（progress_reports か case_reports） */
   openReportId?: string | null
 }
 
 export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId }: ProgressBoardProps) {
-  const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo'>(initialSub ?? 'board')
+  const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo' | 'complaint'>(initialSub ?? 'board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -73,6 +74,7 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
     ...(renderOfficeProgress ? [{ key: 'office', label: '事務管理進捗' }] : []),
     { key: 'report', label: '案件報告' },
     { key: 'memo', label: '報連相・メモ' },
+    { key: 'complaint', label: '不満・クレーム' },
   ]
 
   // 業務が少ない案件は1列、多い案件は2列（案件詳細は横幅があるため）。
@@ -96,10 +98,12 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'office' | 'report' | 'memo')} />
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'office' | 'report' | 'memo' | 'complaint')} />
 
       {sub === 'office' ? (
         <div>{renderOfficeProgress?.()}</div>
+      ) : sub === 'complaint' ? (
+        <ComplaintsTab caseData={caseData} currentMemberId={currentMemberId} salesMemberId={salesMemberId} allMembers={allMembers} />
       ) : sub === 'report' || sub === 'memo' ? (
         <HistoryTab
           section={sub}
