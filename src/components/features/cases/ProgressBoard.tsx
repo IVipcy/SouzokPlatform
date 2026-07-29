@@ -33,19 +33,26 @@ type ProgressBoardProps = {
 
 export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false }: ProgressBoardProps) {
   const [sub, setSub] = useState<'board' | 'history'>('board')
-  const [ai, setAi] = useState<string | null>(null)
+  const [aiOverall, setAiOverall] = useState<string | null>(null)
+  const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const SUBTABS = [{ key: 'board', label: '進捗サマリー' }, { key: 'history', label: '進捗報告・メモ' }]
 
+  // 業務が少ない案件は1列、多い案件は2列（案件詳細は横幅があるため）。
+  const gridCols = board.total <= 5 ? '1fr' : 'repeat(2, minmax(0, 1fr))'
+
   const runAi = async () => {
     setBusy(true); setErr('')
     try {
-      const items = board.groups.flatMap(g => g.items.map(i => ({ name: g.count ? `${g.title}・${i.name}` : i.name, status: STATUS_LABEL[i.status], note: i.note })))
+      const items = board.koteiGroups.flatMap(kg => kg.groups.flatMap(g =>
+        g.items.map(i => ({ kotei: kg.kotei, name: g.count ? `${g.title}・${i.name}` : i.name, status: STATUS_LABEL[i.status], note: i.note })),
+      ))
       const res = await fetch('/api/progress-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items, dealName }) })
-      const j = (await res.json()) as { summary?: string; error?: string }
+      const j = (await res.json()) as { overall?: string; byKotei?: Record<string, string>; error?: string }
       if (!res.ok) { setErr(j.error ?? '生成に失敗しました'); return }
-      setAi(j.summary || '（要約できませんでした）')
+      setAiOverall(j.overall || '（要約できませんでした）')
+      setAiByKotei(j.byKotei ?? {})
     } catch {
       setErr('通信に失敗しました')
     } finally { setBusy(false) }
@@ -66,62 +73,74 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
         />
       ) : (
       <div className="space-y-4">
-      {/* 全体サマリー */}
+      {/* 全体サマリー（AI overall／未生成時はルールベース）＋進捗バー */}
       <div className="rounded-2xl border border-[#D5E4FB] bg-[#F4F8FF] px-4 py-3">
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <Sparkles className="w-4 h-4 text-[#378ADD]" strokeWidth={2} />
-          <span className="text-[11.5px] font-semibold text-[#185FA5] tracking-wide">進捗サマリー</span>
-          <span className="text-[10px] text-[#7FA8D9] bg-[#E6F1FB] px-1.5 py-0.5 rounded">{ai ? 'AI生成' : '自動'}</span>
-          <button type="button" onClick={runAi} disabled={busy} className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-[#185FA5] hover:text-[#0C447C] disabled:opacity-50">
+          <span className="text-[11.5px] font-semibold text-[#185FA5] tracking-wide">全体サマリー</span>
+          <span className="text-[10px] text-[#7FA8D9] bg-[#E6F1FB] px-1.5 py-0.5 rounded">{aiOverall ? 'AI生成' : '自動'}</span>
+          <span className="ml-auto text-[20px] font-medium text-[#0C447C] leading-none">{board.percent}%</span>
+          <span className="text-[11px] text-[#7FA8D9]">{board.done}/{board.total}</span>
+          <button type="button" onClick={runAi} disabled={busy} className="inline-flex items-center gap-1 text-[11.5px] text-[#185FA5] hover:text-[#0C447C] disabled:opacity-50">
             <Wand2 className="w-3.5 h-3.5" />{busy ? '生成中…' : 'AI進捗要約'}
           </button>
         </div>
-        <p className="text-[13.5px] text-[#0C447C] leading-relaxed whitespace-pre-wrap">{ai ?? board.ruleSummary}</p>
+        <p className="text-[13.5px] text-[#0C447C] leading-relaxed whitespace-pre-wrap mb-2.5">{aiOverall ?? board.ruleSummary}</p>
+        <div className="h-1.5 rounded-full bg-[#D9E7F8] overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${board.percent}%`, background: DONE }} />
+        </div>
         {err && <p className="mt-1.5 text-[11.5px] text-red-600">{err}</p>}
       </div>
 
-      {/* 全体進捗バー */}
-      <div>
-        <div className="flex items-baseline gap-2 mb-1.5">
-          <span className="text-[13px] text-gray-500">案件進捗</span>
-          <span className="text-[22px] font-medium text-gray-900">{board.percent}%</span>
-          <span className="ml-auto text-[12px] text-gray-400">{board.done} / {board.total} 項目完了</span>
-        </div>
-        <div className="h-2 rounded-full bg-[#EAE7E0] overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${board.percent}%`, background: DONE }} />
-        </div>
-      </div>
+      {/* 工程グループ（1相続人調査→2財産調査→…）。少数案件は1列・多い案件は2列。 */}
+      <div className="grid gap-2.5 items-start" style={{ gridTemplateColumns: gridCols }}>
+        {board.koteiGroups.map((kg, ki) => {
+          const leaves = kg.groups.flatMap(g => g.items)
+          const aiLine = aiByKotei[kg.kotei]
+          return (
+            <div key={ki} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              {/* 工程ヘッダー：番号バッジ＋名称＋n/m＋セグメントバー */}
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+                {kg.number != null
+                  ? <span className="w-[18px] h-[18px] rounded-[5px] text-[11px] font-medium inline-flex items-center justify-center flex-none" style={{ background: kg.color.bg, color: kg.color.text }}>{kg.number}</span>
+                  : <span className="w-1.5 h-1.5 rounded-[2px] flex-none" style={{ background: kg.color.text }} />}
+                <span className="text-[12.5px] font-medium" style={{ color: kg.color.text }}>{kg.kotei}</span>
+                <span className="text-[11px] text-gray-400">{kg.done}/{kg.total}</span>
+                <div className="ml-auto flex gap-0.5 w-[52px]">
+                  {leaves.map((i, ii) => <span key={ii} className="flex-1 h-[3px] rounded-full" style={{ background: i.status === 'done' ? DONE : i.status === 'prog' ? PROG : '#E4E1D9' }} />)}
+                </div>
+              </div>
 
-      {/* 業務グループ */}
-      <div className="space-y-2.5">
-        {board.groups.map((g, gi) => (
-          <div key={gi} className={`bg-white border border-gray-200 rounded-2xl ${g.count ? 'px-4 py-3' : 'px-4 py-1.5'}`}>
-            {g.count && (
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[13px] font-medium text-gray-600">{g.title}</span>
-                <span className="text-[11px] text-gray-400">{g.count}</span>
-                <div className="ml-auto flex gap-1">
-                  {g.items.map((i, ii) => <span key={ii} className="w-4 h-[3px] rounded-full" style={{ background: i.status === 'done' ? DONE : i.status === 'prog' ? PROG : '#EAE7E0' }} />)}
+              {/* 工程のAIひとこと（生成後のみ） */}
+              {aiLine && (
+                <div className="flex gap-1.5 px-3.5 py-2 bg-[#FBFCFE] border-b border-gray-100">
+                  <Sparkles className="w-3.5 h-3.5 text-[#7FA8D9] flex-none mt-[1px]" strokeWidth={2} />
+                  <span className="text-[11.5px] text-gray-600 leading-relaxed">{aiLine}</span>
                 </div>
-              </div>
-            )}
-            {g.items.map((it, ii) => (
-              <div key={ii}>
-                {ii > 0 && <div className="h-px bg-gray-100 ml-[25px]" />}
-                <div className="flex gap-2.5 items-start py-1.5">
-                  <span className="pt-0.5"><Dot st={it.status} /></span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-[13.5px] font-medium ${it.status === 'todo' ? 'text-gray-400' : 'text-gray-800'}`}>{it.name}</span>
-                      <span className="text-[11px]" style={{ color: LBL_COLOR[it.status] }}>{STATUS_LABEL[it.status]}</span>
+              )}
+
+              {/* 業務行。金融資産・解約は業務見出し＋対象別サブ行、それ以外は1行。 */}
+              {kg.groups.map((g, gi) => (
+                <div key={gi} className={gi > 0 ? 'border-t border-gray-100' : ''}>
+                  {g.count && (
+                    <div className="flex items-center gap-2 px-3.5 pt-2 pb-0.5">
+                      <span className="text-[12px] font-medium text-gray-600">{g.title}</span>
+                      <span className="text-[10.5px] text-gray-400">{g.count}</span>
                     </div>
-                    {it.note && <div className={`text-[12.5px] mt-0.5 ${it.status === 'todo' ? 'text-gray-400' : 'text-gray-600'}`}>{it.note}</div>}
-                  </div>
+                  )}
+                  {g.items.map((it, ii) => (
+                    <div key={ii} className={`flex items-center gap-2 px-3.5 ${g.count ? 'py-1' : 'py-1.5'} ${ii > 0 ? 'border-t border-gray-50' : ''}`}>
+                      <Dot st={it.status} />
+                      <span className={`text-[13px] ${it.status === 'todo' ? 'text-gray-400' : 'text-gray-800'}`}>{it.name}</span>
+                      {it.note && <span className="text-[11.5px] text-gray-400 truncate">{it.note}</span>}
+                      <span className="ml-auto text-[10.5px] flex-none" style={{ color: LBL_COLOR[it.status] }}>{STATUS_LABEL[it.status]}</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        ))}
+              ))}
+            </div>
+          )
+        })}
       </div>
       </div>
       )}

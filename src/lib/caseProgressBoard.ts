@@ -1,14 +1,24 @@
 // 管理担当向け「案件進捗ボード」の集計。受注区分→業務を展開し、各業務のステータスを自動判定。
 // 財産（金融資産）は資産別、解約は機関別にサブ項目化。メモは各実務タブの作業内容フリー欄(work_content)。
 import { gyomuForCategories, categoriesOf, GYOMU_TAB } from '@/lib/serviceMaster'
-import { stripGyomu } from '@/lib/kotei'
+import { stripGyomu, koteiOf, koteiRank, KOTEI_NUMBER, KOTEI_COLOR } from '@/lib/kotei'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import type { TaskRow, CaseRow, FinancialAssetRow } from '@/types'
 
 export type ItemStatus = 'done' | 'prog' | 'todo'
 export type BoardItem = { name: string; status: ItemStatus; note?: string }
-export type BoardGroup = { title: string; count?: string; items: BoardItem[] }
-export type ProgressBoard = { groups: BoardGroup[]; done: number; total: number; percent: number; ruleSummary: string }
+// 業務（例: 戸籍収集）。金融資産・解約は資産別/機関別の items を持ち count を出す。
+export type BoardGroup = { title: string; gyomu: string; count?: string; items: BoardItem[] }
+// 工程（例: 1 相続人調査）。配下に業務グループを持つ。
+export type BoardKotei = {
+  kotei: string
+  number: number | null
+  color: { bg: string; text: string }
+  groups: BoardGroup[]
+  done: number
+  total: number
+}
+export type ProgressBoard = { koteiGroups: BoardKotei[]; done: number; total: number; percent: number; ruleSummary: string }
 
 // 業務名の表示調整（内部gyomu名→見やすい表示名）
 const DISPLAY: Record<string, string> = { '戸籍': '戸籍収集', '相関図': '相続関係説明図', '登記': '相続登記', '目録': '財産目録', '協議書': '遺産分割協議書' }
@@ -91,20 +101,20 @@ export function buildProgressBoard(
         const list = byType.get(t)!
         return { name: t, status: statusOfFinType(list), note: list.map(a => a.institution_name).filter(Boolean).slice(0, 3).join('・') || undefined }
       })
-      groups.push({ title: '金融資産調査', count: `${items.filter(i => i.status === 'done').length} / ${items.length}`, items })
+      groups.push({ title: '金融資産調査', gyomu: '金融資産', count: `${items.filter(i => i.status === 'done').length} / ${items.length}`, items })
       continue
     }
     if (gyomu === '解約') {
       const targets = financialAssets.filter(a => a.cancellation_required === '有' || a.cancellation_required === '確認中')
       if (targets.length > 0) {
         const items: BoardItem[] = targets.map(a => ({ name: a.institution_name || '（機関未設定）', status: statusOfCancel(a), note: a.cancellation_result || undefined }))
-        groups.push({ title: '解約手続き', count: `${items.filter(i => i.status === 'done').length} / ${items.length}`, items })
+        groups.push({ title: '解約手続き', gyomu: '解約', count: `${items.filter(i => i.status === 'done').length} / ${items.length}`, items })
         continue
       }
     }
     // メモ優先順位：① 人が書いたフリー欄 → ② タスクの実施結果を自動集約
     const note = noteFor(gyomu) ?? noteFromTasks(tasks, gyomu)
-    groups.push({ title: label(gyomu), items: [{ name: label(gyomu), status: statusOfTasks(tasks, gyomu), note }] })
+    groups.push({ title: label(gyomu), gyomu, items: [{ name: label(gyomu), status: statusOfTasks(tasks, gyomu), note }] })
   }
 
   const leaves = groups.flatMap(g => g.items)
@@ -112,7 +122,30 @@ export function buildProgressBoard(
   const total = leaves.length
   const percent = total ? Math.round((done / total) * 100) : 0
 
-  // ルールベースの即時サマリー
+  // 業務グループを工程（相続人調査/財産調査/…）でまとめ、KOTEI_ORDER の順で並べる。
+  const byKotei = new Map<string, BoardGroup[]>()
+  for (const g of groups) {
+    const k = koteiOf(g.gyomu)
+    const arr = byKotei.get(k) ?? []
+    arr.push(g)
+    byKotei.set(k, arr)
+  }
+  const koteiGroups: BoardKotei[] = [...byKotei.keys()]
+    .sort((a, b) => koteiRank(a) - koteiRank(b))
+    .map(k => {
+      const kgGroups = byKotei.get(k)!
+      const kgLeaves = kgGroups.flatMap(g => g.items)
+      return {
+        kotei: k,
+        number: KOTEI_NUMBER[k] ?? null,
+        color: KOTEI_COLOR[k] ?? KOTEI_COLOR['その他'],
+        groups: kgGroups,
+        done: kgLeaves.filter(i => i.status === 'done').length,
+        total: kgLeaves.length,
+      }
+    })
+
+  // ルールベースの即時サマリー（AI生成前のフォールバック）
   const names = (st: ItemStatus) => leaves.filter(i => i.status === st).map(i => i.name)
   const doneN = names('done'), progN = leaves.filter(i => i.status === 'prog'), todoN = names('todo')
   const parts: string[] = []
@@ -121,5 +154,5 @@ export function buildProgressBoard(
   if (todoN.length) parts.push(`未着手：${todoN.join('・')}`)
   const ruleSummary = parts.join(' ／ ') || '業務がまだ登録されていません'
 
-  return { groups, done, total, percent, ruleSummary }
+  return { koteiGroups, done, total, percent, ruleSummary }
 }
