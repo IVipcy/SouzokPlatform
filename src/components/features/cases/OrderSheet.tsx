@@ -217,8 +217,8 @@ export default function OrderSheet({
         <fieldset disabled={ro} className="flex-1 min-w-0 space-y-5 border-0 p-0 m-0">
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
-              {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ） */}
-              {s.title !== '依頼者情報' && (
+              {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
+              {s.title !== '依頼者情報' && s.title !== '受注内容' && (
                 <div className="mb-3 pb-3 border-b border-gray-100">
                   <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
                 </div>

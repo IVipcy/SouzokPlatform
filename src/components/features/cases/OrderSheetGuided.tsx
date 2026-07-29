@@ -85,14 +85,16 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="text-[16px] font-bold text-gray-900 mb-3">{current.title}</div>
 
-        {/* 簡易メモ（主役） */}
-        <WorkContentField
-          caseData={caseData}
-          gyomu={current.gate ?? current.title}
-          patchCase={patchCase}
-          label="作業内容・関連情報"
-          placeholder={workContentPlaceholder(current.gate ?? current.title)}
-        />
+        {/* 簡易メモ（主役）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
+        {current.title !== '受注内容' && (
+          <WorkContentField
+            caseData={caseData}
+            gyomu={current.gate ?? current.title}
+            patchCase={patchCase}
+            label="作業内容・関連情報"
+            placeholder={workContentPlaceholder(current.gate ?? current.title)}
+          />
+        )}
 
         {/* 詳細を入力（展開） */}
         <button
