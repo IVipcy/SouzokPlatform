@@ -2,7 +2,7 @@
 
 // 管理担当向け 案件進捗ボード。業務グループ＋対象別サブ項目。上部にルールベース即時サマリー＋「AI進捗要約」(Sonnet 5)。
 // サブタブ：進捗サマリー（このボード）／進捗報告・メモ（旧・案件進捗タブから移設）。
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Check, Sparkles, Wand2 } from 'lucide-react'
 import { SubTabs } from '@/components/ui/SubTabs'
 import HistoryTab from './HistoryTab'
@@ -54,15 +54,21 @@ type ProgressBoardProps = {
   currentMemberId: string | null
   salesMemberId?: string | null
   canRequestReview?: boolean
+  // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブとして差し込む。
+  renderOfficeProgress?: () => ReactNode
 }
 
-export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false }: ProgressBoardProps) {
-  const [sub, setSub] = useState<'board' | 'history'>('board')
+export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress }: ProgressBoardProps) {
+  const [sub, setSub] = useState<'board' | 'office' | 'history'>('board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const SUBTABS = [{ key: 'board', label: '進捗サマリー' }, { key: 'history', label: '進捗報告・メモ' }]
+  const SUBTABS = [
+    { key: 'board', label: '進捗サマリー' },
+    ...(renderOfficeProgress ? [{ key: 'office', label: '事務管理進捗' }] : []),
+    { key: 'history', label: '進捗報告・メモ' },
+  ]
 
   // 業務が少ない案件は1列、多い案件は2列（案件詳細は横幅があるため）。
   const gridCols = board.total <= 5 ? '1fr' : 'repeat(2, minmax(0, 1fr))'
@@ -85,9 +91,11 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'history')} />
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'office' | 'history')} />
 
-      {sub === 'history' ? (
+      {sub === 'office' ? (
+        <div>{renderOfficeProgress?.()}</div>
+      ) : sub === 'history' ? (
         <HistoryTab
           caseData={caseData}
           allMembers={allMembers}
