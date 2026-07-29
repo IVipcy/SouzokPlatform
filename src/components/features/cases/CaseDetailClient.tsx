@@ -327,14 +327,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // ミニマム運用モードでは、ステータス非依存で固定順のタブだけ表示
   const minimal = isMinimalMode()
   // 管理担当（manager/sub_manager）は事務作業タブを見せず、管理担当が担う業務に絞る。
-  //   オーダーシート（案件情報）／進捗サマリー／管理担当の実務タブ（受注区分で出し分け）
+  //   オーダーシート（案件情報）／進捗サマリー／依頼者連絡／管理担当の実務タブ（受注区分で出し分け）
   //   ／法定相続一覧図／他事業者紹介／請求／タスク。案件進捗(basicInfo)は撤去。
   // ※システム管理者(system_manager)や受注担当・事務管理担当は従来どおり全タブ。
   const isManagerViewer = viewerRole === 'manager' || viewerRole === 'sub_manager'
   // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
   const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
   const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
-  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', ...managerPractice, 'referral', 'contract', 'tasks']
+  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'tasks']
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
     : isManagerViewer
