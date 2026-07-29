@@ -20,6 +20,7 @@ import {
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, PROSPECT_LEVELS, considerationDueMax, HEARING_MEMO_SAMPLE,
+  CLIENT_TRAIT_OPTIONS, DIFFICULTY_LEVELS,
 } from '@/lib/constants'
 import {
   ORDER_CATEGORIES, REFERRAL_ONLY_CATEGORY,
@@ -59,12 +60,7 @@ const DECLINE_REASON_REQUIRED = new Set(['検討中', '失注'])
 const CONTRACT_FIELDS_VISIBLE = new Set(['受注', '戻り受注', '検討中（契約書待ち）'])
 // 他事業者紹介を表示する面談結果。上記＋「紹介のみ」（紹介先を埋めるため）。
 const REFERRAL_FIELDS_VISIBLE = new Set(['受注', '戻り受注', '検討中（契約書待ち）', '紹介のみ'])
-// 依頼者特徴（案件詳細の依頼者タブと同じ。1つ選択）
-const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
-  { key: 'smile',   emoji: '😊', label: '笑顔' },
-  { key: 'neutral', emoji: '😐', label: '真顔' },
-  { key: 'angry',   emoji: '😡', label: '怖い顔' },
-]
+// 依頼者の特性（案件詳細の依頼者タブと同じ。当てはまるものを複数選択・カンマ区切りで client_trait に保存）
 
 // 生年月日から年齢を算出
 // 被相続人の年齢（享年）＝生年月日から死亡日時点の満年齢を算出
@@ -384,9 +380,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         }
       }
 
-      // 2. 難易度マッピング（高/中/低 → 難/普/易）
-      const diffMap: Record<string, string> = { '高': '難', '中': '普', '低': '易' }
-      const difficulty = diffMap[formData.difficulty] || null
+      // 2. 難易度（普通/難/激難）。値をそのまま保存（難しい理由の内訳はオーダーシート/実務で入力）。
+      const difficulty = formData.difficulty || null
 
       // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
@@ -879,28 +874,34 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <Card label="郵送先住所（その他）"><Input value={data.mailingAddressOther} onChange={v => update('mailingAddressOther', v)} placeholder="送付先の住所" /></Card>
             ) : null}
 
-            {/* 依頼者特徴 */}
-            <Card label="特徴">
-              <div className="flex items-center gap-2">
-                {TRAIT_OPTIONS.map(t => {
-                  const active = data.clientTrait === t.key
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => update('clientTrait', active ? '' : t.key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-all ${
-                        active
-                          ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
-                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                      title={active ? `${t.label}（クリックで解除）` : t.label}
-                    >
-                      <span className="text-[18px] leading-none">{t.emoji}</span>
-                      <span>{t.label}</span>
-                    </button>
-                  )
-                })}
+            {/* 依頼者の特性（複数選択） */}
+            <Card label="特性（複数選択可）">
+              <div className="flex flex-wrap items-center gap-2">
+                {(() => {
+                  const traits = (data.clientTrait ?? '').split(',').map(s => s.trim()).filter(Boolean)
+                  const toggle = (label: string) => {
+                    const next = traits.includes(label) ? traits.filter(k => k !== label) : [...traits, label]
+                    update('clientTrait', next.join(','))
+                  }
+                  return CLIENT_TRAIT_OPTIONS.map(label => {
+                    const active = traits.includes(label)
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => toggle(label)}
+                        className={`px-3 py-1.5 rounded-full border text-[13px] transition-all ${
+                          active
+                            ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
+                            : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title={active ? `${label}（クリックで解除）` : label}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })
+                })()}
               </div>
             </Card>
             <Card label="依頼者特徴詳細"><Textarea value={data.clientTraitDetail} onChange={v => update('clientTraitDetail', v)} placeholder="例：この人はこういう性格だから、連絡はまめに取った方がいい。" /></Card>
@@ -1020,7 +1021,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               {CONTRACT_FIELDS_VISIBLE.has(data.caseStatus) && (
                 <>
                   <Card label="契約形態"><Pills value={data.contractType} options={[...CONTRACT_TYPES]} onChange={v => update('contractType', v as string)} /></Card>
-                  <Card label="難易度"><Pills value={data.difficulty} options={['高', '中', '低']} onChange={v => update('difficulty', v as string)} /></Card>
+                  <Card label="難易度"><Pills value={data.difficulty} options={[...DIFFICULTY_LEVELS]} onChange={v => update('difficulty', v as string)} /></Card>
                   <Card label="完了予定日"><Input type="date" value={data.expectedCompletionDate} onChange={v => update('expectedCompletionDate', v)} /></Card>
                 </>
               )}
@@ -1056,7 +1057,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <ConfirmRow label="人数" value={`${data.clients.filter(c => c.name.trim()).length}名`} />
               <ConfirmRow label="メイン依頼者の住所" value={[data.postalCode, data.address].filter(Boolean).join('　')} />
               <ConfirmRow label="顧客郵送先" value={data.mailingDestination === 'その他' ? `その他（${data.mailingAddressOther}）` : data.mailingDestination} />
-              <ConfirmRow label="依頼者特徴" value={TRAIT_OPTIONS.find(t => t.key === data.clientTrait)?.label ?? ''} />
+              <ConfirmRow label="依頼者の特性" value={(data.clientTrait ?? '').split(',').filter(Boolean).join('・')} />
             </ConfirmSection>
             <ConfirmSection title="面談内容">
               <ConfirmRow label="受注区分" value={data.serviceCategories.join('・') || '（未選択）'} />

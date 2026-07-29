@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
 import { Section, FieldGrid, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
-import { CONTRACT_TYPES } from '@/lib/constants'
+import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/constants'
 import {
   REFERRAL_ONLY_CATEGORY,
   ORDER_CATEGORY_ROWS, CATEGORY_AUTO_GYOMU, GYOMU_SELECTOR_ROWS,
@@ -21,6 +21,8 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   /** オーダーシート埋め込み時は TabHeader を出さない（親のセクション見出しで足りる） */
   orderSheetMode?: boolean
+  /** 面談シート(①)埋め込み時は、契約日・難易度・完了予定日を隠す（これらはOS/実務で入力） */
+  meetingSheetMode?: boolean
 }
 
 // その他（自由入力）の1行 → intake_roles の custom ロールへ変換。業務名＝タスク名、内容＝作業内容。
@@ -35,7 +37,7 @@ const customToRoles = (list: CustomEntry[]): RoleRow[] =>
  *   その他（自由入力）→ 名もなき作業をここで定義。一括生成の候補に出る（業務名＝タスク名／内容＝作業内容）。
  *   業務・作業は intake_roles(JSONB)、区分は service_parts(JSONB) に保持。
  */
-export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false }: Props) {
+export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false, meetingSheetMode = false }: Props) {
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   // 通常業務（非custom）と その他（custom）を分けて保持。保存時に両方を結合して intake_roles に入れる。
   const [roles, setRoles] = useState<RoleRow[]>(() => (caseData.intake_roles ?? DEFAULT_ROLES).filter(r => !r.custom))
@@ -45,6 +47,12 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
   const isReferralOnly = selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
   const selectedGyomu = [...new Set(roles.map(r => r.gyomu).filter(Boolean))]
   const save = async (field: string, value: unknown) => { await patchCase({ [field]: value ?? null } as Partial<CaseRow>) }
+  // 難易度の「難しい理由」（複数選択）をトグル保存
+  const toggleDiffReason = (r: string) => {
+    const cur = caseData.difficulty_reasons ?? []
+    const next = cur.includes(r) ? cur.filter(x => x !== r) : [...cur, r]
+    save('difficulty_reasons', next.length ? next : null)
+  }
 
   // 通常業務を更新して保存（その他は現状を維持して結合）
   const saveRoles = async (nextRoles: RoleRow[]) => {
@@ -216,10 +224,42 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
         <FieldGrid>
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
-          <InlineDate label="契約日" value={caseData.contract_date} onSave={v => save('contract_date', v)} />
-          <InlineSelect label="難易度" value={caseData.difficulty} options={['難', '普', '易']} onSave={v => save('difficulty', v)} />
-          <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} hint="目安：手続き一式＝4ヵ月＋延長1ヵ月／遺産承継＝4ヵ月＋延長2ヵ月で設定してください。" />
+          {!meetingSheetMode && <InlineDate label="契約日" value={caseData.contract_date} onSave={v => save('contract_date', v)} />}
+          {!meetingSheetMode && <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} hint="目安：手続き一式＝4ヵ月＋延長1ヵ月／遺産承継＝4ヵ月＋延長2ヵ月で設定してください。" />}
         </FieldGrid>
+
+        {/* 難易度（普通/難/激難）＋難しい理由（複数選択）＋その他。面談シート(①)では非表示＝OS/実務で入力 */}
+        {!meetingSheetMode && (
+          <div className="mt-3 rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="text-[12px] font-semibold text-gray-500 w-14 shrink-0">難易度</span>
+              <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                {DIFFICULTY_LEVELS.map((lv, i) => (
+                  <button key={lv} type="button" onClick={() => save('difficulty', lv)}
+                    className={`text-[13px] px-3.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${caseData.difficulty === lv ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>{lv}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-2.5">
+              <div className="text-[11px] text-gray-400 mb-1">難しい理由（複数選択）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {DIFFICULTY_REASONS.map(r => {
+                  const on = (caseData.difficulty_reasons ?? []).includes(r)
+                  return (
+                    <button key={r} type="button" onClick={() => toggleDiffReason(r)}
+                      className={`text-[12px] px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>{r}</button>
+                  )
+                })}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-gray-400 mb-1">その他難しい理由</div>
+              <input type="text" defaultValue={caseData.difficulty_reason_other ?? ''}
+                onBlur={e => { const v = e.target.value.trim(); if (v !== (caseData.difficulty_reason_other ?? '')) save('difficulty_reason_other', v || null) }}
+                placeholder="自由記述" className="w-full px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-brand-400" />
+            </div>
+          </div>
+        )}
       </Section>
     </div>
   )

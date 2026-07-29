@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check } from 'lucide-react'
-import { MAILING_DESTINATIONS } from '@/lib/constants'
+import { MAILING_DESTINATIONS, CLIENT_TRAIT_OPTIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import { toKatakana } from '@/lib/kana'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
@@ -26,12 +26,6 @@ type Props = {
   // 依頼者（同行者含む・複数人）
   caseClients?: CaseClientRow[]
 }
-
-const TRAIT_OPTIONS: { key: 'smile' | 'neutral' | 'angry'; emoji: string; label: string }[] = [
-  { key: 'smile',   emoji: '😊', label: '笑顔' },
-  { key: 'neutral', emoji: '😐', label: '真顔' },
-  { key: 'angry',   emoji: '😡', label: '怖い顔' },
-]
 
 const COMMUNICATION_TYPE_OPTIONS = ['進捗連絡', '書類依頼', '質問対応', 'クレーム対応', 'その他']
 const CONTACT_METHOD_OPTIONS = ['電話', 'LINE', 'メール', '手紙']
@@ -136,23 +130,22 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                 }
                 return (
                   <>
-                    {TRAIT_OPTIONS.map(t => {
-                      const active = traits.includes(t.key)
+                    {CLIENT_TRAIT_OPTIONS.map(label => {
+                      const active = traits.includes(label)
                       return (
                         <button
-                          key={t.key}
+                          key={label}
                           type="button"
-                          onClick={() => toggle(t.key)}
+                          onClick={() => toggle(label)}
                           className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] whitespace-nowrap transition-all ${
                             active
                               ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
                               : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
                           }`}
-                          title={active ? `${t.label}（クリックで解除）` : t.label}
+                          title={active ? `${label}（クリックで解除）` : label}
                         >
                           {active && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
-                          <span className="text-[18px] leading-none">{t.emoji}</span>
-                          <span>{t.label}</span>
+                          <span>{label}</span>
                         </button>
                       )
                     })}

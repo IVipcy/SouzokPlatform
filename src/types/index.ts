@@ -66,7 +66,9 @@ export type CaseRow = {
   order_date: string | null
   completion_date: string | null
   expected_completion_date: string | null
-  difficulty: '易' | '普' | '難' | null
+  difficulty: string | null                        // 難易度 普通/難/激難（旧: 易/普/難）
+  difficulty_reasons: string[] | null              // migration 195: 難しい理由（複数選択）
+  difficulty_reason_other: string | null           // migration 195: その他難しい理由（自由記述）
   procedure_type: string[] | null
   service_category: string | null  // 受注区分①（後方互換＝先頭パート。migration 090）
   service_category_2: string | null  // 受注区分②（後方互換＝2つ目パート。migration 093）
