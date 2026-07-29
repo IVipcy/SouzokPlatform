@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button'
 import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check } from 'lucide-react'
 import { MAILING_DESTINATIONS, CLIENT_TRAIT_OPTIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
+import AddTaskModal from './AddTaskModal'
 import { toKatakana } from '@/lib/kana'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import TabHeader from './TabHeader'
@@ -493,13 +494,13 @@ function CommunicationRow({ row, onRefresh, onClaimSync }: { row: ClientCommunic
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-        <ClientRequestTaskizeModal
+        {/* タスクタブと同じ AddTaskModal を使用（事務管理担当/管理担当/受注担当 の3種類対応） */}
+        <AddTaskModal
           isOpen={taskizeOpen}
           onClose={() => setTaskizeOpen(false)}
           caseId={row.case_id}
-          communicationId={row.id}
-          defaultTitle={(row.detail ?? row.communication_type ?? '').slice(0, 40)}
-          onCreated={() => { setTaskizeOpen(false); onRefresh?.() }}
+          allMembers={[]}
+          onSaved={() => { setTaskizeOpen(false); onRefresh?.() }}
         />
       </td>
     </tr>
@@ -534,6 +535,7 @@ function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, d
       case_id: caseId,
       task_kind: 'system',
       title: title.trim(),
+      phase: '',                      // NOT NULL 対策。受注/管理担当タスクは業務区分を持たないため空文字。
       category: 'お客様依頼',
       status: '着手前',
       priority,

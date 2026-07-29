@@ -360,7 +360,7 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
       const title = newTitle.trim()
       if (title) {
         const { data: nt, error } = await supabase.from('tasks')
-          .insert({ case_id: caseId, title, task_kind: 'case', status: '着手前', priority: '通常', sort_order: 99 })
+          .insert({ case_id: caseId, title, task_kind: 'case', phase: 'その他', category: 'その他', status: '着手前', priority: '通常', sort_order: 99 })
           .select('id').single()
         if (error || !nt) throw error ?? new Error('タスク作成失敗')
         linkRows.push({ receipt_item_id: item.itemId, task_id: (nt as { id: string }).id })

@@ -296,6 +296,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">工程</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">業務区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">タスク名</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-16">優先度</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
               <th className="px-2.5 py-2 text-left font-semibold w-44">着手フラグ</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
@@ -306,7 +307,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
           </thead>
           <tbody>
             {tasks.length === 0 ? (
-              <tr><td colSpan={10} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
+              <tr><td colSpan={11} className="px-3 py-6 text-center text-[13px] text-gray-400">該当するタスクがありません</td></tr>
             ) : tasks.map((t, i) => {
               const status = normalizeTaskStatus(t.status)
               const overdue = !!(t.due_date && t.due_date < today && status !== '完了')
@@ -322,6 +323,11 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                   <td className="px-2.5 py-2"><KoteiBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><GyomuBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className={`hover:text-brand-700 hover:underline ${locked ? 'text-gray-400' : 'text-gray-800'}`}>{t.title}</Link></td>
+                  <td className="px-2.5 py-2">
+                    {t.priority === '急ぎ'
+                      ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">急ぎ</span>
+                      : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] text-gray-500 border border-gray-200 bg-white">通常</span>}
+                  </td>
                   <td className="px-2.5 py-2">
                     {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
                       : status === '対応中' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>

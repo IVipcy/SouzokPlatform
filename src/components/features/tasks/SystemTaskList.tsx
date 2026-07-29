@@ -223,9 +223,9 @@ export default function SystemTaskList({
                 {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
                 {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
                 {showRemain && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>}
-                {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作成者</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">起票日</th>}
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件ステータス</th>}
@@ -318,6 +318,12 @@ export default function SystemTaskList({
                         </Link>
                       </div>
                     </td>
+                    {/* 優先度（タスク名の直後・常時表示） */}
+                    <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                      {task.priority === '急ぎ'
+                        ? <span className="inline-flex items-center text-[10.5px] font-bold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">急ぎ</span>
+                        : <span className="text-[11.5px] text-gray-500">通常</span>}
+                    </td>
                     {/* タスク期限 */}
                     <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px]">
                       {task.due_date ? (
@@ -339,14 +345,6 @@ export default function SystemTaskList({
                         </td>
                       )
                     })()}
-                    {/* 優先度 */}
-                    {showMeta && (
-                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
-                        {task.priority === '急ぎ'
-                          ? <span className="inline-flex items-center text-[10.5px] font-bold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">急ぎ</span>
-                          : <span className="text-[11.5px] text-gray-500">通常</span>}
-                      </td>
-                    )}
                     {/* 作成者（起票者。自動生成はnull） */}
                     {showMeta && (
                       <td className="px-3 py-2.5 align-top whitespace-nowrap text-[12px]">
