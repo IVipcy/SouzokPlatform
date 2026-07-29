@@ -16,7 +16,7 @@ export default async function RankingDashboard() {
   const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
   const [{ data: casesRaw }, { data: cmRaw }, { data: membersRaw }, { data: teamsRaw }] = await Promise.all([
-    supabase.from('cases').select('id,order_received_date,completion_date,contract_type,fee_administrative,fee_judicial,fee_total'),
+    supabase.from('cases').select('id,order_received_date,completion_date,contract_type,fee_administrative,fee_judicial,fee_total').eq('intake_draft', false),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase.from('members').select('id,name,avatar_color,avatar_url,team_id').eq('is_active', true),
     supabase.from('teams').select('id,name').eq('is_active', true),

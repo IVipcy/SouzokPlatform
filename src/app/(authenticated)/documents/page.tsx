@@ -34,6 +34,7 @@ export default async function DocumentsPage() {
     supabase
       .from('cases')
       .select('id,case_number,deal_name,status')
+      .eq('intake_draft', false)  // 面談シート下書きは選択肢に出さない（migration 194）
       .order('case_number'),
     supabase
       .from('document_receipts')

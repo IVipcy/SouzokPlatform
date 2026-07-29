@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import IntakeEntryClient from './IntakeEntryClient'
+import IntakeEntryClient, { type IntakeDraft } from './IntakeEntryClient'
 import type { CaseData } from '@/app/(authenticated)/meeting/MeetingPageClient'
 
 // 統合入力アプリ 入口（独立ルート）。
@@ -9,11 +9,29 @@ export default async function IntakePage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const { data: cases } = await supabase
-    .from('cases')
-    .select('*, clients(*)')
-    .eq('status', '面談設定済')
-    .order('created_at', { ascending: false })
+  const memberId = currentUser?.memberId ?? null
+  const [{ data: cases }, draftsR] = await Promise.all([
+    supabase
+      .from('cases')
+      .select('*, clients(*)')
+      .eq('status', '面談設定済')
+      .order('created_at', { ascending: false }),
+    // 入力途中の下書き（自分が作成したもの）。再開の入口。
+    memberId
+      ? supabase
+          .from('cases')
+          .select('id, case_number, deal_name, updated_at, created_at, clients(name)')
+          .eq('intake_draft', true)
+          .eq('meeting_owner_id', memberId)
+          .order('updated_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ])
 
-  return <IntakeEntryClient cases={(cases ?? []) as unknown as CaseData[]} currentMemberId={currentUser?.memberId ?? null} />
+  return (
+    <IntakeEntryClient
+      cases={(cases ?? []) as unknown as CaseData[]}
+      drafts={(draftsR.data ?? []) as unknown as IntakeDraft[]}
+      currentMemberId={memberId}
+    />
+  )
 }

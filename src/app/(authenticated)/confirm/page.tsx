@@ -19,7 +19,7 @@ export default async function ConfirmPage() {
   if (isMinimalMode()) redirect('/my')
   const supabase = await createClient()
 
-  const { data: casesRaw } = await supabase.from('cases').select('id,case_number,deal_name,status').order('case_number')
+  const { data: casesRaw } = await supabase.from('cases').select('id,case_number,deal_name,status').eq('intake_draft', false).order('case_number')
   const activeCases = ((casesRaw ?? []) as CaseLite[]).filter(c => ACTIVE.has(c.status))
   const caseIds = activeCases.map(c => c.id)
   const caseMap = new Map(activeCases.map(c => [c.id, c]))

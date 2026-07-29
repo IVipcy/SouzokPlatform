@@ -19,6 +19,25 @@ export default async function IntakeCasePage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
+  // 新規（下書き未作成）モード：案件をまだDBに作らず、面談シートで最初の入力があった時点で
+  // 遅延作成する（IntakeCaseClient の ensureCase）。ここでは空の合成 caseData を渡す。
+  if (id === 'new') {
+    const draft = {
+      id: '', case_number: '（未作成）', deal_name: '無題', status: '検討中',
+      client_id: null, clients: null, work_content: {}, intake_draft: true,
+    } as unknown as CaseRow
+    return (
+      <IntakeCaseClient
+        caseData={draft}
+        currentMemberId={currentUser?.memberId ?? null}
+        memos={[]} heirs={[]} kosekiRequests={[]} properties={[]} acquisitions={[]}
+        financialAssets={[]} divisionDetails={[]} agreementDispatches={[]} expenses={[]}
+        tasks={[]} clientCommunications={[]} referrals={[]} caseClients={[]}
+        contractDocuments={[]} sagyoDocuments={[]} receipts={[]}
+      />
+    )
+  }
+
   const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, memosR] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', id).single(),
     supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),

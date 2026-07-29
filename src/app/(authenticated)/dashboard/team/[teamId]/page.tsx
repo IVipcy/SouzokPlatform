@@ -82,7 +82,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   ] = await Promise.all([
     supabase.from('teams').select('id,name').eq('id', teamId).eq('is_active', true).single(),
     // 安全のため * を使用（新カラム meeting_executed_date 等の migration 適用前でも動くように）
-    supabase.from('cases').select('*'),
+    supabase.from('cases').select('*').eq('intake_draft', false),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase
       .from('members')

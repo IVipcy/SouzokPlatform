@@ -8,6 +8,7 @@ export default async function ReportsPage() {
     supabase
       .from('cases')
       .select('id, case_number, deal_name, status, deceased_name, difficulty, total_asset_estimate, order_date, completion_date, case_members(*, members(*))')
+      .eq('intake_draft', false)  // 面談シート下書きは集計対象外（migration 194）
       .order('created_at', { ascending: false }),
     supabase
       .from('members')

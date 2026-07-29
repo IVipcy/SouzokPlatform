@@ -65,7 +65,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   ] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate,procedure_type,meeting_executed_date'),
+      .select('id,status,order_received_date,completion_date,fee_total,total_revenue_estimate,procedure_type,meeting_executed_date')
+      .eq('intake_draft', false),  // 面談シート下書きはKPI対象外（migration 194）
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase
       .from('members')

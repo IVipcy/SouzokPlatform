@@ -115,6 +115,7 @@ export type CaseRow = {
   probability: number | null
   meeting_date: string | null
   meeting_executed_date: string | null      // migration 049: 面談実施日
+  intake_draft?: boolean                     // migration 194: 面談シート入力途中の下書き案件（一覧/KPIから除外。②保存で false に昇格）
   meeting_info_updated_at: string | null     // migration 138: 面談情報の更新印（検討中→前進ゲート用）
   client_response_due_date: string | null   // migration 049: お客様回答予定日
   consideration_period: string | null        // migration 092: 検討期間区分(1週間/2週間/1ヶ月/見込み不明)

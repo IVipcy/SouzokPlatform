@@ -42,7 +42,7 @@ export default async function DeptTodayDashboard() {
     { data: teamsRaw },
     { data: changesRaw },
   ] = await Promise.all([
-    supabase.from('cases').select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate'),
+    supabase.from('cases').select('id,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate').eq('intake_draft', false),
     supabase.from('case_members').select('case_id,member_id,role'),
     supabase.from('members').select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id').eq('is_active', true),
     supabase.from('teams').select('id,name').eq('is_active', true),

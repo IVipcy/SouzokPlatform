@@ -14,6 +14,7 @@ export default async function BillingPage() {
     supabase
       .from('cases')
       .select('id, case_number, deal_name')
+      .eq('intake_draft', false)  // 面談シート下書きは選択肢に出さない（migration 194）
       .order('case_number'),
     // CSVのみ（システムに該当なし）の未処理入金
     supabase

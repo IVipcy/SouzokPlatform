@@ -147,10 +147,10 @@ export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
 }
 
 // ── メモ欄＝セクションのフリー作業欄(work_content)。タイピング/手書き切替。 ──
-function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMemos, onExtract }: {
+function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMemos, onExtract, ensureCaseId }: {
   caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; section: string
   memos: MeetingMemoRow[]; currentMemberId: string | null; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
-  onExtract?: (dataUrl: string) => Promise<void>
+  onExtract?: (dataUrl: string) => Promise<void>; ensureCaseId?: () => Promise<string>
 }) {
   const wc = (caseData.work_content ?? {}) as Record<string, string>
   const [mode, setMode] = useState<'type' | 'hand'>('type')
@@ -163,9 +163,10 @@ function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMe
   const saveImage = async (dataUrl: string) => {
     setSaving(true); const supabase = createClient()
     try {
-      const blob = await (await fetch(dataUrl)).blob(); const path = `${caseData.id}/${uid()}.png`
+      const cid = ensureCaseId ? await ensureCaseId() : caseData.id
+      const blob = await (await fetch(dataUrl)).blob(); const path = `${cid}/${uid()}.png`
       const { error: up } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/png', upsert: false }); if (up) throw new Error(up.message)
-      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: caseData.id, section, image_path: path, image_bucket: BUCKET, sort_order: memos.length, created_by: currentMemberId }).select('*').single()
+      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: cid, section, image_path: path, image_bucket: BUCKET, sort_order: memos.length, created_by: currentMemberId }).select('*').single()
       if (error || !row) throw new Error(error?.message ?? '保存に失敗'); setMemos(prev => [...prev, row as MeetingMemoRow]); showToast('手書きを保存しました', 'success')
     } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗', 'error') } finally { setSaving(false) }
   }
@@ -194,12 +195,12 @@ function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMe
 }
 
 // ── 相続人一覧（面談シート：氏名・続柄だけ・追加可） ──
-function HeirsMini({ caseId, heirs, onRefresh }: { caseId: string; heirs: HeirRow[]; onRefresh?: () => void }) {
+function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string; heirs: HeirRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   const [rows, setRows] = useState<HeirRow[]>(heirs)
   useEffect(() => setRows(heirs), [heirs])
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r)); supabase.from('heirs').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
-  const add = async () => { const { data, error } = await supabase.from('heirs').insert({ case_id: caseId, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
+  const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('heirs').insert({ case_id: cid, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('heirs').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
     <div>
@@ -221,13 +222,13 @@ function HeirsMini({ caseId, heirs, onRefresh }: { caseId: string; heirs: HeirRo
 }
 
 // ── 不動産（面談シート：物件種別・所在地・評価額・備考だけ） ──
-function REMini({ caseId, properties, onRefresh }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void }) {
+function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => setRows(properties), [properties])
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const saveNum = (id: string, v: string) => { supabase.from('real_estate_properties').update({ appraisal_value: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
-  const add = async () => { const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
+  const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: cid }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('real_estate_properties').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
     <div className="space-y-2">
@@ -248,13 +249,13 @@ function REMini({ caseId, properties, onRefresh }: { caseId: string; properties:
 
 // ── 金融資産（種別ごと・要点列だけ） ──
 type FinCol = { key: keyof FinancialAssetRow; label: string; money?: boolean }
-function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh }: { caseId: string; kind: string; cols: FinCol[]; addLabel: string; assets: FinancialAssetRow[]; onRefresh?: () => void }) {
+function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId }: { caseId: string; kind: string; cols: FinCol[]; addLabel: string; assets: FinancialAssetRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   const [rows, setRows] = useState<FinancialAssetRow[]>(assets.filter(a => a.asset_type === kind))
   useEffect(() => setRows(assets.filter(a => a.asset_type === kind)), [assets, kind])
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as FinancialAssetRow : r)); supabase.from('financial_assets').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const saveNum = (id: string, v: string) => { supabase.from('financial_assets').update({ balance_amount: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
-  const add = async () => { const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as FinancialAssetRow]); onRefresh?.() }
+  const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('financial_assets').insert({ case_id: cid, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as FinancialAssetRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('financial_assets').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
     <div className="space-y-2">
@@ -279,6 +280,8 @@ type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   patchClient: (patch: Record<string, unknown>) => Promise<void>
+  /** 未作成（下書き）モードで、書き込み前に案件を遅延作成して実IDを返す */
+  ensureCaseId?: () => Promise<string>
   currentMemberId: string | null
   memos: MeetingMemoRow[]
   setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
@@ -296,7 +299,7 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
 
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, currentMemberId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, currentMemberId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
   const cl = caseData.clients
@@ -322,7 +325,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
     <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
-        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} />}
+        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} ensureCaseId={ensureCaseId} />}
         {body}
       </div>
     </div>
@@ -334,7 +337,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
 
       {sec('client', '依頼者情報', null, (
         <div className="space-y-3">
-          <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} />
+          <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
             <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
             <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} onSave={v => patchClient({ transfer_name_kana: v || null })} mono />
@@ -356,22 +359,22 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
-          <HeirsMini caseId={caseData.id} heirs={heirs} onRefresh={onRefresh} />
+          <HeirsMini caseId={caseData.id} heirs={heirs} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
         </div>
       ), runExtract('deceased'))}
 
       {sec('assets_re', '財産調査（不動産）', '常時表示', (
-        <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+        <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
       ))}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
-        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
       ))}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
         <div key={f.kind}>
           {sec(f.section, `財産調査（${f.label}）`, '任意', (
-            <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} cols={f.cols} />
+            <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={f.cols} />
           ))}
         </div>
       ))}

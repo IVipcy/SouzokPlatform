@@ -41,7 +41,8 @@ export async function loadTaskListData(): Promise<{
       .order('sort_order'),
     supabase
       .from('cases')
-      .select('id, case_number, deal_name, status, service_category, service_category_2, expected_completion_date, case_members(role, members(*))'),
+      .select('id, case_number, deal_name, status, service_category, service_category_2, expected_completion_date, case_members(role, members(*))')
+      .eq('intake_draft', false),  // 面談シート下書きはタスク一覧の対象外（migration 194）
     supabase
       .from('members')
       .select('*')

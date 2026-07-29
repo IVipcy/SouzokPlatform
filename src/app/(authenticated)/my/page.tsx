@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare, FileSpreadsheet } from 'lucide-react'
+import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
@@ -624,17 +624,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
         afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
         right={isSales ? (
-          <>
-            <Link href="/meeting-sheet" target="_blank" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors">
-              <ClipboardList className="w-4 h-4" strokeWidth={2} />面談シート（仮）
-            </Link>
-            <Link href="/register" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-              <PenSquare className="w-4 h-4" strokeWidth={2} />相談結果登録
-            </Link>
-            <Link href="/order-sheet" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-              <FileSpreadsheet className="w-4 h-4" strokeWidth={2} />オーダーシート作成
-            </Link>
-          </>
+          <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
+            <PenSquare className="w-4 h-4" strokeWidth={2} />面談シート入力
+          </Link>
         ) : undefined}
       />
 

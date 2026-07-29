@@ -81,6 +81,7 @@ export default async function CasesPage() {
     supabase
       .from('cases')
       .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
+      .eq('intake_draft', false)  // 面談シート入力途中の下書きは一覧に出さない（migration 194）
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),

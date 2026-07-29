@@ -13,10 +13,12 @@ type Props = {
   onRefresh?: () => void
   // メイン依頼者の氏名→案件名(deal_name)・clients.name 同期用
   clientId?: string | null
+  // 未作成（下書き）モードで、書き込み前に案件を遅延作成して実IDを返す
+  ensureCaseId?: () => Promise<string>
 }
 
 /** 依頼者一覧（同行者含む）。表形式で複数人をインライン編集・追加・削除する。 */
-export default function CaseClientsTable({ caseId, clients, onRefresh, clientId }: Props) {
+export default function CaseClientsTable({ caseId, clients, onRefresh, clientId, ensureCaseId }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseClientRow[]>(clients)
   const [busy, setBusy] = useState(false)
@@ -27,7 +29,8 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
   // メイン依頼者の氏名を、案件名(cases.deal_name)と clients.name(書類で使う正本)へ反映
   const syncMainName = async (name: string) => {
     const dealName = name.trim() || '無題'
-    await supabase.from('cases').update({ deal_name: dealName }).eq('id', caseId)
+    const cid = ensureCaseId ? await ensureCaseId() : caseId
+    await supabase.from('cases').update({ deal_name: dealName }).eq('id', cid)
     if (clientId) await supabase.from('clients').update({ name: dealName }).eq('id', clientId)
     onRefresh?.()
   }
@@ -54,9 +57,10 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
 
   const addRow = async () => {
     setBusy(true)
+    const cid = ensureCaseId ? await ensureCaseId() : caseId
     const { data, error } = await supabase
       .from('case_clients')
-      .insert({ case_id: caseId, name: '', priority: 'companion', sort_order: rows.length })
+      .insert({ case_id: cid, name: '', priority: 'companion', sort_order: rows.length })
       .select('*')
       .single()
     setBusy(false)
