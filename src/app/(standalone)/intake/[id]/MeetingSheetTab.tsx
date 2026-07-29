@@ -118,7 +118,8 @@ function HandwriteCanvas({ onSave, saving, onExtract }: { onSave: (dataUrl: stri
       setText(res.ok ? (j.text || '（認識できませんでした）') : `__ERROR__${j.error ?? '認識に失敗しました'}`)
     } catch { setText('__ERROR__通信に失敗しました') } finally { setBusy(false) }
   }
-  const doSave = () => { const c = canvasRef.current; if (!c || empty) return; onSave(c.toDataURL('image/png'), text && !text.startsWith('__ERROR__') ? text : ''); clear() }
+  // 保存しても手書きは消さない（同じ手書きに対して 保存→テキスト化→AI反映 を続けられるように）。消したいときは「全消去」。
+  const doSave = () => { const c = canvasRef.current; if (!c || empty) return; onSave(c.toDataURL('image/png'), text && !text.startsWith('__ERROR__') ? text : '') }
   const isError = text.startsWith('__ERROR__')
 
   return (
@@ -272,12 +273,14 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
     setMemos(prev => prev.filter(x => x.id !== m.id))
   }
 
-  // セクションカード（青ヘッダー＋「＋メモ」＋項目）
-  const SecCard = ({ sec, title, children }: { sec: SecKey; title: string; children: React.ReactNode }) => {
+  // セクションカード（青ヘッダー＋「＋メモ」＋項目）。
+  // ※ コンポーネントではなく「描画関数」にする。コンポーネントにすると毎レンダーで型が変わり
+  //    再マウント→手書きキャンバスが作り直されて描画が消える（AI反映・保存の直後に消える不具合の原因）。
+  const secCard = (sec: SecKey, title: string, children: React.ReactNode) => {
     const secMemos = memos.filter(m => m.section === sec)
     const open = openMemo.has(sec)
     return (
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div key={sec} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]">
           <span className="text-[14px] font-bold text-white flex-1">{title}</span>
           {secMemos.length > 0 && <span className="text-[10px] text-white bg-white/25 rounded-full px-1.5 py-0.5">メモ{secMemos.length}</span>}
@@ -301,7 +304,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
       <p className="text-[12px] text-gray-500">面談中の要点を記録します。各項目は案件に保存され、②面談結果登録・③オーダーシートへ引き継がれます。各セクションの「＋メモ」で手書きメモを残せます（縦に広げられます）。</p>
 
       {/* 依頼者情報 */}
-      <SecCard sec="client" title="依頼者情報">
+      {secCard('client', '依頼者情報', (
         <FieldGrid>
           <InlineEdit label="氏名" value={cl?.name ?? null} ai={aiFilled.has('name')} onSave={v => { clearAi('name'); return patchClient({ name: v || null }) }} />
           <InlineEdit label="ふりがな" value={cl?.furigana ?? null} ai={aiFilled.has('furigana')} onSave={v => { clearAi('furigana'); return patchClient({ furigana: v || null }) }} />
@@ -309,34 +312,36 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
           <InlineEdit label="携帯電話" value={cl?.mobile_phone ?? null} ai={aiFilled.has('mobile_phone')} onSave={v => { clearAi('mobile_phone'); return patchClient({ mobile_phone: v || null }) }} />
           <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
         </FieldGrid>
-      </SecCard>
+      ))}
 
       {/* 受注内容（受注区分・実施業務・その他）＝OrderContentTabを再利用（案件に保存＝③へ引き継ぎ） */}
-      <SecCard sec="order" title="受注内容">
+      {secCard('order', '受注内容', (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode />
-      </SecCard>
+      ))}
 
       {/* 相続人調査（要点） */}
-      <SecCard sec="deceased" title="相続人調査（要点）">
-        <FieldGrid>
-          <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
-          <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
-          <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => patchCase({ date_of_death: v || null })} />
-        </FieldGrid>
-        <div className="mt-2">
-          <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="相続関係・相続人メモ（フリー）" />
-        </div>
-      </SecCard>
+      {secCard('deceased', '相続人調査（要点）', (
+        <>
+          <FieldGrid>
+            <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
+            <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
+            <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => patchCase({ date_of_death: v || null })} />
+          </FieldGrid>
+          <div className="mt-2">
+            <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="相続関係・相続人メモ（フリー）" />
+          </div>
+        </>
+      ))}
 
       {/* 財産調査（要点） */}
-      <SecCard sec="assets" title="財産調査（要点）">
+      {secCard('assets', '財産調査（要点）', (
         <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="財産の要点（不動産の所在地・金融機関・ざっくり評価額 等）" />
-      </SecCard>
+      ))}
 
       {/* 他事業者紹介（要点） */}
-      <SecCard sec="referral" title="他事業者紹介（要点）">
+      {secCard('referral', '他事業者紹介（要点）', (
         <WorkContentField caseData={caseData} gyomu="referral" patchCase={patchCase} label="紹介の要点（不動産査定・税理士 等）" />
-      </SecCard>
+      ))}
     </div>
   )
 }
