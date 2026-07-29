@@ -33,6 +33,49 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
 }
 export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知', '精算書作成', '指図書作成']
 
+// === オーダーシートの受注区分レイアウト（3行）。契約書は受注区分から外し実施業務へ格下げ ===
+// 型・SERVICE_ROWS は互換のため ORDER_CATEGORIES に「契約書」を残すが、UIの選択肢はこの3行だけ（契約書を出さない）。
+export const ORDER_CATEGORY_ROWS: string[][] = [
+  ['手続き一式', '遺産承継', '登記'],
+  ['執行', '放棄', '調停', '検認', '後見'],
+  ['遺言', '信託', '紹介のみ'],
+]
+
+// 受注区分を選ぶと自動で有効になる管理担当業務（1:1）。共通業務は実施業務セレクタで別途選ぶ。
+export const CATEGORY_AUTO_GYOMU: Record<string, string> = {
+  '遺言': '遺言作成',
+  '信託': '信託契約書作成',
+  '検認': '検認手続き',
+  '後見': '後見手続き',
+  '調停': '調停手続き',
+  '放棄': '放棄手続き',
+  '執行': '執行通知',
+}
+
+// 実施業務セレクタ（受注区分に依存せず常に全表示・初期は未選択）。
+// label=表示名、gyomus=intake_roles に入れる内部業務名（遺産承継＝精算書作成＋指図書作成のマージ）。
+// 不動産→不動産調査／金融資産→金融資産調査 は表示名だけ変更（内部キーは維持）。
+export type GyomuSelectorItem = { label: string; gyomus: string[] }
+export const GYOMU_SELECTOR_ROWS: GyomuSelectorItem[][] = [
+  [
+    { label: '戸籍', gyomus: ['戸籍'] },
+    { label: '相関図', gyomus: ['相関図'] },
+    { label: '法定相続情報取得', gyomus: ['法定相続情報取得'] },
+    { label: '不動産調査', gyomus: ['不動産'] },
+    { label: '金融資産調査', gyomus: ['金融資産'] },
+    { label: '協議書', gyomus: ['協議書'] },
+    { label: '登記', gyomus: ['登記'] },
+  ],
+  [
+    { label: '解約', gyomus: ['解約'] },
+    { label: '手紙', gyomus: ['手紙'] },
+    { label: '遺産承継', gyomus: ['精算書作成', '指図書作成'] },
+    { label: '契約書', gyomus: ['契約書作成'] },
+  ],
+]
+// セレクタに出す内部業務名の集合（重複判定・除外用）。
+export const SELECTOR_GYOMUS = new Set<string>(GYOMU_SELECTOR_ROWS.flat().flatMap(i => i.gyomus))
+
 // kind: 作業の性質。
 //   'task'（既定）= やる作業＝タスクで進捗管理。
 //   'doc'        = 受領する資料（到着物）＝受信簿連動で受領管理（受領自体はタスクではない）。
@@ -267,6 +310,17 @@ export function seedRolesForCategories(categories: string[]): { gyomu: string; s
       .map(t => ({ gyomu: g, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) })),
   )
 }
+/** 業務単体の既定作業（受注区分に依存しない）。その業務を含む最初の区分の作業を使う（optional除く）。
+ *  実施業務セレクタで業務を選んだときの intake_roles シードに使う。 */
+export function defaultRolesForGyomu(gyomu: string): { gyomu: string; sagyou: string; owner: string; note: string; kind: ServiceKind }[] {
+  const cats = [...new Set(SERVICE_ROWS.filter(r => r.gyomu === gyomu).map(r => r.category))]
+  for (const c of cats) {
+    const rows = tasksFor(c, gyomu).filter(t => !isOptionalTask(t.task))
+    if (rows.length) return rows.map(t => ({ gyomu, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) }))
+  }
+  return []
+}
+
 /** 区分×業務×作業名 から kind（資料/タスク）の初期値を引く。未知の作業は task。 */
 export function kindForTask(categories: string[], gyomu: string, sagyou: string): ServiceKind {
   const row = tasksForCategories(categories, gyomu).find(t => t.task === sagyou)

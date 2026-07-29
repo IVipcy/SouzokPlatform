@@ -47,7 +47,7 @@ export function clientReflectCandidates(roles: RoleRow[]): ReflectCandidate[] {
 // status/due は手続き系業務タブ（放棄/信託/調停/検認/後見）での進捗管理用（任意・JSONB）。
 // kind は資料(doc=受領管理)/タスク(task=進捗管理)の区分。マスタ初期値をここで上書き保持。
 // rid はタスク化したときに採番する安定ID（tasks.source_rid と対応。進捗はtasks側で持つ）。
-export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: ServiceKind; rid?: string }
+export type RoleRow = { gyomu: string; sagyou: string; owner: string; note: string; status?: string; due?: string | null; kind?: ServiceKind; rid?: string; custom?: boolean }
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得']
 const ROLE_OWNER = ['自社', '依頼者', '不要']

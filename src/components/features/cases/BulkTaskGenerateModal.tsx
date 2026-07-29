@@ -30,12 +30,14 @@ type Props = {
   // 不動産・金融資産（左タブ単位＝市区町村/金融機関でタスクをまとめる）
   properties?: RealEstatePropertyRow[]
   financialAssets?: FinancialAssetRow[]
+  /** 閲覧者のロール（primary_role）。管理担当は管理業務＋その他のみ、事務管理(assistant)は事務業務のみを候補にする。 */
+  viewerRole?: string | null
   onSaved: () => void
 }
 
 // 生成候補：実施タスク行（roleIdx付き）or 区分非依存（経理/相続税）。
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
-type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean }
+type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean; custom?: boolean; work?: string }
 
 // 管理担当/受注担当が担う業務（＝管理担当タスクとして生成）。
 // これらの業務は task_kind='system'・work_role/assign_role='manager'・phase=業務名で生成し、
@@ -58,7 +60,7 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], viewerRole = null, onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -130,6 +132,11 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
 
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
+      // その他（自由入力）＝名もなき業務。業務名＝タスク名、内容(note)＝作業内容。管理担当タスクとして生成。
+      if (r.custom) {
+        out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: `custom:${r.gyomu}`, custom: true, work: r.note })
+        return
+      }
       // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
       if (r.gyomu === '戸籍' && r.sagyou.includes('到着確認')) return
       // 戸籍収集 → 請求先（役所）ごとに展開。請求グループ(自社取得のみ・着手OK)の後に読込グループ(全件・受領次第OK)。
@@ -183,8 +190,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       const title = REFERRAL_TASK_LABEL[r.partner_type] ?? `${r.partner_type}依頼`
       out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
+    // ロール別フィルタ：管理担当は管理業務＋その他のみ／事務管理(assistant)は事務業務のみ／それ以外(システム管理者等)は全部。
+    const isManagerC = (c: Candidate) => c.custom || MANAGER_GYOMU.has(c.gyomu)
+    if (viewerRole === 'manager' || viewerRole === 'sub_manager') return out.filter(isManagerC)
+    if (viewerRole === 'assistant') return out.filter(c => !isManagerC(c))
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, viewerRole])
 
   // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
   const kosekiCoarse = useMemo(() =>
@@ -262,12 +273,13 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
     const rows = picked.map((c, i) => {
-      const isManager = MANAGER_GYOMU.has(c.gyomu)
+      const isManager = c.custom || MANAGER_GYOMU.has(c.gyomu)
       return {
         case_id: caseId,
         task_kind: isManager ? ('system' as const) : ('case' as const),
         title: c.title,
-        phase: c.gyomu,
+        // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
+        phase: c.custom ? c.title : c.gyomu,
         // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
         category: isManager ? null : c.gyomu,
         status: '着手前',
@@ -275,7 +287,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         source_rid: ridByKey[c.key] ?? null,
         work_role: isManager ? 'manager' : 'assistant',
         assign_role: isManager ? 'manager' : null,
-        procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
+        // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
+        procedure_text: c.custom ? (c.work?.trim() || null) : null,
         // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
         ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
           : c.readyOnReceipt ? { ready_on_receipt: true }
