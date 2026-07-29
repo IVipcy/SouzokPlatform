@@ -124,7 +124,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
       {tab === 'sheet' && (
         <div>
-          <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos} />
+          <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
+            caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
           <div className="mt-4 flex justify-end">
             <button type="button" onClick={() => setTab('result')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
               面談結果登録へ進む →

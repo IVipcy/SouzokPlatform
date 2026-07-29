@@ -1,210 +1,276 @@
 'use client'
 
-// 統合入力アプリ ①面談シート。セクション構成＋各セクションの「＋メモ」でセクション別の手書きメモを展開。
-// 項目は案件(caseData)に保存＝②面談結果登録・③オーダーシートへ自動で引き継がれる（同じ列を編集するため）。
-// 手書きは meeting_memos に section キー付きで保存し、③でも参照できる（親でstate管理）。
+// 統合入力アプリ ①面談シート。エクセルの[面談シート]=〇項目だけをセクション別に表示。
+// 各セクションのメモ欄＝そのセクションのフリー作業欄(work_content)に統合。タイピング/手書き切替。
+// 手書きは「テキスト化→フリー欄へ」＋画像は meeting_memos に保存し③へ引き継ぎ。構造化できる所は「AIで項目に反映」。
 import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
-import { Eraser, Sparkles, Save, Trash2, Plus, Pen, Highlighter } from 'lucide-react'
+import { Eraser, Sparkles, Save, Trash2, Plus, Pen, Highlighter, Keyboard, PencilLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { Section, FieldGrid, InlineEdit, InlineDate } from '@/components/ui/InlineFields'
-import { HEIR_RELATIONSHIPS } from '@/lib/constants'
-import { InlineSelect } from '@/components/ui/InlineFields'
+import { FieldGrid, InlineEdit, InlineDate } from '@/components/ui/InlineFields'
+import { HEIR_RELATIONSHIPS, PROPERTY_TYPES } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
-import { WorkContentField } from '@/components/features/cases/WorkContentField'
-import type { CaseRow } from '@/types'
+import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
+import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
+import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
 type Pt = { x: number; y: number }
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 const BUCKET = 'meeting-memos'
 
-// 「AIで項目に反映」用のセクション別スキーマ（手書き→構造化抽出→フィールドへ）。target=保存先。
+// AIで項目に反映のスキーマ（依頼者情報・相続人調査＝被相続人）。
 type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' }
 const EXTRACT_SCHEMA: Record<string, XField[]> = {
-  client: [
-    { key: 'name', label: '氏名', target: 'client' },
-    { key: 'furigana', label: 'ふりがな', target: 'client' },
-    { key: 'relationship_to_deceased', label: '続柄', target: 'client', enum: [...HEIR_RELATIONSHIPS] },
-    { key: 'mobile_phone', label: '携帯電話', target: 'client' },
-    { key: 'address', label: '住所', target: 'client' },
-  ],
   deceased: [
     { key: 'deceased_name', label: '被相続人氏名', target: 'case' },
     { key: 'deceased_furigana', label: '被相続人ふりがな', target: 'case' },
+    { key: 'deceased_birth_date', label: '被相続人生年月日', target: 'case', type: 'date' },
     { key: 'date_of_death', label: '相続開始日（死亡日）', target: 'case', type: 'date' },
+    { key: 'deceased_address', label: '被相続人住所', target: 'case' },
+    { key: 'deceased_registered_address', label: '被相続人本籍', target: 'case' },
   ],
 }
 
-// 縦に自由に広げられる手書きキャンバス（ペン・筆圧対応）。リサイズしても描画は保持。
-function HandwriteCanvas({ onSave, saving, onExtract }: { onSave: (dataUrl: string, text: string) => void; saving: boolean; onExtract?: (dataUrl: string) => Promise<void> }) {
+// ── 縦リサイズ可の手書きキャンバス（ペン/蛍光ペン/消しゴム）。テキスト化・画像保存・AI反映は親のコールバック。 ──
+function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
+  onText: (t: string) => void; onSaveImage: (dataUrl: string) => Promise<void>; onExtract?: (dataUrl: string) => Promise<void>; saving: boolean
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
   const last = useRef<Pt | null>(null)
   const [empty, setEmpty] = useState(true)
   const emptyRef = useRef(true)
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  // 描画ツール：pen=黒ペン / marker=蛍光ペン(黄・半透明・太) / eraser=消しゴム(一部消し)
+  const [busy, setBusy] = useState<'' | 'ocr' | 'extract'>('')
   const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
-  const modeRef = useRef(mode)
-  modeRef.current = mode
-  const [extracting, setExtracting] = useState(false)
-  const doExtract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setExtracting(true); try { await onExtract(c.toDataURL('image/png')) } finally { setExtracting(false) } }
+  const modeRef = useRef(mode); modeRef.current = mode
 
-  // 実寸×DPRでビットマップを確保。リサイズ時は既存の描画を退避→再設定→再描画で保持。
   const setup = useCallback(() => {
-    const c = canvasRef.current, wrap = wrapRef.current
-    if (!c || !wrap) return
-    const rect = wrap.getBoundingClientRect()
-    if (rect.width < 1 || rect.height < 1) return
+    const c = canvasRef.current, wrap = wrapRef.current; if (!c || !wrap) return
+    const rect = wrap.getBoundingClientRect(); if (rect.width < 1 || rect.height < 1) return
     const prev = emptyRef.current ? null : c.toDataURL('image/png')
     const dpr = window.devicePixelRatio || 1
-    c.width = Math.round(rect.width * dpr)
-    c.height = Math.round(rect.height * dpr)
-    const ctx = c.getContext('2d')
-    if (!ctx) return
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2937'
+    c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr)
+    const ctx = c.getContext('2d'); if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
     if (prev) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height); img.src = prev }
   }, [])
-  useEffect(() => {
-    setup()
-    const wrap = wrapRef.current; if (!wrap) return
-    const ro = new ResizeObserver(() => setup())
-    ro.observe(wrap)
-    return () => ro.disconnect()
-  }, [setup])
+  useEffect(() => { setup(); const wrap = wrapRef.current; if (!wrap) return; const ro = new ResizeObserver(() => setup()); ro.observe(wrap); return () => ro.disconnect() }, [setup])
 
   const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => { const r = canvasRef.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
   const down = (e: RPointerEvent<HTMLCanvasElement>) => { drawing.current = true; last.current = pos(e); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ } }
   const move = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (!drawing.current) return
     const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
-    const p = pos(e)
-    const m = modeRef.current
-    if (m === 'eraser') {
-      // 一部消し：透明にくり抜く（キャンバスは透明・下地は白枠）
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = 'rgba(0,0,0,1)'
-      ctx.lineWidth = 20
-    } else if (m === 'marker') {
-      // 蛍光ペン：黄・半透明・太
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = 'rgba(250,204,21,0.4)'
-      ctx.lineWidth = 16
-    } else {
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = '#1f2937'
-      ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2)
-    }
+    const p = pos(e); const m = modeRef.current
+    if (m === 'eraser') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = 20 }
+    else if (m === 'marker') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgba(250,204,21,0.4)'; ctx.lineWidth = 16 }
+    else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2) }
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
     ctx.globalCompositeOperation = 'source-over'
     last.current = p; if (emptyRef.current && m !== 'eraser') { emptyRef.current = false; setEmpty(false) }
   }
   const up = () => { drawing.current = false; last.current = null }
-  const clear = () => {
-    const c = canvasRef.current; if (!c) return
-    const ctx = c.getContext('2d')
-    if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() }
-    emptyRef.current = true; setEmpty(true); setText('')
-  }
-  const toText = async () => {
-    const c = canvasRef.current; if (!c || empty) return
-    setBusy(true)
+  const clear = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() } emptyRef.current = true; setEmpty(true) }
+  const ocr = async () => {
+    const c = canvasRef.current; if (!c || empty) return; setBusy('ocr')
     try {
       const res = await fetch('/api/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: c.toDataURL('image/png') }) })
       const j = (await res.json()) as { text?: string; error?: string }
-      setText(res.ok ? (j.text || '（認識できませんでした）') : `__ERROR__${j.error ?? '認識に失敗しました'}`)
-    } catch { setText('__ERROR__通信に失敗しました') } finally { setBusy(false) }
+      if (!res.ok) { showToast(j.error ?? '認識に失敗しました', 'error'); return }
+      if (j.text) onText(j.text); else showToast('認識できませんでした', 'error')
+    } catch { showToast('通信に失敗しました', 'error') } finally { setBusy('') }
   }
-  // 保存しても手書きは消さない（同じ手書きに対して 保存→テキスト化→AI反映 を続けられるように）。消したいときは「全消去」。
-  const doSave = () => { const c = canvasRef.current; if (!c || empty) return; onSave(c.toDataURL('image/png'), text && !text.startsWith('__ERROR__') ? text : '') }
-  const isError = text.startsWith('__ERROR__')
+  const saveImg = async () => { const c = canvasRef.current; if (!c || empty) return; await onSaveImage(c.toDataURL('image/png')) }
+  const extract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setBusy('extract'); try { await onExtract(c.toDataURL('image/png')) } finally { setBusy('') } }
 
   return (
     <div>
-      {/* 縦にドラッグで拡大できるキャンバス枠（resize: vertical） */}
-      <div ref={wrapRef} style={{ height: 200, minHeight: 120, resize: 'vertical', overflow: 'hidden' }} className="rounded-lg bg-white border border-dashed border-gray-300 relative">
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', touchAction: 'none', display: 'block' }} className="cursor-crosshair"
-          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
-        <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-300">↕ 下端をドラッグで拡大</span>
+      <div ref={wrapRef} style={{ height: 190, minHeight: 110, resize: 'vertical', overflow: 'hidden' }} className="rounded-lg bg-white border border-dashed border-gray-300 relative">
+        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', touchAction: 'none', display: 'block' }} className="cursor-crosshair" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
+        <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-300">↕ 下端で拡大</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 mt-2">
-        {/* ツール切替：ペン／蛍光ペン（黄）／消しゴム（一部消し） */}
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-          {([['pen', 'ペン', Pen], ['marker', '蛍光ペン', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
-            <button key={k} type="button" onClick={() => setMode(k)}
-              className={`inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-              <Icon className="w-3.5 h-3.5" />{label}
-            </button>
+          {([['pen', 'ペン', Pen], ['marker', '蛍光', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
+            <button key={k} type="button" onClick={() => setMode(k)} className={`inline-flex items-center gap-1 text-[12px] px-2 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}><Icon className="w-3.5 h-3.5" />{label}</button>
           ))}
         </div>
         <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Trash2 className="w-3.5 h-3.5" />全消去</button>
-        <button type="button" onClick={toText} disabled={empty || busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy ? '認識中…' : 'テキスト化（AI）'}</button>
-        {onExtract && <button type="button" onClick={doExtract} disabled={empty || extracting} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{extracting ? '反映中…' : 'AIで項目に反映'}</button>}
-        <button type="button" onClick={doSave} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[12px] px-3.5 py-1.5 rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-3.5 h-3.5" />{saving ? '保存中…' : 'このセクションに保存'}</button>
+        <button type="button" onClick={ocr} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
+        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
+        <button type="button" onClick={saveImg} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-3.5 h-3.5" />画像を保存</button>
       </div>
-      {text && (isError
-        ? <p className="mt-2 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">テキスト化に失敗：{text.replace('__ERROR__', '')}</p>
-        : <p className="mt-2 text-[13px] text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2 whitespace-pre-wrap">認識結果：{text}</p>)}
     </div>
   )
 }
 
-// セクション別の保存済みメモ一覧（画像＋テキスト）。署名付きURLで画像表示。
+// 保存済み手書きメモ（画像）一覧。署名URLで表示。
 function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; onDelete: (m: MeetingMemoRow) => void; readOnly?: boolean }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
   useEffect(() => {
     const supabase = createClient()
-    const missing = memos.filter(m => m.image_path && !urls[m.id])
-    if (missing.length === 0) return
-    ;(async () => {
-      const next: Record<string, string> = {}
-      for (const m of missing) { const { data } = await supabase.storage.from(m.image_bucket || BUCKET).createSignedUrl(m.image_path!, 3600); if (data?.signedUrl) next[m.id] = data.signedUrl }
-      if (Object.keys(next).length) setUrls(prev => ({ ...prev, ...next }))
-    })()
+    const missing = memos.filter(m => m.image_path && !urls[m.id]); if (missing.length === 0) return
+    ;(async () => { const next: Record<string, string> = {}; for (const m of missing) { const { data } = await supabase.storage.from(m.image_bucket || BUCKET).createSignedUrl(m.image_path!, 3600); if (data?.signedUrl) next[m.id] = data.signedUrl } if (Object.keys(next).length) setUrls(prev => ({ ...prev, ...next })) })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memos])
   if (memos.length === 0) return null
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-2 flex flex-wrap gap-2">
       {memos.map(m => (
-        <div key={m.id} className="flex items-start gap-3 border border-gray-200 rounded-lg p-2 bg-white">
+        <div key={m.id} className="relative">
           {m.image_path && urls[m.id]
             // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={urls[m.id]} alt="手書きメモ" className="h-16 rounded border border-gray-200 flex-none bg-white" />
-            : <div className="h-16 w-24 rounded border border-gray-200 flex-none bg-gray-50 flex items-center justify-center text-[11px] text-gray-400">画像</div>}
-          <div className="flex-1 min-w-0">
-            {m.ocr_text ? <p className="text-[12.5px] text-gray-800 whitespace-pre-wrap break-words">{m.ocr_text}</p> : <p className="text-[11.5px] text-gray-400">テキスト未変換（画像のみ）</p>}
-          </div>
-          {!readOnly && <button type="button" onClick={() => onDelete(m)} className="flex-none p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+            ? <img src={urls[m.id]} alt="手書き" className="h-16 rounded border border-gray-200 bg-white" />
+            : <div className="h-16 w-24 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-[11px] text-gray-400">画像</div>}
+          {!readOnly && <button type="button" onClick={() => onDelete(m)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-red-500 flex items-center justify-center shadow-sm"><Trash2 className="w-3 h-3" /></button>}
         </div>
       ))}
     </div>
   )
 }
 
-// ③オーダーシートへ引き継ぐ、面談シートの手書きメモ（読み取り専用・セクション別）。
-const SEC_LABEL: Record<string, string> = { client: '依頼者情報', order: '受注内容', deceased: '相続人調査', assets: '財産調査', referral: '他事業者紹介' }
+// ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
+const SEC_LABEL: Record<string, string> = { client: '依頼者情報', order: '受注内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
 export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
   if (memos.length === 0) return null
   const groups = [...new Set(memos.map(m => m.section || 'other'))]
   return (
     <div className="rounded-xl border border-[#D5E4FB] bg-[#F4F8FF] p-3.5 mb-3.5">
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-4 h-4 text-[#378ADD]" strokeWidth={2} />
-        <span className="text-[12.5px] font-semibold text-[#185FA5]">面談シートの手書きメモ（引き継ぎ）</span>
-        <span className="text-[10px] text-[#7FA8D9] bg-[#E6F1FB] px-1.5 py-0.5 rounded">{memos.length}件</span>
-      </div>
+      <div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-[#378ADD]" strokeWidth={2} /><span className="text-[12.5px] font-semibold text-[#185FA5]">面談シートの手書きメモ（引き継ぎ）</span><span className="text-[10px] text-[#7FA8D9] bg-[#E6F1FB] px-1.5 py-0.5 rounded">{memos.length}件</span></div>
       <div className="space-y-2.5">
-        {groups.map(g => (
-          <div key={g}>
-            <div className="text-[11px] font-semibold text-[#185FA5] mb-1">{SEC_LABEL[g] ?? 'メモ'}</div>
-            <SavedMemos memos={memos.filter(m => (m.section || 'other') === g)} onDelete={() => {}} readOnly />
+        {groups.map(g => (<div key={g}><div className="text-[11px] font-semibold text-[#185FA5] mb-1">{SEC_LABEL[g] ?? 'メモ'}</div><SavedMemos memos={memos.filter(m => (m.section || 'other') === g)} onDelete={() => {}} readOnly /></div>))}
+      </div>
+    </div>
+  )
+}
+
+// ── メモ欄＝セクションのフリー作業欄(work_content)。タイピング/手書き切替。 ──
+function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMemos, onExtract }: {
+  caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; section: string
+  memos: MeetingMemoRow[]; currentMemberId: string | null; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
+  onExtract?: (dataUrl: string) => Promise<void>
+}) {
+  const wc = (caseData.work_content ?? {}) as Record<string, string>
+  const [mode, setMode] = useState<'type' | 'hand'>('type')
+  const [draft, setDraft] = useState(wc[section] ?? '')
+  const [saving, setSaving] = useState(false)
+  const secMemos = memos.filter(m => m.section === section)
+
+  const saveText = (v: string) => patchCase({ work_content: { ...wc, [section]: v || null } } as Partial<CaseRow>)
+  const appendText = (t: string) => { setDraft(prev => { const next = (prev ? prev + '\n' : '') + t; saveText(next); return next }) }
+  const saveImage = async (dataUrl: string) => {
+    setSaving(true); const supabase = createClient()
+    try {
+      const blob = await (await fetch(dataUrl)).blob(); const path = `${caseData.id}/${uid()}.png`
+      const { error: up } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/png', upsert: false }); if (up) throw new Error(up.message)
+      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: caseData.id, section, image_path: path, image_bucket: BUCKET, sort_order: memos.length, created_by: currentMemberId }).select('*').single()
+      if (error || !row) throw new Error(error?.message ?? '保存に失敗'); setMemos(prev => [...prev, row as MeetingMemoRow]); showToast('手書きを保存しました', 'success')
+    } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗', 'error') } finally { setSaving(false) }
+  }
+  const delImg = async (m: MeetingMemoRow) => { const supabase = createClient(); if (m.image_path) await supabase.storage.from(m.image_bucket || BUCKET).remove([m.image_path]); await supabase.from('meeting_memos').delete().eq('id', m.id); setMemos(prev => prev.filter(x => x.id !== m.id)) }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-[#FBFCFE] p-2.5 mb-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] text-gray-500">メモ（＝このセクションのフリー作業欄・OS/実務と共有）</span>
+        <div className="ml-auto inline-flex rounded-md border border-gray-200 overflow-hidden">
+          <button type="button" onClick={() => setMode('type')} className={`inline-flex items-center gap-1 text-[11.5px] px-2.5 py-1 ${mode === 'type' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}><Keyboard className="w-3.5 h-3.5" />タイピング</button>
+          <button type="button" onClick={() => setMode('hand')} className={`inline-flex items-center gap-1 text-[11.5px] px-2.5 py-1 border-l border-gray-200 ${mode === 'hand' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}><PencilLine className="w-3.5 h-3.5" />手書き</button>
+        </div>
+      </div>
+      {mode === 'type' ? (
+        <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={3} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[13px] border border-gray-200 rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+      ) : (
+        <>
+          <HandwriteCanvas onText={appendText} onSaveImage={saveImage} onExtract={onExtract} saving={saving} />
+          {draft && <p className="mt-2 text-[12px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">フリー欄：{draft}</p>}
+        </>
+      )}
+      <SavedMemos memos={secMemos} onDelete={delImg} />
+    </div>
+  )
+}
+
+// ── 相続人一覧（面談シート：氏名・続柄だけ・追加可） ──
+function HeirsMini({ caseId, heirs, onRefresh }: { caseId: string; heirs: HeirRow[]; onRefresh?: () => void }) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<HeirRow[]>(heirs)
+  useEffect(() => setRows(heirs), [heirs])
+  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r)); supabase.from('heirs').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const add = async () => { const { data, error } = await supabase.from('heirs').insert({ case_id: caseId, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
+  const del = async (id: string) => { await supabase.from('heirs').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
+  return (
+    <div>
+      <div className="text-[12px] font-semibold text-gray-500 mb-1.5">相続人一覧</div>
+      <div className="space-y-1.5">
+        {rows.map(r => (
+          <div key={r.id} className="flex items-center gap-2">
+            <input type="text" value={r.name ?? ''} onChange={e => save(r.id, 'name', e.target.value)} placeholder="氏名" className="flex-1 px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />
+            <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="w-28 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
+              <option value="">続柄</option>{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <button type="button" onClick={() => del(r.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>
+      <button type="button" onClick={add} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" />相続人を追加</button>
+    </div>
+  )
+}
+
+// ── 不動産（面談シート：物件種別・所在地・評価額・備考だけ） ──
+function REMini({ caseId, properties, onRefresh }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void }) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
+  useEffect(() => setRows(properties), [properties])
+  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const saveNum = (id: string, v: string) => { supabase.from('real_estate_properties').update({ appraisal_value: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const add = async () => { const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
+  const del = async (id: string) => { await supabase.from('real_estate_properties').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
+  return (
+    <div className="space-y-2">
+      {rows.map(r => (
+        <div key={r.id} className="border border-gray-200 rounded-lg p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">物件種別</span>
+            <select value={r.property_type ?? ''} onChange={e => save(r.id, 'property_type', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400"><option value="">—</option>{r.property_type && !(PROPERTY_TYPES as readonly string[]).includes(r.property_type) && <option value={r.property_type}>{r.property_type}</option>}{PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}</select></label>
+          <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">所在地</span><input type="text" value={r.address ?? ''} onChange={e => save(r.id, 'address', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
+          <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">評価額</span><MoneyInput value={r.appraisal_value} onCommit={v => saveNum(r.id, v)} /></label>
+          <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">備考</span><input type="text" value={r.notes ?? ''} onChange={e => save(r.id, 'notes', e.target.value)} placeholder="売却意向・査定状況 等" className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
+          <div className="sm:col-span-2 flex justify-end"><button type="button" onClick={() => del(r.id)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />削除</button></div>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" />不動産を追加</button>
+    </div>
+  )
+}
+
+// ── 金融資産（種別ごと・要点列だけ） ──
+type FinCol = { key: keyof FinancialAssetRow; label: string; money?: boolean }
+function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh }: { caseId: string; kind: string; cols: FinCol[]; addLabel: string; assets: FinancialAssetRow[]; onRefresh?: () => void }) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<FinancialAssetRow[]>(assets.filter(a => a.asset_type === kind))
+  useEffect(() => setRows(assets.filter(a => a.asset_type === kind)), [assets, kind])
+  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as FinancialAssetRow : r)); supabase.from('financial_assets').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const saveNum = (id: string, v: string) => { supabase.from('financial_assets').update({ balance_amount: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const add = async () => { const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as FinancialAssetRow]); onRefresh?.() }
+  const del = async (id: string) => { await supabase.from('financial_assets').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
+  return (
+    <div className="space-y-2">
+      {rows.map(r => (
+        <div key={r.id} className="border border-gray-200 rounded-lg p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {cols.map(c => (
+            <label key={c.key as string} className="block"><span className="block text-[11px] text-gray-400 mb-0.5">{c.label}</span>
+              {c.money
+                ? <MoneyInput value={r[c.key] as number | null} onCommit={v => saveNum(r.id, v)} />
+                : <input type="text" value={(r[c.key] as string) ?? ''} onChange={e => save(r.id, c.key as string, e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />}
+            </label>
+          ))}
+          <div className="sm:col-span-2 flex justify-end"><button type="button" onClick={() => del(r.id)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />削除</button></div>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" />{addLabel}</button>
     </div>
   )
 }
@@ -216,29 +282,33 @@ type Props = {
   currentMemberId: string | null
   memos: MeetingMemoRow[]
   setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
+  caseClients: CaseClientRow[]
+  heirs: HeirRow[]
+  properties: RealEstatePropertyRow[]
+  financialAssets: FinancialAssetRow[]
+  onRefresh?: () => void
 }
 
-type SecKey = 'client' | 'order' | 'deceased' | 'assets' | 'referral'
+// 任意追加の金融種別
+const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol[] }[] = [
+  { kind: '証券', label: '証券', section: 'assets_securities', cols: [{ key: 'institution_name', label: '証券会社' }] },
+  { kind: '信託銀行', label: '信託', section: 'assets_trust', cols: [{ key: 'institution_name', label: '信託銀行名' }, { key: 'notes', label: '備考' }] },
+  { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
+]
 
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, currentMemberId, memos, setMemos }: Props) {
-  const [openMemo, setOpenMemo] = useState<Set<SecKey>>(new Set())
-  const [saving, setSaving] = useState(false)
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, currentMemberId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
+  const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
   const cl = caseData.clients
 
-  const toggleMemo = (k: SecKey) => setOpenMemo(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
-
-  // 手書き画像 → 構造化抽出 → 該当セクションの項目に自動反映。反映した項目は青文字(aiFilled)。
-  const runExtract = async (sec: string, dataUrl: string) => {
+  const runExtract = (sec: string) => async (dataUrl: string) => {
     const schema = EXTRACT_SCHEMA[sec]; if (!schema) return
     try {
       const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl, fields: schema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type })) }) })
       const j = (await res.json()) as { values?: Record<string, string>; error?: string }
       if (!res.ok) { showToast(j.error ?? '反映に失敗しました', 'error'); return }
-      const values = j.values ?? {}
-      const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
-      const filled: string[] = []
+      const values = j.values ?? {}; const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}; const filled: string[] = []
       for (const f of schema) { const v = values[f.key]; if (!v) continue; if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v; filled.push(f.key) }
       if (Object.keys(casePatch).length) await patchCase(casePatch as Partial<CaseRow>)
       if (Object.keys(clientPatch).length) await patchClient(clientPatch)
@@ -247,100 +317,76 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, curr
     } catch { showToast('通信に失敗しました', 'error') }
   }
 
-  const addMemo = async (section: SecKey, dataUrl: string, text: string) => {
-    setSaving(true)
-    const supabase = createClient()
-    try {
-      const blob = await (await fetch(dataUrl)).blob()
-      const path = `${caseData.id}/${uid()}.png`
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/png', upsert: false })
-      if (upErr) throw new Error(upErr.message)
-      const { data: row, error } = await supabase.from('meeting_memos').insert({
-        case_id: caseData.id, section, image_path: path, image_bucket: BUCKET, ocr_text: text || null,
-        sort_order: memos.length, created_by: currentMemberId,
-      }).select('*').single()
-      if (error || !row) throw new Error(error?.message ?? '保存に失敗しました')
-      setMemos(prev => [...prev, row as MeetingMemoRow])
-      showToast('メモを保存しました', 'success')
-    } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗しました', 'error') } finally { setSaving(false) }
-  }
-  const delMemo = async (m: MeetingMemoRow) => {
-    if (!confirm('このメモを削除しますか？')) return
-    const supabase = createClient()
-    if (m.image_path) await supabase.storage.from(m.image_bucket || BUCKET).remove([m.image_path])
-    const { error } = await supabase.from('meeting_memos').delete().eq('id', m.id)
-    if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
-    setMemos(prev => prev.filter(x => x.id !== m.id))
-  }
-
-  // セクションカード（青ヘッダー＋「＋メモ」＋項目）。
-  // ※ コンポーネントではなく「描画関数」にする。コンポーネントにすると毎レンダーで型が変わり
-  //    再マウント→手書きキャンバスが作り直されて描画が消える（AI反映・保存の直後に消える不具合の原因）。
-  const secCard = (sec: SecKey, title: string, children: React.ReactNode) => {
-    const secMemos = memos.filter(m => m.section === sec)
-    const open = openMemo.has(sec)
-    return (
-      <div key={sec} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]">
-          <span className="text-[14px] font-bold text-white flex-1">{title}</span>
-          {secMemos.length > 0 && <span className="text-[10px] text-white bg-white/25 rounded-full px-1.5 py-0.5">メモ{secMemos.length}</span>}
-          <button type="button" onClick={() => toggleMemo(sec)} className={`inline-flex items-center gap-1 text-[11.5px] font-medium px-2.5 py-1 rounded-md ${open ? 'bg-white text-[#1E4F9E]' : 'bg-white/20 text-white border border-white/40 hover:bg-white/30'}`}>
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />メモ
-          </button>
-        </div>
-        {open && (
-          <div className="px-4 pt-3 pb-1 bg-[#FBFCFE] border-b border-gray-100">
-            <HandwriteCanvas onSave={(d, t) => addMemo(sec, d, t)} saving={saving} onExtract={EXTRACT_SCHEMA[sec] ? (d) => runExtract(sec, d) : undefined} />
-            <SavedMemos memos={secMemos} onDelete={delMemo} />
-          </div>
-        )}
-        <div className="p-4">{children}</div>
+  // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
+  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (d: string) => Promise<void>) => (
+    <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
+      <div className="p-4">
+        <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} />
+        {body}
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-gray-500">面談中の要点を記録します。各項目は案件に保存され、②面談結果登録・③オーダーシートへ引き継がれます。各セクションの「＋メモ」で手書きメモを残せます（縦に広げられます）。</p>
+      <p className="text-[12px] text-gray-500">面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。</p>
 
-      {/* 依頼者情報 */}
-      {secCard('client', '依頼者情報', (
-        <FieldGrid>
-          <InlineEdit label="氏名" value={cl?.name ?? null} ai={aiFilled.has('name')} onSave={v => { clearAi('name'); return patchClient({ name: v || null }) }} />
-          <InlineEdit label="ふりがな" value={cl?.furigana ?? null} ai={aiFilled.has('furigana')} onSave={v => { clearAi('furigana'); return patchClient({ furigana: v || null }) }} />
-          <InlineSelect label="続柄" value={cl?.relationship_to_deceased ?? null} options={[...HEIR_RELATIONSHIPS]} onSave={v => patchClient({ relationship_to_deceased: v || null })} />
-          <InlineEdit label="携帯電話" value={cl?.mobile_phone ?? null} ai={aiFilled.has('mobile_phone')} onSave={v => { clearAi('mobile_phone'); return patchClient({ mobile_phone: v || null }) }} />
-          <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
-        </FieldGrid>
+      {sec('client', '依頼者情報', null, (
+        <div className="space-y-3">
+          <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} />
+          <FieldGrid>
+            <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
+            <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} onSave={v => patchClient({ transfer_name_kana: v || null })} mono />
+          </FieldGrid>
+        </div>
       ))}
 
-      {/* 受注内容（受注区分・実施業務・その他）＝OrderContentTabを再利用（案件に保存＝③へ引き継ぎ） */}
-      {secCard('order', '受注内容', (
+      {sec('order', '受注内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode />
       ))}
 
-      {/* 相続人調査（要点） */}
-      {secCard('deceased', '相続人調査（要点）', (
-        <>
+      {sec('deceased', '相続人調査', null, (
+        <div className="space-y-3">
           <FieldGrid>
             <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
             <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
+            <InlineDate label="被相続人生年月日" value={caseData.deceased_birth_date} onSave={v => patchCase({ deceased_birth_date: v || null })} />
             <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => patchCase({ date_of_death: v || null })} />
+            <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
+            <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
-          <div className="mt-2">
-            <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="相続関係・相続人メモ（フリー）" />
-          </div>
-        </>
+          <HeirsMini caseId={caseData.id} heirs={heirs} onRefresh={onRefresh} />
+        </div>
+      ), runExtract('deceased'))}
+
+      {sec('assets_re', '財産調査（不動産）', '常時表示', (
+        <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
       ))}
 
-      {/* 財産調査（要点） */}
-      {secCard('assets', '財産調査（要点）', (
-        <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="財産の要点（不動産の所在地・金融機関・ざっくり評価額 等）" />
+      {sec('assets_deposit', '財産調査（預金）', '常時表示', (
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
       ))}
 
-      {/* 他事業者紹介（要点） */}
-      {secCard('referral', '他事業者紹介（要点）', (
-        <WorkContentField caseData={caseData} gyomu="referral" patchCase={patchCase} label="紹介の要点（不動産査定・税理士 等）" />
+      {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
+        <div key={f.kind}>
+          {sec(f.section, `財産調査（${f.label}）`, '任意', (
+            <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} cols={f.cols} />
+          ))}
+        </div>
+      ))}
+
+      {/* 財産の種類を追加 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[12px] text-gray-500">財産の種類を追加：</span>
+        {OPTIONAL_FIN.filter(f => !extraFin.has(f.kind)).map(f => (
+          <button key={f.kind} type="button" onClick={() => setExtraFin(prev => new Set([...prev, f.kind]))} className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-brand-600 hover:border-brand-300"><Plus className="w-3.5 h-3.5" />{f.label}</button>
+        ))}
+        {OPTIONAL_FIN.every(f => extraFin.has(f.kind)) && <span className="text-[11px] text-gray-300">すべて表示中</span>}
+      </div>
+
+      {sec('referral', '他事業者紹介', null, (
+        <p className="text-[12px] text-gray-400">紹介の要否はメモ欄に記録してください（不動産査定・税理士など。詳細は③オーダーシートの他事業者紹介で入力）。</p>
       ))}
     </div>
   )
