@@ -39,6 +39,9 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void
   /** 保存成功時に呼ばれる（指定時は既定の遷移/完了画面ではなくこのコールバックに委ねる）。統合入力アプリの③へ進むために使う。 */
   onSaved?: (caseId: string) => void
+  /** LP連携案件か（面談ルートを固定表示）。未指定時は selectedCase.id!=='new' で判定（旧/meeting互換）。
+   *  統合入力アプリのOC新規はドラフト案件でID≠'new'になるため、lp_case_number 有無で明示的に渡す。 */
+  lpLinked?: boolean
 }
 
 // 面談結果の選択肢（面談ルートで絞る）。税理士経由・過去客経由は面談なし前提なので「面談なし受注／失注」のみ。
@@ -187,8 +190,10 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
-export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved }: Props) {
+export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved, lpLinked }: Props) {
   const router = useRouter()
+  // LP連携案件は面談ルートを固定。統合入力アプリのOCドラフトはID≠'new'でもLPではないので lpLinked を明示的に見る。
+  const isLpLinked = lpLinked ?? (selectedCase.id !== 'new')
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -603,13 +608,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           <p className="text-[12px] text-gray-400 mb-3">面談報告の項目（案件番号は自動採番。詳細はオーダーシートで入力）</p>
           <Card label="面談ルート（紹介元）">
             {(() => {
-              const isLpLinked = selectedCase.id !== 'new'
               const routeOptions = isLpLinked ? [...ORDER_ROUTES] : ORDER_ROUTES.filter(r => r !== 'LP経由')
               return <Pills value={data.orderRoute} options={routeOptions} onChange={v => setOrderRoute(v as string)} disabled={isLpLinked} />
             })()}
             {data.orderRoute && (
               <div className="mt-3">
-                {selectedCase.id !== 'new' ? (
+                {isLpLinked ? (
                   <div className="py-1.5">
                     <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">詳細（紹介元）</div>
                     <div className="w-full bg-gray-100 border-[1.5px] border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-500 cursor-not-allowed">{data.orderRouteDetail || '未設定'}</div>

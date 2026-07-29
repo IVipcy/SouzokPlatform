@@ -135,6 +135,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
         <MeetingForm
           selectedCase={toSelectedCase(caseState)}
           currentMemberId={currentMemberId}
+          lpLinked={!!caseState.lp_case_number}
           onSaved={() => { setResultDone(true); setTab('order'); router.refresh() }}
         />
       )}
