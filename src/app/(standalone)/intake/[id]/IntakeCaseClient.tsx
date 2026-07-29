@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
 import type { SelectedCase } from '@/app/(authenticated)/meeting/MeetingPageClient'
-import MeetingSheetTab from './MeetingSheetTab'
+import MeetingSheetTab, { MemoCarryOver } from './MeetingSheetTab'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
@@ -76,6 +76,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   const [tab, setTab] = useState<Tab>('sheet')
   const [resultDone, setResultDone] = useState(false)
   const [caseState, setCaseState] = useState<CaseRow>(caseData)
+  // 面談シートの手書きメモは①で作成、③でも参照するため親でstate管理。
+  const [memoList, setMemos] = useState<MeetingMemoRow[]>(memos)
 
   const patchCase = async (patch: Partial<CaseRow>) => {
     setCaseState(prev => ({ ...prev, ...patch }))
@@ -122,7 +124,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
       {tab === 'sheet' && (
         <div>
-          <MeetingSheetTab caseId={caseData.id} currentMemberId={currentMemberId} initialMemos={memos} />
+          <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos} />
           <div className="mt-4 flex justify-end">
             <button type="button" onClick={() => setTab('result')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
               面談結果登録へ進む →
@@ -141,14 +143,17 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
       )}
 
       {tab === 'order' && (
-        <OrderSheet
-          caseData={caseState}
-          patchCase={patchCase}
-          patchClient={patchClient}
-          onRefresh={() => router.refresh()}
-          guided
-          {...rest}
-        />
+        <div>
+          <MemoCarryOver memos={memoList} />
+          <OrderSheet
+            caseData={caseState}
+            patchCase={patchCase}
+            patchClient={patchClient}
+            onRefresh={() => router.refresh()}
+            guided
+            {...rest}
+          />
+        </div>
       )}
     </div>
   )
