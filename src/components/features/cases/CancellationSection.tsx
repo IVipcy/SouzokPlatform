@@ -120,7 +120,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                         <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-28">解約書類</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-36">解約完了日<span className="block text-[10px] font-normal text-gray-400">日付を入れると完了</span></th>
-                        <th className="px-2.5 py-2 text-left font-semibold">禁止事項</th>
+                        <th className="px-2.5 py-2 text-left font-semibold">備考</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                       </tr>
                     </thead>
@@ -144,7 +144,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                             <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} title="日付を入れると解約完了扱いになります" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                           </td>
                           <td className={`px-2.5 py-1.5 ${lock}`}>
-                            <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="例：相続人全員の同意が必要 等" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                            <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="特記事項・備考（例：相続人全員の同意が必要 等）" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                           </td>
                           <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                         </tr>

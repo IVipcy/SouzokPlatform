@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { REGISTRATION_TYPES, REGISTRATION_CAUSES, REGISTRATION_STATUSES } from '@/lib/constants'
+import { REGISTRATION_TYPES, REGISTRATION_STATUSES } from '@/lib/constants'
 import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import TabHeader from './TabHeader'
@@ -48,7 +48,6 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
     return () => { cancelled = true }
   }, [caseData.id, supabase])
   // 管轄法務局の予測候補：この案件で既に入力済みの法務局。市区町村単位で管轄が同じなので使い回せる。
-  const officeSuggestions = [...new Set(rows.map(r => (r.registration_office ?? '').trim()).filter(Boolean))]
 
   const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
@@ -94,12 +93,9 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
               <th className="px-2.5 py-2 text-left font-semibold w-48">所在地</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">取得者</th>
               <th className="px-2.5 py-2 text-left font-semibold w-56">相続登記の種別</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">登記原因</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-40">管轄法務局</th>
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">ステータス</th>}
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">申請日</th>}
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-32">完了日</th>}
-              <th className="px-2.5 py-2 text-left font-semibold w-40">備考</th>
               {!orderSheetMode && <th className="px-2.5 py-2 text-left font-semibold w-56">備考・結果</th>}
             </tr>
           </thead>
@@ -120,13 +116,6 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                 <td className="px-2.5 py-1.5">
                   <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
                 </td>
-                <td className="px-2.5 py-1.5">
-                  <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                    <option value="">—</option>
-                    {REGISTRATION_CAUSES.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </td>
-                <td className="px-2.5 py-1.5"><CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 東京法務局 世田谷出張所" suggestions={officeSuggestions} /></td>
                 {!orderSheetMode && (
                   <td className="px-2.5 py-1.5">
                     <select value={r.registration_status ?? ''} onChange={e => saveField(r.id, 'registration_status', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
@@ -137,7 +126,6 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                 )}
                 {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_apply_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_apply_date ?? '')) saveField(r.id, 'registration_apply_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
                 {!orderSheetMode && <td className="px-2.5 py-1.5"><input type="date" defaultValue={r.registration_complete_date ?? ''} onBlur={e => { if (e.target.value !== (r.registration_complete_date ?? '')) saveField(r.id, 'registration_complete_date', e.target.value || null) }} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></td>}
-                <td className="px-2.5 py-1.5"><CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" /></td>
                 {!orderSheetMode && <td className="px-2.5 py-1.5"><CustomCell value={r.registration_result ?? ''} onCommit={v => saveField(r.id, 'registration_result', v || null)} placeholder="この登記で分かったこと・結果" /></td>}
               </tr>
             ))}
@@ -148,7 +136,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
       {/* カード表示（1物件＝1カード）。スマホのみ（PCは上の表）。 */}
       <div className="sm:hidden space-y-2.5">
         {rows.map(r => (
-          <RegCard key={r.id} r={r} heirs={heirs} officeSuggestions={officeSuggestions} saveField={saveField} />
+          <RegCard key={r.id} r={r} heirs={heirs} saveField={saveField} />
         ))}
       </div>
 
@@ -162,10 +150,9 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
 }
 
 // スマホ用：相続登記 1物件＝1カード（オーダーシート用の列のみ）
-function RegCard({ r, heirs, officeSuggestions, saveField }: {
+function RegCard({ r, heirs, saveField }: {
   r: RealEstatePropertyRow
   heirs: HeirRow[]
-  officeSuggestions: string[]
   saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
 }) {
   return (
@@ -183,18 +170,6 @@ function RegCard({ r, heirs, officeSuggestions, saveField }: {
         </div>
         <div><div className="text-[13px] font-medium text-slate-600 mb-1">相続登記の種別</div>
           <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
-        </div>
-        <div><div className="text-[13px] font-medium text-slate-600 mb-1">登記原因</div>
-          <select value={r.registration_cause ?? ''} onChange={e => saveField(r.id, 'registration_cause', e.target.value)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
-            <option value="">—</option>
-            {REGISTRATION_CAUSES.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-        <div><div className="text-[13px] font-medium text-slate-600 mb-1">管轄法務局</div>
-          <CustomCell value={r.registration_office ?? ''} onCommit={v => saveField(r.id, 'registration_office', v || null)} placeholder="例: 東京法務局 世田谷出張所" suggestions={officeSuggestions} />
-        </div>
-        <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考</div>
-          <CustomCell value={r.registration_notes ?? ''} onCommit={v => saveField(r.id, 'registration_notes', v || null)} placeholder="特記事項" />
         </div>
       </div>
     </div>
