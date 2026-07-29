@@ -7,7 +7,7 @@ import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
-import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck } from 'lucide-react'
+import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check } from 'lucide-react'
 import { MAILING_DESTINATIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import { toKatakana } from '@/lib/kana'
@@ -96,8 +96,6 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                     >メイン依頼者のフリガナを取得</button>
                   }
                 />
-                <InlineEdit label="振込名義人 候補②（カナ）" value={client.transfer_name_kana_2} onSave={v => saveClientField('transfer_name_kana_2', toKatakana(v))} mono fullWidth />
-                <InlineEdit label="振込名義人 候補③（カナ）" value={client.transfer_name_kana_3} onSave={v => saveClientField('transfer_name_kana_3', toKatakana(v))} mono fullWidth />
               </>
             )}
           </FieldGrid>
@@ -127,36 +125,43 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       <Section title="依頼者特徴">
         <div className="space-y-3">
           <div>
-            <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴</div>
+            <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴（複数選択可）</div>
             <div className="flex flex-wrap items-center gap-2">
-              {TRAIT_OPTIONS.map(t => {
-                const active = caseData.client_trait === t.key
+              {(() => {
+                // 依頼者特徴は複数選択（カンマ区切りで client_trait に保存）。
+                const traits = (caseData.client_trait ?? '').split(',').map(s => s.trim()).filter(Boolean)
+                const toggle = (key: string) => {
+                  const next = traits.includes(key) ? traits.filter(k => k !== key) : [...traits, key]
+                  saveCaseField('client_trait', next.length ? next.join(',') : null)
+                }
                 return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => saveCaseField('client_trait', active ? null : t.key)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] whitespace-nowrap transition-all ${
-                      active
-                        ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
-                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                    title={active ? `${t.label}（クリックで解除）` : t.label}
-                  >
-                    <span className="text-[18px] leading-none">{t.emoji}</span>
-                    <span>{t.label}</span>
-                  </button>
+                  <>
+                    {TRAIT_OPTIONS.map(t => {
+                      const active = traits.includes(t.key)
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => toggle(t.key)}
+                          className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] whitespace-nowrap transition-all ${
+                            active
+                              ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
+                              : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                          title={active ? `${t.label}（クリックで解除）` : t.label}
+                        >
+                          {active && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
+                          <span className="text-[18px] leading-none">{t.emoji}</span>
+                          <span>{t.label}</span>
+                        </button>
+                      )
+                    })}
+                    {traits.length > 0 && (
+                      <button type="button" onClick={() => saveCaseField('client_trait', null)} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">クリア</button>
+                    )}
+                  </>
                 )
-              })}
-              {caseData.client_trait && (
-                <button
-                  type="button"
-                  onClick={() => saveCaseField('client_trait', null)}
-                  className="text-[11px] text-gray-400 hover:text-gray-600 ml-1"
-                >
-                  クリア
-                </button>
-              )}
+              })()}
             </div>
           </div>
           <TextAreaField

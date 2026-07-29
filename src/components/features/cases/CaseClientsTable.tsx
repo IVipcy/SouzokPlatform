@@ -4,21 +4,8 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseClientRow } from '@/types'
-
-// 生年月日から年齢を算出
-function calcAge(birth: string | null): number | null {
-  if (!birth) return null
-  const b = new Date(birth)
-  if (Number.isNaN(b.getTime())) return null
-  const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  const m = now.getMonth() - b.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
-  return age >= 0 ? age : null
-}
 
 type Props = {
   caseId: string
@@ -90,29 +77,24 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
     <div>
       {/* PC: 表（スマホは非表示・下のカード表示） */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1320 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
               <th className="px-2 py-2 text-left font-semibold">氏名</th>
               <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
               <th className="px-2 py-2 text-left font-semibold w-24">続柄</th>
-              <th className="px-2 py-2 text-left font-semibold">TEL①</th>
-              <th className="px-2 py-2 text-left font-semibold">TEL②（携帯）</th>
-              <th className="px-2 py-2 text-left font-semibold">メール</th>
-              <th className="px-2 py-2 text-left font-semibold w-44">連絡先希望</th>
+              <th className="px-2 py-2 text-left font-semibold">TEL（携帯）</th>
+              <th className="px-2 py-2 text-left font-semibold w-56">連絡先希望</th>
               <th className="px-2 py-2 text-center font-semibold w-12">外字</th>
-              <th className="px-2 py-2 text-left font-semibold w-36">生年月日</th>
-              <th className="px-2 py-2 text-center font-semibold w-12">年齢</th>
               <th className="px-2 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={12} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">依頼者が登録されていません</td></tr>
             ) : (
               rows.map(r => {
-                const age = calcAge(r.birth_date)
                 return (
                   <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
                     <td className="px-2 py-1.5">
@@ -134,17 +116,11 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
                         {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                     </td>
-                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="自宅 03-..." />
                     <Cell value={r.mobile_phone} type="tel" onChange={v => setLocal(r.id, 'mobile_phone', v)} onCommit={v => commit(r.id, 'mobile_phone', v)} placeholder="携帯 090-..." />
-                    <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@..." />
                     <PrefContactCell value={r.preferred_contact} onChange={v => commitVal(r.id, 'preferred_contact', v.length > 0 ? v : null)} />
                     <td className="px-2 py-1.5 text-center">
                       <input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} />
-                    </td>
-                    <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? age : <span className="text-gray-300">—</span>}</td>
                     <td className="px-2 py-1.5 text-center">
                       <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -185,7 +161,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId 
 const PREF_CONTACTS: { key: string; label: string }[] = [
   { key: '自宅TEL', label: '自宅' },
   { key: '携帯TEL', label: '携帯' },
-  { key: 'メール', label: 'メール' },
+  { key: 'LINE', label: 'LINE' },
 ]
 function PrefContactCell({ value, onChange }: { value: string[] | null; onChange: (v: string[]) => void }) {
   const selected = value ?? []
@@ -226,7 +202,6 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
   commitVal: (id: string, field: keyof CaseClientRow, value: unknown) => void
   onDelete: () => void
 }) {
-  const age = calcAge(r.birth_date)
   const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
   const selectedPref = r.preferred_contact ?? []
   const togglePref = (key: string) => {
@@ -249,9 +224,7 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
           <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>
           <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-12 text-[15px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
         </div>
-        <CFieldBlock label="TEL①（自宅）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="03-..." className={inputCls} /></CFieldBlock>
-        <CFieldBlock label="TEL②（携帯）"><input type="tel" value={r.mobile_phone ?? ''} onChange={e => setLocal(r.id, 'mobile_phone', e.target.value)} onBlur={e => commit(r.id, 'mobile_phone', e.target.value)} placeholder="090-..." className={inputCls} /></CFieldBlock>
-        <CFieldBlock label="メール"><input type="email" value={r.email ?? ''} onChange={e => setLocal(r.id, 'email', e.target.value)} onBlur={e => commit(r.id, 'email', e.target.value)} placeholder="mail@..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="TEL（携帯）"><input type="tel" value={r.mobile_phone ?? ''} onChange={e => setLocal(r.id, 'mobile_phone', e.target.value)} onBlur={e => commit(r.id, 'mobile_phone', e.target.value)} placeholder="090-..." className={inputCls} /></CFieldBlock>
         <CFieldBlock label="連絡先希望">
           <div className="flex items-center gap-1.5">
             {PREF_CONTACTS.map(p => {
@@ -260,7 +233,6 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
             })}
           </div>
         </CFieldBlock>
-        <CFieldBlock label={`生年月日${age != null ? `（${age}歳）` : ''}`}><BirthdayPicker value={r.birth_date} onChange={v => { setLocal(r.id, 'birth_date', v); commit(r.id, 'birth_date', v) }} /></CFieldBlock>
       </div>
     </div>
   )
