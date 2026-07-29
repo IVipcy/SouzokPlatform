@@ -108,16 +108,15 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="受注内容" description="この案件で引き受けた仕事の種類と、実際にやる作業を選びます" />}
+      {!orderSheetMode && <TabHeader title="受注内容" description="受注内容（提案内容）と実施する予定の作業を選びます" />}
       <Section title="受注内容">
         {/* 受注内容（提案内容）＝フリー欄。面談シート(order)と同じキーで共有・引き継ぎ（エクセルR24） */}
         <div className="mb-4">
           <WorkContentField caseData={caseData} gyomu="order" patchCase={patchCase} label="受注内容（提案内容）／面談シートと共有" />
         </div>
-        {/* 受注区分（3行・複数選択） */}
+        {/* 受注内容（提案内容）（3行・複数選択） */}
         <div className="mb-4">
-          <div className="text-[13px] text-gray-600 mb-1.5">受注区分（複数選択できます）</div>
-          <HintNote className="mb-2">この案件で引き受けた仕事の種類です。当てはまるものを選んでください（いくつでもOK）。</HintNote>
+          <div className="text-[13px] text-gray-600 mb-1.5">受注内容（提案内容）（複数選択できます）</div>
           <div className="space-y-1.5">
             {ORDER_CATEGORY_ROWS.map((row, ri) => (
               <div key={ri} className="flex flex-wrap gap-2">
@@ -145,7 +144,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
         {/* 実施業務（受注区分に依存せず全表示・初期未選択） */}
         <div className="mb-4">
           <div className="text-[13px] text-gray-600 mb-1.5">実施業務</div>
-          <HintNote className="mb-2">この案件で実際にやる作業を選びます。選んだ作業だけ、下のタブ・記入欄に出てきます。</HintNote>
+          <HintNote className="mb-2">実施する予定の作業を選択してください。</HintNote>
           {isReferralOnly ? (
             <p className="text-[12px] text-gray-400">「紹介のみ」の場合、自社でやる相続手続きはありません。紹介先は「他事業者紹介」タブに書いてください。</p>
           ) : (

@@ -942,7 +942,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           <Card label="ヒアリング内容メモ"><Textarea value={data.hearingMemo} onChange={v => update('hearingMemo', v)} placeholder={HEARING_MEMO_SAMPLE} /></Card>
           {/* 受注区分は受注確定時に決まる情報。検討中では非表示（後で面談情報タブで入力） */}
           {REFERRAL_FIELDS_VISIBLE.has(data.caseStatus) && (
-            <Card label="受注区分（複数選択できます）">
+            <Card label="受注内容（提案内容）（複数選択できます）">
               <Pills value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} multi />
               {data.serviceCategories.length > 1 && (
                 <p className="mt-2.5 text-[12px] text-gray-500">
