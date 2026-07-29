@@ -22,6 +22,12 @@ const BUCKET = 'meeting-memos'
 // AIで項目に反映のスキーマ（依頼者情報・相続人調査＝被相続人）。
 type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' }
 const EXTRACT_SCHEMA: Record<string, XField[]> = {
+  // 依頼者情報：住所・振込名義（clients テーブル）を中心にAI反映。
+  // 依頼者氏名/ふりがな/続柄/携帯は行データ(case_clients)のため、ここではフォームに現れる clients フィールドを対象にする。
+  client: [
+    { key: 'address', label: '依頼者住所', target: 'client' },
+    { key: 'transfer_name_kana', label: '振込名義人（カナ）', target: 'client' },
+  ],
   deceased: [
     { key: 'deceased_name', label: '被相続人氏名', target: 'case' },
     { key: 'deceased_furigana', label: '被相続人ふりがな', target: 'case' },
@@ -33,8 +39,9 @@ const EXTRACT_SCHEMA: Record<string, XField[]> = {
 }
 
 // ── 縦リサイズ可の手書きキャンバス（ペン/蛍光ペン/消しゴム）。テキスト化・画像保存・AI反映は親のコールバック。 ──
-function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
-  onText: (t: string) => void; onSaveImage: (dataUrl: string) => Promise<void>; onExtract?: (dataUrl: string) => Promise<void>; saving: boolean
+function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChange }: {
+  onText: (t: string) => void; onSaveImage: (dataUrl: string) => Promise<void>; onExtract?: (src: { image?: string; text?: string }) => Promise<void>; saving: boolean
+  onDrawingChange?: (active: boolean) => void
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -59,7 +66,7 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
   useEffect(() => { setup(); const wrap = wrapRef.current; if (!wrap) return; const ro = new ResizeObserver(() => setup()); ro.observe(wrap); return () => ro.disconnect() }, [setup])
 
   const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => { const r = canvasRef.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
-  const down = (e: RPointerEvent<HTMLCanvasElement>) => { drawing.current = true; last.current = pos(e); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ } }
+  const down = (e: RPointerEvent<HTMLCanvasElement>) => { drawing.current = true; onDrawingChange?.(true); last.current = pos(e); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ } }
   const move = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (!drawing.current) return
     const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
@@ -71,7 +78,7 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
     ctx.globalCompositeOperation = 'source-over'
     last.current = p; if (emptyRef.current && m !== 'eraser') { emptyRef.current = false; setEmpty(false) }
   }
-  const up = () => { drawing.current = false; last.current = null }
+  const up = () => { drawing.current = false; onDrawingChange?.(false); last.current = null }
   const clear = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() } emptyRef.current = true; setEmpty(true) }
   const ocr = async () => {
     const c = canvasRef.current; if (!c || empty) return; setBusy('ocr')
@@ -83,7 +90,7 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
     } catch { showToast('通信に失敗しました', 'error') } finally { setBusy('') }
   }
   const saveImg = async () => { const c = canvasRef.current; if (!c || empty) return; await onSaveImage(c.toDataURL('image/png')) }
-  const extract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setBusy('extract'); try { await onExtract(c.toDataURL('image/png')) } finally { setBusy('') } }
+  const extract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setBusy('extract'); try { await onExtract({ image: c.toDataURL('image/png') }) } finally { setBusy('') } }
 
   return (
     <div>
@@ -150,13 +157,21 @@ export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
 function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMemos, onExtract, ensureCaseId }: {
   caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; section: string
   memos: MeetingMemoRow[]; currentMemberId: string | null; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
-  onExtract?: (dataUrl: string) => Promise<void>; ensureCaseId?: () => Promise<string>
+  onExtract?: (src: { image?: string; text?: string }) => Promise<void>; ensureCaseId?: () => Promise<string>
 }) {
   const wc = (caseData.work_content ?? {}) as Record<string, string>
   const [mode, setMode] = useState<'type' | 'hand'>('type')
   const [draft, setDraft] = useState(wc[section] ?? '')
   const [saving, setSaving] = useState(false)
+  const [extractingText, setExtractingText] = useState(false)
   const secMemos = memos.filter(m => m.section === section)
+
+  // 手書き中は他の項目（input/textarea/select）を触れなくする（掌が誤タップするのを防ぐ）。
+  // body に .is-handwriting-active クラスを付けて CSS で pointer-events を制御。
+  const setDrawingActive = (active: boolean) => {
+    if (typeof document === 'undefined') return
+    document.body.classList.toggle('is-handwriting-active', active)
+  }
 
   const saveText = (v: string) => patchCase({ work_content: { ...wc, [section]: v || null } } as Partial<CaseRow>)
   const appendText = (t: string) => { setDraft(prev => { const next = (prev ? prev + '\n' : '') + t; saveText(next); return next }) }
@@ -182,10 +197,18 @@ function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMe
         </div>
       </div>
       {mode === 'type' ? (
-        <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+        <>
+          <textarea data-handwriting-tool value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+          {/* タイピング本文をAIで項目に反映（onExtract=このセクションのextract定義あり時のみ表示） */}
+          {onExtract && (
+            <div className="mt-2 flex justify-end">
+              <button type="button" onClick={async () => { if (!draft.trim()) return; setExtractingText(true); try { await onExtract({ text: draft }) } finally { setExtractingText(false) } }} disabled={!draft.trim() || extractingText} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{extractingText ? '反映中…' : 'AIで項目に反映'}</button>
+            </div>
+          )}
+        </>
       ) : (
         <>
-          <HandwriteCanvas onText={appendText} onSaveImage={saveImage} onExtract={onExtract} saving={saving} />
+          <HandwriteCanvas onText={appendText} onSaveImage={saveImage} onExtract={onExtract} saving={saving} onDrawingChange={setDrawingActive} />
           {draft && <p className="mt-2 text-[12px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">フリー欄：{draft}</p>}
         </>
       )}
@@ -305,10 +328,14 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   const cl = caseData.clients
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
-  const runExtract = (sec: string) => async (dataUrl: string) => {
+  // AIで項目に反映：手書き画像（dataUrl）またはタイピング本文（text）のどちらでも呼べる。
+  const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => {
     const schema = EXTRACT_SCHEMA[sec]; if (!schema) return
     try {
-      const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl, fields: schema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type })) }) })
+      const body: Record<string, unknown> = { fields: schema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type })) }
+      if (source.image) body.image = source.image
+      if (source.text) body.text = source.text
+      const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const j = (await res.json()) as { values?: Record<string, string>; error?: string }
       if (!res.ok) { showToast(j.error ?? '反映に失敗しました', 'error'); return }
       const values = j.values ?? {}; const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}; const filled: string[] = []
@@ -321,7 +348,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   }
 
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
-  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (d: string) => Promise<void>, hideMemo?: boolean) => (
+  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean) => (
     <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
@@ -340,10 +367,10 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
             <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
-            <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} onSave={v => patchClient({ transfer_name_kana: v || null })} mono />
+            <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} ai={aiFilled.has('transfer_name_kana')} onSave={v => { clearAi('transfer_name_kana'); return patchClient({ transfer_name_kana: v || null }) }} mono />
           </FieldGrid>
         </div>
-      ))}
+      ), runExtract('client'))}
 
       {sec('order', '受注内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode meetingSheetMode />

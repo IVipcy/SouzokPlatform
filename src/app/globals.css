@@ -253,3 +253,16 @@ body[data-sidebar-collapsed="1"] .ml-60 {
 th {
   text-align: left;
 }
+
+/* ─────────────────────────────────────────
+   手書き中の項目ロック（タブレットで掌が他の入力欄を誤タップするのを防ぐ）
+   面談シートの手書きキャンバスに pointerdown している間だけ body に
+   .is-handwriting-active クラスが付き、他のフォーム要素の pointer-events を切る。
+   canvas と data-handwriting-tool 付き要素（ツール類）は影響を受けない。
+   ──────────────────────────────────────── */
+body.is-handwriting-active input:not([data-handwriting-tool]),
+body.is-handwriting-active textarea:not([data-handwriting-tool]),
+body.is-handwriting-active select:not([data-handwriting-tool]),
+body.is-handwriting-active button:not([data-handwriting-tool]):not(canvas *) {
+  pointer-events: none;
+}
