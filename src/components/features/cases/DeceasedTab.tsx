@@ -376,8 +376,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
-                    {['氏名', '生年月日', '住所', '本籍', ''].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] bg-brand-50/60 border-b border-brand-100">{h}</th>
+                    {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所/本籍)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44 */}
+                    {['氏名', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
+                      <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] bg-brand-50/60 border-b border-brand-100">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -400,16 +401,20 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">
-                        {heir.birth_date ? (
-                          <>
-                            {heir.birth_date}
-                            {toWareki(heir.birth_date) && <div className="text-[11px] text-gray-400">{toWareki(heir.birth_date)}</div>}
-                          </>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
+                      {!orderSheetMode && (
+                        <>
+                          <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">
+                            {heir.birth_date ? (
+                              <>
+                                {heir.birth_date}
+                                {toWareki(heir.birth_date) && <div className="text-[11px] text-gray-400">{toWareki(heir.birth_date)}</div>}
+                              </>
+                            ) : '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
+                          <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
+                        </>
+                      )}
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                           <button
@@ -453,9 +458,13 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     </div>
                   </div>
                   <div className="space-y-1.5 text-[12.5px] text-gray-700">
-                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">生年月日</span><span>{heir.birth_date ? <>{heir.birth_date}{toWareki(heir.birth_date) && <span className="text-gray-400 ml-1">{toWareki(heir.birth_date)}</span>}</> : '—'}</span></div>
-                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">住所</span><span>{heir.address ?? '—'}</span></div>
-                    <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">本籍</span><span>{heir.registered_address ?? '—'}</span></div>
+                    {!orderSheetMode && (
+                      <>
+                        <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">生年月日</span><span>{heir.birth_date ? <>{heir.birth_date}{toWareki(heir.birth_date) && <span className="text-gray-400 ml-1">{toWareki(heir.birth_date)}</span>}</> : '—'}</span></div>
+                        <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">住所</span><span>{heir.address ?? '—'}</span></div>
+                        <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">本籍</span><span>{heir.registered_address ?? '—'}</span></div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -489,26 +498,33 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     ))}
                   </select>
                 </FormField>
-                <FormField label="生年月日">
-                  <BirthdayPicker
-                    value={heirForm.birth_date}
-                    onChange={v => setHeirForm(f => ({ ...f, birth_date: v }))}
-                  />
-                </FormField>
-                <div>
-                  <label className="text-[12px] font-semibold text-gray-500 block mb-1">フラグ</label>
-                  <div className="flex flex-col gap-1">
-                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                      <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
-                      法定相続人
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                      <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
-                      申出人（法定相続情報一覧図）
-                    </label>
-                  </div>
-                </div>
+                {/* オーダーシートでは詳細（生年月日/フラグ）を隠し、実務タブで入力。エクセルR47-49 */}
+                {!orderSheetMode && (
+                  <>
+                    <FormField label="生年月日">
+                      <BirthdayPicker
+                        value={heirForm.birth_date}
+                        onChange={v => setHeirForm(f => ({ ...f, birth_date: v }))}
+                      />
+                    </FormField>
+                    <div>
+                      <label className="text-[12px] font-semibold text-gray-500 block mb-1">フラグ</label>
+                      <div className="flex flex-col gap-1">
+                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                          <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
+                          法定相続人
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                          <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
+                          申出人（法定相続情報一覧図）
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
+              {/* オーダーシートでは詳細（郵便番号/住所/本籍）を隠し、実務タブで入力。エクセルR50-52 */}
+              {!orderSheetMode && (
               <div className="grid grid-cols-1 gap-3 mb-3">
                 <FormField label="郵便番号（→「住所を取得」で反映）">
                   <div className="flex items-center gap-2">
@@ -547,6 +563,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   </div>
                 </FormField>
               </div>
+              )}
               <div className="flex gap-2 justify-end">
                 <button onClick={cancelEdit} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
                 <button onClick={handleSaveHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">
