@@ -91,7 +91,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // これが無いと、オーダーシートで追加した口座が実務タブに反映されない等の不整合が起きる。
   useEffect(() => { setRows(assets.filter(a => a.asset_type === kind)) }, [assets, kind])
   const [busy, setBusy] = useState(false)
-  const cols = COLUMNS[kind]
+  // 口座種別・口座番号は実務タブのみ（オーダーシートでは非表示）。エクセルR74-75。
+  const cols = COLUMNS[kind].filter(c => progressMode || c.key !== 'account_type')
   // institutionFilter（左レールのキー）は trim 済み。r.institution_name もtrimして比較しないと、
   // 名称に前後空白があるとレール(=trim)には出るのに口座一覧(=非trim比較)が0件になる不整合が起きる。
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)

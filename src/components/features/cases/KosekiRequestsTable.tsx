@@ -290,8 +290,9 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
                   <InlineEdit label="戸籍請求理由（その他）" value={r.request_reason_other} onSave={v => saveField(r.id, 'request_reason_other', v)} fullWidth />
                 </>
               )}
-              <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} fullWidth />
-              <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />
+              {/* 備考・結果／戸籍特記事項は調査後の結果欄＝実務タブのみ。オーダーシートでは非表示（エクセルR59-60）。 */}
+              {progressMode && <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} fullWidth />}
+              {progressMode && <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} fullWidth />}
             </FieldGrid>
           </td>
         </tr>
@@ -384,7 +385,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
           )}
           {/* 備考・結果は調査後の結果欄。オーダーシート(progressMode=false)では出さない。 */}
           {progressMode && <InlineTextarea label="備考・結果（この戸籍で分かったこと）" value={r.read_result} onSave={v => saveField(r.id, 'read_result', v)} />}
-          <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} />
+          {progressMode && <InlineTextarea label="戸籍特記事項" value={r.notes} onSave={v => saveField(r.id, 'notes', v)} />}
         </FieldGrid>
       </div>
     </div>
