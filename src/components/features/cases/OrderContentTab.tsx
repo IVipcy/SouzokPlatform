@@ -7,7 +7,7 @@ import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/con
 import {
   REFERRAL_ONLY_CATEGORY,
   ORDER_CATEGORY_ROWS, CATEGORY_AUTO_GYOMU, GYOMU_SELECTOR_ROWS,
-  defaultRolesForGyomu, type GyomuSelectorItem,
+  defaultRolesForGyomu, seedRolesForCategories, type GyomuSelectorItem,
 } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
@@ -81,6 +81,19 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     const autoNew = newKeys.map(k => CATEGORY_AUTO_GYOMU[k]).filter((g): g is string => !!g)
     let nextRoles = roles.filter(r => !(autoValues.has(r.gyomu) && !autoNew.includes(r.gyomu)))
     for (const g of autoNew) if (!nextRoles.some(r => r.gyomu === g)) nextRoles = [...nextRoles, ...(defaultRolesForGyomu(g) as RoleRow[])]
+
+    // 手続き一式・遺産承継・登記・契約書 など CATEGORY_AUTO_GYOMU に無い区分は、
+    // 新規追加時にその区分の全業務(戸籍/相関図/財産調査/協議書/…)を種として自動追加。
+    // これで手続き一式選択後にオーダーシートで全セクションが表示される。
+    const newlyAdded = newKeys.filter(k => !selectedKeys.includes(k) && !CATEGORY_AUTO_GYOMU[k] && k !== REFERRAL_ONLY_CATEGORY)
+    for (const c of newlyAdded) {
+      const seeded = seedRolesForCategories([c])
+      for (const sr of seeded) {
+        if (!nextRoles.some(r => r.gyomu === sr.gyomu && r.sagyou === sr.sagyou)) {
+          nextRoles = [...nextRoles, sr as RoleRow]
+        }
+      }
+    }
 
     const nextParts = buildParts(newKeys)
     setParts(nextParts); setRoles(nextRoles)

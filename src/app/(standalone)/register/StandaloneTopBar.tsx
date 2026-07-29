@@ -11,8 +11,9 @@ export default function StandaloneTopBar() {
   const pathname = usePathname()
   const isOrderSheet = pathname?.startsWith('/order-sheet') ?? false
   const isMeetingSheet = pathname?.startsWith('/meeting-sheet') ?? false
-  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
-  const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : '/register'
+  const isIntake = pathname?.startsWith('/intake') ?? false
+  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : isIntake ? '面談シート入力' : '相談案件登録'
+  const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : isIntake ? '/intake' : '/register'
 
   const logout = async () => {
     await createClient().auth.signOut()

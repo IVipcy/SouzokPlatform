@@ -171,14 +171,22 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   }
 
   const TABS: { id: Tab; icon: typeof ClipboardList; label: string }[] = [
-    { id: 'sheet', icon: ClipboardList, label: '① 面談シート' },
-    { id: 'result', icon: FileText, label: '② 面談結果登録' },
-    { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート' },
+    { id: 'sheet', icon: ClipboardList, label: '① 面談シート入力' },
+    { id: 'result', icon: FileText, label: '② 相談案件登録' },
+    { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート入力' },
   ]
 
-  // ②③へ進む前に案件を確定（未作成なら遅延作成）。①面談シートは未作成のままでよい。
+  // ①→②→③ の順次遷移のみ許可。戻るのは自由、飛び越しは不可（②は下書き案件確定、③は面談結果登録の完了が前提）。
   const goTab = async (t: Tab) => {
-    if (t !== 'sheet') {
+    if (t === 'result' && tab === 'sheet') {
+      try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
+    }
+    // 未経由のタブへ飛び越し禁止：sheet からいきなり order／result 未完了で order
+    if (t === 'order' && !resultDone) {
+      showToast('先に②相談案件登録を完了してください', 'error'); return
+    }
+    if (t !== 'sheet' && draftPending) {
+      // sheet で未入力のまま順次進行を試みた場合、まず下書きを作る
       try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
     }
     setTab(t)
@@ -201,14 +209,16 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
         </div>
       </div>
 
-      {/* 3タブ（順次遷移） */}
+      {/* 3タブ（①→②→③の順次遷移。飛び越し不可＝③は②完了が前提） */}
       <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1.5 mb-4">
         {TABS.map(t => {
           const active = tab === t.id
           const Icon = t.icon
+          const locked = t.id === 'order' && !resultDone
           return (
-            <button key={t.id} type="button" onClick={() => goTab(t.id)}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            <button key={t.id} type="button" onClick={() => goTab(t.id)} disabled={locked}
+              title={locked ? '先に②相談案件登録を完了してください' : undefined}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}>
               <Icon className="w-4 h-4" strokeWidth={2} />{t.label}
               {t.id === 'result' && resultDone && <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />}
             </button>
@@ -222,7 +232,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
             caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
           <div className="mt-4 flex justify-end">
             <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
-              面談結果登録へ進む →
+              相談案件登録へ進む →
             </button>
           </div>
         </div>
