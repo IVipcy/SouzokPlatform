@@ -61,6 +61,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [taskDue, setTaskDue] = useState('')
   const [taskPriority, setTaskPriority] = useState<'通常' | '急ぎ'>('通常')
   const [taskWork, setTaskWork] = useState('')
+  // 担当区分（受注担当/管理担当）。進捗報告からのタスクは既定「管理担当」。
+  const [taskRole, setTaskRole] = useState<'sales' | 'manager'>('manager')
   const [taskSaving, setTaskSaving] = useState(false)
 
   const memberName = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? '—' : '—')
@@ -184,13 +186,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     setTaskSaving(true)
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
-    const requesterRole = allMembers.find(m => m.id === pr.requester_id)?.primary_role
-    const workRole = requesterRole === 'sales' ? 'sales' : 'manager'
     const { data: nt, error: e1 } = await supabase.from('tasks').insert({
       case_id: caseData.id,
       title: taskTitle.trim(),
       task_kind: 'system',       // 受注/管理担当タスク（事務管理タスクではない）
-      work_role: workRole,
+      work_role: taskRole,       // 選択した担当区分を work_role/assign_role の両方にセット
+      assign_role: taskRole,
       status: '着手前',
       priority: taskPriority,
       due_date: taskDue || null,
@@ -493,6 +494,20 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             <div className="flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/60 px-3 py-2 text-[12px] text-brand-800">
               <UserAvatar name={memberName(taskModalPr.requester_id)} size="sm" />
               担当：{memberName(taskModalPr.requester_id)}（レビューを依頼した人）
+            </div>
+            {/* 担当区分（受注担当/管理担当）。進捗報告からは既定「管理担当」。 */}
+            <div className="space-y-1">
+              <label className="block text-[12px] font-semibold text-gray-600">担当区分</label>
+              <div className="flex gap-2">
+                {([['manager', '管理担当'], ['sales', '受注担当']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTaskRole(key)}
+                    className={`flex-1 text-[12.5px] py-2 rounded-lg border transition-colors ${taskRole === key ? 'bg-brand-600 text-white border-brand-600 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                  >{label}</button>
+                ))}
+              </div>
             </div>
             <div className="space-y-1">
               <label className="block text-[12px] font-semibold text-gray-600">タスク名 <span className="text-red-500">*</span></label>

@@ -477,14 +477,14 @@ function CommunicationRow({ row, onRefresh, onClaimSync }: { row: ClientCommunic
         </select>
       </td>
       <td className="px-2 py-1.5 border border-gray-200 text-center">
-        <div className="inline-flex items-center gap-1">
+        <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setTaskizeOpen(true)}
-            className="text-gray-400 hover:text-brand-600 transition-colors p-1"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors whitespace-nowrap"
             title="このやり取りから受注/管理担当タスクを作成"
           >
-            <ClipboardCheck className="w-3.5 h-3.5" />
+            <ClipboardCheck className="w-3.5 h-3.5" strokeWidth={2.25} /> タスク化
           </button>
           <button
             type="button"
@@ -520,7 +520,10 @@ function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, d
 }) {
   const [title, setTitle] = useState(defaultTitle)
   const [dueDate, setDueDate] = useState('')
-  const [workRole, setWorkRole] = useState<'sales' | 'manager'>('sales')
+  // 依頼者やり取りからのタスクは既定「管理担当」。受注/管理を選択でき、work_role/assign_role の両方にセット。
+  const [workRole, setWorkRole] = useState<'sales' | 'manager'>('manager')
+  const [priority, setPriority] = useState<'通常' | '急ぎ'>('通常')
+  const [work, setWork] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (!isOpen) return null
@@ -535,8 +538,10 @@ function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, d
       title: title.trim(),
       category: 'お客様依頼',
       status: '着手前',
-      priority: '通常',
+      priority,
       work_role: workRole,
+      assign_role: workRole,
+      procedure_text: work.trim() || null,
       due_date: dueDate || null,
       client_communication_id: communicationId,
       origin: 'client_request',
@@ -559,21 +564,39 @@ function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, d
         </div>
         <div className="space-y-2.5 text-left">
           <div>
+            <label className="text-[11px] font-semibold text-gray-500">担当区分</label>
+            <div className="flex gap-2 mt-1">
+              {([['manager', '管理担当'], ['sales', '受注担当']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setWorkRole(key)}
+                  className={`flex-1 text-[12.5px] py-1.5 rounded border transition-colors ${workRole === key ? 'bg-brand-600 text-white border-brand-600 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-[11px] font-semibold text-gray-500">タスク名</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400" />
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[11px] font-semibold text-gray-500">担当区分</label>
-              <select value={workRole} onChange={e => setWorkRole(e.target.value as 'sales' | 'manager')} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400 bg-white">
-                <option value="sales">受注担当</option>
-                <option value="manager">管理担当</option>
-              </select>
-            </div>
-            <div className="flex-1">
               <label className="text-[11px] font-semibold text-gray-500">期限</label>
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400" />
             </div>
+            <div className="flex-1">
+              <label className="text-[11px] font-semibold text-gray-500">優先度</label>
+              <div className="flex gap-1.5 mt-1">
+                {(['通常', '急ぎ'] as const).map(p => (
+                  <button key={p} type="button" onClick={() => setPriority(p)} className={`flex-1 text-[12.5px] py-1.5 rounded border transition-colors ${priority === p ? (p === '急ぎ' ? 'bg-red-600 text-white border-red-600 font-semibold' : 'bg-brand-600 text-white border-brand-600 font-semibold') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500">作業内容</label>
+            <textarea value={work} onChange={e => setWork(e.target.value)} rows={3} placeholder="依頼したい作業・やり取りの要点" className="w-full mt-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded focus:outline-none focus:border-brand-400 resize-y" />
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 mt-4">

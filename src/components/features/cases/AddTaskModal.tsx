@@ -15,7 +15,7 @@ import type { MemberRow } from '@/types'
 // 担当区分。事務管理＝業務ひもづきの通常タスク。管理担当/受注担当＝systemタスクで、その担当へ割当＋通知。
 type RoleKind = 'assistant' | 'manager' | 'sales'
 const ROLE_KINDS: { key: RoleKind; label: string; desc: string }[] = [
-  { key: 'assistant', label: '事務管理タスク', desc: '業務にひもづく通常タスク（既定）' },
+  { key: 'assistant', label: '事務管理担当タスク', desc: '業務にひもづく通常タスク（既定）' },
   { key: 'manager', label: '管理担当タスク', desc: '案件の管理担当へ割当・通知' },
   { key: 'sales', label: '受注担当タスク', desc: '案件の受注担当へ割当・通知' },
 ]
@@ -107,10 +107,11 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           case_id: caseId,
           task_kind: 'system',
           assign_role: role,
+          work_role: role,   // work_role と assign_role を両方セット（/manager-tasks・区分ラベルの両方で正しく出す）
           title: form.title.trim(),
           phase: '',
           category: '',
-          status: '未着手',
+          status: '着手前',
           priority: form.priority,
           due_date: form.dueDate || null,
           sort_order: 99,
