@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
 import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES } from '@/lib/constants'
+import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
 import CheckRequestControl from './CheckRequestControl'
@@ -52,7 +53,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
   // [市区町村] +物件種別 +所在地 +評価額 +備考 +[確定済] +削除
-  const colCount = (showMuni ? 1 : 0) + 4 + (showConfirmed ? 1 : 0) + 1
+  const colCount = (showMuni ? 1 : 0) + 5 + (showConfirmed ? 1 : 0) + 1
 
   // 評価額確定は「確認簿で確認」に一本化。ここでは依頼（confirm_requested_at）を出す／取り消すだけ。
   const patchConfirmReq = async (row: RealEstatePropertyRow, patch: Partial<RealEstatePropertyRow>) => {
@@ -150,6 +151,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
               <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
@@ -241,6 +243,11 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
       <tr className="border-b border-gray-100">
         {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
         {sel('property_type', PROPERTY_TYPES)}
+        <td className="px-2.5 py-1.5">
+          <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+            {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+          </select>
+        </td>
         <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
         <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
         <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
@@ -330,6 +337,11 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
             <option value="">種別を選択</option>
             {r.property_type && !(PROPERTY_TYPES as readonly string[]).includes(r.property_type) && <option value={r.property_type}>{r.property_type}</option>}
             {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </FieldBlock>
+        <FieldBlock label="取得区分">
+          <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className={inputCls}>
+            {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
           </select>
         </FieldBlock>
         {showMuni && (
