@@ -31,6 +31,7 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
+    { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },  // エクセルR79・NEW
     // 解約有無（cancellation_required）。同じ行を解約タブと共有するため、ここで「有」にすると解約手続タブに出る。
     { key: 'cancellation_required', label: '解約', type: 'cancel', width: 'w-24' },
   ],
@@ -38,14 +39,16 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'institution_name', label: '証券会社', type: 'text' },
     { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
+    { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // エクセルR96・NEW
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
-    { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },
+    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },  // エクセルR98・NEW（取引明細は削除）
   ],
   '信託銀行': [
     { key: 'institution_name', label: '信託銀行名', type: 'text' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
+    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },  // エクセルR112・NEW
   ],
 }
 
