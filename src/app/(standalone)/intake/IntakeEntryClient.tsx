@@ -38,9 +38,9 @@ export default function IntakeEntryClient({ cases, drafts }: Props) {
     <div>
       <PageHeader
         eyebrow="Intake"
-        title="面談シート入力"
+        title="相談案件登録"
         icon={PenSquare}
-        description="① 面談シート入力 → ② 相談案件登録 → ③ オーダーシート入力"
+        description="① 面談シート入力 → ② 面談結果登録 → ③ オーダーシート入力"
         right={routeChoice ? (
           <button onClick={() => setRouteChoice(null)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">← 戻る</button>
         ) : null}

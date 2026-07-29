@@ -172,7 +172,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
   const TABS: { id: Tab; icon: typeof ClipboardList; label: string }[] = [
     { id: 'sheet', icon: ClipboardList, label: '① 面談シート入力' },
-    { id: 'result', icon: FileText, label: '② 相談案件登録' },
+    { id: 'result', icon: FileText, label: '② 面談結果登録' },
     { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート入力' },
   ]
 
@@ -183,7 +183,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
     }
     // 未経由のタブへ飛び越し禁止：sheet からいきなり order／result 未完了で order
     if (t === 'order' && !resultDone) {
-      showToast('先に②相談案件登録を完了してください', 'error'); return
+      showToast('先に②面談結果登録を完了してください', 'error'); return
     }
     if (t !== 'sheet' && draftPending) {
       // sheet で未入力のまま順次進行を試みた場合、まず下書きを作る
@@ -217,7 +217,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
           const locked = t.id === 'order' && !resultDone
           return (
             <button key={t.id} type="button" onClick={() => goTab(t.id)} disabled={locked}
-              title={locked ? '先に②相談案件登録を完了してください' : undefined}
+              title={locked ? '先に②面談結果登録を完了してください' : undefined}
               className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}>
               <Icon className="w-4 h-4" strokeWidth={2} />{t.label}
               {t.id === 'result' && resultDone && <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />}
@@ -232,7 +232,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
             caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
           <div className="mt-4 flex justify-end">
             <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
-              相談案件登録へ進む →
+              面談結果登録へ進む →
             </button>
           </div>
         </div>

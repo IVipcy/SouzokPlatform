@@ -12,7 +12,8 @@ export default function StandaloneTopBar() {
   const isOrderSheet = pathname?.startsWith('/order-sheet') ?? false
   const isMeetingSheet = pathname?.startsWith('/meeting-sheet') ?? false
   const isIntake = pathname?.startsWith('/intake') ?? false
-  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : isIntake ? '面談シート入力' : '相談案件登録'
+  // /intake は統合入力アプリだが、アプリ名としては「相談案件登録」で通す（メニュー・マイページのボタンと統一）
+  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
   const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : isIntake ? '/intake' : '/register'
 
   const logout = async () => {
