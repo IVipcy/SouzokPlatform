@@ -75,17 +75,6 @@ function ageAtDeath(birthday: string, deathDate: string): number | null {
   return age >= 0 ? age : null
 }
 
-function calcAge(birthday: string): number | null {
-  if (!birthday) return null
-  const b = new Date(birthday)
-  if (Number.isNaN(b.getTime())) return null
-  const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  const m = now.getMonth() - b.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
-  return age >= 0 ? age : null
-}
-
 // ── Shared UI helpers ──
 function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -796,24 +785,19 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         <div className="max-w-[1240px]">
           <SectionHeader Icon={User} title="依頼者情報" sub="面談に来られた方を入力（同行者も追加できます）" />
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1180 }}>
+            <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 110 }}>優先度</th>
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>氏名</th>
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>ふりがな</th>
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 90 }}>続柄</th>
-                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>固定電話</th>
-                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>携帯電話</th>
-                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 130 }}>メール</th>
-                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 270 }}>生年月日</th>
-                  <th className="px-2 py-2 text-center font-semibold w-14">年齢</th>
+                  <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 130 }}>携帯電話</th>
                   <th className="px-2 py-2 w-8" />
                 </tr>
               </thead>
               <tbody>
                 {data.clients.map((c, i) => {
-                  const age = calcAge(c.birthday)
                   return (
                     <tr key={i} className="border-b border-gray-100 last:border-b-0">
                       <td className="px-2 py-1.5">
@@ -830,11 +814,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                           {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5"><CellInput type="tel" value={c.phone} onChange={v => updateClient(i, { phone: v })} placeholder="03-..." /></td>
                       <td className="px-2 py-1.5"><CellInput type="tel" value={c.mobilePhone} onChange={v => updateClient(i, { mobilePhone: v })} placeholder="090-..." /></td>
-                      <td className="px-2 py-1.5"><CellInput type="email" value={c.email} onChange={v => updateClient(i, { email: v })} placeholder="mail@..." /></td>
-                      <td className="px-2 py-1.5"><BirthdayPicker value={c.birthday} onChange={v => updateClient(i, { birthday: v })} /></td>
-                      <td className="px-2 py-1.5 text-center font-mono text-gray-700">{age != null ? `${age}` : <span className="text-gray-300">—</span>}</td>
                       <td className="px-2 py-1.5 text-center">
                         {data.clients.length > 1 && (
                           <button type="button" onClick={() => removeClient(i)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除">✕</button>
