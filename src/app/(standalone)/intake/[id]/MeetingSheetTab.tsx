@@ -428,7 +428,10 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       if (addedRowsTotal > 0) parts.push(`${addedRowsTotal}件を追加`)
       if (parts.length === 0) { showToast('反映できる項目が読み取れませんでした', 'error'); return }
       if (filled.length) setAiFilled(prev => new Set([...prev, ...filled]))
-      showToast(`${parts.join('・')}しました（青字＝要確認・行データは重複ご確認ください）`, 'success')
+      const note = addedRowsTotal > 0
+        ? '青文字の項目・追加された行はAIが入力しました。中身が合っているか見直してください。'
+        : '青文字の項目はAIが入力しました。中身が合っているか見直してください。'
+      showToast(`${parts.join('・')}しました。${note}`, 'success')
     } catch { showToast('通信に失敗しました', 'error') }
   }
 
