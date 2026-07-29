@@ -50,7 +50,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/my',       label: 'マイページ',     Icon: UserCircle },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
-      { href: '/intake',   label: '相談案件登録', Icon: PenSquare },
+      { href: '/intake',   label: '面談シート入力', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
     ],
   },
