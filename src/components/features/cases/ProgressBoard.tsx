@@ -1,9 +1,13 @@
 'use client'
 
 // 管理担当向け 案件進捗ボード。業務グループ＋対象別サブ項目。上部にルールベース即時サマリー＋「AI進捗要約」(Sonnet 5)。
+// サブタブ：進捗サマリー（このボード）／進捗報告・メモ（旧・案件進捗タブから移設）。
 import { useState } from 'react'
 import { Check, Sparkles, Wand2 } from 'lucide-react'
+import { SubTabs } from '@/components/ui/SubTabs'
+import HistoryTab from './HistoryTab'
 import type { ProgressBoard as Board, ItemStatus } from '@/lib/caseProgressBoard'
+import type { CaseRow, TaskRow, MemberRow } from '@/types'
 
 const STATUS_LABEL: Record<ItemStatus, string> = { done: '完了', prog: '進行中', todo: '未着手' }
 const DONE = '#1D9E75', PROG = '#EF9F27', TODO = '#D8D5CD'
@@ -15,10 +19,24 @@ function Dot({ st }: { st: ItemStatus }) {
   return <span className="w-[15px] h-[15px] rounded-full bg-white flex-none" style={{ border: `2px solid ${TODO}` }} />
 }
 
-export default function ProgressBoard({ board, dealName }: { board: Board; dealName: string }) {
+type ProgressBoardProps = {
+  board: Board
+  dealName: string
+  // 進捗報告・メモ（サブタブ）用。
+  caseData: CaseRow
+  tasks: TaskRow[]
+  allMembers: MemberRow[]
+  currentMemberId: string | null
+  salesMemberId?: string | null
+  canRequestReview?: boolean
+}
+
+export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false }: ProgressBoardProps) {
+  const [sub, setSub] = useState<'board' | 'history'>('board')
   const [ai, setAi] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const SUBTABS = [{ key: 'board', label: '進捗サマリー' }, { key: 'history', label: '進捗報告・メモ' }]
 
   const runAi = async () => {
     setBusy(true); setErr('')
@@ -35,6 +53,19 @@ export default function ProgressBoard({ board, dealName }: { board: Board; dealN
 
   return (
     <div className="space-y-4">
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'history')} />
+
+      {sub === 'history' ? (
+        <HistoryTab
+          caseData={caseData}
+          allMembers={allMembers}
+          currentMemberId={currentMemberId}
+          salesMemberId={salesMemberId}
+          canRequestReview={canRequestReview}
+          tasks={tasks.filter(t => t.task_kind !== 'system').map(t => ({ id: t.id, status: t.status }))}
+        />
+      ) : (
+      <div className="space-y-4">
       {/* 全体サマリー */}
       <div className="rounded-2xl border border-[#D5E4FB] bg-[#F4F8FF] px-4 py-3">
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -92,6 +123,8 @@ export default function ProgressBoard({ board, dealName }: { board: Board; dealN
           </div>
         ))}
       </div>
+      </div>
+      )}
     </div>
   )
 }

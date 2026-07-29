@@ -20,6 +20,7 @@ import MeetingInfoTab from './MeetingInfoTab'
 import ClientInfoTab from './ClientInfoTab'
 import TasksTab from './TasksTab'
 import DeceasedTab from './DeceasedTab'
+import LegalInfoTab from './LegalInfoTab'
 import ContractTab from './ContractTab'
 import SuccessionTab from './SuccessionTab'
 import AssetsTab from './AssetsTab'
@@ -90,7 +91,7 @@ type Props = {
 // client_response_due_date: 変更で「検討状況の確認」タスクの期限が追従するため再取得（migration 096）
 const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
-const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
+const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'legalInfo', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false }: Props) {
   const router = useRouter()
@@ -325,10 +326,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // ミニマム運用モードでは、ステータス非依存で固定順のタブだけ表示
   const minimal = isMinimalMode()
-  // 管理担当（manager/sub_manager）は実務を見せず、進捗サマリー/案件情報/請求/タスクに絞る。
+  // 管理担当（manager/sub_manager）は事務作業タブを見せず、管理担当が担う業務に絞る。
+  //   オーダーシート（案件情報）／進捗サマリー／管理担当の実務タブ（受注区分で出し分け）
+  //   ／法定相続一覧図／他事業者紹介／請求／タスク。案件進捗(basicInfo)は撤去。
   // ※システム管理者(system_manager)や受注担当・事務管理担当は従来どおり全タブ。
   const isManagerViewer = viewerRole === 'manager' || viewerRole === 'sub_manager'
-  const MANAGER_TABS: TabKey[] = ['progress', 'basicInfo', 'contract', 'tasks']
+  // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
+  const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
+  const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
+  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', ...managerPractice, 'referral', 'contract', 'tasks']
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
     : isManagerViewer
@@ -489,7 +495,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
       )}
       {effectiveTab === 'progress' && (
-        <ProgressBoard board={buildProgressBoard(caseState, tasks, financialAssets)} dealName={caseState.deal_name ?? ''} />
+        <ProgressBoard
+          board={buildProgressBoard(caseState, tasks, financialAssets)}
+          dealName={caseState.deal_name ?? ''}
+          caseData={caseState}
+          tasks={tasks}
+          allMembers={allMembers}
+          currentMemberId={currentMemberId}
+          salesMemberId={salesMemberId}
+          canRequestReview={isCaseManager}
+        />
       )}
       {effectiveTab === 'basicInfo' && (
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
@@ -523,6 +538,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />
+      )}
+      {effectiveTab === 'legalInfo' && (
+        <LegalInfoTab caseData={caseState} patchCase={patchCase} tasks={tasks} documentReceipts={documentReceipts} />
       )}
       {effectiveTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />

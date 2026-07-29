@@ -54,6 +54,8 @@ type Props = {
   hideCategory?: boolean
   /** 最左に「業務」列（task.phase の業務名）を表示する（事務管理タスク一覧で使用） */
   showGyomu?: boolean
+  /** タスク名の頭に業務バッジ（task.phase がある行だけ）を表示する。列は増やさない（名もなきタスクと混在する管理担当タスク用）。 */
+  gyomuBadge?: boolean
   /** 優先度・作成者・起票日の列を表示する（マイページのタスクタブ等で使用） */
   showMeta?: boolean
   /** タスク期日の残り/超過日数を大きく表示する列（要対応一覧で使用） */
@@ -101,6 +103,7 @@ export default function SystemTaskList({
   showKindLabel = false,
   hideCategory = false,
   showGyomu = false,
+  gyomuBadge = false,
   showMeta = false,
   showRemain = false,
 }: Props) {
@@ -298,15 +301,22 @@ export default function SystemTaskList({
                       </div>
                     </td>
                     )}
-                    {/* タスク名 */}
+                    {/* タスク名（gyomuBadge 時は業務があれば頭に業務バッジ） */}
                     <td className="px-3 py-2.5 align-top">
-                      <Link
-                        href={`/tasks/${task.id}`}
-                        className={`text-[13px] font-semibold hover:text-brand-600 hover:underline block max-w-[220px] truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}
-                        title={task.title}
-                      >
-                        {task.title}
-                      </Link>
+                      <div className="flex items-center gap-1.5 max-w-[280px]">
+                        {gyomuBadge && task.phase && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-semibold bg-brand-50 text-brand-700 flex-none">
+                            {gyomuLabel(task.phase)}
+                          </span>
+                        )}
+                        <Link
+                          href={`/tasks/${task.id}`}
+                          className={`text-[13px] font-semibold hover:text-brand-600 hover:underline truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800'}`}
+                          title={task.title}
+                        >
+                          {task.title}
+                        </Link>
+                      </div>
                     </td>
                     {/* タスク期限 */}
                     <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px]">

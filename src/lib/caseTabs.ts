@@ -35,7 +35,7 @@ export type CaseTabState = {
 }
 
 // 業務（受注区分）で出し分ける実務タブ。これら以外（コア）は常に表示。
-const GYOMU_GATED_TABS: TabKey[] = ['deceased', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession']
+const GYOMU_GATED_TABS: TabKey[] = ['deceased', 'legalInfo', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession']
 function filterByGyomu(tabs: TabKey[], allowed?: TabKey[]): TabKey[] {
   if (!allowed) return tabs
   return tabs.filter(t => !GYOMU_GATED_TABS.includes(t) || allowed.includes(t))
@@ -50,7 +50,7 @@ export type TabVisibility = {
 
 // 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
+  'orderSheet', 'basicInfo', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'legalInfo', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'contract',
   'receipts', 'docs', 'documentCreate', 'tasks', 'meeting',
 ]

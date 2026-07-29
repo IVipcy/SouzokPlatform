@@ -320,6 +320,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
               includeCompleted
               selectable
               hideCategory
+              gyomuBadge
               currentMemberId={currentMemberId ?? undefined}
             />
           )}

@@ -39,9 +39,11 @@ const fmtDateTime = (iso: string): string => {
 
 export default function TabTasksSection({ gyomus, tasks, receipts = [], title = '関連タスク' }: Props) {
   const [open, setOpen] = useState(false)
-  // 該当業務のタスクのみ（事務管理タスク = task_kind='case'）
+  // 該当業務のタスク（phase=業務名で一致）。事務管理(case)・管理担当(system)いずれの区分も対象。
+  // 管理業務（遺言作成/信託/検認/後見/調停/精算書/指図書/法定相続情報取得/他事業者紹介）は
+  // system タスクとして生成されるため、区分ではなく phase で拾う。
   const matched = tasks.filter(t =>
-    t.task_kind === 'case' && gyomus.some(g => (t.phase ?? '') === g),
+    gyomus.some(g => (t.phase ?? '') === g),
   )
   if (matched.length === 0) return null
 

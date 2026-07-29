@@ -37,6 +37,15 @@ type Props = {
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
 type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean }
 
+// 管理担当/受注担当が担う業務（＝管理担当タスクとして生成）。
+// これらの業務は task_kind='system'・work_role/assign_role='manager'・phase=業務名で生成し、
+// 事務管理タスク(case)と分ける。phase を持たせることで進捗ボード／実務タブの関連タスクに集約される。
+// 他事業者紹介（税理士/弁護士/不動産査定 等への引継ぎ）も紹介系タスク＝管理担当タスク。
+const MANAGER_GYOMU = new Set<string>([
+  '遺言作成', '信託契約書作成', '検認手続き', '後見手続き', '調停手続き',
+  '精算書作成', '指図書作成', '法定相続情報取得', '他事業者紹介',
+])
+
 // 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
 // 全店調査・残高証明・経過利息・取引履歴は銀行ごとにまとめて請求するため、機関単位の「資料請求」に内包（対象外）。
 // ここに残すのは本当に案件単位のもの：ほふり照会・保険照会・年金照会・負債（信用情報）調査。
@@ -250,23 +259,30 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     }
 
     // 2. タスク生成（source_rid リンク・手順は対応テンプレから流用）
-    const rows = picked.map((c, i) => ({
-      case_id: caseId,
-      task_kind: 'case' as const,
-      title: c.title,
-      phase: c.gyomu,
-      category: c.gyomu,
-      status: '着手前',
-      priority: '通常',
-      source_rid: ridByKey[c.key] ?? null,
-      work_role: 'assistant',
-      procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
-      // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
-      ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
-        : c.readyOnReceipt ? { ready_on_receipt: true }
-        : null,
-      sort_order: i,
-    }))
+    // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
+    // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
+    const rows = picked.map((c, i) => {
+      const isManager = MANAGER_GYOMU.has(c.gyomu)
+      return {
+        case_id: caseId,
+        task_kind: isManager ? ('system' as const) : ('case' as const),
+        title: c.title,
+        phase: c.gyomu,
+        // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
+        category: isManager ? null : c.gyomu,
+        status: '着手前',
+        priority: '通常',
+        source_rid: ridByKey[c.key] ?? null,
+        work_role: isManager ? 'manager' : 'assistant',
+        assign_role: isManager ? 'manager' : null,
+        procedure_text: null,  // テンプレの自動流し込みは廃止。作業内容は空欄から手入力。
+        // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
+        ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
+          : c.readyOnReceipt ? { ready_on_receipt: true }
+          : null,
+        sort_order: i,
+      }
+    })
     const { error: e2 } = await supabase.from('tasks').insert(rows)
     if (e2) { setSaving(false); setError(`生成に失敗しました: ${e2.message}`); return }
 

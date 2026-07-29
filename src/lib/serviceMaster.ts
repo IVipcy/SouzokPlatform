@@ -12,7 +12,7 @@ export type OrderCategory = (typeof ORDER_CATEGORIES)[number]
 export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '戸籍': 'deceased',
   '相関図': 'deceased',
-  '法定相続情報取得': 'deceased',
+  '法定相続情報取得': 'legalInfo',
   '不動産': 'assets',
   '金融資産': 'assets',
   '目録': 'assets',
