@@ -87,20 +87,20 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving }: {
 
   return (
     <div>
-      <div ref={wrapRef} style={{ height: 190, minHeight: 110, resize: 'vertical', overflow: 'hidden' }} className="rounded-lg bg-white border border-dashed border-gray-300 relative">
+      <div ref={wrapRef} style={{ height: 240, minHeight: 140, resize: 'vertical', overflow: 'hidden' }} className="rounded-lg bg-white border border-dashed border-gray-300 relative">
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', touchAction: 'none', display: 'block' }} className="cursor-crosshair" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
         <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-300">↕ 下端で拡大</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 mt-2">
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
           {([['pen', 'ペン', Pen], ['marker', '蛍光', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
-            <button key={k} type="button" onClick={() => setMode(k)} className={`inline-flex items-center gap-1 text-[12px] px-2 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}><Icon className="w-3.5 h-3.5" />{label}</button>
+            <button key={k} type="button" onClick={() => setMode(k)} className={`inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100'}`}><Icon className="w-4 h-4" />{label}</button>
           ))}
         </div>
-        <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Trash2 className="w-3.5 h-3.5" />全消去</button>
-        <button type="button" onClick={ocr} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
-        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
-        <button type="button" onClick={saveImg} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-3.5 h-3.5" />画像を保存</button>
+        <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100"><Trash2 className="w-4 h-4" />全消去</button>
+        <button type="button" onClick={ocr} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
+        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
+        <button type="button" onClick={saveImg} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-4 h-4" />画像を保存</button>
       </div>
     </div>
   )
@@ -177,12 +177,12 @@ function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMe
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] text-gray-500">メモ（＝このセクションのフリー作業欄・OS/実務と共有）</span>
         <div className="ml-auto inline-flex rounded-md border border-gray-200 overflow-hidden">
-          <button type="button" onClick={() => setMode('type')} className={`inline-flex items-center gap-1 text-[11.5px] px-2.5 py-1 ${mode === 'type' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}><Keyboard className="w-3.5 h-3.5" />タイピング</button>
-          <button type="button" onClick={() => setMode('hand')} className={`inline-flex items-center gap-1 text-[11.5px] px-2.5 py-1 border-l border-gray-200 ${mode === 'hand' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}><PencilLine className="w-3.5 h-3.5" />手書き</button>
+          <button type="button" onClick={() => setMode('type')} className={`inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] ${mode === 'type' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 active:bg-gray-100'}`}><Keyboard className="w-4 h-4" />タイピング</button>
+          <button type="button" onClick={() => setMode('hand')} className={`inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] border-l border-gray-200 ${mode === 'hand' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 active:bg-gray-100'}`}><PencilLine className="w-4 h-4" />手書き</button>
         </div>
       </div>
       {mode === 'type' ? (
-        <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={3} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[13px] border border-gray-200 rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+        <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
       ) : (
         <>
           <HandwriteCanvas onText={appendText} onSaveImage={saveImage} onExtract={onExtract} saving={saving} />

@@ -62,16 +62,16 @@ export default function IntakeEntryClient({ cases, drafts }: Props) {
                   const when = d.updated_at || d.created_at
                   return (
                     <button key={d.id} type="button" onClick={() => router.push(`/intake/${d.id}`)}
-                      className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-amber-200 bg-amber-50/40 hover:bg-amber-50 transition text-left">
+                      className="w-full flex items-center gap-3 px-4 py-3.5 min-h-[56px] rounded-lg border border-amber-200 bg-amber-50/40 hover:bg-amber-50 active:bg-amber-100 transition text-left">
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-gray-900 truncate">{name}</div>
-                        <div className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-                          <Clock className="w-3 h-3" />
+                        <div className="text-[14px] font-semibold text-gray-900 truncate">{name}</div>
+                        <div className="text-[12px] text-gray-500 flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3.5 h-3.5" />
                           {when ? new Date(when).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} に更新
                         </div>
                       </div>
-                      <span className="text-[11px] font-semibold text-amber-700 shrink-0">再開</span>
-                      <ChevronRight className="w-[18px] h-[18px] text-amber-400 shrink-0" />
+                      <span className="text-[12px] font-semibold text-amber-700 shrink-0">再開</span>
+                      <ChevronRight className="w-5 h-5 text-amber-400 shrink-0" />
                     </button>
                   )
                 })}
@@ -85,15 +85,15 @@ export default function IntakeEntryClient({ cases, drafts }: Props) {
             <p className="text-[13px] text-gray-500">案件を確定してから、面談シートに進みます。</p>
           </div>
           <div className="flex flex-col gap-3">
-            <button type="button" onClick={() => setRouteChoice('lp')} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-lg border-2 border-brand-200 bg-brand-50/50 hover:bg-brand-50 transition text-left">
-              <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0"><Link2 className="w-[18px] h-[18px] text-white" /></div>
-              <div className="flex-1"><div className="text-[14px] font-semibold text-gray-900">LP直案件</div><div className="text-[12px] text-gray-500 mt-0.5">相続ステーションから連携された面談設定済案件を選ぶ</div></div>
-              <ChevronRight className="w-[18px] h-[18px] text-brand-400 flex-shrink-0" />
+            <button type="button" onClick={() => setRouteChoice('lp')} className="w-full flex items-center gap-3 px-5 py-5 min-h-[64px] rounded-xl border-2 border-brand-200 bg-brand-50/50 hover:bg-brand-50 active:bg-brand-100 transition text-left">
+              <div className="w-11 h-11 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0"><Link2 className="w-5 h-5 text-white" /></div>
+              <div className="flex-1"><div className="text-[15px] font-semibold text-gray-900">LP直案件</div><div className="text-[13px] text-gray-500 mt-0.5">相続ステーションから連携された面談設定済案件を選ぶ</div></div>
+              <ChevronRight className="w-5 h-5 text-brand-400 flex-shrink-0" />
             </button>
-            <button type="button" onClick={startNew} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-lg border border-gray-200 bg-gray-50/50 hover:bg-gray-50 transition text-left">
-              <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0"><Plus className="w-[18px] h-[18px] text-gray-500" /></div>
-              <div className="flex-1"><div className="text-[14px] font-semibold text-gray-900">OC直・HP経由案件等</div><div className="text-[12px] text-gray-500 mt-0.5">葬儀社・税理士・HP経由など新規で面談シートを開始（入力するまで案件は作られません）</div></div>
-              <ChevronRight className="w-[18px] h-[18px] text-gray-400 flex-shrink-0" />
+            <button type="button" onClick={startNew} className="w-full flex items-center gap-3 px-5 py-5 min-h-[64px] rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-50 active:bg-gray-100 transition text-left">
+              <div className="w-11 h-11 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0"><Plus className="w-5 h-5 text-gray-500" /></div>
+              <div className="flex-1"><div className="text-[15px] font-semibold text-gray-900">OC直・HP経由案件等</div><div className="text-[13px] text-gray-500 mt-0.5">葬儀社・税理士・HP経由など新規で面談シートを開始（入力するまで案件は作られません）</div></div>
+              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
             </button>
           </div>
         </div>

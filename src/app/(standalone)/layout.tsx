@@ -13,7 +13,8 @@ export default async function StandaloneLayout({ children }: { children: React.R
       <AlertCenterProvider>
         <div className="min-h-screen bg-gray-50">
           <StandaloneTopBar />
-          <main className="mx-auto w-full max-w-[840px] px-3 py-4 sm:px-4">
+          {/* タブレット最適化：iPad縦(768pt)〜横(1194pt)で余白バランスよく。最大1080pxまで広げる。 */}
+          <main className="mx-auto w-full max-w-[1080px] px-3 py-4 sm:px-5 md:px-6">
             <InstallGuide />
             {children}
           </main>

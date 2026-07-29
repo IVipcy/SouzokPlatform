@@ -194,22 +194,22 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2.5">
-        <Link href="/intake" className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
-          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />TOP
+      <div className="flex items-center justify-between mb-3">
+        <Link href="/intake" className="inline-flex items-center gap-1 px-2 py-2 min-h-[40px] text-[13px] font-semibold text-gray-500 hover:text-brand-700 active:bg-gray-100 rounded-md">
+          <ArrowLeft className="w-4 h-4" strokeWidth={2} />TOP
         </Link>
         <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-mono text-gray-400">
+          <span className="text-[12px] font-mono text-gray-400">
             {draftPending ? '新規面談シート（下書き）' : `${caseState.case_number} ・ ${caseState.deal_name}`}
           </span>
           <button type="button" onClick={() => setDiscardOpen(true)}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-gray-400 hover:text-red-600 border border-gray-200 rounded-md hover:border-red-200 transition-colors">
-            <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />破棄
+            className="inline-flex items-center gap-1 px-3 py-2 min-h-[40px] text-[12px] font-semibold text-gray-400 hover:text-red-600 border border-gray-200 rounded-md hover:border-red-200 active:bg-red-50 transition-colors">
+            <Trash2 className="w-4 h-4" strokeWidth={2} />破棄
           </button>
         </div>
       </div>
 
-      {/* 3タブ（①→②→③の順次遷移。飛び越し不可＝③は②完了が前提） */}
+      {/* 3タブ（①→②→③の順次遷移。飛び越し不可＝③は②完了が前提）。タブレットでタップしやすい高さ(min 48px)。 */}
       <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1.5 mb-4">
         {TABS.map(t => {
           const active = tab === t.id
@@ -218,9 +218,9 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
           return (
             <button key={t.id} type="button" onClick={() => goTab(t.id)} disabled={locked}
               title={locked ? '先に②面談結果登録を完了してください' : undefined}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700'}`}>
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-3 min-h-[48px] rounded-lg text-[14px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 active:bg-gray-200'}`}>
               <Icon className="w-4 h-4" strokeWidth={2} />{t.label}
-              {t.id === 'result' && resultDone && <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />}
+              {t.id === 'result' && resultDone && <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />}
             </button>
           )
         })}
@@ -231,7 +231,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
           <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
             caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
           <div className="mt-4 flex justify-end">
-            <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
+            <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-1.5 px-6 py-3.5 min-h-[52px] rounded-lg text-[15px] font-semibold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800">
               面談結果登録へ進む →
             </button>
           </div>
