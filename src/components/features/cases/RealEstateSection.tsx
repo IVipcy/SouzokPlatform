@@ -172,6 +172,17 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
+  // 名寄帳の年度（市区町村単位・別表分割）：その市区町村の名寄帳請求(municipality scope)に myna_year を読み書き。
+  const mynaAcqsOfMuni = (muni: string) => acquisitions.filter(a => a.scope === 'municipality' && (a.target_municipality ?? '').trim() === muni)
+  const mynaYearOfMuni = (muni: string) => (mynaAcqsOfMuni(muni).find(a => a.myna_year)?.myna_year ?? '')
+  const mynaYearOptions = (() => { const y = new Date().getFullYear(); return [`令和${y - 2018}年度`, `令和${y - 2019}年度`] })()
+  const setMynaYearOfMuni = async (muni: string, val: string) => {
+    const ids = mynaAcqsOfMuni(muni).map(a => a.id)
+    if (ids.length === 0) { showToast('先に名寄帳の請求を登録してください', 'error'); return }
+    const { error } = await supabase.from('real_estate_acquisitions').update({ myna_year: val || null }).in('id', ids)
+    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+
   // 市区町村の一覧（空は「未設定」に集約）
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
   const hasUnset = properties.some(p => !municipalityOf(p))
@@ -372,6 +383,16 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
                 return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
               })()}
+              {/* 名寄帳の年度（別表分割・市区町村単位） */}
+              <div className="mb-2.5 flex items-center gap-2 flex-wrap text-[12px]">
+                <span className="text-gray-500 font-medium">名寄帳の年度</span>
+                <select value={mynaYearOfMuni(muniKey) && !mynaYearOptions.includes(mynaYearOfMuni(muniKey)) ? '__other__' : mynaYearOfMuni(muniKey)} onChange={e => { if (e.target.value !== '__other__') setMynaYearOfMuni(muniKey, e.target.value) }} className="w-40 px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500">
+                  <option value="">—</option>
+                  {mynaYearOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  {mynaYearOfMuni(muniKey) && !mynaYearOptions.includes(mynaYearOfMuni(muniKey)) && <option value="__other__">{mynaYearOfMuni(muniKey)}</option>}
+                </select>
+                <span className="text-[11px] text-gray-400">和暦（今年度／前年度）。この市区町村の名寄帳請求に記録されます</span>
+              </div>
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             {/* 物件一覧：re-muni-read（名寄帳・評価証明「読込」）タスクから着地した場合のみハイライト。
