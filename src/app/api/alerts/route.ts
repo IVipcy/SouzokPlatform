@@ -136,8 +136,8 @@ export async function GET() {
     const mgmtStarted = c.management_started_at ? new Date(c.management_started_at) : null
     const weeklyEligible = c.status === '対応中' && mgmtStarted !== null && mgmtStarted.getTime() <= weekAgo.getTime()
     if (isMyManager && weeklyEligible && !recentConfirmed.has(c.id)) {
-      // 進捗報告の発行は自分のマイページ進捗報告タブで行うため、そこへ誘導
-      push({ id: `weekly-${c.id}`, severity: 'mid', category: '週次報告の漏れ', title: name, body: '直近7日に確認済の進捗報告がありません', href: '/my?tab=progress' })
+      // 案件報告の発行は自分のマイページ案件報告タブで行うため、そこへ誘導
+      push({ id: `weekly-${c.id}`, severity: 'mid', category: '週次報告の漏れ', title: name, body: '直近7日に確認済の案件報告がありません', href: '/my?tab=progress' })
     }
     if (isMySales && c.meeting_date && c.meeting_date < todayStr && !c.meeting_executed_date && PENDING_ANSWER.has(c.status)) {
       push({ id: `memo-${c.id}`, severity: 'mid', category: '面談メモ未記載', title: name, body: '面談予定日を超過・面談メモ未記載', href: `${caseHref}?tab=basicInfo` })
@@ -159,11 +159,11 @@ export async function GET() {
     }
   }
 
-  // 進捗確認依頼（自分が確認者で依頼中）
+  // 案件報告依頼（自分が確認者で依頼中）
   for (const r of reports) {
     if (r.status === '依頼中' && r.confirmer_id === memberId) {
       const c = cases.find(x => x.id === r.case_id)
-      push({ id: `review-${r.case_id}`, severity: 'info', category: '進捗確認依頼', title: c ? `${c.case_number} ${c.deal_name}` : '進捗確認依頼', body: '進捗確認の依頼が届いています', href: '/my?tab=reviews' })
+      push({ id: `review-${r.case_id}`, severity: 'info', category: '案件報告依頼', title: c ? `${c.case_number} ${c.deal_name}` : '案件報告依頼', body: '案件報告の依頼が届いています', href: '/my?tab=reviews' })
     }
   }
 

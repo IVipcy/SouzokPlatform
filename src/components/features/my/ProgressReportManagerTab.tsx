@@ -67,7 +67,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
         review_point: (reviewPoints[row.case_id] ?? '').trim() || null,
       })
       if (error) throw error
-      showToast('進捗確認を依頼しました', 'success')
+      showToast('案件報告を依頼しました', 'success')
       router.refresh()
     } catch (e) {
       console.error(e)
@@ -81,14 +81,14 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
         <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-        <h3 className="text-[14px] font-bold text-gray-900">進捗報告</h3>
+        <h3 className="text-[14px] font-bold text-gray-900">案件報告</h3>
         <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
           <FilterChip label="すべて" active={filter === 'all'} onClick={() => setFilter('all')} />
           {FILTERS.map(f => (
             <FilterChip key={f} label={f} active={filter === f} onClick={() => setFilter(f)} count={counts[f]} />
           ))}
         </div>
-        <span className="ml-auto text-[11px] text-gray-400">確認ポイントを書いて「依頼する」→ 各案件の進捗報告で本人以外が確認</span>
+        <span className="ml-auto text-[11px] text-gray-400">確認ポイントを書いて「依頼する」→ 各案件の案件報告で本人以外が確認</span>
       </div>
 
       {filtered.length === 0 ? (
@@ -101,7 +101,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                 <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
                 <th className="px-3 py-2 text-left font-medium">案件名</th>
                 <th className="px-3 py-2 text-left font-medium">受注担当者名</th>
-                <th className="px-3 py-2 text-left font-medium">進捗確認依頼日</th>
+                <th className="px-3 py-2 text-left font-medium">案件報告依頼日</th>
                 <th className="px-3 py-2 text-left font-medium">確認ポイント</th>
                 <th className="px-3 py-2 text-left font-medium">確認コメント</th>
                 <th className="px-3 py-2 text-left font-medium">確認者</th>

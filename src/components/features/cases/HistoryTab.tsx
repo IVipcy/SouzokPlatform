@@ -25,10 +25,12 @@ type Props = {
   currentMemberId: string | null
   /** 確認者＝この案件の受注担当（依頼先に固定）。 */
   salesMemberId?: string | null
-  /** 進捗確認を依頼できるか（この案件の管理担当のときのみ true）。 */
+  /** 案件報告を依頼できるか（この案件の管理担当のときのみ true）。 */
   canRequestReview?: boolean
-  /** 進捗メモのタスクリンクで「完了」判定するために渡す（任意） */
+  /** メモのタスクリンクで「完了」判定するために渡す（任意） */
   tasks?: { id: string; status: string }[]
+  /** 表示セクション。'report'=案件報告(依頼履歴)のみ／'memo'=報連相・メモのみ／未指定=両方 */
+  section?: 'report' | 'memo'
 }
 
 /**
@@ -36,7 +38,7 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [] }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section }: Props) {
   const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
@@ -114,7 +116,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   // 進捗確認を開始（管理担当のみ）。確認者は事前指定せず、確認ポイントを添えて確認待ちにする。
   const handleRequestReview = async () => {
-    if (!canRequestReview) { showToast('進捗確認の依頼は管理担当のみ可能です', 'error'); return }
+    if (!canRequestReview) { showToast('案件報告依頼は管理担当のみ可能です', 'error'); return }
     if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
     setRequesting(true)
     const supabase = createClient()
@@ -134,14 +136,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         member_id: salesMemberId,
         type: 'progress_review_requested',
         case_id: caseData.id,
-        title: '進捗確認の依頼が届きました',
-        body: `${caseData.case_number} ${caseData.deal_name}：${reviewPointInput.trim() || '進捗確認をお願いします'}`,
+        title: '案件報告依頼が届きました',
+        body: `${caseData.case_number} ${caseData.deal_name}：${reviewPointInput.trim() || '案件報告をお願いします'}`,
       })
     }
     setRequesting(false)
     setReviewPointInput('')
     setRequestOpen(false)
-    showToast('進捗確認を依頼しました。その場で確認してもらいましょう', 'success')
+    showToast('案件報告を依頼しました。その場で確認してもらいましょう', 'success')
     fetchActivities()
   }
 
@@ -161,8 +163,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       member_id: pr.requester_id,
       type: 'progress_review_confirmed',
       case_id: caseData.id,
-      title: '進捗確認が完了しました',
-      body: `${caseData.case_number} ${caseData.deal_name} の進捗を ${memberName(currentMemberId)} さんが確認しました`,
+      title: '案件報告の確認が完了しました',
+      body: `${caseData.case_number} ${caseData.deal_name} の案件報告を ${memberName(currentMemberId)} さんが確認しました`,
     })
     setConfirmTarget(null); setConfirmComment('')
     showToast('確認済にしました', 'success')
@@ -241,25 +243,26 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   return (
     <div className="space-y-3.5">
-      {/* 進捗報告 */}
-      <Section title="進捗報告">
+      {/* 案件報告（確認依頼の履歴） */}
+      {section !== 'memo' && (
+      <Section title="案件報告依頼">
         {canRequestReview && (
           <div className="flex justify-end mb-2.5">
             <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setRequestOpen(true) }}>
-              進捗確認を依頼
+              案件報告依頼
             </Button>
           </div>
         )}
-        <p className="text-[11px] text-gray-400 mb-2.5">「進捗確認を依頼」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（依頼者本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
+        <p className="text-[11px] text-gray-400 mb-2.5">「案件報告依頼」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（依頼者本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
         {progressReports.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[13px] text-gray-400">進捗確認依頼はまだありません</div>
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告依頼はまだありません</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">依頼者</th>
-                  <th className="px-3 py-2 text-left font-medium">進捗確認依頼日</th>
+                  <th className="px-3 py-2 text-left font-medium">案件報告依頼日</th>
                   <th className="px-3 py-2 text-left font-medium">報連相</th>
                   <th className="px-3 py-2 text-left font-medium">確認コメント</th>
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
@@ -304,9 +307,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
       </Section>
+      )}
 
-      {/* 進捗メモ */}
-      <Section title="進捗メモ">
+      {/* 報連相・メモ */}
+      {section !== 'report' && (
+      <Section title="報連相・メモ">
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
             <div className="flex gap-2 flex-wrap">
@@ -417,12 +422,15 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
       </Section>
+      )}
 
+      {/* 案件報告まわりのモーダル群（報連相・メモのみ表示時は不要） */}
+      {section !== 'memo' && (<>
       {/* 依頼モーダル（確認してほしい内容＝任意） */}
       <Modal
         isOpen={requestOpen}
         onClose={() => setRequestOpen(false)}
-        title="進捗確認を依頼"
+        title="案件報告依頼"
         footer={
           <>
             <Button variant="secondary" onClick={() => setRequestOpen(false)} disabled={requesting}>キャンセル</Button>
@@ -447,7 +455,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <Modal
         isOpen={!!confirmTarget}
         onClose={() => { setConfirmTarget(null); setConfirmComment('') }}
-        title="進捗を確認"
+        title="案件報告を確認"
         footer={
           <>
             <Button variant="secondary" onClick={() => { setConfirmTarget(null); setConfirmComment('') }} disabled={confirmSaving}>キャンセル</Button>
@@ -531,10 +539,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               <label className="block text-[12px] font-semibold text-gray-600">作業内容</label>
               <textarea value={taskWork} onChange={e => setTaskWork(e.target.value)} rows={4} placeholder="確認した内容・依頼したい作業を記入" className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 resize-y" />
             </div>
-            <p className="text-[11px] text-gray-400">作成すると進捗確認も「確認済」になり、依頼者に通知されます。</p>
+            <p className="text-[11px] text-gray-400">作成すると案件報告も「確認済」になり、依頼者に通知されます。</p>
           </div>
         )}
       </Modal>
+      </>)}
     </div>
   )
 }

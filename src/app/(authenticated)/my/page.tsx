@@ -663,7 +663,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {showProgress && (
-          <TabLink href={`/my?tab=progress${asSuffix}`} label="進捗報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
+          <TabLink href={`/my?tab=progress${asSuffix}`} label="案件報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
         {/* ミニマム運用モードではタスクタブを非表示 */}
         {!isMinimalMode() && (

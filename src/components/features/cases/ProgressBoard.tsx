@@ -1,7 +1,7 @@
 'use client'
 
 // 管理担当向け 案件進捗ボード。業務グループ＋対象別サブ項目。上部にルールベース即時サマリー＋「AI進捗要約」(Sonnet 5)。
-// サブタブ：進捗サマリー（このボード）／進捗報告・メモ（旧・案件進捗タブから移設）。
+// サブタブ：進捗サマリー（このボード）／案件報告（確認依頼の履歴）／報連相・メモ。
 import { useState, type ReactNode } from 'react'
 import { Check, Sparkles, Wand2 } from 'lucide-react'
 import { SubTabs } from '@/components/ui/SubTabs'
@@ -59,7 +59,7 @@ type ProgressBoardProps = {
 }
 
 export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress }: ProgressBoardProps) {
-  const [sub, setSub] = useState<'board' | 'office' | 'history'>('board')
+  const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo'>('board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -67,7 +67,8 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
   const SUBTABS = [
     { key: 'board', label: '進捗サマリー' },
     ...(renderOfficeProgress ? [{ key: 'office', label: '事務管理進捗' }] : []),
-    { key: 'history', label: '進捗報告・メモ' },
+    { key: 'report', label: '案件報告' },
+    { key: 'memo', label: '報連相・メモ' },
   ]
 
   // 業務が少ない案件は1列、多い案件は2列（案件詳細は横幅があるため）。
@@ -91,12 +92,13 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'office' | 'history')} />
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'board' | 'office' | 'report' | 'memo')} />
 
       {sub === 'office' ? (
         <div>{renderOfficeProgress?.()}</div>
-      ) : sub === 'history' ? (
+      ) : sub === 'report' || sub === 'memo' ? (
         <HistoryTab
+          section={sub}
           caseData={caseData}
           allMembers={allMembers}
           currentMemberId={currentMemberId}

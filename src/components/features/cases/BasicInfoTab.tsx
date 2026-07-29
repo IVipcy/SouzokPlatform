@@ -79,13 +79,13 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
     return '完了'
   })()
 
-  const [sub, setSub] = useState<'progress' | 'history'>('progress')
-  const SUBTABS = [{ key: 'progress', label: '進捗' }, { key: 'history', label: '進捗報告・メモ' }]
+  const [sub, setSub] = useState<'progress' | 'report' | 'memo'>('progress')
+  const SUBTABS = [{ key: 'progress', label: '進捗' }, { key: 'report', label: '案件報告' }, { key: 'memo', label: '報連相・メモ' }]
 
   return (
     <div className="space-y-3.5">
       <TabHeader title="案件進捗" description="この案件の今の状況・進み具合・タスク・届いた物・履歴をまとめて見られます。" />
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'history')} />
+      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'report' | 'memo')} />
 
       {sub === 'progress' && (
         <div className="space-y-3.5">
@@ -224,9 +224,9 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         </div>
       )}
 
-      {/* 進捗報告・メモ（進捗報告＋進捗メモを縦並び。基本情報はヘッダーへ移設） */}
-      {sub === 'history' && (
-        <HistoryTab caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={canRequestReview} tasks={caseTasks.map(t => ({ id: t.id, status: t.status }))} />
+      {/* 案件報告（確認依頼の履歴）／報連相・メモ に分割 */}
+      {(sub === 'report' || sub === 'memo') && (
+        <HistoryTab section={sub} caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={canRequestReview} tasks={caseTasks.map(t => ({ id: t.id, status: t.status }))} />
       )}
     </div>
   )
