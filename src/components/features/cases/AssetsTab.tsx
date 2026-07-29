@@ -155,8 +155,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <div>
               <SectionHeading title="物件一覧（想定される物件と所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode addressSuggestions={addrSuggestions} />
-              {/* オーダーシートは市区町村単位（名寄帳・評価証明）だけ。物件単位は物件確定後に実務タブで。 */}
-              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} muniOnly />
+              {/* オーダーシートでも 市区町村（名寄帳・評価証明）＋物件ごと（法務局：登記情報・公図・地積等）を表示（エクセルR71）。 */}
+              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} />
             </div>
           ) : (
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計
