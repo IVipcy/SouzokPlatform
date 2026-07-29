@@ -148,6 +148,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} className="mb-3.5" />}
 
         <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
+          <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
@@ -176,6 +177,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={orderSheetMode || sub === 'deposit' ? 'space-y-3' : 'hidden'}>
+          <WorkContentField caseData={caseData} gyomu="assets_deposit" patchCase={patchCase} label="作業内容・関連情報（預金／面談シートと共有）" collapsible />
           {orderSheetMode ? (
             <>
               <SectionHeading title="預金口座（金融機関名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -186,6 +188,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
+          <WorkContentField caseData={caseData} gyomu="assets_securities" patchCase={patchCase} label="作業内容・関連情報（証券／面談シートと共有）" collapsible />
           {orderSheetMode ? (
             <>
               <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -196,6 +199,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
+          <WorkContentField caseData={caseData} gyomu="assets_trust" patchCase={patchCase} label="作業内容・関連情報（信託／面談シートと共有）" collapsible />
           {orderSheetMode ? (
             <>
               <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -206,6 +210,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
+          <WorkContentField caseData={caseData} gyomu="assets_insurance" patchCase={patchCase} label="作業内容・関連情報（生命保険／面談シートと共有）" collapsible />
           {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
           <FieldGrid>
