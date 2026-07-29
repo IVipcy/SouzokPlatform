@@ -19,13 +19,17 @@ const CANCEL = ['有', '無', '確認中']
 const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その他']
 
 type Kind = '預貯金' | '証券' | '信託銀行'
-type ColType = 'text' | 'req' | 'cancel' | 'accountType'
+type ColType = 'text' | 'req' | 'cancel' | 'accountType' | 'acquirer'
 type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?: string }
+
+// 取得区分（自社/依頼者）を各種別の左（2列目）に置く共通列。依頼者取得なら以降の調査系入力は不要になる。
+const ACQUIRER_COL: Col = { key: 'acquirer', label: '取得区分', type: 'acquirer', width: 'w-28' }
 
 // 種別ごとの列定義（調査期間・備考・進捗列は共通で末尾に付与）
 const COLUMNS: Record<Kind, Col[]> = {
   '預貯金': [
     { key: 'institution_name', label: '金融機関名', type: 'text' },
+    ACQUIRER_COL,
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
     { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
@@ -37,6 +41,7 @@ const COLUMNS: Record<Kind, Col[]> = {
   ],
   '証券': [
     { key: 'institution_name', label: '証券会社', type: 'text' },
+    ACQUIRER_COL,
     { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // エクセルR96・NEW
@@ -45,6 +50,7 @@ const COLUMNS: Record<Kind, Col[]> = {
   ],
   '信託銀行': [
     { key: 'institution_name', label: '信託銀行名', type: 'text' },
+    ACQUIRER_COL,
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
@@ -134,7 +140,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   }
 
   // 凍結状態(progressMode) +列 +残高 +凍結確認依頼(progressMode) +残高確定(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
-  const colCount = (progressMode ? 2 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 6 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
+  const colCount = (progressMode ? 2 : 0) + cols.length + 1 + (showConfirmed ? 1 : 0) + 5 + (progressMode ? 4 : 0) + (progressMode ? 1 : 0) + 1
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
   const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
@@ -151,7 +157,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <CardRow key={c.key} label={c.label}>
           {c.type === 'text'
             ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
-            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />}
+            : c.type === 'acquirer'
+              ? <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">{ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}</select>
+              : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />}
         </CardRow>
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
@@ -169,11 +177,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               : <span className="text-[12px] text-gray-400">残高を入れると依頼できます</span>}
         </CardRow>
       )}
-      <CardRow label="取得区分">
-        <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-          {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
-        </select>
-      </CardRow>
       <CardRow label="調査禁止期間 開始"><input type="date" defaultValue={r.survey_prohibited_start ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_start ?? '')) commit(r.id, 'survey_prohibited_start', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
       <CardRow label="調査禁止期間 終了"><input type="date" defaultValue={r.survey_prohibited_end ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_end ?? '')) commit(r.id, 'survey_prohibited_end', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
       <CardRow label="調査禁止理由"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></CardRow>
@@ -214,11 +217,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
-              <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
-              <th className="px-2 py-2 text-left font-semibold w-28">調査禁止 開始</th>
-              <th className="px-2 py-2 text-left font-semibold w-28">調査禁止 終了</th>
-              <th className="px-2 py-2 text-left font-semibold w-40">禁止理由</th>
+              <th className="px-2 py-2 text-left font-bold text-amber-700 w-28">調査禁止 開始</th>
+              <th className="px-2 py-2 text-left font-bold text-amber-700 w-28">調査禁止 終了</th>
+              <th className="px-2 py-2 text-left font-bold text-amber-700 w-40">禁止理由</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
@@ -243,9 +245,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   </td>
                   )}
                   {cols.map(c => (
-                    <td key={c.key} className={`px-2 py-1.5 ${lock}`}>
+                    <td key={c.key} className={`px-2 py-1.5 ${c.type === 'acquirer' ? '' : lock}`}>
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
+                      ) : c.type === 'acquirer' ? (
+                        <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">{ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}</select>
                       ) : (
                         <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />
                       )}
@@ -272,12 +276,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                           : <span className="text-[11px] text-gray-300">残高待ち</span>}
                     </td>
                   )}
-                  {/* 取得区分 */}
-                  <td className={`px-2 py-1.5 ${lock}`}>
-                    <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                      {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
-                    </select>
-                  </td>
                   {/* 調査期間（任意指定の文字が潰れないよう固定幅＋折返し可） */}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1 flex-wrap">
