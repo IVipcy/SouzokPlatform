@@ -230,6 +230,7 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
     <td className="px-2.5 py-1.5">
       <select value={(r[field] as string) ?? ''} onChange={e => { setLocal(r.id, field, e.target.value); commit(r.id, field, e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
         <option value="">—</option>
+        {r[field] && !options.includes(r[field] as string) && <option value={r[field] as string}>{r[field] as string}</option>}
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </td>
@@ -327,6 +328,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
         <FieldBlock label="物件種別">
           <select value={(r.property_type as string) ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
             <option value="">種別を選択</option>
+            {r.property_type && !(PROPERTY_TYPES as readonly string[]).includes(r.property_type) && <option value={r.property_type}>{r.property_type}</option>}
             {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </FieldBlock>
