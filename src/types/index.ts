@@ -700,6 +700,7 @@ export type RealEstatePropertyRow = {
   route_price_receipt_date: string | null         // 路線価 受領日
   eval_cert_request_date: string | null           // 評価証明 請求日
   eval_cert_receipt_date: string | null           // 評価証明 受領日
+  eval_cert_year: string | null                   // 評価証明の年度（和暦。別表分割・migration 193）
   acquirer: string | null                          // 取得区分（自社/依頼者。migration 085）
   expected_arrival_date: string | null             // 到着予定日（見込み。migration 085）
   sale_expected_date: string | null
@@ -743,6 +744,7 @@ export type RealEstateAcquisitionRow = {
   target_property_id: string | null   // 物件単位の対象
   target_municipality: string | null  // 市区町村単位の対象
   request_to: string | null
+  myna_year: string | null            // 名寄帳の年度（和暦。別表分割・migration 193）
   request_date: string | null
   expected_arrival_date: string | null
   arrival_date: string | null
