@@ -19,11 +19,10 @@ type Pt = { x: number; y: number }
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 const BUCKET = 'meeting-memos'
 
-// AIで項目に反映のスキーマ（依頼者情報・相続人調査＝被相続人）。
-type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' }
+// AIで項目に反映のスキーマ（単一項目・cases/clients テーブルに1レコード上書き）。
+type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' | 'number' }
 const EXTRACT_SCHEMA: Record<string, XField[]> = {
   // 依頼者情報：住所・振込名義（clients テーブル）を中心にAI反映。
-  // 依頼者氏名/ふりがな/続柄/携帯は行データ(case_clients)のため、ここではフォームに現れる clients フィールドを対象にする。
   client: [
     { key: 'address', label: '依頼者住所', target: 'client' },
     { key: 'transfer_name_kana', label: '振込名義人（カナ）', target: 'client' },
@@ -36,6 +35,62 @@ const EXTRACT_SCHEMA: Record<string, XField[]> = {
     { key: 'deceased_address', label: '被相続人住所', target: 'case' },
     { key: 'deceased_registered_address', label: '被相続人本籍', target: 'case' },
   ],
+}
+
+// AIで項目に反映（行データ）：メモから複数行を抽出して該当テーブルへINSERT。
+// key = API 応答のグループ key（AI に返させる配列の名前）。fixedValues は毎行に付与。
+type ExtractField = { key: string; label: string; enum?: string[]; type?: 'date' | 'number' }
+type RowExtractSchema = {
+  key: string       // 応答JSONで返る配列のキー
+  label: string     // AIに伝える意味
+  table: 'heirs' | 'real_estate_properties' | 'financial_assets'
+  fields: ExtractField[]
+  fixedValues?: Record<string, unknown>
+}
+const ROW_EXTRACT_SCHEMA: Record<string, RowExtractSchema[]> = {
+  // 相続人調査：被相続人6項目(EXTRACT_SCHEMA['deceased']) と併用。相続人一覧も同じメモから抽出。
+  deceased: [{
+    key: 'heirs', label: '相続人一覧', table: 'heirs',
+    fields: [
+      { key: 'name', label: '氏名' },
+      { key: 'relationship_type', label: '続柄', enum: [...HEIR_RELATIONSHIPS] },
+    ],
+  }],
+  assets_re: [{
+    key: 'properties', label: '不動産一覧', table: 'real_estate_properties',
+    fields: [
+      { key: 'property_type', label: '物件種別', enum: [...PROPERTY_TYPES] },
+      { key: 'address', label: '所在地' },
+      { key: 'appraisal_value', label: '評価額', type: 'number' },
+      { key: 'notes', label: '備考' },
+    ],
+  }],
+  assets_deposit: [{
+    key: 'deposits', label: '預金口座一覧', table: 'financial_assets',
+    fields: [
+      { key: 'institution_name', label: '金融機関名' },
+      { key: 'balance_amount', label: '残高', type: 'number' },
+    ],
+    fixedValues: { asset_type: '預貯金', acquirer: '自社' },
+  }],
+  assets_securities: [{
+    key: 'securities', label: '証券一覧', table: 'financial_assets',
+    fields: [{ key: 'institution_name', label: '証券会社名' }],
+    fixedValues: { asset_type: '証券', acquirer: '自社' },
+  }],
+  assets_trust: [{
+    key: 'trusts', label: '信託一覧', table: 'financial_assets',
+    fields: [
+      { key: 'institution_name', label: '信託銀行名' },
+      { key: 'notes', label: '備考' },
+    ],
+    fixedValues: { asset_type: '信託銀行', acquirer: '自社' },
+  }],
+  assets_insurance: [{
+    key: 'insurances', label: '生命保険一覧', table: 'financial_assets',
+    fields: [{ key: 'institution_name', label: '保険会社名' }],
+    fixedValues: { asset_type: '生命保険', acquirer: '自社' },
+  }],
 }
 
 // ── 縦リサイズ可の手書きキャンバス（ペン/蛍光ペン/消しゴム）。テキスト化・画像保存・AI反映は親のコールバック。 ──
@@ -329,21 +384,51 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
   // AIで項目に反映：手書き画像（dataUrl）またはタイピング本文（text）のどちらでも呼べる。
+  // 単一項目(EXTRACT_SCHEMA) と 行データ(ROW_EXTRACT_SCHEMA) を同じメモから同時に抽出できる。
   const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => {
-    const schema = EXTRACT_SCHEMA[sec]; if (!schema) return
+    const singleSchema = EXTRACT_SCHEMA[sec]
+    const rowSchemas = ROW_EXTRACT_SCHEMA[sec]
+    if (!singleSchema && !rowSchemas) return
     try {
-      const body: Record<string, unknown> = { fields: schema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type })) }
+      const body: Record<string, unknown> = {}
+      if (singleSchema) body.fields = singleSchema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type }))
+      if (rowSchemas) body.rowGroups = rowSchemas.map(g => ({ key: g.key, label: g.label, fields: g.fields }))
       if (source.image) body.image = source.image
       if (source.text) body.text = source.text
       const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const j = (await res.json()) as { values?: Record<string, string>; error?: string }
+      const j = (await res.json()) as { values?: Record<string, string | number>; rows?: Record<string, Array<Record<string, string | number>>>; error?: string }
       if (!res.ok) { showToast(j.error ?? '反映に失敗しました', 'error'); return }
-      const values = j.values ?? {}; const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}; const filled: string[] = []
-      for (const f of schema) { const v = values[f.key]; if (!v) continue; if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v; filled.push(f.key) }
+      // 単一項目：case/clientへ上書き（従来）
+      const values = j.values ?? {}
+      const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
+      const filled: string[] = []
+      for (const f of singleSchema ?? []) {
+        const v = values[f.key]; if (v === undefined || v === null || v === '') continue
+        if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v
+        filled.push(f.key)
+      }
       if (Object.keys(casePatch).length) await patchCase(casePatch as Partial<CaseRow>)
       if (Object.keys(clientPatch).length) await patchClient(clientPatch)
-      if (filled.length) { setAiFilled(prev => new Set([...prev, ...filled])); showToast(`${filled.length}項目をAIで反映しました（青字＝要確認）`, 'success') }
-      else showToast('反映できる項目が読み取れませんでした', 'error')
+      // 行データ：該当テーブルへINSERT（重複判定なし・常に追加）
+      let addedRowsTotal = 0
+      const cid = ensureCaseId ? await ensureCaseId() : caseData.id
+      const supabase = createClient()
+      for (const g of rowSchemas ?? []) {
+        const rows = j.rows?.[g.key] ?? []
+        if (rows.length === 0) continue
+        const inserts = rows.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
+        const { error } = await supabase.from(g.table).insert(inserts)
+        if (error) { showToast(`${g.label}のAI追加に失敗: ${error.message}`, 'error'); continue }
+        addedRowsTotal += rows.length
+      }
+      if (addedRowsTotal > 0) onRefresh?.()
+      // 結果トースト
+      const parts: string[] = []
+      if (filled.length) parts.push(`${filled.length}項目を反映`)
+      if (addedRowsTotal > 0) parts.push(`${addedRowsTotal}件を追加`)
+      if (parts.length === 0) { showToast('反映できる項目が読み取れませんでした', 'error'); return }
+      if (filled.length) setAiFilled(prev => new Set([...prev, ...filled]))
+      showToast(`${parts.join('・')}しました（青字＝要確認・行データは重複ご確認ください）`, 'success')
     } catch { showToast('通信に失敗しました', 'error') }
   }
 
@@ -392,17 +477,17 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
       {sec('assets_re', '財産調査（不動産）', '常時表示', (
         <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
-      ))}
+      ), runExtract('assets_re'))}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
         <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
-      ))}
+      ), runExtract('assets_deposit'))}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
         <div key={f.kind}>
           {sec(f.section, `財産調査（${f.label}）`, '任意', (
             <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={f.cols} />
-          ))}
+          ), runExtract(f.section))}
         </div>
       ))}
 
