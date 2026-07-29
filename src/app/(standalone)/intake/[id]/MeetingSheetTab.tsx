@@ -374,7 +374,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
       {sec('order', '受注内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode meetingSheetMode />
-      ), undefined, true)}
+      ))}
 
       {sec('deceased', '相続人調査', null, (
         <div className="space-y-3">
