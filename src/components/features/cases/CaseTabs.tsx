@@ -31,7 +31,7 @@ type Props = {
 const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
-  progress: '進捗サマリー',
+  progress: '案件報告',
   ownerSales: '案件管理',
   assignees: '担当者',
   contractProc: '契約手続き',
