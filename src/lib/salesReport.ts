@@ -159,14 +159,14 @@ export function buildSalesReport(
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
 
     // シート＝「営業部 × 入金銀行」。営業部＝受注担当のチームの営業部。
-    // 銀行＝この売上を入金済にした入金(payments.bank)。どちらのCSV(みずほ/きらぼし)で消込したかで自動決定。
+    // 銀行決定順：①入金レコード(payments.bank・CSV突合で入る) → ②チームの既定銀行(team.bank・1営業部=1銀行想定) → ③未振り分け。
+    // 原本の仕様通り、未入金の行も売上表に載せる（入金日欄が「未入金」になる）。
     const division = team?.division || ''
     const paysAll = toArr<{ amount: number; payment_date: string; is_refund?: boolean; bank?: string | null }>(inv.payments)
       .filter(p => !p.is_refund)
       .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
-    const bank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
-    // 未入金（銀行が確定していない）行は売上表に載せない。入金消込で銀行が決まってから表示。
-    if (!bank) continue
+    const paymentBank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
+    const bank = paymentBank || (team?.bank || '')
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
