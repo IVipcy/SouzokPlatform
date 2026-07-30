@@ -12,6 +12,7 @@ import { useModal } from '@/hooks/useModal'
 import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import CompletionCautionModal from '@/components/features/tasks/CompletionCautionModal'
 import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
+import { checkCaseCompletable, billingPatternLabel, type MissingInvoice } from '@/lib/caseCompletionGate'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
@@ -103,6 +104,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
+  // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
+  const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
   const [meetingGate, setMeetingGate] = useState<string | null>(null)
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
@@ -208,6 +211,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   /** 案件フィールドの楽観的更新 */
   const patchCase = async (patch: Partial<CaseRow>) => {
     // 検討中→受託の「面談情報を更新せよ」ゲートは撤去（面談登録の簡素化に伴い）
+    // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていないと拒否＋ポップアップ。
+    if (patch.status === '完了' && caseState.status !== '完了') {
+      const supabase = createClient()
+      const result = await checkCaseCompletable(supabase, caseState.id, caseState.billing_pattern)
+      if (!result.ok) {
+        setCompletionBlocked({ missing: result.missing, billingPattern: result.billingPattern, hasInvoices: result.hasInvoices })
+        return
+      }
+    }
     const prev = caseState
     setCaseState(c => ({ ...c, ...patch }))
     const supabase = createClient()
@@ -625,6 +637,61 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           「{meetingGate}」へ進むには、最新の<strong>面談情報</strong>の入力が必要です。<br />
           お客様の回答を受けて確定した内容（受注区分など）を、<strong>面談情報タブで更新・保存</strong>してから進めてください。
         </p>
+      </Modal>
+
+      {/* 案件ステータス→「完了」ゲート：未入金の請求があると完了不可 */}
+      <Modal
+        isOpen={!!completionBlocked}
+        onClose={() => setCompletionBlocked(null)}
+        title="まだ入金が完了していないため、案件を完了にできません"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCompletionBlocked(null)}>閉じる</Button>
+            <Button variant="primary" onClick={() => { setCompletionBlocked(null); router.push(`/billing?case=${caseState.id}`) }}>請求ページを開く</Button>
+          </>
+        }
+      >
+        {completionBlocked && (
+          <div className="space-y-3">
+            <p className="text-[13px] text-gray-700 leading-relaxed">
+              請求パターン <strong>{billingPatternLabel(completionBlocked.billingPattern)}</strong> では、下記の請求がすべて<strong>入金済</strong>になってから案件を完了にできます。
+            </p>
+            {completionBlocked.missing.length === 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                請求情報の読み込みに失敗しました。時間を置いて再度お試しください。
+              </div>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+                <table className="w-full text-[12.5px]">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">請求種別</th>
+                      <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">司/行</th>
+                      <th className="px-2.5 py-1.5 text-right font-semibold text-gray-600">金額</th>
+                      <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">状態</th>
+                      <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">期日</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {completionBlocked.missing.map(m => (
+                      <tr key={m.id}>
+                        <td className="px-2.5 py-1.5 text-gray-800">{m.typeLabel}</td>
+                        <td className="px-2.5 py-1.5 text-gray-600">{m.firmLabel || '—'}</td>
+                        <td className="px-2.5 py-1.5 text-right font-mono">{m.amount > 0 ? `¥${m.amount.toLocaleString()}` : '—'}</td>
+                        <td className="px-2.5 py-1.5"><span className="inline-flex px-1.5 py-0.5 rounded text-[11px] bg-amber-50 text-amber-800 border border-amber-200">{m.status}</span></td>
+                        <td className="px-2.5 py-1.5 font-mono text-gray-600">{m.due_date ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-[11.5px] text-gray-500 leading-relaxed">
+              請求パターン別の必要請求：③一括のみ＝前受金／②一括+実費＝前受金＋立替実費（発生分）／①段階請求＝前受金＋確定請求＋立替実費（発生分）。<br />
+              請求パターンは請求タブから変更できます。
+            </p>
+          </div>
+        )}
       </Modal>
 
       <BulkTaskGenerateModal
