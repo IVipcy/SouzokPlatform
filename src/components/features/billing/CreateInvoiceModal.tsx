@@ -250,6 +250,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           advance_deduction: advanceDeductionNum,
           status,
           issued_date: form.issued_date || null,
+          // 計上日=請求日（発行日）の運用。既存の posted_date は上書きせず、null → issued_date で埋める
+          ...(form.issued_date ? { posted_date: form.issued_date } : {}),
           due_date: form.due_date || null,
           notes: form.notes || null,
         })
@@ -275,6 +277,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
           advance_deduction: advanceDeductionNum,
           status,
           issued_date: form.issued_date || null,
+          // 計上日=請求日（発行日）の運用。ユーザーは posted_date を意識せずに済む。
+          posted_date: form.issued_date || null,
           due_date: form.due_date || null,
           notes: form.notes || null,
         })

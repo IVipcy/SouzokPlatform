@@ -40,6 +40,8 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   const [month, setMonth] = useState<string>(() => monthOptions[0] ?? 'all')
   const [book, setBook] = useState<'gyosei' | 'shiho'>('gyosei')
   const [showDivisionConfig, setShowDivisionConfig] = useState(false)
+  // 銀行フィルタタブ：'all'(すべて) / 'みずほ' / 'きらぼし' / '__unassigned__'(未振り分け)
+  const [bankFilter, setBankFilter] = useState<'all' | 'みずほ' | 'きらぼし' | '__unassigned__'>('all')
 
   const books = useMemo(
     () => buildSalesReport(invoices, expenses, rewards, teams, month),
@@ -135,12 +137,21 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         <DivisionSettingsPanel teams={teams} onClose={() => setShowDivisionConfig(false)} onSaved={() => { setShowDivisionConfig(false); router.refresh() }} />
       )}
 
-      <div className="text-xs text-gray-500 mb-3">
-        シートは「営業部（受注担当のチーム）×入金銀行」で分かれます。営業部は「営業部設定」でチームごとに割り当て、入金銀行は<b>入金消込したCSV（みずほ/きらぼし）で自動判定</b>されます。<b>入金済の行のみ表示</b>（未入金は入金確定後に載ります）。
+      {/* 銀行フィルタタブ（すべて／みずほ／きらぼし／未振り分け） */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+          {([['all','すべて'], ['みずほ','みずほ'], ['きらぼし','きらぼし'], ['__unassigned__','未振り分け']] as const).map(([k,label]) => (
+            <button key={k} onClick={() => setBankFilter(k)}
+              className={`px-3 py-1.5 text-xs font-semibold transition ${bankFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-gray-500">入金銀行はCSV突合で自動判定。未振り分けは今後手動で銀行を設定可能に。</span>
       </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} />
+      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} bankFilter={bankFilter} />
     </div>
   )
 }
@@ -194,8 +205,14 @@ type SheetHandlers = {
   onSaveDeduct: (invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) => void
 }
 
-function BookView({ book, monthLabel, onSaveDeduct }: { book: SalesBook; monthLabel: string } & SheetHandlers) {
-  if (book.sheets.length === 0) {
+function BookView({ book, monthLabel, onSaveDeduct, bankFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__' } & SheetHandlers) {
+  // 銀行フィルタ：シートの sheet.bank と照合。'all' は全部、'__unassigned__' は bank 未設定シートのみ。
+  const filteredSheets = book.sheets.filter(s => {
+    if (bankFilter === 'all') return true
+    if (bankFilter === '__unassigned__') return !s.bank
+    return s.bank === bankFilter
+  })
+  if (filteredSheets.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-400">
         {book.label}の計上データがありません{monthLabel && `（${monthLabel}）`}
@@ -204,7 +221,7 @@ function BookView({ book, monthLabel, onSaveDeduct }: { book: SalesBook; monthLa
   }
   return (
     <div className="space-y-5">
-      {book.sheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onSaveDeduct={onSaveDeduct} />)}
+      {filteredSheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onSaveDeduct={onSaveDeduct} />)}
     </div>
   )
 }

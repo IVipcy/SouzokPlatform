@@ -223,6 +223,7 @@ export async function POST(request: NextRequest) {
     if (body.invoiceId) {
       await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
     } else {
+      const today = new Date().toISOString().slice(0, 10)
       const { error: invErr } = await supabase.from('invoices').insert({
         case_id: caseId,
         invoice_type: '確定請求',
@@ -232,7 +233,8 @@ export async function POST(request: NextRequest) {
         expenses_amount: c.expenseGrand,
         advance_deduction: advanceReceived || 0,
         status: '作成済',
-        issued_date: new Date().toISOString().slice(0, 10),
+        issued_date: today,
+        posted_date: today,   // 計上日=請求日（発行日）
         due_date: body.dueDate ?? null,
         generated_file_path: savedPath,
       })

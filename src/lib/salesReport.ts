@@ -158,17 +158,15 @@ export function buildSalesReport(
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
 
-    // シート＝「営業部 × 入金銀行」。営業部＝受注担当のチームの営業部。
-    // 銀行決定順：①この請求の入金(payments.bank・CSV突合で入る) → ②案件の既定銀行(cases.bank・過去のCSV突合で入る) → ③チームの既定銀行(team.bank) → ④未振り分け。
-    // 手動入力の入金や、この請求の入金がまだ無くても、案件が過去にCSV突合されていれば cases.bank から自動振り分けされる。
+    // 銀行決定：①この請求の入金(payments.bank・CSV突合で入る) → ②未振り分け。
+    // 1つの案件で違う銀行に入金されることもあるため、cases.bank や team.bank へのフォールバックは行わない。
+    // 未振り分け行はユーザーが手動で銀行を設定できる（未振り分けタブから行の銀行を選ぶ）。
     // 原本の仕様通り、未入金の行も売上表に載せる（入金日欄が「未入金」になる）。
     const division = team?.division || ''
     const paysAll = toArr<{ amount: number; payment_date: string; is_refund?: boolean; bank?: string | null }>(inv.payments)
       .filter(p => !p.is_refund)
       .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
-    const paymentBank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
-    const caseBank = (c?.bank as string | null) || ''
-    const bank = paymentBank || caseBank || (team?.bank || '')
+    const bank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
