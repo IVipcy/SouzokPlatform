@@ -28,11 +28,14 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   // 「売上を表す請求書」判定（①=確定請求／②③=前受金）
   const patternOf = (inv: SalesReportRaw) => (inv.cases?.billing_pattern as string | null | undefined)
 
-  // 計上月の選択肢（posted_date の YYYY-MM）
+  // 計上月の選択肢（計上日 = posted_date ?? issued_date の YYYY-MM）
+  //   会計上、請求書発行=売掛計上=売上計上として扱うため、posted_date 未設定でも issued_date で拾う。
   const monthOptions = useMemo(() => {
     const set = new Set<string>()
     for (const inv of invoices) {
-      if (isSaleInvoice(inv.invoice_type, patternOf(inv)) && inv.posted_date) set.add(inv.posted_date.slice(0, 7))
+      if (!isSaleInvoice(inv.invoice_type, patternOf(inv))) continue
+      const posted = inv.posted_date ?? inv.issued_date
+      if (posted) set.add(posted.slice(0, 7))
     }
     return [...set].sort().reverse()
   }, [invoices])
@@ -51,10 +54,11 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   )
   const currentBook = books.find(b => b.key === book)!
 
-  // 未計上（売上を表す請求書だが posted_date 未設定）
+  // 未計上（売上を表す請求書だが posted_date も issued_date も未設定）
+  //   会計上、請求書発行時点で計上する。発行済(issued_date あり)なら発行日で自動計上されるため未計上ではない。
   const unposted = useMemo(
     () => invoices.filter(inv =>
-      isSaleInvoice(inv.invoice_type, patternOf(inv)) && !inv.posted_date &&
+      isSaleInvoice(inv.invoice_type, patternOf(inv)) && !inv.posted_date && !inv.issued_date &&
       ['前受金請求済', '前受金入金済', '確定請求済', '入金済', '一部入金'].includes(inv.status),
     ),
     [invoices],

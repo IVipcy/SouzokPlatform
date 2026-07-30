@@ -12,7 +12,7 @@ import { useModal } from '@/hooks/useModal'
 import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import CompletionCautionModal from '@/components/features/tasks/CompletionCautionModal'
 import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
-import { checkCaseCompletable, billingPatternLabel, refundStageLabel, type MissingInvoice, type PendingRefund } from '@/lib/caseCompletionGate'
+import { checkCaseCompletable, billingPatternLabel, refundStageLabel, type MissingInvoice, type PendingRefund, type MissingReferral } from '@/lib/caseCompletionGate'
 import { stripGyomu } from '@/lib/kotei'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { type TabKey } from './CaseTabs'
@@ -106,7 +106,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
-  const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; billingPattern: string; hasInvoices: boolean } | null>(null)
+  const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
   const [meetingGate, setMeetingGate] = useState<string | null>(null)
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
@@ -217,7 +217,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       const supabase = createClient()
       const result = await checkCaseCompletable(supabase, caseState.id, caseState.billing_pattern)
       if (!result.ok) {
-        setCompletionBlocked({ missing: result.missing, pendingRefunds: result.pendingRefunds, billingPattern: result.billingPattern, hasInvoices: result.hasInvoices })
+        setCompletionBlocked({ missing: result.missing, pendingRefunds: result.pendingRefunds, missingReferrals: result.missingReferrals, billingPattern: result.billingPattern, hasInvoices: result.hasInvoices })
         return
       }
     }
@@ -484,7 +484,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         {jutakuNavVisible && (
           <StatusFlowNavigator
             steps={flowSteps}
-            targetLabel="作業進行中"
+            targetLabel="案件進行中"
             advanceLabel="管理担当へ引き継ぐ"
             onAdvance={() => setHandoffOpen(true)}
             onDismiss={() => setNavDismissed(true)}
@@ -630,7 +630,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       <Modal
         isOpen={managementTaskPrompt}
         onClose={() => setManagementTaskPrompt(false)}
-        title="作業進行中になりました"
+        title="案件進行中になりました"
         footer={
           <>
             <Button variant="secondary" onClick={() => setManagementTaskPrompt(false)}>あとで</Button>
@@ -662,28 +662,32 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         </p>
       </Modal>
 
-      {/* 案件ステータス→「完了」ゲート：未入金の請求があると完了不可 */}
+      {/* 案件ステータス→「業務完了」ゲート：全請求発行済+他事業者請求済 でなければ完了不可 */}
       <Modal
         isOpen={!!completionBlocked}
         onClose={() => setCompletionBlocked(null)}
-        title="まだ入金が完了していないため、案件を完了にできません"
+        title="請求が完了していないため、業務完了にできません"
         footer={
           <>
             <Button variant="secondary" onClick={() => setCompletionBlocked(null)}>閉じる</Button>
-            <Button variant="primary" onClick={() => { setCompletionBlocked(null); router.push(`/billing?case=${caseState.id}`) }}>請求ページを開く</Button>
+            {completionBlocked?.missingReferrals?.length ? (
+              <Button variant="secondary" onClick={() => { setCompletionBlocked(null); setActiveTab('referral') }}>他事業者紹介タブを開く</Button>
+            ) : null}
+            <Button variant="primary" onClick={() => { setCompletionBlocked(null); setActiveTab('contract') }}>請求タブを開く</Button>
           </>
         }
       >
         {completionBlocked && (
           <div className="space-y-3">
             <p className="text-[13px] text-gray-700 leading-relaxed">
-              請求パターン <strong>{billingPatternLabel(completionBlocked.billingPattern)}</strong> では、下記が全て解消してから案件を完了にできます。
+              請求パターン <strong>{billingPatternLabel(completionBlocked.billingPattern)}</strong> では、下記が全て解消してから業務完了にできます。<br />
+              <span className="text-[11.5px] text-gray-500">※ 会計上、請求書発行=売掛計上=請求完了として扱います。入金待ち/入金済 の追跡は 請求・入金 タブ・経理タブで並行します。</span>
             </p>
 
-            {/* 未入金の請求 */}
+            {/* 未発行の請求 */}
             {completionBlocked.missing.length > 0 && (
               <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">未入金の請求</div>
+                <div className="text-[12px] font-semibold text-gray-600 mb-1">未発行の請求</div>
                 <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
                   <table className="w-full text-[12.5px]">
                     <thead className="bg-gray-100">
@@ -740,7 +744,34 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
               </div>
             )}
 
-            {completionBlocked.missing.length === 0 && completionBlocked.pendingRefunds.length === 0 && (
+            {/* 他事業者紹介の未請求 */}
+            {completionBlocked.missingReferrals.length > 0 && (
+              <div>
+                <div className="text-[12px] font-semibold text-gray-600 mb-1">他事業者紹介の請求未完了</div>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 overflow-hidden">
+                  <table className="w-full text-[12.5px]">
+                    <thead className="bg-sky-100/60">
+                      <tr>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-sky-800">紹介先</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-sky-800">依頼内容</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-sky-800">報酬請求状態</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-sky-100">
+                      {completionBlocked.missingReferrals.map(r => (
+                        <tr key={r.id}>
+                          <td className="px-2.5 py-1.5 text-sky-900 font-medium">{r.partnerType}</td>
+                          <td className="px-2.5 py-1.5 text-sky-800">{r.content || '—'}</td>
+                          <td className="px-2.5 py-1.5"><span className="inline-flex px-1.5 py-0.5 rounded text-[11px] bg-white text-sky-800 border border-sky-200">{r.billingStatus}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {completionBlocked.missing.length === 0 && completionBlocked.pendingRefunds.length === 0 && completionBlocked.missingReferrals.length === 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
                 請求情報の読み込みに失敗しました。時間を置いて再度お試しください。
               </div>
@@ -748,7 +779,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
             <p className="text-[11.5px] text-gray-500 leading-relaxed">
               請求パターン別の必要請求：③一括のみ＝前受金／②一括+実費＝前受金＋立替実費（発生分）／①段階請求＝前受金＋確定請求＋立替実費（発生分）。<br />
-              未実行の返金依頼（承認待ち／承認済で経理未実行）がある間も完了にできません。<br />
+              他事業者紹介の 報酬請求状態 が「未請求」の間も業務完了にできません（他事業者紹介タブから請求済に更新してください）。<br />
+              未実行の返金依頼（承認待ち／承認済で経理未実行）がある間も業務完了にできません。<br />
               請求パターンは請求タブから変更できます。
             </p>
           </div>

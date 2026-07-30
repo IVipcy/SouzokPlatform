@@ -33,6 +33,13 @@ export function isSaleInvoice(invoiceType: string | null | undefined, billingPat
   return isLump ? invoiceType === '前受金' : invoiceType === '確定請求'
 }
 
+// 計上日：会計上、請求書発行=売掛計上=売上計上として扱う。
+// 既存互換のため posted_date を優先し、未設定なら issued_date へフォールバック。
+// これにより、請求書発行時点で自動的に確定売上表へ載る。
+export function postedOf(inv: { posted_date?: string | null; issued_date?: string | null }): string | null {
+  return inv.posted_date ?? inv.issued_date ?? null
+}
+
 export type SalesRow = {
   invoiceId: string
   caseId: string
@@ -148,7 +155,8 @@ export function buildSalesReport(
     const pattern = inv.cases?.billing_pattern as string | null | undefined
     // パターンに応じた「売上を表す請求書」だけを1行に（①=確定請求／②③=前受金）
     if (!isSaleInvoice(inv.invoice_type, pattern)) continue
-    if (month !== 'all' && !(inv.posted_date ?? '').startsWith(month)) continue
+    const posted = postedOf(inv)
+    if (month !== 'all' && !(posted ?? '').startsWith(month)) continue
 
     const bookKey: 'shiho' | 'gyosei' = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
     const shigyoLabel = bookKey === 'shiho' ? '司法' : '行政'
@@ -201,7 +209,7 @@ export function buildSalesReport(
       caseId: inv.case_id,
       bank: bank || null,
       bankOverride: inv.bank_override ?? null,
-      postedDate: inv.posted_date,
+      postedDate: postedOf(inv),
       issuedDate: inv.issued_date,
       caseNumber: c?.case_number ?? '',
       clientName: client?.name ?? c?.deceased_name ?? '',

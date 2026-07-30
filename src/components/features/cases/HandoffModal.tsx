@@ -41,7 +41,7 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
       })))
     }
     setSaving(false)
-    showToast('チームへ引き継ぎました（作業進行中）。管理担当のマイページにアラートを出しました。', 'success')
+    showToast('チームへ引き継ぎました（案件進行中）。管理担当のマイページにアラートを出しました。', 'success')
     onDone()
     onClose()
   }
@@ -56,14 +56,14 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
         <>
           <Button variant="secondary" onClick={onClose}>キャンセル</Button>
           <Button variant="primary" onClick={submit} disabled={saving}>
-            {saving ? '引き継ぎ中...' : '引き継ぐ（作業進行中へ）'}
+            {saving ? '引き継ぎ中...' : '引き継ぐ（案件進行中へ）'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-gray-700 leading-relaxed">
-          この案件を<strong>作業進行中</strong>にして、下のチームの管理担当 全員のマイページに「管理担当を設定してください」というアラートを出します。誰かが受けて自分をアサインすると、アラートは自動で消えます。
+          この案件を<strong>案件進行中</strong>にして、下のチームの管理担当 全員のマイページに「管理担当を設定してください」というアラートを出します。誰かが受けて自分をアサインすると、アラートは自動で消えます。
         </p>
         <div className="rounded-lg border border-gray-200 overflow-hidden">
           <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-500">

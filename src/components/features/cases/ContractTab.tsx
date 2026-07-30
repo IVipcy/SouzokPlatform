@@ -155,10 +155,12 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
   const totalRevenue = feeSubtotal + referralFeeTotal
 
-  // 請求完了判定：前受金が入金済＋（①②は確定/立替も入金済）。③は前受金のみで完了。
+  // 請求完了判定：会計上、請求書発行=売掛計上=請求完了扱いとする。
+  // 前受金が発行済(=送付済)＋（①②は確定/立替も発行済）。③は前受金のみで完了。
+  // 入金追跡は 請求/入金 一覧側の invoice.status(未請求/入金待ち/入金済) と経理タブで継続。
   const reqFinal = pattern.finalInvoiceLabel != null
   const anyInvoice = !!invLegs && (invLegs.advance.exists || invLegs.final.exists)
-  const billingComplete = !!invLegs && invLegs.advance.paid && (!reqFinal || invLegs.final.paid)
+  const billingComplete = !!invLegs && invLegs.advance.sent && (!reqFinal || invLegs.final.sent)
   // 請求ステータスの脚チップ（前受金／確定 or 立替）。作成済(未送付)／請求済(入金待ち)／入金済 を区別。
   const legChip = (label: string, leg: Leg | null, na = false) => {
     const paid = !!leg?.paid, sent = !!leg?.sent, exists = !!leg?.exists
