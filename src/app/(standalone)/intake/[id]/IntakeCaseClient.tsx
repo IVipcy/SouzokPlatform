@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ClipboardList, FileText, FileSpreadsheet, Check, Trash2 } from 'lucide-react'
@@ -12,6 +12,7 @@ import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
 import type { SelectedCase } from '@/app/(authenticated)/meeting/MeetingPageClient'
 import MeetingSheetTab, { MemoCarryOver } from './MeetingSheetTab'
+import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
@@ -70,6 +71,8 @@ function toSelectedCase(c: CaseRow): NonNullable<SelectedCase> {
     clientNotes: cl?.notes ?? null,
     hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
     meetingOtherNotes: c.meeting_other_notes, considerationDeclineReasonDetail: c.consideration_decline_reason_detail,
+    // 面談シート①の受注内容(service_parts / procedure_type)を面談結果登録②へ引き継ぐ
+    serviceCategories: activePartKeys(partsForCase(c)),
   }
 }
 
@@ -79,6 +82,10 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   const [tab, setTab] = useState<Tab>('sheet')
   const [resultDone, setResultDone] = useState(false)
   const [caseState, setCaseState] = useState<CaseRow>(caseData)
+  // router.refresh() で fetch した最新 caseData を state に流し込む。
+  // 面談シート内で CaseClientsTable などが直接 supabase.update を叩いた後、
+  // caseState が stale だと ②面談結果登録に転記される selectedCase が古いままになる。
+  useEffect(() => { setCaseState(caseData) }, [caseData])
   // 面談シートの手書きメモは①で作成、③でも参照するため親でstate管理。
   const [memoList, setMemos] = useState<MeetingMemoRow[]>(memos)
   const [discardOpen, setDiscardOpen] = useState(false)

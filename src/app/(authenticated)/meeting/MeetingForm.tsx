@@ -232,6 +232,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       if (lpHearing.length > 0) init.hearingMemo = lpHearing.join('\n\n') + '\n\n---\n【面談で確認した内容】\n'
       // 面談内容詳細（既存値を引き継ぎ。旧・理由詳細もフォールバックで取り込む）
       init.otherNotes = selectedCase.meetingOtherNotes || selectedCase.considerationDeclineReasonDetail || ''
+      // 面談シート①で選んだ受注区分を引き継ぐ
+      if (selectedCase.serviceCategories && selectedCase.serviceCategories.length > 0) {
+        init.serviceCategories = [...selectedCase.serviceCategories]
+        init.serviceCategory = selectedCase.serviceCategories[0] ?? ''
+        init.serviceCategory2 = selectedCase.serviceCategories[1] ?? ''
+      }
     }
     return init
   })

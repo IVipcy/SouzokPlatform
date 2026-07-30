@@ -32,6 +32,8 @@ export type SelectedCase = {
   otherNeeds?: string | null
   meetingOtherNotes?: string | null
   considerationDeclineReasonDetail?: string | null
+  // 面談シート①で選んだ受注区分。②面談結果登録の serviceCategories 初期値として引き継ぐ
+  serviceCategories?: string[]
 } | null
 
 export type CaseData = CaseRow & { clients?: ClientRow | null }
