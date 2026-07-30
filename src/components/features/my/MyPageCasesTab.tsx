@@ -43,11 +43,14 @@ export type MyCaseRow = {
   progressCaseTotal?: number
   progressSystemDone?: number
   progressSystemTotal?: number
-  /** task_kind別 次の未完了タスク */
+  /** task_kind別 次の未完了タスク（遅延なし時に表示する1件） */
   nextCaseTaskId?: string | null
   nextCaseTaskTitle?: string | null
   nextSystemTaskId?: string | null
   nextSystemTaskTitle?: string | null
+  /** task_kind別 遅延中の未完了タスク（あれば全件表示） */
+  overdueCaseTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
+  overdueSystemTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
   /** 期限超過タスクあり(進捗バーを赤で表示) */
   hasOverdueTask?: boolean
   /** 週次報告状況 */
@@ -307,7 +310,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 事務管理タスク進捗（分母=事務管理のみ）＋事務管理側の次の未完了タスク。ミニマム時は非表示 */}
+              {/* 事務管理タスク進捗（分母=事務管理のみ）＋遅延タスク全件 or 次の1件 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalCase > 0 ? (
                   <div>
@@ -317,19 +320,17 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                       </div>
                       <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
                     </div>
-                    {c.nextCaseTaskId && c.nextCaseTaskTitle ? (
-                      <Link href={`/tasks/${c.nextCaseTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextCaseTaskTitle}>
-                        ▶ {c.nextCaseTaskTitle}
-                      </Link>
-                    ) : (
-                      <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
-                    )}
+                    <ProgressTaskList
+                      overdueTasks={c.overdueCaseTasks ?? []}
+                      nextId={c.nextCaseTaskId ?? null}
+                      nextTitle={c.nextCaseTaskTitle ?? null}
+                    />
                   </div>
                 ) : (
                   <span className="text-[12px] text-gray-300">—</span>
                 )}
               </td>}
-              {/* 受注/管理タスク進捗（分母=system）＋受注/管理側の次の未完了タスク。ミニマム時は非表示 */}
+              {/* 受注/管理タスク進捗（分母=system）＋遅延タスク全件 or 次の1件 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalSys > 0 ? (
                   <div>
@@ -339,13 +340,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                       </div>
                       <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
                     </div>
-                    {c.nextSystemTaskId && c.nextSystemTaskTitle ? (
-                      <Link href={`/tasks/${c.nextSystemTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextSystemTaskTitle}>
-                        ▶ {c.nextSystemTaskTitle}
-                      </Link>
-                    ) : (
-                      <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
-                    )}
+                    <ProgressTaskList
+                      overdueTasks={c.overdueSystemTasks ?? []}
+                      nextId={c.nextSystemTaskId ?? null}
+                      nextTitle={c.nextSystemTaskTitle ?? null}
+                    />
                   </div>
                 ) : (
                   <span className="text-[12px] text-gray-300">—</span>
@@ -393,4 +392,37 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
       )}
     </div>
   )
+}
+
+// 進捗列に表示するタスク行群。
+// 遅延タスクがあれば全件を赤太字で列挙（古い順・severity別配色）、なければ「次の1件」を通常青で1件だけ。
+function ProgressTaskList({ overdueTasks, nextId, nextTitle }: {
+  overdueTasks: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
+  nextId: string | null
+  nextTitle: string | null
+}) {
+  if (overdueTasks.length > 0) {
+    return (
+      <div className="mt-1 space-y-0.5">
+        {overdueTasks.map(t => {
+          const cls = t.severity === 'chui' ? 'text-[#C0392B]' : 'text-[#B5651D]'
+          const dateShort = t.due_date.slice(5).replace('-', '/')
+          return (
+            <div key={t.id} className="flex items-center gap-2 max-w-[240px]">
+              <Link href={`/tasks/${t.id}`} className={`text-[11px] font-bold hover:underline truncate flex-1 ${cls}`} title={t.title}>▶ {t.title}</Link>
+              <span className={`text-[10px] font-mono flex-none ${cls}`}>{dateShort} −{t.over}日</span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+  if (nextId && nextTitle) {
+    return (
+      <Link href={`/tasks/${nextId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[220px] mt-0.5" title={nextTitle}>
+        ▶ {nextTitle}
+      </Link>
+    )
+  }
+  return <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
 }

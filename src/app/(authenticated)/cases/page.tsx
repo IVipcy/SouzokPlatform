@@ -8,6 +8,7 @@ import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
 import { CONSULT_STATUSES, REFERRAL_STATUSES } from '@/lib/constants'
 import { advanceTotal } from '@/lib/advancePayment'
+import { overdueSeverity, calDaysOverdue } from '@/lib/overdue'
 
 // 案件分類（constants の定義に一元化）
 // 管理案件一覧 = 対応中（稼働中）のみ。完了はこの一覧には出さない（バッジ数＝表示と一致させる）。
@@ -70,6 +71,7 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
   }
 }
 type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
+type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null }
 type CommLite = { case_id: string; communicated_at: string | null; detail: string | null }
 
@@ -122,21 +124,36 @@ export default async function CasesPage() {
   const progressByCase = new Map<string, {
     nextCaseTaskId: string | null; nextCaseTaskTitle: string | null
     nextSystemTaskId: string | null; nextSystemTaskTitle: string | null
+    overdueCaseTasks: OverdueTaskLite[]
+    overdueSystemTasks: OverdueTaskLite[]
     done: number; total: number
     doneCase: number; totalCase: number
     doneSystem: number; totalSystem: number
     hasOverdue: boolean
   }>()
+  const buildOverdueList = (ts: TaskRowLite[]): OverdueTaskLite[] => {
+    const list: OverdueTaskLite[] = []
+    for (const t of ts) {
+      if (!isOpen(t.status) || !t.due_date) continue
+      const sev = overdueSeverity(t.due_date, todayStr)
+      if (!sev) continue
+      list.push({ id: t.id, title: t.title, due_date: t.due_date, over: calDaysOverdue(t.due_date, todayStr), severity: sev })
+    }
+    return list.sort((a, b) => a.due_date.localeCompare(b.due_date))
+  }
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     const caseTs = ts.filter(t => t.task_kind === 'case')
     const systemTs = ts.filter(t => t.task_kind === 'system')
     const nextCase = sorted.find(t => t.task_kind === 'case' && isOpen(t.status)) ?? null
     const nextSystem = sorted.find(t => t.task_kind === 'system' && isOpen(t.status)) ?? null
-    const hasOverdue = ts.some(t => isOpen(t.status) && t.due_date != null && t.due_date < todayStr)
+    const overdueCaseTasks = buildOverdueList(caseTs)
+    const overdueSystemTasks = buildOverdueList(systemTs)
+    const hasOverdue = overdueCaseTasks.length + overdueSystemTasks.length > 0
     progressByCase.set(cid, {
       nextCaseTaskId: nextCase?.id ?? null, nextCaseTaskTitle: nextCase?.title ?? null,
       nextSystemTaskId: nextSystem?.id ?? null, nextSystemTaskTitle: nextSystem?.title ?? null,
+      overdueCaseTasks, overdueSystemTasks,
       done: ts.filter(t => t.status === '完了').length, total: ts.length,
       doneCase: caseTs.filter(t => t.status === '完了').length, totalCase: caseTs.length,
       doneSystem: systemTs.filter(t => t.status === '完了').length, totalSystem: systemTs.length,
@@ -196,6 +213,8 @@ export default async function CasesPage() {
       nextCaseTaskTitle: prog?.nextCaseTaskTitle ?? null,
       nextSystemTaskId: prog?.nextSystemTaskId ?? null,
       nextSystemTaskTitle: prog?.nextSystemTaskTitle ?? null,
+      overdueCaseTasks: prog?.overdueCaseTasks ?? [],
+      overdueSystemTasks: prog?.overdueSystemTasks ?? [],
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
       progressCaseDone: prog?.doneCase ?? 0,

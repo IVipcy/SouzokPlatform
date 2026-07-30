@@ -337,13 +337,26 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   // 案件ごと: 次の未完了タスク / 進捗を task_kind 別(事務管理=case / 受注管理=system)に分けて集計
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
   const progressByCase = new Map<string, {
     nextCaseTaskId: string | null; nextCaseTaskTitle: string | null       // 事務管理側の次の未完了
     nextSystemTaskId: string | null; nextSystemTaskTitle: string | null   // 受注/管理側の次の未完了
+    overdueCaseTasks: OverdueTaskLite[]                                   // 事務管理側の遅延タスク(古い順)
+    overdueSystemTasks: OverdueTaskLite[]                                 // 受注/管理側の遅延タスク(古い順)
     done: number; total: number       // 総合(後方互換)
     doneCase: number; totalCase: number       // 事務管理タスク
     doneSystem: number; totalSystem: number   // 受注/管理担当タスク
   }>()
+  const buildOverdueList = (ts: BoardTask[]): OverdueTaskLite[] => {
+    const list: OverdueTaskLite[] = []
+    for (const t of ts) {
+      if (!isOpen(t.status) || !t.due_date) continue
+      const sev = overdueSeverity(t.due_date, todayStr)
+      if (!sev) continue
+      list.push({ id: t.id, title: t.title, due_date: t.due_date, over: calDaysOverdue(t.due_date, todayStr), severity: sev })
+    }
+    return list.sort((a, b) => a.due_date.localeCompare(b.due_date))
+  }
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     const caseTs = ts.filter(t => t.task_kind === 'case')
@@ -355,6 +368,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       nextCaseTaskTitle: nextCase?.title ?? null,
       nextSystemTaskId: nextSystem?.id ?? null,
       nextSystemTaskTitle: nextSystem?.title ?? null,
+      overdueCaseTasks: buildOverdueList(caseTs),
+      overdueSystemTasks: buildOverdueList(systemTs),
       done: ts.filter(t => t.status === '完了').length,
       total: ts.length,
       doneCase: caseTs.filter(t => t.status === '完了').length,
@@ -455,6 +470,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       nextCaseTaskTitle: prog?.nextCaseTaskTitle ?? null,
       nextSystemTaskId: prog?.nextSystemTaskId ?? null,
       nextSystemTaskTitle: prog?.nextSystemTaskTitle ?? null,
+      overdueCaseTasks: prog?.overdueCaseTasks ?? [],
+      overdueSystemTasks: prog?.overdueSystemTasks ?? [],
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
       progressCaseDone: prog?.doneCase ?? 0,

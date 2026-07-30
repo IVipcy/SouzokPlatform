@@ -199,13 +199,14 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev, initialSe
 
 function TaskLine({ t }: { t: OverdueTaskLite }) {
   const dateShort = t.due_date.slice(5).replace('-', '/')
-  const overCls = t.severity === 'chui' ? 'text-[#C0392B]' : 'text-[#B5651D]'
+  // 遅延タスクはタスク名も期日も同色（chui=濃赤 / kakunin=琥珀）
+  const cls = t.severity === 'chui' ? 'text-[#C0392B]' : 'text-[#B5651D]'
   return (
     <div className="flex items-center gap-2 max-w-[320px]">
-      <Link href={`/tasks/${t.id}`} className="text-[11.5px] font-semibold text-brand-600 hover:underline truncate flex-1" title={t.title}>
+      <Link href={`/tasks/${t.id}`} className={`text-[11.5px] font-bold hover:underline truncate flex-1 ${cls}`} title={t.title}>
         ▶ {t.title}
       </Link>
-      <span className={`text-[10.5px] font-mono flex-none ${overCls}`}>{dateShort} −{t.over}日</span>
+      <span className={`text-[10.5px] font-mono flex-none ${cls}`}>{dateShort} −{t.over}日</span>
     </div>
   )
 }
