@@ -72,7 +72,7 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
 }
 type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
 type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }
-type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null }
+type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null; kind?: string }
 type CommLite = { case_id: string; communicated_at: string | null; detail: string | null }
 
 export default async function CasesPage() {
@@ -86,7 +86,7 @@ export default async function CasesPage() {
       .eq('intake_draft', false)  // 面談シート入力途中の下書きは一覧に出さない（migration 194）
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date'),
-    supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),
+    supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date,kind'),
     supabase.from('client_communications').select('case_id,communicated_at,detail').order('communicated_at', { ascending: false }),
     supabase.from('teams').select('id,name'),
   ])
@@ -186,6 +186,13 @@ export default async function CasesPage() {
     if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
   }
 
+  // 案件再オープン回数（progress_reports.kind='case_reopen'）
+  const reopenCountByCase = new Map<string, number>()
+  for (const pr of reports) {
+    if (pr.kind !== 'case_reopen') continue
+    reopenCountByCase.set(pr.case_id, (reopenCountByCase.get(pr.case_id) ?? 0) + 1)
+  }
+
   // 管理案件の行マッピング（対応中・完了で共通利用）
   const toMyCaseRow = (c: CaseRowRaw): MyCaseRow => {
     const prog = progressByCase.get(c.id)
@@ -222,6 +229,7 @@ export default async function CasesPage() {
       progressSystemDone: prog?.doneSystem ?? 0,
       progressSystemTotal: prog?.totalSystem ?? 0,
       hasOverdueTask: prog?.hasOverdue ?? false,
+      reopenCount: reopenCountByCase.get(c.id) ?? 0,
       weeklyStatus: weeklyStatusOf(c.id),
       lastCommDate: lc?.date ?? null,
       lastCommDetail: lc?.detail ?? null,

@@ -53,6 +53,8 @@ export type MyCaseRow = {
   overdueSystemTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
   /** 期限超過タスクあり(進捗バーを赤で表示) */
   hasOverdueTask?: boolean
+  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ status=対応中/業務完了申請中 なら「再オープン中」バッジ */
+  reopenCount?: number
   /** 週次報告状況 */
   weeklyStatus?: '未対応' | '依頼中' | '確認済'
   /** 直近お客様報告 */
@@ -269,9 +271,16 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
               </td>
               <td className="px-3 py-2.5 min-w-[160px]">
-                <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[280px]">
-                  {c.deal_name}
-                </Link>
+                <div className="flex items-center gap-1.5">
+                  <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[240px]">
+                    {c.deal_name}
+                  </Link>
+                  {(c.reopenCount ?? 0) > 0 && (c.status === '対応中' || c.status === '業務完了申請中') && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 whitespace-nowrap" title={`業務完了/納品完了後に再オープンされた案件（${c.reopenCount}回）`}>
+                      再オープン中{(c.reopenCount ?? 0) > 1 ? ` (${c.reopenCount})` : ''}
+                    </span>
+                  )}
+                </div>
                 {c.alertChips && c.alertChips.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {c.alertChips.map(a => (

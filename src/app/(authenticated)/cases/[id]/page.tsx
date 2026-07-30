@@ -81,7 +81,7 @@ export default async function CaseDetailPage({ params }: Props) {
       .eq('case_id', id)
       .order('communicated_at', { ascending: false }),
     supabase.from('invoices').select('status,invoice_type').eq('case_id', id).eq('invoice_type', '前受金'),
-    supabase.from('progress_reports').select('status,confirmed_date').eq('case_id', id),
+    supabase.from('progress_reports').select('status,confirmed_date,kind').eq('case_id', id),
     supabase.from('document_receipts')
       .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id)
@@ -129,7 +129,9 @@ export default async function CaseDetailPage({ params }: Props) {
   // 案件ヘッダー用のアラート算出
   const cmRows = (membersResult.data ?? []) as CaseMemberRow[]
   const advInvRows = (invoicesResult.data ?? []) as Array<{ status: string }>
-  const repRows = (reportsResult.data ?? []) as Array<{ status: string; confirmed_date: string | null }>
+  const repRows = (reportsResult.data ?? []) as Array<{ status: string; confirmed_date: string | null; kind?: string }>
+  // 案件再オープン回数（progress_reports.kind='case_reopen'）
+  const reopenCount = repRows.filter(r => r.kind === 'case_reopen').length
   const tasksForAlert = (tasksResult.data ?? []) as TaskRow[]
   const now = new Date()
   const nowStr = now.toISOString().slice(0, 10)
@@ -150,6 +152,7 @@ export default async function CaseDetailPage({ params }: Props) {
   return (
     <CaseDetailClient
       caseAlerts={caseAlerts}
+      reopenCount={reopenCount}
       caseData={caseResult.data as CaseRow}
       caseMembers={(membersResult.data ?? []) as CaseMemberRow[]}
       tasks={(tasksResult.data ?? []) as TaskRow[]}

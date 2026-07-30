@@ -386,13 +386,21 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }
 
   // 案件ごと: 週次報告状況（最新の進捗報告。確認済でも7日経過していれば「未対応」に戻す）
+  //   ※ 案件再オープン等の kind は週次報告状況の判定には含めない
   const latestReportByCase = new Map<string, ProgressReportRow>()
   for (const pr of allReports) {
+    if ((pr.kind ?? 'progress_check') !== 'progress_check') continue
     const cur = latestReportByCase.get(pr.case_id)
     const isOpenReq = pr.status === '依頼中'
     if (!cur) { latestReportByCase.set(pr.case_id, pr); continue }
     if (isOpenReq && cur.status !== '依頼中') { latestReportByCase.set(pr.case_id, pr); continue }
     if ((pr.requested_date ?? '') > (cur.requested_date ?? '')) latestReportByCase.set(pr.case_id, pr)
+  }
+  // 案件再オープン回数 (progress_reports.kind='case_reopen')
+  const reopenCountByCase = new Map<string, number>()
+  for (const pr of allReports) {
+    if (pr.kind !== 'case_reopen') continue
+    reopenCountByCase.set(pr.case_id, (reopenCountByCase.get(pr.case_id) ?? 0) + 1)
   }
   const weeklyStatusOf = (cid: string): '未対応' | '依頼中' | '確認済' => {
     const pr = latestReportByCase.get(cid)
@@ -479,6 +487,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       progressSystemDone: prog?.doneSystem ?? 0,
       progressSystemTotal: prog?.totalSystem ?? 0,
       hasOverdueTask: overdueCaseIds.has(c.id),
+      reopenCount: reopenCountByCase.get(c.id) ?? 0,
       // 週次報告状況
       weeklyStatus: weeklyStatusOf(c.id),
       // 直近お客様報告

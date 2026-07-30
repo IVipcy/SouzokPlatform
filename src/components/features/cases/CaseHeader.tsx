@@ -43,6 +43,8 @@ type Props = {
   /** 担当者（受注/管理）をヘッダーで表示するための情報（変更は担当者タブ） */
   caseMembers?: CaseMemberRow[]
   allMembers?: MemberRow[]
+  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 案件進行中/業務完了申請中 なら「再オープン中」バッジを出す */
+  reopenCount?: number
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -56,7 +58,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [] }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], reopenCount = 0 }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
@@ -179,6 +181,12 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     const cls = winLabel === '面談なし受注' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-green-50 text-green-700 border-green-200'
                     return <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${cls}`} title={`受注の獲得区分：${winLabel}`}>{winLabel}</span>
                   })()}
+                  {/* 再オープン中バッジ（過去に業務完了/納品完了 → 再オープンで対応中に戻された案件） */}
+                  {reopenCount > 0 && (caseData.status === '対応中' || caseData.status === '業務完了申請中') && (
+                    <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-300" title={`業務完了/納品完了後に再オープンされた案件（${reopenCount}回）`}>
+                      再オープン中{reopenCount > 1 ? ` (${reopenCount})` : ''}
+                    </span>
+                  )}
                 </MetaRow>
 
                 {/* 手続き区分 */}
