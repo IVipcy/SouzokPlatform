@@ -42,6 +42,8 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   const [showDivisionConfig, setShowDivisionConfig] = useState(false)
   // 銀行フィルタタブ：'all'(すべて) / 'みずほ' / 'きらぼし' / '__unassigned__'(未振り分け)
   const [bankFilter, setBankFilter] = useState<'all' | 'みずほ' | 'きらぼし' | '__unassigned__'>('all')
+  // 営業部フィルタタブ：'all'(すべて) / '第一営業部' / '第二営業部' / '__unassigned__'(未設定)
+  const [divisionFilter, setDivisionFilter] = useState<'all' | '第一営業部' | '第二営業部' | '__unassigned__'>('all')
 
   const books = useMemo(
     () => buildSalesReport(invoices, expenses, rewards, teams, month),
@@ -144,21 +146,35 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         <DivisionSettingsPanel teams={teams} onClose={() => setShowDivisionConfig(false)} onSaved={() => { setShowDivisionConfig(false); router.refresh() }} />
       )}
 
-      {/* 銀行フィルタタブ（すべて／みずほ／きらぼし／未振り分け） */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-          {([['all','すべて'], ['みずほ','みずほ'], ['きらぼし','きらぼし'], ['__unassigned__','未振り分け']] as const).map(([k,label]) => (
-            <button key={k} onClick={() => setBankFilter(k)}
-              className={`px-3 py-1.5 text-xs font-semibold transition ${bankFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-              {label}
-            </button>
-          ))}
+      {/* フィルタ：営業部＋銀行 */}
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 w-14">営業部</span>
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            {([['all','すべて'], ['第一営業部','第一営業部'], ['第二営業部','第二営業部'], ['__unassigned__','未設定']] as const).map(([k,label]) => (
+              <button key={k} onClick={() => setDivisionFilter(k)}
+                className={`px-3 py-1.5 text-xs font-semibold transition ${divisionFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <span className="text-xs text-gray-500">入金銀行はCSV突合で自動判定。未振り分けは今後手動で銀行を設定可能に。</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 w-14">銀行</span>
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            {([['all','すべて'], ['みずほ','みずほ'], ['きらぼし','きらぼし'], ['__unassigned__','未振り分け']] as const).map(([k,label]) => (
+              <button key={k} onClick={() => setBankFilter(k)}
+                className={`px-3 py-1.5 text-xs font-semibold transition ${bankFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-500">未振り分け行は右端「銀行」列で手動指定できます。</span>
+        </div>
       </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} onSaveBankOverride={saveBankOverride} bankFilter={bankFilter} />
+      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} onSaveBankOverride={saveBankOverride} bankFilter={bankFilter} divisionFilter={divisionFilter} />
     </div>
   )
 }
@@ -213,12 +229,12 @@ type SheetHandlers = {
   onSaveBankOverride: (invoiceId: string, bank: string) => void
 }
 
-function BookView({ book, monthLabel, onSaveDeduct, onSaveBankOverride, bankFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__' } & SheetHandlers) {
-  // 銀行フィルタ：シートの sheet.bank と照合。'all' は全部、'__unassigned__' は bank 未設定シートのみ。
+function BookView({ book, monthLabel, onSaveDeduct, onSaveBankOverride, bankFilter, divisionFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__'; divisionFilter: 'all' | '第一営業部' | '第二営業部' | '__unassigned__' } & SheetHandlers) {
+  // 銀行×営業部の複合フィルタ。'all' は全部、'__unassigned__' は それぞれ未設定シートのみ。
   const filteredSheets = book.sheets.filter(s => {
-    if (bankFilter === 'all') return true
-    if (bankFilter === '__unassigned__') return !s.bank
-    return s.bank === bankFilter
+    const bankOK = bankFilter === 'all' ? true : bankFilter === '__unassigned__' ? !s.bank : s.bank === bankFilter
+    const divOK = divisionFilter === 'all' ? true : divisionFilter === '__unassigned__' ? !s.division : s.division === divisionFilter
+    return bankOK && divOK
   })
   if (filteredSheets.length === 0) {
     return (
