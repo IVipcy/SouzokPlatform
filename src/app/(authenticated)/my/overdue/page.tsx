@@ -53,18 +53,32 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
       over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
     }))
 
-  // 案件別の超過タスク集計：case_id ごとに最も重い severity と超過タスク数
-  const caseOverdue = new Map<string, { severity: OverdueSeverity; countTasks: number; countCase: number; countSystem: number }>()
+  // 案件別の超過タスク集計：case_id ごとに最も重い severity + task_kind別の超過タスクリスト
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
+  const caseOverdue = new Map<string, {
+    severity: OverdueSeverity
+    countTasks: number; countCase: number; countSystem: number
+    caseTasks: OverdueTaskLite[]     // 事務管理側の超過タスク
+    systemTasks: OverdueTaskLite[]   // 受注/管理側の超過タスク
+  }>()
   for (const t of tasks) {
     const sev = t.due_date ? overdueSeverity(t.due_date, todayStr) : null
     if (!sev) continue
-    const cur = caseOverdue.get(t.case_id) ?? { severity: sev, countTasks: 0, countCase: 0, countSystem: 0 }
-    // より重い方(chui > kakunin)を採用
+    const cur = caseOverdue.get(t.case_id) ?? {
+      severity: sev, countTasks: 0, countCase: 0, countSystem: 0,
+      caseTasks: [], systemTasks: [],
+    }
     if (sev === 'chui') cur.severity = 'chui'
     cur.countTasks += 1
-    if (t.task_kind === 'case') cur.countCase += 1
-    if (t.task_kind === 'system') cur.countSystem += 1
+    const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev }
+    if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
+    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
     caseOverdue.set(t.case_id, cur)
+  }
+  // 各リストは古い順ソート
+  for (const v of caseOverdue.values()) {
+    v.caseTasks.sort((a, b) => a.due_date.localeCompare(b.due_date))
+    v.systemTasks.sort((a, b) => a.due_date.localeCompare(b.due_date))
   }
 
   // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ

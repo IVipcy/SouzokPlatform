@@ -352,8 +352,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       />
       {currentView === 'progress' ? (
         <>
-          {/* 要対応バナー（入金期日・タスク期日の超過）＝旧チームタスク欄を統合 */}
-          <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} />
+          {/* 要対応バナー（入金期日・タスク期日の超過）＝旧チームタスク欄を統合。詳細はチームスコープの overdue へ */}
+          <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
           <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
         </>
       ) : (

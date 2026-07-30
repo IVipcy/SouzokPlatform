@@ -12,8 +12,10 @@ export type OverdueBill = {
 }
 export type OverdueTaskItem = { task: TaskRow; severity: OverdueSeverity; over: number }
 
-export default function OverdueAttention({ bills, tasks }: {
+export default function OverdueAttention({ bills, tasks, hrefBase = '/my/overdue' }: {
   bills: OverdueBill[]; tasks: OverdueTaskItem[]; currentMemberId: string
+  /** バナー遷移先のベースURL（sev クエリを付加）。デフォルト=個人スコープの /my/overdue。チーム版は /dashboard/team/{id}/overdue を渡す */
+  hrefBase?: string
 }) {
   const cnt = (s: OverdueSeverity) => bills.filter(b => b.severity === s).length + tasks.filter(t => t.severity === s).length
   const nKakunin = cnt('kakunin'), nChui = cnt('chui')
@@ -30,7 +32,8 @@ export default function OverdueAttention({ bills, tasks }: {
     )
     const cls = 'inline-flex items-center justify-between gap-3 rounded-lg px-4 py-2 text-left transition min-w-[150px]'
     if (!active) return <span className={`${cls} cursor-default`} style={{ background: '#ECEAE4' }}>{inner}</span>
-    return <Link href={`/my/overdue?sev=${s}`} className={`${cls} hover:opacity-90`} style={{ background: activeBg }}>{inner}</Link>
+    const sep = hrefBase.includes('?') ? '&' : '?'
+    return <Link href={`${hrefBase}${sep}sev=${s}`} className={`${cls} hover:opacity-90`} style={{ background: activeBg }}>{inner}</Link>
   }
 
   return (
