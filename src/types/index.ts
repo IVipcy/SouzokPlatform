@@ -254,6 +254,7 @@ export type CaseRow = {
   accounting_memo_updated_at?: string | null
   accounting_memo_updated_by?: string | null
   billing_pattern: string        // 請求パターン staged=①/lump_expense=②/lump_only=③（migration 166。既定 staged）
+  delivery_status?: '準備中' | '確認申請中' | '納品待ち' | '納品済' | null   // 納品タブ用ステータス (migration 204)
   // 依頼者情報タブ
   client_trait: 'smile' | 'neutral' | 'angry' | null
   client_trait_detail: string | null

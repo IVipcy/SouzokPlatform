@@ -201,6 +201,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       await supabase.from('cases').update({ status: '業務完了申請中' }).eq('id', caseData.id)
     } else if (reportKind === 'case_reopen') {
       await supabase.from('cases').update({ status: '対応中' }).eq('id', caseData.id)
+    } else if (reportKind === 'delivery_confirm') {
+      // 納品確認申請 → 案件レベルの納品ステータスを「確認申請中」にする
+      await supabase.from('cases').update({ delivery_status: '確認申請中' }).eq('id', caseData.id)
     }
 
     // 受注担当への通知。salesMemberId が無ければ通知はスキップ。
@@ -247,8 +250,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     if (kind === 'work_complete') {
       const nextStatus = action === 'confirm' ? '完了' : '対応中'
       await supabase.from('cases').update({ status: nextStatus }).eq('id', caseData.id)
+    } else if (kind === 'delivery_confirm') {
+      // 承認 → 納品待ち / 差戻し → 準備中 に戻す
+      const nextDelivery = action === 'confirm' ? '納品待ち' : '準備中'
+      await supabase.from('cases').update({ delivery_status: nextDelivery }).eq('id', caseData.id)
     }
-    // TODO(Phase3): delivery_confirm + confirm → 納品ステータス=納品待ち に
 
     const titleByKind: Record<ProgressReportKind, string> = {
       progress_check: '案件報告の確認が完了しました',

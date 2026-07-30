@@ -5,12 +5,12 @@ import {
   ChevronDown, Check, Star, Activity, MessageCircle, Receipt, ListChecks, Users, Wallet,
   Handshake, Split, Feather, Home, Landmark, Shield, FileX, Scale, FileSearch, ShieldCheck,
   Coins, Mail, Send, FileSignature, Settings, UserCheck, CalendarClock, FileCheck, History,
-  Inbox, Folder, FilePlus2, Contact, TrendingUp, Network, type LucideIcon,
+  Inbox, Folder, FilePlus2, Contact, TrendingUp, Network, Package, type LucideIcon,
 } from 'lucide-react'
 
 // 案件詳細のタブキー。docs / documentCreate は本コンポでは描画せず、
 // ヘッダー右上のアクションボタンから飛ぶ（到着物・書類作成）。
-export type TabKey = 'orderSheet' | 'basicInfo' | 'progress' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'legalInfo' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'history'
+export type TabKey = 'orderSheet' | 'basicInfo' | 'progress' | 'letter' | 'execution' | 'contractCreate' | 'ownerSales' | 'assignees' | 'contractProc' | 'meeting' | 'clientInfo' | 'tasks' | 'deceased' | 'legalInfo' | 'contract' | 'assets' | 'division' | 'will' | 'registration' | 'cancellation' | 'trust' | 'renunciation' | 'mediation' | 'probate' | 'guardianship' | 'succession' | 'referral' | 'receipts' | 'docs' | 'documentCreate' | 'delivery' | 'history'
 
 type Props = {
   activeTab: TabKey
@@ -62,6 +62,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   receipts: '到着物',
   docs: '案件フォルダ',
   documentCreate: '書類作成',
+  delivery: '納品',
   tasks: 'タスク',
   history: '履歴',
 }
@@ -74,6 +75,7 @@ const TAB_ICONS: Record<TabKey, LucideIcon> = {
   probate: FileSearch, guardianship: ShieldCheck, succession: Coins, letter: Mail, execution: Send,
   contractCreate: FileSignature, ownerSales: Settings, assignees: UserCheck, meeting: CalendarClock,
   contractProc: FileCheck, history: History, receipts: Inbox, docs: Folder, documentCreate: FilePlus2,
+  delivery: Package,
 }
 
 const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
@@ -88,6 +90,8 @@ const TAB_GROUP: Record<TabKey, Group> = {
   registration: 'practice', cancellation: 'practice', trust: 'practice', renunciation: 'practice',
   mediation: 'practice', probate: 'practice', guardianship: 'practice', referral: 'practice',
   succession: 'practice', letter: 'practice', execution: 'practice', contractCreate: 'practice',
+  // 納品タブ = 実施タブ扱い（案件基本情報ドロップダウンの直左に来るように practice グループ末尾へ）
+  delivery: 'practice',
   ownerSales: 'info', assignees: 'info',
   meeting: 'info', contractProc: 'info', history: 'info',
   receipts: 'header', docs: 'header', documentCreate: 'header',
@@ -100,6 +104,7 @@ const DEFAULT_TABS: TabKey[] = [
   'basicInfo', 'orderSheet', 'clientInfo', 'tasks',
   'deceased', 'legalInfo', 'assets', 'referral', 'division', 'will', 'registration', 'cancellation',
   'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'letter', 'execution', 'contractCreate', 'succession',
+  'delivery',   // 実施タブ末尾＝案件基本情報ドロップダウンの直左
   'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 

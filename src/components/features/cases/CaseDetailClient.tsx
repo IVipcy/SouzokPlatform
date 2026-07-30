@@ -36,6 +36,7 @@ import RegistrationTab from './RegistrationTab'
 import OwnerSalesTab from './OwnerSalesTab'
 import AssigneesTab from './AssigneesTab'
 import ContractProcTab from './ContractProcTab'
+import DeliveryTab from './DeliveryTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
@@ -624,6 +625,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       )}
       {effectiveTab === 'documentCreate' && (
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} onRefresh={handleSaved} />
+      )}
+      {effectiveTab === 'delivery' && (
+        <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} />
       )}
 
       {/* 対応中になったら事務管理タスクの設定を促す */}
