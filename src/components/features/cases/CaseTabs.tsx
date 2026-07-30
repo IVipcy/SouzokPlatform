@@ -19,6 +19,8 @@ type Props = {
   visibleTabs?: TabKey[]
   collapsedTabs?: TabKey[]
   highlightTabs?: TabKey[]
+  /** 完了した実施タブ（紐づくタスクが全件完了）。デフォルトで非表示、末尾「完了 (N) ▸」トグルで展開 */
+  completedTabs?: TabKey[]
   /** info グループ（面談情報・契約残手続き等）をドロップダウンに畳むか。
    *  対応中以降は true（案件情報にまとめる）、それ以前は false（タブが少ないので展開）。 */
   groupInfoTabs?: boolean
@@ -101,9 +103,12 @@ const DEFAULT_TABS: TabKey[] = [
   'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, groupInfoTabs = true, flatOrder = false }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, completedTabs, groupInfoTabs = true, flatOrder = false }: Props) {
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
+  // 完了タブ集合。active になっているタブは（意図せず消えないよう）折り畳み対象から除外。
+  const completedSet = new Set((completedTabs ?? []).filter(t => t !== activeTab))
+  const [showCompleted, setShowCompleted] = useState(false)
   const counts: Record<string, number> = { taskCount }
 
   // 案件管理＋面談情報は親「案件基本情報」ドロップダウンに束ねる（2つ未満なら通常タブ）。
@@ -136,7 +141,10 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   }
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
-  const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
+  const practiceTabsAll = all.filter(t => TAB_GROUP[t] === 'practice')
+  // 完了タブは折り畳み。トグル展開時のみインラインで戻す。
+  const practiceCompletedCount = practiceTabsAll.filter(t => completedSet.has(t)).length
+  const practiceTabs = practiceTabsAll.filter(t => showCompleted || !completedSet.has(t))
   // 対応中以降（groupInfoTabs）は info を1つの「案件情報」に統合（案件基本情報も含めて重複させない）。
   // それ以前はドロップダウンにせず、info は個別タブ＋案件基本情報グループだけ別立てにする。
   const infoAll = all.filter(t => TAB_GROUP[t] === 'info')
@@ -155,8 +163,20 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
         <Tab key={key} tabKey={key}
           isActive={activeTab === key}
           isHighlight={highlightSet.has(key)}
+          isMuted={completedSet.has(key)}
           onClick={() => onTabChange(key)} />
       ))}
+      {practiceCompletedCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowCompleted(v => !v)}
+          className={`inline-flex items-center gap-1 px-2.5 py-2.5 text-[12px] whitespace-nowrap -mb-px transition-colors cursor-pointer ${showCompleted ? 'text-brand-600 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}
+          title={showCompleted ? '完了タブを折り畳む' : '完了タブを表示'}
+        >
+          <span>完了 ({practiceCompletedCount})</span>
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCompleted ? 'rotate-180' : ''}`} strokeWidth={2.25} />
+        </button>
+      )}
       {groupInfoTabs ? (
         infoAll.length > 0 && (
           <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
@@ -182,10 +202,12 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
 //   アクティブ = 青文字＋青の下線
 //   ナビ強調   = ● を付ける（data-nav-tab で案内線と連動）
 //   orderSheet = 金の★（大事なタブ・選択状態に関わらず★は金）／will = 筆
-function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
+function Tab({ tabKey, isActive, isHighlight, isMuted, count, onClick }: {
   tabKey: TabKey
   isActive: boolean
   isHighlight: boolean
+  /** 完了タブを展開表示中の見た目（灰色＋✓） */
+  isMuted?: boolean
   count?: number
   onClick: () => void
 }) {
@@ -194,9 +216,11 @@ function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
   const base = 'inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer'
   const state = isActive
     ? 'text-brand-600 border-brand-600 font-medium'
-    : isHighlight
-      ? 'text-brand-700 border-transparent font-medium hover:text-brand-800'
-      : 'text-gray-500 border-transparent hover:text-gray-700'
+    : isMuted
+      ? 'text-gray-400 border-transparent hover:text-gray-600'
+      : isHighlight
+        ? 'text-brand-700 border-transparent font-medium hover:text-brand-800'
+        : 'text-gray-500 border-transparent hover:text-gray-700'
   return (
     <button
       type="button"
@@ -211,6 +235,7 @@ function Tab({ tabKey, isActive, isHighlight, count, onClick }: {
       {count !== undefined && (
         <span className={`text-[10.5px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{count}</span>
       )}
+      {isMuted && <Check className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />}
       {isHighlight && <span className="font-bold text-[10px] leading-none text-brand-600">●</span>}
     </button>
   )
