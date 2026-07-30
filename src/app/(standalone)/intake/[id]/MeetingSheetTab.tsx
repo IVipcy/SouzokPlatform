@@ -47,7 +47,20 @@ type RowExtractSchema = {
   fields: ExtractField[]
   fixedValues?: Record<string, unknown>
 }
-const ROW_EXTRACT_SCHEMA: Record<string, RowExtractSchema[]> = {
+// case_clients の table 型は 'heirs'/'real_estate_properties'/'financial_assets' 以外を許容する必要がある
+type ExtractRowTable = 'heirs' | 'real_estate_properties' | 'financial_assets' | 'case_clients'
+const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { table: ExtractRowTable })[]> = {
+  // 依頼者情報：CaseClientsTable(case_clients)へAI追加。優先度は既定 companion(安全側)。ユーザーが必要に応じてメイン依頼人に切替。
+  client: [{
+    key: 'clients', label: '依頼者・同行者一覧', table: 'case_clients',
+    fields: [
+      { key: 'name', label: '氏名' },
+      { key: 'furigana', label: 'ふりがな' },
+      { key: 'relationship', label: '続柄', enum: [...HEIR_RELATIONSHIPS] },
+      { key: 'mobile_phone', label: 'TEL（携帯）' },
+    ],
+    fixedValues: { priority: 'companion' },
+  }],
   // 相続人調査：被相続人6項目(EXTRACT_SCHEMA['deceased']) と併用。相続人一覧も同じメモから抽出。
   deceased: [{
     key: 'heirs', label: '相続人一覧', table: 'heirs',
@@ -108,15 +121,24 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChan
   const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
   const modeRef = useRef(mode); modeRef.current = mode
 
+  // キャンバスの元の CSS サイズを覚えておく（リサイズ時に旧描画を等倍で貼り戻すため）。
+  const prevCssRef = useRef<{ w: number; h: number } | null>(null)
   const setup = useCallback(() => {
     const c = canvasRef.current, wrap = wrapRef.current; if (!c || !wrap) return
     const rect = wrap.getBoundingClientRect(); if (rect.width < 1 || rect.height < 1) return
     const prev = emptyRef.current ? null : c.toDataURL('image/png')
+    const prevCss = prevCssRef.current
     const dpr = window.devicePixelRatio || 1
     c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr)
     const ctx = c.getContext('2d'); if (!ctx) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    if (prev) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height); img.src = prev }
+    // 旧描画を等倍で左上に貼り戻す（拡大時に補間でぼやけないように）。書き足しは新しく増えた領域で継続可能。
+    if (prev) {
+      const img = new Image()
+      img.onload = () => { const w = prevCss?.w ?? rect.width, h = prevCss?.h ?? rect.height; ctx.drawImage(img, 0, 0, w, h) }
+      img.src = prev
+    }
+    prevCssRef.current = { w: rect.width, h: rect.height }
   }, [])
   useEffect(() => { setup(); const wrap = wrapRef.current; if (!wrap) return; const ro = new ResizeObserver(() => setup()); ro.observe(wrap); return () => ro.disconnect() }, [setup])
 
@@ -141,7 +163,13 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChan
       const res = await fetch('/api/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: c.toDataURL('image/png') }) })
       const j = (await res.json()) as { text?: string; error?: string }
       if (!res.ok) { showToast(j.error ?? '認識に失敗しました', 'error'); return }
-      if (j.text) onText(j.text); else showToast('認識できませんでした', 'error')
+      if (j.text) {
+        onText(j.text)
+        // テキスト化した内容はフリー欄に転記済み。キャンバスをクリアしないと、次に書き足して再テキスト化した際に前回分＋新規分の重複が生成されてしまうため自動で全消去。
+        clear()
+      } else {
+        showToast('認識できませんでした', 'error')
+      }
     } catch { showToast('通信に失敗しました', 'error') } finally { setBusy('') }
   }
   const saveImg = async () => { const c = canvasRef.current; if (!c || empty) return; await onSaveImage(c.toDataURL('image/png')) }
@@ -160,9 +188,10 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChan
           ))}
         </div>
         <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100"><Trash2 className="w-4 h-4" />全消去</button>
-        <button type="button" onClick={ocr} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
-        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
-        <button type="button" onClick={saveImg} disabled={empty || saving} className="ml-auto inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><Save className="w-4 h-4" />画像を保存</button>
+        {/* 使う順序を数字プレフィックスで明示：①テキスト化 → ②AIで項目反映 → ③画像を保存(バックアップ) */}
+        <button type="button" onClick={ocr} disabled={empty || !!busy} title="① 手書きをテキストに起こしてフリー欄へ転記" className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-bold">1</span><Sparkles className="w-4 h-4" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
+        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} title="② 手書きから項目値をAIが読み取って各フィールドを埋める" className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] font-bold">2</span><Sparkles className="w-4 h-4" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
+        <button type="button" onClick={saveImg} disabled={empty || saving} title="③ 手書きの原本をバックアップ画像として保存" className="ml-auto inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-brand-700 text-[10px] font-bold">3</span><Save className="w-4 h-4" />画像を保存</button>
       </div>
     </div>
   )
