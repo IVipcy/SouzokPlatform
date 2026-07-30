@@ -653,8 +653,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     .map(m => ({ id: m.id, name: m.name }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
 
-  // === 受注担当向け 案件報告受信 ===
+  // === 受注担当向け 案件報告受信 (統一報告 4種類全部) ===
   // 自分が受注担当の案件で、届いている案件報告(依頼中=報告中の未確認 + 履歴)を一覧する。
+  // kind: progress_check / work_complete / case_reopen / delivery_confirm
   type SalesProgressRow = {
     reportId: string
     case_id: string
@@ -666,6 +667,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     status: '依頼中' | '確認済'
     confirmedDate: string | null
     confirmerName: string | null
+    kind: 'progress_check' | 'work_complete' | 'case_reopen' | 'delivery_confirm'
   }
   const salesProgressRows: SalesProgressRow[] = isSales
     ? allReports
@@ -683,6 +685,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             status: (r.status ?? '依頼中') as '依頼中' | '確認済',
             confirmedDate: r.confirmed_date ?? null,
             confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+            kind: (r.kind ?? 'progress_check') as 'progress_check' | 'work_complete' | 'case_reopen' | 'delivery_confirm',
           }
         })
         .sort((a, b) => {
@@ -891,50 +894,63 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                 <span className="text-[11px] text-gray-400 ml-2">報告中 {salesPendingProgressCount} 件</span>
                 <span className="ml-auto text-[11px] text-gray-400">案件詳細画面で内容を確認→「確認する」を押します</span>
               </div>
-              {salesProgressRows.length === 0 ? (
-                <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中の案件報告はありません</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]" style={{ minWidth: 960 }}>
-                    <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
-                        <th className="px-3 py-2 text-left font-medium">案件名</th>
-                        <th className="px-3 py-2 text-left font-medium">報告者</th>
-                        <th className="px-3 py-2 text-left font-medium">案件報告日</th>
-                        <th className="px-3 py-2 text-left font-medium">確認ポイント</th>
-                        <th className="px-3 py-2 text-left font-medium">ステータス</th>
-                        <th className="px-3 py-2 text-left font-medium">確認者</th>
-                        <th className="px-3 py-2 text-left font-medium">確認日</th>
-                        <th className="px-3 py-2 w-32" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {salesProgressRows.map(r => (
-                        <tr key={r.reportId} className="hover:bg-gray-50/60">
-                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
-                          <td className="px-3 py-2.5">
-                            <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
-                          </td>
-                          <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
-                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
-                          <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-pre-wrap max-w-[240px]">{r.reviewPoint || <span className="text-gray-300">—</span>}</td>
-                          <td className="px-3 py-2.5">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '報告中' : '確認済'}</span>
-                          </td>
-                          <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
-                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
-                          <td className="px-3 py-2.5 text-right">
-                            {r.status === '依頼中' && (
-                              <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
-                            )}
-                          </td>
+              {(() => {
+                // 分類ラベル・チップ色（案件詳細HistoryTabと同じ配色）
+                const KIND_LABEL = { progress_check: '案件報告', work_complete: '業務完了申請', case_reopen: '案件再オープン', delivery_confirm: '納品確認申請' } as const
+                const KIND_CHIP = { progress_check: 'bg-sky-100 text-sky-700 border-sky-200', work_complete: 'bg-amber-100 text-amber-800 border-amber-300', case_reopen: 'bg-purple-100 text-purple-700 border-purple-300', delivery_confirm: 'bg-emerald-100 text-emerald-700 border-emerald-300' } as const
+                return salesProgressRows.length === 0 ? (
+                  <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中の案件報告はありません</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]" style={{ minWidth: 1040 }}>
+                      <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">分類</th>
+                          <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
+                          <th className="px-3 py-2 text-left font-medium">案件名</th>
+                          <th className="px-3 py-2 text-left font-medium">報告者</th>
+                          <th className="px-3 py-2 text-left font-medium">報告日</th>
+                          <th className="px-3 py-2 text-left font-medium">内容</th>
+                          <th className="px-3 py-2 text-left font-medium">ステータス</th>
+                          <th className="px-3 py-2 text-left font-medium">確認者</th>
+                          <th className="px-3 py-2 text-left font-medium">確認日</th>
+                          <th className="px-3 py-2 w-32" />
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {salesProgressRows.map(r => {
+                          const isApproval = r.kind === 'work_complete' || r.kind === 'delivery_confirm'
+                          const btnLabel = isApproval ? '承認/差戻し' : '確認する'
+                          return (
+                            <tr key={r.reportId} className="hover:bg-gray-50/60">
+                              <td className="px-3 py-2.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${KIND_CHIP[r.kind]}`}>{KIND_LABEL[r.kind]}</span>
+                              </td>
+                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
+                              <td className="px-3 py-2.5">
+                                <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
+                              </td>
+                              <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
+                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
+                              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-pre-wrap max-w-[240px]">{r.reviewPoint || <span className="text-gray-300">—</span>}</td>
+                              <td className="px-3 py-2.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '報告中' : '確認済'}</span>
+                              </td>
+                              <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
+                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                {r.status === '依頼中' && (
+                                  <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">{btnLabel}</Link>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>

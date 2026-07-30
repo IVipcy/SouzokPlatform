@@ -1082,6 +1082,8 @@ export type PaymentCheckRequestRow = {
 
 // === 進捗報告（進捗確認依頼） ===
 export type ProgressReportStatus = '依頼中' | '確認済'
+// 案件報告の種類 (migration 202)。progress_check=既存の週次報告、他3種は統一報告フローで追加。
+export type ProgressReportKind = 'progress_check' | 'work_complete' | 'case_reopen' | 'delivery_confirm'
 
 export type ProgressReportRow = {
   id: string
@@ -1093,6 +1095,7 @@ export type ProgressReportRow = {
   confirmed_date: string | null // 確認日付
   review_point: string | null   // 確認ポイント（依頼時。migration 132）
   confirm_comment: string | null // 確認コメント（確認時。migration 132）
+  kind: ProgressReportKind       // 種類 (migration 202)。default='progress_check'
   created_at: string
   updated_at: string
 }
