@@ -213,7 +213,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStart = `${nextMonthDate.getFullYear()}-${pad(nextMonthDate.getMonth() + 1)}-01T00:00:00`
 
-  type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null }
+  type BoardTask = { id: string; case_id: string; title: string; status: string; sort_order: number | null; due_date: string | null; task_kind: string | null }
   let boardTasks: BoardTask[] = []
   let invoices: Array<{ id: string; case_id: string; invoice_type: string; status: string; amount: number; firm_type: string | null; issued_date: string | null; created_at: string | null; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null; due_date: string | null; needs_review: boolean | null }> = []
   let salesChanges: DashStatusChange[] = []
@@ -230,7 +230,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   if (caseIdArray.length > 0) {
     try {
       const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes, contractDocsRes] = await Promise.all([
-        supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date').in('case_id', caseIdArray),
+        supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date,task_kind').in('case_id', caseIdArray),
         supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date,needs_review').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
         // started_by_member は「対応中（名前）」表示に使う
@@ -294,16 +294,27 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     tasksByCase.get(t.case_id)!.push(t)
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
-  // 案件ごと: 次の未完了タスク / 進捗(完了数・総数)
-  const progressByCase = new Map<string, { nextTaskId: string | null; nextTaskTitle: string | null; done: number; total: number }>()
+  // 案件ごと: 次の未完了タスク / 進捗を task_kind 別(事務管理=case / 受注管理=system)に分けて集計
+  const progressByCase = new Map<string, {
+    nextTaskId: string | null; nextTaskTitle: string | null
+    done: number; total: number       // 総合(後方互換)
+    doneCase: number; totalCase: number       // 事務管理タスク
+    doneSystem: number; totalSystem: number   // 受注/管理担当タスク
+  }>()
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     const next = sorted.find(t => isOpen(t.status)) ?? null
+    const caseTs = ts.filter(t => t.task_kind === 'case')
+    const systemTs = ts.filter(t => t.task_kind === 'system')
     progressByCase.set(cid, {
       nextTaskId: next?.id ?? null,
       nextTaskTitle: next?.title ?? null,
       done: ts.filter(t => t.status === '完了').length,
       total: ts.length,
+      doneCase: caseTs.filter(t => t.status === '完了').length,
+      totalCase: caseTs.length,
+      doneSystem: systemTs.filter(t => t.status === '完了').length,
+      totalSystem: systemTs.length,
     })
   }
 
@@ -391,11 +402,16 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       manager_name: managerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_sheet_completed_at: c.order_sheet_completed_at,
-      // 進捗（次の未完了タスク + 完了/総数）
+      // 進捗（次の未完了タスク + 完了/総数）＋ task_kind別 進捗 + 期限超過フラグ
       nextTaskId: prog?.nextTaskId ?? null,
       nextTaskTitle: prog?.nextTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
+      progressCaseDone: prog?.doneCase ?? 0,
+      progressCaseTotal: prog?.totalCase ?? 0,
+      progressSystemDone: prog?.doneSystem ?? 0,
+      progressSystemTotal: prog?.totalSystem ?? 0,
+      hasOverdueTask: overdueCaseIds.has(c.id),
       // 週次報告状況
       weeklyStatus: weeklyStatusOf(c.id),
       // 直近お客様報告

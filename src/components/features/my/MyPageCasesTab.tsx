@@ -38,6 +38,13 @@ export type MyCaseRow = {
   nextTaskTitle?: string | null
   progressDone?: number
   progressTotal?: number
+  /** task_kind別 進捗（事務管理タスク/受注管理タスク） */
+  progressCaseDone?: number
+  progressCaseTotal?: number
+  progressSystemDone?: number
+  progressSystemTotal?: number
+  /** 期限超過タスクあり(進捗バーを赤で表示) */
+  hasOverdueTask?: boolean
   /** 週次報告状況 */
   weeklyStatus?: '未対応' | '依頼中' | '確認済'
   /** 直近お客様報告 */
@@ -207,7 +214,8 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
-            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">進捗</th>}
+            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">事務管理タスク進捗</th>}
+            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注/管理タスク進捗</th>}
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
@@ -216,9 +224,14 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
         </thead>
         <tbody className="divide-y divide-gray-100">
           {visibleRows.map(c => {
-            const total = c.progressTotal ?? 0
-            const done = c.progressDone ?? 0
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            const totalCase = c.progressCaseTotal ?? 0
+            const doneCase = c.progressCaseDone ?? 0
+            const pctCase = totalCase > 0 ? Math.round((doneCase / totalCase) * 100) : 0
+            const totalSys = c.progressSystemTotal ?? 0
+            const doneSys = c.progressSystemDone ?? 0
+            const pctSys = totalSys > 0 ? Math.round((doneSys / totalSys) * 100) : 0
+            const overdue = !!c.hasOverdueTask
+            const barCls = overdue ? 'bg-red-500' : 'bg-brand-500'
             const weekly = c.weeklyStatus ?? '未対応'
             const isSelected = selected.has(c.id)
             return (
@@ -289,15 +302,28 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 進捗: バー + 次の未完了タスク（クリックでタスクへ）。ミニマム時は非表示 */}
+              {/* 事務管理タスク進捗（分母=事務管理のみ）。ミニマム時は非表示 */}
               {!minimal && <td className="px-3 py-2.5">
-                {total > 0 ? (
+                {totalCase > 0 ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
+                      <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctCase}%` }} />
+                    </div>
+                    <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-gray-300">—</span>
+                )}
+              </td>}
+              {/* 受注/管理タスク進捗（分母=system）＋次の未完了タスクリンク。ミニマム時は非表示 */}
+              {!minimal && <td className="px-3 py-2.5">
+                {totalSys > 0 ? (
                   <div>
                     <div className="flex items-center gap-1.5">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${pct}%` }} />
+                        <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctSys}%` }} />
                       </div>
-                      <span className="text-[11px] font-mono text-gray-400 flex-shrink-0">{done}/{total}</span>
+                      <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
                     </div>
                     {c.nextTaskId && c.nextTaskTitle ? (
                       <Link href={`/tasks/${c.nextTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextTaskTitle}>

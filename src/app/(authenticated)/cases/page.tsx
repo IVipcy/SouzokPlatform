@@ -69,7 +69,7 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
       return c.fee_total ?? null
   }
 }
-type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null }
+type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null }
 type CommLite = { case_id: string; communicated_at: string | null; detail: string | null }
 
@@ -83,7 +83,7 @@ export default async function CasesPage() {
       .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
       .eq('intake_draft', false)  // 面談シート入力途中の下書きは一覧に出さない（migration 194）
       .order('created_at', { ascending: false }),
-    supabase.from('tasks').select('id,case_id,title,status,sort_order'),
+    supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date'),
     supabase.from('client_communications').select('case_id,communicated_at,detail').order('communicated_at', { ascending: false }),
     supabase.from('teams').select('id,name'),
@@ -118,11 +118,27 @@ export default async function CasesPage() {
     tasksByCase.get(t.case_id)!.push(t)
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
-  const progressByCase = new Map<string, { nextTaskId: string | null; nextTaskTitle: string | null; done: number; total: number }>()
+  const todayStr = today.toISOString().slice(0, 10)
+  const progressByCase = new Map<string, {
+    nextTaskId: string | null; nextTaskTitle: string | null
+    done: number; total: number
+    doneCase: number; totalCase: number
+    doneSystem: number; totalSystem: number
+    hasOverdue: boolean
+  }>()
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     const next = sorted.find(t => isOpen(t.status)) ?? null
-    progressByCase.set(cid, { nextTaskId: next?.id ?? null, nextTaskTitle: next?.title ?? null, done: ts.filter(t => t.status === '完了').length, total: ts.length })
+    const caseTs = ts.filter(t => t.task_kind === 'case')
+    const systemTs = ts.filter(t => t.task_kind === 'system')
+    const hasOverdue = ts.some(t => isOpen(t.status) && t.due_date != null && t.due_date < todayStr)
+    progressByCase.set(cid, {
+      nextTaskId: next?.id ?? null, nextTaskTitle: next?.title ?? null,
+      done: ts.filter(t => t.status === '完了').length, total: ts.length,
+      doneCase: caseTs.filter(t => t.status === '完了').length, totalCase: caseTs.length,
+      doneSystem: systemTs.filter(t => t.status === '完了').length, totalSystem: systemTs.length,
+      hasOverdue,
+    })
   }
 
   // 週次報告状況（最新。確認済でも7日経過なら未対応）
@@ -175,6 +191,11 @@ export default async function CasesPage() {
       nextTaskTitle: prog?.nextTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
+      progressCaseDone: prog?.doneCase ?? 0,
+      progressCaseTotal: prog?.totalCase ?? 0,
+      progressSystemDone: prog?.doneSystem ?? 0,
+      progressSystemTotal: prog?.totalSystem ?? 0,
+      hasOverdueTask: prog?.hasOverdue ?? false,
       weeklyStatus: weeklyStatusOf(c.id),
       lastCommDate: lc?.date ?? null,
       lastCommDetail: lc?.detail ?? null,

@@ -16,6 +16,8 @@ type CaseLite = {
   id: string; case_number: string; deal_name: string; status: string
   client_name: string | null
   overdue: { severity: OverdueSeverity; countTasks: number; countCase: number; countSystem: number } | null
+  progressCaseDone: number; progressCaseTotal: number
+  progressSystemDone: number; progressSystemTotal: number
 }
 
 export default function OverdueDetailClient({ bills, cases, sev: _sev }: { bills: BillLite[]; cases: CaseLite[]; sev: OverdueSeverity | null }) {
@@ -81,6 +83,8 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev }: { bills
                     <th className="px-3 py-2 text-left font-bold whitespace-nowrap">依頼者</th>
                     <th className="px-3 py-2 text-left font-bold whitespace-nowrap">超過タスク（事務管理）</th>
                     <th className="px-3 py-2 text-left font-bold whitespace-nowrap">超過タスク（受注/管理）</th>
+                    <th className="px-3 py-2 text-left font-bold whitespace-nowrap">事務管理タスク進捗</th>
+                    <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注/管理タスク進捗</th>
                     <th className="px-3 py-2 text-left font-bold whitespace-nowrap">重要度</th>
                     <th className="px-3 py-2 text-center font-bold whitespace-nowrap"></th>
                   </tr>
@@ -88,6 +92,9 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev }: { bills
                 <tbody className="divide-y divide-gray-100">
                   {cases.map(c => {
                     const o = c.overdue!
+                    // 超過タスクがあるので常に赤バー
+                    const pctCase = c.progressCaseTotal > 0 ? Math.round((c.progressCaseDone / c.progressCaseTotal) * 100) : 0
+                    const pctSys = c.progressSystemTotal > 0 ? Math.round((c.progressSystemDone / c.progressSystemTotal) * 100) : 0
                     return (
                       <tr key={c.id} className="hover:bg-gray-50/50">
                         <td className="px-3 py-2.5 font-mono text-[12px]"><Link href={`/cases/${c.id}`} className="text-brand-700 hover:underline">{c.case_number}</Link></td>
@@ -95,6 +102,26 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev }: { bills
                         <td className="px-3 py-2.5 text-gray-600">{c.client_name ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{o.countCase > 0 ? `${o.countCase} 件` : <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2.5 text-right font-mono">{o.countSystem > 0 ? `${o.countSystem} 件` : <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5">
+                          {c.progressCaseTotal > 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
+                                <div className="h-full bg-red-500 rounded-full" style={{ width: `${pctCase}%` }} />
+                              </div>
+                              <span className="text-[11px] font-mono flex-shrink-0 text-red-600 font-bold">{c.progressCaseDone}/{c.progressCaseTotal}</span>
+                            </div>
+                          ) : <span className="text-[12px] text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {c.progressSystemTotal > 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
+                                <div className="h-full bg-red-500 rounded-full" style={{ width: `${pctSys}%` }} />
+                              </div>
+                              <span className="text-[11px] font-mono flex-shrink-0 text-red-600 font-bold">{c.progressSystemDone}/{c.progressSystemTotal}</span>
+                            </div>
+                          ) : <span className="text-[12px] text-gray-300">—</span>}
+                        </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           {o.severity === 'chui'
                             ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold text-white" style={{ background: '#C0392B' }}>要注意</span>

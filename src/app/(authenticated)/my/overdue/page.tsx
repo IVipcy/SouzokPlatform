@@ -67,16 +67,37 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     caseOverdue.set(t.case_id, cur)
   }
 
+  // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ
+  const [progRes] = await Promise.all([
+    myCaseIds.length ? supabase.from('tasks').select('case_id,status,task_kind').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
+  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allTasks = (progRes.data ?? []) as any[]
+  const progressByCase = new Map<string, { doneCase: number; totalCase: number; doneSystem: number; totalSystem: number }>()
+  for (const t of allTasks) {
+    const cur = progressByCase.get(t.case_id) ?? { doneCase: 0, totalCase: 0, doneSystem: 0, totalSystem: 0 }
+    if (t.task_kind === 'case') { cur.totalCase += 1; if (t.status === '完了') cur.doneCase += 1 }
+    if (t.task_kind === 'system') { cur.totalSystem += 1; if (t.status === '完了') cur.doneSystem += 1 }
+    progressByCase.set(t.case_id, cur)
+  }
+
   // 案件別表：管理案件一覧と同じ列相当。ここでは超過ありのみをリストする。
   const caseList = rows
     .map(r => r.cases)
     .filter((c): c is NonNullable<typeof rows[number]['cases']> => !!c)
     .filter((c: { id: string }, i: number, arr: unknown[]) => arr.findIndex(x => (x as { id: string }).id === c.id) === i)
-    .map(c => ({
-      id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
-      client_name: c.clients?.name ?? null,
-      overdue: caseOverdue.get(c.id) ?? null,
-    }))
+    .map(c => {
+      const p = progressByCase.get(c.id)
+      return {
+        id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
+        client_name: c.clients?.name ?? null,
+        overdue: caseOverdue.get(c.id) ?? null,
+        progressCaseDone: p?.doneCase ?? 0,
+        progressCaseTotal: p?.totalCase ?? 0,
+        progressSystemDone: p?.doneSystem ?? 0,
+        progressSystemTotal: p?.totalSystem ?? 0,
+      }
+    })
     .filter(c => !!c.overdue)
 
   // 銀行超過はseverityで絞り込み
