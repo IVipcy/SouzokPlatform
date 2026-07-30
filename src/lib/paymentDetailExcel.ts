@@ -38,7 +38,7 @@ function buildPaymentSheet(ws: ExcelJS.Worksheet, sheet: PaymentSheet) {
       row.shihoAdvance || '', row.shihoReward || '', row.shihoExpense || '',
       row.gyoseiAdvance || '', row.gyoseiReward || '', row.gyoseiExpense || '',
       '', row.payer, row.sales, row.manager, row.route, row.referral,
-      row.hasInvoice, '', '', '', row.note,
+      row.invoiceFilePath ? '有' : '', '', '', '', row.invoiceNote,
     ]
     vals.forEach((v, i) => {
       const cell = ws.getCell(r, i + 1)

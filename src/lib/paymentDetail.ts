@@ -3,6 +3,7 @@
 // 1行=1入金(payment)。シート=入金銀行(payments.bank)。司/行はinvoice.firm_typeで判定。
 
 export type PaymentDetailRaw = {
+  id?: string
   amount: number | null
   payment_date: string | null
   bank: string | null
@@ -13,6 +14,10 @@ export type PaymentDetailRaw = {
 }
 
 export type PaymentRow = {
+  paymentId: string           // 銀行変更・削除用のID
+  invoiceId: string | null    // 請求書リンク・備考編集用
+  caseId: string              // 案件フォルダ遷移用
+  bank: string                // 現在の銀行（空='未振り分け'）
   firmMark: '司' | '行' | ''  // A 司/行
   date: string                // B 入金日
   caseNumber: string          // C 案件番号
@@ -31,8 +36,9 @@ export type PaymentRow = {
   manager: string             // Q 管理
   route: string               // R 受注ルート
   referral: string            // S 紹介元
-  hasInvoice: string          // T 請求書（有）
-  note: string                // X 備考
+  invoiceFilePath: string | null // T 請求書ファイル(generated_file_path)。null=司法など未生成
+  invoiceType: string         // 請求書の種別ラベル(前受金/確定請求)
+  invoiceNote: string         // X 備考（invoices.notes・両方向共有）
 }
 
 export type PaymentSheet = {
@@ -110,6 +116,10 @@ export function buildPaymentDetail(payments: PaymentDetailRaw[], month: string):
     const manager = members.find(m => m.role === 'manager')?.members?.name ?? ''
 
     const row: PaymentRow = {
+      paymentId: p.id ?? '',
+      invoiceId: inv?.id ?? null,
+      caseId: c?.id ?? '',
+      bank: p.bank ?? '',
       firmMark, date, caseNumber, client,
       amount, breakdown, diff: amount - breakdown,
       shihoAdvance, shihoReward, shihoExpense, gyoseiAdvance, gyoseiReward, gyoseiExpense,
@@ -117,8 +127,9 @@ export function buildPaymentDetail(payments: PaymentDetailRaw[], month: string):
       sales, manager,
       route: c?.order_route ?? '',
       referral: c?.order_route_detail ?? '',
-      hasInvoice: inv ? '有' : '',
-      note: p.notes ?? '',
+      invoiceFilePath: inv?.generated_file_path ?? null,
+      invoiceType: inv?.invoice_type ?? '',
+      invoiceNote: inv?.notes ?? '',
     }
 
     const bank = p.bank || ''
@@ -126,7 +137,7 @@ export function buildPaymentDetail(payments: PaymentDetailRaw[], month: string):
     if (!sheetMap.has(key)) {
       sheetMap.set(key, {
         key, bank,
-        title: bank ? `${bank}入金` : '未設定（銀行不明）',
+        title: bank ? `${bank}入金` : '未振り分け',
         rows: [], totals: { amount: 0, breakdown: 0, diff: 0 },
       })
     }
