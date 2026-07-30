@@ -535,6 +535,24 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       {sec('referral', '他事業者紹介', null, (
         <p className="text-[12px] text-gray-400">紹介の要否はメモ欄に記録してください（不動産査定・税理士など。詳細は③オーダーシートの他事業者紹介で入力）。</p>
       ))}
+
+      {/* 遺産分割 / 遺言 / 相続登記 / 解約等 / 信託契約ほか：エクセル面談シート〇（メモ欄のみ）。
+          work_content キーはOS/実務タブと同一にして、面談で書いたメモが③受注内容以降の同名セクションと共有される。 */}
+      {sec('division', '遺産分割', null, (
+        <p className="text-[12px] text-gray-400">分割方針・分配イメージ等をメモ欄に記録してください（詳細は③オーダーシートで入力）。</p>
+      ))}
+      {sec('will', '遺言', null, (
+        <p className="text-[12px] text-gray-400">遺言の種類（自筆/公正証書）や作成場所・文案の状況をメモ欄に記録してください。</p>
+      ))}
+      {sec('registration', '相続登記', null, (
+        <p className="text-[12px] text-gray-400">登記種別（所有権移転・住所氏名変更 等）・登記原因をメモ欄に記録してください。</p>
+      ))}
+      {sec('cancellation', '解約等（銀行・証券・自動車）', null, (
+        <p className="text-[12px] text-gray-400">解約したい口座・自動車の内容や優先順位をメモ欄に記録してください。</p>
+      ))}
+      {sec('trust_other', '信託契約 ほか手続き', null, (
+        <p className="text-[12px] text-gray-400">信託契約・相続放棄・調停・遺言検認・成年後見・手紙・執行通知・契約書作成 の要否/内容をメモ欄に記録してください（③OSでは専用項目なし＝フリー欄のみ）。</p>
+      ))}
     </div>
   )
 }
