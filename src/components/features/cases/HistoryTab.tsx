@@ -283,7 +283,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">報告者</th>
                   <th className="px-3 py-2 text-left font-medium">案件報告日</th>
-                  <th className="px-3 py-2 text-left font-medium">報連相</th>
+                  <th className="px-3 py-2 text-left font-medium">報告内容</th>
                   <th className="px-3 py-2 text-left font-medium">確認コメント</th>
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
                   <th className="px-3 py-2 text-left font-medium">ステータス</th>
@@ -542,7 +542,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <Modal
         isOpen={!!confirmTarget}
         onClose={() => { setConfirmTarget(null); setConfirmComment('') }}
-        title="案件報告を確認"
+        title="案件報告"
         footer={
           <>
             <Button variant="secondary" onClick={() => { setConfirmTarget(null); setConfirmComment('') }} disabled={confirmSaving}>キャンセル</Button>
@@ -553,10 +553,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       >
         {confirmTarget && (
           <div className="space-y-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div className="text-[11px] text-gray-400 mb-0.5">依頼者からの報連相</div>
-              <div className="text-[13px] text-gray-700 whitespace-pre-wrap">{confirmTarget.review_point || <span className="text-gray-400">（指定なし）</span>}</div>
-              <div className="text-[11px] text-gray-400 mt-1">{memberName(confirmTarget.requester_id)} ・ {confirmTarget.requested_date} 依頼</div>
+            <div className="space-y-2">
+              <label className="block text-[13px] font-semibold text-gray-600">報告内容</label>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <div className="text-[13px] text-gray-700 whitespace-pre-wrap">{confirmTarget.review_point || <span className="text-gray-400">（指定なし）</span>}</div>
+                <div className="text-[11px] text-gray-400 mt-1">{memberName(confirmTarget.requester_id)} ・ {confirmTarget.requested_date} 報告</div>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="block text-[13px] font-semibold text-gray-600">確認した内容 <span className="font-normal text-gray-400">（任意）</span></label>
