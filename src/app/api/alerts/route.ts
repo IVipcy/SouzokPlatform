@@ -159,11 +159,11 @@ export async function GET() {
     }
   }
 
-  // 案件報告依頼（自分が確認者で依頼中）
+  // 案件報告（自分が確認者で報告中）
   for (const r of reports) {
     if (r.status === '依頼中' && r.confirmer_id === memberId) {
       const c = cases.find(x => x.id === r.case_id)
-      push({ id: `review-${r.case_id}`, severity: 'info', category: '案件報告依頼', title: c ? `${c.case_number} ${c.deal_name}` : '案件報告依頼', body: '案件報告の依頼が届いています', href: '/my?tab=reviews' })
+      push({ id: `review-${r.case_id}`, severity: 'info', category: '案件報告', title: c ? `${c.case_number} ${c.deal_name}` : '案件報告', body: '案件報告が届いています', href: '/my?tab=reviews' })
     }
   }
 

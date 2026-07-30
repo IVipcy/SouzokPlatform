@@ -594,6 +594,49 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     .map(m => ({ id: m.id, name: m.name }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
 
+  // === 受注担当向け 案件報告受信 ===
+  // 自分が受注担当の案件で、届いている案件報告(依頼中=報告中の未確認 + 履歴)を一覧する。
+  type SalesProgressRow = {
+    reportId: string
+    case_id: string
+    case_number: string
+    deal_name: string
+    requesterName: string | null
+    requestedDate: string | null
+    reviewPoint: string | null
+    status: '依頼中' | '確認済'
+    confirmedDate: string | null
+    confirmerName: string | null
+  }
+  const salesProgressRows: SalesProgressRow[] = isSales
+    ? allReports
+        .filter(r => salesCaseIds.has(r.case_id))
+        .map(r => {
+          const c = myCases.find(x => x.id === r.case_id)
+          return {
+            reportId: r.id,
+            case_id: r.case_id,
+            case_number: c?.case_number ?? '',
+            deal_name: c?.deal_name ?? '',
+            requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : null,
+            requestedDate: r.requested_date ?? null,
+            reviewPoint: r.review_point ?? null,
+            status: (r.status ?? '依頼中') as '依頼中' | '確認済',
+            confirmedDate: r.confirmed_date ?? null,
+            confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+          }
+        })
+        .sort((a, b) => {
+          // 依頼中=報告中 を上に、次に日付の新しい順
+          if (a.status !== b.status) return a.status === '依頼中' ? -1 : 1
+          return (b.requestedDate ?? '').localeCompare(a.requestedDate ?? '')
+        })
+    : []
+  // 受注担当のタブバッジ用: 完了していない = 依頼中(=報告中)
+  const salesPendingProgressCount = salesProgressRows.filter(r => r.status === '依頼中').length
+  // 管理担当のタブバッジ用: まだ報告していない or 相手が確認中 = 依頼中
+  const managerPendingProgressCount = managerProgressRows.filter(r => r.status === '依頼中').length
+
   // 請求タブ: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件。
   // 管理担当＝自分が管理担当の案件 / 受注担当＝自分が受注担当の案件。
   const billingScopeIds = isManager ? managerCaseIds : isSales ? salesCaseIds : new Set<string>()
@@ -641,7 +684,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const overduePaymentCount = new Set(overdueInvoices.map(i => i.case_id)).size
 
   // === タブ構成（役割 + 確認依頼の有無で決定） ===
-  const showProgress = isManager
+  const showProgress = isManager || isSales
+  const progressBadgeCount = isManager ? managerPendingProgressCount : salesPendingProgressCount
   const validTabs: TabKey[] = []
   if (isSales) validTabs.push('meetings')
   validTabs.push('cases')
@@ -660,17 +704,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
         afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
-        right={(
-          <div className="flex items-center gap-3 flex-wrap justify-end">
-            {(isSales || isManager) && <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />}
-            {isSales && (
-              <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-                <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
-              </Link>
-            )}
-          </div>
-        )}
+        right={isSales ? (
+          <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
+            <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
+          </Link>
+        ) : undefined}
       />
+
+      {/* 要対応（入金期日・タスク期日の超過）バナー — 上部中央 */}
+      {(isSales || isManager) && (
+        <div className="mb-4 flex justify-center">
+          <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
+        </div>
+      )}
 
       {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
       {sysMgr && (
@@ -702,7 +748,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求状況${overduePaymentCount > 0 ? ` (期日超過 ${overduePaymentCount})` : ''}`} Icon={Receipt} active={activeTab === 'billing'} />
         )}
         {showProgress && (
-          <TabLink href={`/my?tab=progress${asSuffix}`} label="案件報告" Icon={ClipboardCheck} active={activeTab === 'progress'} />
+          <TabLink href={`/my?tab=progress${asSuffix}`} label={`案件報告${progressBadgeCount > 0 ? ` (${progressBadgeCount})` : ''}`} Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
         {/* ミニマム運用モードではタスクタブを非表示 */}
         {!isMinimalMode() && (
@@ -766,11 +812,67 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         </div>
       )}
 
-      {/* 進捗報告（管理担当） */}
+      {/* 案件報告（管理担当=送信側 / 受注担当=受信側） */}
       {activeTab === 'progress' && showProgress && (
         <div>
           <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
-          <ProgressReportManagerTab rows={managerProgressRows} candidates={confirmerCandidates} currentMemberId={memberId} />
+          {isManager && (
+            <ProgressReportManagerTab rows={managerProgressRows} candidates={confirmerCandidates} currentMemberId={memberId} />
+          )}
+          {isSales && !isManager && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
+                <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+                <h3 className="text-[14px] font-bold text-gray-900">案件報告（受信）</h3>
+                <span className="text-[11px] text-gray-400 ml-2">報告中 {salesPendingProgressCount} 件</span>
+                <span className="ml-auto text-[11px] text-gray-400">案件詳細画面で内容を確認→「確認する」を押します</span>
+              </div>
+              {salesProgressRows.length === 0 ? (
+                <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中の案件報告はありません</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]" style={{ minWidth: 960 }}>
+                    <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
+                        <th className="px-3 py-2 text-left font-medium">案件名</th>
+                        <th className="px-3 py-2 text-left font-medium">報告者</th>
+                        <th className="px-3 py-2 text-left font-medium">案件報告日</th>
+                        <th className="px-3 py-2 text-left font-medium">確認ポイント</th>
+                        <th className="px-3 py-2 text-left font-medium">ステータス</th>
+                        <th className="px-3 py-2 text-left font-medium">確認者</th>
+                        <th className="px-3 py-2 text-left font-medium">確認日</th>
+                        <th className="px-3 py-2 w-32" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {salesProgressRows.map(r => (
+                        <tr key={r.reportId} className="hover:bg-gray-50/60">
+                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
+                          <td className="px-3 py-2.5">
+                            <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
+                          </td>
+                          <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-pre-wrap max-w-[240px]">{r.reviewPoint || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '報告中' : '確認済'}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            {r.status === '依頼中' && (
+                              <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -27,7 +27,7 @@ export const MANAGER_ALERT_META: Record<ManagerAlertKey, { label: string; severi
   noTasks:           { label: 'タスク未生成',    severity: 'mid',   href: id => `/cases/${id}?tab=tasks` },
   weeklyMissing:     { label: '週次報告の漏れ',  severity: 'mid',   href: () => `/my?tab=progress` },
   contractPending:   { label: '契約手続き 未了', severity: 'mid',   href: id => `/cases/${id}?tab=contractProc` },
-  reviewRequest:     { label: '案件報告依頼',    severity: 'info',  href: () => `/my?tab=reviews` },
+  reviewRequest:     { label: '案件報告',        severity: 'info',  href: () => `/my?tab=reviews` },
 }
 
 // 重大度の重い順（表示ソート用）

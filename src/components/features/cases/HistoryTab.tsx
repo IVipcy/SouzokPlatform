@@ -129,7 +129,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   // 進捗確認を開始（管理担当のみ）。確認者は事前指定せず、確認ポイントを添えて確認待ちにする。
   const handleRequestReview = async () => {
-    if (!canRequestReview) { showToast('案件報告依頼は管理担当のみ可能です', 'error'); return }
+    if (!canRequestReview) { showToast('案件報告は管理担当のみ可能です', 'error'); return }
     if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
     setRequesting(true)
     const supabase = createClient()
@@ -142,28 +142,28 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       requested_date: today,
       review_point: reviewPointInput.trim() || null,
     })
-    if (error) { setRequesting(false); showToast('依頼に失敗しました', 'error'); return }
-    // 確認者＝受注担当へ通知（依頼が届いたことを知らせる）。salesMemberId が無ければ通知はスキップ。
+    if (error) { setRequesting(false); showToast('報告に失敗しました', 'error'); return }
+    // 確認者＝受注担当へ通知（報告が届いたことを知らせる）。salesMemberId が無ければ通知はスキップ。
     if (salesMemberId) {
       await supabase.from('notifications').insert({
         member_id: salesMemberId,
         type: 'progress_review_requested',
         case_id: caseData.id,
-        title: '案件報告依頼が届きました',
+        title: '案件報告が届きました',
         body: `${caseData.case_number} ${caseData.deal_name}：${reviewPointInput.trim() || '案件報告をお願いします'}`,
       })
     }
     setRequesting(false)
     setReviewPointInput('')
     setRequestOpen(false)
-    showToast('案件報告を依頼しました。その場で確認してもらいましょう', 'success')
+    showToast('案件報告を送信しました。その場で確認してもらいましょう', 'success')
     fetchActivities()
   }
 
   // 確認済にする（依頼者“以外”がログイン中の自分として確認）。確認コメントを添えて確認者＝自分で確定。
   const handleConfirm = async (pr: ProgressReportRow) => {
     if (!currentMemberId) return
-    if (pr.requester_id === currentMemberId) { showToast('依頼した本人は確認できません', 'error'); return }
+    if (pr.requester_id === currentMemberId) { showToast('報告した本人は確認できません', 'error'); return }
     setConfirmSaving(true)
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
@@ -257,13 +257,13 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   return (
     <div className="space-y-3.5">
-      {/* 案件報告（確認依頼の履歴） */}
+      {/* 案件報告 */}
       {section !== 'memo' && (
-      <Section title="案件報告依頼">
+      <Section title="案件報告">
         <div className="flex flex-wrap justify-end gap-2 mb-2.5">
           {canRequestReview && (
             <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setRequestOpen(true) }}>
-              案件報告依頼
+              案件報告
             </Button>
           )}
           <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
@@ -273,16 +273,16 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             タスク化
           </Button>
         </div>
-        <p className="text-[11px] text-gray-400 mb-2.5">「案件報告依頼」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（依頼者本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
+        <p className="text-[11px] text-gray-400 mb-2.5">「案件報告」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（報告した本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
         {progressReports.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告依頼はまだありません</div>
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告はまだありません</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">依頼者</th>
-                  <th className="px-3 py-2 text-left font-medium">案件報告依頼日</th>
+                  <th className="px-3 py-2 text-left font-medium">報告者</th>
+                  <th className="px-3 py-2 text-left font-medium">案件報告日</th>
                   <th className="px-3 py-2 text-left font-medium">報連相</th>
                   <th className="px-3 py-2 text-left font-medium">確認コメント</th>
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
@@ -308,7 +308,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${pr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{pr.status}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${pr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{pr.status === '依頼中' ? '報告中' : pr.status}</span>
                       </td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-right">
@@ -513,20 +513,20 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
       {/* 案件報告まわりのモーダル群（報連相・メモのみ表示時は不要） */}
       {section !== 'memo' && (<>
-      {/* 依頼モーダル（確認してほしい内容＝任意） */}
+      {/* 案件報告モーダル（確認してほしい内容＝任意） */}
       <Modal
         isOpen={requestOpen}
         onClose={() => setRequestOpen(false)}
-        title="案件報告依頼"
+        title="案件報告"
         footer={
           <>
             <Button variant="secondary" onClick={() => setRequestOpen(false)} disabled={requesting}>キャンセル</Button>
-            <Button variant="primary" onClick={handleRequestReview} loading={requesting} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>依頼する</Button>
+            <Button variant="primary" onClick={handleRequestReview} loading={requesting} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>報告する</Button>
           </>
         }
       >
         <div className="space-y-2">
-          <label className="block text-[13px] font-semibold text-gray-600">報連相 <span className="font-normal text-gray-400">（任意）</span></label>
+          <label className="block text-[13px] font-semibold text-gray-600">確認ポイント <span className="font-normal text-gray-400">（任意）</span></label>
           <textarea
             value={reviewPointInput}
             onChange={e => setReviewPointInput(e.target.value)}
@@ -534,7 +534,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             rows={4}
             className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
           />
-          <p className="text-[11px] text-gray-400">空欄でも依頼できます。相手の席で一緒に確認してもらいましょう。</p>
+          <p className="text-[11px] text-gray-400">空欄でも報告できます。相手の席で一緒に確認してもらいましょう。</p>
         </div>
       </Modal>
 
