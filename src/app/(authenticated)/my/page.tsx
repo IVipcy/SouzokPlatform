@@ -48,7 +48,7 @@ import { buildAlertChips, type ManagerAlertKey } from '@/lib/managerAlerts'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
-type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'tasks'
+type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'complaints' | 'tasks'
 
 // 相談案件 = 受注担当が受託に至るまで（紹介のみは個別管理案件へ移管）
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'])
@@ -269,6 +269,48 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       contractDocs = (contractDocsRes.data ?? []) as typeof contractDocs
     } catch { /* migration 未適用環境では空扱い */ }
   }
+
+  // === 受注担当向け クレーム報告(受信) === migration 201 未適用時は空扱い
+  type SalesComplaintRow = {
+    id: string
+    case_id: string
+    case_number: string
+    deal_name: string
+    requesterName: string | null
+    requested_date: string | null
+    severity: '少し不満' | '不満' | 'クレーム' | '大クレーム'
+    contact_method: string | null
+    detail: string | null
+    action: '謝罪・即対応（完結）' | '謝罪・受注相談' | null
+    status: '依頼中' | '確認済'
+    confirmed_date: string | null
+    confirmerName: string | null
+  }
+  let salesComplaintRows: SalesComplaintRow[] = []
+  if (isSales && salesCaseIdArray.length > 0) {
+    try {
+      const { data: cRaw } = await supabase.from('case_complaints').select('*').in('case_id', salesCaseIdArray)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const list = (cRaw ?? []) as any[]
+      salesComplaintRows = list.map(r => {
+        const c = myCases.find(x => x.id === r.case_id)
+        return {
+          id: r.id, case_id: r.case_id,
+          case_number: c?.case_number ?? '', deal_name: c?.deal_name ?? '',
+          requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : (r.created_by ? memberById.get(r.created_by) ?? null : null),
+          requested_date: r.requested_date ?? r.occurred_at ?? null,
+          severity: r.severity, contact_method: r.contact_method, detail: r.detail, action: r.action,
+          status: (r.status ?? '依頼中') as '依頼中' | '確認済',
+          confirmed_date: r.confirmed_date ?? null,
+          confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+        }
+      }).sort((a, b) => {
+        if (a.status !== b.status) return a.status === '依頼中' ? -1 : 1
+        return (b.requested_date ?? '').localeCompare(a.requested_date ?? '')
+      })
+    } catch { /* migration 201 未適用時は空 */ }
+  }
+  const salesPendingComplaintsCount = salesComplaintRows.filter(r => r.status === '依頼中').length
 
   // === 管理案件一覧（進捗管理ボード）用 ===
   const boardDashCases: DashCase[] = myCases.map(c => ({
@@ -692,6 +734,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   if (isManager || isSales) validTabs.push('billing')
   if (isSales) validTabs.push('referrals')
   if (showProgress) validTabs.push('progress')
+  // クレーム報告受信タブ（受注担当のみ）
+  if (isSales) validTabs.push('complaints')
   validTabs.push('tasks')
   const defaultTab: TabKey = isSales ? 'meetings' : 'cases'
   const activeTab: TabKey = (validTabs as string[]).includes(tab ?? '') ? (tab as TabKey) : defaultTab
@@ -749,6 +793,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         )}
         {showProgress && (
           <TabLink href={`/my?tab=progress${asSuffix}`} label={`案件報告${progressBadgeCount > 0 ? ` (${progressBadgeCount})` : ''}`} Icon={ClipboardCheck} active={activeTab === 'progress'} />
+        )}
+        {isSales && (
+          <TabLink href={`/my?tab=complaints${asSuffix}`} label={`クレーム報告${salesPendingComplaintsCount > 0 ? ` (${salesPendingComplaintsCount})` : ''}`} Icon={AlertTriangle} active={activeTab === 'complaints'} />
         )}
         {/* ミニマム運用モードではタスクタブを非表示 */}
         {!isMinimalMode() && (
@@ -892,6 +939,81 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           }))}
           selectable
         />
+      )}
+
+      {/* クレーム報告(受信) — 受注担当のみ */}
+      {activeTab === 'complaints' && isSales && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
+            <AlertTriangle className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+            <h3 className="text-[14px] font-bold text-gray-900">クレーム報告（受信）</h3>
+            <span className="text-[11px] text-gray-400 ml-2">報告中 {salesPendingComplaintsCount} 件</span>
+            <span className="ml-auto text-[11px] text-gray-400">案件詳細画面で内容を確認→「確認する」を押します</span>
+          </div>
+          {salesComplaintRows.length === 0 ? (
+            <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中のクレーム報告はありません</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]" style={{ minWidth: 1080 }}>
+                <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
+                    <th className="px-3 py-2 text-left font-medium">案件名</th>
+                    <th className="px-3 py-2 text-left font-medium">報告者</th>
+                    <th className="px-3 py-2 text-left font-medium">報告日</th>
+                    <th className="px-3 py-2 text-left font-medium">重要度</th>
+                    <th className="px-3 py-2 text-left font-medium">連絡方法</th>
+                    <th className="px-3 py-2 text-left font-medium">報告内容</th>
+                    <th className="px-3 py-2 text-left font-medium">対応内容</th>
+                    <th className="px-3 py-2 text-left font-medium">ステータス</th>
+                    <th className="px-3 py-2 text-left font-medium">確認者</th>
+                    <th className="px-3 py-2 text-left font-medium">確認日</th>
+                    <th className="px-3 py-2 w-32" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {salesComplaintRows.map(r => {
+                    const sevCls = r.severity === '大クレーム' ? 'bg-red-600 text-white font-semibold'
+                      : r.severity === 'クレーム' ? 'bg-red-100 text-red-800 border border-red-300 font-semibold'
+                      : r.severity === '不満' ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    const actCls = r.action === '謝罪・即対応（完結）' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : r.action === '謝罪・受注相談' ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : ''
+                    return (
+                      <tr key={r.id} className="hover:bg-gray-50/60">
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
+                        <td className="px-3 py-2.5">
+                          <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=complaints`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
+                        </td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requested_date ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${sevCls}`}>{r.severity}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.contact_method ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[240px] whitespace-pre-wrap">{r.detail || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5">
+                          {r.action ? <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${actCls}`}>{r.action}</span> : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '報告中' : '確認済'}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          {r.status === '依頼中' && (
+                            <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=complaints`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* タスク（担当者ベース: 自分が担当のタスク） */}
