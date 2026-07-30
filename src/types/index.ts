@@ -1097,13 +1097,14 @@ export type ProgressReportRow = {
   updated_at: string
 }
 
-// === 不満・クレーム（migration 197） ===
+// === 不満・クレーム（migration 197 + 201: 案件報告と同じ 報告→確認 フロー） ===
 export type ComplaintSeverity = '少し不満' | '不満' | 'クレーム' | '大クレーム'
 export type ComplaintAction = '謝罪・即対応（完結）' | '謝罪・受注相談'
+export type ComplaintStatus = '依頼中' | '確認済'   // 表示上は「依頼中→報告中」
 export type CaseComplaintRow = {
   id: string
   case_id: string
-  occurred_at: string           // YYYY-MM-DD
+  occurred_at: string           // YYYY-MM-DD (旧・互換で残す)
   severity: ComplaintSeverity
   contact_method: string | null // 電話/LINE/メール/手紙
   detail: string | null
@@ -1111,6 +1112,13 @@ export type CaseComplaintRow = {
   created_by: string | null
   created_at: string
   updated_at: string
+  // migration 201: 案件報告と同じフォーマット(報告→確認)
+  status: ComplaintStatus
+  requester_id: string | null
+  requested_date: string | null
+  confirmer_id: string | null
+  confirmed_date: string | null
+  confirm_comment: string | null
 }
 
 // === 報連相（報告/連絡/相談。migration 196） ===
