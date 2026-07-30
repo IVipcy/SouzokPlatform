@@ -38,6 +38,10 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'case_complaint') {
     return `/cases/${n.case_id}?tab=progress&sub=complaint`
   }
+  // 返金承認依頼／承認完了／却下 → 請求一覧の返金タブ（自分の案件スコープ）
+  if (n.type === 'refund_approval_request' || n.type === 'refund_approved' || n.type === 'refund_rejected') {
+    return `/billing?case=${n.case_id}`
+  }
   // チーム引き継ぎ：担当者タブへ飛ばし、その場で管理担当をアサインさせる
   if (n.type === 'case_handoff') return `/cases/${n.case_id}?tab=assignees`
   // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）

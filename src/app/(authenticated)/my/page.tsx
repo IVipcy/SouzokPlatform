@@ -10,6 +10,7 @@ import ConsultationCasesTable, { type ConsultCase } from '@/components/features/
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
 import ProgressReportManagerTab, { type ManagerProgressRow } from '@/components/features/my/ProgressReportManagerTab'
 import BillingClient from '@/components/features/billing/BillingClient'
+import type { BillingRequestRow } from '@/components/features/billing/BillingRequestsPanel'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import RankingBadges, { type RankBadge } from '@/components/features/dashboard/RankingBadges'
 import { buildRankings } from '@/lib/rankingMetrics'
@@ -576,7 +577,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // 請求タブは /billing（BillingClient）と同一UI・操作にする（CSV突合以外）。自分の案件にスコープ。
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let billingInvoices: any[] = []
-  let billingRequests: Array<{ id: string; invoice_id: string; case_id: string; kind: 'confirm' | 'refund'; status: string; requester_id: string | null; request_note: string | null; result_note: string | null; resolution: string | null; reason_category: string | null; fee_bearer: string | null; refund_amount: number | null; caseNumber: string; dealName: string }> = []
+  let billingRequests: BillingRequestRow[] = []
   const billingCaseOptions = myCases.filter(c => billingScopeIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name }))
   if ((isManager || isSales) && billingScopeIds.size > 0) {
     const scopeArr = Array.from(billingScopeIds)
@@ -585,7 +586,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         .select('*, cases(id, case_number, deal_name, deceased_name, status, contract_type, billing_pattern, order_route, order_route_detail, clients(*), case_members(*, members(*))), payments(*), payment_check_requests(id, status, result_note, requested_date, confirmed_date, confirmer_id, auto_closed)')
         .in('case_id', scopeArr).order('created_at', { ascending: false }),
       supabase.from('payment_check_requests')
-        .select('id, invoice_id, case_id, kind, status, requester_id, request_note, result_note, resolution, reason_category, fee_bearer, refund_amount, invoices(cases(case_number, deal_name))')
+        .select('id, invoice_id, case_id, kind, status, requested_date, requester_id, request_note, result_note, resolution, reason_category, fee_bearer, refund_amount, approval_status, sales_approver_id, leader_approver_id, sales_approved_at, leader_approved_at, requester:members!payment_check_requests_requester_id_fkey(name), invoices(cases(case_number, deal_name))')
         .in('kind', ['confirm', 'refund']).neq('status', '完了').in('case_id', scopeArr),
     ])
     billingInvoices = invRes.data ?? []
@@ -593,7 +594,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     billingRequests = ((reqRes.data ?? []) as any[]).map(r => {
       const inv = Array.isArray(r.invoices) ? r.invoices[0] : r.invoices
       const cs = inv && (Array.isArray(inv.cases) ? inv.cases[0] : inv.cases)
-      return { id: r.id, invoice_id: r.invoice_id, case_id: r.case_id, kind: r.kind as 'confirm' | 'refund', status: r.status, requester_id: r.requester_id, request_note: r.request_note, result_note: r.result_note, resolution: r.resolution, reason_category: r.reason_category, fee_bearer: r.fee_bearer, refund_amount: r.refund_amount, caseNumber: cs?.case_number ?? '', dealName: cs?.deal_name ?? '' }
+      return {
+        id: r.id, invoice_id: r.invoice_id, case_id: r.case_id, kind: r.kind as 'confirm' | 'refund', status: r.status,
+        requested_date: r.requested_date,
+        requester_id: r.requester_id, request_note: r.request_note, result_note: r.result_note, resolution: r.resolution,
+        reason_category: r.reason_category, fee_bearer: r.fee_bearer, refund_amount: r.refund_amount,
+        approval_status: r.approval_status ?? null,
+        sales_approver_id: r.sales_approver_id ?? null,
+        leader_approver_id: r.leader_approver_id ?? null,
+        sales_approved_at: r.sales_approved_at ?? null,
+        leader_approved_at: r.leader_approved_at ?? null,
+        requesterName: r.requester?.name ?? null,
+        caseNumber: cs?.case_number ?? '', dealName: cs?.deal_name ?? '',
+      }
     })
   }
 

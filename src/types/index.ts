@@ -1065,6 +1065,15 @@ export type PaymentCheckRequestRow = {
   auto_closed: boolean
   created_at: string
   updated_at: string
+  // 返金承認フロー（kind='refund'。migration 198）
+  sales_approver_id?: string | null
+  sales_approved_at?: string | null
+  sales_reject_note?: string | null
+  leader_approver_id?: string | null
+  leader_approved_at?: string | null
+  leader_reject_note?: string | null
+  // pending_sales(受注承認待ち)/pending_leader(上長承認待ち)/approved(承認完了・返金待ち)/rejected(却下)
+  approval_status?: 'pending_sales' | 'pending_leader' | 'approved' | 'rejected' | null
 }
 
 // === 進捗報告（進捗確認依頼） ===

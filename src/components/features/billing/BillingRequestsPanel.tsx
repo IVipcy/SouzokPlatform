@@ -14,6 +14,7 @@ export type BillingRequestRow = {
   case_id: string
   kind: 'confirm' | 'refund'
   status: string
+  requested_date: string
   requester_id: string | null
   request_note: string | null
   result_note: string | null
@@ -23,6 +24,13 @@ export type BillingRequestRow = {
   refund_amount: number | null
   caseNumber: string
   dealName: string
+  // 返金承認フロー（migration 198）
+  approval_status?: 'pending_sales' | 'pending_leader' | 'approved' | 'rejected' | null
+  sales_approver_id?: string | null
+  leader_approver_id?: string | null
+  sales_approved_at?: string | null
+  leader_approved_at?: string | null
+  requesterName?: string | null
 }
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
