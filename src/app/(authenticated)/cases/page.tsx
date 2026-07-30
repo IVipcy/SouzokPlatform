@@ -120,7 +120,8 @@ export default async function CasesPage() {
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   const todayStr = today.toISOString().slice(0, 10)
   const progressByCase = new Map<string, {
-    nextTaskId: string | null; nextTaskTitle: string | null
+    nextCaseTaskId: string | null; nextCaseTaskTitle: string | null
+    nextSystemTaskId: string | null; nextSystemTaskTitle: string | null
     done: number; total: number
     doneCase: number; totalCase: number
     doneSystem: number; totalSystem: number
@@ -128,12 +129,14 @@ export default async function CasesPage() {
   }>()
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    const next = sorted.find(t => isOpen(t.status)) ?? null
     const caseTs = ts.filter(t => t.task_kind === 'case')
     const systemTs = ts.filter(t => t.task_kind === 'system')
+    const nextCase = sorted.find(t => t.task_kind === 'case' && isOpen(t.status)) ?? null
+    const nextSystem = sorted.find(t => t.task_kind === 'system' && isOpen(t.status)) ?? null
     const hasOverdue = ts.some(t => isOpen(t.status) && t.due_date != null && t.due_date < todayStr)
     progressByCase.set(cid, {
-      nextTaskId: next?.id ?? null, nextTaskTitle: next?.title ?? null,
+      nextCaseTaskId: nextCase?.id ?? null, nextCaseTaskTitle: nextCase?.title ?? null,
+      nextSystemTaskId: nextSystem?.id ?? null, nextSystemTaskTitle: nextSystem?.title ?? null,
       done: ts.filter(t => t.status === '完了').length, total: ts.length,
       doneCase: caseTs.filter(t => t.status === '完了').length, totalCase: caseTs.length,
       doneSystem: systemTs.filter(t => t.status === '完了').length, totalSystem: systemTs.length,
@@ -187,8 +190,12 @@ export default async function CasesPage() {
       team_name: salesTeamByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_sheet_completed_at: c.order_sheet_completed_at,
-      nextTaskId: prog?.nextTaskId ?? null,
-      nextTaskTitle: prog?.nextTaskTitle ?? null,
+      nextTaskId: prog?.nextSystemTaskId ?? prog?.nextCaseTaskId ?? null,
+      nextTaskTitle: prog?.nextSystemTaskTitle ?? prog?.nextCaseTaskTitle ?? null,
+      nextCaseTaskId: prog?.nextCaseTaskId ?? null,
+      nextCaseTaskTitle: prog?.nextCaseTaskTitle ?? null,
+      nextSystemTaskId: prog?.nextSystemTaskId ?? null,
+      nextSystemTaskTitle: prog?.nextSystemTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
       progressCaseDone: prog?.doneCase ?? 0,

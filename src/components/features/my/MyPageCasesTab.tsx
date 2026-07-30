@@ -43,6 +43,11 @@ export type MyCaseRow = {
   progressCaseTotal?: number
   progressSystemDone?: number
   progressSystemTotal?: number
+  /** task_kind別 次の未完了タスク */
+  nextCaseTaskId?: string | null
+  nextCaseTaskTitle?: string | null
+  nextSystemTaskId?: string | null
+  nextSystemTaskTitle?: string | null
   /** 期限超過タスクあり(進捗バーを赤で表示) */
   hasOverdueTask?: boolean
   /** 週次報告状況 */
@@ -302,20 +307,29 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 事務管理タスク進捗（分母=事務管理のみ）。ミニマム時は非表示 */}
+              {/* 事務管理タスク進捗（分母=事務管理のみ）＋事務管理側の次の未完了タスク。ミニマム時は非表示 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalCase > 0 ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                      <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctCase}%` }} />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
+                        <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctCase}%` }} />
+                      </div>
+                      <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
                     </div>
-                    <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
+                    {c.nextCaseTaskId && c.nextCaseTaskTitle ? (
+                      <Link href={`/tasks/${c.nextCaseTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextCaseTaskTitle}>
+                        ▶ {c.nextCaseTaskTitle}
+                      </Link>
+                    ) : (
+                      <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
+                    )}
                   </div>
                 ) : (
                   <span className="text-[12px] text-gray-300">—</span>
                 )}
               </td>}
-              {/* 受注/管理タスク進捗（分母=system）＋次の未完了タスクリンク。ミニマム時は非表示 */}
+              {/* 受注/管理タスク進捗（分母=system）＋受注/管理側の次の未完了タスク。ミニマム時は非表示 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalSys > 0 ? (
                   <div>
@@ -325,9 +339,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                       </div>
                       <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
                     </div>
-                    {c.nextTaskId && c.nextTaskTitle ? (
-                      <Link href={`/tasks/${c.nextTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextTaskTitle}>
-                        ▶ {c.nextTaskTitle}
+                    {c.nextSystemTaskId && c.nextSystemTaskTitle ? (
+                      <Link href={`/tasks/${c.nextSystemTaskId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[180px] mt-0.5" title={c.nextSystemTaskTitle}>
+                        ▶ {c.nextSystemTaskTitle}
                       </Link>
                     ) : (
                       <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>

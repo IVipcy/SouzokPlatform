@@ -296,19 +296,23 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   // 案件ごと: 次の未完了タスク / 進捗を task_kind 別(事務管理=case / 受注管理=system)に分けて集計
   const progressByCase = new Map<string, {
-    nextTaskId: string | null; nextTaskTitle: string | null
+    nextCaseTaskId: string | null; nextCaseTaskTitle: string | null       // 事務管理側の次の未完了
+    nextSystemTaskId: string | null; nextSystemTaskTitle: string | null   // 受注/管理側の次の未完了
     done: number; total: number       // 総合(後方互換)
     doneCase: number; totalCase: number       // 事務管理タスク
     doneSystem: number; totalSystem: number   // 受注/管理担当タスク
   }>()
   for (const [cid, ts] of tasksByCase) {
     const sorted = [...ts].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    const next = sorted.find(t => isOpen(t.status)) ?? null
     const caseTs = ts.filter(t => t.task_kind === 'case')
     const systemTs = ts.filter(t => t.task_kind === 'system')
+    const nextCase = sorted.find(t => t.task_kind === 'case' && isOpen(t.status)) ?? null
+    const nextSystem = sorted.find(t => t.task_kind === 'system' && isOpen(t.status)) ?? null
     progressByCase.set(cid, {
-      nextTaskId: next?.id ?? null,
-      nextTaskTitle: next?.title ?? null,
+      nextCaseTaskId: nextCase?.id ?? null,
+      nextCaseTaskTitle: nextCase?.title ?? null,
+      nextSystemTaskId: nextSystem?.id ?? null,
+      nextSystemTaskTitle: nextSystem?.title ?? null,
       done: ts.filter(t => t.status === '完了').length,
       total: ts.length,
       doneCase: caseTs.filter(t => t.status === '完了').length,
@@ -403,8 +407,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       procedure_type: c.procedure_type,
       order_sheet_completed_at: c.order_sheet_completed_at,
       // 進捗（次の未完了タスク + 完了/総数）＋ task_kind別 進捗 + 期限超過フラグ
-      nextTaskId: prog?.nextTaskId ?? null,
-      nextTaskTitle: prog?.nextTaskTitle ?? null,
+      nextTaskId: prog?.nextSystemTaskId ?? prog?.nextCaseTaskId ?? null,
+      nextTaskTitle: prog?.nextSystemTaskTitle ?? prog?.nextCaseTaskTitle ?? null,
+      nextCaseTaskId: prog?.nextCaseTaskId ?? null,
+      nextCaseTaskTitle: prog?.nextCaseTaskTitle ?? null,
+      nextSystemTaskId: prog?.nextSystemTaskId ?? null,
+      nextSystemTaskTitle: prog?.nextSystemTaskTitle ?? null,
       progressDone: prog?.done ?? 0,
       progressTotal: prog?.total ?? 0,
       progressCaseDone: prog?.doneCase ?? 0,
@@ -652,15 +660,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
         afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
-        right={isSales ? (
-          <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-            <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
-          </Link>
-        ) : undefined}
+        right={(
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {(isSales || isManager) && <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />}
+            {isSales && (
+              <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
+                <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
+              </Link>
+            )}
+          </div>
+        )}
       />
-
-      {/* 要対応（入金期日・タスク期日の超過）バナー＋遷移先サブタブ */}
-      {(isSales || isManager) && <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />}
 
       {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
       {sysMgr && (
