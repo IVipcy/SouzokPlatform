@@ -357,6 +357,7 @@ export type MemberRow = {
   specialties?: string[] | null
   hometown?: string | null
   favorite_food?: string | null
+  is_touki_team?: boolean   // 相続登記チームメンバー (migration 205)
 }
 
 export type CaseMemberRow = {
@@ -368,9 +369,10 @@ export type CaseMemberRow = {
 }
 
 /** タスクの種別。
- *  - case   : 案件タスク (Phase別、前後関係あり、手動作成)
- *  - system : システムタスク (案件運用前後の自動生成タスク、前後関係なし) */
-export type TaskKind = 'case' | 'system'
+ *  - case       : 案件タスク (Phase別、前後関係あり、手動作成)
+ *  - system     : システムタスク (案件運用前後の自動生成タスク、前後関係なし)
+ *  - touki_team : 相続登記チームタスク (migration 205。権利書の製本など・チームメンバー誰でも着手可) */
+export type TaskKind = 'case' | 'system' | 'touki_team'
 
 /** システムタスクの担当区分。
  *  - sales   : 受注担当

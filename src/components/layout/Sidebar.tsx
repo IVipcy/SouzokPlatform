@@ -18,6 +18,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Bell,
+  Package,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -52,6 +53,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
       { href: '/intake',   label: '相談案件登録', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
+      { href: '/dashboard/touki-team', label: '相続登記チーム', Icon: Package },
     ],
   },
   {
@@ -140,10 +142,13 @@ export default function Sidebar() {
         // 事務管理タスク・確認簿・到着物受信簿・請求入金）のみ表示。
         const isAssistantLike = !!user && ['assistant', 'accounting'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
         const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/confirm', '/documents', '/billing'])
+        const isTouKiTeamMember = !!user?.isTouKiTeam || (user?.primaryRole === 'system_manager')
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (isAssistantLike) return ASSISTANT_ALLOWED.has(it.href)
           if (it.href === '/my') return canMyPage
+          // 相続登記チーム: メンバー本人 or システム管理者のみ表示
+          if (it.href === '/dashboard/touki-team') return isTouKiTeamMember
           return true
         }) })).filter(s => s.items.length > 0)
         return (

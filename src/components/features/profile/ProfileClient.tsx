@@ -40,6 +40,28 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
     refresh()
   }
 
+  // 相続登記チームメンバー フラグ切替: ONで teams.is_touki_team_special の team_id へ / OFFで team_id=null
+  const toggleToukiTeam = async (next: boolean) => {
+    try {
+      if (next) {
+        // 相続登記チーム レコードを検索して team_id を差し替え
+        const { data: touki } = await supabase.from('teams').select('id').eq('is_touki_team_special', true).eq('is_active', true).maybeSingle()
+        if (!touki?.id) { showToast('相続登記チームが未設定です（管理者に連絡）', 'error'); return }
+        const { error } = await supabase.from('members').update({ is_touki_team: true, team_id: touki.id }).eq('id', member.id)
+        if (error) throw error
+        showToast('相続登記チームに変更しました', 'success')
+      } else {
+        const { error } = await supabase.from('members').update({ is_touki_team: false, team_id: null }).eq('id', member.id)
+        if (error) throw error
+        showToast('相続登記チーム メンバー を解除しました（チームは未設定・再設定してください）', 'success')
+      }
+      refresh()
+    } catch (e) {
+      console.error(e)
+      showToast('保存に失敗しました', 'error')
+    }
+  }
+
   const today = new Date()
   const tenure = member.joined_at ? tenureLabel(member.joined_at, today) : null
   const role = member.primary_role ? ROLE_LABEL[member.primary_role] ?? member.primary_role : null
@@ -69,6 +91,17 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
               )}
               {teamName && (
                 <span className="text-gray-700 font-medium">{teamName}</span>
+              )}
+              {isOwner && (
+                <label className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-600 cursor-pointer select-none" title="ONにするとチームが「相続登記チーム」に自動切替されます">
+                  <input
+                    type="checkbox"
+                    checked={!!member.is_touki_team}
+                    onChange={e => toggleToukiTeam(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-brand-600"
+                  />
+                  相続登記チームメンバー
+                </label>
               )}
               {member.job_type && (
                 <>

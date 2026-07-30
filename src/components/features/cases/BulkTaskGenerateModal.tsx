@@ -48,6 +48,10 @@ const MANAGER_GYOMU = new Set<string>([
   '精算書作成', '指図書作成', '法定相続情報取得', '他事業者紹介',
 ])
 
+// 相続登記チームタスクとして生成する タスク名。
+// task_kind='touki_team' で生成し、事務管理/受注管理どちらの一覧にも出ず、相続登記チーム専用ダッシュボードから触られる。
+const TOUKI_TEAM_TASK_TITLES = new Set<string>(['権利書の製本'])
+
 // 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
 // 全店調査・残高証明・経過利息・取引履歴は銀行ごとにまとめて請求するため、機関単位の「資料請求」に内包（対象外）。
 // ここに残すのは本当に案件単位のもの：ほふり照会・保険照会・年金照会・負債（信用情報）調査。
@@ -273,10 +277,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
     const rows = picked.map((c, i) => {
-      const isManager = c.custom || MANAGER_GYOMU.has(c.gyomu)
+      const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
+      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu))
+      const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
       return {
         case_id: caseId,
-        task_kind: isManager ? ('system' as const) : ('case' as const),
+        task_kind: kind,
         title: c.title,
         // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
         phase: c.custom ? c.title : c.gyomu,
@@ -285,7 +291,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         status: '着手前',
         priority: '通常',
         source_rid: ridByKey[c.key] ?? null,
-        work_role: isManager ? 'manager' : 'assistant',
+        work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
         assign_role: isManager ? 'manager' : null,
         // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
         procedure_text: c.custom ? (c.work?.trim() || null) : null,

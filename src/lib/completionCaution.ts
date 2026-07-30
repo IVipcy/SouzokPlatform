@@ -174,5 +174,29 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
     return null
   }
 
+  // ── 権利書の製本（相続登記チームタスク）：完了時に「納品対応（事務管理）」タスクを推奨 ──
+  if (task.title === '権利書の製本' && task.task_kind === 'touki_team') {
+    const { data } = await supabase.from('tasks')
+      .select('id, title, status')
+      .eq('case_id', task.case_id)
+      .eq('title', '納品対応')
+      .neq('status', '完了')
+      .neq('status', 'キャンセル')
+      .limit(1)
+      .maybeSingle()
+    const next = data as { id: string; title: string } | null
+    if (next) {
+      return {
+        title: '次は「納品対応」（事務管理タスク）です',
+        note: '案件の 事務管理担当 が納品タブから 戸籍等 と一緒に権利書を納品します。この案件にはまだ未完了の「納品対応」タスクが残っています。',
+        requestLabel: '',
+        request: async () => {},
+        landingUrl: `/tasks/${next.id}`,
+        landingLabel: '納品対応 タスクを開く',
+      }
+    }
+    return null
+  }
+
   return null
 }

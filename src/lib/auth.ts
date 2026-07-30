@@ -9,6 +9,7 @@ export type UserWithRoles = {
   avatarUrl: string | null
   primaryRole: string | null
   teamId: string | null
+  isTouKiTeam: boolean   // 相続登記チームメンバー (migration 205)
   roles: string[]
   permissions: string[]
 }
@@ -26,7 +27,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
   // Find matching member by email
   const { data: member } = await supabase
     .from('members')
-    .select('id, name, email, avatar_color, avatar_url, primary_role, team_id')
+    .select('id, name, email, avatar_color, avatar_url, primary_role, team_id, is_touki_team')
     .eq('email', user.email!)
     .eq('is_active', true)
     .single()
@@ -41,6 +42,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
       avatarUrl: null,
       primaryRole: null,
       teamId: null,
+      isTouKiTeam: false,
       roles: [],
       permissions: [],
     }
@@ -74,6 +76,7 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
     avatarUrl: member.avatar_url ?? null,
     primaryRole: member.primary_role ?? null,
     teamId: (member as { team_id?: string | null }).team_id ?? null,
+    isTouKiTeam: !!(member as { is_touki_team?: boolean }).is_touki_team,
     roles: [...new Set(roles)],
     permissions: [...new Set(permissions)],
   }

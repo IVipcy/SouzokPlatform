@@ -112,13 +112,12 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                         <th className="px-2 py-2 text-left font-semibold w-32">取得者（相続人）</th>
                         <th className="px-2 py-2 text-left font-semibold w-20">持分</th>
                         <th className="px-2 py-2 text-left font-semibold w-56">相続登記の種別</th>
-                        <th className="px-2 py-2 text-left font-semibold w-28">登記原因</th>
-                        <th className="px-2 py-2 text-left font-semibold w-36">管轄法務局</th>
+                        {/* 削除: 登記原因 / 管轄法務局（Phase 5e・UIのみ削除、DBカラムは残置） */}
                         <th className="px-2 py-2 text-left font-semibold w-28">申請日</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">完了日</th>
                         <th className="px-2 py-2 text-right font-semibold w-28">登録免許税</th>
                         <th className="px-2 py-2 text-left font-semibold w-32">申請時W-Check</th>
-                        <th className="px-2 py-2 text-left font-semibold w-40">備考・結果</th>
+                        {/* 削除: 備考・結果（Phase 5e） */}
                       </tr>
                     </thead>
                     <tbody>
@@ -129,13 +128,10 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                           <td className="px-2 py-1.5"><TxtCell value={p.registration_acquirer} onCommit={v => saveField(p.id, 'registration_acquirer', v)} placeholder="相続人名" /></td>
                           <td className="px-2 py-1.5"><ShareCell key={p.registration_share ?? 'empty'} value={p.registration_share} onSave={v => saveField(p.id, 'registration_share', v)} /></td>
                           <td className="px-2 py-1.5"><TypesCell value={p.registration_types} options={REGISTRATION_TYPES} onSave={v => saveField(p.id, 'registration_types', v.length ? v : null)} /></td>
-                          <td className="px-2 py-1.5"><SelCell value={p.registration_cause} options={[...REGISTRATION_CAUSES]} onChange={v => saveField(p.id, 'registration_cause', v)} /></td>
-                          <td className="px-2 py-1.5"><TxtCell value={p.registration_office} onCommit={v => saveField(p.id, 'registration_office', v)} placeholder="法務局（予測）" list={officeListId} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_apply_date} onCommit={v => saveField(p.id, 'registration_apply_date', v)} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_complete_date} onCommit={v => saveField(p.id, 'registration_complete_date', v)} /></td>
                           <td className="px-2 py-1.5"><MoneyCell value={p.registration_cost} onCommit={v => saveField(p.id, 'registration_cost', v === '' ? null : Number(v))} /></td>
                           <td className="px-2 py-1.5"><DcCell name={p.registration_check_name} at={p.registration_check_at} me={me} onSet={(n, a) => saveMany(p.id, { registration_check_name: n, registration_check_at: a })} /></td>
-                          <td className="px-2 py-1.5"><TxtCell value={p.registration_result} onCommit={v => saveField(p.id, 'registration_result', v)} placeholder="結果" /></td>
                         </tr>
                       ))}
                     </tbody>
