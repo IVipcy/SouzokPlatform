@@ -42,6 +42,10 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'refund_approval_request' || n.type === 'refund_approved' || n.type === 'refund_rejected') {
     return `/billing?case=${n.case_id}`
   }
+  // 経理入力欄の更新 → 案件の請求タブへ
+  if (n.type === 'accounting_memo_updated') {
+    return `/cases/${n.case_id}?tab=contract`
+  }
   // チーム引き継ぎ：担当者タブへ飛ばし、その場で管理担当をアサインさせる
   if (n.type === 'case_handoff') return `/cases/${n.case_id}?tab=assignees`
   // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）

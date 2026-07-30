@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt, Check } from 'lucide-react'
+import { ExternalLink, Receipt, Check, Save, Calculator } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/components/providers/AuthProvider'
+import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
 import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
 import {
@@ -210,6 +212,9 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         </div>
       )}
 
+      {/* 経理入力欄（経理・システム管理者のみ編集。変更保存時に受注/管理担当へ通知） */}
+      {!orderSheetMode && <AccountingMemoCard caseData={caseData} onRefresh={_onRefresh} />}
+
       {/* 請求パターン（案件単位）。②③は前受金＝確定（一括）。契約時に受注担当／管理担当が選択。 */}
       {!orderSheetMode && (
         <div className="rounded-lg border border-brand-200 bg-brand-50/40 px-3.5 py-3">
@@ -405,6 +410,100 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
           </div>
         </div>
       </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 経理入力欄（migration 200） ───
+// 経理(primary_role='accounting')＋システム管理者(system_manager) のみ編集可。他ロールは閲覧のみ。
+// 保存時に内容が変わっていれば受注担当＋管理担当へ通知（変更なしでは通知しない）。
+function AccountingMemoCard({ caseData, onRefresh }: { caseData: CaseRow; onRefresh: () => void }) {
+  const user = useAuth()
+  const role = user?.primaryRole ?? null
+  const roles = user?.roles ?? []
+  const canEdit = role === 'accounting' || roles.includes('system_manager')
+
+  const [draft, setDraft] = useState<string>(caseData.accounting_memo ?? '')
+  const [saving, setSaving] = useState(false)
+  const [updatedByName, setUpdatedByName] = useState<string | null>(null)
+  const original = caseData.accounting_memo ?? ''
+  const dirty = draft.trim() !== original.trim()
+
+  // 更新者名の取得（保存者IDから）
+  useEffect(() => {
+    setDraft(caseData.accounting_memo ?? '')
+    const uid = caseData.accounting_memo_updated_by
+    if (!uid) { setUpdatedByName(null); return }
+    let alive = true
+    ;(async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from('members').select('name').eq('id', uid).maybeSingle()
+      if (alive) setUpdatedByName((data as { name?: string } | null)?.name ?? null)
+    })()
+    return () => { alive = false }
+  }, [caseData.accounting_memo, caseData.accounting_memo_updated_by])
+
+  const save = async () => {
+    if (!user?.memberId) { showToast('ログイン情報が取得できません', 'error'); return }
+    if (!dirty) return
+    setSaving(true)
+    const supabase = createClient()
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('cases').update({
+      accounting_memo: draft.trim() || null,
+      accounting_memo_updated_at: now,
+      accounting_memo_updated_by: user.memberId,
+    }).eq('id', caseData.id)
+    if (error) { setSaving(false); showToast(`保存に失敗: ${error.message}`, 'error'); return }
+    // 受注担当＋管理担当へ通知（case_members から取得。自分自身は除外）
+    const { data: cm } = await supabase.from('case_members').select('member_id, role').eq('case_id', caseData.id).in('role', ['sales', 'manager', 'sub_manager'])
+    const targets = new Set(((cm ?? []) as Array<{ member_id: string }>).map(m => m.member_id))
+    targets.delete(user.memberId)
+    if (targets.size > 0) {
+      await supabase.from('notifications').insert([...targets].map(mid => ({
+        member_id: mid,
+        type: 'accounting_memo_updated',
+        case_id: caseData.id,
+        title: '経理から連絡があります',
+        body: `${caseData.case_number} ${caseData.deal_name}：経理入力欄が更新されました`,
+      })))
+    }
+    setSaving(false)
+    showToast('保存しました' + (targets.size > 0 ? `（${targets.size}人へ通知）` : ''), 'success')
+    onRefresh()
+  }
+
+  const lastUpdated = caseData.accounting_memo_updated_at ? caseData.accounting_memo_updated_at.slice(0, 16).replace('T', ' ') : null
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-3.5 py-2.5">
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <Calculator className="w-4 h-4 text-amber-700" strokeWidth={2} />
+        <span className="text-[12.5px] font-semibold text-amber-900">経理入力欄</span>
+        <span className="text-[11px] text-amber-700">経理担当が書き込み・受注/管理担当へ通知</span>
+        {lastUpdated && <span className="ml-auto text-[10.5px] font-mono text-gray-500">最終更新 {updatedByName ?? '—'} / {lastUpdated}</span>}
+      </div>
+      {canEdit ? (
+        <>
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={3}
+            placeholder="例：前受金入金確認済み、確定請求書の発行は◯月末で確定。／実費未計上分あり、確認お願いします 等"
+            className="w-full text-[13px] border border-amber-200 rounded-md px-2.5 py-1.5 bg-white outline-none focus:border-amber-400 resize-y"
+          />
+          <div className="flex justify-end mt-1.5">
+            <button type="button" onClick={save} disabled={!dirty || saving}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-amber-600 rounded-md hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <Save className="w-3.5 h-3.5" strokeWidth={2.25} />保存{dirty ? '（変更を通知）' : ''}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className={`text-[13px] whitespace-pre-wrap rounded-md px-2.5 py-1.5 bg-white border border-amber-100 ${caseData.accounting_memo ? 'text-gray-800' : 'text-gray-400 italic'}`}>
+          {caseData.accounting_memo || '経理からのメモはまだありません。'}
+        </div>
       )}
     </div>
   )

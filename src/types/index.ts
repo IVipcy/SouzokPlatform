@@ -249,6 +249,10 @@ export type CaseRow = {
   payment_amount: number | null
   partner_compensation: number | null
   invoice_memo: string | null
+  // 経理入力欄（migration 200）。経理・システム管理者のみ編集可、他ロールは閲覧のみ
+  accounting_memo?: string | null
+  accounting_memo_updated_at?: string | null
+  accounting_memo_updated_by?: string | null
   billing_pattern: string        // 請求パターン staged=①/lump_expense=②/lump_only=③（migration 166。既定 staged）
   // 依頼者情報タブ
   client_trait: 'smile' | 'neutral' | 'angry' | null
