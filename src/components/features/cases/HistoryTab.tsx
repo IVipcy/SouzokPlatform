@@ -182,7 +182,8 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     setRequesting(true)
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
-    const { error } = await supabase.from('progress_reports').insert({
+    // migration 202 未適用環境ではkind列が無い→エラーになるためフォールバック挿入。
+    let { error } = await supabase.from('progress_reports').insert({
       case_id: caseData.id,
       requester_id: currentMemberId,
       confirmer_id: null,
@@ -191,7 +192,24 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       review_point: reviewPointInput.trim() || null,
       kind: reportKind,
     })
-    if (error) { setRequesting(false); showToast('報告に失敗しました', 'error'); return }
+    if (error && /kind/i.test(error.message ?? '')) {
+      // kind列がまだ無い環境向けのフォールバック（progress_check扱い）
+      const retry = await supabase.from('progress_reports').insert({
+        case_id: caseData.id,
+        requester_id: currentMemberId,
+        confirmer_id: null,
+        status: '依頼中',
+        requested_date: today,
+        review_point: reviewPointInput.trim() || null,
+      })
+      error = retry.error
+    }
+    if (error) {
+      console.error('progress_reports insert failed:', error)
+      setRequesting(false)
+      showToast(`報告に失敗しました: ${error.message}`, 'error')
+      return
+    }
 
     // 分類に応じた status 更新（承認前の状態遷移）
     //   work_complete → 案件を「業務完了申請中」へ (承認で完了になる)

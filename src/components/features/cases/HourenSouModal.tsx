@@ -67,7 +67,7 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
       requested_date: today,
       status: '依頼中',
     }).select('id').single()
-    if (error || !row) { setSending(false); showToast(`送信に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    if (error || !row) { console.error('case_reports insert failed:', error); setSending(false); showToast(`送信に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     // 各通知先に通知を送信（type=case_report で MyAlertCenter が報連相・メモタブへ遷移）
     const notifRows = recipients.map(mid => ({
       member_id: mid,

@@ -83,8 +83,9 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
       setModalRow(null)
       router.refresh()
     } catch (e) {
-      console.error(e)
-      showToast('報告に失敗しました', 'error')
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('progress_reports insert failed:', e)
+      showToast(`報告に失敗しました: ${msg}`, 'error')
     } finally {
       setBusy(null)
     }

@@ -83,7 +83,8 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
     setSubmitting(true)
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
-    const { data, error } = await supabase.from('case_complaints').insert({
+    // migration 201 未適用環境では status/requested_date/requester_id 列が無いためフォールバック挿入。
+    let { data, error } = await supabase.from('case_complaints').insert({
       case_id: caseData.id,
       occurred_at: today,
       requested_date: today,
@@ -95,8 +96,26 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
       detail: mDetail.trim() || null,
       action: (mAction || null) as ComplaintAction | null,
     }).select('*').single()
+    if (error && /(requested_date|requester_id|status|confirmer_id|confirmed_date|confirm_comment)/i.test(error.message ?? '')) {
+      // migration 201 未適用時のフォールバック: 旧スキーマの必須列のみで作成
+      const retry = await supabase.from('case_complaints').insert({
+        case_id: caseData.id,
+        occurred_at: today,
+        created_by: currentMemberId || null,
+        severity: mSeverity,
+        contact_method: mContact || null,
+        detail: mDetail.trim() || null,
+        action: (mAction || null) as ComplaintAction | null,
+      }).select('*').single()
+      data = retry.data
+      error = retry.error
+    }
     setSubmitting(false)
-    if (error || !data) { showToast(`報告に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    if (error || !data) {
+      console.error('case_complaints insert failed:', error)
+      showToast(`報告に失敗しました: ${error?.message ?? ''}`, 'error')
+      return
+    }
     setRows(prev => [data as CaseComplaintRow, ...prev])
     setReportOpen(false)
     // 受注担当へ通知
