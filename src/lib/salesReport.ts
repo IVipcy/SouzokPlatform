@@ -12,6 +12,7 @@ export type SalesReportRaw = {
   amount: number | null
   deduct_expense_nontax?: number | null   // 差引実費 非課税（L列）
   deduct_expense_tax?: number | null       // 差引実費 課税税込（M列）
+  bank_override?: string | null             // 銀行手動指定（migration 199）。null=自動判定
   posted_date: string | null
   issued_date: string | null
   notes: string | null
@@ -35,7 +36,8 @@ export function isSaleInvoice(invoiceType: string | null | undefined, billingPat
 export type SalesRow = {
   invoiceId: string
   caseId: string
-  bank: string | null     // 入金銀行（案件のcases.bank）
+  bank: string | null     // 表示上の銀行（payments.bank または invoice.bank_override）
+  bankOverride: string | null  // ユーザー手動指定（null=自動判定）
   postedDate: string | null
   issuedDate: string | null
   caseNumber: string
@@ -158,15 +160,16 @@ export function buildSalesReport(
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
 
-    // 銀行決定：①この請求の入金(payments.bank・CSV突合で入る) → ②未振り分け。
-    // 1つの案件で違う銀行に入金されることもあるため、cases.bank や team.bank へのフォールバックは行わない。
-    // 未振り分け行はユーザーが手動で銀行を設定できる（未振り分けタブから行の銀行を選ぶ）。
+    // 銀行決定：①この請求の入金(payments.bank・CSV突合で入る) → ②invoice.bank_override(ユーザー手動指定) → ③未振り分け。
+    // 1つの案件で違う銀行に入金されることもあるため、案件レベル/チームレベルのフォールバックはしない。
+    // ユーザーは各行のドロップダウンで手動指定できる（invoice.bank_override）。
     // 原本の仕様通り、未入金の行も売上表に載せる（入金日欄が「未入金」になる）。
     const division = team?.division || ''
     const paysAll = toArr<{ amount: number; payment_date: string; is_refund?: boolean; bank?: string | null }>(inv.payments)
       .filter(p => !p.is_refund)
       .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
-    const bank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
+    const paymentBank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
+    const bank = paymentBank || (inv.bank_override || '')
 
     // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
     //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
@@ -197,6 +200,7 @@ export function buildSalesReport(
       invoiceId: inv.id,
       caseId: inv.case_id,
       bank: bank || null,
+      bankOverride: inv.bank_override ?? null,
       postedDate: inv.posted_date,
       issuedDate: inv.issued_date,
       caseNumber: c?.case_number ?? '',

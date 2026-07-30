@@ -67,6 +67,13 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
     router.refresh()
   }
 
+  // 銀行を手動で上書き（invoice.bank_override）。'' = 自動判定に戻す（null保存）。
+  async function saveBankOverride(invoiceId: string, bank: string) {
+    const supabase = createClient()
+    await supabase.from('invoices').update({ bank_override: bank || null }).eq('id', invoiceId)
+    router.refresh()
+  }
+
   async function handleExport() {
     const blob = await exportSalesBook(currentBook, monthLabel)
     const mLabel = month === 'all' ? '全期間' : month
@@ -151,7 +158,7 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
       </div>
 
       {/* book本体 */}
-      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} bankFilter={bankFilter} />
+      <BookView book={currentBook} monthLabel={monthLabel} onSaveDeduct={saveDeduct} onSaveBankOverride={saveBankOverride} bankFilter={bankFilter} />
     </div>
   )
 }
@@ -203,9 +210,10 @@ function DivisionSettingsPanel({ teams, onClose, onSaved }: { teams: TeamMeta[];
 
 type SheetHandlers = {
   onSaveDeduct: (invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) => void
+  onSaveBankOverride: (invoiceId: string, bank: string) => void
 }
 
-function BookView({ book, monthLabel, onSaveDeduct, bankFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__' } & SheetHandlers) {
+function BookView({ book, monthLabel, onSaveDeduct, onSaveBankOverride, bankFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__' } & SheetHandlers) {
   // 銀行フィルタ：シートの sheet.bank と照合。'all' は全部、'__unassigned__' は bank 未設定シートのみ。
   const filteredSheets = book.sheets.filter(s => {
     if (bankFilter === 'all') return true
@@ -221,7 +229,7 @@ function BookView({ book, monthLabel, onSaveDeduct, bankFilter }: { book: SalesB
   }
   return (
     <div className="space-y-5">
-      {filteredSheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onSaveDeduct={onSaveDeduct} />)}
+      {filteredSheets.map(sheet => <SheetTable key={sheet.key} sheet={sheet} onSaveDeduct={onSaveDeduct} onSaveBankOverride={onSaveBankOverride} />)}
     </div>
   )
 }
@@ -230,7 +238,7 @@ const NUM = 'border border-gray-200 px-2 py-1 text-right tabular-nums whitespace
 const TXT = 'border border-gray-200 px-2 py-1 whitespace-nowrap'
 const TH = 'border border-gray-300 bg-gray-100 px-2 py-1 font-semibold text-gray-700 text-center whitespace-nowrap'
 
-function SheetTable({ sheet, onSaveDeduct }: { sheet: SalesSheet } & SheetHandlers) {
+function SheetTable({ sheet, onSaveDeduct, onSaveBankOverride }: { sheet: SalesSheet } & SheetHandlers) {
   const t = sheet.totals
   const unassigned = !sheet.division || !sheet.bank
   return (
@@ -251,6 +259,7 @@ function SheetTable({ sheet, onSaveDeduct }: { sheet: SalesSheet } & SheetHandle
               <th className={TH} rowSpan={2}>合計</th><th className={TH} rowSpan={2}>前受金</th><th className={TH} rowSpan={2}>差引請求</th>
               <th className={TH} rowSpan={2}>入金日</th><th className={TH} rowSpan={2}>備考</th>
               <th className={TH} rowSpan={2}>チーム</th><th className={TH} rowSpan={2}>受注</th><th className={TH} rowSpan={2}>管理</th>
+              <th className={TH} rowSpan={2} title="銀行の手動指定（未振り分け行を手動で振り分けたい時にどうぞ）">銀行</th>
             </tr>
             <tr>
               <th className={TH}>税込</th><th className={TH}>(内税)</th>
@@ -287,6 +296,9 @@ function SheetTable({ sheet, onSaveDeduct }: { sheet: SalesSheet } & SheetHandle
                 <td className={TXT}>{r.teamName}</td>
                 <td className={TXT}>{r.salesName}</td>
                 <td className={TXT}>{r.managerName}</td>
+                <td className="border border-gray-200 px-1 py-1">
+                  <BankPicker current={r.bankOverride ?? ''} auto={!r.bankOverride} onSave={v => onSaveBankOverride(r.invoiceId, v)} />
+                </td>
               </tr>
             ))}
             <TotalRow t={t} />
@@ -312,8 +324,24 @@ function TotalRow({ t }: { t: SalesTotals }) {
       <td className={NUM}>{yen(t.total)}</td>
       <td className={NUM}>{yen(t.advance)}</td>
       <td className={NUM}>{yen(t.billed)}</td>
-      <td className={TXT} colSpan={5}></td>
+      <td className={TXT} colSpan={6}></td>
     </tr>
+  )
+}
+
+// 銀行の手動指定：null=自動判定（payments.bank に従う）／みずほ／きらぼし
+function BankPicker({ current, auto, onSave }: { current: string; auto: boolean; onSave: (v: string) => void }) {
+  return (
+    <select
+      value={current}
+      onChange={e => onSave(e.target.value)}
+      className={`w-full px-1.5 py-0.5 text-[11px] border rounded outline-none focus:border-brand-500 ${auto ? 'border-gray-200 bg-gray-50 text-gray-500' : 'border-brand-300 bg-brand-50 text-brand-700 font-semibold'}`}
+      title={auto ? '自動判定（この請求の入金銀行に従う）' : '手動指定中'}
+    >
+      <option value="">自動</option>
+      <option value="みずほ">みずほ</option>
+      <option value="きらぼし">きらぼし</option>
+    </select>
   )
 }
 
