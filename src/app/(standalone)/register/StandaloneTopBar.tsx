@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, LayoutGrid } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 // 独立ルート（相談案件登録 / オーダーシート入力）共通の簡易トップバー。
@@ -27,7 +28,11 @@ export default function StandaloneTopBar() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo-ocean.svg" alt="オーシャン" className="h-7 w-auto flex-shrink-0" />
       <span className="text-[15px] font-bold text-gray-900">{title}</span>
-      <button type="button" onClick={logout} className="ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md hover:bg-gray-50">
+      {/* PC幅のみ：管理画面(TOP)へ戻る導線。タブレット/スマホは専用アプリとして使うため非表示。 */}
+      <Link href="/" className="ml-auto hidden lg:inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 px-2.5 py-1 rounded-md hover:bg-brand-100">
+        <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />管理画面へ
+      </Link>
+      <button type="button" onClick={logout} className="lg:ml-2 ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md hover:bg-gray-50">
         <LogOut className="w-4 h-4" strokeWidth={1.75} />ログアウト
       </button>
     </header>
