@@ -200,7 +200,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
       <p className="mt-2 text-[11px] text-gray-400">
         受領状況「不要」にした書類は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />
         区分「戸籍 / 不動産 / 金融 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した書類」として受領済/未受領が横断表示されます。<br />
-        区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（原本返却が基本のため既定=対象）。
+        区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（既定は<span className="font-semibold">未選択</span>。納品タブで 対象／対象外 を選びます）。
       </p>
     </div>
   )
