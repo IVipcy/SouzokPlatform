@@ -163,18 +163,19 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
 
   return (
     <div className="space-y-3.5">
+      {/* アクションボタンはセクション外（上部）に配置（他タブと統一） */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="secondary" size="sm" leftIcon={<AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />} onClick={openReport}>
+          クレーム・不満を記録
+        </Button>
+        <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHourenSouOpen(true)}>
+          報連相
+        </Button>
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
+          タスク化
+        </Button>
+      </div>
       <Section title="クレーム報告">
-        <div className="flex flex-wrap justify-end gap-2 mb-2.5">
-          <Button variant="secondary" size="sm" leftIcon={<AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />} onClick={openReport}>
-            クレーム・不満を記録
-          </Button>
-          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHourenSouOpen(true)}>
-            報連相
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
-            タスク化
-          </Button>
-        </div>
         <p className="text-[11px] text-gray-400 mb-2.5">「クレーム・不満を記録」→ 受注担当へ通知 →<span className="font-medium text-gray-500"> 報告した本人以外が「確認する」</span>を押します。クレーム／大クレームは案件のクレームフラグ（紫）が自動で立ちます。</p>
 
         {loading ? (

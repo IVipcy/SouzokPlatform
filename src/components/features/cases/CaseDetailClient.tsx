@@ -565,10 +565,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             canRequestReview={isCaseManager}
             initialSub={initSub}
             openReportId={openReportId}
-            // 管理担当ビューのみ：案件報告タブ内に「事務管理進捗」(案件進捗=BasicInfoTab)をサブタブ表示。
-            renderOfficeProgress={isManagerViewer ? () => (
+            // 「事務管理進捗」(案件進捗=BasicInfoTab)を 案件進捗タブ内のサブタブとして表示。
+            // 受注担当ビューでも 管理担当と同じ5サブタブ(進捗サマリー/事務管理進捗/案件報告/報連相・メモ/不満・クレーム)にする。
+            renderOfficeProgress={() => (
               <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
-            ) : undefined}
+            )}
           />
         )
       })()}

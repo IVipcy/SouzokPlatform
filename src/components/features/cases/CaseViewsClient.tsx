@@ -69,8 +69,8 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   const changeView = (v: View) => router.replace(`${pathname}?view=${v}`, { scroll: false })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  // 管理案件ビュー内のサブ切替（対応中 / 完了）
-  const [manageSub, setManageSub] = useState<'active' | 'completed'>('active')
+  // 管理案件ビュー内のサブ切替（案件進行中 / 業務完了 / 納品完了）
+  const [manageSub, setManageSub] = useState<'active' | 'businessComplete' | 'delivered'>('active')
 
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
   const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'referral' ? referralRows : lpRows
@@ -159,29 +159,37 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
         </div>
       </div>
 
-      {view === 'manage' && (
+      {view === 'manage' && (() => {
+        // 案件進行中＝対応中(＋業務完了申請中)／業務完了＝完了／納品完了＝納品完了。
+        const businessCompleteRows = filteredCompleted.filter(r => r.status === '完了')
+        const deliveredRows = filteredCompleted.filter(r => r.status === '納品完了')
+        const subTabs = [
+          { key: 'active' as const, label: '案件進行中', count: managerRows.length },
+          { key: 'businessComplete' as const, label: '業務完了', count: completedRows.filter(r => r.status === '完了').length },
+          { key: 'delivered' as const, label: '納品完了', count: completedRows.filter(r => r.status === '納品完了').length },
+        ]
+        return (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => setManageSub('active')}
-              className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === 'active' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-            >
-              対応中<span className="ml-1 text-[10px] font-mono opacity-70">{managerRows.length}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setManageSub('completed')}
-              className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === 'completed' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-            >
-              完了<span className="ml-1 text-[10px] font-mono opacity-70">{completedRows.length}</span>
-            </button>
+            {subTabs.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setManageSub(t.key)}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              >
+                {t.label}<span className="ml-1 text-[10px] font-mono opacity-70">{t.count}</span>
+              </button>
+            ))}
           </div>
           {manageSub === 'active'
             ? <MyPageCasesTab memberId="" cases={filteredManager} selectable />
-            : <MyPageCasesTab memberId="" cases={filteredCompleted} selectable showCompleted />}
+            : manageSub === 'businessComplete'
+              ? <MyPageCasesTab memberId="" cases={businessCompleteRows} selectable showCompleted />
+              : <MyPageCasesTab memberId="" cases={deliveredRows} selectable showCompleted />}
         </div>
-      )}
+        )
+      })()}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} selectable />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} allCases={lpRows} selectable />}
