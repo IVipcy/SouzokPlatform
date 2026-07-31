@@ -58,9 +58,12 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
   const addRow = async () => {
     setBusy(true)
     const cid = ensureCaseId ? await ensureCaseId() : caseId
+    // 既にメイン依頼者がいない場合は 最初の1件を自動でメインにする（そうしないと 案件名 / clients.name への同期が動かない）
+    const hasMain = rows.some(r => r.priority === 'main')
+    const priority = hasMain ? 'companion' : 'main'
     const { data, error } = await supabase
       .from('case_clients')
-      .insert({ case_id: cid, name: '', priority: 'companion', sort_order: rows.length })
+      .insert({ case_id: cid, name: '', priority, sort_order: rows.length })
       .select('*')
       .single()
     setBusy(false)

@@ -23,7 +23,7 @@ const BUCKET = 'meeting-memos'
 type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' | 'number' }
 const EXTRACT_SCHEMA: Record<string, XField[]> = {
   // 依頼者情報：住所・振込名義（clients テーブル）を中心にAI反映。
-  client: [
+  clientInfo: [
     { key: 'address', label: '依頼者住所', target: 'client' },
     { key: 'transfer_name_kana', label: '振込名義人（カナ）', target: 'client' },
   ],
@@ -57,7 +57,7 @@ type RowExtractSchema = {
 type ExtractRowTable = 'heirs' | 'real_estate_properties' | 'financial_assets' | 'case_clients'
 const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { table: ExtractRowTable })[]> = {
   // 依頼者情報：CaseClientsTable(case_clients)へAI追加。優先度は既定 companion(安全側)。ユーザーが必要に応じてメイン依頼人に切替。
-  client: [{
+  clientInfo: [{
     key: 'clients', label: '依頼者・同行者一覧', table: 'case_clients',
     fields: [
       { key: 'name', label: '氏名' },
@@ -229,7 +229,7 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-const SEC_LABEL: Record<string, string> = { client: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+const SEC_LABEL: Record<string, string> = { clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
 export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
   if (memos.length === 0) return null
   const groups = [...new Set(memos.map(m => m.section || 'other'))]
@@ -496,7 +496,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
     <div className="space-y-3">
       <p className="text-[12px] text-gray-500">面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。</p>
 
-      {sec('client', '依頼者情報', null, (
+      {sec('clientInfo', '依頼者情報', null, (
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
@@ -504,7 +504,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} ai={aiFilled.has('transfer_name_kana')} onSave={v => { clearAi('transfer_name_kana'); return patchClient({ transfer_name_kana: v || null }) }} mono />
           </FieldGrid>
         </div>
-      ), runExtract('client'))}
+      ), runExtract('clientInfo'))}
 
       {sec('order', '提案内容・手続き内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode meetingSheetMode />

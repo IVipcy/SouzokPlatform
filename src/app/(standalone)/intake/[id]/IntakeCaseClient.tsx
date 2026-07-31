@@ -237,10 +237,13 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
         <div>
           <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
             caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
-          <div className="mt-4 flex justify-end">
-            <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-1.5 px-6 py-3.5 min-h-[52px] rounded-lg text-[15px] font-semibold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800">
-              面談結果登録へ進む →
+          {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、
+              明示的な「保存して次へ」を用意して迷わないように。押下で②面談結果登録タブへ遷移。 */}
+          <div className="mt-6 flex flex-col items-center gap-2 pb-6">
+            <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-2 px-8 py-4 min-h-[56px] rounded-xl text-[16px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-lg shadow-brand-500/20 transition-all">
+              💾 保存して面談結果登録へ進む →
             </button>
+            <p className="text-[11px] text-gray-400">入力内容は 各項目のフォーカスが外れた時点で 自動保存されています</p>
           </div>
         </div>
       )}
