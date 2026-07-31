@@ -9,6 +9,7 @@ import {
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
+import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
@@ -39,6 +40,13 @@ type Props = {
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
 type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean; custom?: boolean; work?: string }
 
+// 候補の担当区分（生成時の task_kind と同じ判定）。バッジ表示に使う。
+function kindOfCandidate(c: Candidate): 'case' | 'system' | 'touki_team' {
+  if (TOUKI_TEAM_TASK_TITLES.has(c.title)) return 'touki_team'
+  if (c.custom || MANAGER_GYOMU.has(c.gyomu)) return 'system'
+  return 'case'
+}
+
 // 管理担当/受注担当が担う業務（＝管理担当タスクとして生成）。
 // これらの業務は task_kind='system'・work_role/assign_role='manager'・phase=業務名で生成し、
 // 事務管理タスク(case)と分ける。phase を持たせることで進捗ボード／実務タブの関連タスクに集約される。
@@ -50,7 +58,9 @@ const MANAGER_GYOMU = new Set<string>([
 
 // 相続登記チームタスクとして生成する タスク名。
 // task_kind='touki_team' で生成し、事務管理/受注管理どちらの一覧にも出ず、相続登記チーム専用ダッシュボードから触られる。
-const TOUKI_TEAM_TASK_TITLES = new Set<string>(['権利書の製本'])
+//   ①相続登記の申請 ③権利書の製本 ④不動産登記簿の申請 が相続登記チーム。
+//   （②識別情報通知の受領 ⑤不動産登記簿の受領 は事務管理タスク=受信簿で受領）
+const TOUKI_TEAM_TASK_TITLES = new Set<string>(['相続登記の申請', '権利書の製本', '不動産登記簿の申請'])
 
 // 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
 // 全店調査・残高証明・経過利息・取引履歴は銀行ごとにまとめて請求するため、機関単位の「資料請求」に内包（対象外）。
@@ -64,7 +74,8 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], viewerRole = null, onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], onSaved }: Props) {
+  // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -194,12 +205,10 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       const title = REFERRAL_TASK_LABEL[r.partner_type] ?? `${r.partner_type}依頼`
       out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
-    // ロール別フィルタ：管理担当は管理業務＋その他のみ／事務管理(assistant)は事務業務のみ／それ以外(システム管理者等)は全部。
-    const isManagerC = (c: Candidate) => c.custom || MANAGER_GYOMU.has(c.gyomu)
-    if (viewerRole === 'manager' || viewerRole === 'sub_manager') return out.filter(isManagerC)
-    if (viewerRole === 'assistant') return out.filter(c => !isManagerC(c))
+    // 担当区分での絞り込みは撤廃：どのアカウントが一括生成しても全区分の候補を出す。
+    // どのみち全タスクを生成する必要があるため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, viewerRole])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets])
 
   // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
   const kosekiCoarse = useMemo(() =>
@@ -396,6 +405,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
                         <label key={c.key} className={`flex items-center gap-3 px-4 py-2 text-sm ${gen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
                           <input type="checkbox" checked={selected.has(c.key)} disabled={gen} onChange={() => toggle(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
                           <span className="flex-1 text-gray-700">{c.title}</span>
+                          <TantoKubunBadge kind={kindOfCandidate(c)} size="xs" />
                           {gen && (
                             <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">生成済</span>
                           )}
