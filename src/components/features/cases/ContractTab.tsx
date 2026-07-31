@@ -161,15 +161,16 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const reqFinal = pattern.finalInvoiceLabel != null
   const anyInvoice = !!invLegs && (invLegs.advance.exists || invLegs.final.exists)
   const billingComplete = !!invLegs && invLegs.advance.sent && (!reqFinal || invLegs.final.sent)
-  // 請求ステータスの脚チップ（前受金／確定 or 立替）。作成済(未送付)／請求済(入金待ち)／入金済 を区別。
+  // 請求ステータスの脚チップ（前受金／確定 or 立替）。
+  //   会計上、請求書発行=売掛計上=請求完了として扱う(集約チップと同じルール)。
+  //   発行済(sent) 以降はすべて「請求完了」表示。入金追跡は 請求/入金 一覧側・経理タブで並行。
   const legChip = (label: string, leg: Leg | null, na = false) => {
     const paid = !!leg?.paid, sent = !!leg?.sent, exists = !!leg?.exists
     const cls = na || (!exists) ? 'bg-gray-50 text-gray-400 border-gray-200'
-      : paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : sent ? 'bg-sky-50 text-sky-700 border-sky-200'
+      : sent ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
       : 'bg-amber-50 text-amber-700 border-amber-200'
-    const txt = na ? '対象外' : paid ? '入金済' : sent ? '請求済（入金待ち）' : exists ? '作成済（未送付）' : '未請求'
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cls}`}>{label}：{txt}</span>
+    const txt = na ? '対象外' : (paid || sent) ? '請求完了' : exists ? '作成済（未発行）' : '未請求'
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cls}`} title={paid ? '請求完了 (入金済)' : sent ? '請求完了 (入金待ち)' : undefined}>{label}：{txt}</span>
   }
 
   return (
