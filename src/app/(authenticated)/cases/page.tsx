@@ -238,8 +238,10 @@ export default async function CasesPage() {
   }
 
   // 管理案件一覧（対応中 = 稼働中）／完了案件（別サブビューで閲覧・削除）
-  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status)).map(toMyCaseRow)
-  const completedRows: MyCaseRow[] = cases.filter(c => c.status === '完了').map(toMyCaseRow)
+  //   業務完了申請中 も 稼働中（承認待ちの実務案件）として管理案件一覧に出す。
+  //   完了・納品完了 は「完了案件」サブビューへ（納品完了が どのビューにも出ず削除できない不具合の是正）。
+  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status) || c.status === '業務完了申請中').map(toMyCaseRow)
+  const completedRows: MyCaseRow[] = cases.filter(c => c.status === '完了' || c.status === '納品完了').map(toMyCaseRow)
 
   // 相談案件一覧
   const consultRows: ConsultCase[] = cases.filter(c => CONSULT.has(c.status)).map(c => ({
