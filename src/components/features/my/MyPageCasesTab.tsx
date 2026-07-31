@@ -240,8 +240,13 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             const totalSys = c.progressSystemTotal ?? 0
             const doneSys = c.progressSystemDone ?? 0
             const pctSys = totalSys > 0 ? Math.round((doneSys / totalSys) * 100) : 0
-            const overdue = !!c.hasOverdueTask
-            const barCls = overdue ? 'bg-red-500' : 'bg-brand-500'
+            // 列(task_kind)ごとの遅延タスク有無で赤化を判定。案件全体のhasOverdueTaskは互換のため残置。
+            const caseOverdueList = c.overdueCaseTasks ?? []
+            const systemOverdueList = c.overdueSystemTasks ?? []
+            const caseOverdue = caseOverdueList.length > 0
+            const systemOverdue = systemOverdueList.length > 0
+            const barClsCase = caseOverdue ? 'bg-red-500' : 'bg-brand-500'
+            const barClsSys = systemOverdue ? 'bg-red-500' : 'bg-brand-500'
             const weekly = c.weeklyStatus ?? '未対応'
             const isSelected = selected.has(c.id)
             return (
@@ -319,18 +324,18 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 事務管理タスク進捗（分母=事務管理のみ）＋遅延タスク全件 or 次の1件 */}
+              {/* 事務管理タスク進捗（分母=事務管理のみ）＋遅延タスク全件 or 次の1件 — 事務管理側の遅延だけで赤化 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalCase > 0 ? (
                   <div>
                     <div className="flex items-center gap-1.5">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                        <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctCase}%` }} />
+                        <div className={`h-full ${barClsCase} rounded-full`} style={{ width: `${pctCase}%` }} />
                       </div>
-                      <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
+                      <span className={`text-[11px] font-mono flex-shrink-0 ${caseOverdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
                     </div>
                     <ProgressTaskList
-                      overdueTasks={c.overdueCaseTasks ?? []}
+                      overdueTasks={caseOverdueList}
                       nextId={c.nextCaseTaskId ?? null}
                       nextTitle={c.nextCaseTaskTitle ?? null}
                     />
@@ -339,18 +344,18 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   <span className="text-[12px] text-gray-300">—</span>
                 )}
               </td>}
-              {/* 受注/管理タスク進捗（分母=system）＋遅延タスク全件 or 次の1件 */}
+              {/* 受注/管理タスク進捗（分母=system）＋遅延タスク全件 or 次の1件 — 受注/管理側の遅延だけで赤化 */}
               {!minimal && <td className="px-3 py-2.5">
                 {totalSys > 0 ? (
                   <div>
                     <div className="flex items-center gap-1.5">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                        <div className={`h-full ${barCls} rounded-full`} style={{ width: `${pctSys}%` }} />
+                        <div className={`h-full ${barClsSys} rounded-full`} style={{ width: `${pctSys}%` }} />
                       </div>
-                      <span className={`text-[11px] font-mono flex-shrink-0 ${overdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
+                      <span className={`text-[11px] font-mono flex-shrink-0 ${systemOverdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
                     </div>
                     <ProgressTaskList
-                      overdueTasks={c.overdueSystemTasks ?? []}
+                      overdueTasks={systemOverdueList}
                       nextId={c.nextSystemTaskId ?? null}
                       nextTitle={c.nextSystemTaskTitle ?? null}
                     />
