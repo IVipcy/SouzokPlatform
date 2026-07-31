@@ -8,9 +8,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, PackageCheck, Loader2, Check, X, RotateCcw } from 'lucide-react'
+import { Package, PackageCheck, X, RotateCcw, UserCheck } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
+import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow } from '@/types'
@@ -228,17 +229,17 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                     {filter === 'target' && (
                       <td className="px-3 py-2.5 text-center">
                         {r.checkedAt ? (
-                          <button type="button" disabled={saving === r.key} onClick={() => toggleCheck(r)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200"
-                            title="クリックで取り消し">
-                            <Check className="w-3 h-3" strokeWidth={2.5} />
-                            {r.checkedByName ?? '—'} {r.checkedAt.slice(5, 10).replace('-', '/')}
-                          </button>
+                          <span className="inline-flex items-center gap-1 relative">
+                            <HankoStamp name={r.checkedByName} at={r.checkedAt} size="sm" />
+                            <button type="button" onClick={() => toggleCheck(r)} title="Wチェックを取消"
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center">
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
                         ) : (
-                          <button type="button" disabled={saving === r.key || r.checkedById === currentMemberId} onClick={() => toggleCheck(r)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 disabled:opacity-50">
-                            {saving === r.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" strokeWidth={2.25} />}
-                            Wチェックする
+                          <button type="button" disabled={saving === r.key} onClick={() => toggleCheck(r)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50">
+                            <UserCheck className="w-3 h-3" />未確認
                           </button>
                         )}
                       </td>

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import {
-  ChevronDown, ChevronLeft, ChevronRight, Check, Star, Activity, MessageCircle, Receipt, ListChecks, Users, Wallet,
+  ChevronDown, Check, Star, Activity, MessageCircle, Receipt, ListChecks, Users, Wallet,
   Handshake, Split, Feather, Home, Landmark, Shield, FileX, Scale, FileSearch, ShieldCheck,
   Coins, Mail, Send, FileSignature, Settings, UserCheck, CalendarClock, FileCheck, History,
   Inbox, Folder, FilePlus2, Contact, TrendingUp, Network, Package, type LucideIcon,
@@ -175,13 +175,12 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
         <button
           type="button"
           onClick={() => setShowCompleted(v => !v)}
-          className={`inline-flex items-center px-1.5 py-2.5 -mb-px transition-colors cursor-pointer ${showCompleted ? 'text-brand-600' : 'text-gray-300 hover:text-gray-500'}`}
+          className={`inline-flex items-center gap-1 px-2 py-1 my-1.5 rounded-full border transition-colors cursor-pointer ${showCompleted ? 'bg-gray-700 text-white border-gray-700 hover:bg-gray-800' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 hover:text-gray-800'}`}
           title={showCompleted ? `完了タブを折り畳む (${practiceCompletedCount}件)` : `完了タブを表示 (${practiceCompletedCount}件)`}
           aria-label={showCompleted ? '完了タブを折り畳む' : '完了タブを表示'}
         >
-          {showCompleted
-            ? <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.5} />
-            : <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />}
+          <span className="text-[14px] leading-none font-bold">⋯</span>
+          <span className="text-[11px] font-mono font-bold">+{practiceCompletedCount}</span>
         </button>
       )}
       {groupInfoTabs ? (
