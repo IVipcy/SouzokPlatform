@@ -29,7 +29,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
   const [justCompleted, setJustCompleted] = useState(false)
   const total = sections.length
 
-  // 完成画面（完成ボタン押下直後）。以降の追加・変更はPCの方が楽、というソフトな案内。
+  // 完成画面（完成ボタン押下直後）。スマホ/タブレットは「以降はPCで」の案内・PCは案件詳細への直行ボタンを主役に。
   if (justCompleted) {
     return (
       <div className="py-6 flex flex-col items-center text-center">
@@ -38,19 +38,41 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
         </div>
         <div className="text-[20px] font-bold text-gray-900 mb-1.5">お疲れさまでした</div>
         <div className="text-[13px] text-gray-500 mb-5">オーダーシートが完成しました</div>
-        <div className="w-full max-w-[320px] rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3.5 mb-6">
+
+        {/* スマホ/タブレット時のみ「以降はPCで」の案内 (lg以上=PC では非表示) */}
+        <div className="w-full max-w-[320px] rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3.5 mb-6 lg:hidden">
           <div className="flex items-start gap-2 text-left">
             <MonitorSmartphone className="w-[18px] h-[18px] text-brand-600 mt-0.5 flex-none" />
             <span className="text-[13px] leading-relaxed text-brand-800">この先の追加・変更はPC（管理画面）で行ってください</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push('/order-sheet')}
-          className="w-full max-w-[320px] h-12 rounded-xl bg-brand-600 text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-700 transition"
-        >
-          <Home className="w-[18px] h-[18px]" />TOPに戻る
-        </button>
+
+        <div className="w-full max-w-[420px] flex flex-col gap-2.5">
+          {/* PC想定: 案件詳細を直接開く (主導線) */}
+          <button
+            type="button"
+            onClick={() => router.push(`/cases/${caseData.id}`)}
+            className="w-full h-12 rounded-xl bg-brand-600 text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-700 transition"
+          >
+            案件詳細を開く →
+          </button>
+          {/* 管理画面(PC)のTOP=ダッシュボード */}
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="w-full h-11 rounded-xl bg-white border border-gray-300 text-gray-700 text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-gray-50 transition"
+          >
+            <Home className="w-[16px] h-[16px]" />管理画面TOP（ダッシュボード）へ
+          </button>
+          {/* 面談シートアプリのTOP（続けて別案件を登録する用） */}
+          <button
+            type="button"
+            onClick={() => router.push('/order-sheet')}
+            className="w-full h-10 rounded-xl bg-white border border-gray-200 text-gray-600 text-[13px] font-medium inline-flex items-center justify-center gap-2 hover:bg-gray-50 transition"
+          >
+            面談シートアプリのTOPへ
+          </button>
+        </div>
         <div className="text-[11px] text-gray-400 mt-4">入力内容はすべて自動保存済みです</div>
       </div>
     )

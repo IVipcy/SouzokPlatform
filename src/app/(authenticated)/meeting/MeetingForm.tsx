@@ -1117,19 +1117,24 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       {/* 1ページ構成（ステップバー・プログレスは廃止） */}
       {renderStep()}
 
-      {/* Bottom nav（モバイルは全幅で押しやすく／PCは中央にまとめる） */}
-      <div className="flex flex-col-reverse md:flex-row md:justify-center gap-2.5 pt-4 mt-2 border-t border-gray-200">
-        {step > 0 && (
-          <button onClick={prevStep} className="w-full md:w-auto px-5 py-3 rounded-lg border-[1.5px] border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition">
-            ← 戻る
+      {/* Bottom nav (面談シート最下部『保存して面談結果登録へ進む』ボタンとスタイルを揃える。中央・大きめ・角丸・強い影) */}
+      <div className="mt-6 pb-6 pt-4 border-t border-gray-200 flex flex-col items-center gap-2">
+        <div className="w-full flex flex-col-reverse md:flex-row md:justify-center gap-2.5">
+          {step > 0 && (
+            <button onClick={prevStep} className="w-full md:w-auto px-5 py-3 rounded-lg border-[1.5px] border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition">
+              ← 戻る
+            </button>
+          )}
+          <button
+            onClick={nextStep}
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[56px] rounded-xl text-[16px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-lg shadow-brand-500/20 transition-all"
+          >
+            {step === STEPS.length - 1 ? (saving ? '保存中...' : '💾 登録する') : '次へ →'}
           </button>
+        </div>
+        {step === STEPS.length - 1 && (
+          <p className="text-[11px] text-gray-400">入力内容は 各項目のフォーカスが外れた時点で 自動保存されています</p>
         )}
-        <button
-          onClick={nextStep}
-          className="w-full md:w-auto px-8 py-3 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2 transition shadow-sm bg-brand-600 hover:bg-brand-700 shadow-brand-500/25"
-        >
-          {step === STEPS.length - 1 ? (saving ? '保存中...' : '登録する') : '次へ →'}
-        </button>
       </div>
     </div>
   )
