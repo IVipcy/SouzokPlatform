@@ -42,14 +42,23 @@ const TONE_STYLES: Record<Card['tone'], { iconBg: string; iconColor: string }> =
 export default async function DashboardTopPage() {
   // ミニマム運用モードではダッシュボードを隠し、マイページを着地先にする
   if (isMinimalMode()) redirect(MINIMAL_LANDING)
+  // 相続登記チームメンバー(システム管理者除く)は 専用ダッシュボード /dashboard/touki-team に直行
+  {
+    const u = await getCurrentUser()
+    const isSm = isSystemManager(u)
+    if (u?.isTouKiTeam && !isSm) redirect('/dashboard/touki-team')
+  }
   const supabase = await createClient()
   const { data: teamsRaw } = await supabase
     .from('teams')
-    .select('id,name,sort_order')
+    .select('id,name,sort_order,is_touki_team_special')
     .eq('is_active', true)
     .order('sort_order')
 
-  const teams = (teamsRaw ?? []) as Array<{ id: string; name: string; sort_order: number }>
+  // 相続登記チーム(is_touki_team_special) は 受注/管理 のチーム一覧から除外し、
+  // 専用ダッシュボード /dashboard/touki-team に集約する。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teams = ((teamsRaw ?? []) as any[]).filter(t => !t.is_touki_team_special) as Array<{ id: string; name: string; sort_order: number }>
 
   // ── ロール別の表示制御 ──
   // 全員: 部全体 / 受注担当全体 / 管理担当全体

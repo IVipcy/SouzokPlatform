@@ -18,6 +18,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Bell,
+  Package,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -140,6 +141,35 @@ export default function Sidebar() {
         // 事務管理タスク・確認簿・到着物受信簿・請求入金）のみ表示。
         const isAssistantLike = !!user && ['assistant', 'accounting'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
         const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/confirm', '/documents', '/billing'])
+        // 相続登記チームメンバー(システム管理者除く) は 相続登記チームダッシュボードだけ表示。
+        // 他のメニュー(マイページ・案件一覧・タスク一覧・請求 等)はすべて非表示。
+        const isTouKiOnly = !!user?.isTouKiTeam && !user.roles.includes('system_manager') && user.primaryRole !== 'system_manager'
+        const TOUKI_ITEM: NavItem = { href: '/dashboard/touki-team', label: '相続登記チーム', Icon: Package }
+        if (isTouKiOnly) {
+          return (
+            <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
+              <div>
+                {!collapsed && <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 tracking-[0.18em] uppercase">相続登記チーム</div>}
+                {collapsed && <div className="h-px bg-gray-100 my-2" />}
+                <div className="space-y-0.5">
+                  {(() => {
+                    const it = TOUKI_ITEM
+                    const isActive = pathname.startsWith(it.href)
+                    const itemClass = `group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`
+                    return (
+                      <Link href={it.href} title={collapsed ? it.label : undefined} className={itemClass}>
+                        <it.Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-500'}`} strokeWidth={isActive ? 2.25 : 1.9} />
+                        {!collapsed && <span className="truncate">{it.label}</span>}
+                      </Link>
+                    )
+                  })()}
+                </div>
+              </div>
+            </nav>
+          )
+        }
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (isAssistantLike) return ASSISTANT_ALLOWED.has(it.href)
