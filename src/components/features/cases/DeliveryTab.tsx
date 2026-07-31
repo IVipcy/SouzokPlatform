@@ -166,7 +166,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
   const excludeRows = useMemo(() => rows.filter(r => r.selection === 'exclude'), [rows])
   const unselectedRows = useMemo(() => rows.filter(r => r.selection === null), [rows])
   const checkedCount = useMemo(() => targetRows.filter(r => !!r.checkedAt).length, [targetRows])
-  const canComplete = canManage && targetRows.length > 0 && checkedCount === targetRows.length && deliveryStatus !== '納品済'
+  const canComplete = targetRows.length > 0 && checkedCount === targetRows.length && deliveryStatus !== '納品済'
 
   const shownRows = filter === 'target' ? targetRows : filter === 'exclude' ? excludeRows : unselectedRows
 
@@ -187,11 +187,17 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             {filter === 'target' && (
               <span className="text-[11.5px] text-gray-500">Wチェック済み <span className={`font-mono font-bold ${checkedCount === targetRows.length ? 'text-emerald-600' : 'text-amber-600'}`}>{checkedCount}</span> / {targetRows.length}</span>
             )}
-            {canManage && (
-              <Button variant="primary" size="sm" onClick={markDelivered} loading={confirming} disabled={!canComplete} leftIcon={<PackageCheck className="w-3.5 h-3.5" strokeWidth={2.25} />}>
-                納品完了{canComplete ? '' : (targetRows.length === 0 ? ' (対象なし)' : ` (残 ${targetRows.length - checkedCount}件)`)}
-              </Button>
-            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={markDelivered}
+              loading={confirming}
+              disabled={!canComplete || !canManage}
+              leftIcon={<PackageCheck className="w-3.5 h-3.5" strokeWidth={2.25} />}
+              title={!canManage ? 'この案件の管理担当のみ押せます' : (deliveryStatus === '納品済' ? '既に納品済です' : (targetRows.length === 0 ? '対象書類を1件以上選んでください' : (checkedCount < targetRows.length ? `Wチェックが残 ${targetRows.length - checkedCount} 件` : '')))}
+            >
+              納品完了{deliveryStatus === '納品済' ? ' (済)' : canComplete ? '' : targetRows.length === 0 ? ' (対象なし)' : ` (残 ${targetRows.length - checkedCount}件)`}
+            </Button>
           </div>
         </div>
         ) })()}
