@@ -174,28 +174,17 @@ export async function getCompletionCaution(task: TaskRow, meId: string | null): 
     return null
   }
 
-  // ── 権利書の製本（相続登記チームタスク）：完了時に「納品対応（事務管理）」タスクを推奨 ──
+  // ── 権利書の製本（相続登記チームタスク）：完了時に 納品タブ での納品を案内 ──
+  //    納品は案件全体の最終ステップ（納品タブが担当）。相続登記固有の「納品対応」タスクは廃止済み。
   if (task.title === '権利書の製本' && task.task_kind === 'touki_team') {
-    const { data } = await supabase.from('tasks')
-      .select('id, title, status')
-      .eq('case_id', task.case_id)
-      .eq('title', '納品対応')
-      .neq('status', '完了')
-      .neq('status', 'キャンセル')
-      .limit(1)
-      .maybeSingle()
-    const next = data as { id: string; title: string } | null
-    if (next) {
-      return {
-        title: '次は「納品対応」（事務管理タスク）です',
-        note: '案件の 事務管理担当 が納品タブから 戸籍等 と一緒に権利書を納品します。この案件にはまだ未完了の「納品対応」タスクが残っています。',
-        requestLabel: '',
-        request: async () => {},
-        landingUrl: `/tasks/${next.id}`,
-        landingLabel: '納品対応 タスクを開く',
-      }
+    return {
+      title: '次は 納品対応 です（案件の最終ステップ）',
+      note: '事務管理担当が 案件詳細の「納品タブ」から、権利書・戸籍等の原本をまとめて納品します（原本受領証・封筒もそこから作成できます）。',
+      requestLabel: '',
+      request: async () => {},
+      landingUrl: `/cases/${task.case_id}?tab=delivery`,
+      landingLabel: '納品タブを開く',
     }
-    return null
   }
 
   return null

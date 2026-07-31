@@ -193,7 +193,7 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
         </div>
       )}
 
-      <p className="text-[11px] text-gray-400 flex items-center gap-1"><Package className="w-3 h-3" strokeWidth={2} /> 権利書の製本 完了後は 案件詳細の「納品対応（事務管理タスク）」に自動でバトンが渡ります。</p>
+      <p className="text-[11px] text-gray-400 flex items-center gap-1"><Package className="w-3 h-3" strokeWidth={2} /> 権利書の製本 完了後は 事務管理担当が 案件詳細の「納品タブ」から 戸籍等とまとめて納品します（納品は案件全体の最終ステップ）。</p>
     </div>
   )
 }
