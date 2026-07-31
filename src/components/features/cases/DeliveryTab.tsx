@@ -39,10 +39,13 @@ type DocRow = {
   checkedAt: string | null
 }
 
-const DELIVERY_STATUS_CHIP: Record<string, string> = {
-  '準備中': 'bg-gray-100 text-gray-600 border-gray-200',
-  '納品待ち': 'bg-sky-100 text-sky-700 border-sky-200',
-  '納品済': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+// delivery_status → 表示ラベル+チップ配色
+// 内部値(DB): 準備中 / 確認申請中 / 納品待ち / 納品済
+// 表示上: 準備中/確認申請中/納品待ち はすべて「未納品」(進行中)、納品済のみ確定
+function statusView(delivery_status: string | null | undefined) {
+  const s = delivery_status ?? '準備中'
+  if (s === '納品済') return { label: '納品済', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' }
+  return { label: '未納品', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
 }
 
 type FilterMode = 'unselected' | 'target' | 'exclude'
@@ -171,9 +174,10 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
     <div className="space-y-3.5">
       <Section title="納品">
         {/* ヘッダー: ステータス + フィルタチップ + 納品完了ボタン */}
+        {(() => { const sv = statusView(deliveryStatus); return (
         <div className="flex items-center gap-2 flex-wrap mb-2.5">
-          <span className="text-[13px] text-gray-500">案件レベル</span>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11.5px] font-semibold border ${DELIVERY_STATUS_CHIP[deliveryStatus] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>{deliveryStatus}</span>
+          <span className="text-[13px] text-gray-500">納品ステータス</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11.5px] font-semibold border ${sv.cls}`}>{sv.label}</span>
           <div className="flex items-center gap-1 ml-4">
             <FilterChip label="未選択" active={filter === 'unselected'} count={unselectedRows.length} onClick={() => setFilter('unselected')} />
             <FilterChip label="✓ 対象" active={filter === 'target'} count={targetRows.length} onClick={() => setFilter('target')} tone="target" />
@@ -190,6 +194,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             )}
           </div>
         </div>
+        ) })()}
 
         <p className="text-[11.5px] text-gray-500 mb-2.5 leading-relaxed">
           対象書類 = 受信簿(実務タブ/タスク由来) ＋ 契約手続きの区分「お客様預かり書類」／同名は自動集約（例: 戸籍謄本 6通 と1行）。<br />
