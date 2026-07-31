@@ -148,7 +148,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
           <FieldGrid>
             <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} width="md" />
             <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
-            {taxRow && <InlineSelect label="紹介理由" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
+            {taxRow && <InlineSelect label="紹介内容" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
             {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
         </Section>

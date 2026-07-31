@@ -9,7 +9,7 @@ import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
 import type { CaseRow } from '@/types'
 
-export type GuidedSection = { title: string; gate?: string; node: ReactNode }
+export type GuidedSection = { title: string; gate?: string; workContentKey?: string; node: ReactNode }
 
 // オーダーシートのガイド入力（スマホ最適）。1セクション＝1画面のステップ。
 // 各ステップは「簡易メモ」を主役にし、「詳細を入力」で既存セクションの詳細項目を展開する。
@@ -107,16 +107,21 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="text-[16px] font-bold text-gray-900 mb-3">{current.title}</div>
 
-        {/* 簡易メモ（主役）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
-        {current.title !== '受注内容' && (
-          <WorkContentField
-            caseData={caseData}
-            gyomu={current.gate ?? current.title}
-            patchCase={patchCase}
-            label="作業内容・関連情報"
-            placeholder={workContentPlaceholder(current.gate ?? current.title)}
-          />
-        )}
+        {/* 簡易メモ（主役）。受注内容セクションは gyomu="order"(受注内容/提案内容) を簡易メモ位置に出す
+            （OrderContentTab側は hideOrderMemo で内部の同フリー欄を非表示にして二重表示を防ぐ）。 */}
+        {(() => {
+          const isOrder = current.title === '受注内容'
+          const key = isOrder ? 'order' : (current.workContentKey ?? current.gate ?? current.title)
+          return (
+            <WorkContentField
+              caseData={caseData}
+              gyomu={key}
+              patchCase={patchCase}
+              label={isOrder ? '受注内容（提案内容）／面談シートと共有' : '作業内容・関連情報'}
+              placeholder={workContentPlaceholder(key)}
+            />
+          )
+        })()}
 
         {/* 詳細を入力（展開） */}
         <button

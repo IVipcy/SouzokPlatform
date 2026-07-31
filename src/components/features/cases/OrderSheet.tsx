@@ -105,7 +105,7 @@ export default function OrderSheet({
   const allOsSections: { title: string; gate?: TabKey; anchorId?: string; workContentKey?: string; node: ReactNode }[] = [
     // 面談シート(MeetingSheetTab)と work_content のキーを揃えるため gate/workContentKey を明示（面談メモがオーダーシート/実務タブに引き継がれる）
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
-    { title: '受注内容', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode /> },
+    { title: '受注内容', workContentKey: 'order', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode hideOrderMemo={guided} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
     { title: '財産調査（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} /> },
     { title: '財産調査（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} /> },

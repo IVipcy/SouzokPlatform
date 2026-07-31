@@ -162,12 +162,12 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-1 py-2 w-7" />
+              <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">対象者</th>
               <th className="px-2.5 py-2 text-left font-semibold w-44">請求先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">範囲</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>}
@@ -209,9 +209,6 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
         </button>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        請求先は対象者を選ぶと自動入力します（自社取得＝本籍地に職務上請求／依頼者取得＝広域交付で住所地の役所）。手入力で上書きも可能です。
-      </p>
-      <p className="mt-1 text-[11px] text-gray-400">
         取得区分「依頼者取得」は、依頼者が取得して送付→「書類受信簿」で受信すると到着日が入り受信済になります。
         {progressMode ? '自社取得は請求日→到着日で管理します。' : ''}
       </p>
@@ -248,12 +245,12 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
             {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         </td>
+        <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
         <TargetCell value={r.target_person} options={targetOptions} onPick={onPickTarget} />
-        <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="対象者を選ぶと自動入力" />
+        <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="市区町村役所 等" />
         <td className="px-2.5 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></td>
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
-        <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
         {progressMode && (
           <DateReqCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)}
             show={isSelf && !!r.request_date} label="発送チェックを依頼"
@@ -332,19 +329,19 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
       </div>
       <div className="space-y-2.5">
         <div className={gridCls}>
+          <KFieldBlock label="取得区分">
+            <select value={r.acquirer ?? '自社'} onChange={e => onPickAcquirer(e.target.value)} className={selectCls}>
+              {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+            </select>
+          </KFieldBlock>
           <KFieldBlock label="対象者">
             <select value={r.target_person ?? ''} onChange={e => onPickTarget(e.target.value)} className={selectCls}>
               <option value="">— 選択 —</option>
               {targetOpts.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </KFieldBlock>
-          <KFieldBlock label="取得区分">
-            <select value={r.acquirer ?? '自社'} onChange={e => onPickAcquirer(e.target.value)} className={selectCls}>
-              {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
-            </select>
-          </KFieldBlock>
         </div>
-        <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="対象者を選ぶと自動入力" className={inputCls} /></KFieldBlock>
+        <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="市区町村役所 等" className={inputCls} /></KFieldBlock>
         <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" className="h-12 px-3 text-[15px] border border-gray-200 rounded-lg" /></KFieldBlock>
         <div className={gridCls}>
           <KFieldBlock label="種別">

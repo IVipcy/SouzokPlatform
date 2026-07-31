@@ -751,7 +751,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <div className="w-24 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral('税理士', v === 'あり')} /></div>
               {data.referralPartners.includes('税理士') && (
                 <div className="flex-1">
-                  <Select value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="理由を選択" />
+                  <Select value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="紹介内容を選択" />
                   {data.taxAdvisorBusinessType.startsWith('その他') && (
                     <div className="mt-2"><Input value={data.taxAdvisorReferralNote} onChange={v => update('taxAdvisorReferralNote', v)} placeholder="自由入力" /></div>
                   )}

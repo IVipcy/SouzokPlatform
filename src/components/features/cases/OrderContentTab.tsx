@@ -7,7 +7,7 @@ import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/con
 import {
   REFERRAL_ONLY_CATEGORY,
   ORDER_CATEGORY_ROWS, CATEGORY_AUTO_GYOMU, GYOMU_SELECTOR_ROWS,
-  defaultRolesForGyomu, seedRolesForCategories, type GyomuSelectorItem,
+  defaultRolesForGyomu, type GyomuSelectorItem,
 } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
@@ -23,6 +23,8 @@ type Props = {
   orderSheetMode?: boolean
   /** 面談シート(①)埋め込み時は、契約日・難易度・完了予定日を隠す（これらはOS/実務で入力） */
   meetingSheetMode?: boolean
+  /** ガイド入力(OrderSheetGuided)時は 受注内容(提案内容)フリー欄を親の簡易メモ位置に出すため、内部では非表示 */
+  hideOrderMemo?: boolean
 }
 
 // その他（自由入力）の1行 → intake_roles の custom ロールへ変換。業務名＝タスク名、内容＝作業内容。
@@ -37,7 +39,7 @@ const customToRoles = (list: CustomEntry[]): RoleRow[] =>
  *   その他（自由入力）→ 名もなき作業をここで定義。一括生成の候補に出る（業務名＝タスク名／内容＝作業内容）。
  *   業務・作業は intake_roles(JSONB)、区分は service_parts(JSONB) に保持。
  */
-export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false, meetingSheetMode = false }: Props) {
+export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false, meetingSheetMode = false, hideOrderMemo = false }: Props) {
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   // 通常業務（非custom）と その他（custom）を分けて保持。保存時に両方を結合して intake_roles に入れる。
   const [roles, setRoles] = useState<RoleRow[]>(() => (caseData.intake_roles ?? DEFAULT_ROLES).filter(r => !r.custom))
@@ -76,24 +78,16 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
     const removed = selectedKeys.filter(k => !newKeys.includes(k))
     if (removed.length > 0 && !confirm('受注区分を外すと、その区分の管理業務のタブ／セクションが表示されなくなります（入力済みのデータは消えません）。よろしいですか？')) return
 
-    // 受注区分に紐づく管理業務（auto gyomu）だけ入れ替え、実施業務セレクタ・その他で選んだ業務は保持。
+    // 受注区分に紐づく管理業務（auto gyomu＝遺言/信託/検認/精算書 等）だけ入れ替え。
+    // 実施業務セレクタ・その他で選んだ業務は保持する。
     const autoValues = new Set(Object.values(CATEGORY_AUTO_GYOMU))
     const autoNew = newKeys.map(k => CATEGORY_AUTO_GYOMU[k]).filter((g): g is string => !!g)
-    let nextRoles = roles.filter(r => !(autoValues.has(r.gyomu) && !autoNew.includes(r.gyomu)))
-    for (const g of autoNew) if (!nextRoles.some(r => r.gyomu === g)) nextRoles = [...nextRoles, ...(defaultRolesForGyomu(g) as RoleRow[])]
+    const nextRoles = roles.filter(r => !(autoValues.has(r.gyomu) && !autoNew.includes(r.gyomu)))
+    for (const g of autoNew) if (!nextRoles.some(r => r.gyomu === g)) nextRoles.push(...(defaultRolesForGyomu(g) as RoleRow[]))
 
-    // 手続き一式・遺産承継・登記・契約書 など CATEGORY_AUTO_GYOMU に無い区分は、
-    // 新規追加時にその区分の全業務(戸籍/相関図/財産調査/協議書/…)を種として自動追加。
-    // これで手続き一式選択後にオーダーシートで全セクションが表示される。
-    const newlyAdded = newKeys.filter(k => !selectedKeys.includes(k) && !CATEGORY_AUTO_GYOMU[k] && k !== REFERRAL_ONLY_CATEGORY)
-    for (const c of newlyAdded) {
-      const seeded = seedRolesForCategories([c])
-      for (const sr of seeded) {
-        if (!nextRoles.some(r => r.gyomu === sr.gyomu && r.sagyou === sr.sagyou)) {
-          nextRoles = [...nextRoles, sr as RoleRow]
-        }
-      }
-    }
+    // ※以前は 手続き一式/遺産承継/登記 等を選ぶと その区分の全業務(戸籍/相関図/財産調査/…)を
+    //   自動で種まきしていたが、実施業務は担当者が明示的に選ぶ運用にするため 自動種まきは廃止。
+    //   （受注内容を選んでも実施業務は未選択スタート。必要な業務だけチップで選ぶ）
 
     const nextParts = buildParts(newKeys)
     setParts(nextParts); setRoles(nextRoles)
@@ -126,7 +120,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
         {/* 受注内容（提案内容）＝フリー欄。面談シート(order)と同じキーで共有・引き継ぎ（エクセルR24）
             面談シート①のときは、親のMemoField(タイピング/手書き切替)が同じ work_content['order'] に書くため、
             こちらの WorkContentField は非表示にして二重欄を回避する。 */}
-        {!meetingSheetMode && (
+        {!meetingSheetMode && !hideOrderMemo && (
           <div className="mb-4">
             <WorkContentField caseData={caseData} gyomu="order" patchCase={patchCase} label="受注内容（提案内容）／面談シートと共有" />
           </div>
