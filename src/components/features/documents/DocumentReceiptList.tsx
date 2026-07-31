@@ -13,6 +13,7 @@ import { ACQUISITION_ITEMS } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
 import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
+import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
@@ -642,9 +643,9 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               const isContract = isTaskFree(it)
               // この到着物に関係する業務区分。判定できれば既存タスクを「関係する業務」だけに絞る。
               const gy = gyomuForItem(it)
-              // 事務管理タスク(task_kind='case')のうち、未完了のものだけ候補に（完了/キャンセルは出さない）。
-              // 状態は normalizeTaskStatus で正規化して判定（'キャンセル'→'完了' 等の表記ゆれを吸収）。
-              const linkable = tasks.filter(t => t.task_kind !== 'system' && normalizeTaskStatus(t.status) !== '完了')
+              // 全担当区分(事務管理/受注管理/相続登記チーム)のうち、未完了のものを候補に（完了/キャンセルは出さない）。
+              // 区分はバッジで判別。状態は normalizeTaskStatus で正規化して判定（'キャンセル'→'完了' 等の表記ゆれを吸収）。
+              const linkable = tasks.filter(t => normalizeTaskStatus(t.status) !== '完了')
               const relevant = gy ? linkable.filter(t => gy.includes(gyomuOfTask(t))) : []
               const relevantIds = new Set(relevant.map(t => t.id))
               const others = linkable.filter(t => !relevantIds.has(t.id))
@@ -654,7 +655,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
               // 関係業務が判定できない（自由入力の到着物等）ときは絞り込めないので全件 others 扱いで畳む
               const primary = topTask ? relevant.filter(t => t.id !== topTask.id) : relevant
               const showOthers = !!showAll[it.id]
-              const renderPill = (t: { id: string; title: string }) => {
+              const renderPill = (t: { id: string; title: string; task_kind?: string | null }) => {
                 const on = itemSel[it.id]?.has(t.id)
                 return (
                   <button
@@ -663,7 +664,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     onClick={() => toggle(it.id, t.id)}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-white hover:text-brand-700'}`}
                   >
-                    {on && <Play className="w-3 h-3" strokeWidth={2.5} />}{t.title}
+                    {on ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <TantoKubunBadge kind={t.task_kind} size="xs" iconOnly />}{t.title}
                   </button>
                 )
               }

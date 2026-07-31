@@ -21,10 +21,11 @@ import { normalizeTaskStatus, getStartSignal, isWaitingReceipt } from '@/lib/tas
 import { getStartOkSuggestions } from '@/lib/startOkSuggest'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
+import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
 import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
-type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null }
+type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null; task_kind?: string | null }
 type Mode = 'now' | 'receipt'
 
 // 請求タスクの source_rid → 対になる読込/受領タスクの source_rid。
@@ -90,9 +91,10 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         supabase.from('koseki_requests').select('*').eq('case_id', task.case_id),
         supabase.from('financial_assets').select('*').eq('case_id', task.case_id),
       ])
+      // 全担当区分（事務管理/受注管理/相続登記チーム）を次タスク候補に出す。区分はバッジで判別。
       const rows = ((tsData ?? []) as Array<Cand & { task_kind: string | null }>)
         .filter(t => {
-          if (t.id === task.id || t.task_kind === 'system') return false
+          if (t.id === task.id) return false
           if (normalizeTaskStatus(t.status) !== '着手前') return false
           const tr = t as unknown as TaskRow
           if (getStartSignal(tr).ready || isWaitingReceipt(tr)) return false
@@ -237,6 +239,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : reason ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`}>
         <label className="flex items-center gap-2 px-2.5 py-2 cursor-pointer flex-wrap">
           <input type="checkbox" checked={on} onChange={() => toggle(c.id)} className="w-4 h-4 accent-brand-600" />
+          <TantoKubunBadge kind={c.task_kind} size="xs" />
           <KoteiBadge phase={c.phase} width={92} />
           <GyomuBadge phase={c.phase} width={52} />
           <span className="text-[13px] text-gray-800 truncate">{c.title}</span>
