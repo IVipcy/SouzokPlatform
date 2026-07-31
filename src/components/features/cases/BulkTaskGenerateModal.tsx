@@ -134,7 +134,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true },
         { prefix: 're-houmu-read', label: '登記・公図・地積を読込' },
       ] },
-      '登記': { units: muniUnits, own: muniOwn, tasks: [{ prefix: 'reg', label: '相続登記' }] },
+      // 登記は市区町村1本展開を廃止。serviceMaster の5タスク（相続登記の申請/識別情報通知の受領/
+      // 権利書の製本/不動産登記簿の申請/不動産登記簿の受領）を個別生成し、担当区分(相続登記チーム/事務管理)を
+      // kindOfCandidate で正しく振る。※以前は 'reg:{muni}' 1本に潰れて 全部が事務管理扱いになっていた。
       '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' }] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
     }
