@@ -645,7 +645,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'delivery' && (
-        <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} />
+        <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} />
       )}
 
       {/* 対応中になったら事務管理タスクの設定を促す */}
