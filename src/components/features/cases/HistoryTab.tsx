@@ -350,8 +350,10 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   // メモ一覧（活動履歴のうち手入力メモのみ。タスク着手/完了・ステータス変更は
   // タイムラインに統合したため、ここでは表示しない）
+  // メモ一覧: 手動追加(HistoryTab の入力欄で書いたメモ)のみ表示。
+  //   タスクに紐づく自動生成メモ(task_id あり = タスクの実施結果を自動転記した旧仕様)は除外。
   const notes = activities
-    .filter(a => a.activity_type === 'note')
+    .filter(a => a.activity_type === 'note' && !a.task_id)
     .filter(a => !koteiFilter || noteKotei(a) === koteiFilter)
     .filter(a => !gyomuFilter || noteGyomu(a) === gyomuFilter)
     .sort((a, b) => b.activity_date.localeCompare(a.activity_date))
@@ -512,6 +514,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
 
+        {/* メモ セクション（報連相表とは間隔を空けて分ける・見出しあり） */}
+        {caseReports.length > 0 && <div className="border-t border-gray-100 my-5" />}
+        <h4 className="text-[13px] font-bold text-gray-700 mb-2 mt-1 flex items-center gap-1.5">
+          <StickyNote className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
+          メモ
+        </h4>
         {/* メモ入力欄（従来） */}
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
