@@ -418,7 +418,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
 }
 
 // ─── InlineDate ───
-export function InlineDate({ label, value, onSave, fullWidth, required, max, wareki, hint }: {
+export function InlineDate({ label, value, onSave, fullWidth, required, max, wareki, hint, ai }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -430,6 +430,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   wareki?: boolean
   /** 値の下に出す補助説明（目安の期間など） */
   hint?: string
+  ai?: boolean              // AIが自動入力した値は青文字で表示（InlineEditと同じ運用）
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -461,7 +462,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className="w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
         {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
@@ -494,7 +495,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
           title="クリックして日付を選択"
         >
           <span className={`text-[13px] font-mono border-b border-dashed group-hover:border-brand-400 ${
-            value ? 'text-gray-700 font-medium border-gray-200'
+            value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-gray-200`
                   : missing ? 'text-red-500 text-xs border-red-300'
                             : 'text-gray-400 text-xs border-gray-200'}`}>
             {value ?? (missing ? '⚠ 未設定（必須）' : 'クリックして日付入力')}

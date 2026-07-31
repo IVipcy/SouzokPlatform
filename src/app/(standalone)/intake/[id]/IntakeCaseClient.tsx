@@ -57,16 +57,21 @@ type Props = {
 type Tab = 'sheet' | 'result' | 'order'
 
 // caseData から MeetingForm 用の SelectedCase（既存案件＝更新モード）を組み立てる。
-function toSelectedCase(c: CaseRow): NonNullable<SelectedCase> {
+// 依頼者氏名は 面談シートで入力する case_clients の「メイン依頼者」を正とする。
+// （c.clients.name は syncMainName 未発火だと "無題" のままなので、caseClients から拾う）
+function toSelectedCase(c: CaseRow, caseClients: CaseClientRow[] = []): NonNullable<SelectedCase> {
   const cl = c.clients
+  const mainClient = caseClients.find(cc => cc.priority === 'main') ?? caseClients[0]
+  const clientName = (mainClient?.name?.trim()) || (cl?.name && cl.name !== '無題' ? cl.name : '') || ''
+  const dealName = (c.deal_name && c.deal_name !== '無題') ? c.deal_name : (clientName || c.deal_name)
   return {
-    id: c.id, name: c.deal_name, client: cl?.name ?? '', phone: cl?.phone ?? '',
+    id: c.id, name: dealName, client: clientName, phone: mainClient?.phone ?? cl?.phone ?? '',
     orderRoute: c.order_route, orderRouteDetail: c.order_route_detail,
     deceasedName: c.deceased_name, deceasedFurigana: c.deceased_furigana,
     deceasedBirthDate: c.deceased_birth_date, dateOfDeath: c.date_of_death,
     deceasedAddress: c.deceased_address, deceasedRegisteredAddress: c.deceased_registered_address,
-    clientFurigana: cl?.furigana ?? null, clientRelation: cl?.relationship_to_deceased ?? null,
-    clientMobilePhone: cl?.mobile_phone ?? null, clientEmail: cl?.email ?? null,
+    clientFurigana: mainClient?.furigana ?? cl?.furigana ?? null, clientRelation: mainClient?.relationship ?? cl?.relationship_to_deceased ?? null,
+    clientMobilePhone: mainClient?.mobile_phone ?? cl?.mobile_phone ?? null, clientEmail: mainClient?.email ?? cl?.email ?? null,
     clientAddress: cl?.address ?? null, clientPostalCode: cl?.postal_code ?? null,
     clientNotes: cl?.notes ?? null,
     hearingContent: c.hearing_content, specialNotes: c.special_notes, otherNeeds: c.other_needs,
@@ -199,6 +204,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
       try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
     }
     setTab(t)
+    // タブ切替時は先頭へスクロール（面談シート最下部の保存ボタンから遷移すると 遷移先も最下部表示になる不具合を防ぐ）
+    window.scrollTo(0, 0)
   }
 
   return (
@@ -252,7 +259,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
       {tab === 'result' && (
         <MeetingForm
-          selectedCase={toSelectedCase(caseState)}
+          selectedCase={toSelectedCase(caseState, rest.caseClients)}
           currentMemberId={currentMemberId}
           lpLinked={!!caseState.lp_case_number}
           onSaved={async () => { await graduateFromDraft(); setResultDone(true); setTab('order'); router.refresh() }}

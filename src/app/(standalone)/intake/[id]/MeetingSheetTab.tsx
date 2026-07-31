@@ -515,8 +515,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
           <FieldGrid>
             <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
             <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
-            <InlineDate label="被相続人生年月日" value={caseData.deceased_birth_date} onSave={v => patchCase({ deceased_birth_date: v || null })} />
-            <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} onSave={v => patchCase({ date_of_death: v || null })} />
+            <InlineDate label="被相続人生年月日" value={caseData.deceased_birth_date} ai={aiFilled.has('deceased_birth_date')} onSave={v => { clearAi('deceased_birth_date'); return patchCase({ deceased_birth_date: v || null }) }} />
+            <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} ai={aiFilled.has('date_of_death')} onSave={v => { clearAi('date_of_death'); return patchCase({ date_of_death: v || null }) }} />
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
