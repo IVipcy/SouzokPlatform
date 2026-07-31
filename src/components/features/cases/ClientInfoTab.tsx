@@ -7,14 +7,15 @@ import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
-import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check } from 'lucide-react'
+import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check, MessageSquare } from 'lucide-react'
 import { MAILING_DESTINATIONS, CLIENT_TRAIT_OPTIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import AddTaskModal from './AddTaskModal'
+import HourenSouModal from './HourenSouModal'
 import { toKatakana } from '@/lib/kana'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import TabHeader from './TabHeader'
-import type { CaseRow, ClientCommunicationRow, CaseClientRow } from '@/types'
+import type { CaseRow, ClientCommunicationRow, CaseClientRow, MemberRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -26,13 +27,17 @@ type Props = {
   orderSheetMode?: boolean
   // 依頼者（同行者含む・複数人）
   caseClients?: CaseClientRow[]
+  // やり取り履歴上部の 報連相 / タスク化 ボタン用
+  allMembers?: MemberRow[]
+  currentMemberId?: string | null
+  salesMemberId?: string | null
 }
 
 const COMMUNICATION_TYPE_OPTIONS = ['進捗連絡', '書類依頼', '質問対応', 'クレーム対応', 'その他']
 const CONTACT_METHOD_OPTIONS = ['電話', 'LINE', 'メール', '手紙']
 const CLAIM_TYPE = 'クレーム対応'
 
-export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false, caseClients = [] }: Props) {
+export default function ClientInfoTab({ caseData, clientCommunications, patchCase, patchClient, onRefresh, orderSheetMode = false, caseClients = [], allMembers = [], currentMemberId = null, salesMemberId = null }: Props) {
   const client = caseData.clients
   // 振込名義人の自動入力元＝メイン依頼者のふりがな（clients.furigana が空なら依頼者一覧のメインから）
   const mainFurigana = client?.furigana
@@ -180,7 +185,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
   return (
     <div className="space-y-3.5">
       <TabHeader title="依頼者連絡" description="依頼者とのやり取りをここに記録します（依頼者の基本情報はオーダーシートで入力）。" />
-      <CommunicationsSection caseId={caseData.id} rows={clientCommunications} onRefresh={onRefresh} />
+      <CommunicationsSection caseData={caseData} rows={clientCommunications} onRefresh={onRefresh} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} />
     </div>
   )
 }
@@ -233,12 +238,18 @@ function TextAreaField({ label, value, placeholder, onSave, disabled }: {
 }
 
 // ============ Communications Section ============
-function CommunicationsSection({ caseId, rows, onRefresh }: {
-  caseId: string
+function CommunicationsSection({ caseData, rows, onRefresh, allMembers, currentMemberId, salesMemberId }: {
+  caseData: CaseRow
   rows: ClientCommunicationRow[]
   onRefresh?: () => void
+  allMembers: MemberRow[]
+  currentMemberId: string | null
+  salesMemberId: string | null
 }) {
+  const caseId = caseData.id
   const [adding, setAdding] = useState(false)
+  const [hourenSouOpen, setHourenSouOpen] = useState(false)
+  const [addTaskOpen, setAddTaskOpen] = useState(false)
 
   // クレーム案件フラグを最新のやり取りから再計算（連絡内容に「クレーム対応」があれば紫フラグ）。
   const syncClaim = async () => {
@@ -270,6 +281,16 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
   }
 
   return (
+    <div className="space-y-3.5">
+    {/* アクションボタンはセクション外（右上）に配置（他タブと統一）。報連相／タスク化 */}
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHourenSouOpen(true)}>
+        報連相
+      </Button>
+      <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
+        タスク化
+      </Button>
+    </div>
     <Section
       title="やり取り履歴"
     >
@@ -309,6 +330,23 @@ function CommunicationsSection({ caseId, rows, onRefresh }: {
         </div>
       )}
     </Section>
+
+    <HourenSouModal
+      isOpen={hourenSouOpen}
+      onClose={() => setHourenSouOpen(false)}
+      caseData={caseData}
+      currentMemberId={currentMemberId}
+      salesMemberId={salesMemberId}
+      allMembers={allMembers}
+    />
+    <AddTaskModal
+      isOpen={addTaskOpen}
+      onClose={() => setAddTaskOpen(false)}
+      caseId={caseId}
+      allMembers={allMembers}
+      onSaved={() => onRefresh?.()}
+    />
+    </div>
   )
 }
 
