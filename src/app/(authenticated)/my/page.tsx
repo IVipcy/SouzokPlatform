@@ -1006,8 +1006,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                     <th className="px-3 py-2 text-left font-medium">案件名</th>
                     <th className="px-3 py-2 text-left font-medium">報告者</th>
                     <th className="px-3 py-2 text-left font-medium">報告日</th>
-                    <th className="px-3 py-2 text-left font-medium">重要度</th>
-                    <th className="px-3 py-2 text-left font-medium">連絡方法</th>
+                    <th className="px-3 py-2 text-left font-medium">状況</th>
                     <th className="px-3 py-2 text-left font-medium">報告内容</th>
                     <th className="px-3 py-2 text-left font-medium">対応内容</th>
                     <th className="px-3 py-2 text-left font-medium">ステータス</th>
@@ -1036,7 +1035,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                         <td className="px-3 py-2.5">
                           <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${sevCls}`}>{r.severity}</span>
                         </td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.contact_method ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[240px] whitespace-pre-wrap">{r.detail || <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2.5">
                           {r.action ? <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${actCls}`}>{r.action}</span> : <span className="text-gray-300">—</span>}

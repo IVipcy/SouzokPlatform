@@ -1,7 +1,7 @@
 'use client'
 
 // 不満・クレーム。案件報告と同じフォーマット(報告→確認)。
-// 「クレーム・不満を記録」ボタン → モーダル(重要度/連絡方法/報告内容/対応内容) → 送信で 依頼中(=報告中) で挿入。
+// 「クレーム・不満を記録」ボタン → モーダル(状況/報告内容/対応内容) → 送信で 依頼中(=報告中) で挿入。
 // 受注担当は「確認する」→ 報告内容表示 + 確認した内容 を入力して 確認済 に。
 // severity∈{クレーム,大クレーム}で cases.has_complaint=true を自動セット(migration 197 のトリガー)。
 
@@ -19,7 +19,6 @@ import type { CaseRow, MemberRow, CaseComplaintRow, ComplaintSeverity, Complaint
 
 const SEVERITY_OPTIONS: ComplaintSeverity[] = ['少し不満', '不満', 'クレーム', '大クレーム']
 const ACTION_OPTIONS: ComplaintAction[] = ['謝罪・即対応（完結）', '謝罪・受注相談']
-const CONTACT_METHOD_OPTIONS = ['電話', 'LINE', 'メール', '手紙']
 
 const SEVERITY_CHIP: Record<ComplaintSeverity, string> = {
   '少し不満': 'bg-amber-50 text-amber-800 border border-amber-200',
@@ -53,7 +52,6 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
 
   // 「クレーム・不満を記録」モーダルの入力
   const [mSeverity, setMSeverity] = useState<ComplaintSeverity>('少し不満')
-  const [mContact, setMContact] = useState<string>('')
   const [mDetail, setMDetail] = useState('')
   const [mAction, setMAction] = useState<ComplaintAction | ''>('')
 
@@ -72,7 +70,6 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
 
   const openReport = () => {
     setMSeverity('少し不満')
-    setMContact('')
     setMDetail('')
     setMAction('')
     setReportOpen(true)
@@ -92,7 +89,7 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
       created_by: currentMemberId || null,
       status: '依頼中',
       severity: mSeverity,
-      contact_method: mContact || null,
+      contact_method: null,
       detail: mDetail.trim() || null,
       action: (mAction || null) as ComplaintAction | null,
     }).select('*').single()
@@ -103,7 +100,7 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
         occurred_at: today,
         created_by: currentMemberId || null,
         severity: mSeverity,
-        contact_method: mContact || null,
+        contact_method: null,
         detail: mDetail.trim() || null,
         action: (mAction || null) as ComplaintAction | null,
       }).select('*').single()
@@ -191,8 +188,7 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">報告者</th>
                   <th className="px-3 py-2 text-left font-medium">報告日</th>
-                  <th className="px-3 py-2 text-left font-medium">重要度</th>
-                  <th className="px-3 py-2 text-left font-medium">連絡方法</th>
+                  <th className="px-3 py-2 text-left font-medium">状況</th>
                   <th className="px-3 py-2 text-left font-medium">報告内容</th>
                   <th className="px-3 py-2 text-left font-medium">対応内容</th>
                   <th className="px-3 py-2 text-left font-medium">確認コメント</th>
@@ -213,7 +209,6 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${SEVERITY_CHIP[r.severity]}`}>{r.severity}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.contact_method ?? <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[240px] whitespace-pre-wrap">{r.detail || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5">
                         {r.action ? (
@@ -256,22 +251,12 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
         }
       >
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="block text-[13px] font-semibold text-gray-600">重要度</label>
-              <select value={mSeverity} onChange={e => setMSeverity(e.target.value as ComplaintSeverity)}
-                className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400">
-                {SEVERITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="block text-[13px] font-semibold text-gray-600">連絡方法 <span className="font-normal text-gray-400">（任意）</span></label>
-              <select value={mContact} onChange={e => setMContact(e.target.value)}
-                className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400">
-                <option value="">選択</option>
-                {CONTACT_METHOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
+          <div className="space-y-1">
+            <label className="block text-[13px] font-semibold text-gray-600">状況</label>
+            <select value={mSeverity} onChange={e => setMSeverity(e.target.value as ComplaintSeverity)}
+              className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400">
+              {SEVERITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
           </div>
           <div className="space-y-1">
             <label className="block text-[13px] font-semibold text-gray-600">報告内容 <span className="font-normal text-gray-400">（任意）</span></label>
@@ -308,7 +293,6 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${SEVERITY_CHIP[confirmTarget.severity]}`}>{confirmTarget.severity}</span>
-              {confirmTarget.contact_method && <span className="inline-flex px-2 py-0.5 rounded-[5px] text-[11px] bg-gray-100 text-gray-700">{confirmTarget.contact_method}</span>}
               {confirmTarget.action && <span className={`inline-flex px-2 py-0.5 rounded-[5px] text-[11px] whitespace-nowrap ${ACTION_CHIP[confirmTarget.action]}`}>{confirmTarget.action}</span>}
             </div>
             <div className="space-y-2">
