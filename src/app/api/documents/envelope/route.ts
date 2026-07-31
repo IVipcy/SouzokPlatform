@@ -16,6 +16,8 @@ type Body = {
   caseId: string
   variant: string
   taskId?: string | null
+  // 相続人選択で郵送先を差し替える時に指定 (未指定 or null なら 従来通り case.clients を使う)
+  recipient?: { name: string | null; address: string | null; postal_code: string | null } | null
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -26,7 +28,7 @@ function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
-    const { caseId, variant, taskId } = body
+    const { caseId, variant, taskId, recipient } = body
     if (!caseId || !variant) {
       return NextResponse.json({ error: 'caseId, variant は必須です' }, { status: 400 })
     }
@@ -52,9 +54,10 @@ export async function POST(request: NextRequest) {
     } catch { /* migration 未適用環境では無視 */ }
 
     const client = caseData.clients as { name?: string; address?: string; postal_code?: string } | null
-    const clientName = mainName || client?.name || ''
-    const clientAddress = client?.address ?? ''
-    const { p3, p4 } = splitPostal(client?.postal_code)
+    // recipient (相続人選択) が来ていればそちらを優先、無ければ case.clients フォールバック
+    const clientName = recipient?.name ?? (mainName || client?.name || '')
+    const clientAddress = recipient?.address ?? (client?.address ?? '')
+    const { p3, p4 } = splitPostal(recipient?.postal_code ?? client?.postal_code)
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'envelope', `${variant}.xlsx`)
     const wb = new ExcelJS.Workbook()

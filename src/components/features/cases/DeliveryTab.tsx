@@ -15,20 +15,22 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, PackageCheck, X, RotateCcw, UserCheck, FileText, Users } from 'lucide-react'
+import { Package, PackageCheck, X, RotateCcw, UserCheck, FileText, Users, Mail } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
 import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, HeirRow } from '@/types'
+import type { CaseRow, HeirRow, TaskRow } from '@/types'
 import GenponJuryoshoModal from './GenponJuryoshoModal'
+import EnvelopeDocumentModal from './EnvelopeDocumentModal'
 
 type Props = {
   caseData: CaseRow  // CaseRow.clients?: ClientRow | null が既に定義済み
   currentMemberId: string | null
   canManage?: boolean  // 管理担当のみ「納品完了」ボタン可
-  heirs?: HeirRow[]    // 相続人紐付モーダル(印鑑証明書)用 + 原本受領証の郵送先選択用
+  heirs?: HeirRow[]    // 相続人紐付モーダル(印鑑証明書)用 + 原本受領証/封筒の郵送先選択用
+  tasks?: TaskRow[]    // 封筒生成時のタスク紐付用
 }
 
 type SourceKind = 'receipt' | 'contract'
@@ -65,7 +67,7 @@ const isKenriRow = (r: DocRow) => /権利証|権利書/.test(r.displayName || r.
 // 印鑑証明書行 = 名前に印鑑を含む
 const isInkanRow = (r: DocRow) => /印鑑/.test(r.displayName || r.name)
 
-export default function DeliveryTab({ caseData, currentMemberId, canManage = false, heirs = [] }: Props) {
+export default function DeliveryTab({ caseData, currentMemberId, canManage = false, heirs = [], tasks = [] }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<DocRow[]>([])
@@ -75,10 +77,11 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
   const [memberNameById, setMemberNameById] = useState<Map<string, string>>(new Map())
   // 各行の displayName インライン編集の一時値 (キー=DocRow.key)
   const [editingName, setEditingName] = useState<Record<string, string>>({})
-  // モーダル: 権利証補足 / 印鑑相続人紐付 / 原本受領証
+  // モーダル: 権利証補足 / 印鑑相続人紐付 / 原本受領証 / 封筒印刷
   const [toukiTarget, setToukiTarget] = useState<DocRow | null>(null)
   const [inkanTarget, setInkanTarget] = useState<DocRow | null>(null)
   const [genponOpen, setGenponOpen] = useState(false)
+  const [envelopeOpen, setEnvelopeOpen] = useState(false)
   const deliveryStatus = (caseData.delivery_status ?? '準備中') as string
 
   const fetchDocs = async () => {
@@ -259,6 +262,14 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             >
               <FileText className="w-3.5 h-3.5" strokeWidth={2} />原本受領証を作成
             </button>
+            <button
+              type="button"
+              onClick={() => setEnvelopeOpen(true)}
+              title="返送用の封筒を作成"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5" strokeWidth={2} />封筒印刷
+            </button>
             <Button
               variant="primary"
               size="sm"
@@ -425,6 +436,13 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
         isOpen={genponOpen}
         onClose={() => setGenponOpen(false)}
         caseData={caseData}
+        heirs={heirs}
+      />
+      <EnvelopeDocumentModal
+        isOpen={envelopeOpen}
+        onClose={() => setEnvelopeOpen(false)}
+        caseData={caseData}
+        tasks={tasks}
         heirs={heirs}
       />
     </div>
