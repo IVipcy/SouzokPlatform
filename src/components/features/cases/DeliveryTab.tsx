@@ -15,19 +15,20 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, PackageCheck, X, RotateCcw, UserCheck, Pencil, FileText, Users } from 'lucide-react'
+import { Package, PackageCheck, X, RotateCcw, UserCheck, FileText, Users } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import Button from '@/components/ui/Button'
 import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, HeirRow } from '@/types'
+import GenponJuryoshoModal from './GenponJuryoshoModal'
 
 type Props = {
-  caseData: CaseRow
+  caseData: CaseRow  // CaseRow.clients?: ClientRow | null が既に定義済み
   currentMemberId: string | null
   canManage?: boolean  // 管理担当のみ「納品完了」ボタン可
-  heirs?: HeirRow[]    // 相続人紐付モーダル(印鑑証明書)用
+  heirs?: HeirRow[]    // 相続人紐付モーダル(印鑑証明書)用 + 原本受領証の郵送先選択用
 }
 
 type SourceKind = 'receipt' | 'contract'
@@ -74,9 +75,10 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
   const [memberNameById, setMemberNameById] = useState<Map<string, string>>(new Map())
   // 各行の displayName インライン編集の一時値 (キー=DocRow.key)
   const [editingName, setEditingName] = useState<Record<string, string>>({})
-  // モーダル: 権利証補足 / 印鑑相続人紐付
+  // モーダル: 権利証補足 / 印鑑相続人紐付 / 原本受領証
   const [toukiTarget, setToukiTarget] = useState<DocRow | null>(null)
   const [inkanTarget, setInkanTarget] = useState<DocRow | null>(null)
+  const [genponOpen, setGenponOpen] = useState(false)
   const deliveryStatus = (caseData.delivery_status ?? '準備中') as string
 
   const fetchDocs = async () => {
@@ -248,6 +250,15 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             {filter === 'target' && (
               <span className="text-[11.5px] text-gray-500">Wチェック済み <span className={`font-mono font-bold ${checkedCount === targetRows.length ? 'text-emerald-600' : 'text-amber-600'}`}>{checkedCount}</span> / {targetRows.length}</span>
             )}
+            <button
+              type="button"
+              onClick={() => setGenponOpen(true)}
+              disabled={targetRows.length === 0}
+              title={targetRows.length === 0 ? '対象書類を1件以上選んでください' : 'お客様返却用の原本受領証を作成'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-800 bg-brand-50 border border-brand-300 hover:bg-brand-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5" strokeWidth={2} />原本受領証を作成
+            </button>
             <Button
               variant="primary"
               size="sm"
@@ -410,6 +421,12 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
           saving={saving === inkanTarget.key}
         />
       )}
+      <GenponJuryoshoModal
+        isOpen={genponOpen}
+        onClose={() => setGenponOpen(false)}
+        caseData={caseData}
+        heirs={heirs}
+      />
     </div>
   )
 }
