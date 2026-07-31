@@ -47,7 +47,8 @@ export async function cascadeDeleteCase(supabase: SB, caseId: string) {
   await del('payment_check_requests', 'case_id', caseId)
   await del('invoices', 'case_id', caseId)
 
-  // 4) タスク本体
+  // 4) タスク本体（documents が task_id を参照するため documents を先に消す）
+  await del('documents', 'case_id', caseId)
   await del('tasks', 'case_id', caseId)
 
   // 5) 不動産（real_estate_acquisitions → real_estate_properties）
@@ -56,7 +57,7 @@ export async function cascadeDeleteCase(supabase: SB, caseId: string) {
 
   // 6) その他 case_id 直参照の子テーブル（順不同）
   const CASE_CHILD_TABLES = [
-    'case_members', 'documents', 'events', 'heirs', 'financial_assets',
+    'case_members', 'events', 'heirs', 'financial_assets',
     'contract_documents', 'division_details', 'agreement_dispatches',
     'progress_reports', 'case_reports', 'case_complaints', 'case_referrals',
     'case_clients', 'koseki_requests', 'client_communications', 'case_activities',
