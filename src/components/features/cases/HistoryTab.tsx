@@ -368,22 +368,24 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   return (
     <div className="space-y-3.5">
+      {/* タブ上部の共通アクション（セクションの外・余白なしで並べる） */}
+      <div className="flex flex-wrap justify-end gap-2">
+        {section !== 'memo' && canRequestReview && (
+          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setReportKind('progress_check'); setRequestOpen(true) }}>
+            報告する
+          </Button>
+        )}
+        <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
+          報連相
+        </Button>
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
+          タスク化
+        </Button>
+      </div>
+
       {/* 案件報告 */}
       {section !== 'memo' && (
       <Section title="案件報告">
-        <div className="flex flex-wrap justify-end gap-2 mb-2.5">
-          {canRequestReview && (
-            <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setReportKind('progress_check'); setRequestOpen(true) }}>
-              報告する
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
-            報連相
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
-            タスク化
-          </Button>
-        </div>
         <p className="text-[11px] text-gray-400 mb-2.5">「案件報告」→相手の席で一緒に確認→<span className="font-medium text-gray-500">確認した本人が自分のPCで「確認した」</span>を押します（報告した本人は押せません）。確認してほしい内容・確認した内容はどちらも任意入力です。</p>
         {progressReports.length === 0 ? (
           <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告はまだありません</div>
@@ -445,21 +447,13 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       </Section>
       )}
 
-      {/* 報連相・メモ */}
+      {/* 報連相 セクション */}
       {section !== 'report' && (
-      <Section title="報連相・メモ">
-        <div className="flex flex-wrap justify-end gap-2 mb-2.5">
-          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
-            報連相
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
-            タスク化
-          </Button>
-        </div>
-
-        {/* 報連相の履歴（案件報告と同じテイスト） */}
-        {caseReports.length > 0 && (
-          <div className="mb-4 overflow-x-auto">
+      <Section title="報連相">
+        {caseReports.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[13px] text-gray-400">報連相はまだありません</div>
+        ) : (
+          <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
@@ -514,12 +508,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
 
-        {/* メモ セクション（報連相表とは間隔を空けて分ける・見出しあり） */}
-        {caseReports.length > 0 && <div className="border-t border-gray-100 my-5" />}
-        <h4 className="text-[13px] font-bold text-gray-700 mb-2 mt-1 flex items-center gap-1.5">
-          <StickyNote className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
-          メモ
-        </h4>
+      </Section>
+      )}
+
+      {/* メモ セクション（報連相とは別セクション） */}
+      {section !== 'report' && (
+      <Section title="メモ">
         {/* メモ入力欄（従来） */}
         <div className="flex gap-2 items-start mb-3">
           <div className="flex-1 space-y-2">
