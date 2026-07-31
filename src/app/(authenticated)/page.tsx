@@ -6,6 +6,7 @@ import {
   Users,
   LayoutDashboard,
   Trophy,
+  Package,
   type LucideIcon,
 } from 'lucide-react'
 import { redirect } from 'next/navigation'
@@ -123,6 +124,19 @@ export default async function DashboardTopPage() {
         })),
       ],
     },
+    ...((user?.isTouKiTeam || sm) ? [{
+      title: '相続登記チーム',
+      description: '相続登記チーム メンバー専用。task_kind=touki_team のタスク（権利書の製本 等）を全案件横断で表示。',
+      cards: [
+        {
+          href: '/dashboard/touki-team',
+          title: '相続登記チーム 進捗',
+          description: '権利書の製本タスクなど、相続登記チームが担当するタスクの全案件横断ボード。フィルタ・着手ボタン付き。',
+          Icon: Package,
+          tone: 'amber' as const,
+        },
+      ],
+    }] as CardSection[] : []),
   ]
 
   const today = new Date()
