@@ -417,11 +417,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           setActiveTab('orderSheet')
           setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
         }}
-        showReceiptsAction={minimal ? false : tabVis.visible.includes('receipts')}
+        showReceiptsAction={!minimal}
         receiptCount={unhandledReceiptCount}
         receiptTotal={(documentReceipts ?? []).reduce((n, r) => n + (r.items?.length ?? 0), 0)}
-        showDocsAction={minimal ? false : tabVis.visible.includes('docs')}
-        showDocumentCreateAction={minimal ? true : tabVis.visible.includes('documentCreate')}
+        showDocsAction={!minimal}
+        showDocumentCreateAction={true}
         docCount={caseFiles.length + createdDocuments.filter(d => !!d.file_path).length}
         highlightTabs={navHighlightTabs}
         onActivateTab={setActiveTab}

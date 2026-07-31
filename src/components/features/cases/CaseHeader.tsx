@@ -159,21 +159,22 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
               <div className="mt-2.5 space-y-1.5">
                 {/* ステータス（どのタブからでも変更可能） */}
                 <MetaRow label="ステータス">
+                  {/* ステータスは案件の主要情報なので 他のメタ情報より一回り大きく表示する */}
                   {selectableStatuses && onStatusChange ? (
                     <div className="relative inline-flex items-center">
-                      <span className="absolute left-2 w-1.5 h-1.5 rounded-full pointer-events-none" style={{ background: statusColor }} />
+                      <span className="absolute left-2.5 w-2 h-2 rounded-full pointer-events-none" style={{ background: statusColor }} />
                       <select
                         value={caseData.status}
                         onChange={e => onStatusChange(e.target.value)}
                         title="案件ステータスを変更"
-                        className="appearance-none text-[11px] font-bold pl-4 pr-6 py-0.5 rounded border border-gray-200 bg-white text-gray-700 cursor-pointer outline-none hover:border-brand-400 focus:border-brand-500"
+                        className="appearance-none text-[14px] font-bold pl-5 pr-7 py-1 rounded-md border-[1.5px] border-gray-200 bg-white text-gray-800 cursor-pointer outline-none hover:border-brand-400 focus:border-brand-500"
                       >
                         {selectableStatuses.map(s => <option key={s} value={s}>{getCaseStatusLabel(s)}</option>)}
                       </select>
-                      <span className="absolute right-2 text-[8px] text-gray-400 pointer-events-none">▼</span>
+                      <span className="absolute right-2.5 text-[10px] text-gray-400 pointer-events-none">▼</span>
                     </div>
                   ) : (
-                    <span className="text-[11px] font-bold text-gray-700">{getCaseStatusLabel(caseData.status)}</span>
+                    <span className="inline-flex items-center gap-1.5 text-[14px] font-bold text-gray-800"><span className="w-2 h-2 rounded-full" style={{ background: statusColor }} />{getCaseStatusLabel(caseData.status)}</span>
                   )}
                   {/* 受注の獲得区分バッジ（即受注 / 面談なし受注） */}
                   {caseData.status === '受注' && (caseData.order_win_type || caseData.instant_order) && (() => {

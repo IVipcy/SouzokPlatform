@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
-import { todayJstYmd } from '@/lib/dashboardMetrics'
+import { todayJstYmd, computeCaseFlag } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
@@ -114,6 +114,74 @@ const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean
   { statuses: ['完了'],       label: '完了',         Icon: Trophy, dateOf: c => ymd(c.completion_date) },
 ]
 
+// 受注後の稼働中案件（受注→現在→業務完了予定 の3点軸を表示する対象）
+const ACTIVE_AXIS_STATUSES = new Set(['受注', '戻り受注', '対応中', '業務完了申請中'])
+
+// 2日付の「Xヶ月Y日」差分（from<=to 前提。負なら 0 扱い）
+function monthDayDiff(from: Date, to: Date): { months: number; days: number; totalDays: number } {
+  const totalDays = Math.max(0, Math.floor((to.getTime() - from.getTime()) / 86_400_000))
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
+  let days = to.getDate() - from.getDate()
+  if (days < 0) { months -= 1; days += new Date(to.getFullYear(), to.getMonth(), 0).getDate() }
+  if (months < 0) { months = 0; days = 0 }
+  return { months, days, totalDays }
+}
+const fmtMonthDay = (d: { months: number; days: number }) => d.months > 0 ? `${d.months}ヶ月${d.days}日` : `${d.days}日`
+
+// 稼働中案件の 受注 → 現在 → 業務完了予定 の3点軸。
+// 受注→現在の矢印は 最終接触の鮮度(computeCaseFlag)で 青/黄/赤 に色分け、上に経過日数。
+// 現在→業務完了予定 は淡い水色、上に残り日数。
+function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact: boolean }) {
+  const parse = (s: string | null | undefined) => { if (!s) return null; const d = new Date(s); return Number.isNaN(d.getTime()) ? null : d }
+  const orderDate = parse(ymd(caseData.order_received_date) ?? ymd(caseData.order_date))
+  const goalDate = parse(ymd(caseData.expected_completion_date))
+  const now = new Date()
+  const flag = computeCaseFlag(caseData, [], now)   // 'purple' | 'red' | 'yellow' | 'blue'
+  const elapsedCls = flag === 'red' ? '#ef4444' : flag === 'yellow' ? '#f59e0b' : flag === 'purple' ? '#7c3aed' : '#38bdf8'
+  const elapsed = orderDate ? fmtMonthDay(monthDayDiff(orderDate, now)) : '—'
+  const remain = goalDate ? (goalDate.getTime() >= now.getTime() ? fmtMonthDay(monthDayDiff(now, goalDate)) : '超過') : '—'
+  const remainOver = !!goalDate && goalDate.getTime() < now.getTime()
+
+  const circle = compact ? 'w-9 h-9' : 'w-12 h-12'
+  const iconSz = compact ? 'w-[16px] h-[16px]' : 'w-[22px] h-[22px]'
+  const labelCls = compact ? 'text-[11px]' : 'text-[13px]'
+  const dateCls = compact ? 'text-[10px]' : 'text-[11px]'
+  const col = compact ? 'w-[84px]' : 'w-[110px]'
+
+  const Node = ({ Icon, label, date, cur, future }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean }) => (
+    <div className={`flex flex-col items-center flex-none ${col}`}>
+      <span className={`${circle} rounded-full flex items-center justify-center shadow-sm ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
+        <Icon className={iconSz} strokeWidth={2} />
+      </span>
+      <span className={`mt-1.5 ${labelCls} font-semibold text-center leading-tight ${future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</span>
+      <span className={`${dateCls} font-mono text-gray-400`}>{date ?? '—'}</span>
+    </div>
+  )
+  const Arrow = ({ color, label, sub }: { color: string; label: string; sub: string }) => (
+    <div className="flex-1 min-w-[60px] flex flex-col items-center" style={{ marginBottom: compact ? 30 : 38 }}>
+      <div className="text-center leading-tight mb-1">
+        <div className="text-[10px] text-gray-400">{sub}</div>
+        <div className="text-[13px] font-bold" style={{ color }}>{label}</div>
+      </div>
+      <div className="w-full relative" style={{ height: 0, borderTop: `3px solid ${color}` }}>
+        <span className="absolute -right-0.5 -top-[7px] text-[12px]" style={{ color }}>▶</span>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex items-center min-w-[420px] pt-1">
+        <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
+        <Arrow color={elapsedCls} sub="経過" label={elapsed} />
+        <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
+        <Arrow color="#93c5fd" sub="残り" label={remainOver ? '超過' : remain} />
+        <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
+      </div>
+    </div>
+  )
+}
+
 // ───────── マイルストーン軸（独立コンポーネント。ヘッダーに compact で埋め込み可能） ─────────
 export function MilestoneAxis({ caseData, tasks, statusHistory = [], compact = false }: {
   caseData: CaseRow
@@ -121,6 +189,10 @@ export function MilestoneAxis({ caseData, tasks, statusHistory = [], compact = f
   statusHistory?: TimelineStatusEvent[]
   compact?: boolean
 }) {
+  // 受注後の稼働中案件は 受注→現在→業務完了予定 の3点軸で表示する。
+  if (ACTIVE_AXIS_STATUSES.has(caseData.status)) {
+    return <ActiveMilestoneAxis caseData={caseData} compact={compact} />
+  }
   const currentIdx = STATUS_ORDER.indexOf(caseData.status)
   const caseTasks = tasks.filter(t => t.task_kind !== 'system')
   const firstStarted = caseTasks.map(t => ymd(t.started_at)).filter((d): d is string => !!d).sort()[0] ?? null
