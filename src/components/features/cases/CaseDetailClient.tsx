@@ -321,9 +321,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
+  // 管理担当ビュー: 案件進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
+  //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
+  const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
+  const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned
   const navHighlightTabs: TabKey[] = [
     ...activeNavSteps.filter(s => !s.done).flatMap(s => s.targets.map(t => t.tab)),
     ...(kickoffNeeded ? ['basicInfo' as TabKey] : []),
+    ...(managerAssignNav ? ['assignees' as TabKey] : []),
   ]
 
   // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）。
@@ -350,7 +355,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
   const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
   const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
-  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks']
+  // 末尾に 案件情報 グループ (assignees/ownerSales/meeting) を追加。CaseTabs 側で InfoDropdown「案件情報」にまとめて表示される。
+  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'assignees', 'ownerSales', 'meeting']
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
     : isManagerViewer
@@ -508,6 +514,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
         {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
         {(jutakuNavVisible || kentouNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
+
+        {/* 管理担当ビュー: 引継直後で管理担当が未アサインなら『案件情報→担当者』への誘導バナーを表示 */}
+        {managerAssignNav && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-[13px] text-brand-800">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white text-[11px] font-bold">!</span>
+            <span className="font-semibold">受注担当から引き継がれました。管理担当をアサインしてください</span>
+            <button type="button" onClick={() => setActiveTab('assignees')} className="ml-auto inline-flex items-center gap-1 px-3 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">案件情報 → 担当者 を開く →</button>
+          </div>
+        )}
       </div>
 
       {effectiveTab === 'orderSheet' && (
