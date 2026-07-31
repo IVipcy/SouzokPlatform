@@ -21,7 +21,6 @@ import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
-import HintNote from '@/components/ui/HintNote'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -129,24 +128,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         />
       )}
 
-      {/* 財産調査条件（案件で1つ）。オーダーシート分割時は 金融資産セクション側だけで表示（不動産セクションでは重複させない）。 */}
-      {orderSheetMode ? (kindOn('deposit') || kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (
-        <Section title="財産調査条件">
-          <FieldGrid>
-            <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
-            <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
-          </FieldGrid>
-          <HintNote className="mt-2">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</HintNote>
-        </Section>
-      ) : (
-        <Section title="財産調査条件（開始条件・使用書類）" collapsible defaultOpen={false}>
-          <FieldGrid>
-            <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
-            <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
-          </FieldGrid>
-          <HintNote className="mt-2">財産調査の禁止期間・禁止理由は、口座ごと（下の預金／証券／信託の各口座）に入力します。</HintNote>
-        </Section>
-      )}
+      {/* 財産調査条件（開始条件・使用書類）は 不動産セクション内（フリー欄の下）に移動。※下の realestate ブロックで描画 */}
 
       {/* 種別タブ（不動産 / 預金 / 証券 / 信託 / 生命保険 / 財産目録）。案件詳細のみタブ表示、
           オーダーシートは各パネルを縦積みで全展開。切替時にアンマウントすると入力中の表が
@@ -157,6 +139,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <div className={(orderSheetMode ? (kindOn('realestate') ? 'space-y-4' : 'hidden') : (sub === 'realestate' ? 'space-y-4' : 'hidden'))}>
           {/* オーダーシート分割表示中は 親OSSection の作業内容欄が上部にあるため、二重表示回避のため 非orderSheetMode のときだけ表示 */}
           {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />}
+          {/* 財産調査条件（案件で1つ・不動産に紐づける）。フリー欄(作業内容)の下に配置。 */}
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
+            <SectionHeading title="財産調査条件" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <FieldGrid>
+              <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
+              <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
+            </FieldGrid>
+          </div>
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
