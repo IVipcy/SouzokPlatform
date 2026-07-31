@@ -39,7 +39,7 @@ export default function EvalCertTable({ properties, requestTo, onRefresh }: Prop
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
       <table className="w-full text-[13px] border-collapse" style={{ minWidth: 840 }}>
         <thead>
           <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">

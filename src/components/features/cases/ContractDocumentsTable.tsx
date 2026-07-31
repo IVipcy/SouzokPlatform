@@ -12,10 +12,11 @@ const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', 
 //   - 戸籍/不動産/金融/登記 → 各調査タブに「契約時にお客様から受領した書類」として横断表示 (受領済/未受領)
 //   - お客様預かり書類 → 納品タブに候補として自動で載る (原本返却が基本)
 // migration209 で 3値→7値 に拡張し直し。
-const DOC_CATEGORIES = ['契約', '戸籍', '金融', '不動産', '登記', 'その他', 'お客様預かり書類']
+const DOC_CATEGORIES = ['契約', '戸籍', '金融', '不動産', '登記', 'お客様預かり書類', 'その他']
 
 // 既定の契約関連書類（行追加・削除・編集可）
 // 契約時に必ずもらう4点をデフォルトに。戸籍・財産系は自由入力で任意追加。
+// 書類名の選択候補（datalist）にも使う（フリー入力も可）。
 const DEFAULT_DOCS = ['契約書', '委任状', '本人確認書類', '印鑑証明書']
 
 type Props = {
@@ -129,7 +130,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 960 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-56">書類</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">到着日</th>
@@ -141,11 +142,11 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の到着物が登録されていません</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の書類が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  <Cell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} placeholder="到着物名" />
+                  <DocNameCell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} />
                   <td className="px-2.5 py-1.5">
                     <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       <option value="">—</option>
@@ -182,12 +183,12 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         </table>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
-          <Plus className="w-3.5 h-3.5" /> 到着物を追加
+        <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
+          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 書類を追加
         </button>
         {rows.length === 0 && (
-          <button type="button" onClick={addDefaults} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700 disabled:opacity-50">
-            既定の到着物をまとめて追加
+          <button type="button" onClick={addDefaults} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700 disabled:opacity-50" title="契約書・委任状・本人確認書類・印鑑証明書 の4点をまとめて追加します">
+            契約書類4点をまとめて追加
           </button>
         )}
         {hiddenCount > 0 && (
@@ -197,8 +198,8 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         )}
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />
-        区分「戸籍 / 不動産 / 金融 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した到着物」として受領済/未受領が横断表示されます。<br />
+        受領状況「不要」にした書類は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />
+        区分「戸籍 / 不動産 / 金融 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した書類」として受領済/未受領が横断表示されます。<br />
         区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（原本返却が基本のため既定=対象）。
       </p>
     </div>
@@ -215,6 +216,25 @@ function Cell({ value, onCommit, placeholder }: { value: string | null; onCommit
         placeholder={placeholder}
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
       />
+    </td>
+  )
+}
+
+// 書類名セル。契約書/委任状/本人確認書類/印鑑証明書 を候補に出しつつ フリー入力も可（datalist）。
+function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <input
+        type="text"
+        list="contract-doc-names"
+        defaultValue={value ?? ''}
+        onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
+        placeholder="書類名（選択 or 入力）"
+        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+      />
+      <datalist id="contract-doc-names">
+        {DEFAULT_DOCS.map(d => <option key={d} value={d} />)}
+      </datalist>
     </td>
   )
 }
