@@ -35,6 +35,12 @@ const EXTRACT_SCHEMA: Record<string, XField[]> = {
     { key: 'deceased_address', label: '被相続人住所', target: 'case' },
     { key: 'deceased_registered_address', label: '被相続人本籍', target: 'case' },
   ],
+  // 提案内容・手続き内容：契約形態と、面談その他メモ（提案内容の補足）をAIで反映。
+  //   procedure_type(手続き区分の複数選択) は enum配列で扱いにくいため、フリー欄側で確認する運用。
+  order: [
+    { key: 'contract_type', label: '契約形態', target: 'case', enum: ['行・司連名', '行政書士法人単独', '司法書士法人単独'] },
+    { key: 'meeting_other_notes', label: '提案内容・その他メモ', target: 'case' },
+  ],
 }
 
 // AIで項目に反映（行データ）：メモから複数行を抽出して該当テーブルへINSERT。
@@ -223,7 +229,7 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-const SEC_LABEL: Record<string, string> = { client: '依頼者情報', order: '受注内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+const SEC_LABEL: Record<string, string> = { client: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
 export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
   if (memos.length === 0) return null
   const groups = [...new Set(memos.map(m => m.section || 'other'))]
@@ -500,9 +506,9 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         </div>
       ), runExtract('client'))}
 
-      {sec('order', '受注内容', null, (
+      {sec('order', '提案内容・手続き内容', null, (
         <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode meetingSheetMode />
-      ))}
+      ), runExtract('order'))}
 
       {sec('deceased', '相続人調査', null, (
         <div className="space-y-3">
