@@ -165,8 +165,8 @@ function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChan
       if (!res.ok) { showToast(j.error ?? '認識に失敗しました', 'error'); return }
       if (j.text) {
         onText(j.text)
-        // テキスト化した内容はフリー欄に転記済み。キャンバスをクリアしないと、次に書き足して再テキスト化した際に前回分＋新規分の重複が生成されてしまうため自動で全消去。
-        clear()
+        // ※ キャンバスは自動クリアしない。ユーザーは同じ手書きに対して続けて「AIで項目に反映」や「画像を保存」を行えるようにする。
+        //   書き足してから再テキスト化するときは、既にテキスト化したストロークを手動で消しゴム/全消去してから再実行することを推奨。
       } else {
         showToast('認識できませんでした', 'error')
       }
@@ -263,10 +263,21 @@ function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMe
     setSaving(true); const supabase = createClient()
     try {
       const cid = ensureCaseId ? await ensureCaseId() : caseData.id
+      // 上書き保存：同じ (case, section) の既存画像を先に削除してから新規insert。
+      // これにより 同じセクションで「画像を保存」を何度押しても 1枚だけになる。
+      const existing = memos.filter(m => m.section === section)
+      if (existing.length > 0) {
+        const paths = existing.map(m => m.image_path).filter((p): p is string => !!p)
+        if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
+        await supabase.from('meeting_memos').delete().in('id', existing.map(m => m.id))
+      }
       const blob = await (await fetch(dataUrl)).blob(); const path = `${cid}/${uid()}.png`
       const { error: up } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/png', upsert: false }); if (up) throw new Error(up.message)
-      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: cid, section, image_path: path, image_bucket: BUCKET, sort_order: memos.length, created_by: currentMemberId }).select('*').single()
-      if (error || !row) throw new Error(error?.message ?? '保存に失敗'); setMemos(prev => [...prev, row as MeetingMemoRow]); showToast('手書きを保存しました', 'success')
+      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: cid, section, image_path: path, image_bucket: BUCKET, sort_order: 0, created_by: currentMemberId }).select('*').single()
+      if (error || !row) throw new Error(error?.message ?? '保存に失敗')
+      // ローカルからは同 section の旧レコードを除いて 新レコードを追加(=常に1枚)
+      setMemos(prev => [...prev.filter(m => m.section !== section), row as MeetingMemoRow])
+      showToast('手書きを保存しました（上書き）', 'success')
     } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗', 'error') } finally { setSaving(false) }
   }
   const delImg = async (m: MeetingMemoRow) => { const supabase = createClient(); if (m.image_path) await supabase.storage.from(m.image_bucket || BUCKET).remove([m.image_path]); await supabase.from('meeting_memos').delete().eq('id', m.id); setMemos(prev => prev.filter(x => x.id !== m.id)) }
