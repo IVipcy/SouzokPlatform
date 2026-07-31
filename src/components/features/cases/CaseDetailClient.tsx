@@ -350,7 +350,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
   const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
   const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
-  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'tasks']
+  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks']
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
     : isManagerViewer
