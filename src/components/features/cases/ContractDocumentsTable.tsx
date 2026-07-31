@@ -8,9 +8,11 @@ import type { ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
-// 区分。migration203で「お客様預かり書類 / 契約書類 / その他」の3値に統合。
-// 「お客様預かり書類」にすると 納品タブに候補として自動で載る (原本返却が基本)。
-const DOC_CATEGORIES = ['お客様預かり書類', '契約書類', 'その他']
+// 区分。書類の性質(戸籍/財産/登記など) と 案件完了時の返却フラグ「お客様預かり書類」の混在。
+//   - 戸籍/不動産/金融/登記 → 各調査タブに「契約時にお客様から受領した書類」として横断表示 (受領済/未受領)
+//   - お客様預かり書類 → 納品タブに候補として自動で載る (原本返却が基本)
+// migration209 で 3値→7値 に拡張し直し。
+const DOC_CATEGORIES = ['契約', '戸籍', '金融', '不動産', '登記', 'その他', 'お客様預かり書類']
 
 // 既定の契約関連書類（行追加・削除・編集可）
 // 契約時に必ずもらう4点をデフォルトに。戸籍・財産系は自由入力で任意追加。
@@ -92,7 +94,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
 
   const addDefaults = async () => {
     setBusy(true)
-    const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約書類', sort_order: rows.length + i }))
+    const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約', sort_order: rows.length + i }))
     const { data, error } = await supabase.from('contract_documents').insert(payload).select('*')
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
@@ -195,7 +197,9 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         )}
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（原本返却が基本のため既定=対象）。
+        受領状況「不要」にした到着物は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />
+        区分「戸籍 / 不動産 / 金融 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した到着物」として受領済/未受領が横断表示されます。<br />
+        区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（原本返却が基本のため既定=対象）。
       </p>
     </div>
   )
