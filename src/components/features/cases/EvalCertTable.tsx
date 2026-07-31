@@ -5,6 +5,7 @@
 // 保存先は real_estate_properties（kaoku_bango / near_land_price / eval_cert_year。年度は migration 193）。
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import type { RealEstatePropertyRow } from '@/types'
 
 const NEAR_LAND = ['あり', 'なし']
@@ -39,9 +40,10 @@ export default function EvalCertTable({ properties, requestTo, onRefresh }: Prop
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
+      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 840 }}>
         <thead>
           <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
             <th className="px-2.5 py-2 text-left font-semibold w-40">請求先</th>
             <th className="px-2.5 py-2 text-left font-semibold w-24">物件種別</th>
             <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
@@ -51,21 +53,30 @@ export default function EvalCertTable({ properties, requestTo, onRefresh }: Prop
           </tr>
         </thead>
         <tbody>
-          {properties.map((p, i) => (
+          {properties.map((p, i) => {
+            // 依頼者取得のときは 自社の請求入力（家屋番号・近傍宅地・年度）は不要 → 非活性で薄く。
+            const isClient = (p.acquirer ?? '自社') === '依頼者'
+            const dim = isClient ? 'opacity-40 pointer-events-none' : ''
+            return (
             <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-              <td className="px-2.5 py-2 text-gray-600">{requestTo || <span className="text-gray-300">市区町村役所</span>}</td>
+              <td className="px-2.5 py-1.5">
+                <select value={p.acquirer ?? '自社'} onChange={e => save(p.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                  {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+                </select>
+              </td>
+              <td className={`px-2.5 py-2 text-gray-600 ${dim}`}>{requestTo || <span className="text-gray-300">市区町村役所</span>}</td>
               <td className="px-2.5 py-2 text-gray-700">{p.property_type || <span className="text-gray-300">—</span>}</td>
               <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
-              <td className="px-2.5 py-1.5">
+              <td className={`px-2.5 py-1.5 ${dim}`}>
                 <input type="text" defaultValue={p.kaoku_bango ?? ''} onBlur={e => { if (e.target.value !== (p.kaoku_bango ?? '')) save(p.id, 'kaoku_bango', e.target.value) }} placeholder="家屋番号" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
               </td>
-              <td className="px-2.5 py-1.5">
+              <td className={`px-2.5 py-1.5 ${dim}`}>
                 <select value={p.near_land_price ?? ''} onChange={e => save(p.id, 'near_land_price', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                   <option value="">—</option>
                   {NEAR_LAND.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </td>
-              <td className="px-2.5 py-1.5">
+              <td className={`px-2.5 py-1.5 ${dim}`}>
                 <select value={p.eval_cert_year && !years.includes(p.eval_cert_year) ? '__other__' : (p.eval_cert_year ?? '')} onChange={e => { if (e.target.value !== '__other__') save(p.id, 'eval_cert_year', e.target.value) }} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                   <option value="">—</option>
                   {years.map(o => <option key={o} value={o}>{o}</option>)}
@@ -73,7 +84,7 @@ export default function EvalCertTable({ properties, requestTo, onRefresh }: Prop
                 </select>
               </td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </div>

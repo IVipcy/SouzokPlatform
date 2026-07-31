@@ -754,6 +754,7 @@ export type RealEstateAcquisitionRow = {
   target_property_id: string | null   // 物件単位の対象
   target_municipality: string | null  // 市区町村単位の対象
   request_to: string | null
+  acquirer: string | null             // 取得区分（自社取得/依頼者取得。migration 211）※値は '自社'/'依頼者'
   myna_year: string | null            // 名寄帳の年度（和暦。別表分割・migration 193）
   request_date: string | null
   expected_arrival_date: string | null
