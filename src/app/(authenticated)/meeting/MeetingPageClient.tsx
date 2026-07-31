@@ -34,6 +34,10 @@ export type SelectedCase = {
   considerationDeclineReasonDetail?: string | null
   // 面談シート①で選んだ受注区分。②面談結果登録の serviceCategories 初期値として引き継ぐ
   serviceCategories?: string[]
+  // 面談シート①で選んだ実施業務(intake_roles)。②の init.intakeRoles として引き継がないと
+  // MeetingForm 保存時に空配列で intake_roles が上書きされてしまう。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  intakeRoles?: any[]
 } | null
 
 export type CaseData = CaseRow & { clients?: ClientRow | null }

@@ -73,6 +73,8 @@ function toSelectedCase(c: CaseRow): NonNullable<SelectedCase> {
     meetingOtherNotes: c.meeting_other_notes, considerationDeclineReasonDetail: c.consideration_decline_reason_detail,
     // 面談シート①の受注内容(service_parts / procedure_type)を面談結果登録②へ引き継ぐ
     serviceCategories: activePartKeys(partsForCase(c)),
+    // 面談シート①で選んだ実施業務(intake_roles)を②へ引き継ぐ。渡さないと MeetingForm 保存で空配列に上書きされて選択が消える。
+    intakeRoles: c.intake_roles ?? [],
   }
 }
 

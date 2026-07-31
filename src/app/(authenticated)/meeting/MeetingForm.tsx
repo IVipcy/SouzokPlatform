@@ -238,6 +238,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         init.serviceCategory = selectedCase.serviceCategories[0] ?? ''
         init.serviceCategory2 = selectedCase.serviceCategories[1] ?? ''
       }
+      // 面談シート①で選んだ実施業務(intake_roles)を引き継ぐ。渡さないと保存で空配列に上書きされて選択が消える。
+      if (selectedCase.intakeRoles && selectedCase.intakeRoles.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        init.intakeRoles = selectedCase.intakeRoles as any
+      }
     }
     return init
   })

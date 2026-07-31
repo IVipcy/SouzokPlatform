@@ -191,11 +191,13 @@ export const isInitialTasksDone = (
 // 契約残手続き（契約関連書類の受け取り）が完了か。
 // 受領状況が「後日郵送 / 依頼者が取得」で未受信（到着日なし）の書類が無ければ完了。
 // 受託→対応中の移行ゲート（getSelectableCaseStatuses の contractProcDone）に使う。
+// 契約手続き書類が1件も登録されていない場合は「まだ設定していない」= 未完了扱いにする
+// （0件を『後日郵送/依頼者取得 で待ち のものが無い＝完了』と誤判定させないため）。
 export const CONTRACT_PENDING_STATUSES = ['後日郵送', '依頼者が取得']
 export const isContractProcDone = (
   docs: { status?: string | null; arrival_date?: string | null }[],
 ): boolean =>
-  !docs.some(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date)
+  docs.length > 0 && !docs.some(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date)
 
 // === 立替実費の名目（請求タブ。名目選択で課税/非課税を自動セット） ===
 export const EXPENSE_NONTAX_ITEMS = [
