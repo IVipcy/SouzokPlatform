@@ -100,12 +100,15 @@ export default function OrderSheet({
     : null
   const showSec = (gate?: TabKey) => !gate || !allowedTabs || allowedTabs.has(gate)
 
-  const allOsSections: { title: string; gate?: TabKey; anchorId?: string; node: ReactNode }[] = [
-    // 面談シート(MeetingSheetTab)と work_content のキーを揃えるため gate を明示（面談メモがオーダーシート/実務タブに引き継がれる）
+  // workContentKey: 上部フリー欄(WorkContentField)の保存先キー。省略時は gate ?? title
+  //   財産調査（不動産）→ assets_re、財産調査（金融資産）→ assets_deposit（面談シートのキーと揃える）
+  const allOsSections: { title: string; gate?: TabKey; anchorId?: string; workContentKey?: string; node: ReactNode }[] = [
+    // 面談シート(MeetingSheetTab)と work_content のキーを揃えるため gate/workContentKey を明示（面談メモがオーダーシート/実務タブに引き継がれる）
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
     { title: '受注内容', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
-    { title: '財産調査', gate: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} /> },
+    { title: '財産調査（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} /> },
+    { title: '財産調査（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} /> },
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },
@@ -221,7 +224,7 @@ export default function OrderSheet({
               {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
               {s.title !== '依頼者情報' && s.title !== '受注内容' && (
                 <div className="mb-3 pb-3 border-b border-gray-100">
-                  <WorkContentField caseData={caseData} gyomu={s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
+                  <WorkContentField caseData={caseData} gyomu={s.workContentKey ?? s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
                 </div>
               )}
               {s.node}

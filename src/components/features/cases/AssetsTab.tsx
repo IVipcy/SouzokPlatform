@@ -33,6 +33,11 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時は金融機関表の「請求日・到着日」を出さない
   orderSheetMode?: boolean
+  // オーダーシートで 財産調査(不動産)/(金融資産) に分割表示するとき、表示する種別を指定
+  //   ['realestate']            → 不動産のみ
+  //   ['deposit','securities','trust','insurance'] → 金融資産(預金・証券・信託・生命保険)
+  //   未指定=全種別（従来動作）
+  showKinds?: Array<'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance'>
   // 契約残手続きの書類（区分=財産 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
   // 不動産の取得資料管理
@@ -60,7 +65,9 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
 // 財産調査条件（案件で1つ）は上部の折りたたみ小セクションへ。
 const SUBTABS_FULL: { key: string; label: string }[] = [...ASSET_SUBTABS, { key: 'inventory', label: '財産目録' }]
 
-export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
+  // 表示する種別のフィルタ (orderSheetMode の分割表示時のみ使用)
+  const kindOn = (k: 'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance') => !showKinds || showKinds.includes(k)
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
@@ -95,9 +102,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
   const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
   const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean; insurance?: boolean }>({})
-  const showSecurities = orderSheetMode ? (hasKind('証券') || !!reveal.securities) : sub === 'securities'
-  const showTrust = orderSheetMode ? (hasKind('信託銀行') || !!reveal.trust) : sub === 'trust'
-  const showInsurance = orderSheetMode ? (hasInsurance || !!reveal.insurance) : sub === 'insurance'
+  const showSecurities = orderSheetMode ? (kindOn('securities') && (hasKind('証券') || !!reveal.securities)) : sub === 'securities'
+  const showTrust = orderSheetMode ? (kindOn('trust') && (hasKind('信託銀行') || !!reveal.trust)) : sub === 'trust'
+  const showInsurance = orderSheetMode ? (kindOn('insurance') && (hasInsurance || !!reveal.insurance)) : sub === 'insurance'
 
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
@@ -122,8 +129,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         />
       )}
 
-      {/* 財産調査条件（案件で1つ）。オーダーシートは通常表示、案件詳細は上部の折りたたみ小セクション。 */}
-      {orderSheetMode ? (
+      {/* 財産調査条件（案件で1つ）。オーダーシート分割時は 金融資産セクション側だけで表示（不動産セクションでは重複させない）。 */}
+      {orderSheetMode ? (kindOn('deposit') || kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (
         <Section title="財産調査条件">
           <FieldGrid>
             <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
@@ -147,8 +154,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
       <div className={orderSheetMode ? 'space-y-3.5' : ''}>
         {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} className="mb-3.5" />}
 
-        <div className={orderSheetMode || sub === 'realestate' ? 'space-y-4' : 'hidden'}>
-          <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />
+        <div className={(orderSheetMode ? (kindOn('realestate') ? 'space-y-4' : 'hidden') : (sub === 'realestate' ? 'space-y-4' : 'hidden'))}>
+          {/* オーダーシート分割表示中は 親OSSection の作業内容欄が上部にあるため、二重表示回避のため 非orderSheetMode のときだけ表示 */}
+          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
@@ -176,8 +184,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             />
           )}
         </div>
-        <div className={orderSheetMode || sub === 'deposit' ? 'space-y-3' : 'hidden'}>
-          <WorkContentField caseData={caseData} gyomu="assets_deposit" patchCase={patchCase} label="作業内容・関連情報（預金／面談シートと共有）" collapsible />
+        <div className={(orderSheetMode ? (kindOn('deposit') ? 'space-y-3' : 'hidden') : (sub === 'deposit' ? 'space-y-3' : 'hidden'))}>
+          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_deposit" patchCase={patchCase} label="作業内容・関連情報（預金／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="預金口座（金融機関名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -188,7 +196,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
-          <WorkContentField caseData={caseData} gyomu="assets_securities" patchCase={patchCase} label="作業内容・関連情報（証券／面談シートと共有）" collapsible />
+          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_securities" patchCase={patchCase} label="作業内容・関連情報（証券／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -199,7 +207,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
-          <WorkContentField caseData={caseData} gyomu="assets_trust" patchCase={patchCase} label="作業内容・関連情報（信託／面談シートと共有）" collapsible />
+          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_trust" patchCase={patchCase} label="作業内容・関連情報（信託／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -210,7 +218,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
-          <WorkContentField caseData={caseData} gyomu="assets_insurance" patchCase={patchCase} label="作業内容・関連情報（生命保険／面談シートと共有）" collapsible />
+          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_insurance" patchCase={patchCase} label="作業内容・関連情報（生命保険／面談シートと共有）" collapsible />}
           {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
           <FieldGrid>
@@ -220,7 +228,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           </FieldGrid>
         </div>
         {/* オーダーシート：証券/信託/生命保険が未表示なら追加ボタンで出す（優先度: 証券→信託→生命保険） */}
-        {orderSheetMode && (!showSecurities || !showTrust || !showInsurance) && (
+        {orderSheetMode && (kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (!showSecurities || !showTrust || !showInsurance) && (
           <div className="flex flex-wrap gap-2 pt-1">
             {!showSecurities && (
               <button type="button" onClick={() => setReveal(r => ({ ...r, securities: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 証券を追加</button>
