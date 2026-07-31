@@ -48,9 +48,9 @@ export type MyCaseRow = {
   nextCaseTaskTitle?: string | null
   nextSystemTaskId?: string | null
   nextSystemTaskTitle?: string | null
-  /** task_kind別 遅延中の未完了タスク（あれば全件表示） */
-  overdueCaseTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
-  overdueSystemTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
+  /** task_kind別 遅延中の未完了タスク（あれば全件表示）。severity=null は 1〜4営業日超過(軽微) */
+  overdueCaseTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }>
+  overdueSystemTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }>
   /** 期限超過タスクあり(進捗バーを赤で表示) */
   hasOverdueTask?: boolean
   /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ status=対応中/業務完了申請中 なら「再オープン中」バッジ */
@@ -406,7 +406,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 // 進捗列に表示するタスク行群。
 // 遅延タスクがあれば全件を赤太字で列挙（古い順・severity別配色）、なければ「次の1件」を通常青で1件だけ。
 function ProgressTaskList({ overdueTasks, nextId, nextTitle }: {
-  overdueTasks: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }>
+  overdueTasks: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }>
   nextId: string | null
   nextTitle: string | null
 }) {
@@ -414,7 +414,8 @@ function ProgressTaskList({ overdueTasks, nextId, nextTitle }: {
     return (
       <div className="mt-1 space-y-0.5">
         {overdueTasks.map(t => {
-          const cls = t.severity === 'chui' ? 'text-[#C0392B]' : 'text-[#B5651D]'
+          // 濃赤(2週間以上) / 琥珀(5営業日以上) / 明るい赤(1〜4営業日=軽微)
+          const cls = t.severity === 'chui' ? 'text-[#C0392B]' : t.severity === 'kakunin' ? 'text-[#B5651D]' : 'text-red-600'
           const dateShort = t.due_date.slice(5).replace('-', '/')
           return (
             <div key={t.id} className="flex items-center gap-2 max-w-[240px]">

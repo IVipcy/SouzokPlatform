@@ -71,7 +71,7 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
   }
 }
 type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
-type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' }
+type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null; kind?: string }
 type CommLite = { case_id: string; communicated_at: string | null; detail: string | null }
 
@@ -131,12 +131,13 @@ export default async function CasesPage() {
     doneSystem: number; totalSystem: number
     hasOverdue: boolean
   }>()
+  // 期日超過(due_date < today) の未完了タスクを 全件 抽出（軽微=null / kakunin / chui）
   const buildOverdueList = (ts: TaskRowLite[]): OverdueTaskLite[] => {
     const list: OverdueTaskLite[] = []
     for (const t of ts) {
       if (!isOpen(t.status) || !t.due_date) continue
+      if (t.due_date >= todayStr) continue
       const sev = overdueSeverity(t.due_date, todayStr)
-      if (!sev) continue
       list.push({ id: t.id, title: t.title, due_date: t.due_date, over: calDaysOverdue(t.due_date, todayStr), severity: sev })
     }
     return list.sort((a, b) => a.due_date.localeCompare(b.due_date))

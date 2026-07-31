@@ -337,7 +337,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   // 案件ごと: 次の未完了タスク / 進捗を task_kind 別(事務管理=case / 受注管理=system)に分けて集計
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
   const progressByCase = new Map<string, {
     nextCaseTaskId: string | null; nextCaseTaskTitle: string | null       // 事務管理側の次の未完了
     nextSystemTaskId: string | null; nextSystemTaskTitle: string | null   // 受注/管理側の次の未完了
@@ -347,12 +347,15 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     doneCase: number; totalCase: number       // 事務管理タスク
     doneSystem: number; totalSystem: number   // 受注/管理担当タスク
   }>()
+  // 期日超過(due_date < today) の未完了タスクを 全件 抽出。
+  //   severity: 14日以上=chui(濃赤) / 5営業日以上=kakunin(琥珀) / それ未満=null(通常赤)
+  //   ※ 進捗バーが赤くなる基準と揃えるため、軽微(1〜4営業日)超過も一覧に含める。
   const buildOverdueList = (ts: BoardTask[]): OverdueTaskLite[] => {
     const list: OverdueTaskLite[] = []
     for (const t of ts) {
       if (!isOpen(t.status) || !t.due_date) continue
+      if (t.due_date >= todayStr) continue
       const sev = overdueSeverity(t.due_date, todayStr)
-      if (!sev) continue
       list.push({ id: t.id, title: t.title, due_date: t.due_date, over: calDaysOverdue(t.due_date, todayStr), severity: sev })
     }
     return list.sort((a, b) => a.due_date.localeCompare(b.due_date))

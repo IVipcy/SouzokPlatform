@@ -14,7 +14,7 @@ type BillLite = {
   id: string; caseId: string; caseName: string; typeLabel: string; firmLabel: string
   amount: number; dueDate: string; over: number; severity: OverdueSeverity
 }
-type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
+type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
 type CaseLite = {
   id: string; case_number: string; deal_name: string; status: string
   client_name: string | null
@@ -199,8 +199,8 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev, initialSe
 
 function TaskLine({ t }: { t: OverdueTaskLite }) {
   const dateShort = t.due_date.slice(5).replace('-', '/')
-  // 遅延タスクはタスク名も期日も同色（chui=濃赤 / kakunin=琥珀）
-  const cls = t.severity === 'chui' ? 'text-[#C0392B]' : 'text-[#B5651D]'
+  // 遅延タスクはタスク名も期日も同色（chui=濃赤 / kakunin=琥珀 / null=通常赤(1〜4営業日=軽微)）
+  const cls = t.severity === 'chui' ? 'text-[#C0392B]' : t.severity === 'kakunin' ? 'text-[#B5651D]' : 'text-red-600'
   return (
     <div className="flex items-center gap-2 max-w-[320px]">
       <Link href={`/tasks/${t.id}`} className={`text-[11.5px] font-bold hover:underline truncate flex-1 ${cls}`} title={t.title}>

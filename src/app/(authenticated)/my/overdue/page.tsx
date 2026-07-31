@@ -53,27 +53,40 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
       over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
     }))
 
-  // 案件別の超過タスク集計：case_id ごとに最も重い severity + task_kind別の超過タスクリスト
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
+  // 案件別の超過タスク集計。
+  //   ①案件の出現判定: 「kakunin/chui級の重い超過が1件以上」あるときのみ /my/overdue に出す (caseHasSevere)
+  //   ②リスト表示: そのケースについて 期日超過(due_date < today) の未完了タスクは 全件 表示 (軽微=severity:null も含む)
+  //   ③重要度(severity): ケース内で最も重い(chui > kakunin > null)
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
   const caseOverdue = new Map<string, {
-    severity: OverdueSeverity
+    severity: OverdueSeverity        // ケース重要度 (chui/kakunin)
     countTasks: number; countCase: number; countSystem: number
-    caseTasks: OverdueTaskLite[]     // 事務管理側の超過タスク
-    systemTasks: OverdueTaskLite[]   // 受注/管理側の超過タスク
+    caseTasks: OverdueTaskLite[]     // 事務管理側の超過タスク(軽微含む・古い順)
+    systemTasks: OverdueTaskLite[]   // 受注/管理側の超過タスク(軽微含む・古い順)
   }>()
+  const caseHasSevere = new Set<string>()
   for (const t of tasks) {
-    const sev = t.due_date ? overdueSeverity(t.due_date, todayStr) : null
-    if (!sev) continue
+    if (!t.due_date) continue
+    // 期日超過(due_date < today)
+    if ((t.due_date as string) >= todayStr) continue
+    const sev = overdueSeverity(t.due_date, todayStr)      // 5営業日/2週間 の重い判定(null=軽微1〜4営業日)
+    if (sev) caseHasSevere.add(t.case_id)
     const cur = caseOverdue.get(t.case_id) ?? {
-      severity: sev, countTasks: 0, countCase: 0, countSystem: 0,
+      severity: (sev ?? 'kakunin') as OverdueSeverity,     // 軽微しかない場合は表示上 kakunin 相当だが、caseHasSevere で出現制御
+      countTasks: 0, countCase: 0, countSystem: 0,
       caseTasks: [], systemTasks: [],
     }
     if (sev === 'chui') cur.severity = 'chui'
+    else if (sev === 'kakunin' && cur.severity !== 'chui') cur.severity = 'kakunin'
     cur.countTasks += 1
     const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev }
     if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
     if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
     caseOverdue.set(t.case_id, cur)
+  }
+  // ケースが 重い超過1件でも無ければ、/my/overdue には出さない
+  for (const cid of [...caseOverdue.keys()]) {
+    if (!caseHasSevere.has(cid)) caseOverdue.delete(cid)
   }
   // 各リストは古い順ソート
   for (const v of caseOverdue.values()) {

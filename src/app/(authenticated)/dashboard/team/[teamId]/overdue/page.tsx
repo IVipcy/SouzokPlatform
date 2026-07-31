@@ -79,23 +79,30 @@ export default async function TeamOverduePage({ params, searchParams }: { params
       over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
     }))
 
-  // 案件別の超過タスク集計 + task_kind別の遅延タスクリスト
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity }
+  // 案件別の超過タスク集計。ケース出現は重い超過(kakunin/chui)、リスト表示は軽微も全件含む。
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
   const caseOverdue = new Map<string, {
     severity: OverdueSeverity
     countTasks: number; countCase: number; countSystem: number
     caseTasks: OverdueTaskLite[]; systemTasks: OverdueTaskLite[]
   }>()
+  const caseHasSevere = new Set<string>()
   for (const t of tasks) {
-    const sev = t.due_date ? overdueSeverity(t.due_date, todayStr) : null
-    if (!sev) continue
-    const cur = caseOverdue.get(t.case_id) ?? { severity: sev, countTasks: 0, countCase: 0, countSystem: 0, caseTasks: [], systemTasks: [] }
+    if (!t.due_date) continue
+    if ((t.due_date as string) >= todayStr) continue
+    const sev = overdueSeverity(t.due_date, todayStr)
+    if (sev) caseHasSevere.add(t.case_id)
+    const cur = caseOverdue.get(t.case_id) ?? { severity: (sev ?? 'kakunin') as OverdueSeverity, countTasks: 0, countCase: 0, countSystem: 0, caseTasks: [], systemTasks: [] }
     if (sev === 'chui') cur.severity = 'chui'
+    else if (sev === 'kakunin' && cur.severity !== 'chui') cur.severity = 'kakunin'
     cur.countTasks += 1
     const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev }
     if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
     if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
     caseOverdue.set(t.case_id, cur)
+  }
+  for (const cid of [...caseOverdue.keys()]) {
+    if (!caseHasSevere.has(cid)) caseOverdue.delete(cid)
   }
   for (const v of caseOverdue.values()) {
     v.caseTasks.sort((a, b) => a.due_date.localeCompare(b.due_date))
