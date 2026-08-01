@@ -147,48 +147,52 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const elapsedDays = elapsedDiff?.totalDays ?? 0
   const remainDays = remainDiff?.totalDays ?? 0
 
-  const circlePx = compact ? 38 : 48
-  const iconSz = compact ? 'w-[16px] h-[16px]' : 'w-[22px] h-[22px]'
-  const labelCls = compact ? 'text-[11px]' : 'text-[13px]'
-  const dateCls = compact ? 'text-[10px]' : 'text-[11px]'
-  const col = compact ? 'w-[80px]' : 'w-[104px]'
+  const circlePx = compact ? 30 : 36           // アイコンは小さめに
+  const iconSz = compact ? 'w-[14px] h-[14px]' : 'w-[17px] h-[17px]'
 
+  // アイコン（連続ラインの上に重ねる。z-10 で線より前面）
   const Node = ({ Icon, label, date, cur, future }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean }) => (
-    <div className={`flex flex-col items-center flex-none ${col}`}>
-      <span className="rounded-full flex items-center justify-center shadow-sm" style={{ width: circlePx, height: circlePx }}>
-        <span className={`w-full h-full rounded-full flex items-center justify-center ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
-          <Icon className={iconSz} strokeWidth={2} />
-        </span>
+    <div className="relative flex-none z-10" style={{ width: circlePx, height: circlePx }}>
+      {/* 現在アイコンはパルスリングで点滅 */}
+      {cur && <span className="absolute inset-0 rounded-full bg-brand-400/60 animate-ping" />}
+      <span className={`relative w-full h-full rounded-full flex items-center justify-center shadow-sm ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
+        <Icon className={iconSz} strokeWidth={2} />
       </span>
-      <span className={`mt-1.5 ${labelCls} font-semibold text-center leading-tight ${future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</span>
-      <span className={`${dateCls} font-mono text-gray-400`}>{date ?? '—'}</span>
+      {/* 下：ノード名＋日付（絶対配置・中央） */}
+      <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap" style={{ top: circlePx + 6 }}>
+        <div className={`${compact ? 'text-[11px]' : 'text-[13px]'} font-semibold leading-tight ${future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</div>
+        <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-mono text-gray-400`}>{date ?? '—'}</div>
+      </div>
     </div>
   )
-  // 矢印セグメント：高さ=円と同じで items-center により線を円の中心に合わせる。矢じりはCSS三角。ラベルは線の上に。
-  const Arrow = ({ color, label, sub, grow }: { color: string; label: string; sub: string; grow: number }) => (
-    <div className="flex-none self-start" style={{ flexGrow: Math.max(0, grow), flexBasis: 0, minWidth: 68 }}>
-      <div className="relative flex items-center" style={{ height: circlePx }}>
-        {/* 線（矢じり分だけ右を空ける） */}
-        <div className="w-full" style={{ height: 0, borderTop: `3px solid ${color}`, marginRight: 8 }} />
-        {/* 矢じり（CSS三角・縦中央） */}
-        <span className="absolute right-0 top-1/2 -translate-y-1/2" style={{ width: 0, height: 0, borderTop: '6px solid transparent', borderBottom: '6px solid transparent', borderLeft: `9px solid ${color}` }} />
-        {/* ラベル（線の上） */}
-        <div className="absolute inset-x-0 text-center leading-tight" style={{ bottom: '50%', marginBottom: 6 }}>
-          <div className="text-[10px] text-gray-400">{sub}</div>
-          <div className="text-[13px] font-bold" style={{ color }}>{label}</div>
-        </div>
+  // 色付きセグメント（連続ラインの上に重ねる。矢じり付き・ラベルは上）。flex-grow=日数で現在位置を可変。
+  const Segment = ({ color, label, sub, grow }: { color: string; label: string; sub: string; grow: number }) => (
+    <div className="relative flex-none z-10 flex items-center" style={{ flexGrow: Math.max(0, grow), flexBasis: 0, minWidth: 76, height: 3 }}>
+      <div className="w-full" style={{ height: 3, background: color }} />
+      {/* 矢じり（CSS三角・線の先端） */}
+      <span className="absolute" style={{ right: -1, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderLeft: `9px solid ${color}` }} />
+      {/* ラベル（線の上） */}
+      <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap" style={{ bottom: 10 }}>
+        <div className="text-[10px] text-gray-400 leading-none mb-0.5">{sub}</div>
+        <div className="text-[13px] font-bold leading-none" style={{ color }}>{label}</div>
       </div>
     </div>
   )
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-start min-w-[420px] pt-6">
-        <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
-        <Arrow color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
-        <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-        <Arrow color="#93c5fd" sub="残り" label={remain} grow={remainDays} />
-        <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
+      {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる */}
+      <div className="relative min-w-[440px]" style={{ paddingTop: 30, paddingBottom: 34 }}>
+        {/* 連続した横一線（背面・アイコン中心の高さ） */}
+        <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
+        {/* アイコン＋セグメント（前面） */}
+        <div className="relative flex items-center">
+          <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
+          <Segment color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
+          <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
+          <Segment color="#93c5fd" sub="残り" label={remain} grow={remainDays} />
+          <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
+        </div>
       </div>
     </div>
   )
