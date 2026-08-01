@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { UserCircle, ClipboardList, ListChecks, MessageSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare } from 'lucide-react'
-import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
 import { isMinimalMode } from '@/lib/featureMode'
@@ -774,25 +773,34 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   return (
     <div>
-      <PageHeader
-        eyebrow="My"
-        title={`${user.memberName ?? 'マイページ'}`}
-        icon={UserCircle}
-        description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
-        afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
-        right={isSales ? (
-          <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-            <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
-          </Link>
-        ) : undefined}
-      />
-
-      {/* 要対応（入金期日・タスク期日の超過）バナー — 上部中央 */}
-      {(isSales || isManager) && (
-        <div className="mb-4 flex justify-center">
-          <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
+      {/* マイページ専用ヘッダー：氏名(左)と 要確認/要注意バナー を同じ行に置き、バナーは中央寄せ。相談案件登録(受注担当)は右端。 */}
+      <div className="mb-5">
+        <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">My</p>
+        <div className="flex items-center gap-4 mt-1 flex-wrap">
+          {/* 氏名＋バッジ＋アラート（左） */}
+          <div className="flex items-center gap-2.5 flex-wrap flex-none">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <UserCircle className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />
+              <span className="truncate">{user.memberName ?? 'マイページ'}</span>
+            </h1>
+            <RankingBadges badges={myBadges} />
+            <MyAlertCenter />
+          </div>
+          {/* 要対応バナー（残りスペースの中央に、氏名と同じ行の高さで） */}
+          {(isSales || isManager) && (
+            <div className="flex-1 flex justify-center min-w-[280px]">
+              <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
+            </div>
+          )}
+          {/* 相談案件登録（受注担当のみ・右端） */}
+          {isSales && (
+            <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors flex-none">
+              <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
+            </Link>
+          )}
         </div>
-      )}
+        <p className="text-[13px] text-gray-500 mt-1">{isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}</p>
+      </div>
 
       {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
       {sysMgr && (
