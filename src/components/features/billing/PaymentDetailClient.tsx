@@ -10,7 +10,7 @@ import { exportPaymentDetail } from '@/lib/paymentDetailExcel'
 import { downloadBlob } from '@/lib/salesReportExcel'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { openOfficialInvoice } from '@/lib/openInvoiceDoc'
+import { openOfficialInvoice, downloadOfficialInvoice } from '@/lib/openInvoiceDoc'
 
 type Props = { payments: PaymentDetailRaw[] }
 
@@ -143,6 +143,7 @@ function SheetTable({ sheet, onSaveBank, onSaveNote }: { sheet: PaymentSheet } &
               <th className={TH} rowSpan={2}>請求書</th>
               <th className={TH} rowSpan={2}>格納先フォルダ</th>
               <th className={TH} rowSpan={2}>備考</th>
+              <th className={TH} rowSpan={2}>請求書DL</th>
             </tr>
             <tr>
               <th className={TH}>前受金</th><th className={TH}>報酬</th><th className={TH}>実費</th>
@@ -169,6 +170,10 @@ function Row({ r, onSaveBank, onSaveNote }: { r: PaymentRow } & RowHandlers) {
   const openInvoice = async () => {
     if (!r.invoiceId) return
     await openOfficialInvoice(r.invoiceId)
+  }
+  const downloadInvoice = async () => {
+    if (!r.invoiceId) return
+    await downloadOfficialInvoice(r.invoiceId)
   }
   return (
     <tr className="hover:bg-blue-50/40">
@@ -217,6 +222,14 @@ function Row({ r, onSaveBank, onSaveNote }: { r: PaymentRow } & RowHandlers) {
       {/* 備考（invoices.notes・売上表と両方向共有。インライン編集） */}
       <td className="border border-gray-200 px-1 py-1">
         <NoteInput value={r.invoiceNote} disabled={!r.invoiceId} onSave={v => r.invoiceId && onSaveNote(r.invoiceId, v)} />
+      </td>
+      {/* 請求書DL（Excelをダウンロード。未生成の旧データは生成してから落とす。司法など請求書実体が無い＝invoiceId無しは「—」） */}
+      <td className={TXT + ' text-center'}>
+        {r.invoiceId ? (
+          <button type="button" onClick={downloadInvoice} className="inline-flex items-center gap-0.5 text-green-700 hover:underline" title="請求書(Excel)をダウンロード">
+            <Download className="w-3 h-3" strokeWidth={2.25} /><span className="text-[10.5px]">DL</span>
+          </button>
+        ) : <span className="text-gray-300">—</span>}
       </td>
     </tr>
   )

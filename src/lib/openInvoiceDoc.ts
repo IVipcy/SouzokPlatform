@@ -35,6 +35,59 @@ function kenmeiOf(inv: { invoice_type: string; cases: { deceased_name: string | 
   return `${dec}相続手続き ${inv.invoice_type}`
 }
 
+/** ブラウザでファイル/URLをダウンロードさせる（<a download> クリック）。 */
+function triggerDownload(url: string, filename?: string) {
+  const a = document.createElement('a')
+  a.href = url
+  if (filename) a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+/** 公式請求書(Excel)をダウンロードする。生成済みなら署名URL(download付)で、無い旧データは生成してblobで落とす。 */
+export async function downloadOfficialInvoice(invoiceId: string) {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('invoices')
+    .select('id, case_id, invoice_type, firm_type, amount, fee_amount, advance_deduction, generated_file_path, cases(deceased_name)')
+    .eq('id', invoiceId)
+    .single()
+  const inv = data as InvForDoc | null
+  if (!inv) { showToast('請求書が見つかりません', 'error'); return }
+  const decName = inv.cases?.deceased_name ? `${inv.cases.deceased_name}様_` : ''
+  const fileName = `請求書_${decName}${inv.invoice_type}.xlsx`
+  // 生成済み：署名URLに download 指定を付けてダウンロード
+  if (inv.generated_file_path) {
+    const { data: signed, error } = await supabase.storage.from('documents').createSignedUrl(inv.generated_file_path, 120, { download: fileName })
+    if (error || !signed) { showToast('ファイルをダウンロードできませんでした', 'error'); return }
+    triggerDownload(signed.signedUrl)
+    return
+  }
+  // 未生成（旧データ）→ 公式Excelを生成して blob をダウンロード（invoiceId を渡すので generated_file_path に追記される）
+  const firm = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
+  const kenmei = kenmeiOf(inv)
+  let res: Response
+  if (inv.invoice_type === '前受金') {
+    res = await fetch('/api/documents/invoice', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caseId: inv.case_id, variant: invoiceVariantKey('請求書', firm), kenmei, amount: inv.amount, invoiceId: inv.id }),
+    })
+  } else {
+    const { data: exp } = await supabase.from('expenses').select('item_name, amount, taxable').eq('billed_invoice_id', inv.id)
+    const expenses = ((exp ?? []) as Array<{ item_name: string | null; amount: number | null; taxable: boolean | null }>)
+      .map(e => ({ name: e.item_name ?? '', amount: e.amount ?? 0, taxable: e.taxable !== false }))
+    res = await fetch('/api/documents/kakutei', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caseId: inv.case_id, variant: `kakutei_${firm}`, kenmei, fee: inv.fee_amount, advanceReceived: inv.advance_deduction, expenses, invoiceId: inv.id }),
+    })
+  }
+  if (!res.ok) { showToast('公式請求書の生成に失敗しました', 'error'); return }
+  const url = URL.createObjectURL(await res.blob())
+  triggerDownload(url, fileName)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 /** 公式請求書(Excel)を開く。生成済みならそれを、無い旧データは生成してから開く。 */
 export async function openOfficialInvoice(invoiceId: string) {
   const supabase = createClient()
