@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { isMinimalMode } from '@/lib/featureMode'
+import { getCaseStatusLabel } from '@/lib/constants'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -83,6 +84,8 @@ type Props = {
   selectable?: boolean
   /** 完了案件ビュー: 鮮度フラグの代わりに「完了」バッジを出し、フラグなし行も表示する */
   showCompleted?: boolean
+  /** ステータス絞り込みタブ（案件進行中 / 業務完了 / 納品完了）を表示する。マイページの管理案件一覧向け */
+  withStatusFilter?: boolean
 }
 
 const FLAG_LABEL: Record<NonNullable<CaseFlag>, string> = {
@@ -102,9 +105,17 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
 
-// 鮮度フラグの付与対象 = 対応中の案件のみ（完了・相談案件・個別管理案件にはフラグを出さない）。
-// ※ 一覧の行の絞り込みは呼び出し側で実施。ここはフラグ判定スコープのみ。
-const MANAGEMENT_ACTIVE = new Set(['対応中'])
+// 鮮度フラグの付与対象 = 稼働中（対応中・業務完了申請中）。完了・相談案件・個別管理案件にはフラグを出さない。
+// ※ 一覧の行の絞り込みは呼び出し側 or 下記ステータスタブで実施。ここはフラグ判定スコープのみ。
+const MANAGEMENT_ACTIVE = new Set(['対応中', '業務完了申請中'])
+
+// ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
+const STATUS_TABS = [
+  { key: 'active', label: '案件進行中', match: (s: string) => s === '対応中' || s === '業務完了申請中' },
+  { key: 'workDone', label: '業務完了', match: (s: string) => s === '完了' },
+  { key: 'delivered', label: '納品完了', match: (s: string) => s === '納品完了' },
+] as const
+type StatusTabKey = typeof STATUS_TABS[number]['key']
 
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの経過日数
 // 青: <=3日 / 黄: 4〜7日 / 赤: >7日
@@ -127,26 +138,38 @@ function computeFlagSimple(c: MyCaseRow): CaseFlag {
  * 進捗管理ダッシュボードと同じテーブル形式:
  *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
-export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false }: Props) {
+export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false, withStatusFilter = false }: Props) {
   // ミニマム運用モードでは進捗列（タスクへ飛ぶ）を非表示
   const minimal = isMinimalMode()
   void _memberId
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [statusTab, setStatusTab] = useState<StatusTabKey>('active')
 
   const rows = cases.map(c => ({
     ...c,
     flag: c.flag ?? computeFlagSimple(c),
   }))
 
-  // 通常ビュー: 完了・失注（フラグなし）は除外。完了ビュー: 全件表示。
-  const visibleRows = showCompleted ? [...rows] : rows.filter(r => r.flag !== null)
-  // ソート: 完了ビューは案件番号順、通常はフラグ優先度 → 完了予定日昇順
+  // 各ステータスタブの該当件数（バッジ表示用）
+  const tabCounts = withStatusFilter
+    ? Object.fromEntries(STATUS_TABS.map(t => [t.key, rows.filter(r => t.match(r.status)).length])) as Record<StatusTabKey, number>
+    : ({} as Record<StatusTabKey, number>)
+
+  // 完了系ビューか（フラグなし行も表示・案件番号順）: ステータスフィルタ時は active 以外、それ以外は showCompleted
+  const isCompletedView = withStatusFilter ? statusTab !== 'active' : showCompleted
+
+  // 行の絞り込み。ステータスフィルタ時は選択タブのステータス群で、そうでなければ従来どおり。
+  const activeTabDef = STATUS_TABS.find(t => t.key === statusTab)!
+  const visibleRows = withStatusFilter
+    ? rows.filter(r => activeTabDef.match(r.status))
+    : (showCompleted ? [...rows] : rows.filter(r => r.flag !== null))
+  // ソート: 完了系ビューは案件番号順、進行中はフラグ優先度 → 完了予定日昇順
   visibleRows.sort((a, b) => {
-    if (showCompleted) return a.case_number.localeCompare(b.case_number)
-    const fa = FLAG_RANK[a.flag!]
-    const fb = FLAG_RANK[b.flag!]
+    if (isCompletedView) return a.case_number.localeCompare(b.case_number)
+    const fa = FLAG_RANK[a.flag ?? 'blue']
+    const fb = FLAG_RANK[b.flag ?? 'blue']
     if (fa !== fb) return fa - fb
     const ad = a.expected_completion_date ?? '9999-12-31'
     const bd = b.expected_completion_date ?? '9999-12-31'
@@ -176,16 +199,44 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
     router.refresh()
   }
 
+  // ステータス絞り込みタブ（withStatusFilter 時のみ）
+  const filterBar = withStatusFilter ? (
+    <div className="flex items-center gap-1.5 mb-3">
+      {STATUS_TABS.map(t => {
+        const on = statusTab === t.key
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => { setStatusTab(t.key); setSelected(new Set()) }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}
+          >
+            {t.label}
+            <span className={`inline-flex items-center justify-center min-w-[20px] px-1 h-5 rounded-full text-[11px] font-bold ${on ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>{tabCounts[t.key] ?? 0}</span>
+          </button>
+        )
+      })}
+    </div>
+  ) : null
+
+  const emptyLabel = withStatusFilter
+    ? `${activeTabDef.label}の案件はありません`
+    : (showCompleted ? '業務完了・納品完了 案件はありません' : '案件進行中の案件はありません')
+
   if (visibleRows.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
-        {showCompleted ? '業務完了・納品完了 案件はありません' : '案件進行中の案件はありません'}
+      <div>
+        {filterBar}
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-12 text-center text-[13px] text-gray-400">
+          {emptyLabel}
+        </div>
       </div>
     )
   }
 
   return (
     <div>
+      {filterBar}
       {selectable && selected.size > 0 && (
         <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-brand-50 border border-brand-200 rounded-lg">
           <span className="text-[12px] font-semibold text-gray-700">{selected.size}件選択中</span>
@@ -267,9 +318,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                     {FLAG_LABEL[c.flag]}
                   </Link>
                 ) : (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-500 border border-gray-200">
-                    完了
-                  </span>
+                  <Link href={`/cases/${c.id}`} title="案件詳細を開く" className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:brightness-95 whitespace-nowrap">
+                    {getCaseStatusLabel(c.status)}
+                  </Link>
                 )}
               </td>
               <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">

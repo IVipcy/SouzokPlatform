@@ -881,7 +881,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {activeTab === 'cases' && (
         <div>
           <ProgressKpis scopeLabel={user.memberName ?? 'あなた'} metrics={boardKpis} />
-          <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} selectable />
+          <MyPageCasesTab memberId={memberId} cases={myCasesEnriched} selectable withStatusFilter />
         </div>
       )}
 
