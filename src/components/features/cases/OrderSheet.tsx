@@ -98,7 +98,9 @@ export default function OrderSheet({
   const allowedTabs = caseData.service_category
     ? new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean) as TabKey[])
     : null
-  const showSec = (gate?: TabKey) => !gate || !allowedTabs || allowedTabs.has(gate)
+  // 依頼者情報は業務(gyomu)に依存しない固定セクションなので、allowedTabs に関わらず常に表示する。
+  const ALWAYS_SEC = new Set<TabKey>(['clientInfo'])
+  const showSec = (gate?: TabKey) => !gate || ALWAYS_SEC.has(gate) || !allowedTabs || allowedTabs.has(gate)
 
   // workContentKey: 上部フリー欄(WorkContentField)の保存先キー。省略時は gate ?? title
   //   財産調査（不動産）→ assets_re、財産調査（金融資産）→ assets_deposit（面談シートのキーと揃える）

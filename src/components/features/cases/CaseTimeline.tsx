@@ -180,10 +180,11 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   )
 
   return (
-    <div className="overflow-x-auto">
-      {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる */}
-      <div className="relative min-w-[440px]" style={{ paddingTop: 30, paddingBottom: 34 }}>
-        {/* 連続した横一線（背面・アイコン中心の高さ） */}
+    <div className="overflow-hidden">
+      {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる（横スクロールは出さない）。
+          両端は 端ノードの日付ラベルがはみ出さないよう左右パディングを確保。 */}
+      <div className="relative w-full" style={{ paddingTop: 30, paddingBottom: 34, paddingLeft: 44, paddingRight: 44 }}>
+        {/* 連続した横一線（背面・アイコン中心の高さ・全幅） */}
         <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
         {/* アイコン＋セグメント（前面） */}
         <div className="relative flex items-center">
