@@ -24,10 +24,13 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.type === 'doc_received') return `/cases/${n.case_id}?tab=receipts`
   if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
   if (n.type === 'realestate_additional') return `/cases/${n.case_id}?tab=assets`
-  // 案件報告：案件報告タブ(sub=report)へ飛ばして確認モーダル自動オープン
-  if (n.type === 'progress_review_requested' || n.type === 'progress_review_confirmed') {
-    // n.data?.report_id が入っていれば openReport で対象を特定できる。
-    // 通知テーブルに data JSON 列がない環境では最新の依頼中を対象にする（HistoryTab側で処理）。
+  // 案件報告の承認依頼：案件報告タブ(sub=report)へ飛ばし、承認モーダルを自動オープン(approve=1)。
+  //   通知テーブルに report_id 列が無いため、HistoryTab 側で「自分が承認すべき最新の依頼中」を自動表示する。
+  if (n.type === 'progress_review_requested') {
+    return `/cases/${n.case_id}?tab=progress&sub=report&approve=1`
+  }
+  // 承認完了の通知（報告者向け）はモーダルを開かず案件報告タブへ。
+  if (n.type === 'progress_review_confirmed') {
     return `/cases/${n.case_id}?tab=progress&sub=report`
   }
   // 報連相：報連相・メモタブ(sub=memo)へ

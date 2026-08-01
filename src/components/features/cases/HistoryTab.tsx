@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus, MessageSquare, Plus } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -57,6 +57,8 @@ type Props = {
   section?: 'report' | 'memo'
   /** 通知から遷移した時に自動オープンする案件報告/報連相のID */
   openReportId?: string | null
+  /** 承認通知(approve=1)から遷移した時：自分が承認すべき依頼中の報告を自動でモーダル表示する */
+  autoOpenPending?: boolean
 }
 
 /**
@@ -64,7 +66,7 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section, openReportId }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section, openReportId, autoOpenPending = false }: Props) {
   const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
@@ -327,6 +329,19 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     if (cr) { setConfirmReport(cr); setConfirmReportComment('') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openReportId, progressReports, caseReports])
+
+  // 承認通知(approve=1)から案件報告サブタブへ来たが openReport 指定が無い場合：
+  //   自分が承認すべき「依頼中」の報告（自分が報告者でないもの・最新）を1件だけ自動でモーダル表示する。
+  //   通知テーブルに report_id を持たせていないため、業務完了申請等の承認導線をこのフォールバックで担保する。
+  //   ※ 手動で案件報告サブタブを開いた時に勝手に出さないよう、通知経由(autoOpenPending)のときだけ発火。
+  const autoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (openReportId || !autoOpenPending || autoOpenedRef.current || !currentMemberId) return
+    // progressReports は requested_date 降順。承認対象＝依頼中 かつ 報告者が自分でない 最新の1件。
+    const target = progressReports.find(r => r.status === '依頼中' && r.requester_id !== currentMemberId)
+    if (target) { autoOpenedRef.current = true; setConfirmTarget(target); setConfirmComment('') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openReportId, autoOpenPending, progressReports, currentMemberId])
 
   // 「確認してタスク化」→ 確認モーダルを閉じ AddTaskModal を開く（対象progress_reportは taskModalPr で保持）
   const openTaskModal = (pr: ProgressReportRow) => {

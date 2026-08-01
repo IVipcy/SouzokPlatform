@@ -616,6 +616,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         const subParam = searchParams.get('sub')
         const initSub = subParam === 'report' || subParam === 'memo' || subParam === 'office' || subParam === 'board' || subParam === 'complaint' ? subParam : undefined
         const openReportId = searchParams.get('openReport')
+        const autoOpenPending = searchParams.get('approve') === '1'
         return (
           <ProgressBoard
             board={buildProgressBoard(caseState, tasks, financialAssets)}
@@ -628,6 +629,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             canRequestReview={isCaseManager}
             initialSub={initSub}
             openReportId={openReportId}
+            autoOpenPending={autoOpenPending}
             // 「事務管理進捗」(案件進捗=BasicInfoTab)を 案件進捗タブ内のサブタブとして表示。
             // 受注担当ビューでも 管理担当と同じ5サブタブ(進捗サマリー/事務管理進捗/案件報告/報連相・メモ/不満・クレーム)にする。
             renderOfficeProgress={() => (

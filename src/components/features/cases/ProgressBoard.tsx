@@ -61,9 +61,11 @@ type ProgressBoardProps = {
   initialSub?: 'board' | 'office' | 'report' | 'memo' | 'complaint'
   /** 通知遷移で確認モーダルを自動オープンするための ID（progress_reports か case_reports） */
   openReportId?: string | null
+  /** 承認通知(approve=1)から遷移した時：自分が承認すべき依頼中の報告を自動オープン */
+  autoOpenPending?: boolean
 }
 
-export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId }: ProgressBoardProps) {
+export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId, autoOpenPending = false }: ProgressBoardProps) {
   const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo' | 'complaint'>(initialSub ?? 'board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
@@ -108,6 +110,7 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
         <HistoryTab
           section={sub}
           openReportId={openReportId ?? undefined}
+          autoOpenPending={autoOpenPending}
           caseData={caseData}
           allMembers={allMembers}
           currentMemberId={currentMemberId}
