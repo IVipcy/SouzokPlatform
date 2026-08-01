@@ -138,44 +138,56 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const now = new Date()
   const flag = computeCaseFlag(caseData, [], now)   // 'purple' | 'red' | 'yellow' | 'blue'
   const elapsedCls = flag === 'red' ? '#ef4444' : flag === 'yellow' ? '#f59e0b' : flag === 'purple' ? '#7c3aed' : '#38bdf8'
-  const elapsed = orderDate ? fmtMonthDay(monthDayDiff(orderDate, now)) : '—'
-  const remain = goalDate ? (goalDate.getTime() >= now.getTime() ? fmtMonthDay(monthDayDiff(now, goalDate)) : '超過') : '—'
+  const elapsedDiff = orderDate ? monthDayDiff(orderDate, now) : null
   const remainOver = !!goalDate && goalDate.getTime() < now.getTime()
+  const remainDiff = goalDate && !remainOver ? monthDayDiff(now, goalDate) : null
+  const elapsed = elapsedDiff ? fmtMonthDay(elapsedDiff) : '—'
+  const remain = remainOver ? '超過' : (remainDiff ? fmtMonthDay(remainDiff) : '—')
+  // 「現在」の位置を 経過:残り の日数比で動かす（flex-grow 比率）。0でも最小幅は確保。
+  const elapsedDays = elapsedDiff?.totalDays ?? 0
+  const remainDays = remainDiff?.totalDays ?? 0
 
-  const circle = compact ? 'w-9 h-9' : 'w-12 h-12'
+  const circlePx = compact ? 38 : 48
   const iconSz = compact ? 'w-[16px] h-[16px]' : 'w-[22px] h-[22px]'
   const labelCls = compact ? 'text-[11px]' : 'text-[13px]'
   const dateCls = compact ? 'text-[10px]' : 'text-[11px]'
-  const col = compact ? 'w-[84px]' : 'w-[110px]'
+  const col = compact ? 'w-[80px]' : 'w-[104px]'
 
   const Node = ({ Icon, label, date, cur, future }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean }) => (
     <div className={`flex flex-col items-center flex-none ${col}`}>
-      <span className={`${circle} rounded-full flex items-center justify-center shadow-sm ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
-        <Icon className={iconSz} strokeWidth={2} />
+      <span className="rounded-full flex items-center justify-center shadow-sm" style={{ width: circlePx, height: circlePx }}>
+        <span className={`w-full h-full rounded-full flex items-center justify-center ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
+          <Icon className={iconSz} strokeWidth={2} />
+        </span>
       </span>
       <span className={`mt-1.5 ${labelCls} font-semibold text-center leading-tight ${future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</span>
       <span className={`${dateCls} font-mono text-gray-400`}>{date ?? '—'}</span>
     </div>
   )
-  const Arrow = ({ color, label, sub }: { color: string; label: string; sub: string }) => (
-    <div className="flex-1 min-w-[60px] flex flex-col items-center" style={{ marginBottom: compact ? 30 : 38 }}>
-      <div className="text-center leading-tight mb-1">
-        <div className="text-[10px] text-gray-400">{sub}</div>
-        <div className="text-[13px] font-bold" style={{ color }}>{label}</div>
-      </div>
-      <div className="w-full relative" style={{ height: 0, borderTop: `3px solid ${color}` }}>
-        <span className="absolute -right-0.5 -top-[7px] text-[12px]" style={{ color }}>▶</span>
+  // 矢印セグメント：高さ=円と同じで items-center により線を円の中心に合わせる。矢じりはCSS三角。ラベルは線の上に。
+  const Arrow = ({ color, label, sub, grow }: { color: string; label: string; sub: string; grow: number }) => (
+    <div className="flex-none self-start" style={{ flexGrow: Math.max(0, grow), flexBasis: 0, minWidth: 68 }}>
+      <div className="relative flex items-center" style={{ height: circlePx }}>
+        {/* 線（矢じり分だけ右を空ける） */}
+        <div className="w-full" style={{ height: 0, borderTop: `3px solid ${color}`, marginRight: 8 }} />
+        {/* 矢じり（CSS三角・縦中央） */}
+        <span className="absolute right-0 top-1/2 -translate-y-1/2" style={{ width: 0, height: 0, borderTop: '6px solid transparent', borderBottom: '6px solid transparent', borderLeft: `9px solid ${color}` }} />
+        {/* ラベル（線の上） */}
+        <div className="absolute inset-x-0 text-center leading-tight" style={{ bottom: '50%', marginBottom: 6 }}>
+          <div className="text-[10px] text-gray-400">{sub}</div>
+          <div className="text-[13px] font-bold" style={{ color }}>{label}</div>
+        </div>
       </div>
     </div>
   )
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-center min-w-[420px] pt-1">
+      <div className="flex items-start min-w-[420px] pt-6">
         <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
-        <Arrow color={elapsedCls} sub="経過" label={elapsed} />
+        <Arrow color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
         <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-        <Arrow color="#93c5fd" sub="残り" label={remainOver ? '超過' : remain} />
+        <Arrow color="#93c5fd" sub="残り" label={remain} grow={remainDays} />
         <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
       </div>
     </div>
