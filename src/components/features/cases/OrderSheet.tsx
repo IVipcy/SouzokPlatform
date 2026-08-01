@@ -274,9 +274,10 @@ function OSSection({ title, children, id }: { title: string; children: React.Rea
       <div className="px-4 py-2.5 bg-brand-600 rounded-t-lg">
         <h2 className="text-[14px] font-bold text-white tracking-[0.02em]">{title}</h2>
       </div>
-      {/* 中の Section は「親の中の見出しブロック」に切り替える（枠なし・灰見出し） */}
+      {/* 中の Section は「親の中の見出しブロック」に切り替える（枠なし・灰見出し）。
+          中身エリアは白背景にして、内側の表がベージュに透けないようにする（ベージュは外枠として残る）。 */}
       <NestedSectionContext.Provider value={true}>
-        <div className="p-4 space-y-4 rounded-b-lg">{children}</div>
+        <div className="p-4 space-y-4 rounded-b-lg bg-white">{children}</div>
       </NestedSectionContext.Provider>
     </section>
   )
