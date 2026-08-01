@@ -780,19 +780,20 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         icon={UserCircle}
         description={isSales ? '受注担当のマイページ — あなたのみ閲覧できます' : isManager ? '管理担当のマイページ — あなたのみ閲覧できます' : 'マイページ — あなたのみ閲覧できます'}
         afterTitle={<span className="inline-flex items-center gap-2 flex-wrap"><RankingBadges badges={myBadges} /><MyAlertCenter /></span>}
-        right={isSales ? (
-          <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
-            <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
-          </Link>
-        ) : undefined}
+        right={(
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {/* 要対応（入金期日・タスク期日の超過）バナーを 氏名と同じ行（右）に配置 */}
+            {(isSales || isManager) && (
+              <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
+            )}
+            {isSales && (
+              <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors">
+                <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
+              </Link>
+            )}
+          </div>
+        )}
       />
-
-      {/* 要対応（入金期日・タスク期日の超過）バナー — 上部中央 */}
-      {(isSales || isManager) && (
-        <div className="mb-4 flex justify-center">
-          <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
-        </div>
-      )}
 
       {/* システム管理者: 受注ビュー / 管理ビュー の切替（2タブ分） */}
       {sysMgr && (
