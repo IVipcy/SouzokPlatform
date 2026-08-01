@@ -123,17 +123,21 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
     })
   }, [caseData.id])
 
-  // 請求完了バッジ用：この案件の請求書（前受金／確定請求）の入金状況
-  // 請求脚（前受金／確定）の状態。exists=作成済以上・sent=郵送済(入金待ち以降)・paid=入金済
+  // 請求完了バッジ用：この案件の請求書（前受金／確定請求）の状態。
+  // 会計上は「請求書発行=売掛計上=請求完了」。前受金請求書を作成すると invoices は
+  //   status='作成済' + issued_date=今日 で作られる（api/documents/invoice）。
+  // そのため sent(=請求完了扱い) は 発行済(issued_date あり) or 入金待ち以降 で判定する。
+  //   exists=作成済以上・sent=発行済(=請求完了)・paid=入金済
   type Leg = { exists: boolean; sent: boolean; paid: boolean }
   const [invLegs, setInvLegs] = useState<{ advance: Leg; final: Leg } | null>(null)
   const loadLegs = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('invoices').select('invoice_type, status').eq('case_id', caseData.id)
-    const rows = (data ?? []) as { invoice_type: string; status: string }[]
+    const { data } = await supabase.from('invoices').select('invoice_type, status, issued_date').eq('case_id', caseData.id)
+    const rows = (data ?? []) as { invoice_type: string; status: string; issued_date: string | null }[]
     const legOf = (r: typeof rows): Leg => ({
       exists: r.length > 0,
-      sent: r.some(x => ['入金待ち', '一部入金', '入金済'].includes(x.status)),
+      // 発行済(issued_date あり)＝請求完了。入金追跡の status(入金待ち/入金済)でも真。
+      sent: r.some(x => !!x.issued_date || ['入金待ち', '一部入金', '入金済'].includes(x.status)),
       paid: r.some(x => x.status === '入金済'),
     })
     setInvLegs({ advance: legOf(rows.filter(r => r.invoice_type === '前受金')), final: legOf(rows.filter(r => r.invoice_type === '確定請求')) })
