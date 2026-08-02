@@ -2,6 +2,9 @@
 // すべて in-memory のpureな関数。Supabaseから一括フェッチした行を受け取り、
 // 月 × スコープ（部全体 / 個人）で5指標を計算する。
 
+import { bizDaysOverdue } from '@/lib/overdue'
+import { caseFlagFromAlerts, type CaseAlertChip } from '@/lib/alerts'
+
 export type DashCase = {
   id: string
   case_number?: string
@@ -115,23 +118,25 @@ export function daysSince(ref: string | null | undefined, today: Date = new Date
   return Math.floor((today.getTime() - refTime) / 86_400_000)
 }
 
-// 案件単位のフラグ判定（鮮度ベース）
-//   優先度: 紫（クレームあり） > 赤/黄/青（最終接触からの経過日数）
-//   「最終接触」= 案件詳細を最後に開いた日時 last_opened_at（無ければ作成日 created_at）
+// 案件単位のフラグ判定。
+//   色＝アラートの最大深刻度（紫=クレーム > 赤=要注意 > 黄=要確認 > 青=無し）。
+//   alerts を渡せばアラート駆動（相談/管理/各ダッシュボードで共通化）。
+//   渡さない場合のフォールバック＝クレーム＋未対応日数（営業日）。5営業日→黄、10営業日→赤。
 export function computeCaseFlag(
   caseRow: { has_complaint?: boolean | null; last_opened_at?: string | null; created_at?: string | null },
   _tasks: DashTask[] = [],
   today: Date = new Date(),
+  alerts?: CaseAlertChip[],
 ): CaseFlag {
-  // (0) クレームあり → 紫（最優先・既存仕様）
-  if (caseRow.has_complaint) {
-    return 'purple'
-  }
-  const ref = caseRow.last_opened_at ?? caseRow.created_at ?? null
-  const days = daysSince(ref, today)
-  if (days === null) return 'blue' // 基準日不明なら新しい扱い
-  if (days > FRESHNESS_THRESHOLDS.redDays) return 'red'
-  if (days > FRESHNESS_THRESHOLDS.yellowDays) return 'yellow'
+  if (caseRow.has_complaint) return 'purple'
+  if (alerts) return caseFlagFromAlerts(alerts)
+  // フォールバック：未対応日数（最終接触＝最後に開いた日）を営業日で。
+  const ref = (caseRow.last_opened_at ?? caseRow.created_at ?? '')?.slice(0, 10)
+  if (!ref) return 'blue'
+  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const biz = bizDaysOverdue(ref, ymd)
+  if (biz >= 10) return 'red'
+  if (biz >= 5) return 'yellow'
   return 'blue'
 }
 

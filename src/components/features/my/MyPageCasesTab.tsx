@@ -11,6 +11,7 @@ import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { isMinimalMode } from '@/lib/featureMode'
 import { getCaseStatusLabel } from '@/lib/constants'
+import { bizDaysOverdue } from '@/lib/overdue'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -117,19 +118,19 @@ const STATUS_TABS = [
 ] as const
 type StatusTabKey = typeof STATUS_TABS[number]['key']
 
-// 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの経過日数
-// 青: <=3日 / 黄: 4〜7日 / 赤: >7日
-const FRESHNESS = { yellowDays: 3, redDays: 7 }
+// 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの未対応 営業日数
+// 青: <5営業日 / 黄: 5営業日〜 / 赤: 10営業日〜（案件色をアラート深刻度に合わせた統一ルール）
 
 function computeFlagSimple(c: MyCaseRow): CaseFlag {
   if (!MANAGEMENT_ACTIVE.has(c.status)) return null
   if (c.has_complaint) return 'purple'
-  const ref = c.last_opened_at ?? c.created_at ?? null
+  const ref = (c.last_opened_at ?? c.created_at ?? '')?.slice(0, 10)
   if (!ref) return 'blue'
-  const days = Math.floor((Date.now() - new Date(ref).getTime()) / 86_400_000)
-  if (Number.isNaN(days)) return 'blue'
-  if (days > FRESHNESS.redDays) return 'red'
-  if (days > FRESHNESS.yellowDays) return 'yellow'
+  const d = new Date()
+  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const biz = bizDaysOverdue(ref, ymd)
+  if (biz >= 10) return 'red'
+  if (biz >= 5) return 'yellow'
   return 'blue'
 }
 
