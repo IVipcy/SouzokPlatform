@@ -260,6 +260,17 @@ export type CaseRow = {
   client_trait_detail: string | null
   has_complaint: boolean
   complaint_detail: string | null
+  // 作業着手準備まわり（migration 215）
+  filing_status?: string | null                 // ファイル化：未 / 済
+  order_sheet_finalized_at?: string | null       // OS最終化ハンコ（管理担当チェック済）
+  order_sheet_finalized_by?: string | null
+  order_sheet_finalized_name?: string | null
+  work_prep_advanced_at?: string | null          // 作業着手準備へ進めた
+  work_prep_advanced_by?: string | null
+  work_prep_advanced_name?: string | null
+  work_start_ok_at?: string | null               // 着手OK（作業進行中へ）
+  work_start_ok_by?: string | null
+  work_start_ok_name?: string | null
   // オーダーシート完成日時（NULL=未作成）。実務タブ解禁・対応中遷移の条件。
   order_sheet_completed_at: string | null
   // 作業進行中（対応中）に入った日時（NULL=未到達）。週次報告のカウント開始基準（対応中＋7日）。
@@ -358,6 +369,7 @@ export type MemberRow = {
   hometown?: string | null
   favorite_food?: string | null
   is_touki_team?: boolean   // 相続登記チームメンバー (migration 205)
+  is_dispatcher?: boolean   // 割振り担当（管理担当アサインの差配。migration 215）
 }
 
 export type CaseMemberRow = {
