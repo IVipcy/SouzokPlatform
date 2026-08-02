@@ -275,6 +275,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     }
   }
 
+  /** 受注系 → 作業着手準備 へ進める（進めた人のハンコを記録）。3ナビ完了後に手動で押す。 */
+  const advanceToPrep = async () => {
+    const myName = allMembers.find(m => m.id === currentMemberId)?.name ?? null
+    await patchCase({ status: '作業着手準備', work_prep_advanced_at: new Date().toISOString(), work_prep_advanced_by: currentMemberId, work_prep_advanced_name: myName })
+    setNavDismissed(true)
+    showToast('作業着手準備に進めました', 'success')
+  }
+
   /** ゲート通過後、受注担当へ業務完了の承認依頼を送り、ステータスを「業務完了申請中」に変更する。
    *  統一報告モーダル（HistoryTab）の work_complete 送信と同じ progress_reports + notifications を作る。 */
   const submitWorkCompleteRequest = async () => {
@@ -557,13 +565,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           flatOrder={flatOrderTabs}
         />
 
-        {/* 受託フロー・ナビゲーター：受注案件を開くたび、対応中への前提条件を案内（順不同） */}
+        {/* 受託フロー・ナビゲーター：受注案件を開くたび、作業着手準備への前提条件（OS作成/契約書類受領/料金表・前受金請求）を案内 */}
         {jutakuNavVisible && (
           <StatusFlowNavigator
             steps={flowSteps}
-            targetLabel="案件進行中"
-            advanceLabel="管理担当へ引き継ぐ"
-            onAdvance={() => setHandoffOpen(true)}
+            targetLabel="作業着手準備"
+            advanceLabel="作業着手準備へ進む"
+            onAdvance={advanceToPrep}
             onDismiss={() => setNavDismissed(true)}
           />
         )}

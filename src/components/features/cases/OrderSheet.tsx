@@ -93,6 +93,20 @@ export default function OrderSheet({
     return true
   }
 
+  // オーダーシート最終化（管理担当チェック済のハンコ）。着手OKの条件には含めない・管理担当の完了事項マーカー。
+  const finalized = !!caseData.order_sheet_finalized_at
+  const toggleFinalize = async () => {
+    if (finalized) await patchCase({ order_sheet_finalized_at: null, order_sheet_finalized_by: null, order_sheet_finalized_name: null })
+    else await patchCase({ order_sheet_finalized_at: new Date().toISOString(), order_sheet_finalized_by: authUser?.memberId ?? null, order_sheet_finalized_name: null })
+  }
+  const finalizeStampEl = ro ? null : (
+    <button type="button" onClick={toggleFinalize}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors ${finalized ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-gray-600 border-gray-300 hover:border-brand-400'}`}
+      title="オーダーシートを最終化（管理担当チェック済）。もう一度押すと解除。">
+      <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{finalized ? `管理担当チェック済（${caseData.order_sheet_finalized_at?.slice(0, 10)}）` : '管理担当チェック済にする'}
+    </button>
+  )
+
   // 受注区分→選択業務 で実務セクションを出し分け（service_category 未設定の旧案件は全表示）
   const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
   const allowedTabs = caseData.service_category
@@ -196,6 +210,7 @@ export default function OrderSheet({
             {saving ? '保存中...' : 'オーダーシートを完成'}
           </button>
         )}
+        {finalizeStampEl}
       </div>
 
       <div className="lg:flex lg:gap-5 lg:items-start">
@@ -239,6 +254,7 @@ export default function OrderSheet({
       {!ro && (
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
         <p className="flex-1 text-[12px] text-gray-500">各項目は入力した時点で自動保存されます。最後にこのボタンで保存を確定できます。</p>
+        {finalizeStampEl}
         <button
           type="button"
           onClick={saveAndRefresh}
