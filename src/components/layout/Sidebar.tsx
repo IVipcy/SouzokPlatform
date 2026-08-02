@@ -9,6 +9,7 @@ import {
   Briefcase,
   PenSquare,
   ListChecks,
+  ClipboardList,
   ClipboardCheck,
   FileText,
   Receipt,
@@ -53,6 +54,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
       { href: '/intake',   label: '面談登録', Icon: PenSquare },
       { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
+      { href: '/dashboard/office', label: '事務管理ダッシュボード', Icon: ClipboardList },
     ],
   },
   {

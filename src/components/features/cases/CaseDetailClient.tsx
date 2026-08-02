@@ -134,6 +134,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     setActiveTabState(prev => (prev === tabFromUrl ? prev : tabFromUrl))
   }, [tabFromUrl])
 
+  // 事務管理ダッシュボードの着手OKから ?genTasks=1 で来たら「タスクを生成してください」ポップを出す。
+  const genTasksHandledRef = useRef(false)
+  useEffect(() => {
+    if (genTasksHandledRef.current) return
+    if (searchParams.get('genTasks') === '1') {
+      genTasksHandledRef.current = true
+      setManagementTaskPrompt(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 新規登録直後の ?created=1 は初回マウントでポップアップ判定に使った後、URLから除去
   // （リロードで再度開かないように）。setState せず replace のみなので副作用は安全。
   useEffect(() => {
