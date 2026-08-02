@@ -6,18 +6,15 @@ import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListP
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
-import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { PROGRESS_REPORT_PHASES, PROGRESS_REPORT_STATES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
-import HourenSouModal from './HourenSouModal'
 import AddTaskModal from './AddTaskModal'
-import type { CaseRow, CaseActivityRow, MemberRow, ProgressReportRow, ProgressReportKind, CaseReportRow } from '@/types'
-import { checkCaseCompletable, type MissingInvoice, type PendingRefund, type MissingReferral } from '@/lib/caseCompletionGate'
+import { useCaseCompose } from './CaseComposeContext'
+import type { CaseActivityRow, MemberRow, ProgressReportRow, ProgressReportKind, CaseReportRow, CaseRow } from '@/types'
 import { useRouter } from 'next/navigation'
 
 // 案件報告の分類ラベル。ステータス絞り込みなし・常時4種類全部から選択可能。
@@ -32,12 +29,6 @@ const KIND_CHIP: Record<ProgressReportKind, string> = {
   work_complete: 'bg-amber-100 text-amber-800 border-amber-300',
   case_reopen: 'bg-purple-100 text-purple-700 border-purple-300',
   delivery_confirm: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-}
-const KIND_PLACEHOLDER: Record<ProgressReportKind, string> = {
-  progress_check: '例：相続人の確定内容を一緒に確認してほしい',
-  work_complete: '例：全請求発行済・追加補足あればどうぞ',
-  case_reopen: '例：追加戸籍が発生。追加請求＋登記対応が必要',
-  delivery_confirm: '例：納品書類の対象／対象外を確認してほしい',
 }
 // 案件報告の状態バッジ配色（緑=順調／青=確認事項／琥珀=HELP／赤=至急）
 const STATE_CHIP: Record<string, string> = {
@@ -76,7 +67,7 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId, canRequestReview = false, tasks = [], section, openReportId, autoOpenPending = false }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, canRequestReview = false, tasks = [], section, openReportId, autoOpenPending = false }: Props) {
   const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
@@ -89,17 +80,10 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [activities, setActivities] = useState<CaseActivityRow[]>([])
   const [progressReports, setProgressReports] = useState<ProgressReportRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [requesting, setRequesting] = useState(false)
-  const [reviewPointInput, setReviewPointInput] = useState('')
-  const [requestOpen, setRequestOpen] = useState(false)
-  // 統一報告モーダル: 分類選択。デフォルトは既存の週次案件報告。
-  const [reportKind, setReportKind] = useState<ProgressReportKind>('progress_check')
-  // 案件報告(progress_check)のフェーズ・状態
-  const [reportPhase, setReportPhase] = useState('')
-  const [reportState, setReportState] = useState<string>(PROGRESS_REPORT_STATES[0])
-  // 業務完了申請時のゲート未達ポップアップ内容
-  const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   const router = useRouter()
+  // 案件報告・報連相の作成ウィンドウは案件詳細ルート(CaseComposeProvider)に持ち上げ済み。
+  // ボタンはここで open を呼び、送信後は compose.refreshKey の変化で一覧を再取得する。
+  const compose = useCaseCompose()
   const [confirmTarget, setConfirmTarget] = useState<ProgressReportRow | null>(null)
   const [confirmComment, setConfirmComment] = useState('')
   const [confirmSaving, setConfirmSaving] = useState(false)
@@ -107,7 +91,6 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [taskModalPr, setTaskModalPr] = useState<ProgressReportRow | null>(null)
   // 報連相（case_reports）と、右上ボタンのモーダル制御
   const [caseReports, setCaseReports] = useState<CaseReportRow[]>([])
-  const [houRenSouOpen, setHouRenSouOpen] = useState(false)
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   // 報連相の確認モーダル
   const [confirmReport, setConfirmReport] = useState<CaseReportRow | null>(null)
@@ -144,9 +127,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     setLoading(false)
   }
 
-  // 案件IDが変わったらサーバーから再取得（マウント時フェッチ）
+  // 案件IDが変わったら／作成ウィンドウで送信された(compose.refreshKey)らサーバーから再取得
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { fetchActivities() }, [caseData.id])
+  useEffect(() => { fetchActivities() }, [caseData.id, compose?.refreshKey])
 
   const handleAddNote = async () => {
     if (!newNote.trim() || !currentMemberId) return
@@ -169,104 +152,6 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
-  // 分類を選んだ瞬間のゲート判定 (業務完了申請のみ)。未達ならモーダルを閉じてポップアップで案内。
-  const handleKindChange = async (next: ProgressReportKind) => {
-    setReportKind(next)
-    if (next === 'work_complete') {
-      const supabase = createClient()
-      const result = await checkCaseCompletable(supabase, caseData.id, caseData.billing_pattern)
-      if (!result.ok) {
-        // モーダル閉じて未完項目ポップアップを表示
-        setRequestOpen(false)
-        setCompletionBlocked({
-          missing: result.missing,
-          pendingRefunds: result.pendingRefunds,
-          missingReferrals: result.missingReferrals,
-          billingPattern: result.billingPattern,
-          hasInvoices: result.hasInvoices,
-        })
-      }
-    }
-    // TODO(Phase3): delivery_confirm 時に納品対象書類ゼロなら弾く
-  }
-
-  // 統一報告モーダルの送信。分類 (progress_reports.kind) に応じて追加処理を分岐。
-  const handleRequestReview = async () => {
-    if (!canRequestReview) { showToast('案件報告は管理担当のみ可能です', 'error'); return }
-    if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
-    setRequesting(true)
-    const supabase = createClient()
-    const today = new Date().toISOString().split('T')[0]
-    // 案件報告(progress_check)のときだけ フェーズ・状態 を保存。
-    const isProgress = reportKind === 'progress_check'
-    // migration 202/217 未適用環境では kind/phase/report_state 列が無い→エラーになるためフォールバック挿入。
-    let { error } = await supabase.from('progress_reports').insert({
-      case_id: caseData.id,
-      requester_id: currentMemberId,
-      confirmer_id: null,
-      status: '依頼中',
-      requested_date: today,
-      review_point: reviewPointInput.trim() || null,
-      kind: reportKind,
-      phase: isProgress ? (reportPhase || null) : null,
-      report_state: isProgress ? reportState : null,
-    })
-    if (error && /kind|phase|report_state/i.test(error.message ?? '')) {
-      // 追加列がまだ無い環境向けのフォールバック（progress_check扱い・最小列）
-      const retry = await supabase.from('progress_reports').insert({
-        case_id: caseData.id,
-        requester_id: currentMemberId,
-        confirmer_id: null,
-        status: '依頼中',
-        requested_date: today,
-        review_point: reviewPointInput.trim() || null,
-      })
-      error = retry.error
-    }
-    if (error) {
-      console.error('progress_reports insert failed:', error)
-      setRequesting(false)
-      showToast(`報告に失敗しました: ${error.message}`, 'error')
-      return
-    }
-
-    // 分類に応じた status 更新（承認前の状態遷移）
-    //   work_complete → 案件を「業務完了申請中」へ (承認で完了になる)
-    //   case_reopen   → 案件を「対応中(=案件進行中)」に戻す
-    //   他は status 変更なし
-    if (reportKind === 'work_complete') {
-      await supabase.from('cases').update({ status: '業務完了申請中' }).eq('id', caseData.id)
-    } else if (reportKind === 'case_reopen') {
-      await supabase.from('cases').update({ status: '対応中' }).eq('id', caseData.id)
-    } else if (reportKind === 'delivery_confirm') {
-      // 納品確認申請 → 案件レベルの納品ステータスを「確認申請中」にする
-      await supabase.from('cases').update({ delivery_status: '確認申請中' }).eq('id', caseData.id)
-    }
-
-    // 受注担当への通知。salesMemberId が無ければ通知はスキップ。
-    if (salesMemberId) {
-      const kindLabel = KIND_LABEL[reportKind]
-      const urgent = isProgress && reportState === PROGRESS_REPORT_STATE_URGENT
-      const meta = isProgress ? [reportPhase, reportState].filter(Boolean).join('・') : ''
-      await supabase.from('notifications').insert({
-        member_id: salesMemberId,
-        type: 'progress_review_requested',
-        case_id: caseData.id,
-        title: `${urgent ? '【至急】' : ''}${kindLabel}が届きました`,
-        body: `${caseData.case_number} ${caseData.deal_name}：${meta ? `[${meta}] ` : ''}${reviewPointInput.trim() || kindLabel + 'をお願いします'}`,
-      })
-    }
-    setRequesting(false)
-    setReviewPointInput('')
-    setReportKind('progress_check')
-    setReportPhase('')
-    setReportState(PROGRESS_REPORT_STATES[0])
-    setRequestOpen(false)
-    showToast(`${KIND_LABEL[reportKind]}を送信しました`, 'success')
-    fetchActivities()
-    router.refresh()
-  }
-
   // 確認/承認/差戻し 処理。案件報告(progress_check)・案件再オープン は 確認する のみ。
   // 業務完了申請 は 承認 or 差戻し。承認で cases.status='完了'、差戻しで cases.status='対応中'。
   const handleConfirm = async (pr: ProgressReportRow, action: 'confirm' | 'reject' = 'confirm') => {
@@ -282,7 +167,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       .update({ status: '確認済', confirmed_date: today, confirmer_id: currentMemberId, confirm_comment: (commentPrefix + confirmComment.trim()) || null })
       .eq('id', pr.id)
     setConfirmSaving(false)
-    if (error) { showToast('確認に失敗しました', 'error'); return }
+    if (error) { console.error('progress_reports confirm failed:', error); showToast(`確認に失敗しました: ${error.message}`, 'error'); return }
 
     // 分類 + アクションに応じた cases.status の更新
     //   work_complete + confirm → 完了 (業務完了)
@@ -341,13 +226,15 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     fetchActivities()
   }
 
-  // 通知から遷移した時：該当ID(progress_reports/case_reports)の確認モーダルを自動オープン
+  // 通知から遷移した時：該当ID(progress_reports/case_reports)の確認モーダルを自動オープン。
+  //   ※一度だけ。確認/送信でリスト(progressReports)が変わっても再オープンしない（＝閉じられなくなるのを防ぐ）。
+  const openedReportRef = useRef(false)
   useEffect(() => {
-    if (!openReportId) return
+    if (!openReportId || openedReportRef.current) return
     const pr = progressReports.find(r => r.id === openReportId)
-    if (pr) { setConfirmTarget(pr); setConfirmComment(''); return }
+    if (pr) { openedReportRef.current = true; setConfirmTarget(pr); setConfirmComment(''); return }
     const cr = caseReports.find(r => r.id === openReportId)
-    if (cr) { setConfirmReport(cr); setConfirmReportComment('') }
+    if (cr) { openedReportRef.current = true; setConfirmReport(cr); setConfirmReportComment('') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openReportId, progressReports, caseReports])
 
@@ -407,11 +294,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* タブ上部の共通アクション（セクションの外・余白なしで並べる） */}
       <div className="flex flex-wrap justify-end gap-2">
         {section !== 'memo' && canRequestReview && (
-          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setReportKind('progress_check'); setReportPhase(''); setReportState(PROGRESS_REPORT_STATES[0]); setRequestOpen(true) }}>
+          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => compose?.openReport()}>
             報告する
           </Button>
         )}
-        <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setHouRenSouOpen(true)}>
+        <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => compose?.openHourenSou()}>
           報連相
         </Button>
         <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
@@ -673,153 +560,6 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
       {/* 案件報告まわりのモーダル群（報連相・メモのみ表示時は不要） */}
       {section !== 'memo' && (<>
-      {/* 統一報告ウィンドウ（ドラッグ移動・暗幕なし）。分類select + （案件報告のみ）報告先/フェーズ/状態 + 内容。 */}
-      <FloatingWindow
-        isOpen={requestOpen}
-        onClose={() => { setRequestOpen(false); setReportKind('progress_check') }}
-        title="案件報告"
-        width={410}
-        footer={
-          <>
-            <Button variant="secondary" size="sm" onClick={() => { setRequestOpen(false); setReportKind('progress_check') }} disabled={requesting}>キャンセル</Button>
-            <Button variant="primary" size="sm" onClick={handleRequestReview} loading={requesting} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>報告する</Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <div>
-            <label className="block text-[12px] font-semibold text-gray-600 mb-1">分類</label>
-            <select
-              value={reportKind}
-              onChange={e => handleKindChange(e.target.value as ProgressReportKind)}
-              className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-            >
-              <option value="progress_check">案件報告</option>
-              <option value="work_complete">業務完了申請</option>
-              <option value="case_reopen">案件再オープン</option>
-              <option value="delivery_confirm">納品確認申請</option>
-            </select>
-            <p className="text-[11px] text-gray-400 mt-1">
-              {reportKind === 'work_complete' && '受注担当の承認後に業務完了になります。全請求発行済＋他事業者請求済が必要。'}
-              {reportKind === 'case_reopen' && '業務完了/納品完了後に追加業務が発生した場合。案件が「案件進行中」に戻ります。'}
-              {reportKind === 'delivery_confirm' && '納品対象書類が確定したら受注担当に確認依頼。承認後「納品待ち」になります。'}
-              {reportKind === 'progress_check' && '受注担当に案件の進捗状況を確認してもらいます。'}
-            </p>
-          </div>
-
-          {reportKind === 'progress_check' && (
-            <>
-              {/* 報告先＝受注担当（固定表示） */}
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-600 mb-1">報告先</label>
-                {salesMemberId ? (
-                  <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-brand-200 bg-brand-50 text-[12.5px] font-semibold text-brand-800">
-                    <UserAvatar name={memberName(salesMemberId)} url={allMembers.find(m => m.id === salesMemberId)?.avatar_url ?? null} size="sm" />
-                    {memberName(salesMemberId)}
-                    <span className="text-[10px] px-1 rounded bg-brand-600 text-white">受注担当</span>
-                  </span>
-                ) : (
-                  <span className="text-[12px] text-gray-400">受注担当が未アサインです（通知は送られません）</span>
-                )}
-              </div>
-              {/* フェーズ */}
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-600 mb-1">フェーズ</label>
-                <select
-                  value={reportPhase}
-                  onChange={e => setReportPhase(e.target.value)}
-                  className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
-                >
-                  <option value="">フェーズを選択</option>
-                  {PROGRESS_REPORT_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              {/* 状態 */}
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-600 mb-1">状態</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {PROGRESS_REPORT_STATES.map(s => {
-                    const on = reportState === s
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setReportState(s)}
-                        className={`px-2 py-2 rounded-lg text-[12px] font-semibold border-[1.5px] transition-colors ${on ? stateChip(s) + ' ring-2 ring-offset-1 ' + (s === PROGRESS_REPORT_STATE_URGENT ? 'ring-red-300' : 'ring-brand-200') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-                      >
-                        {s}
-                      </button>
-                    )
-                  })}
-                </div>
-                {reportState === PROGRESS_REPORT_STATE_URGENT && (
-                  <p className="text-[11px] text-red-600 mt-1.5 flex items-center gap-1"><span className="font-bold">⚠</span>「至急！！」は受注担当の要注意バナー（赤）に表示されます。</p>
-                )}
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block text-[12px] font-semibold text-gray-600 mb-1">
-              {reportKind === 'case_reopen' ? '事由' : reportKind === 'progress_check' ? '報告内容' : '内容'} <span className="font-normal text-gray-400">（任意）</span>
-            </label>
-            <textarea
-              value={reviewPointInput}
-              onChange={e => setReviewPointInput(e.target.value)}
-              placeholder={KIND_PLACEHOLDER[reportKind]}
-              rows={4}
-              className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
-            />
-          </div>
-        </div>
-      </FloatingWindow>
-
-      {/* 業務完了申請 ゲート未達 ポップアップ */}
-      <Modal
-        isOpen={!!completionBlocked}
-        onClose={() => setCompletionBlocked(null)}
-        title="請求が完了していないため、業務完了申請できません"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setCompletionBlocked(null)}>閉じる</Button>
-            {completionBlocked?.missingReferrals?.length ? (
-              <Button variant="secondary" onClick={() => { setCompletionBlocked(null); router.push(`/cases/${caseData.id}?tab=referral`) }}>他事業者紹介タブを開く</Button>
-            ) : null}
-            <Button variant="primary" onClick={() => { setCompletionBlocked(null); router.push(`/cases/${caseData.id}?tab=contract`) }}>請求タブを開く</Button>
-          </>
-        }
-      >
-        {completionBlocked && (
-          <div className="space-y-3">
-            <p className="text-[13px] text-gray-700">下記が全て解消してから、業務完了申請を送信できます。</p>
-            {completionBlocked.missing.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">未発行の請求 ({completionBlocked.missing.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.missing.map(m => <li key={m.id}>{m.firmLabel ? `[${m.firmLabel}] ` : ''}{m.typeLabel}</li>)}
-                </ul>
-              </div>
-            )}
-            {completionBlocked.missingReferrals.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">他事業者紹介の請求未完了 ({completionBlocked.missingReferrals.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.missingReferrals.map(r => <li key={r.id}>{r.partnerType}：{r.content || '（依頼内容未入力）'} ← 報酬請求状態 「{r.billingStatus}」</li>)}
-                </ul>
-              </div>
-            )}
-            {completionBlocked.pendingRefunds.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">未処理の返金 ({completionBlocked.pendingRefunds.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.pendingRefunds.map(r => <li key={r.id}>{r.requested_date} 返金申請</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
       {/* 確認モーダル（確認した内容＝任意）。分類に応じてボタンを切替。
           progress_check / case_reopen → 「確認した」＋（progress_checkのみ）「確認してタスク化」
           work_complete / delivery_confirm → 「承認」＋「差戻し」 */}
@@ -830,6 +570,16 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         footer={confirmTarget ? (() => {
           const kind = (confirmTarget.kind ?? 'progress_check') as ProgressReportKind
           const isApproval = kind === 'work_complete' || kind === 'delivery_confirm'
+          // 報告した本人は確認/承認できない（押しても弾かれて閉じられなくなるため、ボタン自体を出さない）。
+          const isOwn = !!currentMemberId && confirmTarget.requester_id === currentMemberId
+          if (isOwn) {
+            return (
+              <>
+                <span className="mr-auto text-[12px] text-gray-400 self-center">報告した本人は確認できません</span>
+                <Button variant="secondary" onClick={() => { setConfirmTarget(null); setConfirmComment('') }}>閉じる</Button>
+              </>
+            )
+          }
           return (
             <>
               <Button variant="secondary" onClick={() => { setConfirmTarget(null); setConfirmComment('') }} disabled={confirmSaving}>キャンセル</Button>
@@ -922,17 +672,6 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           </div>
         )}
       </Modal>
-
-      {/* 報連相モーダル（右上ボタンから） */}
-      <HourenSouModal
-        isOpen={houRenSouOpen}
-        onClose={() => setHouRenSouOpen(false)}
-        caseData={caseData}
-        currentMemberId={currentMemberId}
-        salesMemberId={salesMemberId}
-        allMembers={allMembers}
-        onSent={fetchActivities}
-      />
 
       {/* タスク化モーダル（右上ボタンから：受注/管理担当タスクを新規作成） */}
       <AddTaskModal

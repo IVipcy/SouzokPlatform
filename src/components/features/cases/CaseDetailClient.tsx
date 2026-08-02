@@ -41,6 +41,7 @@ import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
 import ProgressBoard from './ProgressBoard'
+import CaseComposeProvider from './CaseComposeProvider'
 import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
@@ -489,6 +490,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   }
 
   return (
+    <CaseComposeProvider caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={isCaseManager}>
     <div>
       <CaseHeader
         caseData={caseState}
@@ -963,6 +965,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       />
 
     </div>
+    </CaseComposeProvider>
   )
 }
 
