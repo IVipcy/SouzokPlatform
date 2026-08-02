@@ -11,7 +11,7 @@ import {
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
-import AcquisitionPlanEditor from './AcquisitionPlanEditor'
+import RealEstateOrderBlocks from './RealEstateOrderBlocks'
 import FinancialAssetsTable from './FinancialAssetsTable'
 import FinancialSection from './FinancialSection'
 import RealEstateSection from './RealEstateSection'
@@ -152,10 +152,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
             // 公図・登記など物件単位は、名寄帳で物件が確定してから実務タブの②法務局で扱う（muniOnly）。
             <div>
-              <SectionHeading title="物件一覧（想定される物件と所在地を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseData.id} properties={properties} onRefresh={onRefresh} orderSheetMode addressSuggestions={addrSuggestions} />
-              {/* オーダーシートでも 市区町村（名寄帳・評価証明）＋物件ごと（法務局：登記情報・公図・地積等）を表示（エクセルR71）。 */}
-              <AcquisitionPlanEditor caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} />
+              <SectionHeading title="想定される物件と取得予定資料（市区町村ごと）" hint="市区町村ごとに 物件一覧 → 名寄帳 → 評価証明 → 登記情報/法務局 をまとめて入力します。別の市区町村は「市区町村（物件）を追加」で増やせます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              {/* 市区町村ブロック：物件一覧＋名寄帳＋評価証明＋登記情報/法務局 を市区町村単位で束ねる */}
+              <RealEstateOrderBlocks caseId={caseData.id} properties={properties} acquisitions={acquisitions} onRefresh={onRefresh} addressSuggestions={addrSuggestions} />
             </div>
           ) : (
             // 案件詳細（実務）＝市区町村単位のサブタブ＋TOP集計

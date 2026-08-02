@@ -10,6 +10,15 @@ export function acquirerLabel(a: string | null | undefined): string {
   return a === '依頼者' ? '依頼者取得' : '自社取得'
 }
 
+// 不動産(オーダーシート 名寄帳・評価証明・登記/法務局)の取得区分。「不要」を含む3値。
+export const RE_ACQUIRERS = ['不要', '自社', '依頼者'] as const
+export function reAcquirerLabel(a: string | null | undefined): string {
+  return a === '不要' ? '不要' : a === '依頼者' ? '依頼者取得' : '自社取得'
+}
+
+// 登記情報/法務局(⑤)の請求先。路線価は請求先=国税局HPのときだけ選べる。
+export const RE_REQUEST_TO = ['JTN', '民事法務協会', '法務局', '国税局HP'] as const
+
 // 役割分担(intake_roles)の指定業務に、依頼者担当の作業が1つでもあれば '依頼者'、
 // なければ '自社' を返す。「役割分担から反映」ボタンの流し込み値に使う。
 export function acquirerFromRoles(roles: CaseRow['intake_roles'] | undefined, gyomus: string[]): Acquirer {

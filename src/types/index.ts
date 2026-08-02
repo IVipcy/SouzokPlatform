@@ -755,7 +755,10 @@ export type RealEstateAcquisitionRow = {
   target_municipality: string | null  // 市区町村単位の対象
   request_to: string | null
   acquirer: string | null             // 取得区分（自社取得/依頼者取得。migration 211）※値は '自社'/'依頼者'
-  myna_year: string | null            // 名寄帳の年度（和暦。別表分割・migration 193）
+  myna_year: string | null            // 名寄帳の年度（和暦。別表分割・migration 193）※互換用
+  doc_year: string | null             // 名寄帳/評価証明 共通の年度（和暦。migration 213）
+  received_at_meeting: boolean         // 面談時に受領✓（保存で契約手続きに受領済で追加。migration 213）
+  contract_document_id: string | null  // ✓で契約手続きに追加した書類の紐付け（migration 213）
   request_date: string | null
   expected_arrival_date: string | null
   arrival_date: string | null
