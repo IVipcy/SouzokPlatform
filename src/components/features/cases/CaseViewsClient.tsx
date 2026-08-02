@@ -9,12 +9,13 @@ import ReferralCasesTable, { type ReferralRow } from '@/components/features/my/R
 import LpCasesTable, { type LpCaseRow } from '@/components/features/cases/LpCasesTable'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 
-type View = 'manage' | 'consult' | 'referral' | 'lp'
+type View = 'manage' | 'consult' | 'mishaku' | 'referral' | 'lp'
 
 // サイドバーのサブメニュー（/cases?view=xxx）と対応
-const VIEWS: View[] = ['consult', 'manage', 'referral', 'lp']
+const VIEWS: View[] = ['consult', 'mishaku', 'manage', 'referral', 'lp']
 const VIEW_META: Record<View, { label: string; Icon: LucideIcon }> = {
   consult: { label: '相談案件一覧', Icon: MessageSquare },
+  mishaku: { label: '未着手案件一覧', Icon: Sparkles },
   manage: { label: '管理案件一覧', Icon: ClipboardList },
   referral: { label: '個別案件一覧', Icon: Sparkles },
   lp: { label: 'LP案件一覧', Icon: Megaphone },
@@ -24,6 +25,7 @@ type Props = {
   managerRows: MyCaseRow[]
   completedRows: MyCaseRow[]
   consultRows: ConsultCase[]
+  mishakuRows: ConsultCase[]
   referralRows: ReferralRow[]
   lpRows: LpCaseRow[]
 }
@@ -59,7 +61,7 @@ function applyStatus<T extends { status: string }>(rows: T[], status: string): T
  * マイページ定義の3一覧（管理案件一覧 / 相談案件一覧 / 個別管理案件）を流用し、
  * 検索（案件名・案件管理番号）を共通で提供する。
  */
-export default function CaseViewsClient({ managerRows, completedRows, consultRows, referralRows, lpRows }: Props) {
+export default function CaseViewsClient({ managerRows, completedRows, consultRows, mishakuRows, referralRows, lpRows }: Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -73,7 +75,7 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   const [manageSub, setManageSub] = useState<'active' | 'businessComplete' | 'delivered'>('active')
 
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
-  const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'referral' ? referralRows : lpRows
+  const activeRows = view === 'manage' ? managerRows : view === 'consult' ? consultRows : view === 'mishaku' ? mishakuRows : view === 'referral' ? referralRows : lpRows
   const statusOptions = useMemo(() => {
     // LP案件はライフサイクル全段階を取りうるため、全ステータスで絞り込み可能にする
     if (view === 'lp') return CASE_STATUSES.map(s => s.key)
@@ -87,11 +89,13 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   const filteredManager = useMemo(() => applyStatus(applySearch(managerRows, search), effStatus), [managerRows, search, effStatus])
   const filteredCompleted = useMemo(() => applySearch(completedRows, search), [completedRows, search])
   const filteredConsult = useMemo(() => applyStatus(applySearch(consultRows, search), effStatus), [consultRows, search, effStatus])
+  const filteredMishaku = useMemo(() => applyStatus(applySearch(mishakuRows, search), effStatus), [mishakuRows, search, effStatus])
   const filteredReferral = useMemo(() => applyStatus(applySearch(referralRows, search), effStatus), [referralRows, search, effStatus])
   const filteredLp = useMemo(() => applyStatus(applySearch(lpRows, search), effStatus), [lpRows, search, effStatus])
 
   const countByView: Record<View, number> = {
     consult: consultRows.length,
+    mishaku: mishakuRows.length,
     manage: managerRows.length,
     referral: referralRows.length,
     lp: lpRows.length,
@@ -191,6 +195,7 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
         )
       })()}
       {view === 'consult' && <ConsultationCasesTable cases={filteredConsult} manageMode />}
+      {view === 'mishaku' && <ConsultationCasesTable cases={filteredMishaku} manageMode />}
       {view === 'referral' && <ReferralCasesTable cases={filteredReferral} selectable />}
       {view === 'lp' && <LpCasesTable cases={filteredLp} allCases={lpRows} selectable />}
     </div>

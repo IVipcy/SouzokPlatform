@@ -243,8 +243,9 @@ export default async function CasesPage() {
   const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status) || c.status === '業務完了申請中').map(toMyCaseRow)
   const completedRows: MyCaseRow[] = cases.filter(c => c.status === '完了' || c.status === '納品完了').map(toMyCaseRow)
 
-  // 相談案件一覧
-  const consultRows: ConsultCase[] = cases.filter(c => CONSULT.has(c.status)).map(c => ({
+  // ConsultCase への共通マッピング（相談案件一覧・未着手案件一覧で共用）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toConsultCase = (c: any): ConsultCase => ({
     id: c.id,
     case_number: c.case_number,
     deal_name: c.deal_name,
@@ -262,7 +263,12 @@ export default async function CasesPage() {
     procedure_type: c.procedure_type,
     order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
     order_sheet_completed_at: c.order_sheet_completed_at,
-  }))
+  })
+  // 未着手案件一覧＝受注系（受注/戻り受注/即受注）＋作業着手準備。相談案件一覧からは受注系を外す。
+  const MISHAKU = new Set<string>(['受注', '戻り受注', '作業着手準備'])
+  const mishakuRows: ConsultCase[] = cases.filter(c => MISHAKU.has(c.status)).map(toConsultCase)
+  // 相談案件一覧（受注系は未着手一覧へ移すので除外）
+  const consultRows: ConsultCase[] = cases.filter(c => CONSULT.has(c.status) && !MISHAKU.has(c.status)).map(toConsultCase)
 
   // LP案件一覧（受注ルート = LP経由）
   const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => {
@@ -317,7 +323,7 @@ export default async function CasesPage() {
         icon={Briefcase}
         description="上のタブ（相談案件 / 管理案件 / 個別管理 / LP案件）で切り替え"
       />
-      <CaseViewsClient managerRows={managerRows} completedRows={completedRows} consultRows={consultRows} referralRows={referralRows} lpRows={lpRows} />
+      <CaseViewsClient managerRows={managerRows} completedRows={completedRows} consultRows={consultRows} mishakuRows={mishakuRows} referralRows={referralRows} lpRows={lpRows} />
     </div>
   )
 }
