@@ -15,6 +15,7 @@ import RankingBadges, { type RankBadge } from '@/components/features/dashboard/R
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { computeCaseStateAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -611,6 +612,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     .filter((x): x is { t: typeof roleTasks[number]; sev: OverdueSeverity } => x.sev !== null)
     .map(({ t, sev }) => ({ task: t, severity: sev, over: calDaysOverdue(t.due_date as string, todayStr) }))
 
+  // 案件アラート（管理担当 未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
+  const bannerCaseAlerts = computeCaseStateAlerts(
+    myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) })),
+    todayStr,
+  )
+
 
   // 期間切替の選択肢（本日／当月／当期累計）
   const periodOptions: Array<{ key: string; label: string }> = [
@@ -832,7 +839,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           {/* 要対応バナー（残りスペースの中央に、氏名と同じ行の高さで） */}
           {(isSales || isManager) && (
             <div className="flex-1 flex justify-center min-w-[280px]">
-              <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
+              <OverdueAttention bills={overdueBills} tasks={overdueTasks} caseAlerts={bannerCaseAlerts} currentMemberId={memberId} />
             </div>
           )}
           {/* 面談登録（受注担当のみ・右端） */}

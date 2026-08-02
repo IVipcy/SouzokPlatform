@@ -26,14 +26,15 @@ type CaseLite = {
   progressSystemDone: number; progressSystemTotal: number
 }
 
-type Section = 'payment' | 'task'
+type Section = 'payment' | 'task' | 'caseAlert'
+type CaseAlertLite = { caseId: string; caseNumber: string; dealName: string; category: string; severity: OverdueSeverity }
 
-export default function OverdueDetailClient({ bills, cases, sev: _sev, initialSection = 'payment' }: {
-  bills: BillLite[]; cases: CaseLite[]; sev: OverdueSeverity | null
+export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev: _sev, initialSection = 'payment' }: {
+  bills: BillLite[]; cases: CaseLite[]; caseAlerts?: CaseAlertLite[]; sev: OverdueSeverity | null
   initialSection?: Section
 }) {
-  // タブ初期値: 請求超過があれば payment、なければ task を優先
-  const smartInitial: Section = bills.length === 0 && cases.length > 0 ? 'task' : initialSection
+  // タブ初期値: 請求超過があれば payment、なければ task／案件アラートを優先
+  const smartInitial: Section = bills.length > 0 ? 'payment' : cases.length > 0 ? 'task' : caseAlerts.length > 0 ? 'caseAlert' : initialSection
   const [section, setSection] = useState<Section>(smartInitial)
 
   const TabBtn = ({ s, label, count }: { s: Section; label: string; count: number }) => {
@@ -55,7 +56,29 @@ export default function OverdueDetailClient({ bills, cases, sev: _sev, initialSe
       <div className="flex gap-1 border-b border-gray-200 flex-wrap">
         <TabBtn s="payment" label="入金期日超過（請求）" count={bills.length} />
         <TabBtn s="task" label="タスク期日超過（案件）" count={cases.length} />
+        <TabBtn s="caseAlert" label="案件アラート" count={caseAlerts.length} />
       </div>
+
+      {section === 'caseAlert' && (
+        <section>
+          {caseAlerts.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-[13px] text-gray-400">該当なし</div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+              {caseAlerts.map(a => (
+                <div key={a.caseId + a.category} className="flex items-center gap-3 px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${a.severity === 'chui' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{a.category}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold text-gray-800 truncate">{a.dealName}</div>
+                    <div className="text-[11px] font-mono text-gray-500">{a.caseNumber}</div>
+                  </div>
+                  <Link href={`/cases/${a.caseId}?tab=assignees`} className="flex-none px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">割振り・アサイン</Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {section === 'payment' && (
         <section>

@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import type { TaskRow } from '@/types'
 import type { OverdueSeverity } from '@/lib/overdue'
+import type { CaseStateAlert } from '@/lib/caseStateAlerts'
 
 export type OverdueBill = {
   id: string; caseId: string; caseName: string; typeLabel: string; firmLabel: string
@@ -12,12 +13,14 @@ export type OverdueBill = {
 }
 export type OverdueTaskItem = { task: TaskRow; severity: OverdueSeverity; over: number }
 
-export default function OverdueAttention({ bills, tasks, hrefBase = '/my/overdue' }: {
+export default function OverdueAttention({ bills, tasks, caseAlerts = [], hrefBase = '/my/overdue' }: {
   bills: OverdueBill[]; tasks: OverdueTaskItem[]; currentMemberId: string
+  /** 案件アラート（管理担当未アサイン等・レコード無しの計算アラート） */
+  caseAlerts?: CaseStateAlert[]
   /** バナー遷移先のベースURL（sev クエリを付加）。デフォルト=個人スコープの /my/overdue。チーム版は /dashboard/team/{id}/overdue を渡す */
   hrefBase?: string
 }) {
-  const cnt = (s: OverdueSeverity) => bills.filter(b => b.severity === s).length + tasks.filter(t => t.severity === s).length
+  const cnt = (s: OverdueSeverity) => bills.filter(b => b.severity === s).length + tasks.filter(t => t.severity === s).length + caseAlerts.filter(a => a.severity === s).length
   const nKakunin = cnt('kakunin'), nChui = cnt('chui')
   const hasAny = nKakunin + nChui > 0
 

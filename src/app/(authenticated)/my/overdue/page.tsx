@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
+import { computeCaseStateAlerts } from '@/lib/caseStateAlerts'
 import type { TaskRow } from '@/types'
 
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
@@ -127,10 +128,21 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     })
     .filter(c => !!c.overdue)
 
+  // 案件アラート（管理担当未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
+  const salesCaseIds = new Set(rows.filter(r => r.role === 'sales').map(r => r.case_id))
+  const managerCaseIds = new Set(rows.filter(r => r.role === 'manager').map(r => r.case_id))
+  const dedupCases = rows.map(r => r.cases).filter((c): c is NonNullable<typeof rows[number]['cases']> => !!c)
+    .filter((c: { id: string }, i: number, arr: unknown[]) => arr.findIndex(x => (x as { id: string }).id === c.id) === i)
+  const caseStateAlerts = computeCaseStateAlerts(
+    dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) })),
+    todayStr,
+  )
+
   // 銀行超過はseverityで絞り込み
   const sevFilter: OverdueSeverity | null = sev === 'kakunin' ? 'kakunin' : sev === 'chui' ? 'chui' : null
   const fBills = sevFilter ? overdueBills.filter(b => b.severity === sevFilter) : overdueBills
   const fCases = sevFilter ? caseList.filter(c => c.overdue?.severity === sevFilter) : caseList
+  const fAlerts = sevFilter ? caseStateAlerts.filter(a => a.severity === sevFilter) : caseStateAlerts
 
   return (
     <div>
@@ -141,7 +153,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
         description={sevFilter ? (sevFilter === 'chui' ? '要注意（2週間以上超過）' : '要確認（5営業日超過）') : '要確認・要注意 すべて'}
         right={<Link href="/my" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"><ArrowLeft className="w-3.5 h-3.5" /> マイページへ</Link>}
       />
-      <OverdueDetailClient bills={fBills} cases={fCases} sev={sevFilter} />
+      <OverdueDetailClient bills={fBills} cases={fCases} caseAlerts={fAlerts} sev={sevFilter} />
     </div>
   )
 }
