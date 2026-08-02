@@ -34,25 +34,33 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
   const today = new Date().toISOString().slice(0, 10)
   const [issuedDate, setIssuedDate] = useState(today)
   const [invoiceNo, setInvoiceNo] = useState('')
-  const [expense, setExpense] = useState(0)
+  const [advExpense, setAdvExpense] = useState(0)   // 立替実費（司法・郵送料等）
+  const [regTax, setRegTax] = useState(0)           // 登録免許税又は印紙税（司法・報酬内訳から）
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
 
-  // 報酬（司法）＝確定報酬・前受金（司法）は cases に維持済み。立替（司法）だけ billing_expense_items から集計。
+  // 報酬（司法）＝確定報酬・前受金（司法）は cases に維持済み。実費（司法）＝立替＋登録免許税/印紙税。
   const fee = caseData.fee_judicial ?? 0
   const advance = caseData.advance_payment_judicial ?? 0
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('billing_expense_items').select('amount, shigyo').eq('case_id', caseData.id).then(({ data }) => {
-      const sum = ((data ?? []) as Array<{ amount: number | null; shigyo: string | null }>)
+    Promise.all([
+      supabase.from('billing_expense_items').select('amount, shigyo').eq('case_id', caseData.id),
+      supabase.from('reward_items').select('registration_tax, shigyo').eq('case_id', caseData.id),
+    ]).then(([expRes, rwRes]) => {
+      const adv = ((expRes.data ?? []) as Array<{ amount: number | null; shigyo: string | null }>)
         .filter(r => r.shigyo === '司法').reduce((n, r) => n + (r.amount ?? 0), 0)
-      setExpense(sum)
+      const tax = ((rwRes.data ?? []) as Array<{ registration_tax: number | null; shigyo: string | null }>)
+        .filter(r => r.shigyo === '司法').reduce((n, r) => n + (r.registration_tax ?? 0), 0)
+      setAdvExpense(adv)
+      setRegTax(tax)
       setLoading(false)
     })
   }, [caseData.id])
 
+  const expense = advExpense + regTax  // 司法の実費合計＝立替＋登免/印紙
   const billAmount = fee + expense - advance
   const hasAmount = fee > 0 || expense > 0
   const canSave = !!issuedDate && hasAmount && billAmount >= 0 && !loading
@@ -125,7 +133,8 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
         ) : (
           <div className="rounded-lg border border-gray-200 px-2 py-1">
             <AmountRow label="報酬（司法・確定報酬）" value={fee} />
-            <AmountRow label="立替実費（司法）" value={expense} />
+            <AmountRow label="登録免許税又は印紙税（司法）" value={regTax} />
+            <AmountRow label="立替実費（司法・郵送料等）" value={advExpense} />
             {advance > 0 && <AmountRow label="前受金（差引）" value={advance} minus />}
             <div className="flex items-center justify-between px-1 py-2 mt-0.5 border-t-2 border-brand-100">
               <span className="text-[12.5px] font-semibold text-brand-700">請求金額</span>

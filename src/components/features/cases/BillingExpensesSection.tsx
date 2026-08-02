@@ -19,8 +19,8 @@ import type { BillingExpenseItemRow } from '@/types'
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 // 司法=青 / 行政=緑（請求料金内訳と統一。アイコン・ドットは付けず文字色で区別）
 const SHIGYO = [
-  { key: '司法', color: '#185FA5', bg: '#E6F1FB', text: '#0C447C' },
   { key: '行政', color: '#0F6E56', bg: '#E1F5EE', text: '#085041' },
+  { key: '司法', color: '#185FA5', bg: '#E6F1FB', text: '#0C447C' },
 ] as const
 
 // 取り込み候補（確定 → ポップアップで司法/行政・課税/非課税を確認してから登録）
