@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
+import { SURVEY_BAN_DESIGNATIONS, SURVEY_BAN_METHODS, isSurveyBanActive } from '@/lib/financialBan'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import CheckRequestControl from './CheckRequestControl'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -94,9 +97,13 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 名称に前後空白があるとレール(=trim)には出るのに口座一覧(=非trim比較)が0件になる不整合が起きる。
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)
     : institutionFilter != null ? rows.filter(r => (r.institution_name ?? '').trim() === institutionFilter.trim()) : rows
-  // 財産調査禁止期間：終了日が未来のうちは調査を止める（＝この口座の調査セルは編集不可）。
+  // 財産調査禁止ホールド：調査禁止指定=指定あり かつ（期間指定で終了日前 / 連絡待ちで未解除）のとき調査を止める。
   const todayYmd = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
-  const isSurveyBanned = (r: FinancialAssetRow) => !!r.survey_prohibited_end && todayYmd < r.survey_prohibited_end
+  const isSurveyBanned = (r: FinancialAssetRow) => isSurveyBanActive(r, todayYmd)
+  // 投信/貸金庫チェックは実務・預金のみ。凍結確認済フラグはオーダーシート(!progressMode)のみ左端に出す。
+  const showTrustSafe = progressMode && kind === '預貯金'
+  const showFreezeFlag = !progressMode
+  const [safeDepositPrompt, setSafeDepositPrompt] = useState<{ bank: string } | null>(null)
 
   // 残高確定・凍結確認は「確認簿で確認」に一本化。ここでは依頼を出す／取り消すだけ。
   const patchReq = async (row: FinancialAssetRow, patch: Partial<FinancialAssetRow>) => {
@@ -109,6 +116,33 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const cancelBalance = (row: FinancialAssetRow) => patchReq(row, { balance_confirm_requested_at: null, balance_confirm_requested_by: null })
   const reqFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: new Date().toISOString(), freeze_confirm_requested_by: memberId })
   const cancelFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: null, freeze_confirm_requested_by: null })
+  // 貸金庫「あり」に切替 → 銀行単位のタスク作成ポップアップ。投信はチェックのみ（タスク無し）。
+  const toggleSafeDeposit = async (row: FinancialAssetRow, checked: boolean) => {
+    await patchReq(row, { has_safe_deposit: checked })
+    const bank = (row.institution_name ?? '').trim()
+    if (checked && bank) setSafeDepositPrompt({ bank })
+  }
+  const createSafeDepositTasks = async (bank: string) => {
+    const plan = [
+      { rid: `safe-deposit-ask:${bank}`, title: `【${bank}】依頼者への貸金庫内容確認依頼` },
+      { rid: `safe-deposit-check:${bank}`, title: `【${bank}】貸金庫内容物の確認` },
+    ]
+    const { data: existing } = await supabase.from('tasks').select('source_rid').eq('case_id', caseId).in('source_rid', plan.map(p => p.rid))
+    const have = new Set(((existing ?? []) as { source_rid: string }[]).map(x => x.source_rid))
+    const rows2 = plan.filter(p => !have.has(p.rid)).map((p, i) => ({
+      case_id: caseId, task_kind: 'case', title: p.title, phase: '金融資産', category: '金融資産',
+      status: '着手前', priority: '通常', source_rid: p.rid, work_role: 'assistant', sort_order: 90 + i,
+    }))
+    if (rows2.length > 0) { const { error } = await supabase.from('tasks').insert(rows2); if (error) { showToast(`タスク生成に失敗: ${error.message}`, 'error'); } else showToast(`${rows2.length}件のタスクを作成しました`, 'success') }
+    setSafeDepositPrompt(null); onRefresh?.()
+  }
+  // 凍結確認済フラグ（オーダーシート・事前凍結）。freeze_confirmed を手動でON/OFF。
+  const toggleFreezeFlag = (row: FinancialAssetRow, checked: boolean) =>
+    patchReq(row, checked
+      ? { freeze_confirmed: true, freeze_confirmed_at: new Date().toISOString(), freeze_confirmed_name: '事前凍結' }
+      : { freeze_confirmed: false, freeze_confirmed_at: null, freeze_confirmed_name: null })
+  // 連絡待ちの解除（お客様OK）：解除日を当日で記録。
+  const releaseWait = (row: FinancialAssetRow) => patchReq(row, { prohibition_released_at: todayYmd })
 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
@@ -137,14 +171,66 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 凍結状態(progressMode) +列 +残高 +凍結確認依頼(progressMode) +残高確定(showConfirmed) +取得区分 +調査期間 +備考 +備考結果(progressMode) (+請求/到着予定/到着/受信/関連タスク) +削除
-  // 列数（空表示のcolspan用）: 取得区分+禁止3+残高+調査期間+備考+削除=8 の固定＋cols＋進捗系7＋残高確定1
-  const colCount = cols.length + 8 + (progressMode ? 7 : 0) + (showConfirmed ? 1 : 0)
+  // 列数（空表示のcolspan用）。取得区分+残高+調査期間+調査禁止+備考+削除=6 固定 ＋cols＋各条件列。
+  const colCount = 6 + cols.length
+    + (showFreezeFlag ? 1 : 0)
+    + (progressMode ? 7 : 0)       // 凍結状態+凍結確認+請求+到着+受信+関連+備考結果
+    + (showConfirmed ? 1 : 0)
+    + (showTrustSafe ? 1 : 0)
+
+  const dateCls = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500'
+  const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+
+  // 調査禁止（指定なし/あり → 方法 → 期間指定なら日付 → 理由 → 連絡待ち解除）を1セルにまとめて描画（表・カード共用）
+  const renderBanCell = (r: FinancialAssetRow) => {
+    const desig = r.survey_prohibited_designation ?? '指定なし'
+    const on = desig === '指定あり'
+    const method = r.survey_prohibited_method ?? ''
+    const isPeriod = method === '期間指定'
+    const isWait = method === 'お客さんからの連絡待ち'
+    return (
+      <div className="flex flex-col gap-1 min-w-[210px]">
+        <select value={desig} onChange={e => save(r.id, 'survey_prohibited_designation', e.target.value)} className={selCls}>
+          {SURVEY_BAN_DESIGNATIONS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        {on && (
+          <select value={method} onChange={e => save(r.id, 'survey_prohibited_method', e.target.value)} className={selCls}>
+            <option value="">禁止方法を選択</option>
+            {SURVEY_BAN_METHODS.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
+        {on && isPeriod && (
+          <div className="flex items-center gap-1">
+            <input type="date" value={r.survey_prohibited_start ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_start', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_start', e.target.value)} className={dateCls} />
+            <span className="text-gray-400 text-[11px]">〜</span>
+            <input type="date" value={r.survey_prohibited_end ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_end', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_end', e.target.value)} className={dateCls} />
+          </div>
+        )}
+        {on && <TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" />}
+        {on && isWait && !r.prohibition_released_at && (
+          <button type="button" onClick={() => releaseWait(r)} className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100"><LockOpen className="w-3 h-3" strokeWidth={2} />禁止を解除（お客様OK）</button>
+        )}
+        {on && isWait && r.prohibition_released_at && <span className="text-[10.5px] text-emerald-600">連絡待ち 解除済 {r.prohibition_released_at}</span>}
+      </div>
+    )
+  }
+  // 投信有無・貸金庫有無（預金・実務のみ）。貸金庫ありでタスク生成ポップアップ。
+  const renderTrustSafeCell = (r: FinancialAssetRow) => (
+    <div className="flex flex-col gap-1.5">
+      <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.has_investment_trust} onChange={e => patchReq(r, { has_investment_trust: e.target.checked })} className="w-4 h-4 accent-brand-600" />投信あり</label>
+      <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.has_safe_deposit} onChange={e => toggleSafeDeposit(r, e.target.checked)} className="w-4 h-4 accent-brand-600" />貸金庫あり</label>
+    </div>
+  )
+  // 凍結確認済フラグ（オーダーシート・事前凍結）
+  const renderFreezeFlagCell = (r: FinancialAssetRow) => (
+    <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.freeze_confirmed} onChange={e => toggleFreezeFlag(r, e.target.checked)} className="w-4 h-4 accent-emerald-600" /><span className={r.freeze_confirmed ? 'text-emerald-700 font-semibold' : 'text-gray-500'}>凍結確認済</span></label>
+  )
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
   const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
     <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
-      {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 禁止期間中（〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}）調査は編集できません</div>}
+      {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 ホールド中（調査禁止指定あり）調査は編集できません</div>}
+      {showFreezeFlag && <CardRow label="凍結確認済（事前凍結）">{renderFreezeFlagCell(r)}</CardRow>}
       {progressMode && (
         <CardRow label="凍結状態">
           {r.freeze_confirmed
@@ -178,9 +264,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               : <span className="text-[12px] text-gray-400">残高を入れると依頼できます</span>}
         </CardRow>
       )}
-      <CardRow label="調査禁止期間 開始"><input type="date" defaultValue={r.survey_prohibited_start ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_start ?? '')) commit(r.id, 'survey_prohibited_start', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
-      <CardRow label="調査禁止期間 終了"><input type="date" defaultValue={r.survey_prohibited_end ?? ''} onBlur={e => { if (e.target.value !== (r.survey_prohibited_end ?? '')) commit(r.id, 'survey_prohibited_end', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>
-      <CardRow label="調査禁止理由"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></CardRow>
       {progressMode && <CardRow label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>}
       {progressMode && (
         <CardRow label="到着日（受信簿）">
@@ -189,6 +272,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
         </CardRow>
       )}
+      {showTrustSafe && <CardRow label="投信/貸金庫">{renderTrustSafeCell(r)}</CardRow>}
+      <CardRow label="調査禁止">{renderBanCell(r)}</CardRow>
       <CardRow label="備考"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></CardRow>
       {progressMode && <CardRow label="備考・結果"><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></CardRow>}
       <div className="flex justify-end px-3 py-2">
@@ -213,12 +298,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結確認済</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結状態</th>}
-              {/* 左端固定：取得区分 → 調査禁止(開始/終了/理由) */}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
-              <th className="px-2 py-2 text-left font-bold text-amber-700 w-28">調査禁止 開始</th>
-              <th className="px-2 py-2 text-left font-bold text-amber-700 w-28">調査禁止 終了</th>
-              <th className="px-2 py-2 text-left font-bold text-amber-700 w-40">禁止理由</th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
@@ -228,6 +310,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">関連タスク</th>}
+              {showTrustSafe && <th className="px-2 py-2 text-left font-bold text-brand-700 w-28">投信/貸金庫</th>}
+              <th className="px-2 py-2 text-left font-bold text-amber-700 w-56">調査禁止</th>
               <th className="px-2 py-2 text-left font-semibold">備考</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-56">備考・結果</th>}
               <th className="px-2 py-2 w-8" />
@@ -239,6 +323,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             ) : (
               visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
                 <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
+                  {/* 凍結確認済フラグ（オーダーシート・事前凍結） */}
+                  {showFreezeFlag && <td className="px-2 py-1.5">{renderFreezeFlagCell(r)}</td>}
                   {/* 凍結状態バッジ（左端・目視用。依頼ボタンは右側の「凍結確認」列に別途配置） */}
                   {progressMode && (
                   <td className="px-2 py-1.5 text-center">
@@ -251,10 +337,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   <td className="px-2 py-1.5">
                     <select value={r.acquirer ?? '自社'} onChange={e => save(r.id, 'acquirer', e.target.value)} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">{ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}</select>
                   </td>
-                  {/* 調査禁止 開始/終了/理由（口座単位・禁止期間の設定自体はロックしない） */}
-                  <td className="px-2 py-1.5"><input type="date" value={r.survey_prohibited_start ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_start', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_start', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
-                  <td className="px-2 py-1.5"><input type="date" value={r.survey_prohibited_end ?? ''} onChange={e => setLocal(r.id, 'survey_prohibited_end', e.target.value)} onBlur={e => commit(r.id, 'survey_prohibited_end', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
-                  <td className="px-2 py-1.5"><TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" /></td>
                   {cols.map(c => (
                     <td key={c.key} className={`px-2 py-1.5 ${lock}`}>
                       {c.type === 'text' ? (
@@ -317,6 +399,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       </div>
                     </td>
                   )}
+                  {showTrustSafe && <td className="px-2 py-1.5">{renderTrustSafeCell(r)}</td>}
+                  <td className="px-2 py-1.5">{renderBanCell(r)}</td>
                   <td className="px-2 py-1.5"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></td>
                   {progressMode && <td className={`px-2 py-1.5 ${lock}`}><TextInput value={r.survey_result} onChange={v => setLocal(r.id, 'survey_result', v)} onCommit={v => commit(r.id, 'survey_result', v)} placeholder="この口座で分かったこと" /></td>}
                   <td className="px-2 py-1.5 text-center">
@@ -343,6 +427,28 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {kind === '証券' ? '証券を追加' : kind === '信託銀行' ? '信託を追加' : '口座を追加'}
         </button>
       </div>
+
+      {/* 貸金庫ありでタスク作成ポップアップ（銀行単位） */}
+      <Modal
+        isOpen={!!safeDepositPrompt}
+        onClose={() => setSafeDepositPrompt(null)}
+        title={safeDepositPrompt ? `「${safeDepositPrompt.bank}」の貸金庫タスクを作成しますか？` : ''}
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSafeDepositPrompt(null)}>あとで</Button>
+            <Button variant="primary" onClick={() => safeDepositPrompt && createSafeDepositTasks(safeDepositPrompt.bank)}>作成する</Button>
+          </>
+        }
+      >
+        <div className="text-[13px] text-gray-700 space-y-2">
+          <p>この銀行の貸金庫タスクを作成します（既にあるものは作りません）。</p>
+          <ul className="rounded-lg border border-gray-200 p-2.5 space-y-1 text-[12.5px]">
+            <li>・【{safeDepositPrompt?.bank}】依頼者への貸金庫内容確認依頼</li>
+            <li>・【{safeDepositPrompt?.bank}】貸金庫内容物の確認</li>
+          </ul>
+        </div>
+      </Modal>
     </div>
   )
 }
