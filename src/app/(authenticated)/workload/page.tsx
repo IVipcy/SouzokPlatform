@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { isMinimalMode } from '@/lib/featureMode'
 import { Gauge } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import WorkloadClient, { type WorkloadTeam, type WorkloadRow } from '@/components/features/workload/WorkloadClient'
+import WorkloadClient, { type WorkloadTeam, type WorkloadRow, type ManagerCandidate, type UnassignedCaseRow } from '@/components/features/workload/WorkloadClient'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
 import type { MemberRow } from '@/types'
 
@@ -27,11 +27,14 @@ export default async function WorkloadPage({ searchParams }: Props) {
     supabase.from('dashboard_team_members').select('team_id, member_id'),
     supabase.from('members').select('*').eq('is_active', true).order('name'),
     supabase.from('case_members').select('member_id, role, cases(id, status, expected_completion_date)'),
-    // 逆ルート用: 受託（受注）案件
-    supabase.from('cases').select('id, case_number, deal_name, order_sheet_completed_at').eq('status', '受注'),
+    // 割り振り待ち: 受注系（受注/戻り受注/作業着手準備）案件。受注担当・難易度等も取得
+    supabase.from('cases')
+      .select('id, case_number, deal_name, status, order_received_date, order_date, difficulty, difficulty_reasons, difficulty_reason_other, service_category, service_category_2, order_sheet_completed_at, case_members(role, members(id, name, team_id))')
+      .in('status', ['受注', '戻り受注', '作業着手準備']),
   ])
 
   const teams = (teamsRes.data ?? []) as { id: string; name: string }[]
+  const teamNameById = new Map(teams.map(t => [t.id, t.name]))
   const dtm = (dtmRes.data ?? []) as { team_id: string; member_id: string }[]
   const members = (membersRes.data ?? []) as MemberRow[]
   const cms = (cmRes.data ?? []) as Array<{
@@ -61,11 +64,50 @@ export default async function WorkloadPage({ searchParams }: Props) {
     }
   }
 
-  // 逆ルート用: 受託かつ管理担当が未設定の案件
-  const jutaku = (jutakuRes.data ?? []) as { id: string; case_number: string; deal_name: string; order_sheet_completed_at: string | null }[]
-  const unassignedCases = jutaku
-    .filter(c => !managerCaseIds.has(c.id))
+  // 割り振り待ち: 受注系かつ管理担当が未設定の案件
+  type JCM = { role: string; members: { id: string; name: string; team_id: string | null } | { id: string; name: string; team_id: string | null }[] | null }
+  type JCase = {
+    id: string; case_number: string; deal_name: string; status: string
+    order_received_date: string | null; order_date: string | null
+    difficulty: string | null; difficulty_reasons: string[] | null; difficulty_reason_other: string | null
+    service_category: string | null; service_category_2: string | null
+    order_sheet_completed_at: string | null
+    case_members: JCM[] | null
+  }
+  const jutaku = (jutakuRes.data ?? []) as JCase[]
+  const oneMember = (cm: JCM) => (Array.isArray(cm.members) ? cm.members[0] : cm.members) ?? null
+  const unassignedJutaku = jutaku.filter(c => !managerCaseIds.has(c.id))
+  const unassignedCases = unassignedJutaku
     .map(c => ({ id: c.id, caseNumber: c.case_number, dealName: c.deal_name, orderSheetReady: !!c.order_sheet_completed_at }))
+
+  // 割り振り待ちテーブル用の行（受注日・経過日数・受注担当・チーム・難易度…）。経過日数の降順（放置が長い順）。
+  const todayMs = Date.parse(todayJstYmd(new Date()))
+  const elapsedOf = (d: string | null): number | null => {
+    if (!d) return null
+    const ms = Date.parse(d.slice(0, 10))
+    return Number.isNaN(ms) ? null : Math.max(0, Math.floor((todayMs - ms) / 86400000))
+  }
+  const unassignedRows: UnassignedCaseRow[] = unassignedJutaku.map(c => {
+    const salesCm = (c.case_members ?? []).find(x => x.role === 'sales')
+    const salesM = salesCm ? oneMember(salesCm) : null
+    const orderDate = c.order_received_date ?? c.order_date
+    const teamId = salesM?.team_id ?? null
+    const reasons = [...(c.difficulty_reasons ?? []), c.difficulty_reason_other].filter(Boolean) as string[]
+    return {
+      id: c.id,
+      orderDate,
+      elapsedDays: elapsedOf(orderDate),
+      caseNumber: c.case_number,
+      dealName: c.deal_name,
+      status: c.status,
+      teamId,
+      teamName: teamId ? (teamNameById.get(teamId) ?? null) : null,
+      salesName: salesM?.name ?? null,
+      serviceCategory: [c.service_category, c.service_category_2].filter(Boolean).join(' / ') || null,
+      difficulty: c.difficulty,
+      difficultyReason: reasons.length ? reasons.join('・') : null,
+    }
+  }).sort((a, b) => (b.elapsedDays ?? -1) - (a.elapsedDays ?? -1))
 
   // 案件詳細の「割り振り」から来た案件は、ステータス（受注以外でも）・管理担当の有無にかかわらず必ず選べるようにする。
   if (assignCaseId && !unassignedCases.some(c => c.id === assignCaseId)) {
@@ -101,6 +143,24 @@ export default async function WorkloadPage({ searchParams }: Props) {
     return y >= 0 ? y : null
   }
 
+  // 割り振り先候補（管理担当）＝ 全社の manager。所属チーム（複数可）と現在の担当案件数を持たせる。
+  const teamsOfMember = (memberId: string): { id: string; name: string }[] =>
+    teams.filter(t => teamMembers(t.id).some(m => m.id === memberId))
+  const managers: ManagerCandidate[] = members
+    .filter(m => m.primary_role === 'manager')
+    .map(m => {
+      const ts = teamsOfMember(m.id)
+      return {
+        memberId: m.id,
+        name: m.name,
+        teamIds: ts.map(t => t.id),
+        teamNames: ts.map(t => t.name).join('・') || null,
+        jobType: m.job_type ?? null,
+        years: yearsOf(m.joined_at),
+        activeCount: activeByMember.get(m.id) ?? 0,
+      }
+    })
+
   const workloadTeams: WorkloadTeam[] = teams.map(t => ({
     id: t.id,
     name: t.name,
@@ -134,7 +194,7 @@ export default async function WorkloadPage({ searchParams }: Props) {
         icon={Gauge}
         description="チーム・担当区分ごとの稼働状況。管理担当の割り振りに使用します。"
       />
-      <WorkloadClient teams={workloadTeams} defaultTeamId={defaultTeamId} assignCaseId={assignCaseId} unassignedCases={unassignedCases} />
+      <WorkloadClient teams={workloadTeams} defaultTeamId={defaultTeamId} assignCaseId={assignCaseId} unassignedCases={unassignedCases} unassignedRows={unassignedRows} managers={managers} />
     </div>
   )
 }
