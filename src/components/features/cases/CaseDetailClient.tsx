@@ -47,6 +47,7 @@ import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 import AddTaskModal from './AddTaskModal'
 import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } from './StatusFlowNavigator'
 import HandoffModal from './HandoffModal'
+import AssignRequestModal from './AssignRequestModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
@@ -108,6 +109,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
   const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
+  const [assignReqOpen, setAssignReqOpen] = useState(false)  // 受注系→管理担当の割振り依頼ポップ
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 「業務完了申請中」へ変更しゲート通過後、受注担当へ承認依頼を送る確認ポップアップ
@@ -258,6 +260,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setNavDismissed(false)
+      // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサインのときだけ）
+      if (!managerAssigned && !gatesDisabled()) setAssignReqOpen(true)
     }
     // 対応中に変わったら：事務管理タスクの設定を促すポップアップ。
     // ただし初回着手（受注/戻り受注 → 対応中）のときだけ。業務完了申請中/完了 などから戻したときは出さない。
@@ -920,6 +924,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           onDone={handleSaved}
         />
       )}
+
+      <AssignRequestModal
+        isOpen={assignReqOpen}
+        onClose={() => setAssignReqOpen(false)}
+        caseId={caseState.id}
+        caseNumber={caseState.case_number}
+        dealName={caseState.deal_name ?? ''}
+        allMembers={allMembers}
+        onDone={handleSaved}
+      />
 
       <AddTaskModal
         isOpen={addTaskModal.isOpen}

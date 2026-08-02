@@ -103,6 +103,17 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
                   相続登記チームメンバー
                 </label>
               )}
+              {isOwner && (
+                <label className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-600 cursor-pointer select-none" title="ONにすると受注時の『管理担当の割振り依頼』ポップの通知先候補に表示されます">
+                  <input
+                    type="checkbox"
+                    checked={!!member.is_dispatcher}
+                    onChange={e => updateField('is_dispatcher', e.target.checked).catch(err => { console.error(err); showToast('保存に失敗しました', 'error') })}
+                    className="w-3.5 h-3.5 accent-brand-600"
+                  />
+                  割振り担当
+                </label>
+              )}
               {member.job_type && (
                 <>
                   <span className="text-gray-300">・</span>
