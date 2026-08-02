@@ -150,6 +150,22 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const circlePx = compact ? 30 : 36           // アイコンは小さめに
   const iconSz = compact ? 'w-[14px] h-[14px]' : 'w-[17px] h-[17px]'
 
+  // 月目盛り：受注→業務完了予定 の期間に入る各月1日の位置（比率）。ラベルは 8月/9月…、年跨ぎの1月だけ年付き。
+  const monthTicks: { label: string; ratio: number }[] = []
+  if (orderDate && goalDate && goalDate.getTime() > orderDate.getTime()) {
+    const span = goalDate.getTime() - orderDate.getTime()
+    const startYear = orderDate.getFullYear()
+    const d = new Date(orderDate.getFullYear(), orderDate.getMonth() + 1, 1)  // 受注の翌月1日から
+    while (d.getTime() < goalDate.getTime()) {
+      const m = d.getMonth() + 1
+      const label = (d.getFullYear() !== startYear && m === 1) ? `${d.getFullYear()}/1月` : `${m}月`
+      monthTicks.push({ label, ratio: (d.getTime() - orderDate.getTime()) / span })
+      d.setMonth(d.getMonth() + 1)
+    }
+  }
+  const tickStep = monthTicks.length > 12 ? 2 : 1  // 月が多すぎるときは隔月に間引く
+  const lineTop = 30 + circlePx / 2                // 軸ラインのY（paddingTop=30 基準）
+
   // アイコン（連続ラインの上に重ねる。z-10 で線より前面）
   const Node = ({ Icon, label, date, cur, future }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean }) => (
     <div className="relative flex-none z-10" style={{ width: circlePx, height: circlePx }}>
@@ -186,6 +202,17 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
       <div className="relative w-full" style={{ paddingTop: 30, paddingBottom: 34, paddingLeft: 44, paddingRight: 44 }}>
         {/* 連続した横一線（背面・アイコン中心の高さ・全幅） */}
         <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
+        {/* 月目盛り（背面・上部余白内に収める。軸ラインまで短い点線＋小さな月ラベル） */}
+        {monthTicks.filter((_, i) => i % tickStep === 0).map((t, i) => (
+          <div
+            key={i}
+            className="absolute pointer-events-none text-center"
+            style={{ left: `calc(${circlePx / 2 + 44}px + ${t.ratio} * (100% - ${circlePx + 88}px))`, top: 0, height: lineTop, transform: 'translateX(-50%)' }}
+          >
+            <div className="text-[9px] leading-none text-gray-400 whitespace-nowrap">{t.label}</div>
+            <div className="mx-auto" style={{ width: 0, marginTop: 2, height: lineTop - 11, borderLeft: '1px dashed #d1d5db' }} />
+          </div>
+        ))}
         {/* アイコン＋セグメント（前面） */}
         <div className="relative flex items-center">
           <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
