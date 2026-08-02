@@ -18,7 +18,7 @@ const TAB_HINT: Record<ConfirmItem['tab'], string> = {
   request: '戸籍・不動産の請求です。発送時は「費用・請求内容」が正しいか、到着時は「返金額（お釣り）など」が正しいかを、作業した本人とは別の人が確認します。発送✓／着✓を押すと確認完了です。',
   confirm: '物件の評価額・口座の残高が正しいかを確認して確定します。確定すると財産目録・精算書に反映されます。',
   approve: '初回のあとに追加された請求（戸籍・取得資料・市区町村）を、管理担当が承認します。承認するとタスクが作られます。',
-  freeze: '口座が凍結されたかを管理担当が確認します。確認すると、その口座の調査・解約の作業に進めます。',
+  freeze: '口座を凍結してよいか（凍結依頼を出してよいか）を管理担当が確認します。OKすると「凍結依頼」に進めます。',
 }
 
 // 確認済みハンコ（全システム共通の朱印風スタンプ）。
@@ -69,7 +69,7 @@ const TABS: { key: ConfirmItem['tab']; label: string }[] = [
   { key: 'request', label: '請求（発送・着）' },
   { key: 'confirm', label: '評価・残高の確定' },
   { key: 'approve', label: '追加請求承認' },
-  { key: 'freeze', label: '口座凍結確認' },
+  { key: 'freeze', label: '凍結してよいか確認' },
 ]
 
 const GYOMU_CLS: Record<string, string> = {
@@ -88,7 +88,7 @@ const KIND_LABEL: Record<ConfirmAction, string> = {
   koseki_send: '発送前', koseki_recv: '着（受信）', re_send: '発送前', re_recv: '着（受信）',
   re_confirm: '評価額の確定', fin_confirm: '残高の確定',
   koseki_approve: '追加請求の承認', re_acq_approve: '追加取得資料の承認', re_prop_approve: '市区町村追加の承認',
-  fin_freeze: '口座凍結確認',
+  fin_freeze: '凍結してよいか確認',
 }
 
 const nowIso = () => new Date().toISOString()

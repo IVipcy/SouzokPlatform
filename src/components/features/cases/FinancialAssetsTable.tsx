@@ -232,10 +232,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 ホールド中（調査禁止指定あり）調査は編集できません</div>}
       {showFreezeFlag && <CardRow label="凍結確認済（事前凍結）">{renderFreezeFlagCell(r)}</CardRow>}
       {progressMode && (
-        <CardRow label="凍結状態">
+        <CardRow label="凍結可否">
           {r.freeze_confirmed
-            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結済</span>
-            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未凍結</span>}
+            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結OK</span>
+            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未確認</span>}
         </CardRow>
       )}
       {/* 取得区分を先頭に */}
@@ -251,9 +251,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
       {progressMode && (
-        <CardRow label="凍結確認（確認簿で確認）">
+        <CardRow label="凍結してよいか確認（確認簿）">
           {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
-            : <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+            : <CheckRequestControl label="凍結してよいか確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
         </CardRow>
       )}
       {showConfirmed && (
@@ -299,11 +299,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結確認済</th>}
-              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結状態</th>}
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結可否</th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
-              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結してよいか確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
@@ -329,8 +329,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   {progressMode && (
                   <td className="px-2 py-1.5 text-center">
                     {r.freeze_confirmed
-                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結済</span>
-                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未凍結</span>}
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><Lock className="w-3 h-3" strokeWidth={2} />凍結OK</span>
+                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-50 text-gray-600 border border-gray-200"><LockOpen className="w-3 h-3" strokeWidth={2} />未確認</span>}
                   </td>
                   )}
                   {/* 左端固定：取得区分（禁止期間中もロックしない） */}
@@ -356,7 +356,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   {progressMode && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {banned ? <span className="text-[11px] text-gray-300">—</span>
-                        : <CheckRequestControl label="凍結確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+                        : <CheckRequestControl label="凍結してよいか確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
                     </td>
                   )}
                   {showConfirmed && (
