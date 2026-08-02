@@ -253,7 +253,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       {progressMode && (
         <CardRow label="凍結してよいか確認（確認簿）">
           {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
-            : <CheckRequestControl label="凍結してよいか確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+            : <CheckRequestControl label="凍結してよいか確認" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
         </CardRow>
       )}
       {showConfirmed && (
@@ -356,7 +356,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   {progressMode && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {banned ? <span className="text-[11px] text-gray-300">—</span>
-                        : <CheckRequestControl label="凍結してよいか確認を依頼" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+                        : <CheckRequestControl label="凍結してよいか確認" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
                     </td>
                   )}
                   {showConfirmed && (

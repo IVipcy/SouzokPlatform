@@ -70,6 +70,26 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const save = async (field: string, value: unknown) => {
     await patchCase({ [field]: value ?? null } as Partial<CaseRow>)
   }
+
+  // 財産調査条件（案件で1つの設定）。既定は折りたたみ。たたんでも現在値をサマリー表示。
+  // 実務モードでは 不動産セクションの「一覧(TOP)」にだけ差し込む（各市区町村では出さない）。
+  const surveyConditions = (
+    <details className="group rounded-lg border border-gray-200 bg-white">
+      <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer list-none select-none">
+        <span className="text-gray-400 text-[12px] leading-none transition-transform group-open:rotate-90">▸</span>
+        <span className="text-[13px] font-semibold text-brand-800">財産調査条件</span>
+        <span className="ml-auto text-[11px] text-gray-400 truncate group-open:hidden">
+          {caseData.financial_survey_start_condition || '開始条件 未設定'} ／ {caseData.investigation_document || '使用書類 未設定'}
+        </span>
+      </summary>
+      <div className="px-3 pb-3 border-t border-gray-100 pt-2.5">
+        <FieldGrid>
+          <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
+          <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
+        </FieldGrid>
+      </div>
+    </details>
+  )
   // タスク詳細から ?focus=市区町村/金融機関 で来たとき、該当サブタブを初期選択（不動産/預金/証券/信託）。
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus')
@@ -139,14 +159,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <div className={(orderSheetMode ? (kindOn('realestate') ? 'space-y-4' : 'hidden') : (sub === 'realestate' ? 'space-y-4' : 'hidden'))}>
           {/* オーダーシート分割表示中は 親OSSection の作業内容欄が上部にあるため、二重表示回避のため 非orderSheetMode のときだけ表示 */}
           {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />}
-          {/* 財産調査条件（案件で1つ・不動産に紐づける）。フリー欄(作業内容)の下に配置。 */}
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <SectionHeading title="財産調査条件" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-            <FieldGrid>
-              <InlineSelect label="財産調査開始条件" value={caseData.financial_survey_start_condition} options={[...FINANCIAL_SURVEY_START_CONDITIONS]} onSave={v => save('financial_survey_start_condition', v)} />
-              <InlineSelect label="財産調査使用書類" value={caseData.investigation_document} options={[...INVESTIGATION_DOCUMENTS]} onSave={v => save('investigation_document', v)} />
-            </FieldGrid>
-          </div>
+          {/* オーダーシート（調査前）は市区町村TOPが無いので、ここに財産調査条件（折りたたみ）を置く。
+              実務モードでは 不動産セクションの「一覧(TOP)」に topExtra として差し込む。 */}
+          {orderSheetMode && surveyConditions}
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
@@ -170,6 +185,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               focusOffice={focusOffice}
               focusIsRead={focusIsRead}
               addressSuggestions={addrSuggestions}
+              topExtra={surveyConditions}
             />
           )}
         </div>

@@ -4,7 +4,7 @@
 // TOP（一覧）＝各市区町村タブの物件を集計（確定済バッジ）。財産目録へ反映されるのは確定済のみ。
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Plus, Check, Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -34,6 +34,7 @@ type Props = {
   focusOffice?: 'muni' | 'houmu' | null  // 着地元タスクの系統：①市区町村役場/②法務局。該当表を点滅。
   focusIsRead?: boolean                  // 着地元が「読込」タスクか。読込のときだけ物件一覧もハイライト（請求段階では物件未確定）。
   addressSuggestions?: string[]  // 所在地の予測住所（被相続人の住所・本籍など）
+  topExtra?: ReactNode           // TOP（一覧）ビューの先頭に差し込む要素（財産調査条件など・案件で1つの設定）
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
@@ -48,7 +49,7 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [] }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [], topExtra }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
   // タスク詳細から着地したとき、対象の表（①/②）を青枠点滅→点滅後も枠は残す。
@@ -310,6 +311,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       {/* TOP（一覧）：確定済を集計した読み取り専用一覧 */}
       {sub === 'top' && (
         <div className="space-y-3.5">
+          {topExtra}
           <div>
             <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="財産目録に載るのは「確定済」の物件だけです。評価額の入力と確定は、各市区町村タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
