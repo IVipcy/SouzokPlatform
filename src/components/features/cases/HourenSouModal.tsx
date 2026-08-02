@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Send } from 'lucide-react'
-import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { createClient } from '@/lib/supabase/client'
@@ -84,14 +84,15 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
   }
 
   return (
-    <Modal
+    <FloatingWindow
       isOpen={isOpen}
       onClose={onClose}
       title="報連相を送る"
+      width={410}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={sending}>キャンセル</Button>
-          <Button variant="primary" onClick={send} loading={sending} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>送信</Button>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={sending}>キャンセル</Button>
+          <Button variant="primary" size="sm" onClick={send} loading={sending} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>送信</Button>
         </>
       }
     >
@@ -144,7 +145,7 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
           )}
         </div>
       </div>
-    </Modal>
+    </FloatingWindow>
   )
 }
 

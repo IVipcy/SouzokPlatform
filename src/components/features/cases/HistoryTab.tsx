@@ -6,11 +6,13 @@ import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListP
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { PROGRESS_REPORT_PHASES, PROGRESS_REPORT_STATES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
 import HourenSouModal from './HourenSouModal'
 import AddTaskModal from './AddTaskModal'
@@ -37,6 +39,14 @@ const KIND_PLACEHOLDER: Record<ProgressReportKind, string> = {
   case_reopen: '例：追加戸籍が発生。追加請求＋登記対応が必要',
   delivery_confirm: '例：納品書類の対象／対象外を確認してほしい',
 }
+// 案件報告の状態バッジ配色（緑=順調／青=確認事項／琥珀=HELP／赤=至急）
+const STATE_CHIP: Record<string, string> = {
+  '問題なし順調に進行中': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '確認事項あり': 'bg-blue-50 text-blue-700 border-blue-200',
+  '困りごとありHELP': 'bg-amber-50 text-amber-700 border-amber-200',
+  '至急！！': 'bg-red-100 text-red-700 border-red-300',
+}
+const stateChip = (s: string | null | undefined) => (s && STATE_CHIP[s]) || 'bg-gray-50 text-gray-500 border-gray-200'
 
 // 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
 const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
@@ -84,6 +94,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   const [requestOpen, setRequestOpen] = useState(false)
   // 統一報告モーダル: 分類選択。デフォルトは既存の週次案件報告。
   const [reportKind, setReportKind] = useState<ProgressReportKind>('progress_check')
+  // 案件報告(progress_check)のフェーズ・状態
+  const [reportPhase, setReportPhase] = useState('')
+  const [reportState, setReportState] = useState<string>(PROGRESS_REPORT_STATES[0])
   // 業務完了申請時のゲート未達ポップアップ内容
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   const router = useRouter()
@@ -184,7 +197,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     setRequesting(true)
     const supabase = createClient()
     const today = new Date().toISOString().split('T')[0]
-    // migration 202 未適用環境ではkind列が無い→エラーになるためフォールバック挿入。
+    // 案件報告(progress_check)のときだけ フェーズ・状態 を保存。
+    const isProgress = reportKind === 'progress_check'
+    // migration 202/217 未適用環境では kind/phase/report_state 列が無い→エラーになるためフォールバック挿入。
     let { error } = await supabase.from('progress_reports').insert({
       case_id: caseData.id,
       requester_id: currentMemberId,
@@ -193,9 +208,11 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       requested_date: today,
       review_point: reviewPointInput.trim() || null,
       kind: reportKind,
+      phase: isProgress ? (reportPhase || null) : null,
+      report_state: isProgress ? reportState : null,
     })
-    if (error && /kind/i.test(error.message ?? '')) {
-      // kind列がまだ無い環境向けのフォールバック（progress_check扱い）
+    if (error && /kind|phase|report_state/i.test(error.message ?? '')) {
+      // 追加列がまだ無い環境向けのフォールバック（progress_check扱い・最小列）
       const retry = await supabase.from('progress_reports').insert({
         case_id: caseData.id,
         requester_id: currentMemberId,
@@ -229,17 +246,21 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     // 受注担当への通知。salesMemberId が無ければ通知はスキップ。
     if (salesMemberId) {
       const kindLabel = KIND_LABEL[reportKind]
+      const urgent = isProgress && reportState === PROGRESS_REPORT_STATE_URGENT
+      const meta = isProgress ? [reportPhase, reportState].filter(Boolean).join('・') : ''
       await supabase.from('notifications').insert({
         member_id: salesMemberId,
         type: 'progress_review_requested',
         case_id: caseData.id,
-        title: `${kindLabel}が届きました`,
-        body: `${caseData.case_number} ${caseData.deal_name}：${reviewPointInput.trim() || kindLabel + 'をお願いします'}`,
+        title: `${urgent ? '【至急】' : ''}${kindLabel}が届きました`,
+        body: `${caseData.case_number} ${caseData.deal_name}：${meta ? `[${meta}] ` : ''}${reviewPointInput.trim() || kindLabel + 'をお願いします'}`,
       })
     }
     setRequesting(false)
     setReviewPointInput('')
     setReportKind('progress_check')
+    setReportPhase('')
+    setReportState(PROGRESS_REPORT_STATES[0])
     setRequestOpen(false)
     showToast(`${KIND_LABEL[reportKind]}を送信しました`, 'success')
     fetchActivities()
@@ -386,7 +407,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       {/* タブ上部の共通アクション（セクションの外・余白なしで並べる） */}
       <div className="flex flex-wrap justify-end gap-2">
         {section !== 'memo' && canRequestReview && (
-          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setReportKind('progress_check'); setRequestOpen(true) }}>
+          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => { setReviewPointInput(''); setReportKind('progress_check'); setReportPhase(''); setReportState(PROGRESS_REPORT_STATES[0]); setRequestOpen(true) }}>
             報告する
           </Button>
         )}
@@ -406,10 +427,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           <div className="px-4 py-6 text-center text-[13px] text-gray-400">案件報告はまだありません</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
+            <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">分類</th>
+                  <th className="px-3 py-2 text-left font-medium">フェーズ</th>
+                  <th className="px-3 py-2 text-left font-medium">状態</th>
                   <th className="px-3 py-2 text-left font-medium">報告者</th>
                   <th className="px-3 py-2 text-left font-medium">報告日</th>
                   <th className="px-3 py-2 text-left font-medium">内容</th>
@@ -430,6 +453,12 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                     <tr key={pr.id} className="hover:bg-gray-50/60">
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${KIND_CHIP[kind]}`}>{KIND_LABEL[kind]}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-[12px] text-gray-700">{pr.phase || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2.5">
+                        {pr.report_state
+                          ? <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${stateChip(pr.report_state)}`}>{pr.report_state}</span>
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700">{memberName(pr.requester_id)}</td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.requested_date}</td>
@@ -469,7 +498,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
           <div className="px-4 py-6 text-center text-[13px] text-gray-400">報連相はまだありません</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]" style={{ minWidth: 880 }}>
+            <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">種別</th>
@@ -644,21 +673,22 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
       {/* 案件報告まわりのモーダル群（報連相・メモのみ表示時は不要） */}
       {section !== 'memo' && (<>
-      {/* 統一報告モーダル。分類select + 内容textarea。分類=業務完了申請の時のみ選択直後にゲート判定。 */}
-      <Modal
+      {/* 統一報告ウィンドウ（ドラッグ移動・暗幕なし）。分類select + （案件報告のみ）報告先/フェーズ/状態 + 内容。 */}
+      <FloatingWindow
         isOpen={requestOpen}
         onClose={() => { setRequestOpen(false); setReportKind('progress_check') }}
-        title="報告"
+        title="案件報告"
+        width={410}
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setRequestOpen(false); setReportKind('progress_check') }} disabled={requesting}>キャンセル</Button>
-            <Button variant="primary" onClick={handleRequestReview} loading={requesting} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>報告する</Button>
+            <Button variant="secondary" size="sm" onClick={() => { setRequestOpen(false); setReportKind('progress_check') }} disabled={requesting}>キャンセル</Button>
+            <Button variant="primary" size="sm" onClick={handleRequestReview} loading={requesting} leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}>報告する</Button>
           </>
         }
       >
         <div className="space-y-3">
           <div>
-            <label className="block text-[13px] font-semibold text-gray-600 mb-1">分類</label>
+            <label className="block text-[12px] font-semibold text-gray-600 mb-1">分類</label>
             <select
               value={reportKind}
               onChange={e => handleKindChange(e.target.value as ProgressReportKind)}
@@ -676,9 +706,62 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               {reportKind === 'progress_check' && '受注担当に案件の進捗状況を確認してもらいます。'}
             </p>
           </div>
+
+          {reportKind === 'progress_check' && (
+            <>
+              {/* 報告先＝受注担当（固定表示） */}
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-600 mb-1">報告先</label>
+                {salesMemberId ? (
+                  <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-brand-200 bg-brand-50 text-[12.5px] font-semibold text-brand-800">
+                    <UserAvatar name={memberName(salesMemberId)} url={allMembers.find(m => m.id === salesMemberId)?.avatar_url ?? null} size="sm" />
+                    {memberName(salesMemberId)}
+                    <span className="text-[10px] px-1 rounded bg-brand-600 text-white">受注担当</span>
+                  </span>
+                ) : (
+                  <span className="text-[12px] text-gray-400">受注担当が未アサインです（通知は送られません）</span>
+                )}
+              </div>
+              {/* フェーズ */}
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-600 mb-1">フェーズ</label>
+                <select
+                  value={reportPhase}
+                  onChange={e => setReportPhase(e.target.value)}
+                  className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+                >
+                  <option value="">フェーズを選択</option>
+                  {PROGRESS_REPORT_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              {/* 状態 */}
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-600 mb-1">状態</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PROGRESS_REPORT_STATES.map(s => {
+                    const on = reportState === s
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReportState(s)}
+                        className={`px-2 py-2 rounded-lg text-[12px] font-semibold border-[1.5px] transition-colors ${on ? stateChip(s) + ' ring-2 ring-offset-1 ' + (s === PROGRESS_REPORT_STATE_URGENT ? 'ring-red-300' : 'ring-brand-200') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
+                {reportState === PROGRESS_REPORT_STATE_URGENT && (
+                  <p className="text-[11px] text-red-600 mt-1.5 flex items-center gap-1"><span className="font-bold">⚠</span>「至急！！」は受注担当の要注意バナー（赤）に表示されます。</p>
+                )}
+              </div>
+            </>
+          )}
+
           <div>
-            <label className="block text-[13px] font-semibold text-gray-600 mb-1">
-              {reportKind === 'case_reopen' ? '事由' : '内容'} <span className="font-normal text-gray-400">（任意）</span>
+            <label className="block text-[12px] font-semibold text-gray-600 mb-1">
+              {reportKind === 'case_reopen' ? '事由' : reportKind === 'progress_check' ? '報告内容' : '内容'} <span className="font-normal text-gray-400">（任意）</span>
             </label>
             <textarea
               value={reviewPointInput}
@@ -689,7 +772,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
             />
           </div>
         </div>
-      </Modal>
+      </FloatingWindow>
 
       {/* 業務完了申請 ゲート未達 ポップアップ */}
       <Modal

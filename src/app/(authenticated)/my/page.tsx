@@ -15,7 +15,7 @@ import RankingBadges, { type RankBadge } from '@/components/features/dashboard/R
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
-import { computeCaseStateAlerts } from '@/lib/caseStateAlerts'
+import { computeCaseStateAlerts, computeUrgentReportAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -613,10 +613,15 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     .map(({ t, sev }) => ({ task: t, severity: sev, over: calDaysOverdue(t.due_date as string, todayStr) }))
 
   // 案件アラート（管理担当 未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
-  const bannerCaseAlerts = computeCaseStateAlerts(
-    myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) })),
-    todayStr,
-  )
+  const salesCaseMeta = new Map(myCases.filter(c => salesCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
+  const bannerCaseAlerts = [
+    ...computeCaseStateAlerts(
+      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) })),
+      todayStr,
+    ),
+    // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
+    ...computeUrgentReportAlerts(allReports.filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+  ]
 
 
   // 期間切替の選択肢（本日／当月／当期累計）

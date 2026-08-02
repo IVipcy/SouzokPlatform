@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
-import { computeCaseStateAlerts } from '@/lib/caseStateAlerts'
+import { computeCaseStateAlerts, computeUrgentReportAlerts } from '@/lib/caseStateAlerts'
 import type { TaskRow } from '@/types'
 
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
@@ -96,8 +96,9 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   }
 
   // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ
-  const [progRes] = await Promise.all([
+  const [progRes, urgentRepRes] = await Promise.all([
     myCaseIds.length ? supabase.from('tasks').select('case_id,status,task_kind').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
+    myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTasks = (progRes.data ?? []) as any[]
@@ -133,10 +134,15 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const managerCaseIds = new Set(rows.filter(r => r.role === 'manager').map(r => r.case_id))
   const dedupCases = rows.map(r => r.cases).filter((c): c is NonNullable<typeof rows[number]['cases']> => !!c)
     .filter((c: { id: string }, i: number, arr: unknown[]) => arr.findIndex(x => (x as { id: string }).id === c.id) === i)
-  const caseStateAlerts = computeCaseStateAlerts(
-    dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) })),
-    todayStr,
-  )
+  const salesCaseMeta = new Map(dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string }) => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
+  const caseStateAlerts = [
+    ...computeCaseStateAlerts(
+      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) })),
+      todayStr,
+    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...computeUrgentReportAlerts(((urgentRepRes.data ?? []) as any[]).filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+  ]
 
   // 銀行超過はseverityで絞り込み
   const sevFilter: OverdueSeverity | null = sev === 'kakunin' ? 'kakunin' : sev === 'chui' ? 'chui' : null

@@ -1126,6 +1126,8 @@ export type ProgressReportRow = {
   review_point: string | null   // 確認ポイント（依頼時。migration 132）
   confirm_comment: string | null // 確認コメント（確認時。migration 132）
   kind: ProgressReportKind       // 種類 (migration 202)。default='progress_check'
+  phase: string | null           // フェーズ（案件報告=progress_check のみ。migration 217）
+  report_state: string | null    // 状態（問題なし順調に進行中/確認事項あり/困りごとありHELP/至急！！。migration 217）
   created_at: string
   updated_at: string
 }

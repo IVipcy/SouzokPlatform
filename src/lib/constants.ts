@@ -803,6 +803,11 @@ export const DISSOLUTION_STATUSES = ['受注', '未受注', '検討中', '未提
 export const PASSBOOK_STATUSES = ['即日預かり', '送付', '紛失'] as const
 
 // === 不動産: 評価方法 ===
+// 案件報告(progress_check)のフェーズ・状態（migration 217）
+export const PROGRESS_REPORT_PHASES = ['戸籍', '財産調査', '目録作成', '協議中', '協議書作成', '登記', '解約'] as const
+export const PROGRESS_REPORT_STATE_URGENT = '至急！！'
+export const PROGRESS_REPORT_STATES = ['問題なし順調に進行中', '確認事項あり', '困りごとありHELP', PROGRESS_REPORT_STATE_URGENT] as const
+
 export const PROPERTY_EVALUATION_METHODS = ['固定資産評価額', '路線価'] as const
 
 // === 不動産: 査定対応状況 ===
