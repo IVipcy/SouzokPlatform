@@ -305,7 +305,7 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
 }
 
 // アクティブ = 受注済〜未完了（失注・受注前は除く）
-const ACTIVE_STATUSES = new Set(['受注', '対応中'])
+const ACTIVE_STATUSES = new Set(['受注', '作業着手準備', '対応中'])
 
 // 当月発行された請求書を集計するため、月内 issued_date を持つ行型
 export type DashInvoice = {

@@ -54,7 +54,7 @@ const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（�
 // 個別管理案件 = 紹介のみ
 const REFERRAL_STATUSES = new Set(['紹介のみ'])
 // 管理担当のアラート対象スコープ（KPI/アラート用。一覧分類とは別概念）
-const MGMT_ACTIVE_STATUSES = new Set(['受注', '戻り受注', '対応中'])
+const MGMT_ACTIVE_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '対応中'])
 const pad = (n: number) => String(n).padStart(2, '0')
 
 // 相談案件の累計KPIを各月の集計から合成する（件数は合算、平均単価は件数で加重平均）
