@@ -994,7 +994,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                               </td>
                               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
                               <td className="px-3 py-2.5">
-                                <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
+                                <Link href={`/cases/${r.case_id}?tab=progress&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
                               </td>
                               <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
                               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
@@ -1006,7 +1006,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
                               <td className="px-3 py-2.5 text-right">
                                 {r.status === '依頼中' && (
-                                  <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">{btnLabel}</Link>
+                                  <Link href={`/cases/${r.case_id}?tab=progress&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">{btnLabel}</Link>
                                 )}
                               </td>
                             </tr>
@@ -1145,7 +1145,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                       <tr key={r.id} className="hover:bg-gray-50/60">
                         <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
                         <td className="px-3 py-2.5">
-                          <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=complaints`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
+                          <Link href={`/cases/${r.case_id}?tab=progress&sub=complaint`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
                         </td>
                         <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requested_date ?? <span className="text-gray-300">—</span>}</td>
@@ -1163,7 +1163,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                         <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2.5 text-right">
                           {r.status === '依頼中' && (
-                            <Link href={`/cases/${r.case_id}?tab=basicInfo&sub=complaints`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
+                            <Link href={`/cases/${r.case_id}?tab=progress&sub=complaint`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
                           )}
                         </td>
                       </tr>

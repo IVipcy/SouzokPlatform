@@ -100,10 +100,10 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
 
   // アラートのジャンプ先（カテゴリ→タブ）。クリックで該当タブへ飛ばす。
   const alertJump = (label: string): TabKey | null => {
-    if (label === '週次報告の漏れ') return 'basicInfo'                 // 進捗報告(HistoryTab)
+    if (label === '週次報告の漏れ') return 'progress'                 // 案件報告(HistoryTab)
     if (label === '要進捗連絡') return 'clientInfo'                    // 依頼者・やり取り
     if (label.startsWith('タスク期限超過')) return 'tasks'
-    if (label === 'クレーム') return 'basicInfo'
+    if (label === 'クレーム') return 'progress'
     if (label === '前受金 未入金') return 'contract'
     if (label === '完了予定日 超過') return 'meeting'                  // 管理情報セクションへ
     if (label === '面談メモ未記載') return 'meeting'

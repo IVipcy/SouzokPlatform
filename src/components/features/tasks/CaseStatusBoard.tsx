@@ -159,7 +159,7 @@ export default function CaseStatusBoard({ tasks, caseMap }: Props) {
                   <Link href={`/cases/${r.caseId}`} className="text-brand-700 hover:underline font-semibold">{r.info.case_number}</Link>
                 </td>
                 <td className="px-2.5 py-2">
-                  <Link href={`/cases/${r.caseId}?tab=basicInfo`} className="text-gray-900 hover:text-brand-700 hover:underline" title="案件進捗を開く">{r.info.deal_name}</Link>
+                  <Link href={`/cases/${r.caseId}?tab=progress`} className="text-gray-900 hover:text-brand-700 hover:underline" title="案件進捗を開く">{r.info.deal_name}</Link>
                 </td>
                 <td className="px-2.5 py-2 text-gray-600">{[r.info.service_category, r.info.service_category_2].filter(Boolean).join('・') || <span className="text-gray-300">—</span>}</td>
                 <td className="px-2.5 py-2"><Progress done={r.done} total={r.total} /></td>

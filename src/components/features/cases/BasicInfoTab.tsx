@@ -38,6 +38,9 @@ type Props = {
   salesMemberId?: string | null
   // 進捗確認を依頼できるか（この案件の管理担当のみ）
   canRequestReview?: boolean
+  // 「案件報告」タブの中に『事務管理進捗』サブタブとして埋め込む時 true。
+  // 進捗(案件進捗)の中身だけを出し、内部の進捗/案件報告/報連相サブタブ・見出しは出さない（親側と二重になるため）。
+  embedded?: boolean
 }
 
 // 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
@@ -47,7 +50,7 @@ const normGyomu = (phase: string | null | undefined): string => {
   return g
 }
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false, embedded = false }: Props) {
   // 契約時受領書類の区分（id → category）。到着物の紐づけ不要の自動判定に使う。
   const contractCat = new Map((contractDocuments ?? []).map(d => [d.id, d.category ?? '']))
   const saveCaseField = async (field: string, value: unknown) => {
@@ -82,12 +85,15 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
   const [sub, setSub] = useState<'progress' | 'report' | 'memo'>('progress')
   const SUBTABS = [{ key: 'progress', label: '進捗' }, { key: 'report', label: '案件報告' }, { key: 'memo', label: '報連相・メモ' }]
 
+  // 埋め込み時は進捗の中身のみ（見出し・内部サブタブは親と二重になるため出さない）
+  const effectiveSub = embedded ? 'progress' : sub
+
   return (
     <div className="space-y-3.5">
-      <TabHeader title="案件進捗" description="この案件の今の状況・進み具合・タスク・届いた物・履歴をまとめて見られます。" />
-      <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'report' | 'memo')} />
+      {!embedded && <TabHeader title="案件進捗" description="この案件の今の状況・進み具合・タスク・届いた物・履歴をまとめて見られます。" />}
+      {!embedded && <SubTabs tabs={SUBTABS} active={sub} onChange={k => setSub(k as 'progress' | 'report' | 'memo')} />}
 
-      {sub === 'progress' && (
+      {effectiveSub === 'progress' && (
         <div className="space-y-3.5">
       {/* === ダッシュボード（今すぐ着手できる / 書類受領待ち / タスク未割当の到着物） === */}
       {(() => {
@@ -224,8 +230,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         </div>
       )}
 
-      {/* 案件報告（確認依頼の履歴）／報連相・メモ に分割 */}
-      {(sub === 'report' || sub === 'memo') && (
+      {/* 案件報告（確認依頼の履歴）／報連相・メモ に分割（埋め込み時は親のサブタブ側で表示するため出さない） */}
+      {!embedded && (sub === 'report' || sub === 'memo') && (
         <HistoryTab section={sub} caseData={caseData} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={canRequestReview} tasks={caseTasks.map(t => ({ id: t.id, status: t.status }))} />
       )}
     </div>

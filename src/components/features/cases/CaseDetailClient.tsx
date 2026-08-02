@@ -390,7 +390,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned
   const navHighlightTabs: TabKey[] = [
     ...activeNavSteps.filter(s => !s.done).flatMap(s => s.targets.map(t => t.tab)),
-    ...(kickoffNeeded ? ['basicInfo' as TabKey] : []),
+    ...(kickoffNeeded ? ['progress' as TabKey] : []),
     ...(managerAssignNav ? ['assignees' as TabKey] : []),
   ]
 
@@ -633,7 +633,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             // 「事務管理進捗」(案件進捗=BasicInfoTab)を 案件進捗タブ内のサブタブとして表示。
             // 受注担当ビューでも 管理担当と同じ5サブタブ(進捗サマリー/事務管理進捗/案件報告/報連相・メモ/不満・クレーム)にする。
             renderOfficeProgress={() => (
-              <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
+              <BasicInfoTab embedded caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
             )}
           />
         )

@@ -51,7 +51,8 @@ export type TabVisibility = {
 // 管理案件（対応中/完了）で使う実務フルセット（オーダーシート最左、面談情報は末尾）
 // 納品タブは実施タブ末尾＝案件基本情報ドロップダウンの直左位置に。
 const FULL_PRACTICE_TABS: TabKey[] = [
-  'orderSheet', 'basicInfo', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
+  // 案件進捗(basicInfo)は「案件報告」(progress)に統合済み。progress の中に事務管理進捗として埋め込む。
+  'orderSheet', 'progress', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
   'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'contract',
   'delivery',
   'receipts', 'docs', 'documentCreate', 'tasks', 'meeting',
