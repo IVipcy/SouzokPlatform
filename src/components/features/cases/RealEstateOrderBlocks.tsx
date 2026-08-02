@@ -14,6 +14,8 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import { RE_ACQUIRERS, reAcquirerLabel, RE_REQUEST_TO } from '@/lib/acquirer'
 import { municipalityOf } from './RealEstateSection'
 import RealEstateTable from './RealEstateTable'
@@ -43,6 +45,10 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
 }) {
   const supabase = createClient()
   const years = warekiYears()
+  // 市区町村追加：ネイティブpromptをやめてアプリ内モーダルで名称入力（タスク生成なし・物件行を作るだけ）。
+  const [addOpen, setAddOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
   const [localAcq, setLocalAcq] = useState<RealEstateAcquisitionRow[]>(acquisitions)
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalAcq(acquisitions) }, [acquisitions])
@@ -123,12 +129,16 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
     await patchProp(prop, { item_types: next, item_type: next[0] ?? null })
   }
 
-  // ＋市区町村を追加（空物件を1件作ってブロックを増やす）
-  const addMunicipality = async () => {
-    const name = window.prompt('追加する市区町村名（都道府県＋市区町村。例: 東京都墨田区）')?.trim()
+  // ＋市区町村を追加（アプリ内モーダルで名称入力→空物件を1件作ってブロックを増やす。タスク生成なし）
+  const openAdd = () => { setNewName(''); setAddOpen(true) }
+  const submitAdd = async () => {
+    const name = newName.trim()
     if (!name) return
+    setAdding(true)
     const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
+    setAdding(false)
     if (error) { showToast(`追加に失敗: ${error.message}`, 'error'); return }
+    setAddOpen(false)
     onRefresh?.()
   }
 
@@ -235,9 +245,37 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
         )
       })}
 
-      <button type="button" onClick={addMunicipality} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-dashed border-brand-300 hover:bg-brand-50 transition-colors">
+      <button type="button" onClick={openAdd} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-dashed border-brand-300 hover:bg-brand-50 transition-colors">
         <Plus className="w-4 h-4" strokeWidth={2} /> 市区町村（物件）を追加
       </button>
+
+      {/* 市区町村の追加（名称入力・アプリ内モーダル。タスク生成はしない） */}
+      <Modal
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="市区町村を追加"
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAddOpen(false)} disabled={adding}>キャンセル</Button>
+            <Button variant="primary" onClick={submitAdd} loading={adding} disabled={!newName.trim()}>追加</Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label className="block text-[12.5px] font-medium text-gray-600">市区町村名（都道府県＋市区町村）</label>
+          <input
+            type="text"
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && newName.trim() && !adding) submitAdd() }}
+            placeholder="例: 東京都墨田区"
+            className="w-full px-3 py-2 text-[14px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white"
+          />
+          <p className="text-[11.5px] text-gray-400">この市区町村のブロック（物件一覧・名寄帳・評価証明・登記/法務局）が追加されます。</p>
+        </div>
+      </Modal>
     </div>
   )
 }
