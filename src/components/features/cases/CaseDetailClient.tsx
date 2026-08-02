@@ -46,7 +46,7 @@ import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps } from './StatusFlowNavigator'
+import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps, getWorkPrepFlowSteps } from './StatusFlowNavigator'
 import HandoffModal from './HandoffModal'
 import AssignRequestModal from './AssignRequestModal'
 import Modal from '@/components/ui/Modal'
@@ -92,6 +92,8 @@ type Props = {
   hasBaseFee?: boolean
   /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数) */
   reopenCount?: number
+  /** 前受金が入金済か（作業着手準備ナビの前受金入金ゲート用） */
+  advancePaid?: boolean
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -100,7 +102,7 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'legalInfo', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false, reopenCount = 0 }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false, reopenCount = 0, advancePaid = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -295,6 +297,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     showToast('作業着手準備に進めました', 'success')
   }
 
+  /** 作業着手準備 → 対応中（着手OK）。事務管理ダッシュボードの「着手OK」と同じ処理＋タスク生成ポップ。 */
+  const advanceToWork = async () => {
+    const myName = allMembers.find(m => m.id === currentMemberId)?.name ?? null
+    await patchCase({ status: '対応中', work_start_ok_at: new Date().toISOString(), work_start_ok_by: currentMemberId, work_start_ok_name: myName })
+    setNavDismissed(true)
+    showToast('着手：作業進行中にしました', 'success')
+    if (!gatesDisabled()) setManagementTaskPrompt(true)
+  }
+
   /** ゲート通過後、受注担当へ業務完了の承認依頼を送り、ステータスを「業務完了申請中」に変更する。
    *  統一報告モーダル（HistoryTab）の work_complete 送信と同じ progress_reports + notifications を作る。 */
   const submitWorkCompleteRequest = async () => {
@@ -398,16 +409,25 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
+  // 作業着手準備 → 対応中 のフロー・ナビゲーター（管理担当/契約書類/前受金/ファイル化）。
+  //   事務管理担当ダッシュボードと同じゲート。ファイル化は cases.filing_status（同DBで手動更新）。
+  const workPrepSteps = getWorkPrepFlowSteps({
+    managerAssigned,
+    contractReceived: contractProcDone,
+    advancePaid,
+    filed: caseState.filing_status === '済',
+  })
   // ミニマム運用モードでは各フロー・ナビ（ハードゲート案内）を出さない
   const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed && !gatesDisabled()
   const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed && !gatesDisabled()
+  const workPrepNavVisible = caseState.status === '作業着手準備' && !navDismissed && !gatesDisabled()
   // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
   // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
   const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : ['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s
   const kickoffNeeded = caseState.status === '対応中' && !gatesDisabled()
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
-  const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : []
+  const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : workPrepNavVisible ? workPrepSteps : []
   // 管理担当ビュー: 案件進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
   //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
   const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
@@ -600,8 +620,20 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           />
         )}
 
+        {/* 作業着手準備ナビ：管理担当/契約書類/前受金/ファイル化が揃えば「対応中（着手）」へ。
+            受注系ナビと同じ見せ方。準備状況は事務管理担当ダッシュボードで管理する。 */}
+        {workPrepNavVisible && (
+          <StatusFlowNavigator
+            steps={workPrepSteps}
+            targetLabel="対応中"
+            advanceLabel="着手（対応中へ）"
+            onAdvance={advanceToWork}
+            onDismiss={() => setNavDismissed(true)}
+          />
+        )}
+
         {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
-        {(jutakuNavVisible || kentouNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
+        {(jutakuNavVisible || kentouNavVisible || workPrepNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
 
         {/* 管理担当ビュー: 引継直後で管理担当が未アサインなら『案件情報→担当者』への誘導バナーを表示 */}
         {managerAssignNav && (

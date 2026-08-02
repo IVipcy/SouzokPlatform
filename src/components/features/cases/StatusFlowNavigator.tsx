@@ -31,6 +31,23 @@ export function getJutakuFlowSteps(args: {
   ]
 }
 
+// 作業着手準備 → 対応中（作業着手）の前提条件（＝事務管理担当の作業）。
+//   管理担当アサイン／契約書類受領／前受金入金／ファイル化。ファイル化は物理ファイルを作り
+//   事務管理担当ダッシュボードで「済」にするため、対象タブ（ハイライト先）は無い。
+export function getWorkPrepFlowSteps(args: {
+  managerAssigned: boolean
+  contractReceived: boolean
+  advancePaid: boolean
+  filed: boolean
+}): FlowStep[] {
+  return [
+    { key: 'manager', label: '管理担当アサイン', targets: [{ tab: 'assignees', label: '担当者タブ' }], done: args.managerAssigned },
+    { key: 'contract', label: '契約書類の受領', targets: [{ tab: 'contractProc', label: '契約手続きタブ' }], done: args.contractReceived },
+    { key: 'advance', label: '前受金の入金', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advancePaid },
+    { key: 'filing', label: 'ファイル化（事務管理ダッシュボードで済にする）', targets: [], done: args.filed },
+  ]
+}
+
 // 検討中（契約書待ち）→受託 の前提条件。契約手続き完了（タスク管理は撤去）。
 export function getKentouContractFlowSteps(args: {
   contractProcDone: boolean

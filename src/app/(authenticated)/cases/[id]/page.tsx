@@ -179,6 +179,7 @@ export default async function CaseDetailPage({ params }: Props) {
       createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
       caseFiles={(caseFilesResult.data ?? []) as CaseFileRow[]}
       hasBaseFee={((rewardItemsResult.data ?? []) as Array<{ amount: number | null }>).some(r => (r.amount ?? 0) > 0)}
+      advancePaid={advInvRows.some(r => r.status === '入金済')}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}
     />
   )

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Trophy,
   Package,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 import { redirect } from 'next/navigation'
@@ -70,83 +71,102 @@ export default async function DashboardTopPage() {
   const myTeamId = user?.teamId ?? null
   const salesTeams = sm ? teams : (role === 'sales' && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
   const mgrTeams = sm ? teams : ((role === 'manager' || role === 'sub_manager') && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
+  // 事務管理担当（assistant）は「相続事業部全体」＋「事務管理」の2つだけ表示する。
+  const isAssistant = role === 'assistant'
 
-  // マイページはサイドバー最上段へ移設したため、ダッシュボード一覧からは削除
-  const sections: CardSection[] = [
-    {
-      title: '相続事業部全体',
-      description: '相続事業部のメンバー全員がアクセスできる、部全体集計ダッシュボード。',
-      cards: [
-        {
-          href: '/dashboard/dept',
-          title: '部全体',
-          description: '相続事業部全体のサマリー。新規受注・管理案件・完了件数・完了金額。期間切替対応。',
-          Icon: Building2,
-          tone: 'blue',
-        },
-        {
-          href: '/dashboard/ranking',
-          title: 'ランキング',
-          description: '月間ランキング。管理担当／受注担当／チームの業完件数・金額・サイクル・受注・綜合。',
-          Icon: Trophy,
-          tone: 'blue',
-        },
-      ],
-    },
-    {
-      title: '受注担当',
-      description: '受注担当の月次・本日成績。面談数・新規受注・受注率・平均単価など。チーム別表示でメンバー個別の数値も。',
-      cards: [
-        {
-          href: '/dashboard/sales',
-          title: '受注担当 全体',
-          description: '各チームの全体集計値を横断的に確認。チームごとの本日成績・累計が並ぶ。',
-          Icon: Megaphone,
-          tone: 'green',
-        },
-        ...salesTeams.map(t => ({
-          href: `/dashboard/team/${t.id}`,
-          title: `${t.name}（受注）`,
-          description: `${t.name}の受注担当ダッシュボード。メンバー別の本日 / 当月 / 年度累計 / 月別。`,
-          Icon: Users,
-          tone: 'green' as const,
-        })),
-      ],
-    },
-    {
-      title: '管理担当',
-      description: '管理担当の月間進捗管理ボード。フラグ別（紫/赤/黄/青）案件監視と請求件数・完了割合・サイクルの可視化。',
-      cards: [
-        {
-          href: '/dashboard/manager',
-          title: '管理担当 全体',
-          description: '各チームの集計をまとめた全体ビュー。請求完了件数・対応中案件・完了案件など。',
-          Icon: Building2,
-          tone: 'purple',
-        },
-        ...mgrTeams.map(t => ({
-          href: `/dashboard/team/${t.id}/progress`,
-          title: `${t.name}（進捗）`,
-          description: `${t.name}の月間進捗管理ボード。担当案件・青/黄/赤/紫 フラグ・完了割合・サイクル・請求件数。`,
-          Icon: Compass,
-          tone: 'purple' as const,
-        })),
-      ],
-    },
-    ...((user?.isTouKiTeam || sm) ? [{
-      title: '相続登記チーム',
-      description: '相続登記チーム メンバー専用。task_kind=touki_team のタスク（権利書の製本 等）を全案件横断で表示。',
-      cards: [
-        {
-          href: '/dashboard/touki-team',
-          title: '相続登記チーム 進捗',
-          description: '権利書の製本タスクなど、相続登記チームが担当するタスクの全案件横断ボード。フィルタ・着手ボタン付き。',
-          Icon: Package,
-          tone: 'amber' as const,
-        },
-      ],
-    }] as CardSection[] : []),
-  ]
+  const deptSection: CardSection = {
+    title: '相続事業部全体',
+    description: '相続事業部のメンバー全員がアクセスできる、部全体集計ダッシュボード。',
+    cards: [
+      {
+        href: '/dashboard/dept',
+        title: '部全体',
+        description: '相続事業部全体のサマリー。新規受注・管理案件・完了件数・完了金額。期間切替対応。',
+        Icon: Building2,
+        tone: 'blue',
+      },
+      {
+        href: '/dashboard/ranking',
+        title: 'ランキング',
+        description: '月間ランキング。管理担当／受注担当／チームの業完件数・金額・サイクル・受注・綜合。',
+        Icon: Trophy,
+        tone: 'blue',
+      },
+    ],
+  }
+  // 事務管理ダッシュボード（作業着手待ち案件一覧）
+  const officeSection: CardSection = {
+    title: '事務管理',
+    description: '作業着手準備の案件を管理。契約書類受領・前受金入金・ファイル化を確認して着手OK（対応中）にする。',
+    cards: [
+      {
+        href: '/dashboard/office',
+        title: '事務管理ダッシュボード',
+        description: '作業着手待ち案件一覧（作業着手準備）。契約書類受領／前受金入金／ファイル化が揃えば着手OK→対応中。',
+        Icon: ClipboardList,
+        tone: 'amber',
+      },
+    ],
+  }
+  const salesSection: CardSection = {
+    title: '受注担当',
+    description: '受注担当の月次・本日成績。面談数・新規受注・受注率・平均単価など。チーム別表示でメンバー個別の数値も。',
+    cards: [
+      {
+        href: '/dashboard/sales',
+        title: '受注担当 全体',
+        description: '各チームの全体集計値を横断的に確認。チームごとの本日成績・累計が並ぶ。',
+        Icon: Megaphone,
+        tone: 'green',
+      },
+      ...salesTeams.map(t => ({
+        href: `/dashboard/team/${t.id}`,
+        title: `${t.name}（受注）`,
+        description: `${t.name}の受注担当ダッシュボード。メンバー別の本日 / 当月 / 年度累計 / 月別。`,
+        Icon: Users,
+        tone: 'green' as const,
+      })),
+    ],
+  }
+  const mgrSection: CardSection = {
+    title: '管理担当',
+    description: '管理担当の月間進捗管理ボード。フラグ別（紫/赤/黄/青）案件監視と請求件数・完了割合・サイクルの可視化。',
+    cards: [
+      {
+        href: '/dashboard/manager',
+        title: '管理担当 全体',
+        description: '各チームの集計をまとめた全体ビュー。請求完了件数・対応中案件・完了案件など。',
+        Icon: Building2,
+        tone: 'purple',
+      },
+      ...mgrTeams.map(t => ({
+        href: `/dashboard/team/${t.id}/progress`,
+        title: `${t.name}（進捗）`,
+        description: `${t.name}の月間進捗管理ボード。担当案件・青/黄/赤/紫 フラグ・完了割合・サイクル・請求件数。`,
+        Icon: Compass,
+        tone: 'purple' as const,
+      })),
+    ],
+  }
+  const toukiSections: CardSection[] = (user?.isTouKiTeam || sm) ? [{
+    title: '相続登記チーム',
+    description: '相続登記チーム メンバー専用。task_kind=touki_team のタスク（権利書の製本 等）を全案件横断で表示。',
+    cards: [
+      {
+        href: '/dashboard/touki-team',
+        title: '相続登記チーム 進捗',
+        description: '権利書の製本タスクなど、相続登記チームが担当するタスクの全案件横断ボード。フィルタ・着手ボタン付き。',
+        Icon: Package,
+        tone: 'amber',
+      },
+    ],
+  }] : []
+
+  // マイページはサイドバー最上段へ移設したため、ダッシュボード一覧からは削除。
+  // 事務管理担当（非システム管理者）は 全体＋事務管理 の2つだけ。それ以外は従来通り＋事務管理（管理系ユーザーに表示）。
+  const sections: CardSection[] = isAssistant && !sm
+    ? [deptSection, officeSection]
+    : [deptSection, salesSection, mgrSection, ...toukiSections, officeSection]
 
   const today = new Date()
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
