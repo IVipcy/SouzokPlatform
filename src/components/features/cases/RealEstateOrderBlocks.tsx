@@ -154,7 +154,10 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
 
               {/* 物件一覧（同一市区町村内の物件を追加できる） */}
               <div>
-                <div className="text-[12.5px] font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-100">物件一覧</div>
+                <div className="mb-2 pb-1 border-b border-gray-100">
+                  <div className="text-[12.5px] font-semibold text-gray-700">物件一覧</div>
+                  <div className="text-[11px] text-gray-400 mt-0.5">同一市区町村内の物件は、この市区町村ブロックの物件一覧にまとめて記載してください。</div>
+                </div>
                 <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} orderSheetMode municipalityFilter={muni} addressSuggestions={addressSuggestions} />
               </div>
 

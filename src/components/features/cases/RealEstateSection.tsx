@@ -366,17 +366,23 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         return (
           <div key={t.key} className="space-y-4">
             <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
-            {/* この市区町村の進め方（読込結果＝物件の洗い出し→登録→取得→評価の流れを明示） */}
+            {/* 進め方（オーダーシートと同じ並び。物件一覧は常設の作業テーブルなので工程には含めない） */}
             <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11.5px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <span className="font-semibold text-gray-600 mr-1">進め方</span>
-              {['① 役所へ請求（名寄帳）', '洗い出した物件を登録', '② 法務局へ請求（登記等）', '評価額を確定'].map((label, k) => (
+              {['役所へ請求（名寄帳・評価証明）', '法務局へ請求（登記等）', '評価額を確定'].map((label, k) => (
                 <span key={k} className="inline-flex items-center gap-2">
                   {k > 0 && <span className="text-gray-300">→</span>}
                   <span className="inline-flex items-center gap-1 text-gray-600"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-100 text-brand-700 text-[10px] font-bold">{k + 1}</span>{label}</span>
                 </span>
               ))}
             </div>
-            {/* 作業順に並べる：① 請求（洗い出し）→ 物件を登録 → ② 請求（取得）。各表は枠付きカードで区切る。 */}
+            {/* 物件一覧（先頭・常設の作業テーブル）：オーダーシートと同じ並び。ヒアリング想定の物件を入れ、
+                名寄帳で判明した追加物件もこの表に足す。読込タスク着地時のみハイライト。 */}
+            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
+              <SectionHeading title="物件一覧（想定物件を入力／名寄帳で判明した物件もここに追加）" hint="同一市区町村内の物件はこの表にまとめて入力します。名寄帳（①）で新たに見つかった物件もここに追加してください。②の登記などが揃ったら評価額を入れて確定します。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
+            </div>
+            {/* ① 名寄帳・評価証明（役所へ請求）。各表は枠付きカードで区切る。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の出発点です。名寄帳でこの市区町村にある物件を洗い出します（私道・持分も拾えます）。評価証明・名寄帳は市区町村役場へ請求します（市区町村ごと）。小為替の費用（予算／返金／確定）もここで記録します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {(() => {
@@ -394,12 +400,6 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 <span className="text-[11px] text-gray-400">和暦（今年度／前年度）。この市区町村の名寄帳請求に記録されます</span>
               </div>
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
-            </div>
-            {/* 物件一覧：re-muni-read（名寄帳・評価証明「読込」）タスクから着地した場合のみハイライト。
-                「請求」タスク（名寄帳未着）では物件が未確定なのでハイライトしない。 */}
-            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
-              <SectionHeading title="物件一覧（①で洗い出した物件を登録／評価額を確定）" hint="①の名寄帳で見つかった物件をここに登録します。②の登記などが揃ったら、評価額を入れて確定してください。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
             </div>
             {/* 評価証明（物件ごと・別表）：名寄帳とは分ける。家屋番号・近傍宅地価格・年度を物件単位で管理（エクセルR69）。 */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
