@@ -407,6 +407,9 @@ export const KOSEKI_REQUEST_TYPES = [
   '戸籍', '除籍', '原戸籍', '謄本', '抄本', '住民票', '除票', '戸籍の附票',
 ] as const
 
+// === 報酬内訳の項目リスト（司法/行政 共通） ===
+export const REWARD_ITEM_OPTIONS = ['手続き一式', '相続登記', '遺産承継', '戸籍請求サポート', 'その他'] as const
+
 // === 戸籍の取得目的 ===
 // 戸籍の取得目的＝戸籍請求書の使用目的（出力でそのまま反映）
 export const KOSEKI_PURPOSES = [
