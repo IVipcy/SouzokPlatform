@@ -26,6 +26,16 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   const rm = rid.match(/^re(?:-muni|-houmu)?(?:-read)?:([^:]+)/)
   if (rm) return { tab: 'assets', focus: rm[1], label: '財産調査タブ（不動産）' }
 
+  // 凍結してよいか確認 / 凍結依頼（fin-freeze(-confirm):{bank}）→ 財産調査タブ（金融・該当銀行）
+  const ffm = rid.match(/^fin-freeze(?:-confirm)?:(.+)$/)
+  if (ffm) return { tab: 'assets', focus: ffm[1], label: '財産調査タブ（金融）' }
+
+  // 貸金庫「依頼者への内容確認依頼」→ 財産調査タブ（金融・該当銀行の調査表）
+  const sda = rid.match(/^safe-deposit-ask:(.+)$/)
+  if (sda) return { tab: 'assets', focus: sda[1], label: '財産調査タブ（金融）' }
+  // 貸金庫「内容物の確認」→ 財産目録
+  if (/^safe-deposit-check:/.test(rid)) return { tab: 'assets', sub: 'inventory', label: '財産目録' }
+
   // 金融資産（請求/読込）→ 財産調査タブ、focus=金融機関名（AssetsTabが預金/証券/信託を判定して選択）
   const fm = rid.match(/^fin(?:-read)?:(.+)$/)
   if (fm) return { tab: 'assets', focus: fm[1], label: '財産調査タブ（金融）' }

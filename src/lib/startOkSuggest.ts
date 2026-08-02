@@ -6,6 +6,7 @@
 // 判定は「中」レベル：戸籍不要な工程は常に候補、条件付きの工程は満たしたときだけ候補。
 
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
+import { isSurveyBanActive, isSurveyBanReleased } from '@/lib/financialBan'
 import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
 export type StartOkSuggestion = {
@@ -55,21 +56,41 @@ export function getStartOkSuggestions(
       continue
     }
 
+    // 凍結してよいか確認（fin-freeze-confirm:{bank}）：調査禁止ホールドが無い/解除された銀行で提案。
+    const fcm = rid.match(/^fin-freeze-confirm:(.+)$/)
+    if (fcm) {
+      const accounts = financialAssets.filter(a => a.institution_name === fcm[1])
+      if (accounts.length === 0) continue
+      if (accounts.some(a => isSurveyBanActive(a, todayYmd))) continue   // まだホールド中
+      const anyReleased = accounts.some(a => isSurveyBanReleased(a, todayYmd))
+      out.push({ taskId: t.id, taskTitle: t.title, reason: anyReleased ? '調査禁止ホールド解除（凍結してよいか管理担当に確認）' : '調査禁止なし（凍結してよいか管理担当に確認）', requiresConfirmation: anyReleased })
+      continue
+    }
+
+    // 凍結依頼（fin-freeze:{bank}）：管理担当が凍結OK（freeze_confirmed）した銀行で提案。
+    const frm = rid.match(/^fin-freeze:(.+)$/)
+    if (frm) {
+      const accounts = financialAssets.filter(a => a.institution_name === frm[1])
+      if (accounts.length === 0) continue
+      if (!accounts.every(a => a.freeze_confirmed === true)) continue
+      out.push({ taskId: t.id, taskTitle: t.title, reason: '凍結してよいか確認OK（管理担当）' })
+      continue
+    }
+
     // 相続手続き請求（fin:）：戸籍全揃い＋（禁止期間なし or 終了済）
     const fm = rid.match(/^fin:(.+)$/)
     if (fm) {
       const bankName = fm[1]
       const accounts = financialAssets.filter(a => a.institution_name === bankName)
       if (accounts.length === 0) continue
-      // その銀行の全口座について、禁止期間が終了しているか
-      const bannedNow = accounts.filter(a => a.survey_prohibited_end && a.survey_prohibited_end > todayYmd)
-      if (bannedNow.length > 0) continue  // 禁止期間中の口座がある→提案対象外
-      // 期日到来した禁止期間があれば要確認フラグ
-      const anyProhibitionPast = accounts.some(a => (a.survey_prohibited_end && a.survey_prohibited_end <= todayYmd) || (a.survey_prohibited_reason ?? '').trim())
+      // その銀行の全口座について、調査禁止ホールドが外れているか
+      if (accounts.some(a => isSurveyBanActive(a, todayYmd))) continue  // ホールド中の口座がある→提案対象外
+      // 解除されたばかりの禁止があれば要確認フラグ
+      const anyProhibitionPast = accounts.some(a => isSurveyBanReleased(a, todayYmd))
       if (!kosekiOk) continue  // 戸籍未揃いなら提案しない
       const reason = anyProhibitionPast
-        ? `戸籍が全揃い(${kosekiCount}件) ＋ 禁止期間 終了済（要確認）`
-        : `戸籍が全揃い(${kosekiCount}件) ＋ 禁止期間なし`
+        ? `戸籍が全揃い(${kosekiCount}件) ＋ 調査禁止 解除済（要確認）`
+        : `戸籍が全揃い(${kosekiCount}件) ＋ 調査禁止なし`
       out.push({ taskId: t.id, taskTitle: t.title, reason, requiresConfirmation: anyProhibitionPast })
       continue
     }

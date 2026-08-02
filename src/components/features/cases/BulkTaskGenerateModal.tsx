@@ -137,7 +137,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       // 登記は市区町村1本展開を廃止。serviceMaster の5タスク（相続登記の申請/識別情報通知の受領/
       // 権利書の製本/不動産登記簿の申請/不動産登記簿の受領）を個別生成し、担当区分(相続登記チーム/事務管理)を
       // kindOfCandidate で正しく振る。※以前は 'reg:{muni}' 1本に潰れて 全部が事務管理扱いになっていた。
-      '金融資産': { units: instUnits, own: instOwn, tasks: [{ prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true }, { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' }] },
+      // 金融は 凍結してよいか確認（管理担当へ）→ 凍結依頼（電話）→ 資料請求 → 資料読込 の順。
+      //   凍結してよいか確認＝調査禁止ホールド解除で着手OK提案／凍結依頼＝freeze_confirmed で着手OK（startOkSuggest）。
+      '金融資産': { units: instUnits, own: instOwn, tasks: [
+        { prefix: 'fin-freeze-confirm', label: '凍結してよいか確認（管理担当へ）', onlyOwn: true },
+        { prefix: 'fin-freeze', label: '凍結依頼（電話で凍結）', onlyOwn: true },
+        { prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true },
+        { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' },
+      ] },
       '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
