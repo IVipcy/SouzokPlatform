@@ -73,6 +73,10 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   // offices = 提案する系統（muni=市区町村役場 / houmu=法務局）。
   const [taskPrompt, setTaskPrompt] = useState<{ muni: string; offices: ('muni' | 'houmu')[] } | null>(null)
   const [creatingTasks, setCreatingTasks] = useState(false)
+  // 市区町村追加：ネイティブpromptをやめてアプリ内モーダルで名称入力→そのままタスク作成モーダルへ。
+  const [addMuniOpen, setAddMuniOpen] = useState(false)
+  const [newMuniName, setNewMuniName] = useState('')
+  const [addingMuni, setAddingMuni] = useState(false)
 
   // source_rid が「prefix:muni」または「prefix:muni:資料」に一致するか（読込は資料単位で分割されるため後方も許容）。
   const ridHits = (rid: string | null, prefix: string, muni: string) => !!rid && (rid === `${prefix}:${muni}` || rid.startsWith(`${prefix}:${muni}:`))
@@ -116,8 +120,9 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   // 管理担当が承認したら、その資料の読込タスク（＋系統の請求タスクが無ければ）を作る。
   const isManager = useIsManager()
   const meId = useAuth()?.memberId ?? null
-  const hasAnyReTask = tasks.some(t => { const r = t.source_rid ?? ''; return r.startsWith('re-') || r.startsWith('re:') })
-  const additionsNeedApproval = !isManager && hasAnyReTask   // 事務が初期生成後に足す＝承認要
+  // 不動産は追加時の承認を撤去（名寄帳請求は起点タスクで前提が無く、追加のたびに承認をはさむ必要が薄いため）。
+  // 追加＝即タスク作成ポップアップ、で完結する。※戸籍の追加請求承認は別物なので変更なし。
+  const additionsNeedApproval = false
   const pendingAcqs = acquisitions.filter(a => a.is_additional && !a.additional_approved_at)
   // 承認待ちの市区町村追加（物件側フラグ）。承認したら名寄帳・登記のタスクを生成する。
   const pendingProps = properties.filter(p => p.is_additional && !p.additional_approved_at)
@@ -203,23 +208,21 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定', received: muniReceived('') }] : []),
   ]
 
-  // 「＋市区町村」：名称を受け取り、その市区町村の空物件を1件作成 → タブが増える
-  const addMunicipality = async () => {
-    const name = window.prompt('追加する市区町村名（都道府県＋市区町村。例: 東京都墨田区）')?.trim()
+  // 「＋市区町村」：アプリ内モーダルで名称入力 → 物件を1件作成 → そのままタスク作成モーダルへ（承認なし）。
+  const openAddMuni = () => { setNewMuniName(''); setAddMuniOpen(true) }
+  const submitAddMuni = async () => {
+    const name = newMuniName.trim()
     if (!name) return
-    // 承認の目印は物件(is_additional)側に持たせる。取得資料の表＝立替実費の集計元なので、そこには行を作らない。
-    const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name, is_additional: additionsNeedApproval })
+    setAddingMuni(true)
+    const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
+    setAddingMuni(false)
     if (error) { showToast(`追加に失敗しました: ${error.message}`, 'error'); return }
+    setAddMuniOpen(false)
     setSub(name)
-    if (additionsNeedApproval) {
-      // 事務が初期生成後に足す＝追加請求。承認待ちにし、管理担当へ通知（戸籍と同じ）。タスクは承認後に生成。
-      await notifyManagersAdditional(`不動産の追加請求（${name}）の承認依頼`, `新しい市区町村「${name}」の追加です。承認すると名寄帳・登記のタスクを生成します。`)
-      showToast(`「${name}」を追加しました（要承認・管理担当へ通知）`, 'success')
-    } else if (!hasMuniTasks(name)) {
-      // 管理担当（or 初期設定）はそのままタスク作成を促すポップアップ。
-      setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
-    }
-    onRefresh?.()
+    // 名称入力モーダルを閉じ、そのままタスク作成モーダルへ（シームレス）。
+    // onRefresh はタスクモーダルを閉じる時（作成する/あとで）に回す＝モーダルが消える事故を防ぐ。
+    if (!hasMuniTasks(name)) setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
+    else onRefresh?.()
   }
 
   // グループ一括削除：その市区町村の物件と、それに紐づく取得資料をまとめて削除
@@ -243,7 +246,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   return (
     <div className="flex gap-3 items-start">
       <LeftRail items={railItems} active={sub} onChange={setSub} onDelete={deleteMunicipality} extra={
-        <button type="button" onClick={addMunicipality} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
+        <button type="button" onClick={openAddMuni} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
           <Plus className="w-3 h-3" /> 市区町村
         </button>
       } />
@@ -425,15 +428,43 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       })}
       </div>
 
+      {/* 市区町村の追加（名称入力・アプリ内モーダル）→ 追加でタスク作成モーダルへシームレス */}
+      <Modal
+        isOpen={addMuniOpen}
+        onClose={() => setAddMuniOpen(false)}
+        title="市区町村を追加"
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAddMuniOpen(false)} disabled={addingMuni}>キャンセル</Button>
+            <Button variant="primary" onClick={submitAddMuni} loading={addingMuni} disabled={!newMuniName.trim()}>追加してタスク作成へ</Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label className="block text-[12.5px] font-medium text-gray-600">市区町村名（都道府県＋市区町村）</label>
+          <input
+            type="text"
+            autoFocus
+            value={newMuniName}
+            onChange={e => setNewMuniName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && newMuniName.trim() && !addingMuni) submitAddMuni() }}
+            placeholder="例: 東京都墨田区"
+            className="w-full px-3 py-2 text-[14px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white"
+          />
+          <p className="text-[11.5px] text-gray-400">追加すると、続けて名寄帳・登記のタスク作成ポップアップが開きます。</p>
+        </div>
+      </Modal>
+
       {taskPrompt && (
         <Modal
           isOpen
-          onClose={() => setTaskPrompt(null)}
+          onClose={() => { setTaskPrompt(null); onRefresh?.() }}
           title={`${taskPrompt.muni} のタスクを作成しますか？`}
           maxWidth="max-w-md"
           footer={
             <>
-              <Button variant="secondary" onClick={() => setTaskPrompt(null)} disabled={creatingTasks}>あとで</Button>
+              <Button variant="secondary" onClick={() => { setTaskPrompt(null); onRefresh?.() }} disabled={creatingTasks}>あとで</Button>
               <Button variant="primary" onClick={() => createMuniTasks(taskPrompt.muni, taskPrompt.offices)} loading={creatingTasks}>作成する</Button>
             </>
           }
