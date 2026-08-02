@@ -17,10 +17,12 @@ import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
+import { getStartOkSuggestions, type StartOkSuggestion } from '@/lib/startOkSuggest'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
-import type { TaskRow, MemberRow } from '@/types'
+import { Lightbulb } from 'lucide-react'
+import type { TaskRow, MemberRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 export type CaseInfo = {
@@ -47,6 +49,10 @@ type Props = {
   financeBlockedCaseIds?: string[]
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
   freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
+  /** 着手OKセンター(横断)用：案件ID→金融資産(全項目) */
+  financialByCase?: Record<string, FinancialAssetRow[]>
+  /** 着手OKセンター(横断)用：案件ID→戸籍請求 */
+  kosekiByCase?: Record<string, KosekiRequestRow[]>
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -61,10 +67,31 @@ const normalizeStatus = (status: string) => {
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {} }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, financialByCase = {}, kosekiByCase = {} }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
+
+  // 着手OKセンター（横断）：案件ごとに getStartOkSuggestions を回し、前段が揃ったのに着手OK未設定のタスクを提案。
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const okSuggestions = useMemo(() => {
+    const today = new Date().toLocaleDateString('sv-SE')
+    const byCase = new Map<string, TaskRow[]>()
+    for (const t of tasks) { if (!byCase.has(t.case_id)) byCase.set(t.case_id, []); byCase.get(t.case_id)!.push(t) }
+    const out: { caseId: string; s: StartOkSuggestion }[] = []
+    for (const [caseId, ct] of byCase) {
+      const list = getStartOkSuggestions(ct, kosekiByCase[caseId] ?? [], financialByCase[caseId] ?? [], today)
+      for (const s of list) out.push({ caseId, s })
+    }
+    return out
+  }, [tasks, kosekiByCase, financialByCase])
+  const applyOkSuggestion = async (taskId: string, reason: string) => {
+    const t = tasks.find(x => x.id === taskId); if (!t) return
+    const ext = { ...((t.ext_data ?? {}) as Record<string, unknown>), ready_reason: reason || '着手OK', ready_on_receipt: false }
+    const { error } = await createClient().from('tasks').update({ ext_data: ext }).eq('id', taskId)
+    if (error) { showToast(`着手OKの設定に失敗: ${error.message}`, 'error'); return }
+    showToast('着手OKにしました', 'success'); router.refresh()
+  }
   // 既定は「着手前」のみ。月数百件規模になるため、出社→次やる即発見の動線を最優先。
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
@@ -404,6 +431,40 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setReadyOnly(false); setWaitOnly(false) }} />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => { setStatusFilter('完了'); setReadyOnly(false); setWaitOnly(false) }} />
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => { setStatusFilter('all'); setReadyOnly(false); setWaitOnly(false) }} />
+          </div>
+
+          {/* 着手OKセンター（横断）：前段が揃ったのに着手OK未設定のタスクを提案。案件詳細タスクタブと同じ判定。 */}
+          <div className="relative">
+            <button
+              onClick={() => setSuggestOpen(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors whitespace-nowrap ${suggestOpen ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              title="前段が揃ったのに着手OKになっていないタスクを提案"
+            >
+              <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />着手OKセンター
+              {okSuggestions.length > 0 && <span className="text-[12px] font-mono opacity-70">{okSuggestions.length}</span>}
+            </button>
+            {suggestOpen && (
+              <div className="absolute left-0 top-full mt-1 z-30 w-[420px] max-h-[60vh] overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+                {okSuggestions.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-[12.5px] text-gray-400">いま着手OKにできる提案はありません</div>
+                ) : okSuggestions.map(({ caseId, s }) => {
+                  const ci = caseMap[caseId]
+                  return (
+                    <div key={s.taskId} className="flex items-start gap-2 px-2.5 py-2 border-b border-gray-100 last:border-b-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12.5px] font-semibold text-gray-800 truncate">{s.taskTitle}</div>
+                        <div className="text-[11px] text-gray-500 truncate">{ci?.case_number} {ci?.deal_name}</div>
+                        <div className="text-[11px] text-amber-700 mt-0.5">{s.requiresConfirmation && '⚠ '}{s.reason}</div>
+                      </div>
+                      <div className="flex flex-col gap-1 flex-none">
+                        <button onClick={() => applyOkSuggestion(s.taskId, s.reason)} className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 whitespace-nowrap">着手OKにする</button>
+                        <Link href={`/cases/${caseId}?tab=tasks`} className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 text-center whitespace-nowrap">案件へ</Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* 着手OK（今すぐやれるもの）だけ。未着手のときのみ意味があるので未着手選択時に表示 */}
