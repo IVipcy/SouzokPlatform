@@ -816,7 +816,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   return (
     <div>
-      {/* マイページ専用ヘッダー：氏名(左)と 要確認/要注意バナー を同じ行に置き、バナーは中央寄せ。相談案件登録(受注担当)は右端。 */}
+      {/* マイページ専用ヘッダー：氏名(左)と 要確認/要注意バナー を同じ行に置き、バナーは中央寄せ。面談登録(受注担当)は右端。 */}
       <div className="mb-5">
         <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">My</p>
         <div className="flex items-center gap-4 mt-1 flex-wrap">
@@ -835,10 +835,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
               <OverdueAttention bills={overdueBills} tasks={overdueTasks} currentMemberId={memberId} />
             </div>
           )}
-          {/* 相談案件登録（受注担当のみ・右端） */}
+          {/* 面談登録（受注担当のみ・右端） */}
           {isSales && (
             <Link href="/intake" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700 transition-colors flex-none">
-              <PenSquare className="w-4 h-4" strokeWidth={2} />相談案件登録
+              <PenSquare className="w-4 h-4" strokeWidth={2} />面談登録
             </Link>
           )}
         </div>

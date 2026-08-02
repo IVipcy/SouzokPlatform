@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 
-// 相談案件登録アプリ（/register）専用のメタデータ。オーダーシート(/order-sheet)とは別マニフェストにして、
+// 面談登録アプリ（/register）専用のメタデータ。オーダーシート(/order-sheet)とは別マニフェストにして、
 // それぞれ独立したPWA（別アイコン・別スコープ）としてホーム画面に追加できるようにする。
 export const metadata: Metadata = {
-  title: '相談案件登録',
+  title: '面談登録',
   manifest: '/register.webmanifest',
-  appleWebApp: { capable: true, title: '相談案件登録', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: '面談登録', statusBarStyle: 'default' },
   icons: {
     apple: '/icons/apple-touch-icon.png',
   },

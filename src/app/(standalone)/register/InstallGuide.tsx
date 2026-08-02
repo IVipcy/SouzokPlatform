@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { X, Download, Share, SquarePlus } from 'lucide-react'
 
 // ホーム画面未追加の人だけに、インストール案内を出す。
-// 相談案件登録（/register）とオーダーシート入力（/order-sheet）の2アプリに対応し、
+// 面談登録（/register）とオーダーシート入力（/order-sheet）の2アプリに対応し、
 // パスに応じてアイコン・アプリ名・非表示キーを切り替える（それぞれ別アプリとして案内）。
 // Android/Chrome: beforeinstallprompt を掴んでワンタップ「インストール」ボタン。
 // iPhone/Safari: プログラムから促せないので手順ガイドを表示。
@@ -35,7 +35,7 @@ export default function InstallGuide() {
   const enabled = isOrderSheet || isRegister
   const dismissKey = isOrderSheet ? 'orderSheetInstallGuideDismissedAt' : 'registerInstallGuideDismissedAt'
   const iconSrc = isOrderSheet ? '/icons/os-192.png' : '/icons/icon-192.png'
-  const appLabel = isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
+  const appLabel = isOrderSheet ? 'オーダーシート入力' : '面談登録'
 
   const [show, setShow] = useState(false)
   const [isIOS, setIsIOS] = useState(false)

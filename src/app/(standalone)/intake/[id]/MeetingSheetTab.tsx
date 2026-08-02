@@ -38,7 +38,7 @@ const EXTRACT_SCHEMA: Record<string, XField[]> = {
   // 提案内容・手続き内容：契約形態と、面談その他メモ（提案内容の補足）をAIで反映。
   //   procedure_type(手続き区分の複数選択) は enum配列で扱いにくいため、フリー欄側で確認する運用。
   order: [
-    { key: 'contract_type', label: '契約形態', target: 'case', enum: ['行・司連名', '行政書士法人単独', '司法書士法人単独'] },
+    { key: 'contract_type', label: '契約形態', target: 'case', enum: ['行・司連名', '行政書士法人単独', '司法書士法人単独', 'いきいきライフ協会'] },
     { key: 'meeting_other_notes', label: '提案内容・その他メモ', target: 'case' },
   ],
 }

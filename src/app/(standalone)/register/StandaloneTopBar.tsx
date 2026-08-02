@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { LogOut, LayoutGrid } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-// 独立ルート（相談案件登録 / オーダーシート入力）共通の簡易トップバー。
+// 独立ルート（面談登録 / オーダーシート入力）共通の簡易トップバー。
 // ロゴ＋タイトル＋ログアウトのみ。パスでタイトル・再ログイン後の戻り先を切り替える。
 export default function StandaloneTopBar() {
   const router = useRouter()
@@ -13,8 +13,8 @@ export default function StandaloneTopBar() {
   const isOrderSheet = pathname?.startsWith('/order-sheet') ?? false
   const isMeetingSheet = pathname?.startsWith('/meeting-sheet') ?? false
   const isIntake = pathname?.startsWith('/intake') ?? false
-  // /intake は統合入力アプリだが、アプリ名としては「相談案件登録」で通す（メニュー・マイページのボタンと統一）
-  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '相談案件登録'
+  // /intake は統合入力アプリだが、アプリ名としては「面談登録」で通す（メニュー・マイページのボタンと統一）
+  const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '面談登録'
   const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : isIntake ? '/intake' : '/register'
 
   const logout = async () => {

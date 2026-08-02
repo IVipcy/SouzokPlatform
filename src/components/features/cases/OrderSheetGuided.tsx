@@ -24,7 +24,9 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
 }) {
   const router = useRouter()
   const [step, setStep] = useState(0)
-  const [detailOpen, setDetailOpen] = useState(false)
+  // 詳細（契約形態など、面談シートで入力済みの構造化項目）は既定で開く。
+  // 折りたたみ既定だと「面談シートで入れた契約形態がオーダーシートに反映されていない」ように見えるため。
+  const [detailOpen, setDetailOpen] = useState(true)
   // 「完成」ボタン押下直後だけ完成画面を出す。開き直したときは通常の入力画面（＝いつでも修正可）。
   const [justCompleted, setJustCompleted] = useState(false)
   const total = sections.length
@@ -84,7 +86,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
 
   const current = sections[Math.min(step, total - 1)]
   const isLast = step >= total - 1
-  const go = (next: number) => { setStep(Math.max(0, Math.min(total - 1, next))); setDetailOpen(false); window.scrollTo(0, 0) }
+  const go = (next: number) => { setStep(Math.max(0, Math.min(total - 1, next))); setDetailOpen(true); window.scrollTo(0, 0) }
 
   return (
     <div>

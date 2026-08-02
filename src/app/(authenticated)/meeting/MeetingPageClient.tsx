@@ -93,7 +93,7 @@ export default function MeetingPageClient({ cases, currentMemberId, standalone =
     <div>
       <PageHeader
         eyebrow="Meeting"
-        title="相談案件登録"
+        title="面談登録"
         icon={PenSquare}
         description="面談情報の入力"
         right={

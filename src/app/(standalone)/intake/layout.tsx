@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 
-// 統合入力アプリ（面談シート→面談結果登録→オーダーシート）。相談案件登録・オーダーシートを統合。
+// 統合入力アプリ（面談シート→面談結果登録→オーダーシート）。面談登録・オーダーシートを統合。
 export const metadata: Metadata = {
-  title: '相談案件登録',
-  appleWebApp: { capable: true, title: '相談案件登録', statusBarStyle: 'default' },
+  title: '面談登録',
+  appleWebApp: { capable: true, title: '面談登録', statusBarStyle: 'default' },
 }
 
 // タブレット最適化：iPadで面談中に使う想定。ズーム許可（可視性のため）＋横向き時のノッチ対応。
