@@ -834,6 +834,11 @@ export type FinancialAssetRow = {
   survey_prohibited_start: string | null    // 財産調査禁止期間 開始日（口座単位。migration 162）
   survey_prohibited_end: string | null      // 財産調査禁止期間 終了日（口座単位。migration 162）
   survey_prohibited_reason: string | null   // 財産調査禁止理由（口座単位。migration 162）
+  survey_prohibited_designation: string | null // 調査禁止指定（指定なし/指定あり。migration 214）
+  survey_prohibited_method: string | null      // 禁止方法（期間指定/連絡待ち。migration 214）
+  prohibition_released_at: string | null       // 連絡待ちの解除日（お客様OK。migration 214）
+  has_investment_trust: boolean                // 投信有無（預金・メモ。migration 214）
+  has_safe_deposit: boolean                    // 貸金庫有無（預金・タスク生成。migration 214）
   request_date: string | null               // 請求日（進捗）
   arrival_date: string | null               // 到着日（進捗）
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
