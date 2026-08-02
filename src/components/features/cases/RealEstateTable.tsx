@@ -149,13 +149,13 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {showMuni && <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>}
-              <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
-              <th className="px-2.5 py-2 text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
-              <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
-              <th className="px-2.5 py-2 text-left font-semibold">備考</th>
-              {showConfirmed && <th className="px-2.5 py-2 text-center font-semibold w-28">評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
+              {showMuni && <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-40">市区町村</th>}
+              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-28">物件種別</th>
+              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-28">取得区分</th>
+              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
+              <th className="px-2.5 py-2 whitespace-nowrap text-right font-semibold w-32">評価額</th>
+              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold">備考</th>
+              {showConfirmed && <th className="px-2.5 py-2 whitespace-nowrap text-center font-semibold w-28">評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>

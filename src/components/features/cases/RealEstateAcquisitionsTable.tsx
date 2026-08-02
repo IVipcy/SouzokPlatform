@@ -210,18 +210,18 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1190 : 970) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              <th className="px-2 py-2 text-left font-semibold w-40">対象</th>
-              <th className="px-2 py-2 text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
-              <th className="px-2 py-2 text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">請求日</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-24">到着日</th>}
-              {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
-              {progressMode && fullCost && <th className="px-2 py-2 text-right font-semibold w-20">返金</th>}
-              {progressMode && <th className="px-2 py-2 text-right font-semibold w-24"><span className="inline-flex items-center gap-1">確定費用<HintTip text={fullCost ? '実費＝予算−返金（お釣り）。自動計算されます。' : '実際にかかった額（印紙代など）を入力します。'} /></span></th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">発送チェック<HintTip text="請求（発送）が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。請求日を入れると押せます。" /></span></th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28"><span className="inline-flex items-center gap-1">到着チェック<HintTip text="届いた物が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。到着日を入れると押せます。" /></span></th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">受領ファイル</th>}
-              <th className="px-2 py-2 w-8" />
+              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-40">対象</th>
+              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
+              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">請求日</th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">到着日</th>}
+              {progressMode && fullCost && <th className="px-2 py-2 whitespace-nowrap text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
+              {progressMode && fullCost && <th className="px-2 py-2 whitespace-nowrap text-right font-semibold w-20">返金</th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-right font-semibold w-24"><span className="inline-flex items-center gap-1">確定費用<HintTip text={fullCost ? '実費＝予算−返金（お釣り）。自動計算されます。' : '実際にかかった額（印紙代など）を入力します。'} /></span></th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28"><span className="inline-flex items-center gap-1">発送チェック<HintTip text="請求（発送）が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。請求日を入れると押せます。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28"><span className="inline-flex items-center gap-1">到着チェック<HintTip text="届いた物が正しいか、確認簿で別の担当者に確認してもらう依頼を出します。到着日を入れると押せます。" /></span></th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28">受領ファイル</th>}
+              <th className="px-2 py-2 whitespace-nowrap w-8" />
             </tr>
           </thead>
           <tbody>
