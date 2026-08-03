@@ -202,6 +202,19 @@ export const isContractProcDone = (
 ): boolean =>
   docs.length > 0 && !docs.some(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date)
 
+// 契約時に必ずもらう契約書類5点（デフォルト表示・ナビの受領判定の対象）。
+export const REQUIRED_CONTRACT_DOCS = ['契約書', '料金表', '委任状', '本人確認書類', '印鑑証明書'] as const
+
+// 受注→作業着手準備ナビの「契約書類の受領」完了判定。
+//   区分＝契約 の書類だけで判定（面談時受領の名寄帳・評価証明など他区分は数えない）。
+//   契約書類が1件以上あり、かつ すべて「受領済(到着日あり) or 不要」なら完了。
+export const isContractDocsReceived = (
+  docs: { category?: string | null; status?: string | null; arrival_date?: string | null }[],
+): boolean => {
+  const contract = docs.filter(d => d.category === '契約')
+  return contract.length > 0 && contract.every(d => !!d.arrival_date || d.status === '不要')
+}
+
 // === 立替実費の名目（請求タブ。名目選択で課税/非課税を自動セット） ===
 export const EXPENSE_NONTAX_ITEMS = [
   '市役所等で取得した戸籍や住民票', '収入印紙代', 'JTN', '家庭裁判所', '定款認証手数料',

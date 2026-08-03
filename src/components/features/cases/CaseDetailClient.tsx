@@ -53,7 +53,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility } from '@/lib/caseTabs'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
-import { getSelectableCaseStatuses, isContractProcDone } from '@/lib/constants'
+import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import { gatesDisabled, isMinimalMode, MINIMAL_CASE_TABS } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
@@ -94,6 +94,8 @@ type Props = {
   reopenCount?: number
   /** 前受金が入金済か（作業着手準備ナビの前受金入金ゲート用） */
   advancePaid?: boolean
+  /** 前受金請求書が発行済か（受注→作業着手準備ナビの料金表入力・前受金請求書発行ゲート用） */
+  advanceInvoiceIssued?: boolean
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -102,7 +104,7 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'legalInfo', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], hasBaseFee = false, reopenCount = 0, advancePaid = false }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -111,7 +113,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })()
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
-  const [managementTaskPrompt, setManagementTaskPrompt] = useState(false)
   const [assignReqOpen, setAssignReqOpen] = useState(false)  // 受注系→管理担当の割振り依頼ポップ
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
@@ -136,17 +137,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   useEffect(() => {
     setActiveTabState(prev => (prev === tabFromUrl ? prev : tabFromUrl))
   }, [tabFromUrl])
-
-  // 事務管理ダッシュボードの着手OKから ?genTasks=1 で来たら「タスクを生成してください」ポップを出す。
-  const genTasksHandledRef = useRef(false)
-  useEffect(() => {
-    if (genTasksHandledRef.current) return
-    if (searchParams.get('genTasks') === '1') {
-      genTasksHandledRef.current = true
-      setManagementTaskPrompt(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // 新規登録直後の ?created=1 は初回マウントでポップアップ判定に使った後、URLから除去
   // （リロードで再度開かないように）。setState せず replace のみなので副作用は安全。
@@ -277,11 +267,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサインのときだけ）
       if (!managerAssigned && !gatesDisabled()) setAssignReqOpen(true)
     }
-    // 対応中に変わったら：事務管理タスクの設定を促すポップアップ。
-    // ただし初回着手（受注/戻り受注 → 対応中）のときだけ。業務完了申請中/完了 などから戻したときは出さない。
-    if (patch.status === '対応中' && (prev.status === '受注' || prev.status === '戻り受注')) {
-      if (!gatesDisabled()) setManagementTaskPrompt(true)
-    }
+    // （タスク出しは作業着手準備の「タスク出し」ゲートで管理担当が行うため、
+    //   対応中化の際の「タスクを設定してください」ポップアップは廃止）
     // トリガーで他フィールドが更新されるフィールドは、refreshして最新を取得
     const needsRefresh = Object.keys(patch).some(k => TRIGGER_FIELDS.has(k))
     if (needsRefresh) {
@@ -297,13 +284,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     showToast('作業着手準備に進めました', 'success')
   }
 
-  /** 作業着手準備 → 対応中（着手OK）。事務管理ダッシュボードの「着手OK」と同じ処理＋タスク生成ポップ。 */
+  /** 作業着手準備 → 作業進行中（着手OK）。事務管理ダッシュボードの「着手OK」と同じ処理。 */
   const advanceToWork = async () => {
     const myName = allMembers.find(m => m.id === currentMemberId)?.name ?? null
     await patchCase({ status: '対応中', work_start_ok_at: new Date().toISOString(), work_start_ok_by: currentMemberId, work_start_ok_name: myName })
     setNavDismissed(true)
     showToast('着手：作業進行中にしました', 'success')
-    if (!gatesDisabled()) setManagementTaskPrompt(true)
   }
 
   /** ゲート通過後、受注担当へ業務完了の承認依頼を送り、ステータスを「業務完了申請中」に変更する。
@@ -392,28 +378,24 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 検討中（契約書待ち）→受託 のゲート：契約手続き完了（初期対応タスク完了ゲートは撤去）
   const kentouContractReady = contractProcDone
 
-  // 引き継ぎゲート：基本料金の入力（報酬内訳に金額）または 料金表画像のアップ（案件フォルダに画像）
-  const hasFeeImage = caseFiles.some(f => (f.file_type ?? '').startsWith('image/') || /\.(png|jpe?g|gif|webp|heic|heif|bmp)$/i.test(f.file_name ?? ''))
-  // hasBaseFee はサーバー取得の prop（reward_items に金額>0）。ただし請求タブで料金を入力しても
-  // その場では reward 合計が caseState.fee_judicial/administrative に楽観反映されるだけで
-  // hasBaseFee は再取得（router.refresh）まで古いまま。ナビをその場で完了にするため、
-  // 楽観更新済みの確定報酬（ライブ値）も OR で見る。
-  const hasBaseFeeLive = (caseState.fee_judicial ?? 0) > 0 || (caseState.fee_administrative ?? 0) > 0
-  const feeReady = hasBaseFee || hasBaseFeeLive || hasFeeImage
+  // 契約書類の受領（区分=契約 の書類が全部受領済/不要）。受注→準備ナビの「契約書類の受領」ゲート用。
+  const contractDocsReceived = isContractDocsReceived(contractDocuments)
 
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
+  //   オーダーシート作成／管理担当アサイン／契約書類の受領／料金表入力・前受金請求書の発行。
   const flowSteps = getJutakuFlowSteps({
     orderSheetCompleted: !!caseState.order_sheet_completed_at,
-    contractProcDone,
-    feeReady,
+    managerAssigned,
+    contractDocsReceived,
+    advanceInvoiceIssued,
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
-  // 作業着手準備 → 対応中 のフロー・ナビゲーター（管理担当/契約書類/前受金/ファイル化）。
-  //   事務管理担当ダッシュボードと同じゲート。ファイル化は cases.filing_status（同DBで手動更新）。
+  // 作業着手準備 → 作業進行中 のフロー・ナビゲーター。
+  //   オーダーシート最終化／タスク出し／前受金の入金／ファイル化（事務管理ダッシュボードで済）。
   const workPrepSteps = getWorkPrepFlowSteps({
-    managerAssigned,
-    contractReceived: contractProcDone,
+    orderSheetFinalized: !!caseState.order_sheet_finalized_at,
+    tasksGenerated: tasks.some(t => t.task_kind === 'case'),
     advancePaid,
     filed: caseState.filing_status === '済',
   })
@@ -723,7 +705,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />
@@ -771,23 +753,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} tasks={tasks} />
       )}
 
-      {/* 対応中になったら事務管理タスクの設定を促す */}
-      <Modal
-        isOpen={managementTaskPrompt}
-        onClose={() => setManagementTaskPrompt(false)}
-        title="作業進行中になりました"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setManagementTaskPrompt(false)}>あとで</Button>
-            <Button variant="primary" onClick={() => { setManagementTaskPrompt(false); setActiveTab('tasks') }}>タスクを設定する</Button>
-          </>
-        }
-      >
-        <p className="text-[14px] text-gray-700 leading-relaxed">
-          続けて<strong>事務管理タスクを設定</strong>してください。<br />
-          「タスクを設定する」を押すとタスクタブを開きます。
-        </p>
-      </Modal>
 
       {/* 業務完了申請中への変更：ゲート通過後、受注担当へ承認依頼を送る確認 */}
       <Modal

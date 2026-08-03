@@ -16,9 +16,10 @@ export type OfficeRow = {
   teamName: string | null
   salesName: string | null
   managerName: string | null
-  contractReceived: boolean   // 契約書類受領（system判定）
-  advancePaid: boolean        // 前受金入金（system判定）
-  filingStatus: '未' | '済'    // ファイル化（プルダウンで変更）
+  orderSheetFinalized: boolean  // オーダーシート最終化（system判定）
+  tasksGenerated: boolean       // タスク出し（案件タスクが1件以上）
+  advancePaid: boolean          // 前受金入金（system判定）
+  filingStatus: '未' | '済'      // ファイル化（プルダウンで変更）
 }
 
 // 事務管理担当ダッシュボード：作業着手待ち案件一覧。全部『済』で着手OK→対応中→案件詳細でタスク生成。
@@ -44,8 +45,8 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
     setBusyId(null)
     if (error) { showToast(`着手に失敗: ${error.message}`, 'error'); return }
     showToast('着手OK：作業進行中にしました', 'success')
-    // 案件詳細へ遷移し、タスク生成ポップを出す（genTasks=1）
-    router.push(`/cases/${row.caseId}?tab=tasks&genTasks=1`)
+    // 案件詳細へ遷移（タスクは着手準備の「タスク出し」で管理担当が作成済み）
+    router.push(`/cases/${row.caseId}`)
   }
 
   const TH = 'px-2.5 py-2 text-left font-semibold whitespace-nowrap'
@@ -55,7 +56,7 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
 
   return (
     <div>
-      <PageHeader eyebrow="Dashboard" title="事務管理担当ダッシュボード" icon={ClipboardList} description="作業着手待ち案件一覧（作業着手準備）。契約書類受領・前受金入金・ファイル化がすべて済むと着手OK。" />
+      <PageHeader eyebrow="Dashboard" title="事務管理担当ダッシュボード" icon={ClipboardList} description="作業着手待ち案件一覧（作業着手準備）。オーダーシート最終化・タスク出し・前受金入金・ファイル化がすべて済むと着手OK。" />
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-200 text-[14px] font-bold text-gray-900">作業着手待ち案件一覧 <span className="text-[12px] font-normal text-gray-400 ml-1">{rows.length}件</span></div>
@@ -63,7 +64,7 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
           <div className="px-4 py-12 text-center text-[13px] text-gray-400">作業着手準備の案件はありません</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 1000 }}>
+            <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 1120 }}>
               <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                 <tr>
                   <th className={TH}>OS最終更新日</th>
@@ -72,7 +73,8 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
                   <th className={TH}>チーム</th>
                   <th className={TH}>受注担当</th>
                   <th className={TH}>管理担当</th>
-                  <th className={`${TH} text-center`}>契約書類受領<span className="block text-[10px] font-normal text-gray-400">system</span></th>
+                  <th className={`${TH} text-center`}>OS最終化<span className="block text-[10px] font-normal text-gray-400">system</span></th>
+                  <th className={`${TH} text-center`}>タスク出し<span className="block text-[10px] font-normal text-gray-400">system</span></th>
                   <th className={`${TH} text-center`}>前受金入金<span className="block text-[10px] font-normal text-gray-400">system</span></th>
                   <th className={`${TH} text-center`}>ファイル化</th>
                   <th className={`${TH} text-center w-28`}>着手</th>
@@ -80,7 +82,7 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map(r => {
-                  const canStart = r.contractReceived && r.advancePaid && r.filingStatus === '済'
+                  const canStart = r.orderSheetFinalized && r.tasksGenerated && r.advancePaid && r.filingStatus === '済'
                   return (
                     <tr key={r.caseId} className="hover:bg-gray-50/60">
                       <td className="px-2.5 py-2 font-mono text-gray-600">{r.osUpdatedAt ?? '—'}</td>
@@ -89,7 +91,8 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
                       <td className="px-2.5 py-2 text-gray-700">{r.teamName ?? '—'}</td>
                       <td className="px-2.5 py-2 text-gray-700">{r.salesName ?? '—'}</td>
                       <td className="px-2.5 py-2 text-gray-700">{r.managerName ?? <span className="text-gray-300">未</span>}</td>
-                      <td className="px-2.5 py-2 text-center"><YesNo ok={r.contractReceived} /></td>
+                      <td className="px-2.5 py-2 text-center"><YesNo ok={r.orderSheetFinalized} /></td>
+                      <td className="px-2.5 py-2 text-center"><YesNo ok={r.tasksGenerated} /></td>
                       <td className="px-2.5 py-2 text-center"><YesNo ok={r.advancePaid} /></td>
                       <td className="px-2.5 py-2 text-center">
                         <select value={r.filingStatus} onChange={e => setFiling(r.caseId, e.target.value as '未' | '済')} className={`px-1.5 py-1 text-[12px] border rounded outline-none focus:border-brand-500 ${r.filingStatus === '済' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 font-semibold' : 'border-gray-200 bg-white text-gray-500'}`}>

@@ -75,6 +75,12 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
     return { visible: ['orderSheet', 'contractProc', 'contract', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
+  // 作業着手準備：受注時と同じタブ構成に合わせる（実務タブはまだ出さない）。
+  // ＋ タスク出し（管理担当がタスク一括生成）のため tasks タブだけ追加する。
+  if (status === '作業着手準備') {
+    return { visible: ['orderSheet', 'contractProc', 'contract', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
+  }
+
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約手続きは折りたたみ
   // （契約手続きは対応中までに完了している前提のため「その他」へ畳む）
   if (category === 'management') {

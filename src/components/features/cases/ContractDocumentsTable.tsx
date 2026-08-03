@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Trash2, Plus, Check, CloudOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { REQUIRED_CONTRACT_DOCS } from '@/lib/constants'
 import type { ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -14,10 +15,9 @@ const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', 
 // migration209 で 3値→7値 に拡張し直し。
 const DOC_CATEGORIES = ['契約', '戸籍', '金融', '不動産', '登記', 'お客様預かり書類', 'その他']
 
-// 既定の契約関連書類（行追加・削除・編集可）
-// 契約時に必ずもらう4点をデフォルトに。戸籍・財産系は自由入力で任意追加。
-// 書類名の選択候補（datalist）にも使う（フリー入力も可）。
-const DEFAULT_DOCS = ['契約書', '委任状', '本人確認書類', '印鑑証明書']
+// 契約時に必ずもらう5点（契約書/料金表/委任状/本人確認書類/印鑑証明書）。
+// 初回表示時にデフォルトで自動作成し、受領状況を入力できるようにする（書類名の候補にも使う）。
+const DEFAULT_DOCS = [...REQUIRED_CONTRACT_DOCS]
 
 type Props = {
   caseId: string
@@ -47,6 +47,20 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
   // 受信簿で受領→到着日が入った等、props 更新を反映（常時マウントされる画面対策）
   useEffect(() => { setRows(documents) }, [documents])
 
+  // 初回表示時：区分=契約 の書類が1件も無ければ、必須5点をデフォルトで自動作成する。
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    seededRef.current = true
+    if (documents.some(d => d.category === '契約')) return
+    ;(async () => {
+      const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約', sort_order: i }))
+      const { data, error } = await supabase.from('contract_documents').insert(payload).select('*')
+      if (!error && data) { setRows(prev => [...prev, ...(data as ContractDocumentRow[])]); onRefresh?.() }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 「不要」（受け取らない書類）は既定で非表示。トグルで表示できる。
   const hiddenCount = rows.filter(r => r.status === '不要').length
   const baseRows = showHidden ? rows : rows.filter(r => r.status !== '不要')
@@ -67,12 +81,19 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
   const saveNow = (id: string, field: keyof ContractDocumentRow, value: string) => { setLocal(id, field, value); commit(id, field, value) }
 
   // 受領状況を「その場で受領」にしたら、到着日が未入力なら当日で埋めて受領済にする。
+  // 逆に「その場で受領」から他（後日郵送 等）に戻したら、その場で入れた到着日をクリアして未受信に戻す。
   const onStatusChange = async (row: ContractDocumentRow, value: string) => {
     setLocal(row.id, 'status', value)
     if (value === 'その場で受領' && !row.arrival_date) {
       const today = new Date().toISOString().slice(0, 10)
       setLocal(row.id, 'arrival_date', today)
       const { error } = await supabase.from('contract_documents').update({ status: value, arrival_date: today }).eq('id', row.id)
+      if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+      onRefresh?.()
+    } else if (value !== 'その場で受領' && row.status === 'その場で受領' && row.arrival_date) {
+      // 「その場で受領」→ 別ステータス：到着日をクリアして受信済→未受信に戻す
+      setLocal(row.id, 'arrival_date', '')
+      const { error } = await supabase.from('contract_documents').update({ status: value, arrival_date: null }).eq('id', row.id)
       if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
       onRefresh?.()
     } else {
@@ -90,16 +111,6 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setRows(prev => [...prev, data as ContractDocumentRow])
-    onRefresh?.()
-  }
-
-  const addDefaults = async () => {
-    setBusy(true)
-    const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約', sort_order: rows.length + i }))
-    const { data, error } = await supabase.from('contract_documents').insert(payload).select('*')
-    setBusy(false)
-    if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
-    setRows(prev => [...prev, ...(data as ContractDocumentRow[])])
     onRefresh?.()
   }
 
@@ -186,11 +197,6 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 書類を追加
         </button>
-        {rows.length === 0 && (
-          <button type="button" onClick={addDefaults} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700 disabled:opacity-50" title="契約書・委任状・本人確認書類・印鑑証明書 の4点をまとめて追加します">
-            契約書類4点をまとめて追加
-          </button>
-        )}
         {hiddenCount > 0 && (
           <button type="button" onClick={() => setShowHidden(v => !v)} className="inline-flex items-center gap-1 text-[12px] font-medium text-gray-400 hover:text-gray-600">
             {showHidden ? `不要 ${hiddenCount}件を隠す` : `不要 ${hiddenCount}件を表示`}
