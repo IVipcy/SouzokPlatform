@@ -428,7 +428,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : workPrepNavVisible ? workPrepSteps : []
-  // 管理担当ビュー: 案件進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
+  // 管理担当ビュー: 作業進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
   //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
   const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
   const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned
@@ -620,13 +620,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           />
         )}
 
-        {/* 作業着手準備ナビ：管理担当/契約書類/前受金/ファイル化が揃えば「対応中（着手）」へ。
+        {/* 作業着手準備ナビ：管理担当/契約書類/前受金/ファイル化が揃えば「作業進行中（着手）」へ。
             受注系ナビと同じ見せ方。準備状況は事務管理担当ダッシュボードで管理する。 */}
         {workPrepNavVisible && (
           <StatusFlowNavigator
             steps={workPrepSteps}
-            targetLabel="対応中"
-            advanceLabel="着手（対応中へ）"
+            targetLabel="作業進行中"
+            advanceLabel="着手（作業進行中へ）"
             onAdvance={advanceToWork}
             onDismiss={() => setNavDismissed(true)}
           />
@@ -775,7 +775,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       <Modal
         isOpen={managementTaskPrompt}
         onClose={() => setManagementTaskPrompt(false)}
-        title="案件進行中になりました"
+        title="作業進行中になりました"
         footer={
           <>
             <Button variant="secondary" onClick={() => setManagementTaskPrompt(false)}>あとで</Button>

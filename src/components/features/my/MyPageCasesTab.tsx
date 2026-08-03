@@ -85,7 +85,7 @@ type Props = {
   selectable?: boolean
   /** 完了案件ビュー: 鮮度フラグの代わりに「完了」バッジを出し、フラグなし行も表示する */
   showCompleted?: boolean
-  /** ステータス絞り込みタブ（案件進行中 / 業務完了 / 納品完了）を表示する。マイページの管理案件一覧向け */
+  /** ステータス絞り込みタブ（作業進行中 / 業務完了 / 納品完了）を表示する。マイページの管理案件一覧向け */
   withStatusFilter?: boolean
 }
 
@@ -112,7 +112,7 @@ const MANAGEMENT_ACTIVE = new Set(['対応中', '業務完了申請中'])
 
 // ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
 const STATUS_TABS = [
-  { key: 'active', label: '案件進行中', match: (s: string) => s === '対応中' || s === '業務完了申請中' },
+  { key: 'active', label: '作業進行中', match: (s: string) => s === '対応中' || s === '業務完了申請中' },
   { key: 'workDone', label: '業務完了', match: (s: string) => s === '完了' },
   { key: 'delivered', label: '納品完了', match: (s: string) => s === '納品完了' },
 ] as const
@@ -222,7 +222,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 
   const emptyLabel = withStatusFilter
     ? `${activeTabDef.label}の案件はありません`
-    : (showCompleted ? '業務完了・納品完了 案件はありません' : '案件進行中の案件はありません')
+    : (showCompleted ? '業務完了・納品完了 案件はありません' : '作業進行中の案件はありません')
 
   if (visibleRows.length === 0) {
     return (

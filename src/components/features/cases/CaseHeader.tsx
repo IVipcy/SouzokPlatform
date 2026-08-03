@@ -43,7 +43,7 @@ type Props = {
   /** 担当者（受注/管理）をヘッダーで表示するための情報（変更は担当者タブ） */
   caseMembers?: CaseMemberRow[]
   allMembers?: MemberRow[]
-  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 案件進行中/業務完了申請中 なら「再オープン中」バッジを出す */
+  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 作業進行中/業務完了申請中 なら「再オープン中」バッジを出す */
   reopenCount?: number
 }
 

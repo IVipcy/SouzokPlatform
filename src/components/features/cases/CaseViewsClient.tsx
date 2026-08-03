@@ -71,7 +71,7 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
   const changeView = (v: View) => router.replace(`${pathname}?view=${v}`, { scroll: false })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  // 管理案件ビュー内のサブ切替（案件進行中 / 業務完了 / 納品完了）
+  // 管理案件ビュー内のサブ切替（作業進行中 / 業務完了 / 納品完了）
   const [manageSub, setManageSub] = useState<'active' | 'businessComplete' | 'delivered'>('active')
 
   // 現在ビューに存在するステータスだけを絞り込み候補に出す（CASE_STATUSES の並び順を維持）
@@ -164,11 +164,11 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
       </div>
 
       {view === 'manage' && (() => {
-        // 案件進行中＝対応中(＋業務完了申請中)／業務完了＝完了／納品完了＝納品完了。
+        // 作業進行中＝対応中(＋業務完了申請中)／業務完了＝完了／納品完了＝納品完了。
         const businessCompleteRows = filteredCompleted.filter(r => r.status === '完了')
         const deliveredRows = filteredCompleted.filter(r => r.status === '納品完了')
         const subTabs = [
-          { key: 'active' as const, label: '案件進行中', count: managerRows.length },
+          { key: 'active' as const, label: '作業進行中', count: managerRows.length },
           { key: 'businessComplete' as const, label: '業務完了', count: completedRows.filter(r => r.status === '完了').length },
           { key: 'delivered' as const, label: '納品完了', count: completedRows.filter(r => r.status === '納品完了').length },
         ]

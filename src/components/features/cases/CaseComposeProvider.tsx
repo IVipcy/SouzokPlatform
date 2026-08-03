@@ -180,7 +180,7 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
             </select>
             <p className="text-[11px] text-gray-400 mt-1">
               {reportKind === 'work_complete' && '受注担当の承認後に業務完了になります。全請求発行済＋他事業者請求済が必要。'}
-              {reportKind === 'case_reopen' && '業務完了/納品完了後に追加業務が発生した場合。案件が「案件進行中」に戻ります。'}
+              {reportKind === 'case_reopen' && '業務完了/納品完了後に追加業務が発生した場合。案件が「作業進行中」に戻ります。'}
               {reportKind === 'delivery_confirm' && '納品対象書類が確定したら受注担当に確認依頼。承認後「納品待ち」になります。'}
               {reportKind === 'progress_check' && '受注担当に案件の進捗状況を確認してもらいます。'}
             </p>
