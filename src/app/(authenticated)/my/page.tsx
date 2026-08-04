@@ -15,7 +15,7 @@ import RankingBadges, { type RankBadge } from '@/components/features/dashboard/R
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
-import { computeCaseStateAlerts, computeUrgentReportAlerts } from '@/lib/caseStateAlerts'
+import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -626,6 +626,17 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // 案件アラート（管理担当 未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
   const salesCaseMeta = new Map(myCases.filter(c => salesCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
+  // 到着物あり（受注/管理宛の郵送物一式・未開封）→ 要確認バナー。自分が受注/管理担当の案件が対象。
+  const myAllCaseIds = [...new Set([...salesCaseIds, ...managerCaseIds])]
+  const { data: parcelRows } = myAllCaseIds.length
+    ? await supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)')
+        .in('case_id', myAllCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null)
+    : { data: [] }
+  const parcelAlerts = computeParcelArrivalAlerts(
+    ((parcelRows ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>)
+      .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '' })),
+  )
+
   const bannerCaseAlerts = [
     ...computeCaseStateAlerts(
       myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) })),
@@ -633,6 +644,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     ),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
     ...computeUrgentReportAlerts(allReports.filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+    // 到着物あり（未開封）→ 要確認(黄)
+    ...parcelAlerts,
   ]
 
 

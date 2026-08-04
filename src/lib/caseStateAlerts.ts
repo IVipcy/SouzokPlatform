@@ -11,6 +11,7 @@ export type CaseStateAlert = {
   dealName: string
   category: string
   severity: OverdueSeverity   // 'chui'=要注意(赤) / 'kakunin'=要確認(黄)
+  href?: string               // 指定時はこの遷移先へ（未指定は案件詳細）
 }
 
 const PREP_STATUSES = new Set(['受注', '戻り受注', '作業着手準備'])
@@ -27,6 +28,18 @@ export function computeCaseStateAlerts(
     }
   }
   return out
+}
+
+// 受注/管理宛の郵送物一式（未開封）が到着連絡済み → 要確認(黄)。開封（中身を再登録・紐付け）で消える。
+// クリックで到着受信簿の該当レコードへ直行。
+export function computeParcelArrivalAlerts(
+  parcels: Array<{ id: string; case_id: string; case_number: string; deal_name: string }>,
+): CaseStateAlert[] {
+  return parcels.map(p => ({
+    caseId: p.case_id, caseNumber: p.case_number, dealName: p.deal_name,
+    category: '到着物あり（未開封）', severity: 'kakunin' as OverdueSeverity,
+    href: `/cases/${p.case_id}?tab=receipts&focus=${p.id}`,
+  }))
 }
 
 // 案件報告(progress_check)で 状態='至急！！' かつ 未確認(status='依頼中') の案件を 要注意(赤) として返す。

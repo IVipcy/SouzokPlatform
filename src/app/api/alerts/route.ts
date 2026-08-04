@@ -42,7 +42,7 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }, { data: parcelRaw }] = await Promise.all([
     supabase.from('cases')
       .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at')
       .in('id', myCaseIds),
@@ -59,6 +59,9 @@ export async function GET() {
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', myCaseIds),
     // 事務管理タスク（task_kind='case'）の有無 → 「タスク未生成」判定用
     supabase.from('tasks').select('case_id').eq('task_kind', 'case').in('case_id', myCaseIds),
+    // 受注/管理宛の郵送物一式（未開封・到着連絡済み）→ 到着物あり アラート
+    supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)')
+      .in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null),
   ])
 
   type CaseRow = {
@@ -157,18 +160,23 @@ export async function GET() {
     if (t.due_date && t.due_date < todayStr && t.status !== 'キャンセル') {
       push({ id: `task-${t.id}`, severity: 'high', category: 'タスク期限超過', title: t.title, body: `期限 ${t.due_date} を超過`, href: `/tasks/${t.id}` })
     }
-    // 到着物あり：受注/管理宛の郵送物一式の開封タスク（source_rid=receipt:）→ 到着受信簿の該当レコードへ
-    if (t.source_rid && t.source_rid.startsWith('receipt:')) {
-      push({ id: `arrival-${t.id}`, severity: 'high', category: '到着物あり', title: t.title, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿に中身を紐付けてください', href: `/cases/${t.case_id}?tab=receipts&task=${t.id}` })
-    }
     // 超急ぎの未着手タスク（前受金入金御礼連絡 等）→ 至急タスクとして目立たせる
-    else if (t.priority === '超急ぎ' && t.status === '未着手') {
+    if (t.priority === '超急ぎ' && t.status === '未着手') {
       push({ id: `urgent-${t.id}`, severity: 'high', category: '至急タスク', title: t.title, body: '超急ぎのタスクです。至急対応してください', href: `/tasks/${t.id}` })
     }
     // 自分宛てタスクあり：受注/管理担当タスク(system)で未着手のもの（一括生成の事務管理タスクは対象外）
     else if (t.task_kind === 'system' && t.status === '未着手') {
       push({ id: `newtask-${t.id}`, severity: 'info', category: '自分宛てタスク', title: t.title, body: '自分宛てのタスクがあります', href: `/tasks/${t.id}` })
     }
+  }
+
+  // 到着物あり（受注/管理宛の郵送物一式・未開封・到着連絡済み）→ 到着受信簿の該当レコードへ直行
+  const parcels = (parcelRaw ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>
+  for (const p of parcels) {
+    const roles = roleByCase.get(p.case_id) ?? new Set<string>()
+    if (!roles.has('sales') && !roles.has('manager') && !roles.has('sub_manager')) continue
+    const nm = p.cases ? `${p.cases.case_number} ${p.cases.deal_name}` : '到着物'
+    push({ id: `parcel-${p.id}`, severity: 'high', category: '到着物あり', title: nm, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿で中身を再登録・紐付けしてください', href: `/cases/${p.case_id}?tab=receipts&focus=${p.id}` })
   }
 
   // 案件報告（自分が確認者で報告中）
