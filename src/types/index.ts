@@ -129,7 +129,10 @@ export type CaseRow = {
   // 新規面談登録（migration 149）
   meeting_owner_id: string | null      // 面談担当＝受注担当（自動設定）
   meeting_type: string | null          // 面談内容（フリーテキスト。既定「新規面談」）
-  proposal_note: string | null         // 提案金額（フリーテキスト）
+  proposal_note: string | null         // 提案金額（旧・単一フリーテキスト。互換のため残置）
+  proposal_judicial: string | null     // 提案金額（司法書士報酬。migration 218）
+  proposal_administrative: string | null // 提案金額（行政書士報酬。migration 218）
+  manager_assign_skipped?: boolean     // 管理担当を割り振らない（migration 218）。true でナビの管理担当アサインを非表示
   is_lp_direct: boolean                // LP直案件（連携で自動true・裏持ち）
   // 受注内容追加
   other_procedure: string | null

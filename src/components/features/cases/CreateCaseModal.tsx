@@ -28,7 +28,8 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
     procedures: [] as string[],   // 手続内容（受注区分の暫定）
     consideration_period: '',
     response_due: '',
-    proposal_note: '',
+    proposal_judicial: '',
+    proposal_administrative: '',
     expected_completion: '',
     realestate_sale: '',          // 不動産売却（フリー）→他事業者紹介(不動産)
     tax_advisor: '',              // 税理士（フリー）→他事業者紹介(税理士)
@@ -66,7 +67,8 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
       order_category: form.procedures.length ? form.procedures : null,
       consideration_period: form.consideration_period || null,
       client_response_due_date: form.response_due || null,
-      proposal_note: form.proposal_note.trim() || null,
+      proposal_judicial: form.proposal_judicial.trim() || null,
+      proposal_administrative: form.proposal_administrative.trim() || null,
       expected_completion_date: form.expected_completion || null,
       consideration_decline_reason_detail: form.decline_reason.trim() || null,
     }).select('id').single()
@@ -122,7 +124,8 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
             </div>
           </Row>
           <Row label="お客様回答予定日"><input type="date" value={form.response_due} onChange={e => set('response_due', e.target.value)} className={inp} /></Row>
-          <Row label="提案金額"><input value={form.proposal_note} onChange={e => set('proposal_note', e.target.value)} placeholder="例: 提案せず / 330,000円" className={inp} /></Row>
+          <Row label="提案金額（司法）"><input value={form.proposal_judicial} onChange={e => set('proposal_judicial', e.target.value)} placeholder="例: 提案せず / 330,000円" className={inp} /></Row>
+          <Row label="提案金額（行政）"><input value={form.proposal_administrative} onChange={e => set('proposal_administrative', e.target.value)} placeholder="例: 提案せず / 110,000円" className={inp} /></Row>
           <Row label="完了予定日"><input type="date" value={form.expected_completion} onChange={e => set('expected_completion', e.target.value)} className={inp} /></Row>
           <Row label="不動産売却" hint="他事業者紹介(不動産)へ"><input value={form.realestate_sale} onChange={e => set('realestate_sale', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>
           <Row label="税理士" hint="他事業者紹介(税理士)へ"><input value={form.tax_advisor} onChange={e => set('tax_advisor', e.target.value)} placeholder="なし / 内容を記載" className={inp} /></Row>

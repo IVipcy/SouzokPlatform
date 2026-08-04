@@ -23,10 +23,11 @@ export function getJutakuFlowSteps(args: {
   managerAssigned: boolean         // 割振り担当が管理担当をアサインしたら完了
   contractDocsReceived: boolean    // 契約書類（区分=契約）を全部受領したら完了
   advanceInvoiceIssued: boolean    // 前受金請求書を発行したら完了
+  skipManagerAssign?: boolean      // 「管理担当を割り振らない」案件は管理担当アサインのゲートを出さない
 }): FlowStep[] {
   return [
     { key: 'orderSheet', label: 'オーダーシート作成', targets: [{ tab: 'orderSheet', label: 'オーダーシートタブ' }], done: args.orderSheetCompleted },
-    { key: 'manager', label: '管理担当アサイン', targets: [{ tab: 'assignees', label: '担当者タブ' }], done: args.managerAssigned },
+    ...(args.skipManagerAssign ? [] : [{ key: 'manager', label: '管理担当アサイン', targets: [{ tab: 'assignees' as TabKey, label: '担当者タブ' }], done: args.managerAssigned }]),
     { key: 'contractProc', label: '契約書類の受領', targets: [{ tab: 'contractProc', label: '契約手続きタブ' }], done: args.contractDocsReceived },
     { key: 'fee', label: '料金表入力・前受金請求書の発行', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advanceInvoiceIssued },
   ]

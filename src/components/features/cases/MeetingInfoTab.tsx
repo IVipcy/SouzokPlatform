@@ -115,7 +115,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           )}
           <InlineSelect label="検討期間" value={caseData.consideration_period} options={[...CONSIDERATION_PERIODS]} onSave={v => selectPeriod(v)} />
           <InlineDate label="お客様回答予定日" value={caseData.client_response_due_date} onSave={v => saveCaseField('client_response_due_date', v || null)} max={considerationDueMax(caseData.consideration_period) ?? undefined} />
-          <InlineEdit label="提案金額" value={caseData.proposal_note} onSave={v => saveCaseField('proposal_note', v)} />
+          <InlineEdit label="提案金額（司法）" value={caseData.proposal_judicial ?? caseData.proposal_note} onSave={v => saveCaseField('proposal_judicial', v)} />
+          <InlineEdit label="提案金額（行政）" value={caseData.proposal_administrative} onSave={v => saveCaseField('proposal_administrative', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
           <InlineTextarea label="理由詳細" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />

@@ -25,7 +25,9 @@ export type FormData = {
   caseStatus: string        // 面談結果から導出した案件ステータスkey（各条件分岐が参照）
   orderWinType: string      // 受注の獲得区分（即受注/面談なし受注。受注以外は空）
   meetingType: string       // 面談分類（選択式。既定「新規面談」）
-  proposalNote: string      // 提案金額（フリーテキスト。例「提案せず」）
+  proposalNote: string      // 提案金額（旧・単一。互換のため残置）
+  proposalJudicial: string      // 提案金額：司法書士報酬（「提案せず」or 税抜カンマ整形）
+  proposalAdministrative: string // 提案金額：行政書士報酬（同上）
   meetingDate: string       // 面談実施日
   orderRoute: string        // 面談ルート（＝受注ルート）
   orderRouteDetail: string  // 詳細（紹介元名 or 過去客の依頼者名）
@@ -86,6 +88,8 @@ export const INITIAL_DATA: FormData = {
   orderWinType: '',
   meetingType: '新規面談',
   proposalNote: '',
+  proposalJudicial: '',
+  proposalAdministrative: '',
   meetingDate: '',
   orderRoute: '',
   orderRouteDetail: '',

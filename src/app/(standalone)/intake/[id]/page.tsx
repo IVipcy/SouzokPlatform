@@ -6,7 +6,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow,
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow,
 } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
@@ -19,6 +19,10 @@ export default async function IntakeCasePage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
+  // 割振り依頼ポップ（受注系/依頼確定待ちで②保存時）で使う全メンバー
+  const { data: members } = await supabase.from('members').select('*').eq('is_active', true).order('name')
+  const allMembers = (members ?? []) as MemberRow[]
+
   // 新規（下書き未作成）モード：案件をまだDBに作らず、面談シートで最初の入力があった時点で
   // 遅延作成する（IntakeCaseClient の ensureCase）。ここでは空の合成 caseData を渡す。
   if (id === 'new') {
@@ -30,6 +34,7 @@ export default async function IntakeCasePage({ params }: Props) {
       <IntakeCaseClient
         caseData={draft}
         currentMemberId={currentUser?.memberId ?? null}
+        allMembers={allMembers}
         memos={[]} heirs={[]} kosekiRequests={[]} properties={[]} acquisitions={[]}
         financialAssets={[]} divisionDetails={[]} agreementDispatches={[]} expenses={[]}
         tasks={[]} clientCommunications={[]} referrals={[]} caseClients={[]}
@@ -66,6 +71,7 @@ export default async function IntakeCasePage({ params }: Props) {
     <IntakeCaseClient
       caseData={caseR.data as CaseRow}
       currentMemberId={currentUser?.memberId ?? null}
+      allMembers={allMembers}
       memos={(memosR.data ?? []) as MeetingMemoRow[]}
       heirs={(heirsR.data ?? []) as HeirRow[]}
       kosekiRequests={(kosekiR.data ?? []) as KosekiRequestRow[]}

@@ -277,15 +277,19 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     onDirtyChange?.(true)
   }
 
-  // 提案金額（⑧）：proposal_note に「提案せず」or 税抜(カンマ整形)を保存。税込は表示のみ（×1.10）。
-  const proposalMode = data.proposalNote === '提案せず' ? '提案せず' : '金額を入力'
-  const proposalDigits = data.proposalNote === '提案せず' ? '' : data.proposalNote.replace(/[^0-9]/g, '')
-  const proposalTaxIncluded = proposalDigits ? Math.round(Number(proposalDigits) * 1.1) : null
-  const setProposalMode = (mode: string) => update('proposalNote', mode === '提案せず' ? '提案せず' : '')
-  const setProposalAmount = (raw: string) => {
+  // 提案金額（⑧）：司法書士報酬 / 行政書士報酬 をそれぞれ proposal_judicial / proposal_administrative に
+  //   「提案せず」or 税抜(カンマ整形)で保存。税込は表示のみ（×1.10）。合計も表示のみ。
+  type ProposalField = 'proposalJudicial' | 'proposalAdministrative'
+  const propMode = (v: string) => (v === '提案せず' ? '提案せず' : '金額を入力')
+  const propDigits = (v: string) => (v === '提案せず' ? '' : (v || '').replace(/[^0-9]/g, ''))
+  const propTaxIncluded = (v: string) => { const d = propDigits(v); return d ? Math.round(Number(d) * 1.1) : null }
+  const setPropMode = (field: ProposalField, mode: string) => update(field, mode === '提案せず' ? '提案せず' : '')
+  const setPropAmount = (field: ProposalField, raw: string) => {
     const d = raw.replace(/[^0-9]/g, '')
-    update('proposalNote', d ? Number(d).toLocaleString('en-US') : '')
+    update(field, d ? Number(d).toLocaleString('en-US') : '')
   }
+  const propTotalExcl = Number(propDigits(data.proposalJudicial) || 0) + Number(propDigits(data.proposalAdministrative) || 0)
+  const propTotalIncl = propTotalExcl ? Math.round(propTotalExcl * 1.1) : 0
 
   // 他事業者紹介の あり/なし トグル（referralPartners に partner_type を出し入れ）
   const toggleReferral = (key: string, yes: boolean) =>
@@ -401,6 +405,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         status: formData.caseStatus || '検討中',
         meeting_type: formData.meetingType || null,
         proposal_note: formData.proposalNote || null,
+        proposal_judicial: formData.proposalJudicial || null,
+        proposal_administrative: formData.proposalAdministrative || null,
         meeting_owner_id: currentMemberId || null,
         difficulty,
         service_category: formData.serviceCategories[0] || null,
@@ -708,20 +714,39 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             <Pills multi value={data.serviceCategories} options={data.caseStatus === '検討中' ? [...ORDER_CATEGORIES, '提案できず'] : [...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
           <Card label="提案金額">
-            <Pills value={proposalMode} options={['提案せず', '金額を入力']} onChange={v => setProposalMode(v as string)} />
-            {proposalMode === '金額を入力' && (
-              <div className="mt-3 flex items-end gap-3">
-                <div className="flex-1">
-                  <div className="text-[11px] text-gray-400 mb-1">税抜（入力）</div>
-                  <Input value={proposalDigits ? Number(proposalDigits).toLocaleString('en-US') : ''} onChange={setProposalAmount} placeholder="330,000" />
+            {([
+              { field: 'proposalJudicial' as ProposalField, label: '司法書士報酬' },
+              { field: 'proposalAdministrative' as ProposalField, label: '行政書士報酬' },
+            ]).map(({ field, label }, i) => {
+              const val = data[field]
+              const digits = propDigits(val)
+              const incl = propTaxIncluded(val)
+              return (
+                <div key={field} className={i > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
+                  <div className="text-[12px] font-semibold text-gray-600 mb-1.5">{label}</div>
+                  <Pills value={propMode(val)} options={['提案せず', '金額を入力']} onChange={v => setPropMode(field, v as string)} />
+                  {propMode(val) === '金額を入力' && (
+                    <div className="mt-3 flex items-end gap-3">
+                      <div className="flex-1">
+                        <div className="text-[11px] text-gray-400 mb-1">税抜（入力）</div>
+                        <Input value={digits ? Number(digits).toLocaleString('en-US') : ''} onChange={v => setPropAmount(field, v)} placeholder="330,000" />
+                      </div>
+                      <div className="pb-2.5 text-gray-300">→</div>
+                      <div className="flex-1">
+                        <div className="text-[11px] text-gray-400 mb-1">税込（自動・×1.10）</div>
+                        <div className="h-[42px] flex items-center justify-end px-3 rounded-lg bg-brand-50 text-brand-700 font-semibold border-[1.5px] border-brand-100 tabular-nums">
+                          {incl != null ? `${incl.toLocaleString('en-US')} 円` : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="pb-2.5 text-gray-300">→</div>
-                <div className="flex-1">
-                  <div className="text-[11px] text-gray-400 mb-1">税込（自動・×1.10）</div>
-                  <div className="h-[42px] flex items-center justify-end px-3 rounded-lg bg-brand-50 text-brand-700 font-semibold border-[1.5px] border-brand-100 tabular-nums">
-                    {proposalTaxIncluded != null ? `${proposalTaxIncluded.toLocaleString('en-US')} 円` : '—'}
-                  </div>
-                </div>
+              )
+            })}
+            {propTotalExcl > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-[13px]">
+                <span className="font-semibold text-gray-600">合計提案金額</span>
+                <span className="tabular-nums text-gray-700">税抜 <b>{propTotalExcl.toLocaleString('en-US')}</b> 円　/　税込 <b className="text-brand-700">{propTotalIncl.toLocaleString('en-US')}</b> 円</span>
               </div>
             )}
           </Card>

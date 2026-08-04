@@ -264,8 +264,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         setCaseState(c => ({ ...c, order_received_date: today }))
       }
       setNavDismissed(false)
-      // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサインのときだけ）
-      if (!managerAssigned && !gatesDisabled()) setAssignReqOpen(true)
+      // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサイン かつ 割り振らない指定でない ときだけ）
+      if (!managerAssigned && !caseState.manager_assign_skipped && !gatesDisabled()) setAssignReqOpen(true)
     }
     // （タスク出しは作業着手準備の「タスク出し」ゲートで管理担当が行うため、
     //   対応中化の際の「タスクを設定してください」ポップアップは廃止）
@@ -388,6 +388,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     managerAssigned,
     contractDocsReceived,
     advanceInvoiceIssued,
+    skipManagerAssign: !!caseState.manager_assign_skipped,
   })
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
@@ -413,7 +414,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 管理担当ビュー: 作業進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
   //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
   const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
-  const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned
+  const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned && !caseState.manager_assign_skipped
   const navHighlightTabs: TabKey[] = [
     ...activeNavSteps.filter(s => !s.done).flatMap(s => s.targets.map(t => t.tab)),
     ...(kickoffNeeded ? ['progress' as TabKey] : []),
@@ -951,6 +952,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         dealName={caseState.deal_name ?? ''}
         allMembers={allMembers}
         onDone={handleSaved}
+        onSkip={() => { setCaseState(c => ({ ...c, manager_assign_skipped: true })); handleSaved() }}
       />
 
       <AddTaskModal
