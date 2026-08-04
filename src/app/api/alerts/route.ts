@@ -176,7 +176,7 @@ export async function GET() {
     const roles = roleByCase.get(p.case_id) ?? new Set<string>()
     if (!roles.has('sales') && !roles.has('manager') && !roles.has('sub_manager')) continue
     const nm = p.cases ? `${p.cases.case_number} ${p.cases.deal_name}` : '到着物'
-    push({ id: `parcel-${p.id}`, severity: 'high', category: '到着物あり', title: nm, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿で中身を再登録・紐付けしてください', href: `/cases/${p.case_id}?tab=receipts&focus=${p.id}` })
+    push({ id: `parcel-${p.id}`, severity: 'high', category: '到着物あり', title: nm, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿で中身を再登録・紐付けしてください', href: `/documents?receipt=${p.id}` })
   }
 
   // 案件報告（自分が確認者で報告中）

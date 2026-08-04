@@ -38,7 +38,7 @@ export function computeParcelArrivalAlerts(
   return parcels.map(p => ({
     caseId: p.case_id, caseNumber: p.case_number, dealName: p.deal_name,
     category: '到着物あり（未開封）', severity: 'kakunin' as OverdueSeverity,
-    href: `/cases/${p.case_id}?tab=receipts&focus=${p.id}`,
+    href: `/documents?receipt=${p.id}`,
   }))
 }
 

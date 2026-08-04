@@ -31,6 +31,8 @@ type Props = {
   onChanged: () => void
   /** 全体操作権限が無くても、この案件IDの受信簿だけは操作可（受注/管理担当が自分の案件を開封・紐付けする用） */
   operableCaseIds?: string[]
+  /** 郵送物一式（未開封）の「開封して再登録」ボタン押下 */
+  onReRegister?: (r: DocumentReceiptRow) => void
 }
 
 // 「0513/001」形式の番号を生成
@@ -51,7 +53,7 @@ function formatReceiptDateHeader(ymd: string): string {
   return `${m}月${d}日（${wd}）`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds }: Props) {
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds, onReRegister }: Props) {
   const globalCanManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
   const opSet = useMemo(() => new Set(operableCaseIds ?? []), [operableCaseIds])
   // 全体権限が無くても、自分が担当の案件の受信簿だけは操作可（受注/管理担当の開封・紐付け）
@@ -152,6 +154,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                           onStartRequest={setStartingReceipt}
                           onCancelRequest={setCancelingReceipt}
                           canManage={canManageReceipt(r)}
+                          onReRegister={onReRegister}
                         />
                       ))}
                     </Fragment>
@@ -794,6 +797,7 @@ function ReceiptRow({
   onStartRequest,
   onCancelRequest,
   canManage,
+  onReRegister,
 }: {
   receipt: DocumentReceiptRow
   rowBg: string
@@ -804,7 +808,10 @@ function ReceiptRow({
   onStartRequest: (r: DocumentReceiptRow) => void
   onCancelRequest: (r: DocumentReceiptRow) => void
   canManage: boolean
+  onReRegister?: (r: DocumentReceiptRow) => void
 }) {
+  // 受注/管理宛の郵送物一式（未開封）：W-Check/紐付けの前に「開封して再登録」で中身を入れ直す
+  const isUnopenedParcel = !!receipt.is_parcel && !receipt.opened_at
   const items = (receipt.items ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const rowCount = Math.max(items.length, 1)
   const numberText = formatReceiptNumber(receipt.received_date, receipt.sequence_no)
@@ -948,6 +955,14 @@ function ReceiptRow({
                     </button>
                   )}
                 </div>
+                {isUnopenedParcel && (
+                  <div className="mt-1.5">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">📦 未開封</span>
+                    {canManage && onReRegister && (
+                      <button type="button" onClick={() => onReRegister(receipt)} className="mt-1 block w-full text-[11px] font-bold text-white bg-brand-600 hover:bg-brand-700 rounded px-2 py-1">開封して再登録</button>
+                    )}
+                  </div>
+                )}
               </td>
             )}
             {/* 案件管理番号（行統合） */}

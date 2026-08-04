@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Plus, Trash2, Search } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { LOCATIONS } from '@/lib/constants'
+import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
+
+// 再登録（開封）モード：既存の郵送物一式レコードを開いて中身を本登録し直す
+export type EditReceiptInfo = { id: string; caseId: string; location: string | null }
 import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow, AgreementDispatchRow, HeirRow } from '@/types'
 
 type CaseLite = {
@@ -33,6 +38,10 @@ type Props = {
   cases: CaseLite[]
   teams: { id: string; name: string }[]
   onSaved: () => void
+  /** 拠点選択トップで選んだ拠点（新規登録の既定） */
+  defaultLocation?: string | null
+  /** 指定時は「郵送物一式の再登録（開封）」モード：既存レコードを更新する */
+  editReceipt?: EditReceiptInfo | null
 }
 
 function newItem(): ItemDraft {
@@ -46,7 +55,7 @@ function newItem(): ItemDraft {
   }
 }
 
-export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved }: Props) {
+export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved, defaultLocation = null, editReceipt = null }: Props) {
   const todayYmd = new Date().toISOString().slice(0, 10)
 
   const [caseQuery, setCaseQuery] = useState('')
@@ -54,6 +63,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const [receivedDate, setReceivedDate] = useState(todayYmd)
   const [postalType, setPostalType] = useState('')
   const [storageTeamId, setStorageTeamId] = useState('')  // 原本格納先チーム（案件選択時に管理担当のチームを初期選択）
+  const [location, setLocation] = useState(defaultLocation ?? '')  // 拠点
+  const [parcelMode, setParcelMode] = useState(false)  // 受注/管理宛の郵送物一式（中身は本人が開封）
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   const [saving, setSaving] = useState(false)
@@ -69,6 +80,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     setStorageTeamId('')
     setItems([newItem()])
     setDeliverables([])
+    setLocation(defaultLocation ?? '')
+    setParcelMode(false)
     setError('')
     onClose()
   }
@@ -112,6 +125,19 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       csData?.family_tree_obtain_date ?? null,
     ))
   }
+
+  // 再登録（開封）モードで開いたら、対象案件・拠点を読み込む
+  useEffect(() => {
+    if (!isOpen) return
+    if (editReceipt) {
+      setLocation(editReceipt.location ?? '')
+      setParcelMode(false)
+      void selectCase(editReceipt.caseId)
+    } else {
+      setLocation(defaultLocation ?? '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editReceipt?.id])
 
   // リンク候補をグループ別にまとめる（預金/証券/信託/不動産）
   const groupedDeliverables = useMemo(() => {
@@ -163,6 +189,21 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       setError('到着日を入力してください')
       return
     }
+    // 郵送物一式（受注/管理宛）：中身を開けず1行だけ仮登録して到着連絡（タスクは作らない）
+    if (parcelMode && !editReceipt) {
+      setSaving(true)
+      const supabase = createClient()
+      const { data: rec, error: e1 } = await supabase.from('document_receipts')
+        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, is_parcel: true, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .select('id').single()
+      if (e1 || !rec) { setError(`受付に失敗しました: ${e1?.message ?? ''}`); setSaving(false); return }
+      await supabase.from('document_receipt_items').insert({ receipt_id: (rec as { id: string }).id, item_name: '郵送物一式（未開封）', sort_order: 0 })
+      await notifyParcelArrival((rec as { id: string }).id)
+      setSaving(false)
+      showToast('郵送物一式を受付け、受注/管理担当へ到着連絡しました', 'success')
+      onSaved(); handleClose()
+      return
+    }
     const validItems = items.filter(i => i.item_name.trim() !== '')
     if (validItems.length === 0) {
       setError('到着物を1件以上入力してください')
@@ -171,22 +212,26 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
 
     setSaving(true)
     const supabase = createClient()
-    // 1. 親レコード作成（sequence_no は DB トリガで自動採番）
-    const { data: receiptInserted, error: insertErr } = await supabase
-      .from('document_receipts')
-      .insert({
-        case_id: selectedCaseId,
-        received_date: receivedDate,
-        postal_type: postalType || null,
-        storage_team_id: storageTeamId || null,
-      })
-      .select('id')
-      .single()
-
-    if (insertErr || !receiptInserted) {
-      setError(`受信レコードの作成に失敗しました: ${insertErr?.message ?? ''}`)
-      setSaving(false)
-      return
+    // 1. 親レコード（新規=作成 / 再登録=既存を開封済に更新して中身を入れ替え）
+    let receiptId: string
+    if (editReceipt) {
+      await supabase.from('document_receipts')
+        .update({ opened_at: new Date().toISOString(), is_parcel: false, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .eq('id', editReceipt.id)
+      await supabase.from('document_receipt_items').delete().eq('receipt_id', editReceipt.id)
+      receiptId = editReceipt.id
+    } else {
+      const { data: receiptInserted, error: insertErr } = await supabase
+        .from('document_receipts')
+        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .select('id')
+        .single()
+      if (insertErr || !receiptInserted) {
+        setError(`受信レコードの作成に失敗しました: ${insertErr?.message ?? ''}`)
+        setSaving(false)
+        return
+      }
+      receiptId = (receiptInserted as { id: string }).id
     }
 
     // 2. 受領した物はすべて書類タブ(case_documents)に「受領書類」として作成（PDF保管を一本化）
@@ -215,7 +260,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       return { linked_kind: kind, linked_id: id, linked_field: field }
     }
     const itemRows = validItems.map((it, idx) => ({
-      receipt_id: receiptInserted.id,
+      receipt_id: receiptId,
       item_name: it.item_name.trim(),
       quantity: it.quantity ? Number(it.quantity) : null,
       received_from: it.received_from.trim() || null,
@@ -244,7 +289,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       .select('member_id')
       .eq('case_id', selectedCaseId)
       .eq('role', 'sales')
-    if (salesMembers && salesMembers.length > 0) {
+    if (!editReceipt && salesMembers && salesMembers.length > 0) {
       const itemNames = validItems.map(i => i.item_name.trim()).join('・')
       const notifRows = (salesMembers as { member_id: string }[]).map(m => ({
         member_id: m.member_id,
@@ -257,7 +302,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     }
 
     setSaving(false)
-    showToast('到着物の受信を登録しました', 'success')
+    showToast(editReceipt ? '開封して再登録しました' : '到着物の受信を登録しました', 'success')
     onSaved()
     handleClose()
   }
@@ -266,7 +311,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="到着物の受信を登録"
+      title={editReceipt ? '郵送物を開封して再登録' : '到着物の受信を登録'}
       maxWidth="max-w-2xl"
       footer={
         <>
@@ -334,6 +379,26 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
             </div>
           )}
         </div>
+
+        {/* 拠点 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-gray-500 mb-1">拠点</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {LOCATIONS.map(l => (
+              <button key={l} type="button" onClick={() => setLocation(l)} className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${location === l ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* 受注/管理宛の郵送物一式（新規登録時のみ） */}
+        {!editReceipt ? (
+          <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2.5 cursor-pointer">
+            <input type="checkbox" checked={parcelMode} onChange={e => setParcelMode(e.target.checked)} className="w-4 h-4 mt-0.5 accent-brand-600" />
+            <span className="text-[12.5px] text-gray-700 leading-relaxed"><strong>受注/管理宛の郵送物一式（中身は本人が開封）</strong><br /><span className="text-[11px] text-gray-400">中身を開けず封筒1通として仮登録し、受注/管理担当に「到着物あり」を通知します。W-Check・中身の入力は不要。</span></span>
+          </label>
+        ) : (
+          <div className="text-[12px] text-brand-700 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">開封して中身を再登録します。下で受信待ちに紐付けて登録すると、この郵送物一式は開封済になります。</div>
+        )}
 
         {/* 到着日 ＋ 〒の種類（封筒単位） */}
         <div className="flex flex-wrap gap-4">
