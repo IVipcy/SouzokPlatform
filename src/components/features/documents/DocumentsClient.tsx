@@ -5,10 +5,19 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Plus, Inbox } from 'lucide-react'
 import DocumentReceiptList from './DocumentReceiptList'
 import NewDocumentReceiptModal from './NewDocumentReceiptModal'
+import ParcelReceiptModal from './ParcelReceiptModal'
 import PageHeader from '@/components/ui/PageHeader'
 import HintTip from '@/components/ui/HintTip'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
+import { LOCATIONS } from '@/lib/constants'
 import type { CaseDocumentRow, DocumentReceiptRow, MemberRow } from '@/types'
+
+// 拠点フィルタの選択肢（全拠点＋各拠点＋未分類）
+const LOC_TABS: Array<{ key: string; label: string }> = [
+  { key: '', label: '全拠点' },
+  ...LOCATIONS.map(l => ({ key: l, label: l })),
+  { key: '__none__', label: '未分類' },
+]
 
 type CaseLite = { id: string; case_number: string; deal_name: string; status: string }
 
@@ -38,13 +47,24 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [caseFilter, setCaseFilter] = useState<string>(searchParams.get('case') ?? '')
+  const [locationFilter, setLocationFilter] = useState<string>('')
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
+  const [parcelModalOpen, setParcelModalOpen] = useState(false)
+
+  // 拠点別の件数（タブのバッジ用）
+  const locCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const r of receipts) { const k = r.location || '__none__'; m[k] = (m[k] ?? 0) + 1 }
+    return m
+  }, [receipts])
 
   // ── 書類受信簿の絞り込み ──
   const filteredReceipts = useMemo(() => {
     const q = search.trim().toLowerCase()
     return receipts.filter(r => {
       if (caseFilter && r.case_id !== caseFilter) return false
+      if (locationFilter === '__none__') { if (r.location) return false }
+      else if (locationFilter && r.location !== locationFilter) return false
       if (q) {
         const items = r.items ?? []
         const hay = [
@@ -56,7 +76,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
       }
       return true
     })
-  }, [receipts, caseFilter, search])
+  }, [receipts, caseFilter, search, locationFilter])
 
   return (
     <div className="pb-8">
@@ -78,17 +98,46 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
               />
             </div>
             {isManager && (
-              <button
-                onClick={() => setReceiptModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                新規作成
-              </button>
+              <>
+                <button
+                  onClick={() => setParcelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 rounded-md shadow-sm"
+                  title="受注/管理宛の郵送物を一式で受付け、到着連絡を飛ばす"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  郵送物一式で受付
+                </button>
+                <button
+                  onClick={() => setReceiptModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  新規作成
+                </button>
+              </>
             )}
           </>
         }
       />
+
+      {/* 拠点タブ（受信簿を拠点別に管理） */}
+      <div className="mb-3 flex items-center gap-1.5 flex-wrap">
+        {LOC_TABS.map(t => {
+          const on = locationFilter === t.key
+          const cnt = t.key === '' ? receipts.length : (locCounts[t.key] ?? 0)
+          return (
+            <button
+              key={t.key || 'all'}
+              type="button"
+              onClick={() => setLocationFilter(t.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}
+            >
+              {t.label}
+              <span className={`inline-flex items-center justify-center min-w-[20px] px-1 h-5 rounded-full text-[11px] font-bold ${on ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>{cnt}</span>
+            </button>
+          )
+        })}
+      </div>
 
       {!isManager && (
         <div className="mb-3 inline-flex items-center gap-1.5 text-[12px] text-gray-500">
@@ -130,6 +179,14 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         onClose={() => setReceiptModalOpen(false)}
         cases={cases}
         teams={teams}
+        onSaved={refresh}
+      />
+
+      <ParcelReceiptModal
+        isOpen={parcelModalOpen}
+        onClose={() => setParcelModalOpen(false)}
+        cases={cases}
+        defaultLocation={locationFilter && locationFilter !== '__none__' ? locationFilter : null}
         onSaved={refresh}
       />
     </div>

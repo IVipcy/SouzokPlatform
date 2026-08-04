@@ -48,7 +48,7 @@ export async function GET() {
       .in('id', myCaseIds),
     // 自分が担当の未完了タスク
     supabase.from('tasks')
-      .select('id,title,due_date,status,case_id,template_key, task_assignees!inner(member_id)')
+      .select('id,title,due_date,status,case_id,template_key,source_rid,task_kind, task_assignees!inner(member_id)')
       .eq('task_assignees.member_id', memberId).neq('status', '完了'),
     supabase.from('invoices').select('case_id,invoice_type,status,due_date').in('case_id', myCaseIds),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date').in('case_id', myCaseIds),
@@ -69,7 +69,7 @@ export async function GET() {
     order_sheet_completed_at: string | null; management_started_at: string | null
   }
   const cases = (casesRaw ?? []) as CaseRow[]
-  const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string; template_key: string | null }>
+  const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string; template_key: string | null; source_rid: string | null; task_kind: string | null }>
   const invoices = (invRaw ?? []) as Array<{ case_id: string; invoice_type: string; status: string; due_date: string | null }>
   const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null }>
 
@@ -156,6 +156,14 @@ export async function GET() {
     if (minimal && t.template_key && MINIMAL_HIDDEN_TASK_KEYS.has(t.template_key)) continue
     if (t.due_date && t.due_date < todayStr && t.status !== 'キャンセル') {
       push({ id: `task-${t.id}`, severity: 'high', category: 'タスク期限超過', title: t.title, body: `期限 ${t.due_date} を超過`, href: `/tasks/${t.id}` })
+    }
+    // 到着物あり：受注/管理宛の郵送物一式の開封タスク（source_rid=receipt:）→ 到着受信簿の該当レコードへ
+    if (t.source_rid && t.source_rid.startsWith('receipt:')) {
+      push({ id: `arrival-${t.id}`, severity: 'high', category: '到着物あり', title: t.title, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿に中身を紐付けてください', href: `/cases/${t.case_id}?tab=receipts&task=${t.id}` })
+    }
+    // 自分宛てタスクあり：受注/管理担当タスク(system)で未着手のもの（一括生成の事務管理タスクは対象外）
+    else if (t.task_kind === 'system' && t.status === '未着手') {
+      push({ id: `newtask-${t.id}`, severity: 'info', category: '自分宛てタスク', title: t.title, body: '自分宛てのタスクがあります', href: `/tasks/${t.id}` })
     }
   }
 

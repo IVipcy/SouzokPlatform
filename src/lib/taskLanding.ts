@@ -17,6 +17,10 @@ const stripPhase = (phase: string | null | undefined) => (phase ?? '').replace(/
 export function resolveTaskLanding(task: { source_rid: string | null; phase: string | null }): TaskLanding | null {
   const rid = task.source_rid ?? ''
 
+  // 到着物（受注/管理宛の郵送物一式の開封タスク）→ 到着受信簿の該当レコード
+  const pm = rid.match(/^receipt:(.+)$/)
+  if (pm) return { tab: 'receipts', focus: pm[1], label: '到着受信簿' }
+
   // 戸籍（請求/読込）→ 相続人調査＞戸籍請求サブタブ、focus=戸籍請求ID
   const km = rid.match(/^koseki(?:-read)?:(.+)$/)
   if (km) return { tab: 'deceased', sub: 'koseki', focus: km[1], label: '戸籍請求タブ' }
