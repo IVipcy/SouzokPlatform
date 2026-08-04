@@ -48,10 +48,12 @@ import { buildAlertChips, type ManagerAlertKey } from '@/lib/managerAlerts'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
-type TabKey = 'meetings' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'complaints' | 'tasks'
+type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'complaints' | 'tasks'
 
-// 相談案件 = 受注担当が受託に至るまで（紹介のみは個別管理案件へ移管）
-const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'])
+// 相談案件 = 面談〜検討〜失注（受注前）。依頼確定待ち/受注/戻り受注/作業着手準備 は「未着手案件」へ移管。
+const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '失注'])
+// 未着手案件 = 受注が見えてから作業進行中に入るまでの準備段階
+const PREP_STATUSES = new Set(['検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備'])
 // 個別管理案件 = 紹介のみ
 const REFERRAL_STATUSES = new Set(['紹介のみ'])
 // 管理担当のアラート対象スコープ（KPI/アラート用。一覧分類とは別概念）
@@ -547,7 +549,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (op === 'remove' && (role === 'manager' || role === 'sales')) reassignedCaseIds.add(a.entity_id)
   }
   const ASSIGN_DEADLINE_DAYS = 3
-  const consultRows: ConsultCase[] = consultCasesArr.map(c => {
+  const buildConsultRow = (c: MyCase): ConsultCase => {
     const wonAt = wonAtByCase.get(c.id) ?? null
     const hasManager = managerByCase.has(c.id)
     const daysSinceWon = wonAt ? Math.floor((today.getTime() - new Date(wonAt).getTime()) / 86_400_000) : null
@@ -577,7 +579,12 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       assignOverdue: newOrderUnassigned && daysSinceWon !== null && daysSinceWon >= ASSIGN_DEADLINE_DAYS,
       meetingMemoMissing,
     }
-  })
+  }
+  const consultRows: ConsultCase[] = consultCasesArr.map(buildConsultRow)
+
+  // === 未着手案件（依頼確定待ち/受注/戻り受注/作業着手準備）。受注担当・管理担当 両方のマイページに表示 ===
+  const prepCasesArr = myCases.filter(c => PREP_STATUSES.has(c.status))
+  const prepRows: ConsultCase[] = prepCasesArr.map(buildConsultRow)
 
   // === 個別管理案件（紹介のみ） ===
   const referralCases = myCases.filter(c => REFERRAL_STATUSES.has(c.status))
@@ -637,6 +644,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   ]
 
   const meetingCount = consultCasesArr.length
+  const prepCount = prepCasesArr.length
   const referralCount = referralCases.length
 
   // === 進捗報告（管理担当タブ） ===
@@ -820,6 +828,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const showHourensou = isManager || isSales || hourensouRaw.length > 0
   const validTabs: TabKey[] = []
   if (isSales) validTabs.push('meetings')
+  if (isSales || isManager) validTabs.push('prep')
   validTabs.push('cases')
   if (isManager || isSales) validTabs.push('billing')
   if (isSales) validTabs.push('referrals')
@@ -881,6 +890,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {isSales && (
           <TabLink href={`/my?tab=meetings${asSuffix}`} label={`相談案件一覧 (${meetingCount})`} Icon={MessageSquare} active={activeTab === 'meetings'} />
         )}
+        {(isSales || isManager) && (
+          <TabLink href={`/my?tab=prep${asSuffix}`} label={`未着手案件一覧 (${prepCount})`} Icon={ClipboardList} active={activeTab === 'prep'} />
+        )}
         <TabLink href={`/my?tab=cases${asSuffix}`} label="管理案件一覧" Icon={ClipboardList} active={activeTab === 'cases'} />
         {isManager && (
           <TabLink href={`/my?tab=billing${asSuffix}`} label={`請求 (${billingInvoices.length})`} Icon={Receipt} active={activeTab === 'billing'} />
@@ -936,7 +948,15 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             <MeetingKpi label="不動産査定" value={salesMetrics.propertyAppraisalCount} suffix="件" />
           </div>
 
-          <ConsultationCasesTable cases={consultRows} selectable />
+          <ConsultationCasesTable cases={consultRows} selectable statusFilters={['検討中', '失注']} />
+        </div>
+      )}
+
+      {/* 未着手案件一覧（依頼確定待ち/受注/戻り受注/作業着手準備）。受注担当・管理担当 両方に表示 */}
+      {activeTab === 'prep' && (isSales || isManager) && (
+        <div className="space-y-4">
+          <p className="text-[12px] text-gray-500">受注が見えてから作業進行中に入るまでの準備段階の案件（依頼確定待ち・受注・戻り受注・作業着手準備）。</p>
+          <ConsultationCasesTable cases={prepRows} selectable statusFilters={['検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備']} />
         </div>
       )}
 

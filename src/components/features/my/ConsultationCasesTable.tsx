@@ -55,6 +55,8 @@ type Props = {
   manageMode?: boolean
   /** チェック選択＋一括削除を有効化（未指定なら manageMode に従う）。マイページでも選択可にするため独立。 */
   selectable?: boolean
+  /** ステータス絞り込みチップの候補（タブ別に切替。未指定は相談案件の既定セット） */
+  statusFilters?: readonly string[]
 }
 
 // 相談案件のステータス絞り込み候補（受注担当が受託に至るまでのステータス）
@@ -78,7 +80,7 @@ const formatMan = (yen: number): string => {
  * - お客様回答予定日が迫っている案件を上から順に表示（デフォルト）
  * - ステータスでフィルタ可能
  */
-export default function ConsultationCasesTable({ cases, manageMode = false, selectable }: Props) {
+export default function ConsultationCasesTable({ cases, manageMode = false, selectable, statusFilters = CONSULT_STATUS_FILTERS }: Props) {
   const router = useRouter()
   // 選択UIの有効化。未指定なら manageMode に従う（案件管理ページ）。マイページは selectable で個別に有効化。
   const canSelect = selectable ?? manageMode
@@ -191,7 +193,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
         {!manageMode && (
           <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
             <FilterChip label="すべて" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
-            {CONSULT_STATUS_FILTERS.map(s => (
+            {statusFilters.map(s => (
               <FilterChip
                 key={s}
                 label={getCaseStatusLabel(s)}
