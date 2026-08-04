@@ -33,6 +33,8 @@ type Props = {
   currentMemberId?: string | null
   /** 表示モード。folder=案件フォルダ（ファイル一式）、receipts=到着物一覧（受信簿）。別タブに分離。 */
   mode?: 'folder' | 'receipts'
+  /** 全体権限が無くても受信簿を操作可（この案件の受注/管理担当が自分の案件を開封・紐付けする用） */
+  canOperateReceipts?: boolean
 }
 
 type ReceiptItemRow = {
@@ -60,9 +62,11 @@ type ReceiptItemRow = {
  * を提供する。
  * 受信簿外の自社作成・授受ファイルは下段の「添付ファイル（受信簿外）」で管理する。
  */
-export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], createdDocuments = [], currentMemberId = null, mode = 'folder' }: Props) {
+export default function DocsTab({ caseData, documents, documentReceipts = [], tasks = [], contractDocuments = [], caseFiles = [], createdDocuments = [], currentMemberId = null, mode = 'folder', canOperateReceipts = false }: Props) {
   const router = useRouter()
-  const isManager = useIsManager()  // 到着物のタスク紐づけ・受信操作は管理担当のみ
+  const globalManager = useIsManager()
+  // 到着物のタスク紐づけ・受信操作は管理担当（＋この案件の受注/管理担当は自分の案件のみ操作可）
+  const isManager = globalManager || canOperateReceipts
   const [, startTransition] = useTransition()
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
 

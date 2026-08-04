@@ -75,6 +75,12 @@ export default async function DocumentsPage() {
   const currentMember = (currentMemberRaw ?? null) as MemberRow | null
   const teams = (teamsRaw ?? []) as { id: string; name: string }[]
 
+  // 自分が受注/管理担当の案件ID（全体権限が無くても、自分の案件の受信簿は開封・紐付けできる）
+  const { data: myCmRaw } = currentMemberId
+    ? await supabase.from('case_members').select('case_id, role').eq('member_id', currentMemberId).in('role', ['sales', 'manager'])
+    : { data: [] }
+  const operableCaseIds = [...new Set(((myCmRaw ?? []) as { case_id: string }[]).map(c => c.case_id))]
+
   return (
     <DocumentsClient
       documents={documents}
@@ -83,6 +89,7 @@ export default async function DocumentsPage() {
       currentMemberId={currentMemberId}
       currentMember={currentMember}
       teams={teams}
+      operableCaseIds={operableCaseIds}
     />
   )
 }

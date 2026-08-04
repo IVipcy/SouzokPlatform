@@ -364,6 +364,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? clientCommunications.reduce((max, c) => (c.communicated_at > max ? c.communicated_at : max), clientCommunications[0].communicated_at)
     : null
 
+  // この案件の受注/管理担当なら、自分の案件の受信簿を操作できる（開封・中身の紐付け）
+  const viewerOwnsCase = caseMembers.some(cm => cm.member_id === currentMemberId && (cm.role === 'sales' || cm.role === 'manager'))
   // 管理担当アサイン済か（対応中ガード用）
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
   // 受注担当（進捗確認依頼の確認者＝依頼先）
@@ -760,7 +762,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'receipts' && (
-        <DocsTab mode="receipts" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />
+        <DocsTab mode="receipts" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} canOperateReceipts={viewerOwnsCase} />
       )}
       {effectiveTab === 'docs' && (
         <DocsTab mode="folder" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} />

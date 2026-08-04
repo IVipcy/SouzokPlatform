@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition, Fragment, type ChangeEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
 import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2, X } from 'lucide-react'
 import HankoStamp from '@/components/ui/HankoStamp'
@@ -29,6 +29,8 @@ type Props = {
   fileByDocId: ReceiptFileMap
   teams: { id: string; name: string }[]
   onChanged: () => void
+  /** 全体操作権限が無くても、この案件IDの受信簿だけは操作可（受注/管理担当が自分の案件を開封・紐付けする用） */
+  operableCaseIds?: string[]
 }
 
 // 「0513/001」形式の番号を生成
@@ -49,8 +51,11 @@ function formatReceiptDateHeader(ymd: string): string {
   return `${m}月${d}日（${wd}）`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged }: Props) {
-  const canManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds }: Props) {
+  const globalCanManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
+  const opSet = useMemo(() => new Set(operableCaseIds ?? []), [operableCaseIds])
+  // 全体権限が無くても、自分が担当の案件の受信簿だけは操作可（受注/管理担当の開封・紐付け）
+  const canManageReceipt = (r: DocumentReceiptRow) => globalCanManage || opSet.has(r.case_id)
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [cancelingReceipt, setCancelingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [tab, setTab] = useState<'today' | 'past'>('today')
@@ -146,7 +151,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                           onChanged={onChanged}
                           onStartRequest={setStartingReceipt}
                           onCancelRequest={setCancelingReceipt}
-                          canManage={canManage}
+                          canManage={canManageReceipt(r)}
                         />
                       ))}
                     </Fragment>
@@ -162,7 +167,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                       onChanged={onChanged}
                       onStartRequest={setStartingReceipt}
                       onCancelRequest={setCancelingReceipt}
-                      canManage={canManage}
+                      canManage={canManageReceipt(r)}
                     />
                   ))}
             </tbody>

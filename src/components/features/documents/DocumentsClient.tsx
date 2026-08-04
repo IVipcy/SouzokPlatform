@@ -28,9 +28,10 @@ type Props = {
   currentMemberId: string | null
   currentMember: MemberRow | null
   teams: { id: string; name: string }[]
+  operableCaseIds?: string[]
 }
 
-export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember, teams }: Props) {
+export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember, teams, operableCaseIds }: Props) {
   const router = useRouter()
   const isManager = useCanOperateReceipts()  // 受信登録・受信確定は管理担当＋事務スタッフ(assistant)
   const [, startTransition] = useTransition()
@@ -141,8 +142,10 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
 
       {!isManager && (
         <div className="mb-3 inline-flex items-center gap-1.5 text-[12px] text-gray-500">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-600 font-semibold">参照のみ</span>
-          <HintTip text="到着物の受信の登録・受信確定（W-Check）・タスクとの結び付けは、管理担当だけが操作できます。閲覧は誰でもできます。" />
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-600 font-semibold">
+            {(operableCaseIds?.length ?? 0) > 0 ? '自分の案件は操作可' : '参照のみ'}
+          </span>
+          <HintTip text="新規の受信登録は管理担当・事務スタッフが行います。あなたが受注/管理担当の案件は、到着物の開封・中身の紐付けを操作できます。それ以外は閲覧のみです。" />
         </div>
       )}
 
@@ -172,6 +175,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         fileByDocId={fileByDocId}
         teams={teams}
         onChanged={refresh}
+        operableCaseIds={operableCaseIds}
       />
 
       <NewDocumentReceiptModal
