@@ -18,34 +18,35 @@ export type FlowStep = {
 
 // 受託案件の前提条件（＝受注担当の作業）。done は呼び出し側で判定して渡す。順番は問わない。
 // 管理担当のアサインは「引き継ぐ」操作で行うため前提条件からは外す（受注担当は誰が管理担当かを決めない）。
+// 受注系 → 作業着手準備 の4ゲート（順番固定）：
+//   ①管理担当アサイン ②オーダーシート最終化（これでGO!＝order_sheet_finalized_at。ただの保存ではない）
+//   ③契約書類の受領 ④前受金請求書の発行
 export function getJutakuFlowSteps(args: {
-  orderSheetCompleted: boolean
   managerAssigned: boolean         // 割振り担当が管理担当をアサインしたら完了
+  orderSheetFinalized: boolean     // オーダーシートで「これでGO!」を押したら完了（order_sheet_finalized_at）
   contractDocsReceived: boolean    // 契約書類（区分=契約）を全部受領したら完了
   advanceInvoiceIssued: boolean    // 前受金請求書を発行したら完了
   skipManagerAssign?: boolean      // 「管理担当を割り振らない」案件は管理担当アサインのゲートを出さない
 }): FlowStep[] {
   return [
-    { key: 'orderSheet', label: 'オーダーシート作成', targets: [{ tab: 'orderSheet', label: 'オーダーシートタブ' }], done: args.orderSheetCompleted },
     ...(args.skipManagerAssign ? [] : [{ key: 'manager', label: '管理担当アサイン', targets: [{ tab: 'assignees' as TabKey, label: '担当者タブ' }], done: args.managerAssigned }]),
+    { key: 'osFinal', label: 'オーダーシート最終化（これでGO!）', targets: [{ tab: 'orderSheet', label: 'オーダーシートタブ' }], done: args.orderSheetFinalized },
     { key: 'contractProc', label: '契約書類の受領', targets: [{ tab: 'contractProc', label: '契約手続きタブ' }], done: args.contractDocsReceived },
-    { key: 'fee', label: '料金表入力・前受金請求書の発行', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advanceInvoiceIssued },
+    { key: 'fee', label: '前受金請求書の発行', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advanceInvoiceIssued },
   ]
 }
 
 // 作業着手準備 → 対応中（作業着手）の前提条件（＝事務管理担当の作業）。
 //   管理担当アサイン／契約書類受領／前受金入金／ファイル化。ファイル化は物理ファイルを作り
 //   事務管理担当ダッシュボードで「済」にするため、対象タブ（ハイライト先）は無い。
+// 作業着手準備 → 作業進行中 の2ゲート：①前受金入金確認済 ②ファイル化。
+//   （オーダーシート最終化・タスク出しは受注ナビ側／それ以前で済ませる想定に変更）
 export function getWorkPrepFlowSteps(args: {
-  orderSheetFinalized: boolean   // OSで管理担当が「最終化」を押したら完了
-  tasksGenerated: boolean        // 案件タスク(task_kind=case)を1件以上出したら完了
   advancePaid: boolean           // 請求タブで前受金が入金済になったら完了
   filed: boolean                 // ファイル化（事務管理ダッシュボードで「済」）
 }): FlowStep[] {
   return [
-    { key: 'osFinal', label: 'オーダーシート最終化', targets: [{ tab: 'orderSheet', label: 'オーダーシートタブ' }], done: args.orderSheetFinalized },
-    { key: 'tasks', label: 'タスク出し', targets: [{ tab: 'tasks', label: 'タスクタブ' }], done: args.tasksGenerated },
-    { key: 'advance', label: '前受金の入金', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advancePaid },
+    { key: 'advance', label: '前受金入金確認済', targets: [{ tab: 'contract', label: '請求タブ' }], done: args.advancePaid },
     { key: 'filing', label: 'ファイル化（事務管理ダッシュボードで済にする）', targets: [], done: args.filed },
   ]
 }

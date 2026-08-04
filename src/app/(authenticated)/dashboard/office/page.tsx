@@ -21,13 +21,12 @@ export default async function OfficeDashboardPage() {
   }>
   const caseIds = cases.map(c => c.id)
 
-  // ファイル化以外のゲート：オーダーシート最終化（order_sheet_finalized_at）／タスク出し（案件タスク=case が1件以上）／前受金入金（前受金invoiceが入金済）
-  const [taskRes, invRes, teamsRes] = await Promise.all([
-    caseIds.length ? supabase.from('tasks').select('case_id, task_kind').in('case_id', caseIds).eq('task_kind', 'case') : Promise.resolve({ data: [] }),
+  // 作業着手準備→作業進行中 の着手ゲート：前受金入金（前受金invoiceが入金済）＋ファイル化。
+  //   ※オーダーシート最終化・タスク出しは受注→作業着手準備 の前段で済ませる想定に変更（着手条件から除外）。
+  const [invRes, teamsRes] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
   ])
-  const caseTaskIds = new Set(((taskRes.data ?? []) as Array<{ case_id: string }>).map(t => t.case_id))
   const invs = (invRes.data ?? []) as Array<{ case_id: string; invoice_type: string; status: string }>
   const teamName = new Map(((teamsRes.data ?? []) as Array<{ id: string; name: string }>).map(t => [t.id, t.name]))
 
@@ -43,8 +42,6 @@ export default async function OfficeDashboardPage() {
       teamName: sales?.team_id ? teamName.get(sales.team_id) ?? null : null,
       salesName: sales?.name ?? null,
       managerName: manager?.name ?? null,
-      orderSheetFinalized: !!c.order_sheet_finalized_at,
-      tasksGenerated: caseTaskIds.has(c.id),
       advancePaid,
       filingStatus: c.filing_status === '済' ? '済' : '未',
     }

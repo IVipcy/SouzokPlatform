@@ -384,8 +384,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 受託フロー・ナビゲーター（受注時のみ）。各ステップの完了状態を算出。
   //   オーダーシート作成／管理担当アサイン／契約書類の受領／料金表入力・前受金請求書の発行。
   const flowSteps = getJutakuFlowSteps({
-    orderSheetCompleted: !!caseState.order_sheet_completed_at,
     managerAssigned,
+    orderSheetFinalized: !!caseState.order_sheet_finalized_at,
     contractDocsReceived,
     advanceInvoiceIssued,
     skipManagerAssign: !!caseState.manager_assign_skipped,
@@ -395,8 +395,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 作業着手準備 → 作業進行中 のフロー・ナビゲーター。
   //   オーダーシート最終化／タスク出し／前受金の入金／ファイル化（事務管理ダッシュボードで済）。
   const workPrepSteps = getWorkPrepFlowSteps({
-    orderSheetFinalized: !!caseState.order_sheet_finalized_at,
-    tasksGenerated: tasks.some(t => t.task_kind === 'case'),
     advancePaid,
     filed: caseState.filing_status === '済',
   })
