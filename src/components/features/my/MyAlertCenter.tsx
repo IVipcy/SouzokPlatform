@@ -22,6 +22,8 @@ function notificationHref(n: NotificationItem): string | null {
   if (n.task_id) return `/tasks/${n.task_id}`
   if (!n.case_id) return null
   if (n.type === 'doc_received') return `/cases/${n.case_id}?tab=receipts`
+  // 到着物あり（受注/管理宛の郵送物一式）→ 到着物受信簿で該当案件の未開封一式の再登録モーダルを開く
+  if (n.type === 'arrival_notice') return `/documents?parcelCase=${n.case_id}`
   if (n.type === 'koseki_additional') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
   if (n.type === 'realestate_additional') return `/cases/${n.case_id}?tab=assets`
   // 案件報告の承認依頼：案件報告タブ(sub=report)へ飛ばし、承認モーダルを自動オープン(approve=1)。

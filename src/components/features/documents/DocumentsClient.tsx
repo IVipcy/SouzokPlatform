@@ -45,11 +45,14 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [editReceipt, setEditReceipt] = useState<EditReceiptInfo | null>(null)
 
-  // アラート/通知の ?receipt= で来たら、その郵送物一式の「開封して再登録」モーダルを開く
+  // アラート(?receipt=)/通知(?parcelCase=) で来たら、郵送物一式の「開封して再登録」モーダルを開く。
+  //   receipt= はレコードIDで一意。parcelCase= は案件IDなので、その案件の未開封一式（最新）を探す。
   useEffect(() => {
     const rid = searchParams.get('receipt')
-    if (!rid) return
-    const r = receipts.find(x => x.id === rid)
+    const pcase = searchParams.get('parcelCase')
+    let r: DocumentReceiptRow | undefined
+    if (rid) r = receipts.find(x => x.id === rid)
+    else if (pcase) r = receipts.find(x => x.case_id === pcase && x.is_parcel && !x.opened_at)
     if (r) { setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null }); setLocation(r.location ?? '__none__') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
