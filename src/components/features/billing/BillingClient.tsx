@@ -6,6 +6,7 @@ import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTri
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
+import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
 import Link from 'next/link'
 import CreateInvoiceModal from './CreateInvoiceModal'
 import EditInvoiceModal from './EditInvoiceModal'
@@ -388,7 +389,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       if (error) throw error
       // 入金済にした瞬間、案件の受注担当・管理担当の両方へ通知（CSV突合と同じ）。
       const inv = invoices.find(i => i.id === invoiceId)
-      if (nextStatus === '入金済' && inv && inv.status !== '入金済') await notifyPaymentConfirmed(inv.case_id, inv.amount)
+      if (nextStatus === '入金済' && inv && inv.status !== '入金済') { await notifyPaymentConfirmed(inv.case_id, inv.amount); await ensurePrepaymentThankYouTask(inv.id) }
       showToast(`ステータスを「${nextStatus}」に変更しました`, 'success')
       router.refresh()
     } catch (e) {
@@ -431,7 +432,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       const toNotify = nextStatus === '入金済' ? invoices.filter(i => ids.includes(i.id) && i.status !== '入金済') : []
       const { error } = await supabase.from('invoices').update({ status: nextStatus }).in('id', ids)
       if (error) throw error
-      for (const inv of toNotify) await notifyPaymentConfirmed(inv.case_id, inv.amount)
+      for (const inv of toNotify) { await notifyPaymentConfirmed(inv.case_id, inv.amount); await ensurePrepaymentThankYouTask(inv.id) }
       showToast(`${ids.length} 件のステータスを「${nextStatus}」に変更しました`, 'success')
       clearBulkSelection()
       router.refresh()

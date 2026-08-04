@@ -21,7 +21,7 @@ export type Case = {
 
 // === タスク ===
 export type TaskStatus = '未着手' | '対応中' | 'Wチェック待ち' | '差戻し' | '完了'
-export type TaskPriority = '通常' | '急ぎ'
+export type TaskPriority = '通常' | '急ぎ' | '超急ぎ'
 export type WorkRole = 'manager' | 'assistant' | 'accounting' | 'sales'
 
 export type Task = {

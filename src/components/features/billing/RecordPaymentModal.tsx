@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import { ensureReceiptTask } from '@/lib/receiptTask'
 import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
+import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { InvoiceRow, PaymentRow } from '@/types'
@@ -72,7 +73,7 @@ export default function RecordPaymentModal({ isOpen, onClose, invoice, onSaved }
 
     // 入金確定したら、確認依頼を自動クローズ＋受注担当・管理担当の両方へ通知
     if (newStatus === '入金済') {
-      await autoClosePaymentChecks(invoice.id); await ensureReceiptTask(invoice.id)
+      await autoClosePaymentChecks(invoice.id); await ensureReceiptTask(invoice.id); await ensurePrepaymentThankYouTask(invoice.id)
       if (invoice.status !== '入金済') await notifyPaymentConfirmed(invoice.case_id, invoice.amount)
     }
 

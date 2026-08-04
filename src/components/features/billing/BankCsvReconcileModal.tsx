@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import { parseBankCsv, matchBankRows, type InvoiceLite, type MatchResult } from '@/lib/bankReconcile'
 import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import { ensureReceiptTask } from '@/lib/receiptTask'
+import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
 
 type Props = {
   isOpen: boolean
@@ -156,7 +157,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       // 入金元の銀行を案件へ自動記録（売上表のシート分け＝振り分け）
       if (row.bank) await supabase.from('cases').update({ bank: row.bank }).eq('id', inv.case_id)
       if (status === '入金済') {
-        await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id)
+        await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id); await ensurePrepaymentThankYouTask(inv.id)
         const recipients = new Set<string>()
         if (inv.sales_member_id) recipients.add(inv.sales_member_id)
         if (inv.manager_member_id) recipients.add(inv.manager_member_id)

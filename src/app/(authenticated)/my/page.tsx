@@ -608,9 +608,14 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       over: calDaysOverdue(inv.due_date as string, todayStr), severity: sev,
     }))
   const overdueTasks: OverdueTaskItem[] = roleTasks
-    .map(t => ({ t, sev: ['着手前', '対応中'].includes(normStatus(t.status)) ? overdueSeverity(t.due_date, todayStr) : null }))
+    // 超急ぎの未完了タスクは期日超過してなくても要注意(chui)として常時バナーに出す。それ以外は期日超過で判定。
+    .map(t => {
+      if (!['着手前', '対応中'].includes(normStatus(t.status))) return { t, sev: null as OverdueSeverity | null }
+      const sev: OverdueSeverity | null = t.priority === '超急ぎ' ? 'chui' : overdueSeverity(t.due_date, todayStr)
+      return { t, sev }
+    })
     .filter((x): x is { t: typeof roleTasks[number]; sev: OverdueSeverity } => x.sev !== null)
-    .map(({ t, sev }) => ({ task: t, severity: sev, over: calDaysOverdue(t.due_date as string, todayStr) }))
+    .map(({ t, sev }) => ({ task: t, severity: sev, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date, todayStr)) : 0 }))
 
   // 案件アラート（管理担当 未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
   const salesCaseMeta = new Map(myCases.filter(c => salesCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))

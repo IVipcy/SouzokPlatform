@@ -382,7 +382,8 @@ export const getWorkRoleDef = (key: string | null | undefined) =>
 // === タスク優先度 ===
 export const TASK_PRIORITIES = [
   { key: '通常', label: '通常',  style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-  { key: '急ぎ', label: '急ぎ',  style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
+  { key: '急ぎ', label: '急ぎ',  style: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' },
+  { key: '超急ぎ', label: '超急ぎ', style: 'bg-red-100 text-red-700 border-red-300 font-bold hover:bg-red-200' },
 ] as const
 
 // === 拠点 ===
