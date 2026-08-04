@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, Check, Home, MonitorSmartphone } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, Check, Home, MonitorSmartphone, Flag, Clock } from 'lucide-react'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
@@ -14,12 +14,14 @@ export type GuidedSection = { title: string; gate?: string; workContentKey?: str
 // オーダーシートのガイド入力（スマホ最適）。1セクション＝1画面のステップ。
 // 各ステップは「簡易メモ」を主役にし、「詳細を入力」で既存セクションの詳細項目を展開する。
 // 各項目はインライン自動保存のため、途中でアプリを閉じても内容は保存される。
-export default function OrderSheetGuided({ sections, caseData, patchCase, completed, onComplete, saving }: {
+export default function OrderSheetGuided({ sections, caseData, patchCase, finalized, lastUpdatedAt, onGo, onSaveOnly, saving }: {
   sections: GuidedSection[]
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
-  completed: boolean
-  onComplete: () => Promise<boolean>
+  finalized: boolean                    // これでGO！で確定済み
+  lastUpdatedAt: string | null          // 最終更新日
+  onGo: () => Promise<boolean>          // これでGO！（確定）
+  onSaveOnly: () => Promise<boolean>    // 保存だけ（最終更新日更新）
   saving: boolean
 }) {
   const router = useRouter()
@@ -27,7 +29,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
   // 詳細（契約形態など、面談シートで入力済みの構造化項目）は既定で開く。
   // 折りたたみ既定だと「面談シートで入れた契約形態がオーダーシートに反映されていない」ように見えるため。
   const [detailOpen, setDetailOpen] = useState(true)
-  // 「完成」ボタン押下直後だけ完成画面を出す。開き直したときは通常の入力画面（＝いつでも修正可）。
+  // 「保存/これでGO」押下直後だけ完了画面を出す。開き直したときは通常の入力画面（＝いつでも修正可）。
   const [justCompleted, setJustCompleted] = useState(false)
   const total = sections.length
 
@@ -39,7 +41,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           <Check className="w-10 h-10 text-emerald-600" strokeWidth={2.25} />
         </div>
         <div className="text-[20px] font-bold text-gray-900 mb-1.5">お疲れさまでした</div>
-        <div className="text-[13px] text-gray-500 mb-5">オーダーシートが完成しました</div>
+        <div className="text-[13px] text-gray-500 mb-5">{finalized ? 'オーダーシートを確定しました（これでGO！）' : 'オーダーシートを保存しました'}</div>
 
         {/* スマホ/タブレット時のみ「以降はPCで」の案内 (lg以上=PC では非表示) */}
         <div className="w-full max-w-[320px] rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-3.5 mb-6 lg:hidden">
@@ -94,11 +96,15 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[12px] text-gray-500">ステップ {step + 1} / {total}</span>
-          {completed && (
+          {finalized ? (
             <span className="text-[11px] font-semibold text-emerald-700 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />完成済（編集できます）
+              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />確定済（編集は×で解除）
             </span>
-          )}
+          ) : lastUpdatedAt ? (
+            <span className="text-[11px] font-medium text-gray-500 inline-flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" strokeWidth={2} />最終更新 {lastUpdatedAt.slice(5, 10).replace('-', '/')}
+            </span>
+          ) : null}
         </div>
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div className="h-full bg-brand-600 transition-all" style={{ width: `${((step + 1) / total) * 100}%` }} />
@@ -154,14 +160,20 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           <ChevronLeft className="w-4 h-4" />前へ
         </button>
         {isLast ? (
-          <button
-            type="button"
-            onClick={async () => { if (await onComplete()) setJustCompleted(true) }}
-            disabled={saving}
-            className="flex-[2] py-2.5 rounded-lg bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : completed ? '完成を更新' : '完成'}
-          </button>
+          finalized ? (
+            <span className="flex-[2] py-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[13px] font-bold inline-flex items-center justify-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />確定済
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={async () => { if (await onGo()) setJustCompleted(true) }}
+              disabled={saving}
+              className="flex-[2] py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-bold hover:bg-brand-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
+            >
+              <Flag className="w-4 h-4" strokeWidth={2.25} />{saving ? '処理中...' : 'これでGO！'}
+            </button>
+          )
         ) : (
           <button
             type="button"
@@ -172,6 +184,18 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, comple
           </button>
         )}
       </div>
+
+      {/* 最終ステップ：確定せず保存だけして終了（受注担当が確定を管理担当に任せるケース） */}
+      {isLast && !finalized && (
+        <button
+          type="button"
+          onClick={async () => { if (await onSaveOnly()) setJustCompleted(true) }}
+          disabled={saving}
+          className="w-full mt-2 py-2.5 rounded-lg border border-gray-200 text-[13px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition"
+        >
+          まだ確定せず、保存だけして終了
+        </button>
+      )}
 
       {/* ステップ番号（タップで移動・コンパクト） */}
       <div className="flex flex-wrap gap-1 mt-2.5 justify-center">

@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle2, FileSpreadsheet, Eye } from 'lucide-react'
+import { CheckCircle2, FileSpreadsheet, Eye, Flag, Clock, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { showToast } from '@/components/ui/Toast'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import HankoStamp from '@/components/ui/HankoStamp'
 import ClientInfoTab from './ClientInfoTab'
 import OrderContentTab from './OrderContentTab'
 import DeceasedTab from './DeceasedTab'
@@ -70,41 +73,71 @@ export default function OrderSheet({
   // アシスタント（パート）はオーダーシートを参照のみ（入力・完成操作は不可）
   const ro = !!authUser && authUser.primaryRole === 'assistant' && !authUser.roles.includes('system_manager')
   const [saving, setSaving] = useState(false)
-  const completed = !!caseData.order_sheet_completed_at
+  const [reeditConfirm, setReeditConfirm] = useState(false)  // ハンコ×→「確定したオーダーシートを再編集」確認
+  // 最終更新日＝order_sheet_completed_at（保存/GOで更新）。確定＝order_sheet_finalized_at（これでGO！のハンコ）。
+  const lastUpdatedAt = caseData.order_sheet_completed_at
+  const finalized = !!caseData.order_sheet_finalized_at
 
-  const saveAndRefresh = async () => {
+  // 「オーダーシートを保存」＝最終更新日を今に更新（各項目は入力時に自動保存済み）。
+  const saveAndRefresh = async (): Promise<boolean> => {
     setSaving(true)
-    onRefresh()
-    setSaving(false)
-    showToast('オーダーシートを保存しました', 'success')
-  }
-
-  const markComplete = async (): Promise<boolean> => {
-    setSaving(true)
-    // 完成済でも編集可（作業進行中になるまで）。再度押しても完成日は初回のまま保持する。
-    const { error } = await supabase
-      .from('cases')
-      .update({ order_sheet_completed_at: caseData.order_sheet_completed_at ?? new Date().toISOString() })
-      .eq('id', caseData.id)
+    const { error } = await supabase.from('cases').update({ order_sheet_completed_at: new Date().toISOString() }).eq('id', caseData.id)
     setSaving(false)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return false }
-    showToast(completed ? 'オーダーシートを更新しました' : 'オーダーシートを完成しました', 'success')
     onRefresh()
+    showToast('オーダーシートを保存しました', 'success')
     return true
   }
 
-  // オーダーシート最終化（管理担当チェック済のハンコ）。着手OKの条件には含めない・管理担当の完了事項マーカー。
-  const finalized = !!caseData.order_sheet_finalized_at
-  const toggleFinalize = async () => {
-    if (finalized) await patchCase({ order_sheet_finalized_at: null, order_sheet_finalized_by: null, order_sheet_finalized_name: null })
-    else await patchCase({ order_sheet_finalized_at: new Date().toISOString(), order_sheet_finalized_by: authUser?.memberId ?? null, order_sheet_finalized_name: null })
+  // 「これでGO！」＝確定（最終化）。管理担当でも受注担当でも押せる。GO日を最終更新日にも反映。
+  const goFinalize = async (): Promise<boolean> => {
+    setSaving(true)
+    const now = new Date().toISOString()
+    try {
+      await patchCase({ order_sheet_finalized_at: now, order_sheet_finalized_by: authUser?.memberId ?? null, order_sheet_finalized_name: authUser?.memberName ?? null, order_sheet_completed_at: now })
+    } catch (e) { setSaving(false); showToast(`確定に失敗しました: ${e instanceof Error ? e.message : ''}`, 'error'); return false }
+    setSaving(false)
+    showToast('オーダーシートを確定しました（これでGO！）', 'success')
+    return true
   }
-  const finalizeStampEl = ro ? null : (
-    <button type="button" onClick={toggleFinalize}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors ${finalized ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-gray-600 border-gray-300 hover:border-brand-400'}`}
-      title="オーダーシートを最終化（管理担当チェック済）。もう一度押すと解除。">
-      <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />{finalized ? `管理担当チェック済（${caseData.order_sheet_finalized_at?.slice(0, 10)}）` : '管理担当チェック済にする'}
+  // 確定解除（再編集）
+  const unfinalize = async () => {
+    await patchCase({ order_sheet_finalized_at: null, order_sheet_finalized_by: null, order_sheet_finalized_name: null })
+    setReeditConfirm(false)
+    showToast('確定を解除しました。再編集できます', 'success')
+  }
+
+  // 最終更新日の表示
+  const lastUpdatedEl = lastUpdatedAt ? (
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg whitespace-nowrap">
+      <Clock className="w-4 h-4 text-gray-400" strokeWidth={2} />最終更新日 {lastUpdatedAt.slice(0, 10)}
+    </span>
+  ) : null
+
+  // 「これでGO！」ボタン or 確定ハンコ（×で再編集）
+  const goOrStampEl = finalized ? (
+    <span className="relative inline-flex items-start">
+      <HankoStamp name={caseData.order_sheet_finalized_name} at={caseData.order_sheet_finalized_at} size="sm" />
+      {!ro && (
+        <button type="button" onClick={() => setReeditConfirm(true)} title="確定を解除して再編集"
+          className="absolute -top-1.5 -right-2 w-[18px] h-[18px] rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 flex items-center justify-center shadow-sm">
+          <X className="w-3 h-3" strokeWidth={2.5} />
+        </button>
+      )}
+    </span>
+  ) : (!ro ? (
+    <button type="button" onClick={goFinalize} disabled={saving}
+      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50">
+      <Flag className="w-4 h-4" strokeWidth={2.25} />これでGO！
     </button>
+  ) : null)
+
+  // 確定解除の確認ポップ（ハンコ×）
+  const reeditModalEl = (
+    <Modal isOpen={reeditConfirm} onClose={() => setReeditConfirm(false)} title="確定したオーダーシートを再編集" maxWidth="max-w-sm"
+      footer={<><Button variant="secondary" onClick={() => setReeditConfirm(false)}>いいえ</Button><Button variant="primary" onClick={unfinalize}>はい</Button></>}>
+      <p className="text-[13px] text-gray-700 leading-relaxed">確定を解除して、オーダーシートを再編集しますか？（ハンコが消え、「これでGO！」ボタンに戻ります）</p>
+    </Modal>
   )
 
   // 受注区分→選択業務 で実務セクションを出し分け（service_category 未設定の旧案件は全表示）
@@ -171,8 +204,10 @@ export default function OrderSheet({
         sections={osSections}
         caseData={caseData}
         patchCase={patchCase}
-        completed={completed}
-        onComplete={markComplete}
+        finalized={finalized}
+        lastUpdatedAt={lastUpdatedAt}
+        onGo={goFinalize}
+        onSaveOnly={saveAndRefresh}
         saving={saving}
       />
     )
@@ -189,28 +224,13 @@ export default function OrderSheet({
             受託案件の概要を1枚で把握・入力します。
           </p>
         </div>
-        {ro ? (
+        {ro && (
           <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg">
-            <Eye className="w-4 h-4" />
-            参照のみ（アシスタント）
+            <Eye className="w-4 h-4" />参照のみ（アシスタント）
           </span>
-        ) : completed ? (
-          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
-            <CheckCircle2 className="w-4 h-4" />
-            完成済（{caseData.order_sheet_completed_at?.slice(0, 10)}）
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={markComplete}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50"
-          >
-            <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-            {saving ? '保存中...' : 'オーダーシートを完成'}
-          </button>
         )}
-        {finalizeStampEl}
+        {lastUpdatedEl}
+        {goOrStampEl}
       </div>
 
       <div className="lg:flex lg:gap-5 lg:items-start">
@@ -250,11 +270,11 @@ export default function OrderSheet({
         </fieldset>
       </div>
 
-      {/* 最下部の保存／完成アクション（各項目は入力時に自動保存されます） */}
+      {/* 最下部の保存／確定アクション（各項目は入力時に自動保存されます） */}
       {!ro && (
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
-        <p className="flex-1 text-[12px] text-gray-500">各項目は入力した時点で自動保存されます。最後にこのボタンで保存を確定できます。</p>
-        {finalizeStampEl}
+        <p className="flex-1 text-[12px] text-gray-500">各項目は入力した時点で自動保存されます。「オーダーシートを保存」で最終更新日を更新、「これでGO！」で確定します。</p>
+        {lastUpdatedEl}
         <button
           type="button"
           onClick={saveAndRefresh}
@@ -262,20 +282,13 @@ export default function OrderSheet({
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors disabled:opacity-50"
         >
           <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-          オーダーシートを保存
+          {saving ? '保存中...' : 'オーダーシートを保存'}
         </button>
-        <button
-          type="button"
-          onClick={markComplete}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors disabled:opacity-50"
-        >
-          <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />
-          {saving ? '保存中...' : completed ? '完成を更新' : 'オーダーシートを完成'}
-        </button>
+        {goOrStampEl}
       </div>
       )}
 
+      {reeditModalEl}
       <BackToTopButton />
     </div>
   )
