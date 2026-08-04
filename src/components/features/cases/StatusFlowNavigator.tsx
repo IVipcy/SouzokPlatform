@@ -60,15 +60,34 @@ export function getKentouContractFlowSteps(args: {
   ]
 }
 
+// 作業進行中（対応中）で開いたときの単一ゲート：初期タスク出し（管理担当が一括生成）。
+// ステータスを進めるものではないので、advanceボタンは出さない（hideAdvance）。
+export function getInitialTasksFlowSteps(args: {
+  tasksGenerated: boolean          // 案件タスク(task_kind=case)を1件以上出したら完了
+}): FlowStep[] {
+  return [
+    { key: 'initialTasks', label: '初期タスク出し', targets: [{ tab: 'tasks', label: 'タスクタブ' }], done: args.tasksGenerated },
+  ]
+}
+
 type Props = {
   steps: FlowStep[]
   onAdvance: () => void // 次のステータスへ進める（引き継ぎ等）
   onDismiss: () => void // 「あとで」
   targetLabel?: string  // 進行先ステータス名（既定: 対応中）
   advanceLabel?: string // 進めるボタンの文言（既定: `${targetLabel}に進める`）
+  hideAdvance?: boolean // 完了しても「進める」ボタンを出さない（ステータスを進めない案内用）
+  incompleteTitle?: string // 未完了時の見出し（既定: `「${targetLabel}」に進むための残り対応`）
+  incompleteSub?: string   // 未完了時の説明
+  completeTitle?: string   // 完了時の見出し（既定: 準備完了）
+  completeSub?: string     // 完了時の説明
 }
 
-export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targetLabel = '対応中', advanceLabel }: Props) {
+export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targetLabel = '対応中', advanceLabel, hideAdvance = false, incompleteTitle, incompleteSub, completeTitle, completeSub }: Props) {
+  const incTitle = incompleteTitle ?? `「${targetLabel}」に進むための残り対応`
+  const compTitle = completeTitle ?? '準備完了'
+  const incSub = incompleteSub ?? '点滅しているタブを開いて対応してください。順番は問いません（どれからでもOK）。'
+  const compSub = completeSub ?? `すべての前提条件が揃いました。「${targetLabel}」に進められます。`
   const total = steps.length
   const doneCount = steps.filter(s => s.done).length
   const remaining = total - doneCount
@@ -106,14 +125,12 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
           <div className="flex items-center gap-2">
             <span className={`text-[13px] font-bold ${allDone ? 'text-emerald-700' : 'text-brand-700'} ${celebrate ? 'nav-alldone-pop inline-flex items-center gap-1' : ''}`}>
               {celebrate && <Sparkles className="w-4 h-4 text-emerald-500" />}
-              {allDone ? (celebrate ? '準備完了！' : '準備完了') : `「${targetLabel}」に進むための残り対応`}
+              {allDone ? (celebrate ? `${compTitle}！` : compTitle) : incTitle}
             </span>
             <span className="text-[11px] text-gray-400">（{doneCount}/{total} 完了{allDone ? '' : `・残り${remaining}件`}）</span>
           </div>
           <p className={`text-[12.5px] leading-relaxed mt-0.5 ${celebrate ? 'text-emerald-600 font-medium' : 'text-gray-500'}`}>
-            {allDone
-              ? `すべての前提条件が揃いました。「${targetLabel}」に進められます。`
-              : '点滅しているタブを開いて対応してください。順番は問いません（どれからでもOK）。'}
+            {allDone ? compSub : incSub}
           </p>
         </div>
 
@@ -147,7 +164,7 @@ export default function StatusFlowNavigator({ steps, onAdvance, onDismiss, targe
           </span>
         ))}
 
-        {allDone && (
+        {allDone && !hideAdvance && (
           <button
             type="button"
             onClick={onAdvance}

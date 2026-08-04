@@ -46,7 +46,7 @@ import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
-import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps, getWorkPrepFlowSteps } from './StatusFlowNavigator'
+import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps, getWorkPrepFlowSteps, getInitialTasksFlowSteps } from './StatusFlowNavigator'
 import HandoffModal from './HandoffModal'
 import AssignRequestModal from './AssignRequestModal'
 import Modal from '@/components/ui/Modal'
@@ -398,17 +398,23 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     advancePaid,
     filed: caseState.filing_status === '済',
   })
+  // 作業進行中（対応中）で開いたとき：初期タスク出しの単一ゲート（タスク一括生成を促す。出したら消える）。
+  const initialTasksGenerated = tasks.some(t => t.task_kind === 'case')
+  const initialTasksSteps = getInitialTasksFlowSteps({ tasksGenerated: initialTasksGenerated })
   // ミニマム運用モードでは各フロー・ナビ（ハードゲート案内）を出さない
   const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed && !gatesDisabled()
   const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed && !gatesDisabled()
   const workPrepNavVisible = caseState.status === '作業着手準備' && !navDismissed && !gatesDisabled()
+  // 作業進行中は「初期タスク出し」だけを案内（タスク未生成のときのみ）。ステータスは進めない。
+  const wipNavVisible = caseState.status === '対応中' && !navDismissed && !gatesDisabled() && !initialTasksGenerated
   // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
   // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
   const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : ['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s
-  const kickoffNeeded = caseState.status === '対応中' && !gatesDisabled()
+  // 初期タスク出しが済んでから（=wipNavが消えてから）着手を促す。二重ハイライトを避ける。
+  const kickoffNeeded = caseState.status === '対応中' && !gatesDisabled() && initialTasksGenerated
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
-  const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : workPrepNavVisible ? workPrepSteps : []
+  const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : workPrepNavVisible ? workPrepSteps : wipNavVisible ? initialTasksSteps : []
   // 管理担当ビュー: 作業進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
   //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
   const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
@@ -613,8 +619,22 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           />
         )}
 
+        {/* 作業進行中ナビ：初期タスク出しの単一ゲートだけを案内（ステータスは進めない＝advance非表示）。 */}
+        {wipNavVisible && (
+          <StatusFlowNavigator
+            steps={initialTasksSteps}
+            hideAdvance
+            onAdvance={() => {}}
+            onDismiss={() => setNavDismissed(true)}
+            incompleteTitle="作業を始める前に：初期タスク出し"
+            incompleteSub="点滅している「タスク」タブを開いて、案件の初期タスクを一括生成してください。"
+            completeTitle="初期タスクを出しました"
+            completeSub="タスクタブから作業を進めてください。"
+          />
+        )}
+
         {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
-        {(jutakuNavVisible || kentouNavVisible || workPrepNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
+        {(jutakuNavVisible || kentouNavVisible || workPrepNavVisible || wipNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
 
         {/* 管理担当ビュー: 引継直後で管理担当が未アサインなら『案件情報→担当者』への誘導バナーを表示 */}
         {managerAssignNav && (
