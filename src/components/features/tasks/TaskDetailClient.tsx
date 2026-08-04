@@ -50,6 +50,7 @@ type Props = {
 const PRIORITIES = [
   { key: '通常', label: '通常' },
   { key: '急ぎ', label: '急ぎ' },
+  { key: '超急ぎ', label: '超急ぎ' },
 ]
 
 // ステータス正規化: 旧ステータスを新3段階に変換
@@ -359,7 +360,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 value={task.priority}
                 onChange={e => saveField('priority', e.target.value)}
                 title="優先度"
-                className={`text-xs font-semibold rounded-full border px-2.5 py-1 outline-none cursor-pointer ${task.priority === '急ぎ' ? 'bg-red-50 text-red-700 border-red-300' : 'bg-gray-50 text-gray-600 border-gray-300'}`}
+                className={`text-xs font-semibold rounded-full border px-2.5 py-1 outline-none cursor-pointer ${task.priority === '超急ぎ' ? 'bg-red-100 text-red-700 border-red-300 font-bold' : task.priority === '急ぎ' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-gray-50 text-gray-600 border-gray-300'}`}
               >
                 {PRIORITIES.map(p => <option key={p.key} value={p.key}>優先度：{p.key}</option>)}
               </select>
