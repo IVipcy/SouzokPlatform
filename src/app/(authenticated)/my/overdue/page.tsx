@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
-import { computeCaseStateAlerts, computeUrgentReportAlerts } from '@/lib/caseStateAlerts'
+import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import type { TaskRow } from '@/types'
 
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
@@ -67,10 +67,11 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   }>()
   const caseHasSevere = new Set<string>()
   for (const t of tasks) {
-    if (!t.due_date) continue
-    // 期日超過(due_date < today)
-    if ((t.due_date as string) >= todayStr) continue
-    const sev = overdueSeverity(t.due_date, todayStr)      // 5営業日/2週間 の重い判定(null=軽微1〜4営業日)
+    // 超急ぎタスクは期日超過してなくても要注意(chui)としてバナーと揃える
+    const superUrgent = t.priority === '超急ぎ'
+    const overdue = !!t.due_date && (t.due_date as string) < todayStr
+    if (!overdue && !superUrgent) continue
+    const sev: OverdueSeverity | null = superUrgent ? 'chui' : overdueSeverity(t.due_date, todayStr)
     if (sev) caseHasSevere.add(t.case_id)
     const cur = caseOverdue.get(t.case_id) ?? {
       severity: (sev ?? 'kakunin') as OverdueSeverity,     // 軽微しかない場合は表示上 kakunin 相当だが、caseHasSevere で出現制御
@@ -80,7 +81,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     if (sev === 'chui') cur.severity = 'chui'
     else if (sev === 'kakunin' && cur.severity !== 'chui') cur.severity = 'kakunin'
     cur.countTasks += 1
-    const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev }
+    const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: (t.due_date as string) || todayStr, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date as string, todayStr)) : 0, severity: sev }
     if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
     if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
     caseOverdue.set(t.case_id, cur)
@@ -96,9 +97,10 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   }
 
   // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ
-  const [progRes, urgentRepRes] = await Promise.all([
+  const [progRes, urgentRepRes, parcelRes] = await Promise.all([
     myCaseIds.length ? supabase.from('tasks').select('case_id,status,task_kind').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
     myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
+    myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : Promise.resolve({ data: [] }),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTasks = (progRes.data ?? []) as any[]
@@ -142,6 +144,12 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...computeUrgentReportAlerts(((urgentRepRes.data ?? []) as any[]).filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+    // 到着物あり（未開封の郵送物一式）→ 要確認(黄)。自分が受注/管理担当の案件。
+    ...computeParcelArrivalAlerts(
+      ((parcelRes.data ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>)
+        .filter(p => salesCaseIds.has(p.case_id) || managerCaseIds.has(p.case_id))
+        .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '' })),
+    ),
   ]
 
   // 銀行超過はseverityで絞り込み

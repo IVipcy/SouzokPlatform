@@ -27,7 +27,7 @@ type CaseLite = {
 }
 
 type Section = 'payment' | 'task' | 'caseAlert'
-type CaseAlertLite = { caseId: string; caseNumber: string; dealName: string; category: string; severity: OverdueSeverity }
+type CaseAlertLite = { caseId: string; caseNumber: string; dealName: string; category: string; severity: OverdueSeverity; href?: string }
 
 export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev: _sev, initialSection = 'payment' }: {
   bills: BillLite[]; cases: CaseLite[]; caseAlerts?: CaseAlertLite[]; sev: OverdueSeverity | null
@@ -72,7 +72,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
                     <div className="text-[13px] font-semibold text-gray-800 truncate">{a.dealName}</div>
                     <div className="text-[11px] font-mono text-gray-500">{a.caseNumber}</div>
                   </div>
-                  <Link href={`/cases/${a.caseId}?tab=assignees`} className="flex-none px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">割振り・アサイン</Link>
+                  <Link href={a.href ?? `/cases/${a.caseId}?tab=assignees`} className="flex-none px-3 py-1.5 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">{a.href ? '開く' : '割振り・アサイン'}</Link>
                 </div>
               ))}
             </div>
