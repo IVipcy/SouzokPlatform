@@ -351,7 +351,6 @@ function CommunicationsSection({ caseData, rows, onRefresh, allMembers, currentM
 }
 
 function CommunicationRow({ row, onRefresh, onClaimSync }: { row: ClientCommunicationRow; onRefresh?: () => void; onClaimSync?: () => void }) {
-  const [taskizeOpen, setTaskizeOpen] = useState(false)
   const [editing, setEditing] = useState<{
     communicated_at: string
     communication_type: string
@@ -514,32 +513,15 @@ function CommunicationRow({ row, onRefresh, onClaimSync }: { row: ClientCommunic
         </select>
       </td>
       <td className="px-2 py-1.5 border border-gray-200 text-center">
-        <div className="inline-flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setTaskizeOpen(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors whitespace-nowrap"
-            title="このやり取りから受注/管理担当タスクを作成"
-          >
-            <ClipboardCheck className="w-3.5 h-3.5" strokeWidth={2.25} /> タスク化
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1"
-            title="削除"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        {/* タスクタブと同じ AddTaskModal を使用（事務管理担当/管理担当/受注担当 の3種類対応） */}
-        <AddTaskModal
-          isOpen={taskizeOpen}
-          onClose={() => setTaskizeOpen(false)}
-          caseId={row.case_id}
-          allMembers={[]}
-          onSaved={() => { setTaskizeOpen(false); onRefresh?.() }}
-        />
+        {/* 行単位のタスク化は廃止（タスク化はセクション右上の「タスク化」から） */}
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="text-gray-300 hover:text-red-500 transition-colors p-1"
+          title="削除"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </td>
     </tr>
   )
