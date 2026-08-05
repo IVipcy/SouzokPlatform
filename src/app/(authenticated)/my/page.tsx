@@ -788,9 +788,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // タブバッジ: 未確認(依頼中)かつ自分が報告者でない
   const hourensouPendingCount = hourensouRaw.filter(r => r.status === '依頼中' && r.requester_id !== memberId).length
 
-  // 請求タブ: 当月の受託(受注)/当月完了予定の対応中/当月業務完了の完了 案件。
-  // 管理担当＝自分が管理担当の案件 / 受注担当＝自分が受注担当の案件。
-  const billingScopeIds = isManager ? managerCaseIds : isSales ? salesCaseIds : new Set<string>()
+  // 請求タブ: 自分が担当（受注/管理いずれか）として関与する全案件の請求を対象にする。
+  //   （旧: 管理担当は managerCaseIds のみ → 自分が受注担当で持っている案件の請求が出ない不具合があった）
+  const billingScopeIds = (isManager || isSales) ? myCaseIds : new Set<string>()
 
   // 請求タブは /billing（BillingClient）と同一UI・操作にする（CSV突合以外）。自分の案件にスコープ。
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
