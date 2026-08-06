@@ -293,6 +293,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
               caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase}
               currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
               onRefresh={() => router.refresh()} onOpenViewer={() => setMemoViewerOpen(true)}
+              onGoFields={() => { setSheetMode('fields'); window.scrollTo(0, 0) }}
             />
           ) : (
           <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}

@@ -11,10 +11,10 @@
 //   ビューアでのセクションジャンプに使う。
 
 import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
-import { Pen, Highlighter, Eraser, Trash2, Sparkles, Save, Plus, FileText } from 'lucide-react'
+import { Pen, Highlighter, Eraser, Trash2, Sparkles, Save, Plus, FileText, Check, X, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { createRunExtract, SEC_LABEL, WB_ORDER, isExtractable } from './MeetingSheetTab'
+import { SEC_LABEL, WB_ORDER } from './MeetingSheetTab'
 import type { CaseRow } from '@/types'
 import type { MeetingMemoRow, MemoBand } from './IntakeCaseClient'
 
@@ -83,10 +83,12 @@ type Props = {
   setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
   onRefresh?: () => void
   onOpenViewer?: () => void
+  /** テキスト化のあと「項目モードで確認する」で呼ぶ（①の書き方切替を項目モードへ戻す） */
+  onGoFields?: () => void
 }
 
 export default function WhiteboardTab({
-  caseData, patchCase, patchClient, ensureCaseId, currentMemberId, memos, setMemos, onRefresh, onOpenViewer,
+  caseData, patchCase, ensureCaseId, currentMemberId, memos, setMemos, onOpenViewer, onGoFields,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -104,12 +106,11 @@ export default function WhiteboardTab({
   const [dirty, setDirty] = useState(false)   // 一度でも書いたか
   const dirtyRef = useRef(false)
 
-  // フリー欄（work_content）。テキスト化の結果はここに入り、ここで直せる。
+  // フリー欄（work_content）。テキスト化の結果はここへ入る。
+  // 白紙モードは「書く」専用にして、内容の確認・修正と「AIで項目に反映」は項目モード側で行う
+  // （同じフリー欄を2か所に出すと、どちらで直すのか迷うため）。
   const wc = (caseData.work_content ?? {}) as Record<string, string>
-  const [texts, setTexts] = useState<Record<string, string>>(() => {
-    const o: Record<string, string> = {}; for (const s of SECTIONS) o[s.key] = wc[s.key] ?? ''; return o
-  })
-  const [aiDone, setAiDone] = useState<Set<string>>(new Set())
+  const [ocrDone, setOcrDone] = useState<string[]>([])   // 直近のテキスト化で反映したセクション名
 
   const tops = heights.reduce<number[]>((acc, h, i) => { acc.push(i === 0 ? 0 : acc[i - 1] + heights[i - 1]); return acc }, [])
   const totalH = heights.reduce((a, b) => a + b, 0)
@@ -244,45 +245,11 @@ export default function WhiteboardTab({
       const keys = Object.keys(got)
       if (keys.length === 0) { showToast('文字を認識できませんでした', 'error'); return }
       // フリー欄へ追記（既存の内容は消さない）。work_content は1回にまとめてパッチする。
-      const next = { ...texts }
-      for (const k of keys) next[k] = next[k] ? `${next[k]}\n${got[k]}` : got[k]
-      setTexts(next)
       const merged: Record<string, string | null> = { ...wc }
-      for (const k of keys) merged[k] = next[k] || null
+      for (const k of keys) merged[k] = wc[k] ? `${wc[k]}\n${got[k]}` : got[k]
       await patchCase({ work_content: merged } as unknown as Partial<CaseRow>)
-      showToast(`${keys.length}セクションをテキスト化しました。内容を確認・修正してからAI反映してください。`, 'success')
-    } finally { setBusy('') }
-  }
-
-  // ── ② AIで項目に反映 ──
-  const runExtract = createRunExtract({
-    patchCase, patchClient, caseId: caseData.id, ensureCaseId, onRefresh, silent: true,
-  })
-  const extractOne = async (sec: string) => {
-    const text = texts[sec]?.trim(); if (!text) { showToast('このセクションのメモが空です', 'error'); return }
-    setBusy('extract')
-    try {
-      const r = await runExtract(sec)({ text })
-      if (r.filled === 0 && r.added === 0) { showToast('反映できる項目が読み取れませんでした', 'error'); return }
-      setAiDone(prev => new Set([...prev, sec]))
-      showToast(`${SEC_LABEL[sec]}：${[r.filled ? `${r.filled}項目を反映` : '', r.added ? `${r.added}件を追加` : ''].filter(Boolean).join('・')}しました`, 'success')
-    } finally { setBusy('') }
-  }
-  const extractAll = async () => {
-    const secs = SECTIONS.filter(s => isExtractable(s.key) && texts[s.key]?.trim())
-    if (secs.length === 0) { showToast('反映できるメモがありません', 'error'); return }
-    setBusy('extract')
-    let filled = 0, added = 0
-    const done: string[] = []
-    try {
-      for (const s of secs) {
-        const r = await runExtract(s.key)({ text: texts[s.key].trim() })
-        filled += r.filled; added += r.added
-        if (r.filled || r.added) done.push(s.key)
-      }
-      if (filled === 0 && added === 0) { showToast('反映できる項目が読み取れませんでした', 'error'); return }
-      setAiDone(prev => new Set([...prev, ...done]))
-      showToast(`${[filled ? `${filled}項目を反映` : '', added ? `${added}件を追加` : ''].filter(Boolean).join('・')}しました。青文字の項目はAIが入力しています。中身を見直してください。`, 'success')
+      setOcrDone(keys.map(k => SEC_LABEL[k] ?? k))
+      showToast(`${keys.length}セクションを項目モードのメモ欄に反映しました`, 'success')
     } finally { setBusy('') }
   }
 
@@ -326,11 +293,6 @@ export default function WhiteboardTab({
       showToast('白紙メモの原本を保存しました', 'success')
     } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗', 'error') } finally { setBusy('') }
   }
-
-  const saveText = (sec: string, v: string) => {
-    setTexts(prev => ({ ...prev, [sec]: v }))
-  }
-  const commitText = (sec: string, v: string) => patchCase({ work_content: { ...wc, [sec]: v || null } } as unknown as Partial<CaseRow>)
 
   const wbCount = memos.filter(m => m.section === WB_SECTION).length
 
@@ -376,6 +338,35 @@ export default function WhiteboardTab({
           <Save className="w-4 h-4" />{busy === 'save' ? '保存中…' : '原本を保存'}
         </button>
       </div>
+
+      {/* テキスト化の結果。白紙モードでは内容を出さず「どこへ入ったか」と次の操作だけ伝える。
+          確認・修正と「AIで項目に反映」は項目モードで行う（フリー欄が2か所に出るのを避けるため）。 */}
+      {ocrDone.length > 0 && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+          <div className="flex items-start gap-2.5 flex-wrap">
+            <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-none" strokeWidth={2.5} />
+            <div className="flex-1 min-w-[220px]">
+              <p className="text-[13px] font-bold text-emerald-800">{ocrDone.length}セクションを 項目モードのメモ欄に反映しました</p>
+              <p className="text-[11.5px] text-emerald-700 mt-0.5">{ocrDone.join('／')}</p>
+              <p className="text-[11.5px] text-gray-500 mt-1.5">
+                内容の確認・修正と、各項目への反映（「AIで項目に反映」）は<b className="text-gray-700">項目モード</b>で行えます。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {onGoFields && (
+                <button type="button" onClick={onGoFields}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-3.5 py-2 min-h-[38px] rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors">
+                  <ClipboardList className="w-4 h-4" />項目モードで確認する
+                </button>
+              )}
+              <button type="button" onClick={() => setOcrDone([])} title="閉じる"
+                className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* スマホ/タブレット：セクションチップ（横スクロール）。PCでは左のナビを使う。 */}
       <div className="lg:hidden sticky top-[58px] z-10 bg-white/95 backdrop-blur -mx-1 px-1 py-1.5 border-b border-gray-100 overflow-x-auto">
@@ -429,41 +420,6 @@ export default function WhiteboardTab({
         </div>
       </div>
 
-      {/* テキスト化の結果＝各セクションのフリー欄（ここで直してからAI反映） */}
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]">
-          <span className="text-[14px] font-bold text-white flex-1">テキスト化の結果（フリー欄）</span>
-          <button type="button" onClick={extractAll} disabled={!!busy}
-            className="inline-flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg bg-white/15 text-white hover:bg-white/25 disabled:opacity-40">
-            <Sparkles className="w-3.5 h-3.5" />{busy === 'extract' ? '反映中…' : 'まとめて項目に反映'}
-          </button>
-        </div>
-        <div className="p-3 space-y-2.5">
-          {SECTIONS.map(s => (
-            <div key={s.key}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[12px] font-semibold text-gray-700">{s.label}</span>
-                {aiDone.has(s.key) && <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5">反映済</span>}
-                {!isExtractable(s.key) && <span className="text-[10px] text-gray-400">メモのみ</span>}
-                {isExtractable(s.key) && (
-                  <button type="button" onClick={() => extractOne(s.key)} disabled={!texts[s.key]?.trim() || !!busy}
-                    className="ml-auto inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40">
-                    <Sparkles className="w-3 h-3" />このセクションを反映
-                  </button>
-                )}
-              </div>
-              <textarea
-                value={texts[s.key] ?? ''}
-                onChange={e => saveText(s.key, e.target.value)}
-                onBlur={e => commitText(s.key, e.target.value)}
-                rows={2}
-                placeholder="（このセクションのメモ）"
-                className="w-full text-[13px] rounded-lg border border-gray-200 px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
