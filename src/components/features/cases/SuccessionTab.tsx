@@ -10,6 +10,8 @@ import { Trash2, Plus, DownloadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SubTabs } from '@/components/ui/SubTabs'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import { Section } from '@/components/ui/InlineFields'
 import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
@@ -33,8 +35,15 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   const [income, setIncome] = useState<SettlementIncomeItemRow[]>([])
   const [expense, setExpense] = useState<SettlementExpenseItemRow[]>([])
   const [instr, setInstr] = useState<InstructionItemRow[]>([])
-  // 代理支払（到着物）＝「精算書作成」タスクに紐づいた受信簿アイテム。ここでチェック＋金額を入れて支出に入れる。
-  const [payItems, setPayItems] = useState<{ id: string; name: string; reflect: boolean; amount: number | null }[]>([])
+  // 代理支払（到着物）＝オーシャンが代理で払った請求書。
+  // 以前は「受信簿アイテムを『精算書作成』タスクに紐づける」ことが前提だったが、
+  // それは受信簿を触る人に「あとで精算書に載せる」という先読みを強いる作りで、
+  // 紐づけ忘れ＝精算書に出てこない、という漏れが起きていた。
+  // そこで向きを逆にし、精算書側から到着物を選ぶ（ピッカー）方式にした。
+  // 保存先は従来どおり document_receipt_items（settlement_reflect / settlement_amount）。
+  type PayItem = { id: string; name: string; receiptDate: string | null; reflect: boolean; amount: number | null }
+  const [payItems, setPayItems] = useState<PayItem[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -43,19 +52,24 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
         supabase.from('settlement_income_items').select('*').eq('case_id', caseData.id).order('sort_order'),
         supabase.from('settlement_expense_items').select('*').eq('case_id', caseData.id).order('sort_order'),
         supabase.from('instruction_items').select('*').eq('case_id', caseData.id).order('sort_order'),
-        supabase.from('document_receipts').select('items:document_receipt_items(id, item_name, settlement_reflect, settlement_amount, item_tasks:document_receipt_item_tasks(task:tasks(title)))').eq('case_id', caseData.id),
+        supabase.from('document_receipts').select('received_date, items:document_receipt_items(id, item_name, settlement_reflect, settlement_amount)').eq('case_id', caseData.id),
       ])
       if (!alive) return
       setIncome((inc.data ?? []) as SettlementIncomeItemRow[])
       setExpense((exp.data ?? []) as SettlementExpenseItemRow[])
       setInstr((ins.data ?? []) as InstructionItemRow[])
-      // 「精算書作成」タスクに紐づいたアイテムだけを代理支払候補にする（戸籍等は出ない）。
-      // ※Supabase の埋め込みリレーション（task）は配列で返ることがあるため両対応。
-      type RecTask = { title: string | null }
-      type RecItem = { id: string; item_name: string | null; settlement_reflect: boolean | null; settlement_amount: number | null; item_tasks: Array<{ task: RecTask | RecTask[] | null }> | null }
-      const items = ((rec.data ?? []) as unknown as Array<{ items: RecItem[] | null }>).flatMap(r => r.items ?? [])
-        .filter(it => (it.item_tasks ?? []).some(t => { const task = Array.isArray(t.task) ? t.task[0] : t.task; return task?.title === '精算書作成' }))
-        .map(it => ({ id: it.id, name: it.item_name ?? '請求書', reflect: it.settlement_reflect === true, amount: it.settlement_amount ?? null }))
+      // 案件の到着物は全部持ってくる（タスク紐づけによる絞り込みはやめた）。
+      // 精算書に並べるのは選択済み（settlement_reflect）だけで、残りはピッカーの中にだけ出す。
+      type RecItem = { id: string; item_name: string | null; settlement_reflect: boolean | null; settlement_amount: number | null }
+      const items = ((rec.data ?? []) as unknown as Array<{ received_date: string | null; items: RecItem[] | null }>)
+        .flatMap(r => (r.items ?? []).map(it => ({
+          id: it.id,
+          name: it.item_name ?? '（名称なし）',
+          receiptDate: r.received_date,
+          reflect: it.settlement_reflect === true,
+          amount: it.settlement_amount ?? null,
+        })))
+        .sort((a, b) => (b.receiptDate ?? '').localeCompare(a.receiptDate ?? ''))
       setPayItems(items)
     })()
     return () => { alive = false }
@@ -70,7 +84,9 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     setPayItems(prev => prev.map(r => r.id === id ? { ...r, amount } : r))
     supabase.from('document_receipt_items').update({ settlement_amount: amount }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
   }
-  const payTotal = payItems.filter(r => r.reflect).reduce((s, r) => s + (r.amount ?? 0), 0)
+  // 精算書に並べるのは選んだものだけ。未選択はピッカーの中にだけ出す。
+  const selectedPay = payItems.filter(r => r.reflect)
+  const payTotal = selectedPay.reduce((s, r) => s + (r.amount ?? 0), 0)
 
   const incomeTotal = income.reduce((s, r) => s + (r.amount ?? 0), 0)
   // 旧・receipt由来（代理支払）は下の到着物一覧に移行済みなので支出合計から除外し、代わりに payTotal を足す。
@@ -209,20 +225,32 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
           </table>
           <button type="button" onClick={addExpense} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 行を追加</button>
 
-          {/* 代理支払（到着物から）＝「精算書作成」タスクに紐づいた受信簿アイテム。チェック＋金額で支出に入る。 */}
+          {/* 代理支払（到着物から）。選んだものだけを並べ、追加はピッカーから行う。 */}
           <div className="mt-4">
-            <div className="text-[12px] font-semibold text-gray-700 mb-1.5">代理支払（到着物から）<span className="text-[11px] font-normal text-gray-400 ml-1">「精算書作成」タスクに紐づいた請求書。チェック＋金額で支出に入ります</span></div>
-            {payItems.length === 0 ? (
-              <div className="text-[11.5px] text-gray-400 px-2 py-3 border border-dashed border-gray-200 rounded">到着物がありません。届いた請求書を受信簿で「精算書作成」タスクに紐づけると、ここに並びます。</div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[12px] font-semibold text-gray-700">代理支払（到着物から）</span>
+              <span className="text-[11px] font-normal text-gray-400 flex-1">当社が代理で支払った請求書。金額を入れると支出に入ります</span>
+              <button type="button" onClick={() => setPickerOpen(true)}
+                className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 flex-none">
+                <Plus className="w-3.5 h-3.5" />到着物から追加
+              </button>
+            </div>
+            {selectedPay.length === 0 ? (
+              <div className="text-[11.5px] text-gray-400 px-2 py-3 border border-dashed border-gray-200 rounded">
+                「到着物から追加」で、当社が代理で支払った請求書を選んでください。
+              </div>
             ) : (
               <table className="w-full text-[12px] border-collapse" style={{ minWidth: 480 }}>
-                <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-center font-medium w-16">含める</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th></tr></thead>
+                <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-24">受信日</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="w-9" /></tr></thead>
                 <tbody>
-                  {payItems.map(p => (
-                    <tr key={p.id} className={`border-b border-gray-50 last:border-b-0 ${p.reflect ? '' : 'opacity-60'}`}>
-                      <td className="px-2 py-1.5 text-center"><input type="checkbox" checked={p.reflect} onChange={e => setPayReflect(p.id, e.target.checked)} className="w-4 h-4 accent-brand-600" /></td>
+                  {selectedPay.map(p => (
+                    <tr key={p.id} className="border-b border-gray-50 last:border-b-0">
+                      <td className="px-2 py-1.5 text-gray-500 tabular-nums">{p.receiptDate ? p.receiptDate.slice(5).replace('-', '/') : '—'}</td>
                       <td className="px-2 py-1.5 text-gray-800">{p.name}</td>
                       <td className="px-2 py-1.5"><MoneyInput value={p.amount} onCommit={v => setPayAmount(p.id, v === '' ? null : Number(v))} /></td>
+                      <td className="px-1 py-1.5 text-center">
+                        <button type="button" onClick={() => setPayReflect(p.id, false)} title="この行を外す" className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -269,6 +297,28 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
           </div>
         </Section>
       </div>
+
+      {/* 到着物ピッカー：案件の到着物から、当社が代理で払った請求書を選ぶ。
+          受信簿側での事前の紐づけを不要にするための入口。 */}
+      <Modal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} title="到着物から追加" maxWidth="max-w-lg"
+        footer={<Button variant="secondary" onClick={() => setPickerOpen(false)}>閉じる</Button>}>
+        {payItems.length === 0 ? (
+          <p className="text-[13px] text-gray-500">この案件には到着物が登録されていません。</p>
+        ) : (
+          <>
+            <p className="text-[12px] text-gray-500 mb-2">当社が代理で支払った請求書を選んでください。金額は選んだあと精算書で入力します。</p>
+            <div className="max-h-[52vh] overflow-y-auto -mx-1 px-1">
+              {payItems.map(p => (
+                <label key={p.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border mb-1.5 cursor-pointer transition-colors ${p.reflect ? 'border-brand-300 bg-brand-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                  <input type="checkbox" checked={p.reflect} onChange={e => setPayReflect(p.id, e.target.checked)} className="w-4 h-4 accent-brand-600 flex-none" />
+                  <span className="text-[11px] text-gray-400 tabular-nums w-14 flex-none">{p.receiptDate ? p.receiptDate.slice(5).replace('-', '/') : '—'}</span>
+                  <span className="text-[13px] text-gray-800 flex-1">{p.name}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   )
 }
