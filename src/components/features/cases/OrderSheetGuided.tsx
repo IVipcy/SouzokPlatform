@@ -148,19 +148,20 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, finali
         )}
       </div>
 
-      {/* ナビゲーション（コンパクト） */}
+      {/* ナビゲーション。①面談シート・②面談結果登録と寸法を統一（高さ52px・角丸12px・15px太字）。
+          左右は必ず等幅（flex-1）にして、主副は色だけで区別する。 */}
       <div className="flex gap-2 mt-3">
         <button
           type="button"
           onClick={() => go(step - 1)}
           disabled={step === 0}
-          className="flex-1 py-2.5 rounded-lg border border-gray-200 text-[13px] font-semibold text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition inline-flex items-center justify-center gap-1"
+          className="flex-1 min-h-[52px] rounded-xl border-[1.5px] border-gray-300 bg-white text-[15px] font-bold text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition-colors inline-flex items-center justify-center gap-1.5"
         >
           <ChevronLeft className="w-4 h-4" />前へ
         </button>
         {isLast ? (
           finalized ? (
-            <span className="flex-[2] py-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[13px] font-bold inline-flex items-center justify-center gap-1.5">
+            <span className="flex-1 min-h-[52px] rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[15px] font-bold inline-flex items-center justify-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />確定済
             </span>
           ) : (
@@ -169,7 +170,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, finali
               type="button"
               onClick={async () => { if (await onSaveOnly()) setJustCompleted(true) }}
               disabled={saving}
-              className="flex-[2] py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-bold hover:bg-brand-700 disabled:opacity-50 transition inline-flex items-center justify-center gap-1.5"
+              className="flex-1 min-h-[52px] rounded-xl bg-brand-600 text-white text-[15px] font-bold hover:bg-brand-700 disabled:opacity-50 shadow-sm transition-colors inline-flex items-center justify-center gap-1.5"
             >
               <Check className="w-4 h-4" strokeWidth={2.25} />{saving ? '保存中...' : '保存して終了'}
             </button>
@@ -178,7 +179,7 @@ export default function OrderSheetGuided({ sections, caseData, patchCase, finali
           <button
             type="button"
             onClick={() => go(step + 1)}
-            className="flex-[2] py-2.5 rounded-lg bg-brand-600 text-white text-[13px] font-bold hover:bg-brand-700 transition inline-flex items-center justify-center gap-1"
+            className="flex-1 min-h-[52px] rounded-xl bg-brand-600 text-white text-[15px] font-bold hover:bg-brand-700 shadow-sm transition-colors inline-flex items-center justify-center gap-1.5"
           >
             次へ<ChevronRight className="w-4 h-4" />
           </button>

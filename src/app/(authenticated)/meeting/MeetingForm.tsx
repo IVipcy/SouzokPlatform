@@ -1142,19 +1142,20 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       {/* 1ページ構成（ステップバー・プログレスは廃止） */}
       {renderStep()}
 
-      {/* Bottom nav (面談シート最下部『保存して面談結果登録へ進む』ボタンとスタイルを揃える。中央・大きめ・角丸・強い影) */}
+      {/* Bottom nav：①面談シート最下部のボタンと寸法を統一（高さ52px・角丸12px・15px太字・影は控えめ・絵文字なし）。
+          「戻る」と並ぶときは等幅にして、主副は色だけで区別する（幅が違うと主ボタンが中央からずれて見えるため）。 */}
       <div className="mt-6 pb-6 pt-4 border-t border-gray-200 flex flex-col items-center gap-2">
         <div className="w-full flex flex-col-reverse md:flex-row md:justify-center gap-2.5">
           {step > 0 && (
-            <button onClick={prevStep} className="w-full md:w-auto px-5 py-3 rounded-lg border-[1.5px] border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition">
+            <button onClick={prevStep} className="w-full md:w-[220px] inline-flex items-center justify-center gap-2 min-h-[52px] rounded-xl border-[1.5px] border-gray-300 bg-white text-gray-700 text-[15px] font-bold hover:bg-gray-50 transition-colors">
               ← 戻る
             </button>
           )}
           <button
             onClick={nextStep}
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[56px] rounded-xl text-[16px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-lg shadow-brand-500/20 transition-all"
+            className={`inline-flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-sm transition-colors ${step > 0 ? 'w-full md:w-[220px]' : 'w-full md:w-auto md:px-10'}`}
           >
-            {step === STEPS.length - 1 ? (saving ? '保存中...' : '💾 登録する') : '次へ →'}
+            {step === STEPS.length - 1 ? (saving ? '保存中...' : '登録する') : '次へ →'}
           </button>
         </div>
         {step === STEPS.length - 1 && (

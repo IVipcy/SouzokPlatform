@@ -301,8 +301,9 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
           {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、
               明示的な「保存して次へ」を用意して迷わないように。押下で②面談結果登録タブへ遷移。 */}
           <div className="mt-6 flex flex-col items-center gap-2 pb-6">
-            <button type="button" onClick={() => goTab('result')} className="inline-flex items-center gap-2 px-8 py-4 min-h-[56px] rounded-xl text-[16px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-lg shadow-brand-500/20 transition-all">
-              💾 保存して面談結果登録へ進む →
+            {/* 最下部ボタンの共通仕様：高さ52px・角丸12px・15px太字・影は控えめ・絵文字なし（②③と統一） */}
+            <button type="button" onClick={() => goTab('result')} className="w-full md:w-auto md:px-10 inline-flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-sm transition-colors">
+              保存して面談結果登録へ進む →
             </button>
             <p className="text-[11px] text-gray-400">入力内容は 各項目のフォーカスが外れた時点で 自動保存されています</p>
           </div>
