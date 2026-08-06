@@ -24,6 +24,21 @@ const BUCKET = 'meeting-memos'
 const WB_SECTION = 'whiteboard'
 
 const SECTIONS = WB_ORDER.map(k => ({ key: k as string, label: SEC_LABEL[k] }))
+
+// 各帯の上部にうっすら出す「このセクションで書いてほしい項目」。
+// 中身は「AIで項目に反映」で実際に拾える項目に合わせてあるので、このとおり書けばそのまま反映される。
+// 見出しと同じくHTMLで重ねているだけなので、OCRに送る画像にも保存する原本にも写らない。
+const SECTION_HINT: Record<string, string> = {
+  clientInfo: '氏名／ふりがな／続柄／TEL／住所／振込名義人（カナ）',
+  order: '契約形態／提案した手続き／概算報酬／依頼者の反応',
+  deceased: '被相続人の 氏名／ふりがな／生年月日／死亡日／住所／本籍　　相続人（氏名・続柄）',
+  assets_re: '物件種別／所在地／評価額',
+  assets_deposit: '金融機関名／支店／残高',
+  assets_securities: '証券会社名／銘柄・評価額',
+  assets_trust: '信託銀行名',
+  assets_insurance: '保険会社名／受取人／金額',
+  referral: '紹介先／紹介内容／依頼者の反応',
+}
 const BAND_H = 380        // 帯1つの既定の高さ（≒スマホ1画面ぶん）
 const BAND_STEP = 260     // 「広げる」1回で増える高さ
 
@@ -355,12 +370,16 @@ export default function WhiteboardTab({
               <div key={s.key} className="absolute left-0 right-0 pointer-events-none" style={{ top: tops[i], height: heights[i] }}>
                 <div className="border-t border-gray-200" />
                 <div className="flex items-center justify-between px-2.5 pt-1">
-                  <span className="text-[11px] tracking-wide text-gray-300 select-none">{s.label}</span>
+                  <span className="text-[11px] tracking-wide text-gray-400 select-none">{s.label}</span>
                   <button type="button" onClick={() => setHeights(prev => prev.map((h, k) => k === i ? h + BAND_STEP : h))}
                     className="pointer-events-auto inline-flex items-center gap-0.5 text-[10.5px] text-gray-300 hover:text-brand-600 px-1.5 py-0.5 rounded">
                     <Plus className="w-3 h-3" />広げる
                   </button>
                 </div>
+                {/* 書いてほしい項目（極薄）。上から手書きしても読み取りの邪魔にならない濃さにする。 */}
+                {SECTION_HINT[s.key] && (
+                  <div className="px-2.5 pt-0.5 text-[10.5px] leading-snug text-gray-200 select-none">{SECTION_HINT[s.key]}</div>
+                )}
               </div>
             ))}
           </div>
