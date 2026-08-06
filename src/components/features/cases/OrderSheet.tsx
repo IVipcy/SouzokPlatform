@@ -206,7 +206,6 @@ export default function OrderSheet({
         patchCase={patchCase}
         finalized={finalized}
         lastUpdatedAt={lastUpdatedAt}
-        onGo={goFinalize}
         onSaveOnly={saveAndRefresh}
         saving={saving}
       />
