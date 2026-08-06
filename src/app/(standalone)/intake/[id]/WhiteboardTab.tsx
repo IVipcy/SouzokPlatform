@@ -74,6 +74,34 @@ export default function WhiteboardTab({
   const tops = heights.reduce<number[]>((acc, h, i) => { acc.push(i === 0 ? 0 : acc[i - 1] + heights[i - 1]); return acc }, [])
   const totalH = heights.reduce((a, b) => a + b, 0)
 
+  // ── セクションジャンプ ──────────────────────────────
+  // 白紙は縦に長いので、面談の話題が飛んだときに目的のセクションへ即移動できるようにする。
+  // 帯のY座標は既知なので、キャンバス上端 + tops[i] へスクロールするだけでよい。
+  const STICKY_OFFSET = 76      // 上部の固定ツールバーぶん
+  const topsRef = useRef<number[]>([])
+  topsRef.current = tops
+  const [activeBand, setActiveBand] = useState(0)
+
+  const jumpTo = (i: number) => {
+    const wrap = wrapRef.current; if (!wrap) return
+    const y = wrap.getBoundingClientRect().top + window.scrollY + tops[i] - STICKY_OFFSET
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+  }
+
+  // スクロール位置から現在地セクションを判定（ナビのハイライト用）
+  useEffect(() => {
+    const onScroll = () => {
+      const wrap = wrapRef.current; if (!wrap) return
+      const rel = STICKY_OFFSET + 24 - wrap.getBoundingClientRect().top
+      const t = topsRef.current
+      let idx = 0
+      for (let i = 0; i < t.length; i++) if (rel >= t[i]) idx = i
+      setActiveBand(idx)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // ── キャンバス初期化（幅・総高さの変化に追従。既存の描画は等倍で貼り戻す） ──
   const setup = useCallback(() => {
     const c = canvasRef.current, wrap = wrapRef.current; if (!c || !wrap) return
@@ -263,7 +291,7 @@ export default function WhiteboardTab({
   return (
     <div className="space-y-3">
       {/* 道具 */}
-      <div className="flex flex-wrap items-center gap-2 sticky top-0 z-10 bg-white/95 backdrop-blur py-2 -mx-1 px-1 border-b border-gray-100">
+      <div className="flex flex-wrap items-center gap-2 sticky top-0 z-20 bg-white/95 backdrop-blur py-2 -mx-1 px-1 border-b border-gray-100">
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
           {([['pen', 'ペン', Pen], ['marker', '蛍光', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
             <button key={k} type="button" onClick={() => setMode(k)}
@@ -290,24 +318,53 @@ export default function WhiteboardTab({
         </button>
       </div>
 
-      {/* 白紙（1枚の長いキャンバス／見出しはHTMLで重ねる＝OCRに見出し文字が混ざらない） */}
-      <div ref={wrapRef} className="relative rounded-lg border border-gray-200 bg-white overflow-hidden" style={{ height: totalH }}>
-        <canvas ref={canvasRef}
-          style={{ width: '100%', height: totalH, touchAction: 'none', display: 'block' }}
-          className="cursor-crosshair"
-          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
-        {SECTIONS.map((s, i) => (
-          <div key={s.key} className="absolute left-0 right-0 pointer-events-none" style={{ top: tops[i], height: heights[i] }}>
-            <div className="border-t border-gray-200" />
-            <div className="flex items-center justify-between px-2.5 pt-1">
-              <span className="text-[11px] tracking-wide text-gray-300 select-none">{s.label}</span>
-              <button type="button" onClick={() => setHeights(prev => prev.map((h, k) => k === i ? h + BAND_STEP : h))}
-                className="pointer-events-auto inline-flex items-center gap-0.5 text-[10.5px] text-gray-300 hover:text-brand-600 px-1.5 py-0.5 rounded">
-                <Plus className="w-3 h-3" />広げる
+      {/* スマホ/タブレット：セクションチップ（横スクロール）。PCでは左のナビを使う。 */}
+      <div className="lg:hidden sticky top-[58px] z-10 bg-white/95 backdrop-blur -mx-1 px-1 py-1.5 border-b border-gray-100 overflow-x-auto">
+        <div className="flex gap-1.5 w-max">
+          {SECTIONS.map((s, i) => (
+            <button key={s.key} type="button" onClick={() => jumpTo(i)}
+              className={`text-[11.5px] px-2.5 py-1.5 rounded-full border whitespace-nowrap transition-colors ${activeBand === i ? 'bg-brand-600 text-white border-brand-600 font-bold' : 'bg-white text-gray-600 border-gray-200'}`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="lg:flex lg:gap-4 lg:items-start">
+        {/* PC左ナビ：追従・クリックでジャンプ・現在地ハイライト（オーダーシートPCの左ガイドと同じ考え方） */}
+        <nav className="hidden lg:block lg:w-36 lg:flex-shrink-0 lg:sticky lg:top-[76px] self-start">
+          <div className="text-[11px] text-gray-400 px-2.5 mb-1.5">セクション</div>
+          <div className="flex flex-col gap-0.5">
+            {SECTIONS.map((s, i) => (
+              <button key={s.key} type="button" onClick={() => jumpTo(i)}
+                className={`text-left text-[12px] leading-snug px-2.5 py-2 rounded-lg transition-colors ${activeBand === i ? 'bg-brand-50 text-brand-700 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}>
+                {s.label}
               </button>
-            </div>
+            ))}
           </div>
-        ))}
+        </nav>
+
+        {/* 白紙（1枚の長いキャンバス／見出しはHTMLで重ねる＝OCRに見出し文字が混ざらない） */}
+        <div className="flex-1 min-w-0">
+          <div ref={wrapRef} className="relative rounded-lg border border-gray-200 bg-white overflow-hidden" style={{ height: totalH }}>
+            <canvas ref={canvasRef}
+              style={{ width: '100%', height: totalH, touchAction: 'none', display: 'block' }}
+              className="cursor-crosshair"
+              onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
+            {SECTIONS.map((s, i) => (
+              <div key={s.key} className="absolute left-0 right-0 pointer-events-none" style={{ top: tops[i], height: heights[i] }}>
+                <div className="border-t border-gray-200" />
+                <div className="flex items-center justify-between px-2.5 pt-1">
+                  <span className="text-[11px] tracking-wide text-gray-300 select-none">{s.label}</span>
+                  <button type="button" onClick={() => setHeights(prev => prev.map((h, k) => k === i ? h + BAND_STEP : h))}
+                    className="pointer-events-auto inline-flex items-center gap-0.5 text-[10.5px] text-gray-300 hover:text-brand-600 px-1.5 py-0.5 rounded">
+                    <Plus className="w-3 h-3" />広げる
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* テキスト化の結果＝各セクションのフリー欄（ここで直してからAI反映） */}
