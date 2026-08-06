@@ -5,11 +5,12 @@
 // 手書きは「白紙モード」(WhiteboardTab)に一本化した（原本が2か所に散らばるのを防ぐため）。
 // 構造化できる所は「AIで項目に反映」（createRunExtract を白紙モードと共通利用）。
 import { useState, useEffect } from 'react'
-import { Sparkles, Trash2, Plus } from 'lucide-react'
+import { Sparkles, Trash2, Plus, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
+import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
 import { HEIR_RELATIONSHIPS, PROPERTY_TYPES } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
@@ -202,6 +203,8 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   const [rows, setRows] = useState<HeirRow[]>(heirs)
   useEffect(() => setRows(heirs), [heirs])
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r)); supabase.from('heirs').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  // 同居（boolean）。相関図に「同居」バッジで出る。書類回収・連絡の起点になるため面談中に拾う。
+  const saveLived = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, lived_together: v } : r)); supabase.from('heirs').update({ lived_together: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('heirs').insert({ case_id: cid, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('heirs').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
@@ -214,6 +217,9 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
             <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="w-28 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
               <option value="">続柄</option>{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            <label className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-1.5 rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
+              <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-3.5 h-3.5 accent-amber-600" />同居
+            </label>
             <button type="button" onClick={() => del(r.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
@@ -370,6 +376,7 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
 // currentMemberId は手書き画像の保存に使っていたが、手書きを白紙モードへ移したため未使用（Props型には残す）。
 export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
+  const [diagramOpen, setDiagramOpen] = useState(false)   // 相続関係図の開閉（既定は閉じる）
   const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
   const cl = caseData.clients
 
@@ -429,6 +436,24 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
           <HeirsMini caseId={caseData.id} heirs={heirs} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
+
+          {/* 相関図。面談中にその場で家族関係を確認・訂正できるよう、折りたたみで置く
+              （常時展開だと面談シートが縦に長くなりすぎるため）。図は実務タブと同じ部品。 */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => setDiagramOpen(o => !o)}
+              className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors">
+              <span className="text-[12.5px] font-semibold text-gray-700 flex-1 text-left">相続関係図</span>
+              <span className="text-[11px] text-gray-400">{heirs.length}名</span>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${diagramOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {diagramOpen && (
+              <div className="p-2 bg-white">
+                {heirs.length === 0
+                  ? <p className="text-[12px] text-gray-400 text-center py-6">相続人を追加すると関係図が表示されます</p>
+                  : <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} /></div>}
+              </div>
+            )}
+          </div>
         </div>
       ), runExtract('deceased'))}
 

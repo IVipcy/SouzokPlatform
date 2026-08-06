@@ -21,6 +21,12 @@ const StatusCtx = createContext<Record<string, PersonStatus>>({})
 
 type Pattern = 'spouse_children' | 'children_only' | 'parents' | 'siblings'
 
+// 箱に出す続柄ラベル。面談シートは relationship_type（長男・二女など）に保存するため、
+// まずそれを使う。大分類（子・兄弟姉妹）に丸めるのは、どちらも未入力のときだけ。
+// ※ レイアウトが複数コンポーネントに分かれているのでモジュールスコープに置く。
+const labelOf = (h: HeirRow, fallback?: string): string =>
+  h.relationship_type || h.relationship || fallback || '相続人'
+
 export default function InheritanceDiagramV2({
   deceased,
   heirs,
@@ -166,6 +172,7 @@ export default function InheritanceDiagramV2({
             address={spouse.address}
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
+            livedTogether={spouse.lived_together}
             isApplicant={spouse.is_applicant}
           />
         )}
@@ -176,7 +183,7 @@ export default function InheritanceDiagramV2({
             x={childrenStartX + i * (BOX_W + CHILD_GAP)}
             y={childrenY}
             width={BOX_W}
-            label={heir.relationship || typeOf(heir) || '相続人'}
+            label={labelOf(heir)}
             labelBg="bg-gray-100 text-gray-700"
             borderClass="border-[1.5px] border-black"
             name={heir.name}
@@ -184,6 +191,7 @@ export default function InheritanceDiagramV2({
             address={heir.address}
             registeredAddress={heir.registered_address}
             isLegalHeir={heir.is_legal_heir}
+            livedTogether={heir.lived_together}
             isApplicant={heir.is_applicant}
           />
         ))}
@@ -270,6 +278,7 @@ function ParentsLayout({
             address={p.address}
             registeredAddress={p.registered_address}
             isLegalHeir={p.is_legal_heir}
+            livedTogether={p.lived_together}
             isApplicant={p.is_applicant}
           />
         ))}
@@ -300,6 +309,7 @@ function ParentsLayout({
             address={spouse.address}
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
+            livedTogether={spouse.lived_together}
             isApplicant={spouse.is_applicant}
           />
         )}
@@ -423,7 +433,7 @@ function SiblingsLayout({
               x={postStartX + i * (BOX_W + CHILD_GAP)}
               y={topY}
               width={BOX_W}
-              label={item.kind === 'sibling' ? '兄弟姉妹' : (heir.relationship || 'その他')}
+              label={labelOf(heir, item.kind === 'sibling' ? '兄弟姉妹' : 'その他')}
               labelBg="bg-gray-100 text-gray-700"
               borderClass="border-[1.5px] border-black"
               name={heir.name}
@@ -431,6 +441,7 @@ function SiblingsLayout({
               address={heir.address}
               registeredAddress={heir.registered_address}
               isLegalHeir={heir.is_legal_heir}
+            livedTogether={heir.lived_together}
               isApplicant={heir.is_applicant}
             />
           )
@@ -448,6 +459,7 @@ function SiblingsLayout({
             address={spouse.address}
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
+            livedTogether={spouse.lived_together}
             isApplicant={spouse.is_applicant}
           />
         )}
@@ -460,7 +472,7 @@ function SiblingsLayout({
 function PersonBox({
   x, y, width, label, labelBg, borderClass,
   name, birthDate, deathDate, address, registeredAddress,
-  isDeceased, isLegalHeir, isApplicant,
+  isDeceased, isLegalHeir, isApplicant, livedTogether,
 }: {
   x: number
   y: number
@@ -476,6 +488,8 @@ function PersonBox({
   isDeceased?: boolean
   isLegalHeir?: boolean
   isApplicant?: boolean
+  /** 被相続人と同居していた相続人。書類回収・連絡の起点になるため図で分かるようにする。 */
+  livedTogether?: boolean
 }) {
   // 戸籍取得状況オーバーレイ（指定時のみ）：完了=太緑/対応中=青/追加調査中=オレンジ/未着手=既定枠
   const statusMap = useContext(StatusCtx)
@@ -497,9 +511,10 @@ function PersonBox({
           {statusBadge && <span className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-semibold px-1.5 rounded-full ${badgeCls}`}>{statusBadge}</span>}
         </div>
         <div className="p-2 flex flex-col items-center gap-1">
-          <div className="text-[13px] font-bold tracking-wider flex items-center gap-1">
+          <div className="text-[13px] font-bold tracking-wider flex items-center gap-1 flex-wrap justify-center">
             {name ?? '—'}
             {isApplicant && <span className="text-[11px] font-semibold text-red-600">（申出人）</span>}
+            {livedTogether && <span className="text-[9.5px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-px">同居</span>}
           </div>
           <div className="text-[11px] text-gray-700 text-left w-full px-1 leading-relaxed">
             {birthDate && <div><span className="text-gray-400">出生</span> {birthDate}</div>}

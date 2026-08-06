@@ -76,6 +76,7 @@ const emptyHeirForm = () => ({
   email: '',
   is_legal_heir: true,
   is_applicant: false,
+  lived_together: false,
 })
 
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
@@ -139,6 +140,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       email: mainClient?.email ?? caseData.clients?.email ?? null,
       is_legal_heir: true,
       is_applicant: true,
+      lived_together: false,
       sort_order: 0,
     })
     onRefresh()
@@ -197,6 +199,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       email: heir.email ?? (isMainClientHeir ? (mainClient?.email ?? caseData.clients?.email ?? '') : ''),
       is_legal_heir: heir.is_legal_heir,
       is_applicant: heir.is_applicant,
+      lived_together: heir.lived_together ?? false,
     })
     // 郵便番号は heirs に保存しないので、依頼者の郵便番号を編集時の初期値に載せる
     setHeirPostal(isMainClientHeir ? (caseData.clients?.postal_code ?? '') : '')
@@ -517,6 +520,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                           <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
                           申出人（法定相続情報一覧図）
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="相続関係図に「同居」バッジで表示されます">
+                          <input type="checkbox" checked={heirForm.lived_together} onChange={e => setHeirForm(f => ({ ...f, lived_together: e.target.checked }))} className="rounded" />
+                          被相続人と同居
                         </label>
                       </div>
                     </div>
