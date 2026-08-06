@@ -42,6 +42,29 @@ const SECTION_HINT: Record<string, string> = {
 const BAND_H = 380        // 帯1つの既定の高さ（≒スマホ1画面ぶん）
 const BAND_STEP = 260     // 「広げる」1回で増える高さ
 
+type Tool = 'pen' | 'marker' | 'eraser'
+type Size = 'S' | 'M' | 'L'
+// 太さ（CSSピクセル）。ペンは筆圧で ±する基準値。
+const PEN_W: Record<Size, number> = { S: 1.4, M: 2.4, L: 4.2 }
+const MARKER_W: Record<Size, number> = { S: 10, M: 16, L: 26 }
+const ERASER_W: Record<Size, number> = { S: 14, M: 26, L: 44 }
+const SIZE_LABEL: Record<Size, string> = { S: '小', M: '中', L: '大' }
+
+/**
+ * カーソル。消しゴム・蛍光ペンは「実際に効く範囲」をそのまま円で見せる（＝今どのモードで、
+ * どのくらいの太さかが一目でわかる）。ペンは細いので精度優先で十字のまま。
+ */
+function cursorFor(tool: Tool, size: Size): string {
+  if (tool === 'pen') return 'crosshair'
+  const w = tool === 'eraser' ? ERASER_W[size] : MARKER_W[size]
+  const d = Math.ceil(w) + 4
+  const c = d / 2
+  const fill = tool === 'eraser' ? 'rgba(255,255,255,0.8)' : 'rgba(250,204,21,0.3)'
+  const stroke = tool === 'eraser' ? '#374151' : '#ca8a04'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${d}" height="${d}"><circle cx="${c}" cy="${c}" r="${w / 2}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${Math.round(c)} ${Math.round(c)}, auto`
+}
+
 /** 同時実行数を絞って順に処理（OCRを9本同時に投げないため） */
 async function pool<T>(items: T[], n: number, fn: (t: T) => Promise<void>) {
   const q = [...items]
@@ -73,8 +96,10 @@ export default function WhiteboardTab({
   const cssWRef = useRef(0)
 
   const [heights, setHeights] = useState<number[]>(() => SECTIONS.map(() => BAND_H))
-  const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
+  const [mode, setMode] = useState<Tool>('pen')
   const modeRef = useRef(mode); modeRef.current = mode
+  const [size, setSize] = useState<Size>('M')
+  const sizeRef = useRef(size); sizeRef.current = size
   const [busy, setBusy] = useState<'' | 'ocr' | 'save' | 'extract'>('')
   const [dirty, setDirty] = useState(false)   // 一度でも書いたか
   const dirtyRef = useRef(false)
@@ -153,9 +178,15 @@ export default function WhiteboardTab({
     if (!drawing.current) return
     const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
     const p = pos(e); const m = modeRef.current
-    if (m === 'eraser') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = 24 }
-    else if (m === 'marker') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgba(250,204,21,0.4)'; ctx.lineWidth = 16 }
-    else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2) }
+    const sz = sizeRef.current
+    if (m === 'eraser') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = ERASER_W[sz] }
+    else if (m === 'marker') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgba(250,204,21,0.4)'; ctx.lineWidth = MARKER_W[sz] }
+    else {
+      // ペンは選んだ太さを基準に筆圧で増減（筆圧なしのマウス等は基準値そのまま）
+      const b = PEN_W[sz]
+      ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#1f2937'
+      ctx.lineWidth = e.pressure ? b * (0.5 + e.pressure) : b
+    }
     ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
     ctx.globalCompositeOperation = 'source-over'
     last.current = p
@@ -315,6 +346,19 @@ export default function WhiteboardTab({
             </button>
           ))}
         </div>
+        {/* 太さ（選択中の道具に効く）。丸の大きさで実際の太さがわかるようにする。 */}
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+          {(['S', 'M', 'L'] as const).map((sz, i) => {
+            const dot = mode === 'pen' ? Math.max(3, PEN_W[sz] * 1.8) : (mode === 'marker' ? MARKER_W[sz] : ERASER_W[sz]) * 0.42
+            return (
+              <button key={sz} type="button" onClick={() => setSize(sz)} title={`太さ：${SIZE_LABEL[sz]}`}
+                className={`inline-flex items-center gap-1.5 text-[13px] px-2.5 py-2 min-h-[40px] ${i > 0 ? 'border-l border-gray-200' : ''} ${size === sz ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                <span className="rounded-full bg-current inline-block" style={{ width: dot, height: dot }} />
+                {SIZE_LABEL[sz]}
+              </button>
+            )
+          })}
+        </div>
         <button type="button" onClick={clearAll} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"><Trash2 className="w-4 h-4" />全消去</button>
         <button type="button" onClick={runOcr} disabled={!dirty || !!busy}
           className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40">
@@ -363,8 +407,7 @@ export default function WhiteboardTab({
         <div className="flex-1 min-w-0">
           <div ref={wrapRef} className="relative rounded-lg border border-gray-200 bg-white overflow-hidden" style={{ height: totalH }}>
             <canvas ref={canvasRef}
-              style={{ width: '100%', height: totalH, touchAction: 'none', display: 'block' }}
-              className="cursor-crosshair"
+              style={{ width: '100%', height: totalH, touchAction: 'none', display: 'block', cursor: cursorFor(mode, size) }}
               onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
             {SECTIONS.map((s, i) => (
               <div key={s.key} className="absolute left-0 right-0 pointer-events-none" style={{ top: tops[i], height: heights[i] }}>
