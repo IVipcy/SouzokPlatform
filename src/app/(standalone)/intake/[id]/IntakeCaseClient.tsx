@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ClipboardList, FileText, FileSpreadsheet, Check, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, FileText, FileSpreadsheet, Check, Trash2, PencilLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -13,6 +13,8 @@ import AssignRequestModal from '@/components/features/cases/AssignRequestModal'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
+import WhiteboardTab from './WhiteboardTab'
+import MeetingMemoViewer from '@/components/features/cases/MeetingMemoViewer'
 import type { SelectedCase } from '@/app/(authenticated)/meeting/MeetingPageClient'
 import MeetingSheetTab, { MemoCarryOver } from './MeetingSheetTab'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
@@ -27,6 +29,10 @@ import type {
 //   「依頼確定待ち」は表示ラベルで、ステータスkeyは「検討中（契約書待ち）」。
 const ASSIGN_TRIGGER_STATUSES = new Set(['受注', '戻り受注', '検討中（契約書待ち）'])
 
+// 白紙メモ1枚のメタ情報（帯＝セクションの境界Y座標）。原本ビューアのセクションジャンプに使う。
+export type MemoBand = { key: string; label: string; y0: number; y1: number }
+export type MemoMeta = { w: number; h: number; bands: MemoBand[] }
+
 // 面談シートの手書きメモ（meeting_memos）1行
 export type MeetingMemoRow = {
   id: string
@@ -38,6 +44,8 @@ export type MeetingMemoRow = {
   sort_order: number
   created_by: string | null
   created_at: string | null
+  /** 白紙メモのみ。帯境界など（migration 221）。セクション別メモでは null */
+  meta: MemoMeta | null
 }
 
 type Props = {
@@ -62,7 +70,8 @@ type Props = {
   receipts: TimelineReceipt[]
 }
 
-type Tab = 'sheet' | 'result' | 'order'
+// 'white'（白紙メモ）は ①②③ の順次進行とは独立した別タブ。①と同じデータ(work_content)を扱う。
+type Tab = 'sheet' | 'white' | 'result' | 'order'
 
 // caseData から MeetingForm 用の SelectedCase（既存案件＝更新モード）を組み立てる。
 // 依頼者氏名は 面談シートで入力する case_clients の「メイン依頼者」を正とする。
@@ -95,6 +104,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('sheet')
+  // 白紙メモの原本ビューア（保存済み画像をいつでも開けるようにする）
+  const [memoViewerOpen, setMemoViewerOpen] = useState(false)
   const [resultDone, setResultDone] = useState(false)
   const [caseState, setCaseState] = useState<CaseRow>(caseData)
   // router.refresh() で fetch した最新 caseData を state に流し込む。
@@ -197,6 +208,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
 
   const TABS: { id: Tab; icon: typeof ClipboardList; label: string }[] = [
     { id: 'sheet', icon: ClipboardList, label: '① 面談シート入力' },
+    { id: 'white', icon: PencilLine, label: '白紙メモ' },
     { id: 'result', icon: FileText, label: '② 面談結果登録' },
     { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート入力' },
   ]
@@ -210,7 +222,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
     if (t === 'order' && !resultDone) {
       showToast('先に②面談結果登録を完了してください', 'error'); return
     }
-    if (t !== 'sheet' && draftPending) {
+    // 白紙メモは①と同じく「書き始めたら案件を作る」遅延作成にするため、タブを開くだけでは作らない
+    if (t !== 'sheet' && t !== 'white' && draftPending) {
       // sheet で未入力のまま順次進行を試みた場合、まず下書きを作る
       try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
     }
@@ -268,6 +281,21 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
         </div>
       )}
 
+      {tab === 'white' && (
+        <WhiteboardTab
+          caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase}
+          currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
+          onRefresh={() => router.refresh()} onOpenViewer={() => setMemoViewerOpen(true)}
+        />
+      )}
+
+      <MeetingMemoViewer
+        memos={memoList.filter(m => m.section === 'whiteboard')}
+        open={memoViewerOpen}
+        onClose={() => setMemoViewerOpen(false)}
+        onDeleted={id => setMemos(prev => prev.filter(m => m.id !== id))}
+      />
+
       {tab === 'result' && (
         <MeetingForm
           selectedCase={toSelectedCase(caseState, rest.caseClients)}
@@ -303,6 +331,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
             patchClient={patchClient}
             onRefresh={() => router.refresh()}
             guided
+            meetingMemos={memoList.filter(m => m.section === 'whiteboard')}
             {...rest}
           />
         </div>

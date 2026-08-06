@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
+import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
 
@@ -15,7 +16,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -111,6 +112,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('asset_inventory').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
     // 報酬内訳（引き継ぎゲートの「基本料金入力済」判定用）。
     supabase.from('reward_items').select('amount').eq('case_id', id),
+    // 白紙メモの原本（面談シートの白紙モードで保存した1枚画像）。migration 221 未適用環境では error → 空配列で degrade。
+    supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).eq('section', 'whiteboard').order('created_at', { ascending: false }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -179,6 +182,7 @@ export default async function CaseDetailPage({ params }: Props) {
       createdDocuments={(createdDocsResult.data ?? []) as unknown as DocumentRow[]}
       caseFiles={(caseFilesResult.data ?? []) as CaseFileRow[]}
       hasBaseFee={((rewardItemsResult.data ?? []) as Array<{ amount: number | null }>).some(r => (r.amount ?? 0) > 0)}
+      whiteboardMemos={(whiteboardMemosResult.data ?? []) as unknown as MemoLite[]}
       advancePaid={advInvRows.some(r => r.status === '入金済')}
       advanceInvoiceIssued={advInvRows.some(r => !!r.issued_date || r.status === '入金待ち' || r.status === '入金済')}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}

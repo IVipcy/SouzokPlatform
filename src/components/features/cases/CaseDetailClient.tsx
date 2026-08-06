@@ -40,6 +40,7 @@ import DeliveryTab from './DeliveryTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
+import type { MemoLite } from './MeetingMemoViewer'
 import ProgressBoard from './ProgressBoard'
 import CaseComposeProvider from './CaseComposeProvider'
 import { buildProgressBoard } from '@/lib/caseProgressBoard'
@@ -94,6 +95,8 @@ type Props = {
   reopenCount?: number
   /** 前受金が入金済か（作業着手準備ナビの前受金入金ゲート用） */
   advancePaid?: boolean
+  /** 白紙メモの原本（オーダーシート右上からいつでも開けるようにする） */
+  whiteboardMemos?: MemoLite[]
   /** 前受金請求書が発行済か（受注→作業着手準備ナビの料金表入力・前受金請求書発行ゲート用） */
   advanceInvoiceIssued?: boolean
 }
@@ -104,7 +107,7 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'legalInfo', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -669,6 +672,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           contractDocuments={contractDocuments}
           sagyoDocuments={sagyoDocuments}
           receipts={documentReceipts ?? []}
+          meetingMemos={whiteboardMemos}
         />
       )}
       {effectiveTab === 'progress' && (() => {

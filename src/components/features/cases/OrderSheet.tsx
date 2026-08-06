@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle2, FileSpreadsheet, Eye, Flag, Clock, X } from 'lucide-react'
+import { CheckCircle2, FileSpreadsheet, Eye, Flag, Clock, X, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { showToast } from '@/components/ui/Toast'
@@ -20,6 +20,7 @@ import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import HintNote from '@/components/ui/HintNote'
 import OrderSheetGuided from './OrderSheetGuided'
+import MeetingMemoViewer, { type MemoLite } from './MeetingMemoViewer'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
 import { PROCEDURE_TABS } from './practiceTabs'
@@ -54,6 +55,8 @@ type Props = {
   receipts?: TimelineReceipt[]
   // スマホ用ガイド入力（1セクション1画面ステップ＋簡易メモ＋詳細展開）。既定は従来の縦積み表示。
   guided?: boolean
+  /** 面談の白紙メモ原本。渡すと右上に「面談メモ（原本）」ボタンが出る。 */
+  meetingMemos?: MemoLite[]
 }
 
 /**
@@ -66,8 +69,9 @@ type Props = {
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
   heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
-  sagyoDocuments = [], receipts = [], guided = false,
+  sagyoDocuments = [], receipts = [], guided = false, meetingMemos = [],
 }: Props) {
+  const [memoViewerOpen, setMemoViewerOpen] = useState(false)
   const supabase = createClient()
   const authUser = useAuth()
   // アシスタント（パート）はオーダーシートを参照のみ（入力・完成操作は不可）
@@ -131,6 +135,14 @@ export default function OrderSheet({
       <Flag className="w-4 h-4" strokeWidth={2.25} />これでGO！
     </button>
   ) : null)
+
+  // 面談メモ（原本）：白紙メモタブで保存した画像を、オーダーシート入力中いつでも開けるようにする。
+  const memoViewerEl = meetingMemos.length > 0 ? (
+    <button type="button" onClick={() => setMemoViewerOpen(true)}
+      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors">
+      <FileText className="w-4 h-4" />面談メモ（原本）
+    </button>
+  ) : null
 
   // 確定解除の確認ポップ（ハンコ×）
   const reeditModalEl = (
@@ -228,6 +240,7 @@ export default function OrderSheet({
             <Eye className="w-4 h-4" />参照のみ（アシスタント）
           </span>
         )}
+        {memoViewerEl}
         {lastUpdatedEl}
         {goOrStampEl}
       </div>
@@ -288,6 +301,7 @@ export default function OrderSheet({
       )}
 
       {reeditModalEl}
+      <MeetingMemoViewer memos={meetingMemos} open={memoViewerOpen} onClose={() => setMemoViewerOpen(false)} />
       <BackToTopButton />
     </div>
   )

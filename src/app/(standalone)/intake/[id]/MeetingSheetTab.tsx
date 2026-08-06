@@ -229,7 +229,13 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-const SEC_LABEL: Record<string, string> = { clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+export const SEC_LABEL: Record<string, string> = { clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+
+/** 白紙メモの帯（＝セクション）の並び順。SEC_LABEL からラベルを引く。 */
+export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_trust', 'assets_insurance', 'referral'] as const
+
+/** 「AIで項目に反映」に対応しているセクション（他事業者紹介はメモのみ＝非対応）。 */
+export const isExtractable = (sec: string) => !!EXTRACT_SCHEMA[sec] || !!ROW_EXTRACT_SCHEMA[sec]
 export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
   if (memos.length === 0) return null
   const groups = [...new Set(memos.map(m => m.section || 'other'))]
@@ -400,6 +406,72 @@ function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId
   )
 }
 
+// ── AIで項目に反映（共通処理） ───────────────────────────────
+// ①面談シートの各セクションからも、白紙メモタブ（WhiteboardTab）からも使えるよう
+// コンポーネント外に切り出したファクトリ。手書き画像(dataUrl)／テキストのどちらでも呼べる。
+// 単一項目(EXTRACT_SCHEMA)と行データ(ROW_EXTRACT_SCHEMA)を同じメモから同時に抽出する。
+export function createRunExtract(deps: {
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  patchClient: (patch: Record<string, unknown>) => Promise<void>
+  caseId: string
+  ensureCaseId?: () => Promise<string>
+  onRefresh?: () => void
+  onFilled?: (keys: string[]) => void
+  /** true でトーストを出さない（まとめて反映で件数を集計してから1回だけ出したいとき） */
+  silent?: boolean
+}) {
+  const toast = (msg: string, kind: 'success' | 'error') => { if (!deps.silent) showToast(msg, kind) }
+  return (sec: string) => async (source: { image?: string; text?: string }): Promise<{ filled: number; added: number }> => {
+    const singleSchema = EXTRACT_SCHEMA[sec]
+    const rowSchemas = ROW_EXTRACT_SCHEMA[sec]
+    if (!singleSchema && !rowSchemas) return { filled: 0, added: 0 }
+    try {
+      const body: Record<string, unknown> = {}
+      if (singleSchema) body.fields = singleSchema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type }))
+      if (rowSchemas) body.rowGroups = rowSchemas.map(g => ({ key: g.key, label: g.label, fields: g.fields }))
+      if (source.image) body.image = source.image
+      if (source.text) body.text = source.text
+      const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const j = (await res.json()) as { values?: Record<string, string | number>; rows?: Record<string, Array<Record<string, string | number>>>; error?: string }
+      if (!res.ok) { toast(j.error ?? '反映に失敗しました', 'error'); return { filled: 0, added: 0 } }
+      // 単一項目：case/clientへ上書き
+      const values = j.values ?? {}
+      const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
+      const filled: string[] = []
+      for (const f of singleSchema ?? []) {
+        const v = values[f.key]; if (v === undefined || v === null || v === '') continue
+        if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v
+        filled.push(f.key)
+      }
+      if (Object.keys(casePatch).length) await deps.patchCase(casePatch as Partial<CaseRow>)
+      if (Object.keys(clientPatch).length) await deps.patchClient(clientPatch)
+      // 行データ：該当テーブルへINSERT（重複判定なし・常に追加）
+      let addedRowsTotal = 0
+      const cid = deps.ensureCaseId ? await deps.ensureCaseId() : deps.caseId
+      const supabase = createClient()
+      for (const g of rowSchemas ?? []) {
+        const rows = j.rows?.[g.key] ?? []
+        if (rows.length === 0) continue
+        const inserts = rows.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
+        const { error } = await supabase.from(g.table).insert(inserts)
+        if (error) { toast(`${g.label}のAI追加に失敗: ${error.message}`, 'error'); continue }
+        addedRowsTotal += rows.length
+      }
+      if (addedRowsTotal > 0) deps.onRefresh?.()
+      const parts: string[] = []
+      if (filled.length) parts.push(`${filled.length}項目を反映`)
+      if (addedRowsTotal > 0) parts.push(`${addedRowsTotal}件を追加`)
+      if (parts.length === 0) { toast('反映できる項目が読み取れませんでした', 'error'); return { filled: 0, added: 0 } }
+      if (filled.length) deps.onFilled?.(filled)
+      const note = addedRowsTotal > 0
+        ? '青文字の項目・追加された行はAIが入力しました。中身が合っているか見直してください。'
+        : '青文字の項目はAIが入力しました。中身が合っているか見直してください。'
+      toast(`${parts.join('・')}しました。${note}`, 'success')
+      return { filled: filled.length, added: addedRowsTotal }
+    } catch { toast('通信に失敗しました', 'error'); return { filled: 0, added: 0 } }
+  }
+}
+
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
@@ -431,55 +503,12 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
   // AIで項目に反映：手書き画像（dataUrl）またはタイピング本文（text）のどちらでも呼べる。
   // 単一項目(EXTRACT_SCHEMA) と 行データ(ROW_EXTRACT_SCHEMA) を同じメモから同時に抽出できる。
-  const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => {
-    const singleSchema = EXTRACT_SCHEMA[sec]
-    const rowSchemas = ROW_EXTRACT_SCHEMA[sec]
-    if (!singleSchema && !rowSchemas) return
-    try {
-      const body: Record<string, unknown> = {}
-      if (singleSchema) body.fields = singleSchema.map(f => ({ key: f.key, label: f.label, enum: f.enum, type: f.type }))
-      if (rowSchemas) body.rowGroups = rowSchemas.map(g => ({ key: g.key, label: g.label, fields: g.fields }))
-      if (source.image) body.image = source.image
-      if (source.text) body.text = source.text
-      const res = await fetch('/api/ocr-extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const j = (await res.json()) as { values?: Record<string, string | number>; rows?: Record<string, Array<Record<string, string | number>>>; error?: string }
-      if (!res.ok) { showToast(j.error ?? '反映に失敗しました', 'error'); return }
-      // 単一項目：case/clientへ上書き（従来）
-      const values = j.values ?? {}
-      const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
-      const filled: string[] = []
-      for (const f of singleSchema ?? []) {
-        const v = values[f.key]; if (v === undefined || v === null || v === '') continue
-        if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v
-        filled.push(f.key)
-      }
-      if (Object.keys(casePatch).length) await patchCase(casePatch as Partial<CaseRow>)
-      if (Object.keys(clientPatch).length) await patchClient(clientPatch)
-      // 行データ：該当テーブルへINSERT（重複判定なし・常に追加）
-      let addedRowsTotal = 0
-      const cid = ensureCaseId ? await ensureCaseId() : caseData.id
-      const supabase = createClient()
-      for (const g of rowSchemas ?? []) {
-        const rows = j.rows?.[g.key] ?? []
-        if (rows.length === 0) continue
-        const inserts = rows.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
-        const { error } = await supabase.from(g.table).insert(inserts)
-        if (error) { showToast(`${g.label}のAI追加に失敗: ${error.message}`, 'error'); continue }
-        addedRowsTotal += rows.length
-      }
-      if (addedRowsTotal > 0) onRefresh?.()
-      // 結果トースト
-      const parts: string[] = []
-      if (filled.length) parts.push(`${filled.length}項目を反映`)
-      if (addedRowsTotal > 0) parts.push(`${addedRowsTotal}件を追加`)
-      if (parts.length === 0) { showToast('反映できる項目が読み取れませんでした', 'error'); return }
-      if (filled.length) setAiFilled(prev => new Set([...prev, ...filled]))
-      const note = addedRowsTotal > 0
-        ? '青文字の項目・追加された行はAIが入力しました。中身が合っているか見直してください。'
-        : '青文字の項目はAIが入力しました。中身が合っているか見直してください。'
-      showToast(`${parts.join('・')}しました。${note}`, 'success')
-    } catch { showToast('通信に失敗しました', 'error') }
-  }
+  // AIで項目に反映：共通ファクトリ（createRunExtract）を使う。白紙メモタブと同じ処理。
+  const runExtractRaw = createRunExtract({
+    patchCase, patchClient, caseId: caseData.id, ensureCaseId, onRefresh,
+    onFilled: keys => setAiFilled(prev => new Set([...prev, ...keys])),
+  })
+  const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => { await runExtractRaw(sec)(source) }
 
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
   const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean) => (
