@@ -1,10 +1,11 @@
 'use client'
 
-// 統合入力アプリ ①面談シート。エクセルの[面談シート]=〇項目だけをセクション別に表示。
-// 各セクションのメモ欄＝そのセクションのフリー作業欄(work_content)に統合。タイピング/手書き切替。
-// 手書きは「テキスト化→フリー欄へ」＋画像は meeting_memos に保存し③へ引き継ぎ。構造化できる所は「AIで項目に反映」。
-import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointerEvent } from 'react'
-import { Eraser, Sparkles, Save, Trash2, Plus, Pen, Highlighter, Keyboard, PencilLine } from 'lucide-react'
+// 統合入力アプリ ①面談シート（項目モード）。エクセルの[面談シート]=〇項目だけをセクション別に表示。
+// 各セクションのメモ欄＝そのセクションのフリー作業欄(work_content)に統合。ここは【タイピング専用】。
+// 手書きは「白紙モード」(WhiteboardTab)に一本化した（原本が2か所に散らばるのを防ぐため）。
+// 構造化できる所は「AIで項目に反映」（createRunExtract を白紙モードと共通利用）。
+import { useState, useEffect } from 'react'
+import { Sparkles, Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineEdit, InlineDate } from '@/components/ui/InlineFields'
@@ -15,8 +16,6 @@ import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
-type Pt = { x: number; y: number }
-const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 const BUCKET = 'meeting-memos'
 
 // AIで項目に反映のスキーマ（単一項目・cases/clients テーブルに1レコード上書き）。
@@ -112,97 +111,6 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
   }],
 }
 
-// ── 縦リサイズ可の手書きキャンバス（ペン/蛍光ペン/消しゴム）。テキスト化・画像保存・AI反映は親のコールバック。 ──
-function HandwriteCanvas({ onText, onSaveImage, onExtract, saving, onDrawingChange }: {
-  onText: (t: string) => void; onSaveImage: (dataUrl: string) => Promise<void>; onExtract?: (src: { image?: string; text?: string }) => Promise<void>; saving: boolean
-  onDrawingChange?: (active: boolean) => void
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const drawing = useRef(false)
-  const last = useRef<Pt | null>(null)
-  const [empty, setEmpty] = useState(true)
-  const emptyRef = useRef(true)
-  const [busy, setBusy] = useState<'' | 'ocr' | 'extract'>('')
-  const [mode, setMode] = useState<'pen' | 'marker' | 'eraser'>('pen')
-  const modeRef = useRef(mode); modeRef.current = mode
-
-  // キャンバスの元の CSS サイズを覚えておく（リサイズ時に旧描画を等倍で貼り戻すため）。
-  const prevCssRef = useRef<{ w: number; h: number } | null>(null)
-  const setup = useCallback(() => {
-    const c = canvasRef.current, wrap = wrapRef.current; if (!c || !wrap) return
-    const rect = wrap.getBoundingClientRect(); if (rect.width < 1 || rect.height < 1) return
-    const prev = emptyRef.current ? null : c.toDataURL('image/png')
-    const prevCss = prevCssRef.current
-    const dpr = window.devicePixelRatio || 1
-    c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr)
-    const ctx = c.getContext('2d'); if (!ctx) return
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    // 旧描画を等倍で左上に貼り戻す（拡大時に補間でぼやけないように）。書き足しは新しく増えた領域で継続可能。
-    if (prev) {
-      const img = new Image()
-      img.onload = () => { const w = prevCss?.w ?? rect.width, h = prevCss?.h ?? rect.height; ctx.drawImage(img, 0, 0, w, h) }
-      img.src = prev
-    }
-    prevCssRef.current = { w: rect.width, h: rect.height }
-  }, [])
-  useEffect(() => { setup(); const wrap = wrapRef.current; if (!wrap) return; const ro = new ResizeObserver(() => setup()); ro.observe(wrap); return () => ro.disconnect() }, [setup])
-
-  const pos = (e: RPointerEvent<HTMLCanvasElement>): Pt => { const r = canvasRef.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
-  const down = (e: RPointerEvent<HTMLCanvasElement>) => { drawing.current = true; onDrawingChange?.(true); last.current = pos(e); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ } }
-  const move = (e: RPointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return
-    const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !last.current) return
-    const p = pos(e); const m = modeRef.current
-    if (m === 'eraser') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = 20 }
-    else if (m === 'marker') { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgba(250,204,21,0.4)'; ctx.lineWidth = 16 }
-    else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1 + (e.pressure ? e.pressure * 2.4 : 1.2) }
-    ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y); ctx.stroke()
-    ctx.globalCompositeOperation = 'source-over'
-    last.current = p; if (emptyRef.current && m !== 'eraser') { emptyRef.current = false; setEmpty(false) }
-  }
-  const up = () => { drawing.current = false; onDrawingChange?.(false); last.current = null }
-  const clear = () => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext('2d'); if (ctx) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore() } emptyRef.current = true; setEmpty(true) }
-  const ocr = async () => {
-    const c = canvasRef.current; if (!c || empty) return; setBusy('ocr')
-    try {
-      const res = await fetch('/api/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: c.toDataURL('image/png') }) })
-      const j = (await res.json()) as { text?: string; error?: string }
-      if (!res.ok) { showToast(j.error ?? '認識に失敗しました', 'error'); return }
-      if (j.text) {
-        onText(j.text)
-        // ※ キャンバスは自動クリアしない。ユーザーは同じ手書きに対して続けて「AIで項目に反映」や「画像を保存」を行えるようにする。
-        //   書き足してから再テキスト化するときは、既にテキスト化したストロークを手動で消しゴム/全消去してから再実行することを推奨。
-      } else {
-        showToast('認識できませんでした', 'error')
-      }
-    } catch { showToast('通信に失敗しました', 'error') } finally { setBusy('') }
-  }
-  const saveImg = async () => { const c = canvasRef.current; if (!c || empty) return; await onSaveImage(c.toDataURL('image/png')) }
-  const extract = async () => { const c = canvasRef.current; if (!c || empty || !onExtract) return; setBusy('extract'); try { await onExtract({ image: c.toDataURL('image/png') }) } finally { setBusy('') } }
-
-  return (
-    <div>
-      <div ref={wrapRef} style={{ height: 240, minHeight: 140, resize: 'vertical', overflow: 'hidden' }} className="rounded-lg bg-white border border-dashed border-gray-300 relative">
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', touchAction: 'none', display: 'block' }} className="cursor-crosshair" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
-        <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-300">↕ 下端で拡大</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 mt-2">
-        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-          {([['pen', 'ペン', Pen], ['marker', '蛍光', Highlighter], ['eraser', '消しゴム', Eraser]] as const).map(([k, label, Icon], i) => (
-            <button key={k} type="button" onClick={() => setMode(k)} className={`inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] ${i > 0 ? 'border-l border-gray-200' : ''} ${mode === k ? (k === 'marker' ? 'bg-amber-100 text-amber-800' : 'bg-brand-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100'}`}><Icon className="w-4 h-4" />{label}</button>
-          ))}
-        </div>
-        <button type="button" onClick={clear} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100"><Trash2 className="w-4 h-4" />全消去</button>
-        {/* 使う順序を数字プレフィックスで明示：①テキスト化 → ②AIで項目反映 → ③画像を保存(バックアップ) */}
-        <button type="button" onClick={ocr} disabled={empty || !!busy} title="① 手書きをテキストに起こしてフリー欄へ転記" className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-bold">1</span><Sparkles className="w-4 h-4" />{busy === 'ocr' ? '認識中…' : 'テキスト化→フリー欄へ'}</button>
-        {onExtract && <button type="button" onClick={extract} disabled={empty || !!busy} title="② 手書きから項目値をAIが読み取って各フィールドを埋める" className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] font-bold">2</span><Sparkles className="w-4 h-4" />{busy === 'extract' ? '反映中…' : 'AIで項目に反映'}</button>}
-        <button type="button" onClick={saveImg} disabled={empty || saving} title="③ 手書きの原本をバックアップ画像として保存" className="ml-auto inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40"><span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-brand-700 text-[10px] font-bold">3</span><Save className="w-4 h-4" />画像を保存</button>
-      </div>
-    </div>
-  )
-}
-
 // 保存済み手書きメモ（画像）一覧。署名URLで表示。
 function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; onDelete: (m: MeetingMemoRow) => void; readOnly?: boolean }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
@@ -250,75 +158,33 @@ export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
 }
 
 // ── メモ欄＝セクションのフリー作業欄(work_content)。タイピング/手書き切替。 ──
-function MemoField({ caseData, patchCase, section, memos, currentMemberId, setMemos, onExtract, ensureCaseId }: {
+function MemoField({ caseData, patchCase, section, memos, setMemos, onExtract }: {
   caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; section: string
-  memos: MeetingMemoRow[]; currentMemberId: string | null; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
-  onExtract?: (src: { image?: string; text?: string }) => Promise<void>; ensureCaseId?: () => Promise<string>
+  memos: MeetingMemoRow[]; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
+  onExtract?: (src: { image?: string; text?: string }) => Promise<void>
 }) {
   const wc = (caseData.work_content ?? {}) as Record<string, string>
-  const [mode, setMode] = useState<'type' | 'hand'>('type')
   const [draft, setDraft] = useState(wc[section] ?? '')
-  const [saving, setSaving] = useState(false)
   const [extractingText, setExtractingText] = useState(false)
   const secMemos = memos.filter(m => m.section === section)
 
-  // 手書き中は他の項目（input/textarea/select）を触れなくする（掌が誤タップするのを防ぐ）。
-  // body に .is-handwriting-active クラスを付けて CSS で pointer-events を制御。
-  const setDrawingActive = (active: boolean) => {
-    if (typeof document === 'undefined') return
-    document.body.classList.toggle('is-handwriting-active', active)
-  }
-
   const saveText = (v: string) => patchCase({ work_content: { ...wc, [section]: v || null } } as Partial<CaseRow>)
-  const appendText = (t: string) => { setDraft(prev => { const next = (prev ? prev + '\n' : '') + t; saveText(next); return next }) }
-  const saveImage = async (dataUrl: string) => {
-    setSaving(true); const supabase = createClient()
-    try {
-      const cid = ensureCaseId ? await ensureCaseId() : caseData.id
-      // 上書き保存：同じ (case, section) の既存画像を先に削除してから新規insert。
-      // これにより 同じセクションで「画像を保存」を何度押しても 1枚だけになる。
-      const existing = memos.filter(m => m.section === section)
-      if (existing.length > 0) {
-        const paths = existing.map(m => m.image_path).filter((p): p is string => !!p)
-        if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
-        await supabase.from('meeting_memos').delete().in('id', existing.map(m => m.id))
-      }
-      const blob = await (await fetch(dataUrl)).blob(); const path = `${cid}/${uid()}.png`
-      const { error: up } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/png', upsert: false }); if (up) throw new Error(up.message)
-      const { data: row, error } = await supabase.from('meeting_memos').insert({ case_id: cid, section, image_path: path, image_bucket: BUCKET, sort_order: 0, created_by: currentMemberId }).select('*').single()
-      if (error || !row) throw new Error(error?.message ?? '保存に失敗')
-      // ローカルからは同 section の旧レコードを除いて 新レコードを追加(=常に1枚)
-      setMemos(prev => [...prev.filter(m => m.section !== section), row as MeetingMemoRow])
-      showToast('手書きを保存しました（上書き）', 'success')
-    } catch (e) { showToast(e instanceof Error ? e.message : '保存に失敗', 'error') } finally { setSaving(false) }
-  }
   const delImg = async (m: MeetingMemoRow) => { const supabase = createClient(); if (m.image_path) await supabase.storage.from(m.image_bucket || BUCKET).remove([m.image_path]); await supabase.from('meeting_memos').delete().eq('id', m.id); setMemos(prev => prev.filter(x => x.id !== m.id)) }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-[#FBFCFE] p-2.5 mb-3">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] text-gray-500">メモ（＝このセクションのフリー作業欄・OS/実務と共有）</span>
-        <div className="ml-auto inline-flex rounded-md border border-gray-200 overflow-hidden">
-          <button type="button" onClick={() => setMode('type')} className={`inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] ${mode === 'type' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 active:bg-gray-100'}`}><Keyboard className="w-4 h-4" />タイピング</button>
-          <button type="button" onClick={() => setMode('hand')} className={`inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] border-l border-gray-200 ${mode === 'hand' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 active:bg-gray-100'}`}><PencilLine className="w-4 h-4" />手書き</button>
-        </div>
       </div>
-      {mode === 'type' ? (
-        <>
-          <textarea data-handwriting-tool value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
-          {/* タイピング本文をAIで項目に反映（onExtract=このセクションのextract定義あり時のみ表示） */}
-          {onExtract && (
-            <div className="mt-2 flex justify-end">
-              <button type="button" onClick={async () => { if (!draft.trim()) return; setExtractingText(true); try { await onExtract({ text: draft }) } finally { setExtractingText(false) } }} disabled={!draft.trim() || extractingText} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{extractingText ? '反映中…' : 'AIで項目に反映'}</button>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <HandwriteCanvas onText={appendText} onSaveImage={saveImage} onExtract={onExtract} saving={saving} onDrawingChange={setDrawingActive} />
-          {draft && <p className="mt-2 text-[12px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">フリー欄：{draft}</p>}
-        </>
+      {/* 項目モードはタイピング専用。手書きは「白紙モード」に一本化した（原本が2か所に散らばるのを防ぐ）。 */}
+      <textarea data-handwriting-tool value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+      {/* 本文をAIで項目に反映（onExtract=このセクションのextract定義あり時のみ表示） */}
+      {onExtract && (
+        <div className="mt-2 flex justify-end">
+          <button type="button" onClick={async () => { if (!draft.trim()) return; setExtractingText(true); try { await onExtract({ text: draft }) } finally { setExtractingText(false) } }} disabled={!draft.trim() || extractingText} className="inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40"><Sparkles className="w-4 h-4" />{extractingText ? '反映中…' : 'AIで項目に反映'}</button>
+        </div>
       )}
+      {/* 過去に手書きで保存した画像がある場合のみ表示（新規追加は白紙モードから） */}
       <SavedMemos memos={secMemos} onDelete={delImg} />
     </div>
   )
@@ -495,7 +361,8 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
 
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, currentMemberId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
+// currentMemberId は手書き画像の保存に使っていたが、手書きを白紙モードへ移したため未使用（Props型には残す）。
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
   const cl = caseData.clients
@@ -515,7 +382,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
     <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
-        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} currentMemberId={currentMemberId} setMemos={setMemos} onExtract={extract} ensureCaseId={ensureCaseId} />}
+        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} setMemos={setMemos} onExtract={extract} />}
         {body}
       </div>
     </div>
