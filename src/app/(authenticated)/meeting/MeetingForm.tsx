@@ -75,12 +75,25 @@ function ageAtDeath(birthday: string, deathDate: string): number | null {
 }
 
 // ── Shared UI helpers ──
-function Card({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+// invalid=true のとき（＝必須なのに未入力のまま保存しようとした）枠とラベルを赤くして、
+// どのカードが足りないのかを画面上で直接わかるようにする。
+// 必須未入力エラーで表示する項目名（バリデーションのキー → 画面のラベル）
+const MISSING_LABEL: Record<string, string> = {
+  customerName: '顧客名（依頼者名）',
+  meetingType: '面談分類',
+  meetingDate: '面談実施日',
+  meetingResult: '面談結果',
+  considerationPeriod: '検討期間',
+  clientResponseDueDate: 'お客様回答予定日',
+}
+
+function Card({ label, required, invalid, children }: { label: string; required?: boolean; invalid?: boolean; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded p-4 mb-3 border border-gray-200">
-      <div className="text-[11.5px] font-medium text-gray-500 tracking-[0.02em] mb-2 flex items-center gap-1.5">
+    <div data-invalid={invalid ? '1' : undefined} className={`bg-white rounded p-4 mb-3 border ${invalid ? 'border-red-400 ring-1 ring-red-200 bg-red-50/30' : 'border-gray-200'}`}>
+      <div className={`text-[11.5px] font-medium tracking-[0.02em] mb-2 flex items-center gap-1.5 ${invalid ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
         {required && <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />}
         {label}
+        {invalid && <span className="text-[10px] font-bold text-red-600 bg-red-100 rounded px-1.5 py-0.5">未入力</span>}
       </div>
       {children}
     </div>
@@ -193,6 +206,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  // 必須なのに未入力だった項目（保存を押した時点で確定）。該当カードを赤くする。
+  const [missing, setMissing] = useState<Set<string>>(new Set())
   const [done, setDone] = useState(false)  // スマホ独立ルート：登録完了画面
   const [otherReferralOpen, setOtherReferralOpen] = useState(false)  // ⑫ その他紹介アコーディオン
   const [data, setData] = useState<FormData>(() => {
@@ -574,13 +589,26 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   }, [selectedCase, currentMemberId])
 
   const nextStep = useCallback(async () => {
-    // 基本情報: 検討中／検討中（契約書待ち）は検討期間が必須。回答予定日は上限が読める期間（見込み不明・四十九日以降以外）で必須。
-    if (STEPS[step].id === 'basic' && RESPONSE_DUE_REQUIRED.has(data.caseStatus)) {
-      if (!data.considerationPeriod) { setSaveError('検討期間を選択してください'); return }
-      if (considerationDueMax(data.considerationPeriod) !== null && !data.clientResponseDueDate) {
-        setSaveError('お客様回答予定日を入力してください')
+    // 必須チェック：足りないものを「全部まとめて」集める。1つずつ潰す往復を避けるため、
+    // エラー文にも列挙し、該当カードは invalid（赤枠＋未入力バッジ）にする。
+    if (STEPS[step].id === 'basic') {
+      const miss: string[] = []
+      if (!data.clients[0]?.name?.trim()) miss.push('customerName')
+      if (!data.meetingType) miss.push('meetingType')
+      if (!data.meetingDate) miss.push('meetingDate')
+      if (!data.meetingResult) miss.push('meetingResult')
+      if (RESPONSE_DUE_REQUIRED.has(data.caseStatus)) {
+        if (!data.considerationPeriod) miss.push('considerationPeriod')
+        else if (considerationDueMax(data.considerationPeriod) !== null && !data.clientResponseDueDate) miss.push('clientResponseDueDate')
+      }
+      if (miss.length > 0) {
+        setMissing(new Set(miss))
+        setSaveError(`次の必須項目が未入力です：${miss.map(k => MISSING_LABEL[k] ?? k).join('／')}`)
+        // 最初の未入力カードまでスクロールして、どこを直せばよいか即わかるようにする
+        setTimeout(() => document.querySelector('[data-invalid="1"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
         return
       }
+      setMissing(new Set())
     }
     setSaveError('')
     if (step < STEPS.length - 1) {
@@ -664,23 +692,23 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               </div>
             )}
           </Card>
-          <Card label="顧客名（依頼者名）" required>
+          <Card label="顧客名（依頼者名）" required invalid={missing.has('customerName')}>
             <Input value={data.clients[0]?.name ?? ''} onChange={v => updateClient(0, { name: v })} placeholder="例: 服部 雅弘" />
           </Card>
-          <Card label="面談分類" required><Select value={data.meetingType} options={[...MEETING_CATEGORIES]} onChange={v => update('meetingType', v)} noEmpty /></Card>
-          <Card label="面談実施日" required>
+          <Card label="面談分類" required invalid={missing.has('meetingType')}><Select value={data.meetingType} options={[...MEETING_CATEGORIES]} onChange={v => update('meetingType', v)} noEmpty /></Card>
+          <Card label="面談実施日" required invalid={missing.has('meetingDate')}>
             <Input type="date" value={data.meetingDate} onChange={v => update('meetingDate', v)} />
             <p className="mt-1 text-[11px] text-gray-400">面談を行った日。マイページの相談案件一覧（当月面談）はこの日付で集計されます。</p>
           </Card>
-          <Card label="面談結果" required><Select value={data.meetingResult} options={meetingResultOptionsForRoute(data.orderRoute)} onChange={v => setMeetingResult(v)} noEmpty /></Card>
+          <Card label="面談結果" required invalid={missing.has('meetingResult')}><Select value={data.meetingResult} options={meetingResultOptionsForRoute(data.orderRoute)} onChange={v => setMeetingResult(v)} noEmpty /></Card>
 
           {/* 検討中・検討中(契約書待ち)のときだけ、面談結果の直下に検討期間→理由→(LP経由なら)追いかけ を表示 */}
           {RESPONSE_DUE_REQUIRED.has(data.caseStatus) && (
             <>
-              <Card label="検討期間" required><Select value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v)} placeholder="検討期間を選択" /></Card>
+              <Card label="検討期間" required invalid={missing.has('considerationPeriod')}><Select value={data.considerationPeriod} options={[...CONSIDERATION_PERIODS]} onChange={v => selectPeriod(v)} placeholder="検討期間を選択" /></Card>
               {/* 見込み不明・四十九日以降は起点が読めないため回答予定日カレンダーは出さない（上限null＝日付制御なし） */}
               {data.considerationPeriod && considerationDueMax(data.considerationPeriod) !== null && (
-                <Card label="お客様回答予定日" required>
+                <Card label="お客様回答予定日" required invalid={missing.has('clientResponseDueDate')}>
                   <Input type="date" value={data.clientResponseDueDate} onChange={v => update('clientResponseDueDate', v)} max={considerationDueMax(data.considerationPeriod) ?? undefined} />
                   <p className="mt-1 text-[11px] text-gray-400">「{data.considerationPeriod}」以内（〜{considerationDueMax(data.considerationPeriod)}）で選べます。</p>
                 </Card>
@@ -714,9 +742,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             <Pills multi value={data.serviceCategories} options={data.caseStatus === '検討中' ? [...ORDER_CATEGORIES, '提案できず'] : [...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
           <Card label="提案金額">
+            {/* 並びは 行政書士 → 司法書士 の順（現場の記載順に合わせる） */}
             {([
-              { field: 'proposalJudicial' as ProposalField, label: '司法書士報酬' },
               { field: 'proposalAdministrative' as ProposalField, label: '行政書士報酬' },
+              { field: 'proposalJudicial' as ProposalField, label: '司法書士報酬' },
             ]).map(({ field, label }, i) => {
               const val = data[field]
               const digits = propDigits(val)

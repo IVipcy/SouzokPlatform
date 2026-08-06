@@ -8,7 +8,8 @@ import { useState, useEffect } from 'react'
 import { Sparkles, Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { FieldGrid, InlineEdit, InlineDate } from '@/components/ui/InlineFields'
+import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
+import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { HEIR_RELATIONSHIPS, PROPERTY_TYPES } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
@@ -87,20 +88,25 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     key: 'deposits', label: '預金口座一覧', table: 'financial_assets',
     fields: [
       { key: 'institution_name', label: '金融機関名' },
+      { key: 'branch_name', label: '支店' },
       { key: 'balance_amount', label: '残高', type: 'number' },
     ],
     fixedValues: { asset_type: '預貯金', acquirer: '自社' },
   }],
   assets_securities: [{
     key: 'securities', label: '証券一覧', table: 'financial_assets',
-    fields: [{ key: 'institution_name', label: '証券会社名' }],
+    fields: [
+      { key: 'institution_name', label: '証券会社名' },
+      { key: 'branch_name', label: '支店' },
+      { key: 'balance_amount', label: '評価額', type: 'number' },
+    ],
     fixedValues: { asset_type: '証券', acquirer: '自社' },
   }],
   assets_trust: [{
     key: 'trusts', label: '信託一覧', table: 'financial_assets',
     fields: [
       { key: 'institution_name', label: '信託銀行名' },
-      { key: 'notes', label: '備考' },
+      { key: 'balance_amount', label: '残高', type: 'number' },
     ],
     fixedValues: { asset_type: '信託銀行', acquirer: '自社' },
   }],
@@ -356,8 +362,8 @@ type Props = {
 
 // 任意追加の金融種別
 const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol[] }[] = [
-  { kind: '証券', label: '証券', section: 'assets_securities', cols: [{ key: 'institution_name', label: '証券会社' }] },
-  { kind: '信託銀行', label: '信託', section: 'assets_trust', cols: [{ key: 'institution_name', label: '信託銀行名' }, { key: 'notes', label: '備考' }] },
+  { kind: '証券', label: '証券', section: 'assets_securities', cols: [{ key: 'institution_name', label: '証券会社' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }] },
+  { kind: '信託銀行', label: '信託', section: 'assets_trust', cols: [{ key: 'institution_name', label: '信託銀行名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }] },
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
 
@@ -409,8 +415,16 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
           <FieldGrid>
             <InlineEdit label="被相続人氏名" value={caseData.deceased_name} ai={aiFilled.has('deceased_name')} onSave={v => { clearAi('deceased_name'); return patchCase({ deceased_name: v || null }) }} />
             <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
-            <InlineDate label="被相続人生年月日" value={caseData.deceased_birth_date} ai={aiFilled.has('deceased_birth_date')} onSave={v => { clearAi('deceased_birth_date'); return patchCase({ deceased_birth_date: v || null }) }} />
-            <InlineDate label="相続開始日（死亡日）" value={caseData.date_of_death} ai={aiFilled.has('date_of_death')} onSave={v => { clearAi('date_of_death'); return patchCase({ date_of_death: v || null }) }} />
+            {/* 生年月日・死亡日は役所申請が和暦基準のため、②面談結果登録・実務タブと同じ和暦入力に統一。
+                DBには従来どおり西暦ISOで保存する。 */}
+            <div className="py-1.5">
+              <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">被相続人生年月日</div>
+              <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => { clearAi('deceased_birth_date'); patchCase({ deceased_birth_date: v || null }) }} />
+            </div>
+            <div className="py-1.5">
+              <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">相続開始日（死亡日）</div>
+              <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null }) }} />
+            </div>
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
@@ -423,7 +437,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       ), runExtract('assets_re'))}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
-        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
       ), runExtract('assets_deposit'))}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
