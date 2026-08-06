@@ -14,7 +14,7 @@ import { useRef, useState, useEffect, useCallback, type PointerEvent as RPointer
 import { Pen, Highlighter, Eraser, Trash2, Sparkles, Save, Plus, FileText, Check, X, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { SEC_LABEL, WB_ORDER } from './MeetingSheetTab'
+import { createRunExtract, SEC_LABEL, WB_ORDER } from './MeetingSheetTab'
 import type { CaseRow } from '@/types'
 import type { MeetingMemoRow, MemoBand } from './IntakeCaseClient'
 
@@ -31,7 +31,7 @@ const SECTIONS = WB_ORDER.map(k => ({ key: k as string, label: SEC_LABEL[k] }))
 const SECTION_HINT: Record<string, string> = {
   clientInfo: '氏名／ふりがな／続柄／TEL／住所／振込名義人（カナ）',
   order: '契約形態／提案した手続き／概算報酬／依頼者の反応',
-  deceased: '被相続人の 氏名／ふりがな／生年月日／死亡日／住所／本籍　　相続人（氏名・続柄）',
+  deceased: '被相続人の 氏名／ふりがな／生年月日／死亡日／住所／本籍　　相続人（氏名・続柄）　※家系図を描いてもOK（図から相続人一覧に起こします）',
   assets_re: '物件種別／所在地／評価額',
   assets_deposit: '金融機関名／支店／残高',
   assets_securities: '証券会社名／支店／評価額',
@@ -88,7 +88,7 @@ type Props = {
 }
 
 export default function WhiteboardTab({
-  caseData, patchCase, ensureCaseId, currentMemberId, memos, setMemos, onOpenViewer, onGoFields,
+  caseData, patchCase, patchClient, ensureCaseId, currentMemberId, memos, setMemos, onRefresh, onOpenViewer, onGoFields,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -111,6 +111,12 @@ export default function WhiteboardTab({
   // （同じフリー欄を2か所に出すと、どちらで直すのか迷うため）。
   const wc = (caseData.work_content ?? {}) as Record<string, string>
   const [ocrDone, setOcrDone] = useState<string[]>([])   // 直近のテキスト化で反映したセクション名
+  const [heirsAdded, setHeirsAdded] = useState(0)        // 手描き家系図から起こせた相続人の件数
+
+  // 相続人調査の帯だけは画像のままAIへ渡す（手描きの家系図を表に起こすため）。
+  const runExtract = createRunExtract({
+    patchCase, patchClient, caseId: caseData.id, ensureCaseId, onRefresh, silent: true,
+  })
 
   const tops = heights.reduce<number[]>((acc, h, i) => { acc.push(i === 0 ? 0 : acc[i - 1] + heights[i - 1]); return acc }, [])
   const totalH = heights.reduce((a, b) => a + b, 0)
@@ -231,7 +237,7 @@ export default function WhiteboardTab({
   const runOcr = async () => {
     const targets = SECTIONS.map((s, i) => ({ s, i })).filter(({ i }) => !bandEmpty(i))
     if (targets.length === 0) { showToast('白紙に書き込みがありません', 'error'); return }
-    setBusy('ocr')
+    setBusy('ocr'); setHeirsAdded(0)
     const got: Record<string, string> = {}
     try {
       await pool(targets, 3, async ({ s, i }) => {
@@ -249,6 +255,19 @@ export default function WhiteboardTab({
       for (const k of keys) merged[k] = wc[k] ? `${wc[k]}\n${got[k]}` : got[k]
       await patchCase({ work_content: merged } as unknown as Partial<CaseRow>)
       setOcrDone(keys.map(k => SEC_LABEL[k] ?? k))
+
+      // 相続人調査の帯は、家系図が手描きされることが多い。
+      // テキスト化を通すと線の情報が消えて「誰が誰の子か」が失われるため、
+      // この帯だけは切り出した画像をそのままAIへ渡し、氏名＋続柄を相続人一覧に起こす。
+      const kIdx = SECTIONS.findIndex(s => s.key === 'deceased')
+      if (kIdx >= 0 && !bandEmpty(kIdx)) {
+        const img = bandDataUrl(kIdx)
+        if (img) {
+          setBusy('extract')
+          const r = await runExtract('deceased')({ image: img })
+          setHeirsAdded(r.added)
+        }
+      }
       showToast(`${keys.length}セクションを項目モードのメモ欄に反映しました`, 'success')
     } finally { setBusy('') }
   }
@@ -348,6 +367,11 @@ export default function WhiteboardTab({
             <div className="flex-1 min-w-[220px]">
               <p className="text-[13px] font-bold text-emerald-800">{ocrDone.length}セクションを 項目モードのメモ欄に反映しました</p>
               <p className="text-[11.5px] text-emerald-700 mt-0.5">{ocrDone.join('／')}</p>
+              {heirsAdded > 0 && (
+                <p className="text-[11.5px] font-bold text-emerald-800 mt-1">
+                  手描きの家系図から 相続人 {heirsAdded}名 を一覧に起こしました（続柄も含めて確認してください）
+                </p>
+              )}
               <p className="text-[11.5px] text-gray-500 mt-1.5">
                 内容の確認・修正と、各項目への反映（「AIで項目に反映」）は<b className="text-gray-700">項目モード</b>で行えます。
               </p>
