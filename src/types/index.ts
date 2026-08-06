@@ -678,7 +678,7 @@ export type RealEstatePropertyRow = {
   case_id: string
   property_type: string | null
   address: string | null
-  lot_number: string | null
+  lot_number: string | null          // 地番（土地）。家屋番号は kaoku_bango（migration 098）
   rank: 'S' | 'A' | 'B' | 'C' | '確認中' | null
   appraisal_status: '未対応' | '対応中' | '完了' | '不要' | null
   resident_status: string | null
@@ -821,6 +821,10 @@ export type FinancialAssetRow = {
   asset_type: string
   institution_name: string
   branch_name: string | null
+  account_number: string | null      // 口座番号（預金）。財産目録の表記に使う（migration 223）
+  has_evidence: boolean              // 残高の根拠資料があるか（migration 223）
+  evidence_docs: string[] | null     // 根拠資料の種別（通帳/残高証明書 等・複数可。migration 223）
+  evidence_note: string | null       // 根拠資料の「その他」フリー入力（migration 223）
   account_type: string | null                 // 口座種別（普通/定期/当座/積立/貯蓄/その他。migration 187）
   required_docs: string[] | null
   existence_check: string | null

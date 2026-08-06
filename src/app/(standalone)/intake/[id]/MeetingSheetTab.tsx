@@ -11,7 +11,7 @@ import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
-import { HEIR_RELATIONSHIPS, PROPERTY_TYPES } from '@/lib/constants'
+import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
@@ -96,6 +96,7 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fields: [
       { key: 'institution_name', label: '金融機関名' },
       { key: 'branch_name', label: '支店' },
+      { key: 'account_number', label: '口座番号' },
       { key: 'balance_amount', label: '残高', type: 'number' },
     ],
     fixedValues: { asset_type: '預貯金', acquirer: '自社' },
@@ -251,6 +252,13 @@ function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: strin
           <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">物件種別</span>
             <select value={r.property_type ?? ''} onChange={e => save(r.id, 'property_type', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400"><option value="">—</option>{r.property_type && !(PROPERTY_TYPES as readonly string[]).includes(r.property_type) && <option value={r.property_type}>{r.property_type}</option>}{PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}</select></label>
           <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">所在地</span><input type="text" value={r.address ?? ''} onChange={e => save(r.id, 'address', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
+          {/* 地番＝土地、家屋番号＝建物。マンションは両方（財産目録の表記に使う） */}
+          {needsLotNumber(r.property_type) && (
+            <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">地番</span><input type="text" value={r.lot_number ?? ''} onChange={e => save(r.id, 'lot_number', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
+          )}
+          {needsBuildingNumber(r.property_type) && (
+            <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">家屋番号</span><input type="text" value={r.kaoku_bango ?? ''} onChange={e => save(r.id, 'kaoku_bango', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
+          )}
           <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">評価額</span><MoneyInput value={r.appraisal_value} onCommit={v => saveNum(r.id, v)} /></label>
           <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">備考</span><input type="text" value={r.notes ?? ''} onChange={e => save(r.id, 'notes', e.target.value)} placeholder="売却意向・査定状況 等" className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
           <div className="sm:col-span-2 flex justify-end"><button type="button" onClick={() => del(r.id)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />削除</button></div>
@@ -497,7 +505,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       ), runExtract('assets_re'))}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
-        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_number', label: '口座番号' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
       ), runExtract('assets_deposit'))}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (

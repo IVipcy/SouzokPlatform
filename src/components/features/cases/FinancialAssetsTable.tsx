@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, Lock, LockOpen, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { evidenceDocsFor } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
@@ -34,6 +35,8 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'institution_name', label: '金融機関名', type: 'text' },
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
     { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
+    // 財産目録の表記に使う（「みずほ銀行 渋谷支店 1234567」の形）
+    { key: 'account_number', label: '口座番号', type: 'text', width: 'w-32' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
@@ -147,8 +150,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
 
-  const commit = async (id: string, field: keyof FinancialAssetRow, value: string) => {
-    const { error } = await supabase.from('financial_assets').update({ [field]: value === '' ? null : value }).eq('id', id)
+  // 文字列以外（根拠資料の有無=boolean、根拠資料の種別=string[]）も保存できるようにする。
+  // 空文字だけ null に落とす従来の挙動は維持（他の列がそれ前提のため）。
+  const commit = async (id: string, field: keyof FinancialAssetRow, value: string | boolean | string[]) => {
+    const v = value === '' ? null : value
+    const { error } = await supabase.from('financial_assets').update({ [field]: v }).eq('id', id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
   const save = (id: string, field: keyof FinancialAssetRow, value: string) => { setLocal(id, field, value); commit(id, field, value) }
@@ -303,6 +309,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
+              <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-gray-400">有無</span></th>
+              <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結してよいか確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
@@ -351,6 +359,13 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     {banned
                       ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-gray-500 bg-gray-100 border border-gray-300" title={r.survey_prohibited_reason ?? '財産調査禁止期間中'}><Lock className="w-3 h-3" strokeWidth={2} />禁止期間中〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}</span>
                       : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}
+                  </td>
+                  {/* 根拠資料：目録に載せる金額の裏付け。有無のチェックと、何で確認したかの種別。 */}
+                  <td className="px-2 py-1.5 text-center">
+                    <input type="checkbox" checked={!!r.has_evidence} onChange={e => commit(r.id, 'has_evidence', e.target.checked)} className="w-4 h-4 accent-brand-600" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <EvidenceDocsCell row={r} onCommit={commit} />
                   </td>
                   {/* 凍結確認依頼（右側にW-Check系依頼ボタンを集約） */}
                   {progressMode && (
@@ -449,6 +464,42 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           </ul>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+/**
+ * 根拠資料セル。何で残高を確認したかを複数選べる（種別ごとに選択肢が変わる）。
+ * 選択肢に無いものは「その他」に書く（evidence_note）。
+ */
+function EvidenceDocsCell({ row, onCommit }: {
+  row: FinancialAssetRow
+  onCommit: (id: string, field: keyof FinancialAssetRow, value: string | boolean | string[]) => void
+}) {
+  const [docs, setDocs] = useState<string[]>(row.evidence_docs ?? [])
+  const [note, setNote] = useState(row.evidence_note ?? '')
+  const options = evidenceDocsFor(row.asset_type)
+  const toggle = (d: string) => {
+    const next = docs.includes(d) ? docs.filter(x => x !== d) : [...docs, d]
+    setDocs(next); onCommit(row.id, 'evidence_docs', next)
+  }
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        {options.map(d => (
+          <button key={d} type="button" onClick={() => toggle(d)}
+            className={`text-[10.5px] px-1.5 py-0.5 rounded border transition-colors ${docs.includes(d) ? 'bg-brand-600 text-white border-brand-600 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+            {d}
+          </button>
+        ))}
+      </div>
+      <input
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        onBlur={() => { if (note !== (row.evidence_note ?? '')) onCommit(row.id, 'evidence_note', note) }}
+        placeholder="その他"
+        className="w-full px-1.5 py-0.5 text-[11px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400"
+      />
     </div>
   )
 }

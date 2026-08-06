@@ -5,7 +5,7 @@ import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
-import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES } from '@/lib/constants'
+import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber } from '@/lib/constants'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
@@ -382,8 +382,17 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           <div>
             <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
             <FieldGrid cols={1}>
-              <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
-              <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
+              {/* 地番＝土地、家屋番号＝建物。区分マンションは「敷地の地番」と「専有部分の家屋番号」を
+                  両方持つため、表は分けず物件種別で出し分ける。 */}
+              {needsLotNumber(r.property_type) && (
+                <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
+              )}
+              {needsBuildingNumber(r.property_type) && (
+                <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
+              )}
+              {!r.property_type && (
+                <p className="text-[11.5px] text-gray-400 sm:col-span-2">物件種別を選ぶと、地番（土地）／家屋番号（建物）の入力欄が出ます。</p>
+              )}
               <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
               <InlineEdit label="築年数" value={r.building_age != null ? String(r.building_age) : null} onSave={v => saveField(r.id, 'building_age', v ? Number(v) : null)} />
               <InlineSelect label="評価方法" value={r.evaluation_method} options={[...PROPERTY_EVALUATION_METHODS]} onSave={v => saveField(r.id, 'evaluation_method', v)} />

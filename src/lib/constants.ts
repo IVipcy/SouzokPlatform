@@ -614,6 +614,30 @@ export const PROPERTY_TYPES = [
   'マンション',
 ] as const
 
+/**
+ * 地番／家屋番号は物件種別で要否が変わる。
+ * 土地＝地番、建物＝家屋番号。区分マンションは「敷地の地番」と「専有部分の家屋番号」の
+ * 両方を持つため、表は分けず1行で両方入力できるようにする。
+ */
+export const needsLotNumber = (propertyType: string | null | undefined) =>
+  propertyType === '土地' || propertyType === 'マンション'
+export const needsBuildingNumber = (propertyType: string | null | undefined) =>
+  propertyType === '建物' || propertyType === 'マンション'
+
+// === 財産の根拠資料（財産目録に載せる金額の裏付け） ===
+// 種別ごとに選べるものが違う。いずれも「その他」はフリー入力（evidence_note）で補う。
+export const EVIDENCE_DOCS_DEPOSIT = [
+  '通帳', '残高証明書', '経過利息証明書', '取引履歴（預貯金）',
+] as const
+export const EVIDENCE_DOCS_SECURITIES = [
+  '所有株式数証明', '残高証明書', '未払い配当金明細',
+] as const
+/** 資産種別（financial_assets.asset_type）→ 選べる根拠資料 */
+export function evidenceDocsFor(assetType: string | null | undefined): readonly string[] {
+  if (assetType === '証券') return EVIDENCE_DOCS_SECURITIES
+  return EVIDENCE_DOCS_DEPOSIT
+}
+
 // === 依頼者の特性（複数選択） ===
 // 面談で掴んだ依頼者の対応上の特性。旧「笑顔/真顔/怖い顔」を廃止し当てはまるものを複数選択。
 export const CLIENT_TRAIT_OPTIONS = [
