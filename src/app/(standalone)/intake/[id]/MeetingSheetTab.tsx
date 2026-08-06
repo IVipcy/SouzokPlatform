@@ -523,8 +523,6 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-gray-500">面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。</p>
-
       {sec('clientInfo', '依頼者情報', null, (
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />

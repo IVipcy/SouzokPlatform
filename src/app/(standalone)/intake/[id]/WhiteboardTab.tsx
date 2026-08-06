@@ -262,18 +262,6 @@ export default function WhiteboardTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 flex-wrap">
-        <p className="text-[12px] text-gray-500 flex-1 min-w-[240px]">
-          セクション見出しだけの白紙です。面談中はここに自由に書いてください。<br />
-          「テキスト化」で見出しごとに切り分けてフリー欄へ入り、そこから項目に反映できます。
-        </p>
-        {wbCount > 0 && onOpenViewer && (
-          <button type="button" onClick={onOpenViewer} className="inline-flex items-center gap-1 text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">
-            <FileText className="w-4 h-4" />保存済みの原本（{wbCount}）
-          </button>
-        )}
-      </div>
-
       {/* 道具 */}
       <div className="flex flex-wrap items-center gap-2 sticky top-0 z-10 bg-white/95 backdrop-blur py-2 -mx-1 px-1 border-b border-gray-100">
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
@@ -290,8 +278,14 @@ export default function WhiteboardTab({
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-bold">1</span>
           <Sparkles className="w-4 h-4" />{busy === 'ocr' ? '認識中…' : 'テキスト化'}
         </button>
+        {wbCount > 0 && onOpenViewer && (
+          <button type="button" onClick={onOpenViewer}
+            className="ml-auto inline-flex items-center gap-1 text-[13px] px-3 py-2 min-h-[40px] rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">
+            <FileText className="w-4 h-4" />保存済みの原本（{wbCount}）
+          </button>
+        )}
         <button type="button" onClick={saveImage} disabled={!dirty || !!busy}
-          className="ml-auto inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40">
+          className={`inline-flex items-center gap-1 text-[13px] px-3.5 py-2 min-h-[40px] rounded-lg text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-40 ${wbCount > 0 && onOpenViewer ? '' : 'ml-auto'}`}>
           <Save className="w-4 h-4" />{busy === 'save' ? '保存中…' : '原本を保存'}
         </button>
       </div>

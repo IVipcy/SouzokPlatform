@@ -70,8 +70,10 @@ type Props = {
   receipts: TimelineReceipt[]
 }
 
-// 'white'（白紙メモ）は ①②③ の順次進行とは独立した別タブ。①と同じデータ(work_content)を扱う。
-type Tab = 'sheet' | 'white' | 'result' | 'order'
+type Tab = 'sheet' | 'result' | 'order'
+// ①面談シート入力の中の書き方切替。白紙モードは「①の書き方違い」なので工程タブにはしない。
+// 切替は覚えない（①を開くたび必ず項目モードから）。
+type SheetMode = 'fields' | 'white'
 
 // caseData から MeetingForm 用の SelectedCase（既存案件＝更新モード）を組み立てる。
 // 依頼者氏名は 面談シートで入力する case_clients の「メイン依頼者」を正とする。
@@ -104,6 +106,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('sheet')
+  // ①の書き方（項目／白紙）。①へ入るたび 'fields' に戻す（＝モードは記憶しない）。
+  const [sheetMode, setSheetMode] = useState<SheetMode>('fields')
   // 白紙メモの原本ビューア（保存済み画像をいつでも開けるようにする）
   const [memoViewerOpen, setMemoViewerOpen] = useState(false)
   const [resultDone, setResultDone] = useState(false)
@@ -208,7 +212,6 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
 
   const TABS: { id: Tab; icon: typeof ClipboardList; label: string }[] = [
     { id: 'sheet', icon: ClipboardList, label: '① 面談シート入力' },
-    { id: 'white', icon: PencilLine, label: '白紙メモ' },
     { id: 'result', icon: FileText, label: '② 面談結果登録' },
     { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート入力' },
   ]
@@ -222,11 +225,11 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
     if (t === 'order' && !resultDone) {
       showToast('先に②面談結果登録を完了してください', 'error'); return
     }
-    // 白紙メモは①と同じく「書き始めたら案件を作る」遅延作成にするため、タブを開くだけでは作らない
-    if (t !== 'sheet' && t !== 'white' && draftPending) {
+    if (t !== 'sheet' && draftPending) {
       // sheet で未入力のまま順次進行を試みた場合、まず下書きを作る
       try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
     }
+    if (t === 'sheet') setSheetMode('fields')   // ①へ入るたび項目モードに戻す
     setTab(t)
     // タブ切替時は先頭へスクロール（面談シート最下部の保存ボタンから遷移すると 遷移先も最下部表示になる不具合を防ぐ）
     window.scrollTo(0, 0)
@@ -268,8 +271,33 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
 
       {tab === 'sheet' && (
         <div>
+          {/* ①の書き方切替：項目モード（従来）⇄ 白紙モード（見出しだけの白紙に手書き）。中身のデータは共通。 */}
+          <div className="flex items-start gap-3 mb-3 flex-wrap">
+            <p className="text-[12px] text-gray-500 flex-1 min-w-[220px] leading-relaxed">
+              {sheetMode === 'fields'
+                ? '面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。'
+                : 'セクション見出しだけの白紙です。書いたあと「テキスト化」で各セクションのメモ欄に入り、そこから項目に反映できます。'}
+            </p>
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden flex-none bg-white">
+              {([['fields', '項目モード', ClipboardList], ['white', '白紙モード', PencilLine]] as const).map(([m, label, Icon], i) => (
+                <button key={m} type="button" onClick={() => setSheetMode(m)}
+                  className={`inline-flex items-center gap-1 text-[12.5px] px-3 py-2 min-h-[38px] ${i > 0 ? 'border-l border-gray-200' : ''} ${sheetMode === m ? 'bg-brand-600 text-white font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                  <Icon className="w-4 h-4" />{label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {sheetMode === 'white' ? (
+            <WhiteboardTab
+              caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase}
+              currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
+              onRefresh={() => router.refresh()} onOpenViewer={() => setMemoViewerOpen(true)}
+            />
+          ) : (
           <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
             caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
+          )}
           {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、
               明示的な「保存して次へ」を用意して迷わないように。押下で②面談結果登録タブへ遷移。 */}
           <div className="mt-6 flex flex-col items-center gap-2 pb-6">
@@ -279,14 +307,6 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
             <p className="text-[11px] text-gray-400">入力内容は 各項目のフォーカスが外れた時点で 自動保存されています</p>
           </div>
         </div>
-      )}
-
-      {tab === 'white' && (
-        <WhiteboardTab
-          caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase}
-          currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
-          onRefresh={() => router.refresh()} onOpenViewer={() => setMemoViewerOpen(true)}
-        />
       )}
 
       <MeetingMemoViewer
