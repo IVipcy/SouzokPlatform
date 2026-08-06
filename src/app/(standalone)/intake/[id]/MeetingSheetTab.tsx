@@ -53,13 +53,19 @@ type RowExtractSchema = {
   table: 'heirs' | 'real_estate_properties' | 'financial_assets'
   fields: ExtractField[]
   fixedValues?: Record<string, unknown>
+  /**
+   * 重複判定に使う列。既に同じ値の行があればAI追加をスキップする。
+   * 「白紙の家系図→表」と「表へ直接入力」の両方を使えるようにしたため、
+   * これが無いと同じ人・同じ口座が二重登録される。
+   */
+  dedupeKey?: string
 }
 // case_clients の table 型は 'heirs'/'real_estate_properties'/'financial_assets' 以外を許容する必要がある
 type ExtractRowTable = 'heirs' | 'real_estate_properties' | 'financial_assets' | 'case_clients'
 const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { table: ExtractRowTable })[]> = {
   // 依頼者情報：CaseClientsTable(case_clients)へAI追加。優先度は既定 companion(安全側)。ユーザーが必要に応じてメイン依頼人に切替。
   clientInfo: [{
-    key: 'clients', label: '依頼者・同行者一覧', table: 'case_clients',
+    key: 'clients', label: '依頼者・同行者一覧', table: 'case_clients', dedupeKey: 'name',
     fields: [
       { key: 'name', label: '氏名' },
       { key: 'furigana', label: 'ふりがな' },
@@ -70,14 +76,14 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
   }],
   // 相続人調査：被相続人6項目(EXTRACT_SCHEMA['deceased']) と併用。相続人一覧も同じメモから抽出。
   deceased: [{
-    key: 'heirs', label: '相続人一覧', table: 'heirs',
+    key: 'heirs', label: '相続人一覧', table: 'heirs', dedupeKey: 'name',
     fields: [
       { key: 'name', label: '氏名' },
       { key: 'relationship_type', label: '続柄', enum: [...HEIR_RELATIONSHIPS] },
     ],
   }],
   assets_re: [{
-    key: 'properties', label: '不動産一覧', table: 'real_estate_properties',
+    key: 'properties', label: '不動産一覧', table: 'real_estate_properties', dedupeKey: 'address',
     fields: [
       { key: 'property_type', label: '物件種別', enum: [...PROPERTY_TYPES] },
       { key: 'address', label: '所在地' },
@@ -86,7 +92,7 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     ],
   }],
   assets_deposit: [{
-    key: 'deposits', label: '預金口座一覧', table: 'financial_assets',
+    key: 'deposits', label: '預金口座一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [
       { key: 'institution_name', label: '金融機関名' },
       { key: 'branch_name', label: '支店' },
@@ -95,7 +101,7 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fixedValues: { asset_type: '預貯金', acquirer: '自社' },
   }],
   assets_securities: [{
-    key: 'securities', label: '証券一覧', table: 'financial_assets',
+    key: 'securities', label: '証券一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [
       { key: 'institution_name', label: '証券会社名' },
       { key: 'branch_name', label: '支店' },
@@ -104,7 +110,7 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fixedValues: { asset_type: '証券', acquirer: '自社' },
   }],
   assets_trust: [{
-    key: 'trusts', label: '信託一覧', table: 'financial_assets',
+    key: 'trusts', label: '信託一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [
       { key: 'institution_name', label: '信託銀行名' },
       { key: 'balance_amount', label: '残高', type: 'number' },
@@ -112,7 +118,7 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fixedValues: { asset_type: '信託銀行', acquirer: '自社' },
   }],
   assets_insurance: [{
-    key: 'insurances', label: '生命保険一覧', table: 'financial_assets',
+    key: 'insurances', label: '生命保険一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [{ key: 'institution_name', label: '保険会社名' }],
     fixedValues: { asset_type: '生命保険', acquirer: '自社' },
   }],
@@ -323,23 +329,52 @@ export function createRunExtract(deps: {
       }
       if (Object.keys(casePatch).length) await deps.patchCase(casePatch as Partial<CaseRow>)
       if (Object.keys(clientPatch).length) await deps.patchClient(clientPatch)
-      // 行データ：該当テーブルへINSERT（重複判定なし・常に追加）
+      // 行データ：該当テーブルへINSERT。
+      // 「図→表」「表→図」どちらの順でも使えるようにしたため、両方やると同じ人が二重登録される。
+      // そこで dedupeKey（相続人なら氏名）が既存行と一致するものはスキップする。
       let addedRowsTotal = 0
+      let skippedRowsTotal = 0
       const cid = deps.ensureCaseId ? await deps.ensureCaseId() : deps.caseId
       const supabase = createClient()
+      const norm = (v: unknown) => String(v ?? '').replace(/[\s　]/g, '')
       for (const g of rowSchemas ?? []) {
         const rows = j.rows?.[g.key] ?? []
         if (rows.length === 0) continue
-        const inserts = rows.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
+        let fresh = rows
+        if (g.dedupeKey) {
+          // 既存行を取り出して突合（同一テーブルを複数グループで使うので fixedValues でも絞る）
+          let q = supabase.from(g.table).select(`${g.dedupeKey}`).eq('case_id', cid)
+          const at = (g.fixedValues as Record<string, unknown> | undefined)?.asset_type
+          if (typeof at === 'string') q = q.eq('asset_type', at)
+          const { data: existing } = await q
+          // 動的 select のため戻り値の型が確定しない。unknown を経由して素の連想配列として読む。
+          const existingRows = (existing ?? []) as unknown as Array<Record<string, unknown>>
+          const seen = new Set(existingRows.map(r => norm(r[g.dedupeKey!])).filter(Boolean))
+          fresh = rows.filter(r => {
+            const k = norm(r[g.dedupeKey!])
+            if (!k || seen.has(k)) return false
+            seen.add(k)   // 同じ応答内での重複も弾く
+            return true
+          })
+          skippedRowsTotal += rows.length - fresh.length
+        }
+        if (fresh.length === 0) continue
+        const inserts = fresh.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
         const { error } = await supabase.from(g.table).insert(inserts)
         if (error) { toast(`${g.label}のAI追加に失敗: ${error.message}`, 'error'); continue }
-        addedRowsTotal += rows.length
+        addedRowsTotal += fresh.length
       }
       if (addedRowsTotal > 0) deps.onRefresh?.()
       const parts: string[] = []
       if (filled.length) parts.push(`${filled.length}項目を反映`)
       if (addedRowsTotal > 0) parts.push(`${addedRowsTotal}件を追加`)
-      if (parts.length === 0) { toast('反映できる項目が読み取れませんでした', 'error'); return { filled: 0, added: 0 } }
+      if (skippedRowsTotal > 0) parts.push(`${skippedRowsTotal}件は登録済みのためスキップ`)
+      if (parts.length === 0) {
+        // 全部スキップ＝既に入っている、は失敗ではないので分けて伝える
+        toast(skippedRowsTotal > 0 ? 'すべて登録済みでした（重複は追加していません）' : '反映できる項目が読み取れませんでした',
+          skippedRowsTotal > 0 ? 'success' : 'error')
+        return { filled: 0, added: 0 }
+      }
       if (filled.length) deps.onFilled?.(filled)
       const note = addedRowsTotal > 0
         ? '青文字の項目・追加された行はAIが入力しました。中身が合っているか見直してください。'
