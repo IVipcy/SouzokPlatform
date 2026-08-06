@@ -1,0 +1,22 @@
+# イメージに入れないもの（ビルドを軽く・秘密情報を混入させない）
+node_modules
+.next
+out
+.git
+.gitignore
+.github
+
+# 秘密情報（環境変数はAzure側で設定する）
+.env
+.env.*
+!.env.local.example
+
+# 開発・資料系（実行時に不要）
+docs
+supabase
+.vscode
+.claude
+*.log
+npm-debug.log*
+README.md
+render.yaml
