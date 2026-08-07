@@ -19,6 +19,7 @@ import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrival
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
+import CaseReportInbox from '@/components/features/my/CaseReportInbox'
 import {
   computeSalesMetrics,
   computeSalesMetricsForDay,
@@ -110,7 +111,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const [{ data: myCaseRows }, { data: allCaseMembersRaw }, { data: allMembersRaw }, { data: clientsRaw }] = await Promise.all([
     supabase.from('case_members').select('case_id, role, cases(*)').eq('member_id', memberId),
     supabase.from('case_members').select('case_id, member_id, role'),
-    supabase.from('members').select('id, name, avatar_url').eq('is_active', true),
+    supabase.from('members').select('id, name, avatar_url, team_id').eq('is_active', true),
     supabase.from('clients').select('id, name'),
   ])
 
@@ -189,7 +190,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   }
 
   // 受注担当・管理担当・依頼者名を解決
-  const allMembersArr = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_url: string | null }>
+  const allMembersArr = (allMembersRaw ?? []) as Array<{ id: string; name: string; avatar_url: string | null; team_id?: string | null }>
+
+  // === 同じチームの案件（案件報告をチームで拾えるようにするため） ===
+  // 案件報告は受注担当ひとりに溜まりがちなので、受注担当・管理担当が同じチームの案件は
+  // チームの誰のマイページにも出して、手が空いている人が確認できるようにする。
+  const myTeamId = allMembersArr.find(m => m.id === memberId)?.team_id ?? null
+  const teamMemberIds = new Set(
+    myTeamId ? allMembersArr.filter(m => m.team_id === myTeamId).map(m => m.id) : [memberId],
+  )
+  const teamCaseIds = new Set<string>()
+  for (const cm of ((allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>)) {
+    if ((cm.role === 'sales' || cm.role === 'manager') && teamMemberIds.has(cm.member_id)) teamCaseIds.add(cm.case_id)
+  }
   const memberById = new Map<string, string>(allMembersArr.map(m => [m.id, m.name]))
   const clientById = new Map<string, string>(((clientsRaw ?? []) as Array<{ id: string; name: string }>).map(c => [c.id, c.name]))
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
@@ -224,6 +237,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let salesReferrals: DashReferral[] = []
   let roleTaskRows: TaskRow[] = []
   let allReports: ProgressReportRow[] = []
+  // チーム案件の案件報告（自分が担当していない案件の分）。案件名の表示用に cases も一緒に取る。
+  let teamReports: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
   let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
@@ -270,6 +285,16 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
       comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
       contractDocs = (contractDocsRes.data ?? []) as typeof contractDocs
+    } catch { /* migration 未適用環境では空扱い */ }
+  }
+
+  // チーム案件のうち、自分が担当していない案件の案件報告を取る（チームで確認を回すため）
+  const teamOnlyCaseIds = [...teamCaseIds].filter(id => !myCaseIds.has(id))
+  if (teamOnlyCaseIds.length > 0) {
+    try {
+      const { data } = await supabase.from('progress_reports')
+        .select('*, cases(case_number, deal_name)').in('case_id', teamOnlyCaseIds)
+      teamReports = (data ?? []) as typeof teamReports
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -739,34 +764,49 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     confirmedDate: string | null
     confirmerName: string | null
     kind: 'progress_check' | 'work_complete' | 'case_reopen' | 'delivery_confirm'
+    /** own=自分が受注担当の案件 / team=同じチームの案件 */
+    scope: 'own' | 'team'
   }
-  const salesProgressRows: SalesProgressRow[] = isSales
-    ? allReports
-        .filter(r => salesCaseIds.has(r.case_id))
-        .map(r => {
-          const c = myCases.find(x => x.id === r.case_id)
-          return {
-            reportId: r.id,
-            case_id: r.case_id,
-            case_number: c?.case_number ?? '',
-            deal_name: c?.deal_name ?? '',
-            requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : null,
-            requestedDate: r.requested_date ?? null,
-            reviewPoint: r.review_point ?? null,
-            status: (r.status ?? '依頼中') as '依頼中' | '確認済',
-            confirmedDate: r.confirmed_date ?? null,
-            confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
-            kind: (r.kind ?? 'progress_check') as 'progress_check' | 'work_complete' | 'case_reopen' | 'delivery_confirm',
-          }
-        })
-        .sort((a, b) => {
-          // 依頼中=報告中 を上に、次に日付の新しい順
-          if (a.status !== b.status) return a.status === '依頼中' ? -1 : 1
-          return (b.requestedDate ?? '').localeCompare(a.requestedDate ?? '')
-        })
-    : []
+  const ownReportRows: SalesProgressRow[] = allReports
+    .filter(r => salesCaseIds.has(r.case_id))
+    .map(r => {
+      const c = myCases.find(x => x.id === r.case_id)
+      return {
+        reportId: r.id, case_id: r.case_id,
+        case_number: c?.case_number ?? '', deal_name: c?.deal_name ?? '',
+        requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : null,
+        requestedDate: r.requested_date ?? null,
+        reviewPoint: r.review_point ?? null,
+        status: (r.status ?? '依頼中') as '依頼中' | '確認済',
+        confirmedDate: r.confirmed_date ?? null,
+        confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+        kind: (r.kind ?? 'progress_check') as SalesProgressRow['kind'],
+        scope: 'own' as const,
+      }
+    })
+  // チームの案件（自分が担当していないもの）。確認は誰が押しても良いので同じ表に並べる。
+  const teamReportRows: SalesProgressRow[] = teamReports.map(r => ({
+    reportId: r.id, case_id: r.case_id,
+    case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '',
+    requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : null,
+    requestedDate: r.requested_date ?? null,
+    reviewPoint: r.review_point ?? null,
+    status: (r.status ?? '依頼中') as '依頼中' | '確認済',
+    confirmedDate: r.confirmed_date ?? null,
+    confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+    kind: (r.kind ?? 'progress_check') as SalesProgressRow['kind'],
+    scope: 'team' as const,
+  }))
+  const salesProgressRows: SalesProgressRow[] = [...ownReportRows, ...teamReportRows]
+    .sort((a, b) => {
+      // 報告中を上に → 自分の案件を先に → 日付の新しい順
+      if (a.status !== b.status) return a.status === '依頼中' ? -1 : 1
+      if (a.scope !== b.scope) return a.scope === 'own' ? -1 : 1
+      return (b.requestedDate ?? '').localeCompare(a.requestedDate ?? '')
+    })
+
   // 受注担当のタブバッジ用: 完了していない = 依頼中(=報告中)
-  const salesPendingProgressCount = salesProgressRows.filter(r => r.status === '依頼中').length
+  const salesPendingProgressCount = ownReportRows.filter(r => r.status === '依頼中').length
   // 管理担当のタブバッジ用: まだ報告していない or 相手が確認中 = 依頼中
   const managerPendingProgressCount = managerProgressRows.filter(r => r.status === '依頼中').length
 
@@ -1024,71 +1064,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           {isManager && (
             <ProgressReportManagerTab rows={managerProgressRows} candidates={confirmerCandidates} currentMemberId={memberId} />
           )}
-          {isSales && !isManager && (
+          {/* 受信側。自分が受注担当の案件に加え、同じチームの案件も出す（誰が確認しても良い） */}
+          {(isSales || isManager) && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-                <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-                <h3 className="text-[14px] font-bold text-gray-900">案件報告（受信）</h3>
-                <span className="text-[11px] text-gray-400 ml-2">報告中 {salesPendingProgressCount} 件</span>
-                <span className="ml-auto text-[11px] text-gray-400">案件詳細画面で内容を確認→「確認する」を押します</span>
-              </div>
-              {(() => {
-                // 分類ラベル・チップ色（案件詳細HistoryTabと同じ配色）
-                const KIND_LABEL = { progress_check: '案件報告', work_complete: '業務完了申請', case_reopen: '案件再オープン', delivery_confirm: '納品確認申請' } as const
-                const KIND_CHIP = { progress_check: 'bg-sky-100 text-sky-700 border-sky-200', work_complete: 'bg-amber-100 text-amber-800 border-amber-300', case_reopen: 'bg-purple-100 text-purple-700 border-purple-300', delivery_confirm: 'bg-emerald-100 text-emerald-700 border-emerald-300' } as const
-                return salesProgressRows.length === 0 ? (
-                  <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中の案件報告はありません</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[13px]" style={{ minWidth: 1040 }}>
-                      <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">分類</th>
-                          <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
-                          <th className="px-3 py-2 text-left font-medium">案件名</th>
-                          <th className="px-3 py-2 text-left font-medium">報告者</th>
-                          <th className="px-3 py-2 text-left font-medium">報告日</th>
-                          <th className="px-3 py-2 text-left font-medium">内容</th>
-                          <th className="px-3 py-2 text-left font-medium">ステータス</th>
-                          <th className="px-3 py-2 text-left font-medium">確認者</th>
-                          <th className="px-3 py-2 text-left font-medium">確認日</th>
-                          <th className="px-3 py-2 w-32" />
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {salesProgressRows.map(r => {
-                          const isApproval = r.kind === 'work_complete' || r.kind === 'delivery_confirm'
-                          const btnLabel = isApproval ? '承認/差戻し' : '確認する'
-                          return (
-                            <tr key={r.reportId} className="hover:bg-gray-50/60">
-                              <td className="px-3 py-2.5">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${KIND_CHIP[r.kind]}`}>{KIND_LABEL[r.kind]}</span>
-                              </td>
-                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
-                              <td className="px-3 py-2.5">
-                                <Link href={`/cases/${r.case_id}?tab=progress&sub=report&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
-                              </td>
-                              <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
-                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
-                              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-pre-wrap max-w-[240px]">{r.reviewPoint || <span className="text-gray-300">—</span>}</td>
-                              <td className="px-3 py-2.5">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '報告中' : '確認済'}</span>
-                              </td>
-                              <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
-                              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
-                              <td className="px-3 py-2.5 text-right">
-                                {r.status === '依頼中' && (
-                                  <Link href={`/cases/${r.case_id}?tab=progress&sub=report&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">{btnLabel}</Link>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              })()}
+              <CaseReportInbox rows={salesProgressRows} pendingOwnCount={salesPendingProgressCount} />
             </div>
           )}
         </div>
