@@ -23,18 +23,41 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
   const [busy, setBusy] = useState(false)
   const heirNames = heirs.map(h => h.name).filter(Boolean)
 
-  // 財産目録から「財産区分・金額」をコピー反映（未登録分のみ）
+  // 財産目録から取り込む。目録には取得者ごとの割付（allocations）が入っているので、
+  // 「財産 × 取得者」で1行ずつ作る。分割内容をここで入れ直す必要がなくなる。
+  // 割付がまだの財産は、取得者を空にした1行だけ作って後から選べるようにする。
+  // 相続債務・その他費用は「誰が負担するか」であって分割する財産ではないので持ってこない。
+  const heirName = (id: string) => heirs.find(h => h.id === id)?.name ?? ''
   const importInventory = async () => {
-    const existing = new Set(rows.map(r => `${r.asset_category}|${r.amount ?? ''}`))
-    // 相続債務・その他費用は「誰が負担するか」であって分割する財産ではないので、ここには持ってこない。
-    const news = assetInventory
-      .filter(a => !isNegativeClass(a.asset_class))
-      .filter(a => !existing.has(`${a.detail}|${a.amount ?? ''}`))
-      .map(a => ({ case_id: caseId, asset_category: a.detail ?? a.asset_class ?? '', amount: a.amount }))
-    if (news.length === 0) { showToast('取り込む目録がありません（財産目録を作成してください）', 'info'); return }
+    const existing = new Set(rows.map(r => `${r.asset_category}|${r.recipient ?? ''}`))
+    const news: Array<{ case_id: string; asset_category: string; amount: number | null; recipient: string | null; share_ratio: string | null }> = []
+    for (const a of assetInventory) {
+      if (isNegativeClass(a.asset_class)) continue
+      const label = a.detail ?? a.asset_class ?? ''
+      const alloc = Object.entries(a.allocations ?? {}).filter(([, v]) => (v ?? 0) !== 0)
+      if (alloc.length === 0) {
+        if (existing.has(`${label}|`)) continue
+        existing.add(`${label}|`)
+        news.push({ case_id: caseId, asset_category: label, amount: a.amount, recipient: null, share_ratio: null })
+        continue
+      }
+      for (const [heirId, v] of alloc) {
+        const name = heirName(heirId)
+        if (existing.has(`${label}|${name}`)) continue
+        existing.add(`${label}|${name}`)
+        // 取得割合は「その財産のうち何割か」。100%なら書かない（協議書の文面が冗長になるため）。
+        const ratio = a.amount ? Math.round((v / a.amount) * 1000) / 10 : 0
+        news.push({
+          case_id: caseId, asset_category: label, amount: v, recipient: name || null,
+          share_ratio: ratio > 0 && ratio < 100 ? `${ratio}%` : null,
+        })
+      }
+    }
+    if (news.length === 0) { showToast('取り込む目録がありません（財産目録で取得者を割り付けてください）', 'info'); return }
     const { data, error } = await supabase.from('division_details').insert(news).select('*')
     if (error) { showToast(`取込に失敗: ${error.message}`, 'error'); return }
     setRows(prev => [...prev, ...((data ?? []) as DivisionDetailRow[])])
+    showToast(`${news.length}件を取り込みました`, 'success')
     onRefresh?.()
   }
 
@@ -65,8 +88,9 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
 
   return (
     <div>
-      <div className="mb-2">
+      <div className="mb-2 flex items-center gap-2 flex-wrap">
         <button type="button" onClick={importInventory} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 財産目録から取込</button>
+        <span className="text-[11px] text-gray-400">目録で割り付けた取得者・金額のまま、財産×取得者で1行ずつ取り込みます（相続債務・その他費用は除く）</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 940 }}>
