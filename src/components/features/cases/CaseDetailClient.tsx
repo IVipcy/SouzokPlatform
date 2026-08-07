@@ -130,9 +130,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     && !gatesDisabled())
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
-  // 「業務完了申請中」へ変更しゲート通過後、受注担当へ承認依頼を送る確認ポップアップ
-  const [workCompleteConfirm, setWorkCompleteConfirm] = useState(false)
-  const [workCompleteBusy, setWorkCompleteBusy] = useState(false)
   // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
   const [meetingGate, setMeetingGate] = useState<string | null>(null)
   // 受託フロー・ナビゲーターの「あとで」抑制（再マウント＝案件を再オープンでリセット）
@@ -247,19 +244,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         return
       }
     }
-    // 案件ステータス→「業務完了申請中」：ステータスドロップダウンから直接変更したときも
-    // ①未請求があれば「請求してね」ポップアップで止める ②問題なければ受注担当への承認依頼ポップアップを出す。
-    // （承認依頼を送るまで status は変えない。統一報告モーダル経由と同じゲート・通知を通す）
-    if (patch.status === '業務完了申請中' && caseState.status !== '業務完了申請中' && !gatesDisabled()) {
-      const supabase = createClient()
-      const result = await checkCaseCompletable(supabase, caseState.id, caseState.billing_pattern)
-      if (!result.ok) {
-        setCompletionBlocked({ missing: result.missing, pendingRefunds: result.pendingRefunds, missingReferrals: result.missingReferrals, billingPattern: result.billingPattern, hasInvoices: result.hasInvoices })
-        return
-      }
-      setWorkCompleteConfirm(true)
-      return
-    }
     const prev = caseState
     setCaseState(c => ({ ...c, ...patch }))
     const supabase = createClient()
@@ -304,52 +288,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     await patchCase({ status: '対応中', work_start_ok_at: new Date().toISOString(), work_start_ok_by: currentMemberId, work_start_ok_name: myName })
     setNavDismissed(true)
     showToast('着手：作業進行中にしました', 'success')
-  }
-
-  /** ゲート通過後、受注担当へ業務完了の承認依頼を送り、ステータスを「業務完了申請中」に変更する。
-   *  統一報告モーダル（HistoryTab）の work_complete 送信と同じ progress_reports + notifications を作る。 */
-  const submitWorkCompleteRequest = async () => {
-    if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
-    setWorkCompleteBusy(true)
-    const supabase = createClient()
-    const today = new Date().toISOString().split('T')[0]
-    // progress_reports へ業務完了申請を記録（kind列が無い環境向けフォールバックあり）
-    let { error } = await supabase.from('progress_reports').insert({
-      case_id: caseState.id, requester_id: currentMemberId, confirmer_id: null,
-      status: '依頼中', requested_date: today, review_point: null, kind: 'work_complete',
-    })
-    if (error && /kind/i.test(error.message ?? '')) {
-      const retry = await supabase.from('progress_reports').insert({
-        case_id: caseState.id, requester_id: currentMemberId, confirmer_id: null,
-        status: '依頼中', requested_date: today, review_point: null,
-      })
-      error = retry.error
-    }
-    if (error) {
-      setWorkCompleteBusy(false)
-      showToast(`承認依頼の送信に失敗しました: ${error.message}`, 'error')
-      return
-    }
-    // ステータスを 業務完了申請中 に（承認で「完了」になる）
-    const { error: upErr } = await supabase.from('cases').update({ status: '業務完了申請中' }).eq('id', caseState.id)
-    if (upErr) {
-      setWorkCompleteBusy(false)
-      showToast(`保存に失敗しました: ${upErr.message}`, 'error')
-      return
-    }
-    setCaseState(c => ({ ...c, status: '業務完了申請中' }))
-    // 受注担当への承認依頼通知
-    if (salesMemberId) {
-      await supabase.from('notifications').insert({
-        member_id: salesMemberId, type: 'progress_review_requested', case_id: caseState.id,
-        title: '業務完了申請が届きました',
-        body: `${caseState.case_number} ${caseState.deal_name}：業務完了の承認をお願いします`,
-      })
-    }
-    setWorkCompleteBusy(false)
-    setWorkCompleteConfirm(false)
-    showToast(salesMemberId ? '受注担当へ業務完了の承認依頼を送りました' : '業務完了申請中にしました（受注担当が未設定のため通知なし）', 'success')
-    router.refresh()
   }
 
   // 面談情報タブからの保存。ステータス変更以外は「面談情報を更新した」印を立てる。
@@ -789,24 +727,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} tasks={tasks} />
       )}
 
-
-      {/* 業務完了申請中への変更：ゲート通過後、受注担当へ承認依頼を送る確認 */}
-      <Modal
-        isOpen={workCompleteConfirm}
-        onClose={() => setWorkCompleteConfirm(false)}
-        title="受注担当へ業務完了の承認依頼を送ります"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setWorkCompleteConfirm(false)} disabled={workCompleteBusy}>キャンセル</Button>
-            <Button variant="primary" onClick={submitWorkCompleteRequest} disabled={workCompleteBusy}>{workCompleteBusy ? '送信中…' : '承認依頼を送る'}</Button>
-          </>
-        }
-      >
-        <p className="text-[14px] text-gray-700 leading-relaxed">
-          請求は完了しています。<strong>{salesMemberId ? '受注担当' : '受注担当（未設定）'}</strong>へ<strong>業務完了の承認依頼</strong>を送り、案件を<strong>「業務完了申請中」</strong>にします。<br />
-          <span className="text-[12px] text-gray-500">承認されると案件は「業務完了」になります。補足コメントを添えたい場合は「案件報告」タブの報告モーダルから送ってください。</span>
-        </p>
-      </Modal>
 
       {/* 検討中→（契約書待ち）/受託 へ進む前に、面談情報の更新を促すゲート */}
       <Modal

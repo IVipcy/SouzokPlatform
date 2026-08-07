@@ -7,21 +7,19 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import Modal from '@/components/ui/Modal'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { PROGRESS_REPORT_PHASES, PROGRESS_REPORT_STATES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
-import { checkCaseCompletable, type MissingInvoice, type PendingRefund, type MissingReferral } from '@/lib/caseCompletionGate'
 import HourenSouModal from './HourenSouModal'
 import { CaseComposeContext } from './CaseComposeContext'
 import type { CaseRow, MemberRow, ProgressReportKind } from '@/types'
 
 const KIND_LABEL: Record<ProgressReportKind, string> = {
   progress_check: '案件報告',
-  work_complete: '業務完了申請',
+  work_complete: '業務完了申請',   // 旧フロー。過去のレコードの表示にだけ使う
   case_reopen: '案件再オープン',
   delivery_confirm: '納品確認申請',
 }
@@ -58,7 +56,6 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
   const [reportState, setReportState] = useState<string>(PROGRESS_REPORT_STATES[0])
   const [reviewPointInput, setReviewPointInput] = useState('')
   const [requesting, setRequesting] = useState(false)
-  const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 報連相ウィンドウ
   const [houRenSouOpen, setHouRenSouOpen] = useState(false)
 
@@ -66,18 +63,9 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
 
   const openReport = () => { setReviewPointInput(''); setReportKind('progress_check'); setReportPhase(''); setReportState(PROGRESS_REPORT_STATES[0]); setRequestOpen(true) }
 
-  // 分類を選んだ瞬間のゲート判定 (業務完了申請のみ)。未達ならウィンドウを閉じてポップアップで案内。
-  const handleKindChange = async (next: ProgressReportKind) => {
-    setReportKind(next)
-    if (next === 'work_complete') {
-      const supabase = createClient()
-      const result = await checkCaseCompletable(supabase, caseData.id, caseData.billing_pattern)
-      if (!result.ok) {
-        setRequestOpen(false)
-        setCompletionBlocked({ missing: result.missing, pendingRefunds: result.pendingRefunds, missingReferrals: result.missingReferrals, billingPattern: result.billingPattern, hasInvoices: result.hasInvoices })
-      }
-    }
-  }
+  // 業務完了は管理担当がステータスを直接「業務完了」にする運用にしたため、
+  // 報告の分類からは外した（ここでのゲート判定も不要）。
+  const handleKindChange = (next: ProgressReportKind) => setReportKind(next)
 
   const handleRequestReview = async () => {
     if (!canRequestReview) { showToast('案件報告は管理担当のみ可能です', 'error'); return }
@@ -115,9 +103,7 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
       return
     }
 
-    if (reportKind === 'work_complete') {
-      await supabase.from('cases').update({ status: '業務完了申請中' }).eq('id', caseData.id)
-    } else if (reportKind === 'case_reopen') {
+    if (reportKind === 'case_reopen') {
       await supabase.from('cases').update({ status: '対応中' }).eq('id', caseData.id)
     } else if (reportKind === 'delivery_confirm') {
       await supabase.from('cases').update({ delivery_status: '確認申請中' }).eq('id', caseData.id)
@@ -174,12 +160,10 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
               className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
             >
               <option value="progress_check">案件報告</option>
-              <option value="work_complete">業務完了申請</option>
               <option value="case_reopen">案件再オープン</option>
               <option value="delivery_confirm">納品確認申請</option>
             </select>
             <p className="text-[11px] text-gray-400 mt-1">
-              {reportKind === 'work_complete' && '受注担当の承認後に業務完了になります。前受金・確定請求・立替実費が発行済であることが必要。'}
               {reportKind === 'case_reopen' && '業務完了/納品完了後に追加業務が発生した場合。案件が「作業進行中」に戻ります。'}
               {reportKind === 'delivery_confirm' && '納品対象書類が確定したら受注担当に確認依頼。承認後「納品待ち」になります。'}
               {reportKind === 'progress_check' && '受注担当に案件の進捗状況を確認してもらいます。'}
@@ -249,41 +233,6 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
           </div>
         </div>
       </FloatingWindow>
-
-      {/* 業務完了申請 ゲート未達 ポップアップ */}
-      <Modal
-        isOpen={!!completionBlocked}
-        onClose={() => setCompletionBlocked(null)}
-        title="請求が完了していないため、業務完了申請できません"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setCompletionBlocked(null)}>閉じる</Button>
-            <Button variant="primary" onClick={() => { setCompletionBlocked(null); router.push(`/cases/${caseData.id}?tab=contract`) }}>請求タブを開く</Button>
-          </>
-        }
-      >
-        {completionBlocked && (
-          <div className="space-y-3">
-            <p className="text-[13px] text-gray-700">下記が全て解消してから、業務完了申請を送信できます。</p>
-            {completionBlocked.missing.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">未発行の請求 ({completionBlocked.missing.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.missing.map(m => <li key={m.id}>{m.firmLabel ? `[${m.firmLabel}] ` : ''}{m.typeLabel}</li>)}
-                </ul>
-              </div>
-            )}
-            {completionBlocked.pendingRefunds.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">未処理の返金 ({completionBlocked.pendingRefunds.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.pendingRefunds.map(r => <li key={r.id}>{r.requested_date} 返金申請</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
 
       {/* 報連相ウィンドウ（ドラッグ移動・タブ切替でも残る） */}
       <HourenSouModal
