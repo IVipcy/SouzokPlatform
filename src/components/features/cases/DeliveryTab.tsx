@@ -52,6 +52,7 @@ type DocRow = {
   toukiNoticeDate: string | null     // 権利証補足
   toukiNoticeNumber: string | null   // 権利証補足
   inkanClientNames: string[] | null  // 印鑑証明書に紐付く相続人名
+  recipientHeirId: string | null     // 受領先の相続人。未設定は共通＝どの受領証にも載せる（migration 230）
 }
 
 function statusView(delivery_status: string | null | undefined) {
@@ -88,10 +89,10 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
     const supabase = createClient()
     const [{ data: receiptItems }, { data: contractDocs }, { data: members }] = await Promise.all([
       supabase.from('document_receipt_items')
-        .select('id, item_name, quantity, delivery_target, delivery_check_by, delivery_check_at, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, document_receipts!inner(case_id, received_date)')
+        .select('id, item_name, quantity, delivery_target, delivery_check_by, delivery_check_at, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id, document_receipts!inner(case_id, received_date)')
         .eq('document_receipts.case_id', caseData.id),
       supabase.from('contract_documents')
-        .select('id, name, arrival_date, category, delivery_target, delivery_check_by, delivery_check_at, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names')
+        .select('id, name, arrival_date, category, delivery_target, delivery_check_by, delivery_check_at, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id')
         .eq('case_id', caseData.id)
         .eq('category', 'お客様預かり書類'),
       supabase.from('members').select('id, name'),
@@ -110,6 +111,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
       date: string | null, deliveryTarget: boolean | null,
       checkedBy: string | null, checkedAt: string | null,
       displayName: string | null, toukiDate: string | null, toukiNumber: string | null, inkanNames: string[] | null,
+      recipientHeirId: string | null,
     ) => {
       const key = `${src}::${(name ?? '').trim()}`
       const r = map.get(key)
@@ -129,6 +131,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
         if (!r.toukiNoticeDate && toukiDate) r.toukiNoticeDate = toukiDate
         if (!r.toukiNoticeNumber && toukiNumber) r.toukiNoticeNumber = toukiNumber
         if ((!r.inkanClientNames || r.inkanClientNames.length === 0) && inkanNames && inkanNames.length > 0) r.inkanClientNames = inkanNames
+        if (!r.recipientHeirId && recipientHeirId) r.recipientHeirId = recipientHeirId
       } else {
         map.set(key, {
           key, source: src, sourceLabel: srcLabel, name: name ?? '（無題）',
@@ -136,11 +139,12 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
           checkedById: checkedBy, checkedAt: checkedAt,
           checkedByName: checkedBy ? memberMap.get(checkedBy) ?? null : null,
           toukiNoticeDate: toukiDate, toukiNoticeNumber: toukiNumber, inkanClientNames: inkanNames,
+          recipientHeirId,
         })
       }
     }
-    for (const it of items) acc('receipt', '受信簿', it.id, it.item_name, it.quantity ?? 1, it.document_receipts?.received_date ?? null, it.delivery_target ?? null, it.delivery_check_by ?? null, it.delivery_check_at ?? null, it.delivery_display_name ?? null, it.delivery_touki_notice_date ?? null, it.delivery_touki_notice_number ?? null, it.delivery_inkan_client_names ?? null)
-    for (const d of docs) acc('contract', '契約手続き / お客様預かり書類', d.id, d.name, 1, d.arrival_date ?? null, d.delivery_target ?? null, d.delivery_check_by ?? null, d.delivery_check_at ?? null, d.delivery_display_name ?? null, d.delivery_touki_notice_date ?? null, d.delivery_touki_notice_number ?? null, d.delivery_inkan_client_names ?? null)
+    for (const it of items) acc('receipt', '受信簿', it.id, it.item_name, it.quantity ?? 1, it.document_receipts?.received_date ?? null, it.delivery_target ?? null, it.delivery_check_by ?? null, it.delivery_check_at ?? null, it.delivery_display_name ?? null, it.delivery_touki_notice_date ?? null, it.delivery_touki_notice_number ?? null, it.delivery_inkan_client_names ?? null, it.delivery_recipient_heir_id ?? null)
+    for (const d of docs) acc('contract', '契約手続き / お客様預かり書類', d.id, d.name, 1, d.arrival_date ?? null, d.delivery_target ?? null, d.delivery_check_by ?? null, d.delivery_check_at ?? null, d.delivery_display_name ?? null, d.delivery_touki_notice_date ?? null, d.delivery_touki_notice_number ?? null, d.delivery_inkan_client_names ?? null, d.delivery_recipient_heir_id ?? null)
 
     const list = [...map.values()].sort((a, b) => {
       if (a.source !== b.source) return a.source === 'contract' ? -1 : 1
@@ -179,6 +183,17 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
   }
 
   // 名称リネーム保存 (blur時)。空文字は null にして 元の名前表示に戻す。
+  // 受領先（相続人）の切り替え。未設定＝共通で、どの受領証にも載せる。
+  const setRecipient = async (row: DocRow, heirId: string) => {
+    const val = heirId === '' ? null : heirId
+    setSaving(row.key)
+    const supabase = createClient()
+    const { error } = await supabase.from(tableForSource(row.source)).update({ delivery_recipient_heir_id: val }).in('id', row.itemIds)
+    setSaving(null)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    setRows(prev => prev.map(r => (r.key === row.key ? { ...r, recipientHeirId: val } : r)))
+  }
+
   const commitDisplayName = async (row: DocRow, next: string) => {
     const trimmed = next.trim()
     const currentEffective = row.displayName ?? ''
@@ -309,6 +324,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                   <th className="px-2 py-2 text-center font-medium w-14">個数</th>
                   <th className="px-3 py-2 text-left font-medium w-28">受領日(最新)</th>
                   <th className="px-3 py-2 text-left font-medium w-48">補足</th>
+                  {filter === 'target' && heirs.length > 0 && <th className="px-3 py-2 text-left font-medium w-44">受領先<span className="block text-[10px] font-normal text-gray-400">未設定は全員に載せる</span></th>}
                   {filter === 'target' && <th className="px-3 py-2 text-center font-medium w-40">Wチェック</th>}
                   <th className="px-3 py-2 text-center font-medium w-52">操作</th>
                 </tr>
@@ -362,6 +378,20 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                         <div className="mt-1 pl-1 text-[10px] text-purple-800 leading-snug">{r.inkanClientNames.join('、')}</div>
                       )}
                     </td>
+                    {filter === 'target' && heirs.length > 0 && (
+                      <td className="px-3 py-2 align-top">
+                        <select value={r.recipientHeirId ?? ''} onChange={e => setRecipient(r, e.target.value)} disabled={saving === r.key}
+                          className="w-full px-1.5 py-1 text-[11.5px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400">
+                          <option value="">共通（全員）</option>
+                          {heirs.map(h => <option key={h.id} value={h.id}>{h.name || '（氏名未入力）'}</option>)}
+                        </select>
+                        {r.recipientHeirId && (
+                          <div className="mt-0.5 text-[10px] text-gray-400 truncate" title={heirs.find(h => h.id === r.recipientHeirId)?.address ?? ''}>
+                            {heirs.find(h => h.id === r.recipientHeirId)?.address || '住所未登録'}
+                          </div>
+                        )}
+                      </td>
+                    )}
                     {filter === 'target' && (
                       <td className="px-3 py-2.5 text-center align-top">
                         {r.checkedAt ? (
@@ -433,6 +463,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
         />
       )}
       <GenponJuryoshoModal
+        targetRecipients={targetRows.map(r => r.recipientHeirId)}
         isOpen={genponOpen}
         onClose={() => setGenponOpen(false)}
         caseData={caseData}

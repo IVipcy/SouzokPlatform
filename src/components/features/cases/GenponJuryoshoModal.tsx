@@ -3,6 +3,10 @@
 // 原本受領証 生成モーダル。
 // 郵送先(相続人)を1名選択 → API叩いて Excel 生成 → ダウンロード。
 // 相続人が未登録の案件では 依頼者(cases.clients) にフォールバック。
+//
+// 納品タブで書類ごとに受領先を決めている場合は、その人あての書類だけが載る。
+// 受領先が未設定の書類は「共通」として、誰あての受領証にも載る。
+// 受領先が分かれるときは、この画面で1人ずつ選んで人数分の受領証を作る。
 
 import { useState } from 'react'
 import { X, FileText, User } from 'lucide-react'
@@ -14,6 +18,8 @@ type Props = {
   onClose: () => void
   caseData: CaseRow & { clients?: ClientRow | null }
   heirs: HeirRow[]
+  /** 納品タブで「対象」にした書類の受領先。受領先ごとの件数表示に使う（null=共通） */
+  targetRecipients?: Array<string | null>
   onGenerated?: () => void
 }
 
@@ -25,7 +31,7 @@ type RecipientOption = {
   isFallback: boolean  // heirs 未登録時の 依頼者フォールバック
 }
 
-export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, onGenerated }: Props) {
+export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, targetRecipients = [], onGenerated }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)  // heir.id or 'client' or null
   const [generating, setGenerating] = useState(false)
   if (!isOpen) return null
@@ -45,6 +51,11 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
       isFallback: true,
     })
   }
+
+  // その宛先の受領証に何件載るか（自分あて＋共通）。0件なら作る意味がないので止める。
+  const commonCount = targetRecipients.filter(r => r == null).length
+  const countFor = (id: string | null) => (id && id !== 'client' ? targetRecipients.filter(r => r === id).length : 0) + commonCount
+  const hasSplit = targetRecipients.some(r => r != null)
 
   const initialId = selectedId ?? (options.find(o => o.isApplicant)?.id ?? options[0]?.id ?? null)
   const currentId = selectedId ?? initialId
@@ -98,6 +109,12 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
             郵送先を1名選択してください。宛先(事務所)は 契約形態「<span className="font-semibold text-gray-700">{caseData.contract_type ?? '未設定'}</span>」から自動で決まります。<br />
             納品物一覧は 納品タブで「対象」に選択済みの書類が自動で並びます。
           </p>
+          {hasSplit && (
+            <p className="text-[12px] text-brand-700 bg-brand-50 border border-brand-100 rounded-md px-2.5 py-2 leading-relaxed">
+              受領先が分かれています。1人ずつ選んで、人数分の原本受領証を作ってください。
+              受領先を決めていない書類（共通{commonCount}件）は、どの受領証にも載ります。
+            </p>
+          )}
           <div>
             <label className="block text-[12px] font-semibold text-gray-600 mb-2">郵送先 (住所と氏名が原本受領証に流し込まれます)</label>
             {options.length === 0 ? (
@@ -124,8 +141,11 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
                         )}
                       </div>
                       <div className={`text-[11.5px] mt-0.5 ${opt.address ? 'text-gray-600' : 'text-red-600'}`}>
-                        {opt.address ?? '住所未登録 — この宛先では生成できません'}
+                        {opt.address ?? '住所未登録 — 相続人調査タブで住所を入力してください'}
                       </div>
+                      {hasSplit && (
+                        <div className="text-[11px] text-gray-500 mt-0.5">この宛先の書類 {countFor(opt.id)}件</div>
+                      )}
                     </div>
                   </label>
                 ))}

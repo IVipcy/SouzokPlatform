@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
     // 納品対象の書類: 受信簿(delivery_target=true) + 契約手続き(お客様預かり書類 & delivery_target=true)
     const [{ data: receiptItems }, { data: contractDocs }] = await Promise.all([
       supabase.from('document_receipt_items')
-        .select('id, item_name, quantity, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, document_receipts!inner(case_id)')
+        .select('id, item_name, quantity, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id, document_receipts!inner(case_id)')
         .eq('document_receipts.case_id', caseId)
         .eq('delivery_target', true),
       supabase.from('contract_documents')
-        .select('id, name, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names')
+        .select('id, name, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id')
         .eq('case_id', caseId)
         .eq('category', 'お客様預かり書類')
         .eq('delivery_target', true),
@@ -105,8 +105,15 @@ export async function POST(request: NextRequest) {
         bucket.set(name, { name, quantity: qty, toukiDate, toukiNumber, inkanNames: inkanNames ?? [] })
       }
     }
-    for (const it of items) push(it.item_name, it.delivery_display_name, it.quantity ?? 1, it.delivery_touki_notice_date, it.delivery_touki_notice_number, it.delivery_inkan_client_names)
-    for (const d of docs) push(d.name, d.delivery_display_name, 1, d.delivery_touki_notice_date, d.delivery_touki_notice_number, d.delivery_inkan_client_names)
+    // 受領先で絞る。受領先が未設定の書類は「共通」として、誰あての受領証にも載せる。
+    // （どの書類にも受領先を設定していない案件では、これまでどおり全書類が1通に載る）
+    const forRecipient = (rid: string | null) => rid == null || rid === recipientHeirId
+    for (const it of items.filter(x => forRecipient(x.delivery_recipient_heir_id ?? null))) {
+      push(it.item_name, it.delivery_display_name, it.quantity ?? 1, it.delivery_touki_notice_date, it.delivery_touki_notice_number, it.delivery_inkan_client_names)
+    }
+    for (const d of docs.filter(x => forRecipient(x.delivery_recipient_heir_id ?? null))) {
+      push(d.name, d.delivery_display_name, 1, d.delivery_touki_notice_date, d.delivery_touki_notice_number, d.delivery_inkan_client_names)
+    }
 
     // 各集約行 → DocLine (印鑑証明書は 相続人列挙で name を書き換え、権利証は sub に通知日+番号)
     const lines: DocLine[] = [...bucket.values()].map(a => {

@@ -219,6 +219,14 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     setHeirForm(emptyHeirForm())
   }
 
+  // 一覧の上で相続人の1項目だけ直す（住所など。編集フォームを開かずに埋められるように）
+  const saveHeirField = async (heirId: string, field: string, value: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('heirs').update({ [field]: value.trim() || null }).eq('id', heirId)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    onRefresh()
+  }
+
   const handleSaveHeir = async () => {
     if (!heirForm.name.trim()) return
     const supabase = createClient()
@@ -423,7 +431,17 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                               </>
                             ) : '—'}
                           </td>
-                          <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.address ?? '—'}</td>
+                          {/* 住所はその場で直せるようにする。納品の郵送先・原本受領証の宛先にそのまま使うため、
+                              編集フォームを開かずに埋められる形にしておく。 */}
+                          <td className="px-3 py-1.5">
+                            <input
+                              type="text"
+                              defaultValue={heir.address ?? ''}
+                              onBlur={e => saveHeirField(heir.id, 'address', e.target.value)}
+                              placeholder="住所を入力"
+                              className="w-full px-1.5 py-1 text-[12.5px] text-gray-700 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-500 focus:bg-white rounded outline-none transition-colors"
+                            />
+                          </td>
                           <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
                         </>
                       )}
