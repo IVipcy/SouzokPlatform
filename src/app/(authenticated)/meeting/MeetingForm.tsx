@@ -848,7 +848,37 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       case 'client': return (
         <div className="max-w-[1240px]">
           <SectionHeader Icon={User} title="依頼者情報" sub="面談に来られた方を入力（同行者も追加できます）" />
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          {/* スマホ：1人=1カード（表を横スクロールさせると入力が辛い） */}
+          <div className="sm:hidden flex flex-col gap-2.5">
+            {data.clients.map((c, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <select value={c.priority} onChange={e => updateClient(i, { priority: e.target.value as ClientPerson['priority'] })} className="flex-1 px-2 py-2 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400">
+                    <option value="main">メイン依頼人</option>
+                    <option value="companion">同行者</option>
+                  </select>
+                  {data.clients.length > 1 && (
+                    <button type="button" onClick={() => removeClient(i)} className="px-3 py-2 text-gray-300 hover:text-red-500 transition-colors" title="削除">✕</button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">氏名</span>
+                    <CellInput value={c.name} onChange={v => updateClient(i, { name: v })} placeholder="山田 太郎" /></label>
+                  <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">ふりがな</span>
+                    <CellInput value={c.kana} onChange={v => updateClient(i, { kana: v })} placeholder="やまだ たろう" /></label>
+                  <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">続柄</span>
+                    <select value={c.relationship} onChange={e => updateClient(i, { relationship: e.target.value })} className="w-full px-2 py-2 text-[13px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400">
+                      <option value="">続柄</option>
+                      {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select></label>
+                  <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">携帯電話</span>
+                    <CellInput type="tel" value={c.mobilePhone} onChange={v => updateClient(i, { mobilePhone: v })} placeholder="090-..." /></label>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:block bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
@@ -1206,9 +1236,10 @@ function ConfirmSection({ title, children }: { title: string; children: React.Re
 
 function ConfirmRow({ label, value }: { label: string; value: string }) {
   const empty = !value
+  // スマホは 見出し→値 の縦積み（140pxの見出し列を取ると値がほとんど読めない）
   return (
-    <div className="flex py-1.5 gap-3 border-b border-gray-50">
-      <div className="text-xs text-gray-400 flex-shrink-0 w-[140px] pt-0.5">{label}</div>
+    <div className="flex flex-col sm:flex-row py-1.5 gap-0.5 sm:gap-3 border-b border-gray-50">
+      <div className="text-xs text-gray-400 flex-shrink-0 sm:w-[140px] pt-0.5">{label}</div>
       <div className={`text-sm font-medium flex-1 ${empty ? 'text-gray-200 italic' : 'text-gray-800'}`}>
         {empty ? '未入力' : value}
       </div>

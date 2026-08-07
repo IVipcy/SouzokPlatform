@@ -204,10 +204,11 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
     }
   }
 
-  const TABS: { id: Tab; icon: typeof ClipboardList; label: string }[] = [
-    { id: 'sheet', icon: ClipboardList, label: '① 面談シート入力' },
-    { id: 'result', icon: FileText, label: '② 面談結果登録' },
-    { id: 'order', icon: FileSpreadsheet, label: '③ オーダーシート入力' },
+  // label=スマホ（狭いので短く）／labelFull=タブレット・PC
+  const TABS: { id: Tab; icon: typeof ClipboardList; label: string; labelFull: string }[] = [
+    { id: 'sheet', icon: ClipboardList, label: '①シート', labelFull: '① 面談シート入力' },
+    { id: 'result', icon: FileText, label: '②結果', labelFull: '② 面談結果登録' },
+    { id: 'order', icon: FileSpreadsheet, label: '③OS', labelFull: '③ オーダーシート入力' },
   ]
 
   // ①→②→③ の順次遷移のみ許可。戻るのは自由、飛び越しは不可（②は下書き案件確定、③は面談結果登録の完了が前提）。
@@ -231,33 +232,34 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <Link href="/intake" className="inline-flex items-center gap-1 px-2 py-2 min-h-[40px] text-[13px] font-semibold text-gray-500 hover:text-brand-700 active:bg-gray-100 rounded-md">
+      {/* 案件名は長いのでスマホでは折り返す。TOP・破棄は端に固定してタップしやすく。 */}
+      <div className="flex items-center gap-2 mb-3">
+        <Link href="/intake" className="inline-flex items-center gap-1 px-2 py-2 min-h-[40px] flex-none text-[13px] font-semibold text-gray-500 hover:text-brand-700 active:bg-gray-100 rounded-md">
           <ArrowLeft className="w-4 h-4" strokeWidth={2} />TOP
         </Link>
-        <div className="flex items-center gap-2.5">
-          <span className="text-[12px] font-mono text-gray-400">
-            {draftPending ? '新規面談シート（下書き）' : `${caseState.case_number} ・ ${caseState.deal_name}`}
-          </span>
-          <button type="button" onClick={() => setDiscardOpen(true)}
-            className="inline-flex items-center gap-1 px-3 py-2 min-h-[40px] text-[12px] font-semibold text-gray-400 hover:text-red-600 border border-gray-200 rounded-md hover:border-red-200 active:bg-red-50 transition-colors">
-            <Trash2 className="w-4 h-4" strokeWidth={2} />破棄
-          </button>
-        </div>
+        <span className="flex-1 min-w-0 text-[12px] font-mono text-gray-400 truncate text-right">
+          {draftPending ? '新規面談シート（下書き）' : `${caseState.case_number} ・ ${caseState.deal_name}`}
+        </span>
+        <button type="button" onClick={() => setDiscardOpen(true)}
+          className="inline-flex items-center gap-1 px-2.5 py-2 min-h-[40px] flex-none text-[12px] font-semibold text-gray-400 hover:text-red-600 border border-gray-200 rounded-md hover:border-red-200 active:bg-red-50 transition-colors">
+          <Trash2 className="w-4 h-4" strokeWidth={2} /><span className="hidden sm:inline">破棄</span>
+        </button>
       </div>
 
-      {/* 3タブ（①→②→③の順次遷移。飛び越し不可＝③は②完了が前提）。タブレットでタップしやすい高さ(min 48px)。 */}
-      <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1.5 mb-4">
+      {/* 3タブ（①→②→③の順次遷移。飛び越し不可＝③は②完了が前提）。
+          スマホでも押しやすいよう高さ48px。ラベルは狭い画面で短縮版に差し替える。 */}
+      <div className="flex items-center gap-1 sm:gap-1.5 bg-gray-100 rounded-xl p-1 sm:p-1.5 mb-4">
         {TABS.map(t => {
           const active = tab === t.id
           const Icon = t.icon
           const locked = t.id === 'order' && !resultDone
           return (
             <button key={t.id} type="button" onClick={() => goTab(t.id)} disabled={locked}
-              title={locked ? '先に②面談結果登録を完了してください' : undefined}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-3 min-h-[48px] rounded-lg text-[14px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 active:bg-gray-200'}`}>
-              <Icon className="w-4 h-4" strokeWidth={2} />{t.label}
-              {t.id === 'result' && resultDone && <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />}
+              title={locked ? '先に②面談結果登録を完了してください' : t.labelFull}
+              className={`flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-3 min-h-[48px] rounded-lg text-[13px] sm:text-[14px] font-semibold transition-colors ${active ? 'bg-white text-brand-700 border border-gray-200 shadow-sm' : locked ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 active:bg-gray-200'}`}>
+              <Icon className="w-4 h-4 flex-none" strokeWidth={2} />
+              <span className="truncate"><span className="sm:hidden">{t.label}</span><span className="hidden sm:inline">{t.labelFull}</span></span>
+              {t.id === 'result' && resultDone && <Check className="w-4 h-4 flex-none text-emerald-600" strokeWidth={2.5} />}
             </button>
           )
         })}
@@ -265,14 +267,16 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
       {tab === 'sheet' && (
         <div>
-          {/* ①の書き方切替：項目モード（従来）⇄ 白紙モード（見出しだけの白紙に手書き）。中身のデータは共通。 */}
+          {/* ①の書き方切替：項目モード（従来）⇄ 白紙モード（見出しだけの白紙に手書き）。中身のデータは共通。
+              白紙モードは手書き前提なので、スマホ（sm未満）では切替ごと出さない＝タイピングのみ。
+              モードは①へ入るたび 'fields' に戻るので、スマホから白紙モードに入ることはない。 */}
           <div className="flex items-start gap-3 mb-3 flex-wrap">
-            <p className="text-[12px] text-gray-500 flex-1 min-w-[220px] leading-relaxed">
+            <p className="text-[12px] text-gray-500 flex-1 min-w-[200px] leading-relaxed">
               {sheetMode === 'fields'
                 ? '面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。'
                 : 'セクション見出しだけの白紙です。書いたあと「テキスト化」で各セクションのメモ欄に入り、そこから項目に反映できます。'}
             </p>
-            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden flex-none bg-white">
+            <div className="hidden sm:inline-flex rounded-lg border border-gray-200 overflow-hidden flex-none bg-white">
               {([['fields', '項目モード', ClipboardList], ['white', '白紙モード', PencilLine]] as const).map(([m, label, Icon], i) => (
                 <button key={m} type="button" onClick={() => setSheetMode(m)}
                   className={`inline-flex items-center gap-1 text-[12.5px] px-3 py-2 min-h-[38px] ${i > 0 ? 'border-l border-gray-200' : ''} ${sheetMode === m ? 'bg-brand-600 text-white font-bold' : 'text-gray-600 hover:bg-gray-50'}`}>

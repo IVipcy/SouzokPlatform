@@ -266,3 +266,23 @@ body.is-handwriting-active select:not([data-handwriting-tool]),
 body.is-handwriting-active button:not([data-handwriting-tool]):not(canvas *) {
   pointer-events: none;
 }
+
+/* ─────────────────────────────────────────
+   面談登録アプリ（/intake）のスマホ対応
+   iOS Safari は文字サイズ 16px 未満の入力欄をタップすると画面を勝手に拡大する。
+   面談中は入力欄を次々タップするので、そのたびに拡大されると使いものにならない。
+   スマホ幅のときだけ入力系を 16px にして自動拡大を止める（指でのピンチ拡大は残す）。
+   ※ 面談シートの入力欄は Tailwind で 12〜14px 指定が多いため、まとめてここで上書きする。
+   ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .intake-app input:not([type='checkbox']):not([type='radio']),
+  .intake-app select,
+  .intake-app textarea {
+    font-size: 16px;
+  }
+  /* 入力欄が大きくなる分、行の詰まりを少しゆるめる */
+  .intake-app input:not([type='checkbox']):not([type='radio']),
+  .intake-app select {
+    min-height: 44px;
+  }
+}

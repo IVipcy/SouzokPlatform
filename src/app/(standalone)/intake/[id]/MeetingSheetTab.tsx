@@ -227,23 +227,25 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   return (
     <div>
       <div className="text-[12px] font-semibold text-gray-500 mb-1.5">相続人一覧</div>
+      {/* スマホは 氏名を1行／続柄・同居・削除を次の行 に折り返す（横に5つ並べると潰れて押せない）。
+          sm以上はこれまでどおり1行。 */}
       <div className="space-y-1.5">
         {rows.map(r => (
-          <div key={r.id} className="flex items-center gap-2">
-            <input type="text" value={r.name ?? ''} onChange={e => save(r.id, 'name', e.target.value)} placeholder="氏名" className="flex-1 px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />
-            <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="w-28 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
+          <div key={r.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 border border-gray-100 sm:border-0 rounded-lg sm:rounded-none p-2 sm:p-0">
+            <input type="text" value={r.name ?? ''} onChange={e => save(r.id, 'name', e.target.value)} placeholder="氏名" className="w-full sm:flex-1 px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />
+            <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="flex-1 sm:flex-none sm:w-28 min-w-[96px] px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
               <option value="">続柄</option>{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
             {formerSpouses.length > 0 && !isFormerSpouse(r.relationship_type ?? r.relationship) && (
-              <select value={r.other_parent_heir_id ?? ''} onChange={e => saveParent(r.id, e.target.value)} className="w-32 px-1.5 py-1.5 text-[11.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" title="誰との子か（相関図の線の出どころ）">
+              <select value={r.other_parent_heir_id ?? ''} onChange={e => saveParent(r.id, e.target.value)} className="flex-1 sm:flex-none sm:w-32 min-w-[120px] px-1.5 py-1.5 text-[11.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" title="誰との子か（相関図の線の出どころ）">
                 <option value="">現配偶者との子</option>
                 {formerSpouses.map(f => <option key={f.id} value={f.id}>{f.name || '前配偶者'}との子</option>)}
               </select>
             )}
-            <label className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-1.5 rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
-              <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-3.5 h-3.5 accent-amber-600" />同居
+            <label className={`inline-flex items-center gap-1 flex-none text-[11.5px] px-2 py-1.5 min-h-[40px] rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
+              <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-4 h-4 accent-amber-600" />同居
             </label>
-            <button type="button" onClick={() => del(r.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+            <button type="button" onClick={() => del(r.id)} className="p-2 flex-none text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>

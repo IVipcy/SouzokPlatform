@@ -317,6 +317,20 @@ export default function WhiteboardTab({
 
   return (
     <div className="space-y-3">
+      {/* スマホでは手書きを使わない前提（切替ボタンも出していない）。
+          画面を細くした・直リンクで来た等でここに来たときの逃げ道を出す。 */}
+      <div className="sm:hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+        <p className="text-[12.5px] text-amber-900 leading-relaxed">
+          白紙モードは手書き用です。スマホでは<strong>項目モード（タイピング）</strong>をお使いください。
+        </p>
+        {onGoFields && (
+          <button type="button" onClick={onGoFields}
+            className="mt-2 w-full min-h-[44px] rounded-lg bg-brand-600 text-white text-[14px] font-bold">
+            項目モードに切り替える
+          </button>
+        )}
+      </div>
+
       {/* 道具 */}
       <div className="flex flex-wrap items-center gap-2 sticky top-0 z-20 bg-white/95 backdrop-blur py-2 -mx-1 px-1 border-b border-gray-100">
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">

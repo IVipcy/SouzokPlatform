@@ -32,8 +32,12 @@ export default function InstallGuide() {
   // TOPだけでなく案件ページ（/order-sheet/[id]）でも誘導を出す
   const isOrderSheet = pathname.startsWith('/order-sheet')
   const isRegister = pathname.startsWith('/register')
-  const enabled = isOrderSheet || isRegister
-  const dismissKey = isOrderSheet ? 'orderSheetInstallGuideDismissedAt' : 'registerInstallGuideDismissedAt'
+  // 面談シート入力は /intake に一本化したので、こちらでもホーム画面追加を案内する（アイコン・名前は面談登録と同じ）
+  const isIntake = pathname.startsWith('/intake')
+  const enabled = isOrderSheet || isRegister || isIntake
+  const dismissKey = isOrderSheet ? 'orderSheetInstallGuideDismissedAt'
+    : isIntake ? 'intakeInstallGuideDismissedAt'
+    : 'registerInstallGuideDismissedAt'
   const iconSrc = isOrderSheet ? '/icons/os-192.png' : '/icons/icon-192.png'
   const appLabel = isOrderSheet ? 'オーダーシート入力' : '面談登録'
 
