@@ -70,7 +70,19 @@ export async function POST(request: NextRequest) {
     def.postal3.forEach((addr, i) => setCell(ws, addr, p3[i] ?? ''))
     def.postal4.forEach((addr, i) => setCell(ws, addr, p4[i] ?? ''))
     setCell(ws, def.address, clientAddress)
-    setCell(ws, def.name, clientName)
+    // 宛名は住所と左端を揃える。テンプレは住所より右の列から結合されていて左にずれていたので、
+    // 結合をやり直して住所と同じ列から始め、中央揃え→左揃えにする。
+    // 文字の大きさ・書体はテンプレの宛名セルのものをそのまま引き継ぐ。
+    const nameStyleSrc = ws.getCell(def.name)
+    const nameFont = nameStyleSrc.font
+    const nameVertical = nameStyleSrc.alignment?.vertical ?? 'middle'
+    try { ws.unMergeCells(def.name) } catch { /* 結合されていなければそのまま */ }
+    try { ws.mergeCells(def.nameMerge) } catch { /* 既に同じ範囲なら無視 */ }
+    const nameAnchor = def.nameMerge.split(':')[0]
+    const nameCell = ws.getCell(nameAnchor)
+    nameCell.value = clientName
+    if (nameFont) nameCell.font = nameFont
+    nameCell.alignment = { horizontal: 'left', vertical: nameVertical }
 
     const outBuffer = await wb.xlsx.writeBuffer()
     const downloadFilename = `封筒_${def.label}_${caseData.case_number ?? caseId}.xlsx`

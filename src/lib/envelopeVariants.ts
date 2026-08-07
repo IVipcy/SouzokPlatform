@@ -14,7 +14,13 @@ export type EnvelopeVariant = {
   postal4: [string, string, string, string]
   address: string   // 宛先住所
   building: string  // マンション名以下
-  name: string      // 宛名（氏名）
+  name: string      // 宛名（氏名）を書き込むセル（結合の左上）
+  /**
+   * 宛名の結合範囲。住所と左端を揃えるため、住所と同じ列から始める。
+   * テンプレは住所より右の列から結合されていて左端がずれていたので、
+   * 生成時に結合し直す（テンプレ自体は触らない）。
+   */
+  nameMerge: string
 }
 
 export const ENVELOPE_VARIANTS: EnvelopeVariant[] = [
@@ -26,6 +32,7 @@ export const ENVELOPE_VARIANTS: EnvelopeVariant[] = [
     address: 'G9',
     building: 'G10',
     name: 'K14',
+    nameMerge: 'G14:AA14',
   },
   {
     key: 'naga3_white',
@@ -35,6 +42,7 @@ export const ENVELOPE_VARIANTS: EnvelopeVariant[] = [
     address: 'A9',
     building: 'C10',
     name: 'C14',
+    nameMerge: 'A14:N15',
   },
   {
     key: 'naga3_brown',
@@ -44,6 +52,7 @@ export const ENVELOPE_VARIANTS: EnvelopeVariant[] = [
     address: 'A9',
     building: 'C10',
     name: 'C14',
+    nameMerge: 'A14:N15',
   },
 ]
 
