@@ -246,3 +246,46 @@ export function bannerOf(severity: AlertSeverity): 'chui' | 'kakunin' | null {
   if (severity === 'mid') return 'kakunin'
   return null
 }
+
+// === 画面に出す「アラート定義」の一覧 ===
+// バナー横の「アラート定義」ポップアップがこれを描く。しきい値は上の ALERT_DAYS を参照するので、
+// 条件を変えれば画面の説明も自動で追従する（資料と画面がずれない）。
+export const ALERT_CATALOG: Array<{
+  group: string
+  items: Array<{ label: string; severity: AlertSeverity; when: string }>
+}> = [
+  {
+    group: '期日の超過',
+    items: [
+      { label: '入金期日 超過', severity: 'mid', when: `期日を${ALERT_DAYS.billMid}営業日／${ALERT_CAL_DAYS.billHigh}日で赤` },
+      { label: 'タスク期限超過', severity: 'mid', when: `期日を${ALERT_DAYS.taskMid}営業日／${ALERT_CAL_DAYS.taskHigh}日で赤` },
+      { label: '至急タスク', severity: 'high', when: '優先度が超急ぎで未完了' },
+      { label: '完了予定日 超過', severity: 'high', when: '完了予定日を過ぎた' },
+    ],
+  },
+  {
+    group: '受注してから止まっている',
+    items: [
+      { label: '管理担当 未アサイン', severity: 'high', when: `受注から${ALERT_DAYS.managerUnassign}営業日` },
+      { label: 'オーダーシート未完成', severity: 'mid', when: `受注から${ALERT_DAYS.orderSheetMid}営業日／${ALERT_DAYS.orderSheetHigh}営業日で赤` },
+      { label: '前受金 未請求', severity: 'high', when: `受注から${ALERT_DAYS.advanceInvoice}営業日` },
+      { label: '前受金 郵送・入金待ち', severity: 'mid', when: `請求書を作ってから${ALERT_DAYS.advanceSend}営業日` },
+      { label: '契約手続き 未了', severity: 'mid', when: `契約書類が未回収のまま${ALERT_DAYS.contractDocs}営業日` },
+      { label: 'タスク未生成', severity: 'mid', when: `作業進行中になって${ALERT_DAYS.tasksGenerate}営業日` },
+    ],
+  },
+  {
+    group: '連絡・確認が止まっている',
+    items: [
+      { label: 'クレーム', severity: 'claim', when: 'クレームが登録されている' },
+      { label: '案件報告：至急', severity: 'high', when: '至急の報告が未確認' },
+      { label: '案件報告 未回答', severity: 'mid', when: `報告が未確認のまま${ALERT_DAYS.reportAnswer}営業日` },
+      { label: '到着物あり（未開封）', severity: 'mid', when: `到着連絡から${ALERT_DAYS.parcelOpen}営業日` },
+      { label: '週次報告の漏れ', severity: 'mid', when: '直近7日に確認済の報告がない' },
+      { label: '面談メモ未記載', severity: 'mid', when: '面談日を過ぎて未入力' },
+      { label: '回答予定日 間近・超過', severity: 'mid', when: 'お客様の回答予定日が2日以内または超過' },
+      { label: '未対応が続いている', severity: 'mid', when: `最後に開いてから${ALERT_DAYS.inactivityMid}営業日／${ALERT_DAYS.inactivityHigh}営業日で赤` },
+      { label: '自分宛てタスク', severity: 'info', when: '自分宛ての未着手タスクがある' },
+    ],
+  },
+]
