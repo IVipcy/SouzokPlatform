@@ -6,7 +6,7 @@ import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
-import { HEIR_RELATIONSHIPS } from '@/lib/constants'
+import { HEIR_RELATIONSHIPS, isFormerSpouse } from '@/lib/constants'
 import { toWareki } from '@/lib/wareki'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -77,6 +77,8 @@ const emptyHeirForm = () => ({
   is_legal_heir: true,
   is_applicant: false,
   lived_together: false,
+  // もう一方の親（前妻・前夫）。前婚の子だけ設定する。migration 225
+  other_parent_heir_id: '',
 })
 
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
@@ -87,6 +89,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)
   const [heirForm, setHeirForm] = useState(emptyHeirForm())
+  // 前妻・前夫の行（登録があるときだけ「誰との子か」を聞く）
+  const formerSpouseHeirs = heirs.filter(h => isFormerSpouse(h.relationship_type ?? h.relationship))
   // 相続人住所の自動入力用の郵便番号（DBには保存せず、住所欄の補助入力として使う）
   const [heirPostal, setHeirPostal] = useState('')
   const diagramRef = useRef<HTMLDivElement>(null)
@@ -141,6 +145,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       is_legal_heir: true,
       is_applicant: true,
       lived_together: false,
+      other_parent_heir_id: null,
       sort_order: 0,
     })
     onRefresh()
@@ -200,6 +205,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       is_legal_heir: heir.is_legal_heir,
       is_applicant: heir.is_applicant,
       lived_together: heir.lived_together ?? false,
+      other_parent_heir_id: heir.other_parent_heir_id ?? '',
     })
     // 郵便番号は heirs に保存しないので、依頼者の郵便番号を編集時の初期値に載せる
     setHeirPostal(isMainClientHeir ? (caseData.clients?.postal_code ?? '') : '')
@@ -226,6 +232,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       ...heirForm,
       relationship_type: heirForm.relationship || null,
       birth_date: heirForm.birth_date || null,
+      other_parent_heir_id: heirForm.other_parent_heir_id || null,
+      // 前妻・前夫は離婚しているので相続人にはならない（図に描くためだけの行）
+      is_legal_heir: isFormerSpouse(heirForm.relationship) ? false : heirForm.is_legal_heir,
     }
     if (editingHeirId) {
       await supabase.from('heirs').update(payload).eq('id', editingHeirId)
@@ -501,6 +510,22 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     ))}
                   </select>
                 </FormField>
+                {/* 前妻・前夫が登録されているときだけ「誰との子か」を聞く。
+                    未選択＝現配偶者との子として相関図に描くので、通常の案件では出てこない。 */}
+                {formerSpouseHeirs.length > 0 && !isFormerSpouse(heirForm.relationship) && (
+                  <FormField label="誰との子か（相関図の線）">
+                    <select
+                      value={heirForm.other_parent_heir_id}
+                      onChange={e => setHeirForm(f => ({ ...f, other_parent_heir_id: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                    >
+                      <option value="">現在の配偶者との子</option>
+                      {formerSpouseHeirs.map(f => (
+                        <option key={f.id} value={f.id}>{(f.relationship_type ?? f.relationship ?? '前配偶者')}（{f.name || '氏名未入力'}）との子</option>
+                      ))}
+                    </select>
+                  </FormField>
+                )}
                 {/* オーダーシートでは詳細（生年月日/フラグ）を隠し、実務タブで入力。エクセルR47-49 */}
                 {!orderSheetMode && (
                   <>

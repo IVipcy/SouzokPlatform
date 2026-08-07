@@ -579,6 +579,7 @@ export type HeirRow = {
   birth_date: string | null
   relationship_type: string | null   // 被相続人との続柄（法定相続人・代襲まで網羅。migration 103でCHECK撤去）
   lived_together: boolean            // 被相続人と同居していたか（相関図にバッジ表示。migration 222）
+  other_parent_heir_id: string | null // もう一方の親＝前妻・前夫の heirs.id（未設定は現配偶者との子。migration 225）
   is_applicant: boolean
   notes: string | null
   sort_order: number

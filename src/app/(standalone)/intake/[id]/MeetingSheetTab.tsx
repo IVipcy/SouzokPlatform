@@ -12,7 +12,7 @@ import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
 import OtherAssetsTable from '@/components/features/cases/OtherAssetsTable'
-import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, OTHER_ASSET_KINDS } from '@/lib/constants'
+import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, OTHER_ASSET_KINDS, isFormerSpouse } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
@@ -210,11 +210,20 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   const supabase = createClient()
   const [rows, setRows] = useState<HeirRow[]>(heirs)
   useEffect(() => setRows(heirs), [heirs])
-  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r)); supabase.from('heirs').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const save = (id: string, field: string, v: string) => {
+    setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r))
+    // 続柄を「前妻/前夫」にしたら相続人フラグを落とす（離婚しているので相続人ではない）
+    const patch: Record<string, unknown> = { [field]: v || null }
+    if (field === 'relationship_type' && isFormerSpouse(v)) patch.is_legal_heir = false
+    supabase.from('heirs').update(patch).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
+  }
   // 同居（boolean）。相関図に「同居」バッジで出る。書類回収・連絡の起点になるため面談中に拾う。
   const saveLived = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, lived_together: v } : r)); supabase.from('heirs').update({ lived_together: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('heirs').insert({ case_id: cid, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('heirs').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
+  // 前妻・前夫が入力されているときだけ「誰との子か」を聞く（未選択＝現配偶者との子）。
+  const formerSpouses = rows.filter(r => isFormerSpouse(r.relationship_type ?? r.relationship))
+  const saveParent = (id: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, other_parent_heir_id: v || null } : r)); supabase.from('heirs').update({ other_parent_heir_id: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   return (
     <div>
       <div className="text-[12px] font-semibold text-gray-500 mb-1.5">相続人一覧</div>
@@ -225,6 +234,12 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
             <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="w-28 px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
               <option value="">続柄</option>{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            {formerSpouses.length > 0 && !isFormerSpouse(r.relationship_type ?? r.relationship) && (
+              <select value={r.other_parent_heir_id ?? ''} onChange={e => saveParent(r.id, e.target.value)} className="w-32 px-1.5 py-1.5 text-[11.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" title="誰との子か（相関図の線の出どころ）">
+                <option value="">現配偶者との子</option>
+                {formerSpouses.map(f => <option key={f.id} value={f.id}>{f.name || '前配偶者'}との子</option>)}
+              </select>
+            )}
             <label className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-1.5 rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
               <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-3.5 h-3.5 accent-amber-600" />同居
             </label>

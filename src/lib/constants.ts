@@ -444,13 +444,22 @@ export const KOSEKI_RANGES = [
 // 被相続人との続柄（相続人視点）。法定相続人＋代襲相続まで網羅。いとこ等は除外。
 export const HEIR_RELATIONSHIPS = [
   '配偶者',
+  '前妻', '前夫',
   '長男', '長女', '次男', '次女', '三男', '三女', '養子',
   '孫', 'ひ孫',
   '父', '母', '祖父', '祖母',
   '兄', '姉', '弟', '妹',
+  '異母兄弟姉妹', '異父兄弟姉妹',
   '甥', '姪',
   'その他',
 ] as const
+
+// 前妻・前夫。離婚しているので相続人ではないが、その人との子は第1順位の相続人になるため、
+// 相関図には「相続人ではない関係者」として点線の箱で描く（線の出どころが要る）。
+export const isFormerSpouse = (r: string | null | undefined) => r === '前妻' || r === '前夫'
+// 半血のきょうだい（被相続人と父母の一方だけが同じ）。相続分が全血の1/2になるため図に明示する。
+export const isHalfBloodSibling = (r: string | null | undefined) =>
+  r === '異母兄弟姉妹' || r === '異父兄弟姉妹'
 
 // 相続登記の種別（物件ごとに複数選択）
 export const REGISTRATION_TYPES = [

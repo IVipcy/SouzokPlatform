@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext } from 'react'
+import { isFormerSpouse, isHalfBloodSibling } from '@/lib/constants'
 import type { CaseRow, HeirRow } from '@/types'
 
 // 戸籍の取得状況オーバーレイ（氏名→状態＋進捗/結果）。指定時のみ枠色＋ホバーを表示。
@@ -26,6 +27,10 @@ type Pattern = 'spouse_children' | 'children_only' | 'parents' | 'siblings'
 // ※ レイアウトが複数コンポーネントに分かれているのでモジュールスコープに置く。
 const labelOf = (h: HeirRow, fallback?: string): string =>
   h.relationship_type || h.relationship || fallback || '相続人'
+/** 前妻・前夫の行か（相続人ではないが、その人との子の線の出どころになるので図に描く） */
+const isFormerSpouseHeir = (h: HeirRow) => isFormerSpouse(h.relationship_type || h.relationship)
+/** 半血のきょうだいか（相続分が全血の1/2） */
+const isHalfBloodHeir = (h: HeirRow) => isHalfBloodSibling(h.relationship_type || h.relationship)
 
 export default function InheritanceDiagramV2({
   deceased,
@@ -38,20 +43,23 @@ export default function InheritanceDiagramV2({
 }) {
   // 続柄を相関図のカテゴリ（配偶者/子/父/母/兄弟姉妹/その他）に正規化。
   // relationship_type（長男・次男・孫 等）も relationship（フリー）も同じ判定に通す。
-  type Cat = '配偶者' | '子' | '父' | '母' | '兄弟姉妹' | 'その他'
+  type Cat = '配偶者' | '前配偶者' | '子' | '父' | '母' | '兄弟姉妹' | 'その他'
   const typeOf = (h: HeirRow): Cat => {
     const r = h.relationship_type || h.relationship || ''
     if (r === '配偶者') return '配偶者'
+    // 前妻・前夫は相続人ではないが、その人との子の線を引くために図には描く
+    if (isFormerSpouse(r)) return '前配偶者'
     // 第1順位＝子（実子・養子）と代襲（孫・ひ孫）は子（直系卑属）として扱う
     if (['子', '長男', '長女', '二男', '二女', '三男', '三女', '養子', '次男', '次女', '孫', 'ひ孫'].includes(r)) return '子'
     if (r === '父') return '父'
     if (r === '母') return '母'
-    // 第3順位＝兄弟姉妹と代襲（甥・姪）
-    if (['兄弟姉妹', '兄', '姉', '弟', '妹', '甥', '姪'].includes(r)) return '兄弟姉妹'
+    // 第3順位＝兄弟姉妹と代襲（甥・姪）。異母／異父（半血）も同じ位置に置き、箱に「半血」バッジを出す
+    if (['兄弟姉妹', '兄', '姉', '弟', '妹', '甥', '姪', '異母兄弟姉妹', '異父兄弟姉妹'].includes(r)) return '兄弟姉妹'
     return 'その他'
   }
 
   const spouse = heirs.find(h => typeOf(h) === '配偶者') ?? null
+  const formerSpouses = heirs.filter(h => typeOf(h) === '前配偶者')
   const children = heirs.filter(h => typeOf(h) === '子')
   const father = heirs.find(h => typeOf(h) === '父') ?? null
   const mother = heirs.find(h => typeOf(h) === '母') ?? null
@@ -88,14 +96,28 @@ export default function InheritanceDiagramV2({
 
   if (pattern === 'siblings') {
     return <StatusCtx.Provider value={statusByName}><SiblingsLayout
-      deceased={deceased} spouse={spouse} siblings={siblings} others={others}
+      deceased={deceased} spouse={spouse} siblings={siblings} others={[...others, ...formerSpouses]}
       BOX_W={BOX_W} BOX_H={BOX_H} SPOUSE_GAP={SPOUSE_GAP} CHILD_GAP={CHILD_GAP} V_GAP={V_GAP}
     /></StatusCtx.Provider>
   }
 
   // パターン1 & 2 は共通（配偶者の有無で分岐）
-  const descendants = [...children, ...others]
-  const topRowWidth = spouse ? BOX_W * 2 + SPOUSE_GAP : BOX_W
+  // 前妻・前夫がいる場合は 被相続人の左に並べ、離婚線（点線＋×）でつなぐ。
+  // 子は「誰との子か」(other_parent_heir_id) でグループ分けし、線の出どころを変える。
+  // 未設定の子は現配偶者との子として扱う＝前妻がいない案件はこれまでと同じ描画になる。
+  const formerIds = new Set(formerSpouses.map(f => f.id))
+  const groupKeyOf = (h: HeirRow) =>
+    h.other_parent_heir_id && formerIds.has(h.other_parent_heir_id) ? h.other_parent_heir_id : 'current'
+  const allDescendants = [...children, ...others]
+  const groups = [
+    ...formerSpouses.map(f => ({ key: f.id, kids: allDescendants.filter(d => groupKeyOf(d) === f.id) })),
+    { key: 'current', kids: allDescendants.filter(d => groupKeyOf(d) === 'current') },
+  ]
+  // 子の並びはグループ順（前妻の子 → 現配偶者の子）。線が交差しない。
+  const descendants = groups.flatMap(g => g.kids)
+
+  const topCount = formerSpouses.length + 1 + (spouse ? 1 : 0)
+  const topRowWidth = topCount * BOX_W + (topCount - 1) * SPOUSE_GAP
   const childrenRowWidth =
     descendants.length > 0 ? descendants.length * BOX_W + (descendants.length - 1) * CHILD_GAP : 0
 
@@ -105,14 +127,29 @@ export default function InheritanceDiagramV2({
   const canvasHeight = descendants.length > 0 ? childrenY + BOX_H + 30 : topY + BOX_H + 30
 
   const topStartX = (canvasWidth - topRowWidth) / 2
-  const deceasedX = topStartX
-  const spouseX = spouse ? topStartX + BOX_W + SPOUSE_GAP : 0
+  const topBoxX = (i: number) => topStartX + i * (BOX_W + SPOUSE_GAP)
+  const formerX = formerSpouses.map((_, i) => topBoxX(i))
+  const deceasedX = topBoxX(formerSpouses.length)
+  const spouseX = spouse ? topBoxX(formerSpouses.length + 1) : 0
 
-  const parentAnchorX = spouse ? deceasedX + BOX_W + SPOUSE_GAP / 2 : deceasedX + BOX_W / 2
-  const parentAnchorY = topY + BOX_H
-
-  const childrenStartX = parentAnchorX - childrenRowWidth / 2
+  const marriageY = topY + BOX_H / 2
   const siblingBarY = topY + BOX_H + V_GAP / 2
+  const childrenStartX = (canvasWidth - childrenRowWidth) / 2
+  const childCenterX = (i: number) => childrenStartX + i * (BOX_W + CHILD_GAP) + BOX_W / 2
+  // 各グループの線の出どころ＝婚姻線／離婚線の中点（配偶者がいなければ被相続人の真下）
+  const anchorXOf = (key: string) => {
+    if (key !== 'current') {
+      const i = formerSpouses.findIndex(f => f.id === key)
+      return formerX[i] + BOX_W + SPOUSE_GAP / 2
+    }
+    return spouse ? deceasedX + BOX_W + SPOUSE_GAP / 2 : deceasedX + BOX_W / 2
+  }
+  // グループごとの子の位置（descendants 内の連番）
+  let cursor = 0
+  const groupSpans = groups.map(g => {
+    const start = cursor; cursor += g.kids.length
+    return { key: g.key, count: g.kids.length, start }
+  })
 
   return (
     <StatusCtx.Provider value={statusByName}>
@@ -122,31 +159,59 @@ export default function InheritanceDiagramV2({
           {/* 婚姻線（二重線） */}
           {spouse && (
             <>
-              <line x1={deceasedX + BOX_W} y1={topY + BOX_H / 2 - 3} x2={spouseX} y2={topY + BOX_H / 2 - 3} stroke="#111" strokeWidth="1.5" />
-              <line x1={deceasedX + BOX_W} y1={topY + BOX_H / 2 + 3} x2={spouseX} y2={topY + BOX_H / 2 + 3} stroke="#111" strokeWidth="1.5" />
+              <line x1={deceasedX + BOX_W} y1={marriageY - 3} x2={spouseX} y2={marriageY - 3} stroke="#111" strokeWidth="1.5" />
+              <line x1={deceasedX + BOX_W} y1={marriageY + 3} x2={spouseX} y2={marriageY + 3} stroke="#111" strokeWidth="1.5" />
             </>
           )}
 
-          {descendants.length > 0 && (
-            <>
-              <line x1={parentAnchorX} y1={spouse ? topY + BOX_H / 2 : parentAnchorY} x2={parentAnchorX} y2={siblingBarY} stroke="#111" strokeWidth="1.5" />
-              {descendants.length > 1 && (
-                <line
-                  x1={childrenStartX + BOX_W / 2}
-                  y1={siblingBarY}
-                  x2={childrenStartX + (descendants.length - 1) * (BOX_W + CHILD_GAP) + BOX_W / 2}
-                  y2={siblingBarY}
-                  stroke="#111"
-                  strokeWidth="1.5"
-                />
-              )}
-              {descendants.map((_, i) => {
-                const cx = childrenStartX + i * (BOX_W + CHILD_GAP) + BOX_W / 2
-                return <line key={i} x1={cx} y1={siblingBarY} x2={cx} y2={childrenY} stroke="#111" strokeWidth="1.5" />
-              })}
-            </>
-          )}
+          {/* 離婚線（点線の二重線＋×）。前妻・前夫は被相続人の左に置く。 */}
+          {formerSpouses.map((f, i) => {
+            const x1 = formerX[i] + BOX_W, x2 = deceasedX, mid = (x1 + x2) / 2
+            return (
+              <g key={f.id}>
+                <line x1={x1} y1={marriageY - 3} x2={x2} y2={marriageY - 3} stroke="#111" strokeWidth="1.5" strokeDasharray="5 4" />
+                <line x1={x1} y1={marriageY + 3} x2={x2} y2={marriageY + 3} stroke="#111" strokeWidth="1.5" strokeDasharray="5 4" />
+                <line x1={mid - 7} y1={marriageY - 8} x2={mid + 7} y2={marriageY + 8} stroke="#111" strokeWidth="1.8" />
+                <line x1={mid + 7} y1={marriageY - 8} x2={mid - 7} y2={marriageY + 8} stroke="#111" strokeWidth="1.8" />
+              </g>
+            )
+          })}
+
+          {/* 子への線。グループ（誰との子か）ごとに出どころを変える。 */}
+          {groupSpans.filter(g => g.count > 0).map(g => {
+            const ax = anchorXOf(g.key)
+            const first = childCenterX(g.start)
+            const last = childCenterX(g.start + g.count - 1)
+            // 縦線の始点：配偶者/前配偶者がいれば婚姻・離婚線の高さ、いなければ箱の底
+            const fromY = g.key !== 'current' || spouse ? marriageY : topY + BOX_H
+            return (
+              <g key={g.key}>
+                <line x1={ax} y1={fromY} x2={ax} y2={siblingBarY} stroke="#111" strokeWidth="1.5" />
+                <line x1={Math.min(ax, first)} y1={siblingBarY} x2={Math.max(ax, last)} y2={siblingBarY} stroke="#111" strokeWidth="1.5" />
+                {Array.from({ length: g.count }, (_, k) => {
+                  const cx = childCenterX(g.start + k)
+                  return <line key={k} x1={cx} y1={siblingBarY} x2={cx} y2={childrenY} stroke="#111" strokeWidth="1.5" />
+                })}
+              </g>
+            )
+          })}
         </svg>
+
+        {/* 前妻・前夫（相続人ではないので点線の箱） */}
+        {formerSpouses.map((f, i) => (
+          <PersonBox
+            key={f.id}
+            x={formerX[i]} y={topY} width={BOX_W}
+            label={labelOf(f, '前配偶者')}
+            labelBg="bg-gray-50 text-gray-500"
+            borderClass="border-[1.5px] border-dashed border-gray-400"
+            name={f.name}
+            birthDate={f.birth_date}
+            address={f.address}
+            registeredAddress={f.registered_address}
+            notHeir
+          />
+        ))}
 
         <PersonBox
           x={deceasedX} y={topY} width={BOX_W}
@@ -193,6 +258,7 @@ export default function InheritanceDiagramV2({
             isLegalHeir={heir.is_legal_heir}
             livedTogether={heir.lived_together}
             isApplicant={heir.is_applicant}
+            noteBadge={groupKeyOf(heir) !== 'current' ? '前婚の子' : undefined}
           />
         ))}
       </div>
@@ -434,15 +500,17 @@ function SiblingsLayout({
               y={topY}
               width={BOX_W}
               label={labelOf(heir, item.kind === 'sibling' ? '兄弟姉妹' : 'その他')}
-              labelBg="bg-gray-100 text-gray-700"
-              borderClass="border-[1.5px] border-black"
+              labelBg={isFormerSpouseHeir(heir) ? 'bg-gray-50 text-gray-500' : 'bg-gray-100 text-gray-700'}
+              borderClass={isFormerSpouseHeir(heir) ? 'border-[1.5px] border-dashed border-gray-400' : 'border-[1.5px] border-black'}
               name={heir.name}
               birthDate={heir.birth_date}
               address={heir.address}
               registeredAddress={heir.registered_address}
               isLegalHeir={heir.is_legal_heir}
-            livedTogether={heir.lived_together}
+              livedTogether={heir.lived_together}
               isApplicant={heir.is_applicant}
+              notHeir={isFormerSpouseHeir(heir)}
+              noteBadge={isHalfBloodHeir(heir) ? '半血（相続分1/2）' : undefined}
             />
           )
         })}
@@ -472,7 +540,7 @@ function SiblingsLayout({
 function PersonBox({
   x, y, width, label, labelBg, borderClass,
   name, birthDate, deathDate, address, registeredAddress,
-  isDeceased, isLegalHeir, isApplicant, livedTogether,
+  isDeceased, isLegalHeir, isApplicant, livedTogether, notHeir, noteBadge,
 }: {
   x: number
   y: number
@@ -490,6 +558,10 @@ function PersonBox({
   isApplicant?: boolean
   /** 被相続人と同居していた相続人。書類回収・連絡の起点になるため図で分かるようにする。 */
   livedTogether?: boolean
+  /** 相続人ではない関係者（前妻・前夫）。「相続人ではない」と明記する。 */
+  notHeir?: boolean
+  /** 氏名の下に出す注記バッジ（前婚の子・半血 など） */
+  noteBadge?: string
 }) {
   // 戸籍取得状況オーバーレイ（指定時のみ）：完了=太緑/対応中=青/追加調査中=オレンジ/未着手=既定枠
   const statusMap = useContext(StatusCtx)
@@ -515,6 +587,7 @@ function PersonBox({
             {name ?? '—'}
             {isApplicant && <span className="text-[11px] font-semibold text-red-600">（申出人）</span>}
             {livedTogether && <span className="text-[9.5px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-px">同居</span>}
+            {noteBadge && <span className="text-[9.5px] font-bold text-gray-600 bg-gray-100 border border-gray-200 rounded px-1 py-px">{noteBadge}</span>}
           </div>
           <div className="text-[11px] text-gray-700 text-left w-full px-1 leading-relaxed">
             {birthDate && <div><span className="text-gray-400">出生</span> {birthDate}</div>}
@@ -535,8 +608,11 @@ function PersonBox({
               死亡
             </div>
           )}
-          {!isDeceased && isLegalHeir && (
+          {!isDeceased && isLegalHeir && !notHeir && (
             <div className="text-[11px] text-green-700 font-semibold mt-1">（法定相続人）</div>
+          )}
+          {notHeir && (
+            <div className="text-[11px] text-gray-400 font-semibold mt-1">（相続人ではない）</div>
           )}
         </div>
       </div>
