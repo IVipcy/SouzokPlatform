@@ -40,6 +40,7 @@ import DeliveryTab from './DeliveryTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { PROCEDURE_TABS } from './practiceTabs'
 import OrderSheet from './OrderSheet'
+import CaseMeetingSheetPanel from './CaseMeetingSheetPanel'
 import type { MemoLite } from './MeetingMemoViewer'
 import ProgressBoard from './ProgressBoard'
 import CaseComposeProvider from './CaseComposeProvider'
@@ -318,6 +319,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // この案件の受注/管理担当なら、自分の案件の受信簿を操作できる（開封・中身の紐付け）
   const viewerOwnsCase = caseMembers.some(cm => cm.member_id === currentMemberId && (cm.role === 'sales' || cm.role === 'manager'))
+  // 受注より前（面談設定済・検討中・依頼確定待ち）で、まだオーダーシートを作り始めていない案件は
+  // オーダーシートの位置に「面談シート」を出す。面談で聞き取った内容が案件詳細から辿れないため。
+  // 「オーダーシートを作成」を押すと order_sheet_started_at が入り、次からはオーダーシートで開く。
+  const PRE_ORDER_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
+  const [orderSheetOpened, setOrderSheetOpened] = useState(false)   // この画面で「作成」を押したか
+  const [backToSheet, setBackToSheet] = useState(false)             // 「面談シートに戻る」を押したか
+  const preOrder = PRE_ORDER_STATUSES.has(caseState.status)
+  const showMeetingSheet = preOrder && (backToSheet || (!caseState.order_sheet_started_at && !orderSheetOpened))
+
   // 管理担当アサイン済か（対応中ガード用）
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
   // 受注担当（進捗確認依頼の確認者＝依頼先）
@@ -537,6 +547,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           completedTabs={completedPracticeTabs}
           groupInfoTabs={caseState.status === '対応中' || caseState.status === '完了'}
           flatOrder={flatOrderTabs}
+          labelOverrides={showMeetingSheet ? { orderSheet: '面談シート' } : undefined}
         />
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、作業着手準備への前提条件（OS作成/契約書類受領/料金表・前受金請求）を案内 */}
@@ -600,7 +611,34 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         )}
       </div>
 
-      {effectiveTab === 'orderSheet' && (
+      {/* 受注前でまだ作り始めていない案件は、この位置に面談シートを出す */}
+      {effectiveTab === 'orderSheet' && showMeetingSheet && (
+        <CaseMeetingSheetPanel
+          caseData={caseState}
+          patchCase={patchCase}
+          patchClient={patchClient}
+          caseClients={caseClients ?? []}
+          heirs={heirs}
+          properties={properties}
+          financialAssets={financialAssets}
+          otherAssets={otherAssets}
+          currentMemberId={currentMemberId}
+          onRefresh={handleSaved}
+          onStartOrderSheet={() => {
+            setCaseState(c => ({ ...c, order_sheet_started_at: new Date().toISOString() }))
+            setBackToSheet(false)
+            setOrderSheetOpened(true)
+          }}
+        />
+      )}
+      {effectiveTab === 'orderSheet' && !showMeetingSheet && (
+        <>
+        {preOrder && (
+          <button type="button" onClick={() => setBackToSheet(true)}
+            className="mb-2.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border-b border-dotted border-brand-400">
+            ← 面談シートに戻る
+          </button>
+        )}
         <OrderSheet
           caseData={caseState}
           patchCase={patchCase}
@@ -623,6 +661,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           receipts={documentReceipts ?? []}
           meetingMemos={whiteboardMemos}
         />
+        </>
       )}
       {effectiveTab === 'progress' && (() => {
         // 通知遷移で ?sub=report|memo&openReport=<id> が来たら該当サブタブ＋確認モーダルを自動オープン

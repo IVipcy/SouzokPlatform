@@ -28,9 +28,11 @@ type Props = {
   flatOrder?: boolean
   /** 互換のため残置（管理情報は MeetingInfoTab の案件情報セクションへ統合済み） */
   onOpenManagementInfo?: () => void
+  /** タブ名の差し替え。受注前は orderSheet を「面談シート」として出す。 */
+  labelOverrides?: Partial<Record<TabKey, string>>
 }
 
-const TAB_LABELS: Record<TabKey, string> = {
+export const TAB_LABELS: Record<TabKey, string> = {
   orderSheet: 'オーダーシート',
   basicInfo: '案件進捗',
   progress: '案件報告',
@@ -108,7 +110,8 @@ const DEFAULT_TABS: TabKey[] = [
   'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, completedTabs, groupInfoTabs = true, flatOrder = false }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, completedTabs, labelOverrides, groupInfoTabs = true, flatOrder = false }: Props) {
+  const labelOf = (k: TabKey) => labelOverrides?.[k] ?? TAB_LABELS[k]
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
   // 完了タブ集合。active になっているタブは（意図せず消えないよう）折り畳み対象から除外。
@@ -122,7 +125,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
     if (basicInfoTabs.length === 0) return null
     if (basicInfoTabs.length === 1) {
       const key = basicInfoTabs[0]
-      return <Tab key={key} tabKey={key} isActive={activeTab === key} isHighlight={highlightSet.has(key)} onClick={() => onTabChange(key)} />
+      return <Tab key={key} tabKey={key} label={labelOf(key)} isActive={activeTab === key} isHighlight={highlightSet.has(key)} onClick={() => onTabChange(key)} />
     }
     return <InfoDropdown label="案件基本情報" tabs={basicInfoTabs} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
   }
@@ -134,7 +137,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
     return (
       <div data-tabbar className="flex items-center gap-0.5 border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         {flatTabs.map(key => (
-          <Tab key={key} tabKey={key}
+          <Tab key={key} tabKey={key} label={labelOf(key)}
             isActive={activeTab === key}
             isHighlight={highlightSet.has(key)}
             count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
@@ -158,14 +161,14 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   return (
     <div data-tabbar className="flex items-center gap-0.5 border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
       {mainTabs.map(key => (
-        <Tab key={key} tabKey={key}
+        <Tab key={key} tabKey={key} label={labelOf(key)}
           isActive={activeTab === key}
           isHighlight={highlightSet.has(key)}
           count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
           onClick={() => onTabChange(key)} />
       ))}
       {practiceTabs.map(key => (
-        <Tab key={key} tabKey={key}
+        <Tab key={key} tabKey={key} label={labelOf(key)}
           isActive={activeTab === key}
           isHighlight={highlightSet.has(key)}
           isMuted={completedSet.has(key)}
@@ -190,7 +193,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
       ) : (
         <>
           {infoTabs.map(key => (
-            <Tab key={key} tabKey={key}
+            <Tab key={key} tabKey={key} label={labelOf(key)}
               isActive={activeTab === key}
               isHighlight={highlightSet.has(key)}
               onClick={() => onTabChange(key)} />
@@ -208,13 +211,15 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
 //   アクティブ = 青文字＋青の下線
 //   ナビ強調   = ● を付ける（data-nav-tab で案内線と連動）
 //   orderSheet = 金の★（大事なタブ・選択状態に関わらず★は金）／will = 筆
-function Tab({ tabKey, isActive, isHighlight, isMuted, count, onClick }: {
+function Tab({ tabKey, isActive, isHighlight, isMuted, count, label, onClick }: {
   tabKey: TabKey
   isActive: boolean
   isHighlight: boolean
   /** 完了タブを展開表示中の見た目（灰色＋✓） */
   isMuted?: boolean
   count?: number
+  /** 表示名の差し替え（受注前は「オーダーシート」を「面談シート」として出す等） */
+  label?: string
   onClick: () => void
 }) {
   const Icon = TAB_ICONS[tabKey]
@@ -237,7 +242,7 @@ function Tab({ tabKey, isActive, isHighlight, isMuted, count, onClick }: {
       {isStar
         ? <Star className="w-[17px] h-[17px]" strokeWidth={1.75} style={{ fill: '#E8A317', color: '#E8A317' }} />
         : <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.25 : 1.9} />}
-      <span className={isStar && !isActive ? 'font-medium text-gray-800' : undefined}>{TAB_LABELS[tabKey]}</span>
+      <span className={isStar && !isActive ? 'font-medium text-gray-800' : undefined}>{label ?? TAB_LABELS[tabKey]}</span>
       {count !== undefined && (
         <span className={`text-[10.5px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{count}</span>
       )}
