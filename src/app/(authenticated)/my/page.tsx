@@ -639,9 +639,29 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     todayStr,
   )
 
+  // 直近7日に「確認済」の案件報告がある案件（週次報告の漏れ判定用）
+  const weekAgoStr = new Date(today.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
+  const recentWeeklyCaseIds = new Set(allReports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
+
   const bannerCaseAlerts = [
+    // 案件アラート。判定は alertRules.ts に集約。請求・タスクの超過は上の2タブで
+    // 別に出しているので、ここでは案件の状態だけを渡す（二重に数えない）。
     ...computeCaseStateAlerts(
-      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) , managerAssignSkipped: c.manager_assign_skipped })),
+      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({
+        id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
+        has_complaint: c.has_complaint,
+        order_received_date: c.order_received_date,
+        order_sheet_completed_at: c.order_sheet_completed_at,
+        expected_completion_date: c.expected_completion_date,
+        meeting_date: c.meeting_date,
+        meeting_executed_date: c.meeting_executed_date,
+        client_response_due_date: c.client_response_due_date,
+        management_started_at: c.management_started_at,
+        manager_assign_skipped: c.manager_assign_skipped,
+        managerExists: managerByCase.has(c.id),
+        advanceInvoiceStatus: advanceStatusByCase.get(c.id) ?? null,
+        recentWeeklyConfirmed: recentWeeklyCaseIds.has(c.id),
+      })),
       todayStr,
     ),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。

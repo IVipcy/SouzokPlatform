@@ -5,6 +5,7 @@ import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
+import { overdueSeverity } from '@/lib/overdue'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
@@ -147,7 +148,10 @@ export default async function CaseDetailPage({ params }: Props) {
       managerExists: cmRows.some(m => m.role === 'manager'),
       advanceInvoiceStatus: advInvRows[0]?.status ?? null,
       recentWeeklyConfirmed: repRows.some(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr),
-      overdueTaskCount: tasksForAlert.filter(t => t.due_date && t.due_date < nowStr && t.status !== '完了' && t.status !== 'キャンセル').length,
+      // タスク期日超過は「5営業日=黄／14日=赤」で判定する（バナー・ベルと同じしきい値）
+      overdueTaskCount: tasksForAlert.filter(t => t.status !== '完了' && t.status !== 'キャンセル' && (t.priority === '超急ぎ' || overdueSeverity(t.due_date, nowStr) !== null)).length,
+      overdueTaskHigh: tasksForAlert.some(t => t.status !== '完了' && t.status !== 'キャンセル' && (t.priority === '超急ぎ' || overdueSeverity(t.due_date, nowStr) === 'chui')),
+      hasCaseTasks: tasksForAlert.some(t => t.task_kind === 'case'),
       // 「検討状況の確認」(sys_review_status) が完了済みなら回答予定日アラートを出さない
       responseCheckDone: tasksForAlert.some(t => (t as { template_key?: string | null }).template_key === 'sys_review_status' && (t.status === '完了' || t.status === 'キャンセル')),
     },

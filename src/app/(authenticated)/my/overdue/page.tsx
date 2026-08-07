@@ -102,9 +102,12 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status, created_at').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
     myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, arrival_notified_at, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : Promise.resolve({ data: [] }),
     // 前受金の請求書が「あるか」だけを見る。上の請求クエリは入金済を除いているため判定に使えない。
-    myCaseIds.length ? supabase.from('invoices').select('case_id').eq('invoice_type', '前受金').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
+    myCaseIds.length ? supabase.from('invoices').select('case_id, status').eq('invoice_type', '前受金').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
   ])
-  const advanceInvoiceCaseIds = new Set(((advInvRes.data ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
+  const advanceStatusByCase = new Map<string, string>()
+  for (const r of ((advInvRes.data ?? []) as Array<{ case_id: string; status: string }>)) {
+    if (!advanceStatusByCase.has(r.case_id)) advanceStatusByCase.set(r.case_id, r.status)
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTasks = (progRes.data ?? []) as any[]
   const progressByCase = new Map<string, { doneCase: number; totalCase: number; doneSystem: number; totalSystem: number }>()
@@ -141,8 +144,22 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     .filter((c: { id: string }, i: number, arr: unknown[]) => arr.findIndex(x => (x as { id: string }).id === c.id) === i)
   const salesCaseMeta = new Map(dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string }) => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
   const caseStateAlerts = [
+    // 案件アラート。判定は alertRules.ts に集約。
     ...computeCaseStateAlerts(
-      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; manager_assign_skipped?: boolean | null; order_sheet_completed_at?: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id), managerAssignSkipped: c.manager_assign_skipped, order_sheet_completed_at: c.order_sheet_completed_at, advanceInvoiceExists: advanceInvoiceCaseIds.has(c.id) })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (dedupCases as any[]).filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: any) => ({
+        id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
+        has_complaint: c.has_complaint,
+        order_received_date: c.order_received_date,
+        order_sheet_completed_at: c.order_sheet_completed_at,
+        expected_completion_date: c.expected_completion_date,
+        meeting_date: c.meeting_date,
+        meeting_executed_date: c.meeting_executed_date,
+        client_response_due_date: c.client_response_due_date,
+        manager_assign_skipped: c.manager_assign_skipped,
+        managerExists: managerCaseIds.has(c.id),
+        advanceInvoiceStatus: advanceStatusByCase.get(c.id) ?? null,
+      })),
       todayStr,
     ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
