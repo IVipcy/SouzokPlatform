@@ -580,6 +580,8 @@ export type HeirRow = {
   relationship_type: string | null   // 被相続人との続柄（法定相続人・代襲まで網羅。migration 103でCHECK撤去）
   lived_together: boolean            // 被相続人と同居していたか（相関図にバッジ表示。migration 222）
   other_parent_heir_id: string | null // もう一方の親＝前妻・前夫の heirs.id（未設定は現配偶者との子。migration 225）
+  legal_share_num: number | null     // 法定相続割合（分子）。目録の参考行に使う（migration 227）
+  legal_share_den: number | null     // 法定相続割合（分母）
   is_applicant: boolean
   notes: string | null
   sort_order: number
@@ -933,6 +935,7 @@ export type AssetInventoryRow = {
   id: string; case_id: string
   asset_class: string | null   // 金融 / 不動産 / その他
   detail: string | null; amount: number | null; sort_order: number; created_at: string
+  allocations: Record<string, number> | null  // 取得者ごとの割付 { heir_id: 金額 }（migration 227）
 }
 export type RewardItemRow = {
   id: string; case_id: string

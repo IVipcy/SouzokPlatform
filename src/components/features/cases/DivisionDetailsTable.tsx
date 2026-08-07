@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus, DownloadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { DIVISION_METHODS } from '@/lib/constants'
+import { DIVISION_METHODS, isNegativeClass } from '@/lib/constants'
 import { MoneyInput } from './FinancialAssetsTable'
 import type { DivisionDetailRow, HeirRow, AssetInventoryRow } from '@/types'
 
@@ -26,7 +26,9 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
   // 財産目録から「財産区分・金額」をコピー反映（未登録分のみ）
   const importInventory = async () => {
     const existing = new Set(rows.map(r => `${r.asset_category}|${r.amount ?? ''}`))
+    // 相続債務・その他費用は「誰が負担するか」であって分割する財産ではないので、ここには持ってこない。
     const news = assetInventory
+      .filter(a => !isNegativeClass(a.asset_class))
       .filter(a => !existing.has(`${a.detail}|${a.amount ?? ''}`))
       .map(a => ({ case_id: caseId, asset_category: a.detail ?? a.asset_class ?? '', amount: a.amount }))
     if (news.length === 0) { showToast('取り込む目録がありません（財産目録を作成してください）', 'info'); return }

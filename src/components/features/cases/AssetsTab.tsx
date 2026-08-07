@@ -334,7 +334,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
       {/* 財産目録（種別タブと同列・オーダーシートでは非表示） */}
       <div className={!orderSheetMode && sub === 'inventory' ? '' : 'hidden'}>
         <Section title="財産目録（協議書・精算書へ反映）">
-          <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} otherAssets={otherAssets} onRefresh={onRefresh} />
+          <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} />
         </Section>
       </div>
     </div>
