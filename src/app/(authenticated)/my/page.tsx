@@ -1064,8 +1064,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           {isManager && (
             <ProgressReportManagerTab rows={managerProgressRows} candidates={confirmerCandidates} currentMemberId={memberId} />
           )}
-          {/* 受信側。自分が受注担当の案件に加え、同じチームの案件も出す（誰が確認しても良い） */}
-          {(isSales || isManager) && (
+          {/* 受信側。案件報告は管理担当→受注担当なので、受け取るのは受注担当だけ。
+              自分が受注担当の案件に加え、同じチームの案件も出す（誰が確認しても良い）。 */}
+          {isSales && !isManager && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <CaseReportInbox rows={salesProgressRows} pendingOwnCount={salesPendingProgressCount} />
             </div>

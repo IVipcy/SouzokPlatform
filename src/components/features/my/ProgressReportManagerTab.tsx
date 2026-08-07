@@ -6,6 +6,16 @@ import { useRouter } from 'next/navigation'
 import { Send, Loader2, ClipboardCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { PROGRESS_REPORT_PHASES, PROGRESS_REPORT_STATES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
+
+// 案件詳細の報告モーダルと同じ配色。状態は受注担当が最初に見るところなので揃える。
+const STATE_CHIP: Record<string, string> = {
+  '問題なし順調に進行中': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '確認事項あり': 'bg-blue-50 text-blue-700 border-blue-200',
+  '困りごとありHELP': 'bg-amber-50 text-amber-700 border-amber-200',
+  '至急！！': 'bg-red-100 text-red-700 border-red-300',
+}
+const stateChip = (s: string) => STATE_CHIP[s] ?? 'bg-gray-50 text-gray-500 border-gray-200'
 
 export type ManagerProgressRow = {
   case_id: string
@@ -51,6 +61,9 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
   // モーダル: どの案件を報告するか / その場で確認ポイント入力
   const [modalRow, setModalRow] = useState<ManagerProgressRow | null>(null)
   const [modalPoint, setModalPoint] = useState('')
+  // 案件詳細の報告モーダルと同じ項目（フェーズ・状態）を持たせる
+  const [modalPhase, setModalPhase] = useState('')
+  const [modalState, setModalState] = useState<string>(PROGRESS_REPORT_STATES[0])
 
   const counts = {
     未対応: rows.filter(r => r.status === '未対応').length,
@@ -61,6 +74,8 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
 
   const openReportModal = (row: ManagerProgressRow) => {
     setModalPoint('')
+    setModalPhase('')
+    setModalState(PROGRESS_REPORT_STATES[0])
     setModalRow(row)
   }
 
@@ -70,15 +85,42 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
     try {
       const supabase = createClient()
       const today = new Date().toISOString().split('T')[0]
-      const { error } = await supabase.from('progress_reports').insert({
+      let { error } = await supabase.from('progress_reports').insert({
         case_id: modalRow.case_id,
         requester_id: currentMemberId,
         confirmer_id: null,
         status: '依頼中',
         requested_date: today,
         review_point: modalPoint.trim() || null,
+        kind: 'progress_check',
+        phase: modalPhase || null,
+        report_state: modalState,
       })
+      // kind/phase/report_state 列が無い環境向けフォールバック（案件詳細側と同じ）
+      if (error && /kind|phase|report_state/i.test(error.message ?? '')) {
+        const retry = await supabase.from('progress_reports').insert({
+          case_id: modalRow.case_id,
+          requester_id: currentMemberId,
+          confirmer_id: null,
+          status: '依頼中',
+          requested_date: today,
+          review_point: modalPoint.trim() || null,
+        })
+        error = retry.error
+      }
       if (error) throw error
+      // 受注担当へ通知（案件詳細から送ったときと同じ本文にする）
+      if (modalRow.sales_member_id) {
+        const urgent = modalState === PROGRESS_REPORT_STATE_URGENT
+        const meta = [modalPhase, modalState].filter(Boolean).join('・')
+        await supabase.from('notifications').insert({
+          member_id: modalRow.sales_member_id,
+          type: 'progress_review_requested',
+          case_id: modalRow.case_id,
+          title: `${urgent ? '【至急】' : ''}案件報告が届きました`,
+          body: `${modalRow.case_number} ${modalRow.deal_name}：${meta ? `[${meta}] ` : ''}${modalPoint.trim() || '案件報告をお願いします'}`,
+        })
+      }
       showToast('案件報告を送信しました', 'success')
       setModalRow(null)
       router.refresh()
@@ -186,6 +228,44 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                 <span className="font-mono text-gray-400">{modalRow.case_number}</span>
                 <span className="ml-2 font-semibold text-gray-800">{modalRow.deal_name}</span>
               </div>
+              <div>
+                <span className="block text-[12px] font-semibold text-gray-700 mb-1">報告先</span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-brand-200 bg-brand-50 text-[12.5px] font-semibold text-brand-800">
+                  {modalRow.sales_name || '受注担当 未設定'}
+                </span>
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-700 mb-1">フェーズ</label>
+                <select
+                  value={modalPhase}
+                  onChange={e => setModalPhase(e.target.value)}
+                  className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400"
+                >
+                  <option value="">フェーズを選択</option>
+                  {PROGRESS_REPORT_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-gray-700 mb-1">状態</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PROGRESS_REPORT_STATES.map(st => {
+                    const on = modalState === st
+                    return (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setModalState(st)}
+                        className={`px-2 py-2 rounded-lg text-[12px] font-semibold border-[1.5px] transition-colors ${on ? stateChip(st) + ' ring-2 ring-offset-1 ' + (st === PROGRESS_REPORT_STATE_URGENT ? 'ring-red-300' : 'ring-brand-200') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        {st}
+                      </button>
+                    )
+                  })}
+                </div>
+                {modalState === PROGRESS_REPORT_STATE_URGENT && (
+                  <p className="mt-1 text-[11px] text-red-600">受注担当の要注意バナーに出ます。すぐ見てほしいときだけ選んでください。</p>
+                )}
+              </div>
               <label className="block">
                 <span className="block text-[12px] font-semibold text-gray-700 mb-1">確認ポイント（任意）</span>
                 <textarea
@@ -195,7 +275,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                   className="w-full border border-gray-200 rounded-md px-2.5 py-2 text-[13px] focus:outline-none focus:border-brand-400 min-h-[96px]"
                 />
               </label>
-              <p className="text-[11px] text-gray-400">送信後、受注担当が案件詳細画面で内容を確認します。</p>
+              <p className="text-[11px] text-gray-400">送信後、受注担当が案件詳細画面で内容を確認します。確認はチームの誰でも押せます。</p>
             </div>
             <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
               <button
