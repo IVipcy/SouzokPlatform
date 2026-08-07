@@ -97,9 +97,8 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   }
 
   // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ
-  const [progRes, urgentRepRes, parcelRes, advInvRes] = await Promise.all([
+  const [progRes, parcelRes, advInvRes] = await Promise.all([
     myCaseIds.length ? supabase.from('tasks').select('case_id,status,task_kind').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
-    myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status, created_at').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
     myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, arrival_notified_at, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : Promise.resolve({ data: [] }),
     // 前受金の請求書が「あるか」だけを見る。上の請求クエリは入金済を除いているため判定に使えない。
     myCaseIds.length ? supabase.from('invoices').select('case_id, status').eq('invoice_type', '前受金').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
@@ -142,7 +141,30 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const managerCaseIds = new Set(rows.filter(r => r.role === 'manager').map(r => r.case_id))
   const dedupCases = rows.map(r => r.cases).filter((c): c is NonNullable<typeof rows[number]['cases']> => !!c)
     .filter((c: { id: string }, i: number, arr: unknown[]) => arr.findIndex(x => (x as { id: string }).id === c.id) === i)
-  const salesCaseMeta = new Map(dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string }) => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
+  // 案件報告のアラートはチームの案件まで見る（マイページのバナーと件数を揃える）。
+  // 自分のチームのメンバーが受注担当/管理担当になっている案件が対象。
+  const { data: memberRows } = await supabase.from('members').select('id, team_id').eq('is_active', true)
+  const membersArr = ((memberRows ?? []) as Array<{ id: string; team_id: string | null }>)
+  const myTeamId = membersArr.find(m => m.id === memberId)?.team_id ?? null
+  const teamMemberIds = new Set(myTeamId ? membersArr.filter(m => m.team_id === myTeamId).map(m => m.id) : [memberId])
+  const { data: teamCmRows } = await supabase.from('case_members').select('case_id, member_id, role')
+  const teamCaseIds = new Set(((teamCmRows ?? []) as Array<{ case_id: string; member_id: string; role: string }>)
+    .filter(c => (c.role === 'sales' || c.role === 'manager') && teamMemberIds.has(c.member_id))
+    .map(c => c.case_id))
+  const teamCaseIdArray = [...teamCaseIds]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let teamReportRows: any[] = []
+  if (teamCaseIdArray.length > 0) {
+    const { data } = await supabase.from('progress_reports')
+      .select('id, case_id, kind, report_state, status, created_at, cases(case_number, deal_name)')
+      .in('case_id', teamCaseIdArray).eq('status', '依頼中')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teamReportRows = (data ?? []) as any[]
+  }
+  const teamCaseMeta = new Map<string, { case_number: string; deal_name: string }>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teamReportRows.map((r: any) => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }]),
+  )
   const caseStateAlerts = [
     // 案件アラート。判定は alertRules.ts に集約。
     ...computeCaseStateAlerts(
@@ -162,8 +184,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
       })),
       todayStr,
     ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...computeUrgentReportAlerts(((urgentRepRes.data ?? []) as any[]).filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta, todayStr),
+    ...computeUrgentReportAlerts(teamReportRows, teamCaseMeta, todayStr),
     // 到着物あり（未開封の郵送物一式）→ 要確認(黄)。自分が受注/管理担当の案件。
     ...computeParcelArrivalAlerts(
       ((parcelRes.data ?? []) as unknown as Array<{ id: string; case_id: string; arrival_notified_at: string | null; cases: { case_number: string; deal_name: string } | null }>)

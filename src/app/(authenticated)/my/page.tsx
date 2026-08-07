@@ -651,7 +651,11 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     .map(({ t, sev }) => ({ task: t, severity: sev, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date, todayStr)) : 0 }))
 
   // 案件アラート（管理担当 未アサイン等・レコード無しの計算アラート）。受注担当が持つ案件が対象。
-  const salesCaseMeta = new Map(myCases.filter(c => salesCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
+  // チームの案件（自分の案件＋チームメンバーの案件）の表示名。案件報告アラートで使う。
+  const teamCaseMeta = new Map<string, { case_number: string; deal_name: string }>([
+    ...myCases.filter(c => teamCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }] as const),
+    ...teamReports.map(r => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }] as const),
+  ])
   // 到着物あり（受注/管理宛の郵送物一式・未開封）→ 要確認バナー。自分が受注/管理担当の案件が対象。
   const myAllCaseIds = [...new Set([...salesCaseIds, ...managerCaseIds])]
   const { data: parcelRows } = myAllCaseIds.length
@@ -690,7 +694,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       todayStr,
     ),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
-    ...computeUrgentReportAlerts(allReports.filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta, todayStr),
+    // 案件報告のアラートはチームの案件まで広げる。受注担当が確認できないまま3営業日たったものを
+    // チーム全員の要確認バナーに出し、手が空いている人が代わりに確認できるようにする。
+    ...computeUrgentReportAlerts(
+      [...allReports.filter(r => teamCaseIds.has(r.case_id)), ...teamReports],
+      teamCaseMeta,
+      todayStr,
+    ),
     // 到着物あり（未開封）→ 要確認(黄)
     ...parcelAlerts,
   ]

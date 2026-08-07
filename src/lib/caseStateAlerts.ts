@@ -69,7 +69,7 @@ export function computeParcelArrivalAlerts(
 // 「至急」以外の報告も放置されると管理担当が次に進めないので、日数で拾えるようにした。
 // 確認済(status≠依頼中)になれば消える。
 export function computeUrgentReportAlerts(
-  reports: Array<{ case_id: string; kind?: string | null; report_state?: string | null; status: string; created_at?: string | null }>,
+  reports: Array<{ id?: string; case_id: string; kind?: string | null; report_state?: string | null; status: string; created_at?: string | null }>,
   caseMetaById: Map<string, { case_number: string; deal_name: string }>,
   todayStr?: string,
 ): CaseStateAlert[] {
@@ -97,7 +97,8 @@ export function computeUrgentReportAlerts(
       reason: urgent
         ? '管理担当から「至急！！」の案件報告が届いていますが、まだ確認されていません'
         : `案件報告が届いてから${ALERT_DAYS.reportAnswer}営業日以上、確認・回答がされていません`,
-      href: '/my?tab=progress',
+      // 案件詳細の報告欄へ直行する。確認ボタンはそこにあり、報告した本人以外なら誰でも押せる。
+      href: `/cases/${r.case_id}?tab=progress&sub=report${r.id ? `&openReport=${r.id}` : ''}`,
     })
   }
   return out
