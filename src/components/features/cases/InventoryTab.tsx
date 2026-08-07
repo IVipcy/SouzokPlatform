@@ -9,7 +9,7 @@
 // 合計は協議書「分割内容」・精算書「収入」へ（精算書の収入はプラス財産のみ）。
 
 import { useState } from 'react'
-import { Trash2, Plus, DownloadCloud, Calculator, Wand2 } from 'lucide-react'
+import { Trash2, Plus, DownloadCloud, Calculator, Wand2, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
@@ -18,6 +18,7 @@ import {
   inventoryClassOfAsset, inventoryClassOfProperty, shareRatio,
 } from '@/lib/constants'
 import { computeLegalShares, fracText, fracValue, type Frac } from '@/lib/legalShare'
+import { computeHeirSettlement } from '@/lib/heirSettlement'
 import type {
   AssetInventoryRow, FinancialAssetRow, RealEstatePropertyRow, CaseOtherAssetRow, HeirRow,
 } from '@/types'
@@ -79,6 +80,14 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
+  // 立替者（債務・費用を既に払った相続人）。ここが入っていないと精算の向きが出せない。
+  const savePayer = async (r: AssetInventoryRow, v: string) => {
+    const patch = v === '' ? { payer_heir_id: null } : { payer_heir_id: v }
+    setLocal(r.id, 'payer_heir_id', patch.payer_heir_id)
+    const { error } = await supabase.from('asset_inventory').update(patch).eq('id', r.id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+  }
+
   const addRow = async (cls?: string) => {
     setBusy(true)
     const { data, error } = await supabase.from('asset_inventory').insert({ case_id: caseId, asset_class: cls ?? '預金', sort_order: rows.length }).select('*').single()
@@ -99,12 +108,12 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     // 旧区分（金融/不動産）で取り込み済みの行があるため、詳細だけでも重複判定する。
     const existingKeys = new Set(rows.map(r => `${r.asset_class}|${r.detail}`))
     const existingDetails = new Set(rows.map(r => (r.detail ?? '').trim()).filter(Boolean))
-    const newRows: Array<{ case_id: string; asset_class: string; detail: string; amount: number | null; sort_order: number }> = []
+    const newRows: Array<{ case_id: string; asset_class: string; detail: string; amount: number | null; sort_order: number; payer_heir_id?: string | null; payer_name?: string | null }> = []
     let order = rows.length
-    const push = (asset_class: string, detail: string, amount: number | null) => {
+    const push = (asset_class: string, detail: string, amount: number | null, payer?: { id: string | null; name: string | null }) => {
       if (existingKeys.has(`${asset_class}|${detail}`) || existingDetails.has(detail.trim())) return
       existingKeys.add(`${asset_class}|${detail}`); existingDetails.add(detail.trim())
-      newRows.push({ case_id: caseId, asset_class, detail, amount, sort_order: order++ })
+      newRows.push({ case_id: caseId, asset_class, detail, amount, sort_order: order++, payer_heir_id: payer?.id ?? null, payer_name: payer?.name ?? null })
     }
     // 財産目録へ反映するのは「確定済」（管理担当が残高・評価額を確定したもの）のみ。
     for (const a of financialAssets) {
@@ -122,7 +131,8 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     // その他財産・相続債務・その他費用は「確定済」の概念が無いので、金額が入っていれば取り込む。
     for (const o of otherAssets) {
       if (o.amount == null) continue
-      push(o.kind, o.label || o.kind, o.amount)
+      // 立替者はそのまま引き継ぐ。相続人間の精算（誰が誰にいくら）の計算に使う。
+      push(o.kind, o.label || o.kind, o.amount, { id: o.payer_heir_id, name: o.payer_name })
     }
     if (newRows.length === 0) { setBusy(false); showToast('取り込む金額がありません（各タブで残高・評価額を入力し「確定済」にしてください）', 'info'); return }
     const { data, error } = await supabase.from('asset_inventory').insert(newRows).select('*')
@@ -180,6 +190,8 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
   }
 
   const colCount = 3 + takers.length + 1
+  // 立替を考慮した精算（誰が誰にいくら渡すか）。立替が1件も無ければ何も出さない。
+  const settlement = computeHeirSettlement(rows, takers)
 
   return (
     <div className="space-y-3">
@@ -266,6 +278,18 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
                       </td>
                       <td className="px-2.5 py-1.5">
                         <input type="text" defaultValue={r.detail ?? ''} onBlur={e => commit(r.id, 'detail', e.target.value)} placeholder="詳細（金融機関名・所在地・品目 など）" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
+                        {neg && takers.length > 0 && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[11px] text-gray-400 whitespace-nowrap">立替者</span>
+                            <select value={r.payer_heir_id ?? ''} onChange={e => savePayer(r, e.target.value)}
+                              className="px-1.5 py-1 text-[11.5px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
+                              title="この費用を既に払った相続人。入れると下の「相続人間の精算」に反映されます">
+                              <option value="">未払い（これから払う）</option>
+                              {takers.map(h => <option key={h.id} value={h.id}>{h.name || '（氏名未入力）'} が立替済</option>)}
+                            </select>
+                            {r.payer_name && !r.payer_heir_id && <span className="text-[11px] text-gray-400">（{r.payer_name}）</span>}
+                          </div>
+                        )}
                       </td>
                       <td className="px-2.5 py-1.5">
                         <MoneyInput value={r.amount} onCommit={v => { setLocal(r.id, 'amount', v === '' ? null : Number(v)); commit(r.id, 'amount', v) }} />
@@ -353,6 +377,66 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
       <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50">
         <Plus className="w-3.5 h-3.5" /> 行を追加
       </button>
+
+      {/* 相続人間の精算。取り分が合っていても、立て替えた人へ戻す現金の動きは別に出る。
+          例）葬儀費用を長男が立替 → 二男は自分の負担分を長男に渡す。 */}
+      {settlement.hasAdvance && (
+        <div className="rounded-lg border border-brand-200 bg-brand-50/30 p-3.5">
+          <div className="text-[13px] font-semibold text-brand-800 mb-1">相続人間の精算</div>
+          <p className="text-[11.5px] text-gray-500 mb-2.5">
+            立て替えた額と引き受けた負担の差です。取り分（正味財産）はすでに上の表で合っているので、ここは実際に動かす現金の話になります。
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 560 }}>
+              <thead>
+                <tr className="text-[11px] text-gray-500 border-b border-gray-200">
+                  <th className="px-2 py-1.5 text-left font-medium">相続人</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-32">財産の取得</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-28">負担</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-28">立替済</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-32">取り分</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-36">過不足</th>
+                </tr>
+              </thead>
+              <tbody>
+                {settlement.figures.map(f => (
+                  <tr key={f.heirId} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-2 py-1.5 text-gray-800">{f.name}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-600">{yen(f.gain)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-red-700">{f.burden ? `− ${yen(f.burden)}` : '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-600">{f.advanced ? yen(f.advanced) : '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-gray-800">{yen(f.net)}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums font-semibold ${Math.round(f.balance) === 0 ? 'text-gray-400' : f.balance > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {Math.round(f.balance) === 0 ? '±0'
+                        : f.balance > 0 ? `${yen(f.balance)} 受取` : `${yen(-f.balance)} 支払`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {settlement.transfers.length > 0 ? (
+            <div className="mt-2.5 pt-2.5 border-t border-brand-200">
+              <div className="text-[11.5px] font-semibold text-gray-600 mb-1.5">実際の受け渡し</div>
+              <div className="flex flex-wrap gap-2">
+                {settlement.transfers.map((t, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-brand-200 rounded px-2.5 py-1 text-[12.5px]">
+                    <span className="text-gray-700">{t.fromName}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-brand-500" />
+                    <span className="text-gray-700">{t.toName}</span>
+                    <span className="font-semibold tabular-nums text-brand-800">{yen(t.amount)}</span>
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                この受け渡しをやめたい場合は、預金の割付をこの金額分だけ動かせば同じ結果になります（上の例なら受け取る側の預金を増やす）。
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2.5 pt-2.5 border-t border-brand-200 text-[12px] text-gray-500">全員の過不足が0なので、相続人どうしの受け渡しは不要です。</p>
+          )}
+        </div>
+      )}
       <p className="text-[11px] text-gray-400">※ 精算書の「収入」に取り込まれるのはプラス財産だけです（相続債務・その他費用は遺産分割時の精算で扱います）。</p>
     </div>
   )

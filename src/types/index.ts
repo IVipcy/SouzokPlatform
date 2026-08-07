@@ -936,6 +936,8 @@ export type AssetInventoryRow = {
   asset_class: string | null   // 金融 / 不動産 / その他
   detail: string | null; amount: number | null; sort_order: number; created_at: string
   allocations: Record<string, number> | null  // 取得者ごとの割付 { heir_id: 金額 }（migration 227）
+  payer_heir_id: string | null // 立替者＝この債務・費用を既に払った相続人（migration 228）
+  payer_name: string | null    // 立替者の氏名（相続人一覧に無い人。計算対象外の参考表示）
 }
 export type RewardItemRow = {
   id: string; case_id: string
@@ -973,6 +975,7 @@ export type InstructionItemRow = {
 export type DivisionDetailRow = {
   id: string
   case_id: string
+  entry_kind: string               // 財産 / 債務 / 精算（migration 228）
   asset_category: string
   amount: number | null            // 金額（migration 144。目録から反映）
   division_method: string | null
