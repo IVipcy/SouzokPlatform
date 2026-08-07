@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Check } from 'lucide-react'
-import PageHeader from '@/components/ui/PageHeader'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 
@@ -20,7 +19,8 @@ export type OfficeRow = {
   filingStatus: '未' | '済'      // ファイル化（プルダウンで変更）
 }
 
-// 事務管理担当ダッシュボード：作業着手待ち案件一覧。全部『済』で着手OK→対応中→案件詳細でタスク生成。
+// 事務管理担当ダッシュボードの「作業着手待ち」タブ。
+// 作業着手準備の案件を並べ、前受金入金・ファイル化が全部『済』になったら着手OK→作業進行中にする。
 export default function OfficeManagerDashboard({ rows, currentMemberId, currentMemberName }: {
   rows: OfficeRow[]
   currentMemberId: string | null
@@ -54,8 +54,6 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
 
   return (
     <div>
-      <PageHeader eyebrow="Dashboard" title="事務管理担当ダッシュボード" icon={ClipboardList} description="作業着手待ち案件一覧（作業着手準備）。前受金入金・ファイル化が済むと着手OK（作業進行中へ）。" />
-
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-200 text-[14px] font-bold text-gray-900">作業着手待ち案件一覧 <span className="text-[12px] font-normal text-gray-400 ml-1">{rows.length}件</span></div>
         {rows.length === 0 ? (

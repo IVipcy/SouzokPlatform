@@ -17,12 +17,10 @@ import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
-import { getStartOkSuggestions, type StartOkSuggestion } from '@/lib/startOkSuggest'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
-import { Lightbulb } from 'lucide-react'
-import type { TaskRow, MemberRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
+import type { TaskRow, MemberRow } from '@/types'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 export type CaseInfo = {
@@ -49,10 +47,23 @@ type Props = {
   financeBlockedCaseIds?: string[]
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
   freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
-  /** 着手OKセンター(横断)用：案件ID→金融資産(全項目) */
-  financialByCase?: Record<string, FinancialAssetRow[]>
-  /** 着手OKセンター(横断)用：案件ID→戸籍請求 */
-  kosekiByCase?: Record<string, KosekiRequestRow[]>
+  /** 埋め込み表示（事務管理ダッシュボードの工程別タブ）。ページ見出しを出さない。 */
+  embedded?: boolean
+  /** 工程を固定する（この工程のタスクだけを扱う）。工程フィルタは出さない。 */
+  koteiPreset?: string | null
+}
+
+// 一覧に載せるタスクかどうか（担当区分スコープでの振り分け）。
+//   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
+//   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
+// 事務管理ダッシュボードの工程別タブでも同じ判定を使うため、外に出して共有する。
+export function isTaskInRoleScope(t: TaskRow, roleScope: 'assistant' | 'manager') {
+  // 管理担当ヘルプ（systemタスク・ext_data.manager_review）は管理担当一覧に表示する
+  const isManagerHelp = t.task_kind === 'system' && !!(t.ext_data as Record<string, unknown> | null)?.manager_review
+  if (isManagerHelp) return roleScope === 'manager'
+  if (t.task_kind !== 'case' && t.work_role !== 'assistant' && t.work_role !== 'manager') return false
+  if (t.task_kind === 'system') return false
+  return roleScope === 'manager' ? t.work_role === 'manager' : t.work_role !== 'manager'
 }
 
 // 事務管理タスク一覧では差戻しを扱わないため「対応中」へ吸収。
@@ -64,45 +75,34 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
+// 優先度セルの見た目。急ぎ＝黄／超急ぎ＝赤（案件詳細のタスクタブと同じ）。
+function priorityCls(p: string | null | undefined) {
+  if (p === '超急ぎ') return 'bg-red-100 text-red-800 border-red-300'
+  if (p === '急ぎ') return 'bg-amber-100 text-amber-800 border-amber-300'
+  return 'bg-white text-gray-500 border-gray-200'
+}
+// 急ぎ・超急ぎだけを上へ持ち上げる。通常のタスクは今までどおり工程順のまま。
+const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : p === '急ぎ' ? 1 : 2)
+
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, financialByCase = {}, kosekiByCase = {} }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, koteiPreset = null }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
 
-  // 着手OKセンター（横断）：案件ごとに getStartOkSuggestions を回し、前段が揃ったのに着手OK未設定のタスクを提案。
-  const [suggestOpen, setSuggestOpen] = useState(false)
-  const okSuggestions = useMemo(() => {
-    const today = new Date().toLocaleDateString('sv-SE')
-    const byCase = new Map<string, TaskRow[]>()
-    for (const t of tasks) { if (!byCase.has(t.case_id)) byCase.set(t.case_id, []); byCase.get(t.case_id)!.push(t) }
-    const out: { caseId: string; s: StartOkSuggestion }[] = []
-    for (const [caseId, ct] of byCase) {
-      const list = getStartOkSuggestions(ct, kosekiByCase[caseId] ?? [], financialByCase[caseId] ?? [], today)
-      for (const s of list) out.push({ caseId, s })
-    }
-    return out
-  }, [tasks, kosekiByCase, financialByCase])
-  const applyOkSuggestion = async (taskId: string, reason: string) => {
-    const t = tasks.find(x => x.id === taskId); if (!t) return
-    const ext = { ...((t.ext_data ?? {}) as Record<string, unknown>), ready_reason: reason || '着手OK', ready_on_receipt: false }
-    const { error } = await createClient().from('tasks').update({ ext_data: ext }).eq('id', taskId)
-    if (error) { showToast(`着手OKの設定に失敗: ${error.message}`, 'error'); return }
-    showToast('着手OKにしました', 'success'); router.refresh()
-  }
   // 既定は「着手前」のみ。月数百件規模になるため、出社→次やる即発見の動線を最優先。
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
-  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
+  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(() => (koteiPreset ? new Set([koteiPreset]) : new Set()))
   // 受注区分（概念が大きいので先）／業務区分 の複数選択フィルタ（OR条件・全空=絞り込みなし）
   const [serviceFilter, setServiceFilter] = useState<Set<string>>(new Set())
   const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
   // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
-  const [readyOnly, setReadyOnly] = useState(true)
-  const [waitOnly, setWaitOnly] = useState(true)
+  const [readyOnly, setReadyOnly] = useState(!koteiPreset)
+  const [waitOnly, setWaitOnly] = useState(!koteiPreset)
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -121,17 +121,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   // 案件タスク（task_kind='case'）を担当区分(work_role)で振り分ける。
   // 受注/管理担当の初期タスク(task_kind='system')はどちらの一覧からも除外。
-  //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
-  //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
   const assistantTasks = useMemo(
-    () => tasks.filter(t => {
-      // 管理担当ヘルプ（systemタスク・ext_data.manager_review）は管理担当一覧に表示する
-      const isManagerHelp = t.task_kind === 'system' && !!(t.ext_data as Record<string, unknown> | null)?.manager_review
-      if (isManagerHelp) return roleScope === 'manager'
-      if (t.task_kind !== 'case' && t.work_role !== 'assistant' && t.work_role !== 'manager') return false
-      if (t.task_kind === 'system') return false
-      return roleScope === 'manager' ? t.work_role === 'manager' : t.work_role !== 'manager'
-    }),
+    () => tasks.filter(t => isTaskInRoleScope(t, roleScope)),
     [tasks, roleScope],
   )
 
@@ -173,8 +164,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                caseNumber.toLowerCase().includes(q)
       })
     }
-    // 並び: 工程順 → 業務 → 着手OK → 期限超過 → 期限近い順
+    // 並び: 急ぎ・超急ぎ（未完了のみ）→ 工程順 → 業務 → 着手OK → 期限超過 → 期限近い順
     return [...result].sort((a, b) => {
+      // 急ぎ・超急ぎは工程を飛び越えて先頭へ。完了済みは持ち上げない。
+      const ap = normalizeStatus(a.status) === '完了' ? 2 : priorityRank(a.priority)
+      const bp = normalizeStatus(b.status) === '完了' ? 2 : priorityRank(b.priority)
+      if (ap !== bp) return ap - bp
       const kr = koteiRank(koteiOf(a.phase)) - koteiRank(koteiOf(b.phase))
       if (kr !== 0) return kr
       const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
@@ -248,6 +243,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         ),
       ).length
     : 0
+
+  // 優先度は一覧のその場で変えられる（急ぎ・超急ぎは行の色が変わり、先頭に持ち上がる）
+  const setPriority = useCallback(async (task: TaskRow, priority: string) => {
+    const { error } = await createClient().from('tasks').update({ priority }).eq('id', task.id)
+    if (error) { showToast(`優先度の変更に失敗: ${error.message}`, 'error'); return }
+    router.refresh()
+  }, [router])
 
   const handleAdvance = useCallback(async (task: TaskRow) => {
     const current = normalizeStatus(task.status)
@@ -404,7 +406,19 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   return (
     <div>
       {/* ===== Sticky top zone ===== */}
-      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
+      <div className={embedded ? 'pb-3 mb-3 border-b border-gray-200' : 'sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4'}>
+        {embedded ? (
+          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px] mb-2.5">
+            <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="タスク名・案件名・番号で検索"
+              className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400"
+            />
+          </div>
+        ) : (
         <PageHeader
           eyebrow="Tasks"
           title={roleScope === 'manager' ? '管理担当タスク一覧' : '事務管理タスク一覧'}
@@ -423,6 +437,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             </div>
           }
         />
+        )}
 
         {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -431,40 +446,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setReadyOnly(false); setWaitOnly(false) }} />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => { setStatusFilter('完了'); setReadyOnly(false); setWaitOnly(false) }} />
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => { setStatusFilter('all'); setReadyOnly(false); setWaitOnly(false) }} />
-          </div>
-
-          {/* 着手OKセンター（横断）：前段が揃ったのに着手OK未設定のタスクを提案。案件詳細タスクタブと同じ判定。 */}
-          <div className="relative">
-            <button
-              onClick={() => setSuggestOpen(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors whitespace-nowrap ${suggestOpen ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-              title="前段が揃ったのに着手OKになっていないタスクを提案"
-            >
-              <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />着手OKセンター
-              {okSuggestions.length > 0 && <span className="text-[12px] font-mono opacity-70">{okSuggestions.length}</span>}
-            </button>
-            {suggestOpen && (
-              <div className="absolute left-0 top-full mt-1 z-30 w-[420px] max-h-[60vh] overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
-                {okSuggestions.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-[12.5px] text-gray-400">いま着手OKにできる提案はありません</div>
-                ) : okSuggestions.map(({ caseId, s }) => {
-                  const ci = caseMap[caseId]
-                  return (
-                    <div key={s.taskId} className="flex items-start gap-2 px-2.5 py-2 border-b border-gray-100 last:border-b-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12.5px] font-semibold text-gray-800 truncate">{s.taskTitle}</div>
-                        <div className="text-[11px] text-gray-500 truncate">{ci?.case_number} {ci?.deal_name}</div>
-                        <div className="text-[11px] text-amber-700 mt-0.5">{s.requiresConfirmation && '⚠ '}{s.reason}</div>
-                      </div>
-                      <div className="flex flex-col gap-1 flex-none">
-                        <button onClick={() => applyOkSuggestion(s.taskId, s.reason)} className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 whitespace-nowrap">着手OKにする</button>
-                        <Link href={`/cases/${caseId}?tab=tasks`} className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 text-center whitespace-nowrap">案件へ</Link>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </div>
 
           {/* 着手OK（今すぐやれるもの）だけ。未着手のときのみ意味があるので未着手選択時に表示 */}
@@ -500,7 +481,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           {/* 受注区分（概念が大きいので先） → 工程 → 業務区分 */}
           <MultiSelectFilter label="受注区分" icon={Tag} options={serviceOptions} selected={serviceFilter} onChange={setServiceFilter} width={200} />
-          <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
+          {!koteiPreset && <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />}
           <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
 
           {(serviceFilter.size > 0 || koteiFilter.size > 0 || gyomuFilter.size > 0) && (
@@ -581,6 +562,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         loadingTaskId={loadingTaskId}
         onEdit={setEditTask}
         onDelete={setDeleteTask}
+        onSetPriority={setPriority}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
@@ -634,6 +616,7 @@ function ListView({
   loadingTaskId,
   onEdit: _onEdit,
   onDelete,
+  onSetPriority,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -648,13 +631,14 @@ function ListView({
   loadingTaskId: string | null
   onEdit: (task: TaskRow) => void
   onDelete: (task: TaskRow) => void
+  onSetPriority: (task: TaskRow, priority: string) => void
   selectedIds: Set<string>
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
   roleScope: 'assistant' | 'manager'
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, kotei: 104, gyomu: 124, title: 220, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
+    select: 40, kotei: 104, gyomu: 124, title: 220, priority: 84, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
     execResult: 200,
     action: 110, ops: 40,
   })
@@ -663,6 +647,7 @@ function ListView({
     { key: 'kotei',      label: '工程' },
     { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
+    { key: 'priority',   label: '優先度' },
     { key: 'status',     label: 'ステータス' },
     { key: 'readyReason', label: '着手OK理由' },
     { key: 'caseCol',    label: '案件' },
@@ -739,6 +724,7 @@ function ListView({
                 onAdvance={onAdvance}
                 loading={loadingTaskId === task.id}
                 onDelete={onDelete}
+                onSetPriority={onSetPriority}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
                 roleScope={roleScope}
@@ -753,7 +739,7 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, selected, onToggleSelect, roleScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
@@ -762,6 +748,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
   onAdvance: (task: TaskRow) => void
   loading: boolean
   onDelete: (task: TaskRow) => void
+  onSetPriority: (task: TaskRow, priority: string) => void
   selected: boolean
   onToggleSelect: () => void
   roleScope: 'assistant' | 'manager'
@@ -774,7 +761,10 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
   return (
     <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${
-      selected ? 'bg-brand-50/60' : isOverdue ? 'bg-red-50/30' : ''
+      selected ? 'bg-brand-50/60'
+      : status !== '完了' && task.priority === '超急ぎ' ? 'bg-red-50'
+      : status !== '完了' && task.priority === '急ぎ' ? 'bg-amber-50/70'
+      : isOverdue ? 'bg-red-50/30' : ''
     }`}>
       {/* チェックボックス */}
       <td className="px-3.5 py-2.5">
@@ -814,9 +804,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
               {workRole.shortLabel}
             </span>
           )}
-          {task.priority === '急ぎ' && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 flex-shrink-0">急ぎ</span>
-          )}
           {!!ext.manager_review && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
               <HelpCircle className="w-3 h-3" strokeWidth={2.25} />ヘルプ{typeof ext.help_type === 'string' ? `・${HELP_TYPE_LABEL[ext.help_type as HelpType] ?? ''}` : ''}
@@ -838,6 +825,18 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
             )}
           </div>
         )}
+      </td>
+
+      {/* 優先度（その場で変えられる） */}
+      <td className="px-3.5 py-2.5">
+        <select
+          value={task.priority ?? '通常'}
+          onChange={e => onSetPriority(task, e.target.value)}
+          className={`w-full px-1 py-0.5 rounded-full text-[11px] font-semibold border outline-none cursor-pointer ${priorityCls(task.priority)}`}
+          title="優先度を変える"
+        >
+          {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
       </td>
 
       {/* ステータス（未着手 / 受領待ち / 着手OK / 対応中 / 完了） */}

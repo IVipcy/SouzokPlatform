@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { toReadinessReceipts, type ReadinessReceipt } from '@/lib/taskReadiness'
-import type { TaskRow, MemberRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
+import type { TaskRow, MemberRow, FinancialAssetRow } from '@/types'
 
 type RawMember = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 type CaseMemberInfo = RawMember
@@ -30,15 +30,11 @@ export async function loadTaskListData(): Promise<{
   financeBlockedCaseIds: string[]
   /** 案件ID→金融資産(機関名・凍結確認)。解約タスクの機関単位ゲート判定に使う */
   freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>>
-  /** 着手OKセンター(横断)用：案件ID→金融資産(全項目) */
-  financialByCase: Record<string, FinancialAssetRow[]>
-  /** 着手OKセンター(横断)用：案件ID→戸籍請求 */
-  kosekiByCase: Record<string, KosekiRequestRow[]>
 }> {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [tasksResult, casesResult, membersResult, receiptsResult, financeResult, kosekiResult] = await Promise.all([
+  const [tasksResult, casesResult, membersResult, receiptsResult, financeResult] = await Promise.all([
     supabase
       .from('tasks')
       .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
@@ -58,9 +54,6 @@ export async function loadTaskListData(): Promise<{
     supabase
       .from('financial_assets')
       .select('*'),
-    supabase
-      .from('koseki_requests')
-      .select('id, case_id, arrival_date, acquirer'),
   ])
 
   const financeAssets = (financeResult.data ?? []) as FinancialAssetRow[]
@@ -68,16 +61,10 @@ export async function loadTaskListData(): Promise<{
   const financeBlockedCaseIds = [...new Set(
     financeAssets.filter(a => a.freeze_confirmed !== true).map(a => a.case_id),
   )]
-  // 案件ID→金融資産（機関単位ゲート用 / 着手OKセンター用の全項目）
+  // 案件ID→金融資産（解約タスクの機関単位ゲート用）
   const freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>> = {}
-  const financialByCase: Record<string, FinancialAssetRow[]> = {}
   for (const a of financeAssets) {
     ;(freezeAssetsByCase[a.case_id] ??= []).push({ institution_name: a.institution_name, freeze_confirmed: a.freeze_confirmed })
-    ;(financialByCase[a.case_id] ??= []).push(a)
-  }
-  const kosekiByCase: Record<string, KosekiRequestRow[]> = {}
-  for (const k of (kosekiResult.data ?? []) as unknown as KosekiRequestRow[]) {
-    ;(kosekiByCase[k.case_id] ??= []).push(k)
   }
 
   type RawCaseRow = {
@@ -119,7 +106,5 @@ export async function loadTaskListData(): Promise<{
     receipts,
     financeBlockedCaseIds,
     freezeAssetsByCase,
-    financialByCase,
-    kosekiByCase,
   }
 }

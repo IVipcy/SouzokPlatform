@@ -5,7 +5,7 @@ import { isMinimalMode } from '@/lib/featureMode'
 
 export default async function TasksPage() {
   if (isMinimalMode()) redirect('/my')
-  const { tasks, caseMap, allMembers, currentMemberId, receipts, financeBlockedCaseIds, freezeAssetsByCase, financialByCase, kosekiByCase } = await loadTaskListData()
+  const { tasks, caseMap, allMembers, currentMemberId, receipts, financeBlockedCaseIds, freezeAssetsByCase } = await loadTaskListData()
   return (
     <TaskListClient
       tasks={tasks}
@@ -15,8 +15,6 @@ export default async function TasksPage() {
       receipts={receipts}
       financeBlockedCaseIds={financeBlockedCaseIds}
       freezeAssetsByCase={freezeAssetsByCase}
-      financialByCase={financialByCase}
-      kosekiByCase={kosekiByCase}
       roleScope="assistant"
     />
   )
