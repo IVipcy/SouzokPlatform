@@ -32,16 +32,10 @@ export function overdueSeverity(dueDate: string | null | undefined, todayStr: st
   return null
 }
 
-// 入金期日の判定：3営業日超過=要確認／5営業日超過=要注意。
-// 入金は遅れるほど回収が難しくなるので、タスク期日より早い段階で拾う。
-export const BILL_KAKUNIN_BIZ_DAYS = 3
-export const BILL_CHUI_BIZ_DAYS = 5
+// 入金期日の判定。タスク期日と同じ基準（5営業日超過=要確認／14日経過=要注意）。
+// 一度3/5営業日に早めたが、督促の実務サイクルに対して早すぎたため元に戻した。
 export function billOverdueSeverity(dueDate: string | null | undefined, todayStr: string): OverdueSeverity | null {
-  if (!dueDate) return null
-  const d = bizDaysOverdue(dueDate, todayStr)
-  if (d >= BILL_CHUI_BIZ_DAYS) return 'chui'
-  if (d >= BILL_KAKUNIN_BIZ_DAYS) return 'kakunin'
-  return null
+  return overdueSeverity(dueDate, todayStr)
 }
 
 // 受注日起点の判定（オーダーシート未完成・管理担当未アサイン）：3営業日=要確認／5営業日=要注意。
