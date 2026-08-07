@@ -24,6 +24,8 @@ export type TextAnno = {
   y: number
   /** 箱の幅（割合）。高さは文字量で決まる */
   w: number
+  /** 文字の大きさ（画像幅に対する割合）。未指定は TEXT_FONT */
+  font?: number
   text: string
   /** 引き出し線の先端（割合）。無ければ線を引かない */
   leader?: { x: number; y: number } | null
@@ -49,6 +51,13 @@ export const MARKER_WIDTH = 0.022
 /** テキスト箱の既定幅・文字サイズ（画像幅に対する割合） */
 export const TEXT_BOX_W = 0.26
 export const TEXT_FONT = 0.026
+/** 文字サイズの段階（小さい順）。A-／A+ で1段ずつ動かす */
+export const TEXT_FONT_STEPS = [0.014, 0.018, 0.022, 0.026, 0.032, 0.040, 0.050] as const
+/** 箱幅の下限（割合） */
+export const TEXT_BOX_MIN_W = 0.06
+
+/** その箱の文字サイズ（未指定なら既定） */
+export const fontOf = (a: TextAnno) => a.font ?? TEXT_FONT
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
 
@@ -101,7 +110,7 @@ export function drawAnnotations(
 
 /** テキストの箱＋引き出し線を描く */
 export function drawTextAnno(ctx: CanvasRenderingContext2D, a: TextAnno, w: number, h: number) {
-  const fontPx = Math.max(9, TEXT_FONT * w)
+  const fontPx = Math.max(9, fontOf(a) * w)
   const padding = fontPx * 0.45
   const boxW = a.w * w
   ctx.save()
@@ -152,7 +161,7 @@ export function getMeasureCtx(): CanvasRenderingContext2D | null {
 
 /** テキスト箱の高さ（割合）。当たり判定・ドラッグ範囲に使う */
 export function textBoxHeight(ctx: CanvasRenderingContext2D, a: TextAnno, w: number, h: number): number {
-  const fontPx = Math.max(9, TEXT_FONT * w)
+  const fontPx = Math.max(9, fontOf(a) * w)
   const padding = fontPx * 0.45
   ctx.save()
   ctx.font = `${fontPx}px sans-serif`

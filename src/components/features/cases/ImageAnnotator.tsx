@@ -6,7 +6,8 @@
 // 座標は画像に対する 0〜1 の割合なので、拡大しても位置がずれない。
 //
 // ・ペン（黒・赤）／蛍光ペン（緑・黄）… ドラッグで線を引く
-// ・テキスト … クリックで箱を作り打ち込む。箱の端の丸をドラッグすると引き出し線が伸びる
+// ・テキスト … クリックで箱を作り打ち込む。置いたあとは
+//               ドラッグで移動 / 右下の■で箱幅 / A-・A+で文字サイズ / ○をドラッグで引き出し線
 // ・消す … 線・箱を1つずつ選んで消す
 // ・戻す … 直前の操作を取り消す
 //
@@ -14,11 +15,12 @@
 // 打ち込みやすさのため HTML の入力欄を重ねて出し、確定したら canvas 側で描く。
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Undo2, Trash2, Type, X } from 'lucide-react'
+import { Undo2, Trash2, Type, X, Move } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import {
   PEN_COLORS, MARKER_COLORS, PEN_WIDTH, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT,
+  TEXT_FONT_STEPS, TEXT_BOX_MIN_W, fontOf,
   drawAnnotations, textBoxHeight, getMeasureCtx, newId,
   type Anno, type PenAnno, type TextAnno,
 } from '@/lib/imageAnnotations'
@@ -54,12 +56,16 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
   const [history, setHistory] = useState<Anno[][]>([])
   const [tool, setTool] = useState<Tool>({ kind: 'marker', color: MARKER_COLORS[1].css })
   const [editingId, setEditingId] = useState<string | null>(null)
+  // 選択中のメモ（掴んだ／編集した箱）。選択中だけ操作用のつまみとミニ道具を出す。
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const drawingRef = useRef<PenAnno | null>(null)
-  const dragRef = useRef<{ id: string; mode: 'move' | 'leader'; dx: number; dy: number } | null>(null)
+  const dragRef = useRef<{ id: string; mode: 'move' | 'resize' | 'leader'; dx: number; dy: number } | null>(null)
+  // ドラッグ開始時の状態。ドラッグを終えた時点で1回だけ「戻す」履歴に積む。
+  const dragSnapRef = useRef<Anno[] | null>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
 
   // 画像を読み込み、表示サイズ（横幅いっぱい）に合わせて canvas を用意する
@@ -135,11 +141,14 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
       return
     }
     if (tool.kind === 'text') {
-      const t: TextAnno = { id: newId(), type: 'text', color: PEN_COLORS[1].css, x: Math.min(p.x, 1 - TEXT_BOX_W), y: p.y, w: TEXT_BOX_W, text: '', leader: null }
+      const t: TextAnno = { id: newId(), type: 'text', color: PEN_COLORS[1].css, x: Math.min(p.x, 1 - TEXT_BOX_W), y: p.y, w: TEXT_BOX_W, font: TEXT_FONT, text: '', leader: null }
       push([...annos, t])
       setEditingId(t.id)
+      setSelectedId(t.id)
       return
     }
+    // 何もない所を押したら選択を外す（つまみを消して線が書けるようにする）
+    setSelectedId(null)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     drawingRef.current = {
       id: newId(), type: tool.kind, color: tool.color,
@@ -148,24 +157,14 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     }
   }
   const onPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current
-    if (d) {
-      const p = rel(e)
-      setAnnos(prev => prev.map(a => {
-        if (a.id !== d.id || a.type !== 'text') return a
-        return d.mode === 'move'
-          ? { ...a, x: Math.max(0, Math.min(1 - a.w, p.x - d.dx)), y: Math.max(0, p.y - d.dy) }
-          : { ...a, leader: { x: p.x, y: p.y } }
-      }))
-      return
-    }
+    if (dragRef.current) return   // メモの移動・サイズ変更はつまみ側で処理する
     if (!drawingRef.current) return
     const p = rel(e)
     drawingRef.current.points.push(p.x, p.y)
     redraw()
   }
   const onPointerUp = () => {
-    if (dragRef.current) { dragRef.current = null; setHistory(h => [...h]); return }
+    if (dragRef.current) return
     const d = drawingRef.current
     drawingRef.current = null
     if (d && d.points.length >= 4) push([...annos, d])
@@ -178,6 +177,60 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     return ctx && size.w > 0 ? textBoxHeight(ctx, a, size.w, size.h) * size.h : 40
   }
   const updateText = (v: string) => setAnnos(prev => prev.map(a => (a.id === editingId && a.type === 'text' ? { ...a, text: v } : a)))
+  /** 1つのメモだけ書き換える（移動・サイズ・文字サイズ・色で共通） */
+  const patchText = (id: string, patch: Partial<TextAnno>) =>
+    setAnnos(prev => prev.map(a => (a.id === id && a.type === 'text' ? { ...a, ...patch } : a)))
+  /** 「戻す」履歴に1回だけ積んでから書き換える（ボタン操作用） */
+  const editText = (id: string, patch: Partial<TextAnno>) => {
+    setHistory(h => [...h.slice(-29), annos])
+    patchText(id, patch)
+  }
+  const bumpFont = (a: TextAnno, dir: 1 | -1) => {
+    const cur = fontOf(a)
+    // いま一番近い段を探して1段ずらす
+    let i = 0
+    TEXT_FONT_STEPS.forEach((v, k) => { if (Math.abs(v - cur) < Math.abs(TEXT_FONT_STEPS[i] - cur)) i = k })
+    const next = TEXT_FONT_STEPS[Math.max(0, Math.min(TEXT_FONT_STEPS.length - 1, i + dir))]
+    editText(a.id, { font: next })
+  }
+
+  // 画像に対する割合座標（つまみのドラッグはcanvasの外にも出るのでclient座標から引き直す）
+  const relCanvas = (clientX: number, clientY: number) => {
+    const cv = canvasRef.current
+    if (!cv) return { x: 0, y: 0 }
+    const r = cv.getBoundingClientRect()
+    return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height }
+  }
+  // つまみのドラッグ：押した要素にポインタを固定するので、画像の外に出ても追従する。
+  const startDrag = (e: React.PointerEvent, a: TextAnno, mode: 'move' | 'resize' | 'leader') => {
+    e.stopPropagation()
+    e.preventDefault()
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    const p = relCanvas(e.clientX, e.clientY)
+    dragSnapRef.current = annos
+    dragRef.current = { id: a.id, mode, dx: p.x - a.x, dy: p.y - a.y }
+    setSelectedId(a.id)
+  }
+  const moveDrag = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d) return
+    e.stopPropagation()
+    const p = relCanvas(e.clientX, e.clientY)
+    setAnnos(prev => prev.map(a => {
+      if (a.id !== d.id || a.type !== 'text') return a
+      if (d.mode === 'move') return { ...a, x: Math.max(0, Math.min(1 - a.w, p.x - d.dx)), y: Math.max(0, Math.min(1, p.y - d.dy)) }
+      if (d.mode === 'resize') return { ...a, w: Math.max(TEXT_BOX_MIN_W, Math.min(1 - a.x, p.x - a.x)) }
+      return { ...a, leader: { x: p.x, y: p.y } }
+    }))
+  }
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    e.stopPropagation()
+    const snap = dragSnapRef.current
+    dragRef.current = null
+    dragSnapRef.current = null
+    if (snap) setHistory(h => [...h.slice(-29), snap])
+  }
 
   const save = async () => {
     setSaving(true)
@@ -220,7 +273,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
             <Undo2 className="w-3.5 h-3.5" />戻す
           </button>
           <span className="ml-auto text-[11px] text-gray-400">
-            {tool.kind === 'text' ? '画像をクリックしてメモを置く。○をドラッグで引き出し線'
+            {tool.kind === 'text' ? 'クリックでメモを置く。置いたあとは ドラッグで移動／■で幅／A±で文字サイズ／○で引き出し線'
               : tool.kind === 'erase' ? '消したい線・メモをクリック'
               : 'ドラッグで書く'}
           </span>
@@ -242,39 +295,75 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
             {annos.filter((a): a is TextAnno => a.type === 'text').map(a => {
               const left = a.x * size.w, top = a.y * size.h, w = a.w * size.w
               const isEditing = a.id === editingId
+              const isSelected = a.id === selectedId
+              const h = boxPx(a)
+              const fontPx = Math.max(11, fontOf(a) * size.w)
               return (
                 <div key={a.id} className="absolute" style={{ left, top, width: w }}>
                   {isEditing ? (
-                    <div className="relative">
-                      <textarea
-                        autoFocus
-                        value={a.text}
-                        onChange={e => updateText(e.target.value)}
-                        onBlur={() => setEditingId(null)}
-                        placeholder="メモを入力"
-                        className="w-full px-1.5 py-1 rounded border-2 bg-white/95 outline-none resize-none"
-                        style={{ borderColor: a.color, color: a.color, fontSize: Math.max(11, TEXT_FONT * size.w), lineHeight: 1.45 }}
-                        rows={Math.max(2, (a.text.match(/\n/g)?.length ?? 0) + 1)}
-                      />
-                      <button type="button" onMouseDown={e => { e.preventDefault(); push(annos.filter(x => x.id !== a.id)); setEditingId(null) }}
-                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white border border-gray-300 text-gray-500 flex items-center justify-center" title="このメモを削除">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
+                    <textarea
+                      autoFocus
+                      value={a.text}
+                      onChange={e => updateText(e.target.value)}
+                      onBlur={() => setEditingId(null)}
+                      placeholder="メモを入力"
+                      className="w-full px-1.5 py-1 rounded border-2 bg-white/95 outline-none resize-none block"
+                      style={{ borderColor: a.color, color: a.color, fontSize: fontPx, lineHeight: 1.45, height: Math.max(h, fontPx * 2.4) }}
+                    />
                   ) : (
                     <div
-                      className="absolute inset-0 cursor-move"
-                      style={{ height: boxPx(a) }}
-                      onDoubleClick={() => setEditingId(a.id)}
-                      onPointerDown={e => {
-                        if (tool.kind === 'erase') return
-                        e.stopPropagation()
-                        dragRef.current = { id: a.id, mode: 'move', dx: (e.clientX - (e.currentTarget.parentElement!.getBoundingClientRect().left)) / size.w, dy: (e.clientY - (e.currentTarget.parentElement!.getBoundingClientRect().top)) / size.h }
-                      }}
+                      className={`absolute inset-0 ${tool.kind === 'erase' ? 'cursor-pointer' : 'cursor-move'} ${isSelected ? 'ring-2 ring-brand-500/70 rounded' : ''}`}
+                      style={{ height: h, touchAction: 'none' }}
+                      onDoubleClick={() => { setSelectedId(a.id); setEditingId(a.id) }}
+                      onPointerDown={e => { if (tool.kind === 'erase') return; startDrag(e, a, 'move') }}
+                      onPointerMove={moveDrag}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
                       title="ドラッグで移動 / ダブルクリックで文字を編集"
                     />
                   )}
-                  {/* 引き出し線のつまみ。まだ線が無ければ箱の右下に置く */}
+
+                  {/* 選択中だけ出す道具：文字サイズ・色・削除。押しても編集は途切れないようにする。 */}
+                  {(isSelected || isEditing) && (
+                    <div
+                      className="absolute flex items-center gap-0.5 bg-white border border-gray-200 rounded-md shadow-sm px-1 py-0.5"
+                      style={{ left: 0, top: -30, zIndex: 5 }}
+                      onMouseDown={e => e.preventDefault()}
+                      onPointerDown={e => e.stopPropagation()}
+                    >
+                      <Move className="w-3 h-3 text-gray-300" />
+                      <button type="button" title="文字を小さく" onClick={() => bumpFont(a, -1)}
+                        className="px-1.5 text-[11px] font-bold text-gray-600 hover:text-brand-700">A-</button>
+                      <button type="button" title="文字を大きく" onClick={() => bumpFont(a, 1)}
+                        className="px-1.5 text-[14px] font-bold text-gray-600 hover:text-brand-700">A+</button>
+                      <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
+                      {PEN_COLORS.map(c => (
+                        <button key={c.key} type="button" title={`文字と枠を${c.label}に`} aria-label={`${c.label}にする`}
+                          onClick={() => editText(a.id, { color: c.css })}
+                          className={`w-3.5 h-3.5 rounded-full border ${a.color === c.css ? 'border-brand-600 scale-110' : 'border-gray-200'}`}
+                          style={{ background: c.css }} />
+                      ))}
+                      <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
+                      <button type="button" title="このメモを削除"
+                        onClick={() => { push(annos.filter(x => x.id !== a.id)); setEditingId(null); setSelectedId(null) }}
+                        className="px-1 text-gray-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                    </div>
+                  )}
+
+                  {/* 箱幅を変えるつまみ（右下） */}
+                  {(isSelected || isEditing) && (
+                    <div
+                      className="absolute w-3 h-3 bg-white border-2 rounded-sm cursor-ew-resize"
+                      style={{ borderColor: a.color, left: w - 6, top: h - 6, touchAction: 'none', zIndex: 5 }}
+                      title="ドラッグで箱の幅を変える"
+                      onPointerDown={e => startDrag(e, a, 'resize')}
+                      onPointerMove={moveDrag}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                    />
+                  )}
+
+                  {/* 引き出し線のつまみ。まだ線が無ければ箱の右上に置く */}
                   <button
                     type="button"
                     className="absolute w-4 h-4 rounded-full border-2 border-white shadow"
@@ -283,20 +372,13 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                       left: a.leader ? (a.leader.x - a.x) * size.w - 8 : w - 8,
                       top: a.leader ? (a.leader.y - a.y) * size.h - 8 : -8,
                       touchAction: 'none',
+                      zIndex: 5,
                     }}
                     title="ドラッグして指したい場所へ"
-                    onPointerDown={e => {
-                      e.stopPropagation()
-                      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-                      dragRef.current = { id: a.id, mode: 'leader', dx: 0, dy: 0 }
-                    }}
-                    onPointerMove={e => {
-                      if (dragRef.current?.id !== a.id || dragRef.current.mode !== 'leader') return
-                      const r = wrapRef.current!.querySelector('canvas')!.getBoundingClientRect()
-                      const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
-                      setAnnos(prev => prev.map(x => (x.id === a.id && x.type === 'text' ? { ...x, leader: p } : x)))
-                    }}
-                    onPointerUp={() => { dragRef.current = null }}
+                    onPointerDown={e => startDrag(e, a, 'leader')}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
                   />
                 </div>
               )

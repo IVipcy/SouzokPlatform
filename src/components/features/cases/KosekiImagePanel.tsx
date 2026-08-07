@@ -8,27 +8,18 @@
 // 座標・色・文字だけを koseki_images.annotations に保存する（migration 229）。
 // サムネイルは画像＋書き込みを canvas で重ねて描くので、拡大表示と同じ絵になる。
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Upload, Pencil, Trash2, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ImageAnnotator from './ImageAnnotator'
+import AnnotatedImage from './AnnotatedImage'
 import { drawAnnotations, type Anno } from '@/lib/imageAnnotations'
+import { useKosekiImages, KOSEKI_BUCKET as BUCKET, type KosekiImageRow } from '@/lib/useKosekiImages'
 
-export type KosekiImageRow = {
-  id: string
-  case_id: string
-  target_person: string | null
-  image_path: string
-  image_bucket: string
-  file_name: string | null
-  annotations: Anno[] | null
-  sort_order: number
-}
-
-const BUCKET = 'koseki-images'
+export type { KosekiImageRow }
 
 export default function KosekiImagePanel({ caseId, targetPerson, compact = false, title }: {
   caseId: string
@@ -39,34 +30,12 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
   title?: string
 }) {
   const supabase = createClient()
-  const [rows, setRows] = useState<KosekiImageRow[]>([])
-  const [urls, setUrls] = useState<Record<string, string>>({})
+  const { rows, urls, reload: load, setRows } = useKosekiImages(caseId, targetPerson)
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<KosekiImageRow | null>(null)
   const [askEdit, setAskEdit] = useState<KosekiImageRow[] | null>(null)
   const [preview, setPreview] = useState<KosekiImageRow | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-
-  const load = useCallback(async () => {
-    let q = supabase.from('koseki_images').select('*').eq('case_id', caseId).order('sort_order')
-    if (targetPerson !== undefined) q = q.eq('target_person', targetPerson)
-    const { data } = await q
-    const list = (data ?? []) as unknown as KosekiImageRow[]
-    setRows(list)
-    // 非公開バケットなので都度 署名付きURLを作る
-    const next: Record<string, string> = {}
-    await Promise.all(list.map(async r => {
-      const { data: s } = await supabase.storage.from(r.image_bucket || BUCKET).createSignedUrl(r.image_path, 3600)
-      if (s?.signedUrl) next[r.id] = s.signedUrl
-    }))
-    setUrls(next)
-  }, [caseId, targetPerson, supabase])
-
-  useEffect(() => {
-    let alive = true
-    ;(async () => { await load(); if (!alive) return })()
-    return () => { alive = false }
-  }, [load])
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -74,7 +43,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
     const created: KosekiImageRow[] = []
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) { showToast(`${file.name} は画像ではありません`, 'error'); continue }
-      const path = `${caseId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name}`
+      const path = `${caseId}/${crypto.randomUUID()}_${file.name}`
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
       if (upErr) { showToast(`アップロードに失敗: ${upErr.message}`, 'error'); continue }
       const { data, error } = await supabase.from('koseki_images').insert({
@@ -198,35 +167,6 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
       )}
     </div>
   )
-}
-
-/** 画像＋書き込みを1枚の canvas に描く（サムネイル・拡大表示で共通） */
-function AnnotatedImage({ url, annos, className }: { url?: string; annos: Anno[]; className?: string }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    if (!url) return
-    let alive = true
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const cv = ref.current
-      if (!alive || !cv) return
-      const parentW = cv.parentElement?.clientWidth ?? 400
-      const w = parentW
-      const h = Math.round((img.naturalHeight / img.naturalWidth) * w)
-      const dpr = window.devicePixelRatio || 1
-      cv.width = w * dpr; cv.height = h * dpr
-      cv.style.width = `${w}px`; cv.style.height = `${h}px`
-      const ctx = cv.getContext('2d')
-      if (!ctx) return
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.drawImage(img, 0, 0, w, h)
-      drawAnnotations(ctx, annos, w, h)
-    }
-    img.src = url
-    return () => { alive = false }
-  }, [url, annos])
-  return <canvas ref={ref} className={`block max-w-full ${className ?? ''}`} />
 }
 
 function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, showPerson, compact }: {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
@@ -10,7 +10,7 @@ import {
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
-import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
+import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, HeirRow, CaseClientRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
@@ -33,6 +33,10 @@ type Props = {
   financialAssets?: FinancialAssetRow[]
   /** 被相続人の氏名。戸籍請求のうち被相続人あての1本だけ「着手OK」で生成するために使う。 */
   deceasedName?: string | null
+  /** 相続人。戸籍タスク名に続柄（長男 等）を出すために使う。 */
+  heirs?: HeirRow[]
+  /** 依頼者。戸籍タスク名に「依頼者」を出し、最初はこの人の戸籍だけを既定チェックにする。 */
+  caseClients?: CaseClientRow[]
   /** 閲覧者のロール（primary_role）。管理担当は管理業務＋その他のみ、事務管理(assistant)は事務業務のみを候補にする。 */
   viewerRole?: string | null
   onSaved: () => void
@@ -40,7 +44,9 @@ type Props = {
 
 // 生成候補：実施タスク行（roleIdx付き）or 区分非依存（経理/相続税）。
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
-type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean; custom?: boolean; work?: string }
+type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean; custom?: boolean; work?: string
+  /** 開いた時点では既定でチェックを外す候補（今やらなくてよいもの）。チェックすれば生成できる。 */
+  offByDefault?: boolean }
 
 // 候補の担当区分（生成時の task_kind と同じ判定）。バッジ表示に使う。
 function kindOfCandidate(c: Candidate): 'case' | 'system' | 'touki_team' {
@@ -76,13 +82,30 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
   // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   // 全部生成済みの業務は畳んでおき、開いたものだけ中身を表示する（⑤）
   const [doneExpanded, setDoneExpanded] = useState<Set<string>>(new Set())
+
+  // 戸籍タスクに出す肩書き。依頼者 ＞ 被相続人 ＞ 続柄 の順で1つだけ添える。
+  // 誰の戸籍なのかが名前だけでは分からず、どれから手を付けるか毎回聞かれていた。
+  const roleOfPerson = useCallback((rawName: string): string | null => {
+    const key = (s: string | null | undefined) => (s ?? '').replace(/[\s　]/g, '')
+    const n = key(rawName)
+    if (!n) return null
+    if (caseClients.some(c => key(c.name) === n)) return '依頼者'
+    if (key(deceasedName) === n) return '被相続人'
+    const h = heirs.find(x => key(x.name) === n)
+    return h ? (h.relationship_type || h.relationship || null) : null
+  }, [caseClients, deceasedName, heirs])
+  /** 最初に出す戸籍タスク＝依頼者と被相続人の分だけ。他の相続人は被相続人の戸籍を読んでから。 */
+  const isFirstKosekiPerson = useCallback((rawName: string) => {
+    const r = roleOfPerson(rawName)
+    return r === '依頼者' || r === '被相続人'
+  }, [roleOfPerson])
 
   const cats = categoriesOf(serviceCategory, serviceCategory2)
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
@@ -151,7 +174,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     const kosekiLabel = (k: KosekiRequestRow) => {
       const dest = (k.request_to ?? '').trim() || '請求先未設定'
       const person = (k.target_person ?? '').trim()
-      return `${dest}${person ? `（${person}）` : ''}`
+      if (!person) return dest
+      const role = roleOfPerson(person)
+      return `${dest}（${person}${role ? `・${role}` : ''}）`
     }
 
     intakeRoles.forEach((r, idx) => {
@@ -173,8 +198,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         if (kosekiRequests.length > 0) {
           const deceased = (deceasedName ?? '').replace(/[\s　]/g, '')
           const isDeceased = (k: KosekiRequestRow) => !!deceased && (k.target_person ?? '').replace(/[\s　]/g, '') === deceased
-          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: isDeceased(k) }))
-          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}` }))
+          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: isDeceased(k), offByDefault: !isFirstKosekiPerson(k.target_person ?? '') }))
+          kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}`, offByDefault: !isFirstKosekiPerson(k.target_person ?? '') }))
         } else {
           out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })
         }
@@ -222,7 +247,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 担当区分での絞り込みは撤廃：どのアカウントが一括生成しても全区分の候補を出す。
     // どのみち全タスクを生成する必要があるため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, deceasedName, roleOfPerson, isFirstKosekiPerson])
 
   // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
   const kosekiCoarse = useMemo(() =>
@@ -240,9 +265,10 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
   const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
   const selectable = candidates.filter(c => !isGenerated(c))
 
-  // ① 開いた瞬間、未生成の候補を全部チェック済みにする（外したいものだけ外す運用）。
+  // ① 開いた瞬間、未生成の候補をチェック済みにする（外したいものだけ外す運用）。
+  //    ただし offByDefault（＝依頼者・被相続人以外の戸籍）は外しておく。
   useEffect(() => {
-    if (isOpen) setSelected(new Set(candidates.filter(c => !isGenerated(c)).map(c => c.key)))
+    if (isOpen) setSelected(new Set(candidates.filter(c => !isGenerated(c) && !c.offByDefault).map(c => c.key)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
@@ -366,6 +392,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
           <span className="font-semibold">物件が未入力です。</span>
           先に財産調査＞不動産の表へ物件を入れてから生成すると、<span className="font-semibold">市区町村ごと</span>に請求・読込タスクが分かれます。
+        </div>
+      )}
+      {candidates.some(c => c.offByDefault && !isGenerated(c)) && (
+        <div className="bg-brand-50 border border-brand-200 text-brand-800 text-[12.5px] rounded-lg p-3 mb-4">
+          <span className="font-semibold">戸籍は 依頼者・被相続人の分だけチェックしています。</span>
+          他の相続人の戸籍は、被相続人の戸籍を読んで請求先が決まってからで足りるため外してあります（今すぐ出したい分はチェックしてください）。
         </div>
       )}
 

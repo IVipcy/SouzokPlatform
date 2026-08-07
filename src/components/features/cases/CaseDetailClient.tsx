@@ -894,6 +894,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         kosekiRequests={kosekiRequests}
         properties={properties}
         financialAssets={financialAssets}
+        heirs={heirs}
+        caseClients={caseClients ?? []}
         viewerRole={viewerRole}
         onSaved={handleSaved}
       />

@@ -2,11 +2,28 @@
 
 import { createContext, useContext } from 'react'
 import { isFormerSpouse, isHalfBloodSibling } from '@/lib/constants'
+import AnnotatedImage from './AnnotatedImage'
+import type { Anno } from '@/lib/imageAnnotations'
 import type { CaseRow, HeirRow } from '@/types'
 
 // 戸籍の取得状況オーバーレイ（氏名→状態＋進捗/結果）。指定時のみ枠色＋ホバーを表示。
 export type PersonStatus = { status: string; body: string }
 const StatusCtx = createContext<Record<string, PersonStatus>>({})
+
+// 各人の戸籍画像（氏名→画像）。図の箱の右に小さく並べ、押すと拡大できる。
+// 印刷（相続関係説明図そのもの）には出さない。
+export type DiagramImage = { id: string; url?: string; annos: Anno[]; label?: string | null }
+type ImagesCtxValue = { byName: Record<string, DiagramImage[]>; onOpen?: (img: DiagramImage) => void }
+const ImagesCtx = createContext<ImagesCtxValue>({ byName: {} })
+/** 箱の右に出すサムネイルの幅（px）。この分だけ箱の間隔を広げる */
+const THUMB_W = 48
+const THUMB_GAP = 6
+const MAX_THUMBS = 3
+/** 画像を出すときに図の右へ足す余白（右端の人のサムネイルがはみ出さないように） */
+function useImagePad() {
+  const { byName } = useContext(ImagesCtx)
+  return Object.values(byName).some(v => v.length > 0) ? THUMB_W + THUMB_GAP * 2 : 0
+}
 
 /**
  * 相続関係説明図 V2（法務局様式準拠・3パターン対応）
@@ -36,10 +53,15 @@ export default function InheritanceDiagramV2({
   deceased,
   heirs,
   statusByName = {},
+  imagesByName = {},
+  onOpenImage,
 }: {
   deceased: CaseRow
   heirs: HeirRow[]
   statusByName?: Record<string, PersonStatus>
+  /** 氏名→その人の戸籍画像。渡すと各箱の右にサムネイルが並ぶ */
+  imagesByName?: Record<string, DiagramImage[]>
+  onOpenImage?: (img: DiagramImage) => void
 }) {
   // 続柄を相関図のカテゴリ（配偶者/子/父/母/兄弟姉妹/その他）に正規化。
   // relationship_type（長男・次男・孫 等）も relationship（フリー）も同じ判定に通す。
@@ -82,23 +104,27 @@ export default function InheritanceDiagramV2({
 
   const BOX_W = 150
   const BOX_H = 150
-  const SPOUSE_GAP = 60
-  const CHILD_GAP = 24
+  // 画像を出すときは、箱の右のサムネイルが隣の箱に重ならないよう間隔を広げる。
+  const hasImages = Object.values(imagesByName).some(v => v.length > 0)
+  const extra = hasImages ? THUMB_W + THUMB_GAP * 2 : 0
+  const SPOUSE_GAP = 60 + extra
+  const CHILD_GAP = 24 + extra
   const V_GAP = 80
+  const imagesCtx: ImagesCtxValue = { byName: imagesByName, onOpen: onOpenImage }
 
   // ─── パターン別レイアウト ───
   if (pattern === 'parents') {
-    return <StatusCtx.Provider value={statusByName}><ParentsLayout
+    return <StatusCtx.Provider value={statusByName}><ImagesCtx.Provider value={imagesCtx}><ParentsLayout
       deceased={deceased} spouse={spouse} father={father} mother={mother} others={others}
       BOX_W={BOX_W} BOX_H={BOX_H} SPOUSE_GAP={SPOUSE_GAP} CHILD_GAP={CHILD_GAP} V_GAP={V_GAP}
-    /></StatusCtx.Provider>
+    /></ImagesCtx.Provider></StatusCtx.Provider>
   }
 
   if (pattern === 'siblings') {
-    return <StatusCtx.Provider value={statusByName}><SiblingsLayout
+    return <StatusCtx.Provider value={statusByName}><ImagesCtx.Provider value={imagesCtx}><SiblingsLayout
       deceased={deceased} spouse={spouse} siblings={siblings} others={[...others, ...formerSpouses]}
       BOX_W={BOX_W} BOX_H={BOX_H} SPOUSE_GAP={SPOUSE_GAP} CHILD_GAP={CHILD_GAP} V_GAP={V_GAP}
-    /></StatusCtx.Provider>
+    /></ImagesCtx.Provider></StatusCtx.Provider>
   }
 
   // パターン1 & 2 は共通（配偶者の有無で分岐）
@@ -121,7 +147,7 @@ export default function InheritanceDiagramV2({
   const childrenRowWidth =
     descendants.length > 0 ? descendants.length * BOX_W + (descendants.length - 1) * CHILD_GAP : 0
 
-  const canvasWidth = Math.max(topRowWidth, childrenRowWidth, 400) + 80
+  const canvasWidth = Math.max(topRowWidth, childrenRowWidth, 400) + 80 + extra
   const topY = 30
   const childrenY = topY + BOX_H + V_GAP
   const canvasHeight = descendants.length > 0 ? childrenY + BOX_H + 30 : topY + BOX_H + 30
@@ -152,7 +178,7 @@ export default function InheritanceDiagramV2({
   })
 
   return (
-    <StatusCtx.Provider value={statusByName}>
+    <StatusCtx.Provider value={statusByName}><ImagesCtx.Provider value={imagesCtx}>
     <div className="overflow-auto bg-white print:overflow-visible" style={{ minHeight: 300 }}>
       <div className="relative mx-auto" style={{ width: canvasWidth, height: canvasHeight }}>
         <svg className="absolute top-0 left-0 pointer-events-none" width={canvasWidth} height={canvasHeight} style={{ zIndex: 1 }}>
@@ -263,7 +289,7 @@ export default function InheritanceDiagramV2({
         ))}
       </div>
     </div>
-    </StatusCtx.Provider>
+    </ImagesCtx.Provider></StatusCtx.Provider>
   )
 }
 
@@ -279,13 +305,14 @@ function ParentsLayout({
   others: HeirRow[]
   BOX_W: number; BOX_H: number; SPOUSE_GAP: number; CHILD_GAP: number; V_GAP: number
 }) {
+  const imgPad = useImagePad()
   const parents = [father, mother].filter((p): p is HeirRow => !!p)
   const parentsRowWidth = parents.length * BOX_W + (parents.length - 1) * SPOUSE_GAP
   const middleRowWidth = spouse ? BOX_W * 2 + SPOUSE_GAP : BOX_W
   const bottomRowWidth =
     others.length > 0 ? others.length * BOX_W + (others.length - 1) * CHILD_GAP : 0
 
-  const canvasWidth = Math.max(parentsRowWidth, middleRowWidth, bottomRowWidth, 400) + 80
+  const canvasWidth = Math.max(parentsRowWidth, middleRowWidth, bottomRowWidth, 400) + 80 + imgPad
 
   const parentsY = 30
   const middleY = parentsY + BOX_H + V_GAP
@@ -397,6 +424,7 @@ function SiblingsLayout({
   others: HeirRow[]
   BOX_W: number; BOX_H: number; SPOUSE_GAP: number; CHILD_GAP: number; V_GAP: number
 }) {
+  const imgPad = useImagePad()
   // レイアウト: [被相続人] [gap配偶者gap] [兄弟姉妹1] [兄弟姉妹2] ... [その他]
   // 兄弟姉妹線は被相続人と兄弟姉妹の頂点のみ結ぶ（配偶者を跨ぐ）
   const postDeceasedHeirs = [
@@ -415,7 +443,7 @@ function SiblingsLayout({
     : 0
 
   const contentWidth = postStartX + postWidth - deceasedX
-  const canvasWidth = Math.max(contentWidth + 80, 500)
+  const canvasWidth = Math.max(contentWidth + 80 + imgPad, 500)
 
   const topY = 30 + 60
   const virtualParentY = 30
@@ -577,6 +605,7 @@ function PersonBox({
     : 'bg-gray-100 text-gray-400'
   return (
     <div className="absolute" style={{ left: x, top: y, width, zIndex: 2 }} title={ps?.body ? `【${ps.status}】${ps.body}` : undefined}>
+      <PersonImages name={name} boxWidth={width} />
       <div className={`${ps ? statusBorder : borderClass} bg-white text-center`}>
         <div className={`text-[11px] tracking-widest py-1 border-b border-black font-semibold ${labelBg} relative`}>
           {label}
@@ -616,6 +645,44 @@ function PersonBox({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── 箱の右に並べる戸籍画像 ───
+// 各対象者タブでアップした画像を、その人の箱の右に小さく出す。
+// 押すと拡大（呼び出し側のモーダル）。印刷する相続関係説明図には出さない。
+function PersonImages({ name, boxWidth }: { name?: string | null; boxWidth: number }) {
+  const { byName, onOpen } = useContext(ImagesCtx)
+  const list = name ? byName[name.trim()] ?? [] : []
+  if (list.length === 0) return null
+  const shown = list.slice(0, MAX_THUMBS)
+  const rest = list.length - shown.length
+  return (
+    <div
+      className="absolute flex flex-col gap-1 print:hidden"
+      style={{ left: boxWidth + THUMB_GAP, top: 0, width: THUMB_W, zIndex: 3 }}
+    >
+      {shown.map(img => (
+        <button
+          key={img.id}
+          type="button"
+          onClick={() => onOpen?.(img)}
+          title={`${name} の戸籍：${img.label ?? '画像'}（クリックで拡大）`}
+          className="block w-full rounded border border-gray-300 bg-white overflow-hidden hover:border-brand-500"
+          style={{ height: THUMB_W * 1.25 }}
+        >
+          {img.url
+            ? <AnnotatedImage url={img.url} annos={img.annos} className="w-full object-cover" />
+            : <span className="flex items-center justify-center h-full text-[9px] text-gray-300">…</span>}
+        </button>
+      ))}
+      {rest > 0 && (
+        <button type="button" onClick={() => onOpen?.(list[MAX_THUMBS])}
+          className="text-[10px] text-gray-500 border border-gray-200 rounded bg-white/90 py-0.5 hover:border-brand-400">
+          ＋{rest}枚
+        </button>
+      )}
     </div>
   )
 }

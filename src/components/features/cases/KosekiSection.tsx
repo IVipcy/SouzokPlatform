@@ -17,7 +17,9 @@ import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import CheckRequestControl from './CheckRequestControl'
-import InheritanceDiagramV2 from './InheritanceDiagramV2'
+import InheritanceDiagramV2, { type DiagramImage } from './InheritanceDiagramV2'
+import AnnotatedImage from './AnnotatedImage'
+import { useKosekiImages } from '@/lib/useKosekiImages'
 import Modal from '@/components/ui/Modal'
 import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { KosekiRequestRow, HeirRow, CaseRow, TaskRow } from '@/types'
@@ -38,6 +40,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
+  // 相続関係説明図の各人の右に出す戸籍画像（対象者ごとにまとめる）
+  const { rows: kosekiImages, urls: kosekiImageUrls } = useKosekiImages(caseId)
+  const [diagramImage, setDiagramImage] = useState<DiagramImage | null>(null)
+  const imagesByName: Record<string, DiagramImage[]> = {}
+  for (const r of kosekiImages) {
+    const key = (r.target_person ?? '').trim()
+    if (!key) continue
+    ;(imagesByName[key] ??= []).push({ id: r.id, url: kosekiImageUrls[r.id], annos: r.annotations ?? [], label: r.file_name })
+  }
   const memberId = useCurrentMember(null)
   // タスク詳細からの着地：?focus=戸籍請求ID。該当行の対象者レールを開き、行をハイライト。
   const searchParams = useSearchParams()
@@ -323,11 +334,16 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
             {/* 戸籍取得状況図：相続関係説明図に状態を枠色で反映＋ホバーで進捗/結果 */}
             <div>
-              <SectionHeading title="戸籍の取得状況（相続関係説明図）" hint="枠の色＝戸籍の取得状況（緑=完了／青=対応中／橙=追加調査中／灰=未着手）。図の人物にマウスを乗せると、進み具合や結果が出ます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="戸籍の取得状況（相続関係説明図）" hint="枠の色＝戸籍の取得状況（緑=完了／青=対応中／橙=追加調査中／灰=未着手）。図の人物にマウスを乗せると、進み具合や結果が出ます。各人の右にはその人の戸籍画像が並び、押すと拡大できます（印刷には出ません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {heirs.length === 0 ? (
                 <p className="text-[12px] text-gray-400 text-center py-4">相続人が未登録です。「相続人」タブで登録すると、ここに相続関係説明図が表示されます。</p>
               ) : (
-                <div className="overflow-x-auto"><InheritanceDiagramV2 deceased={caseData} heirs={heirs} statusByName={statusByName} /></div>
+                <div className="overflow-x-auto">
+                  <InheritanceDiagramV2
+                    deceased={caseData} heirs={heirs} statusByName={statusByName}
+                    imagesByName={imagesByName} onOpenImage={setDiagramImage}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -383,6 +399,11 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
         )}
       </div>
       {addOpen && <AddKosekiModal targetOptions={targetOptions} defaultPerson={activePerson} onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
+
+      {/* 相関図のサムネイルを押したときの拡大表示（書き込み込み） */}
+      <Modal isOpen={!!diagramImage} onClose={() => setDiagramImage(null)} title={diagramImage?.label ?? '戸籍の画像'} maxWidth="max-w-5xl">
+        {diagramImage && <AnnotatedImage url={diagramImage.url} annos={diagramImage.annos} />}
+      </Modal>
     </div>
     </div>
   )
