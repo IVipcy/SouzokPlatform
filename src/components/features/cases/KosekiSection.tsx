@@ -14,6 +14,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
+import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
@@ -275,7 +276,13 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
+            {/* 左＝進捗/結果、右＝各対象者タブで登録した戸籍画像をまとめて表示 */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-3.5 items-start">
+              <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <KosekiImagePanel caseId={caseId} compact />
+              </div>
+            </div>
             <div>
               <SectionHeading title="戸籍の取得状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
@@ -367,6 +374,10 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </table>
                 </div>
               )}
+            </div>
+            {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+              <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`} />
             </div>
           </div>
         )}
