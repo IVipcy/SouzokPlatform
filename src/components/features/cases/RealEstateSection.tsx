@@ -15,6 +15,7 @@ import { SectionHeading } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ProgressSummary from './ProgressSummary'
+import RegistrationTaxTable from './RegistrationTaxTable'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import EvalCertTable from './EvalCertTable'
@@ -361,6 +362,8 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               </table>
             </div>
           </div>
+          {/* 登録免許税の計算書【概算】。評価額×持分×0.4%。相続登記の見込み費用の根拠になる。 */}
+          <RegistrationTaxTable properties={properties} onRefresh={onRefresh} />
         </div>
       )}
 
