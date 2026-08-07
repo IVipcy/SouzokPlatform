@@ -8,18 +8,19 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import { REGISTRATION_TYPES, REGISTRATION_CAUSES } from '@/lib/constants'
+import { REGISTRATION_TYPES } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
-import { TxtCell, SelCell, DateCell, MoneyCell, DcCell } from './PracticeTableCells'
+import { DateCell, MoneyCell, DcCell } from './PracticeTableCells'
 import { municipalityOf } from './RealEstateSection'
-import type { RealEstatePropertyRow } from '@/types'
+import type { RealEstatePropertyRow, HeirRow } from '@/types'
 
 const collator = new Intl.Collator('ja')
 
-export default function RegistrationSection({ caseId, properties, onRefresh }: {
+export default function RegistrationSection({ caseId, properties, heirs = [], onRefresh }: {
   caseId: string
   properties: RealEstatePropertyRow[]
+  heirs?: HeirRow[]
   onRefresh?: () => void
 }) {
   const supabase = createClient()
@@ -125,7 +126,14 @@ export default function RegistrationSection({ caseId, properties, onRefresh }: {
                         <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-2 py-1.5 text-gray-700">{p.property_type || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2 py-1.5 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
-                          <td className="px-2 py-1.5"><TxtCell value={p.registration_acquirer} onCommit={v => saveField(p.id, 'registration_acquirer', v)} placeholder="相続人名" /></td>
+                          <td className="px-2 py-1.5">
+                            {/* 共有登記があるので複数選択。列は text のまま「、」区切りで保存する。 */}
+                            <TypesCell
+                              value={(p.registration_acquirer ?? '').split('、').map(x => x.trim()).filter(Boolean)}
+                              options={Array.from(new Set([...heirs.map(h => h.name).filter(Boolean), ...(p.registration_acquirer ?? '').split('、').map(x => x.trim()).filter(Boolean)]))}
+                              onSave={v => saveField(p.id, 'registration_acquirer', v.length ? v.join('、') : null)}
+                            />
+                          </td>
                           <td className="px-2 py-1.5"><ShareCell key={p.registration_share ?? 'empty'} value={p.registration_share} onSave={v => saveField(p.id, 'registration_share', v)} /></td>
                           <td className="px-2 py-1.5"><TypesCell value={p.registration_types} options={REGISTRATION_TYPES} onSave={v => saveField(p.id, 'registration_types', v.length ? v : null)} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_apply_date} onCommit={v => saveField(p.id, 'registration_apply_date', v)} /></td>

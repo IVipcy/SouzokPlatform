@@ -64,7 +64,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
           <WorkContentField caseData={caseData} gyomu="registration" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
         </div>
-        <RegistrationSection caseId={caseData.id} properties={properties} onRefresh={onRefresh} />
+        <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} onRefresh={onRefresh} />
         <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
       </div>
     )
@@ -105,13 +105,11 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
                 <td className="px-2.5 py-2 text-gray-700">{r.property_type || <span className="text-gray-300">—</span>}</td>
                 <td className="px-2.5 py-2 font-medium text-gray-800">{r.address || <span className="text-gray-300">—</span>}</td>
                 <td className="px-2.5 py-1.5">
-                  <select value={r.registration_acquirer ?? ''} onChange={e => saveField(r.id, 'registration_acquirer', e.target.value || null)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                    <option value="">— 選択 —</option>
-                    {heirs.map(h => <option key={h.id} value={h.name}>{h.name}</option>)}
-                    {r.registration_acquirer && !heirs.some(h => h.name === r.registration_acquirer) && (
-                      <option value={r.registration_acquirer}>{r.registration_acquirer}（案件外）</option>
-                    )}
-                  </select>
+                  <MultiSelectCell
+                    value={acquirerList(r.registration_acquirer)}
+                    options={acquirerOptions(r.registration_acquirer, heirs)}
+                    onSave={v => saveField(r.id, 'registration_acquirer', v.length ? v.join('、') : null)}
+                  />
                 </td>
                 <td className="px-2.5 py-1.5">
                   <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
@@ -163,10 +161,11 @@ function RegCard({ r, heirs, saveField }: {
       </div>
       <div className="space-y-2.5">
         <div><div className="text-[13px] font-medium text-slate-600 mb-1">取得者</div>
-          <select value={r.registration_acquirer ?? ''} onChange={e => saveField(r.id, 'registration_acquirer', e.target.value || null)} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
-            <option value="">— 選択 —</option>
-            {heirs.map(h => <option key={h.id} value={h.name}>{h.name}</option>)}
-          </select>
+          <MultiSelectCell
+            value={acquirerList(r.registration_acquirer)}
+            options={acquirerOptions(r.registration_acquirer, heirs)}
+            onSave={v => saveField(r.id, 'registration_acquirer', v.length ? v.join('、') : null)}
+          />
         </div>
         <div><div className="text-[13px] font-medium text-slate-600 mb-1">相続登記の種別</div>
           <MultiSelectCell value={r.registration_types ?? []} options={REGISTRATION_TYPES} onSave={v => saveField(r.id, 'registration_types', v.length ? v : null)} />
@@ -178,6 +177,12 @@ function RegCard({ r, heirs, saveField }: {
 
 // 相続登記の種別（複数選択）。表の overflow 枠でクリップされないよう、
 // チェックリストは body へポータルして固定配置で表示する。
+// 取得者は共有登記（例：長男と二男が各1/2）があるため複数選択にする。
+// 列は text のままで「、」区切りで保存する。案件外の氏名が入っていても選択肢に残す。
+const acquirerList = (v: string | null | undefined) => (v ?? '').split('、').map(x => x.trim()).filter(Boolean)
+const acquirerOptions = (v: string | null | undefined, heirs: HeirRow[]) =>
+  Array.from(new Set([...heirs.map(h => h.name).filter(Boolean), ...acquirerList(v)]))
+
 function MultiSelectCell({ value, options, onSave }: { value: string[]; options: readonly string[]; onSave: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)

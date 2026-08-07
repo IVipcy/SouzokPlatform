@@ -130,7 +130,6 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
                 {!isOfficeSign && (
                   <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={signingOptionsFor(caseData.agreement_dispatch_method)} onSave={v => saveCaseField('agreement_signing_method', v)} />
                 )}
-                <InlineTextarea label="分配方針の提案 内容" value={caseData.division_proposal ?? ''} onSave={v => saveCaseField('division_proposal', v)} fullWidth />
               </FieldGrid>
             </Section>
 

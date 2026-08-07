@@ -1,7 +1,7 @@
 'use client'
 
 // 解約（実務）：金融機関単位の左レール＋カード。TOP＝機関別の解約状況一覧。
-// 口座は財産調査(financial_assets)を共有。ここでは解約有無・解約完了日(実績)・禁止事項を管理する。
+// 口座は財産調査(financial_assets)を共有。ここでは解約有無・解約完了日(実績)・備考を管理する。
 // 完了は独立フラグ(cancellation_done)ではなく、解約完了日(cancellation_date)が入っていれば完了扱い。
 
 import { useState, useEffect } from 'react'
