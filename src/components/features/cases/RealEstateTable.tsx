@@ -4,8 +4,8 @@ import { useState, type ReactNode } from 'react'
 import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox } from '@/components/ui/InlineFields'
-import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber } from '@/lib/constants'
+import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox, InlineNumber } from '@/components/ui/InlineFields'
+import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, LAND_CATEGORIES, BUILDING_KINDS, OCCUPANCY_STATUSES, shareText } from '@/lib/constants'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
@@ -53,7 +53,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
   // [市区町村] +物件種別 +所在地 +評価額 +備考 +[確定済] +削除
-  const colCount = (showMuni ? 1 : 0) + 5 + (showConfirmed ? 1 : 0) + 1
+  const colCount = (showMuni ? 1 : 0) + 5 + (showConfirmed ? 1 : 0) + (orderSheetMode ? 0 : 1) + 1
 
   // 評価額確定は「確認簿で確認」に一本化。ここでは依頼（confirm_requested_at）を出す／取り消すだけ。
   const patchConfirmReq = async (row: RealEstatePropertyRow, patch: Partial<RealEstatePropertyRow>) => {
@@ -156,6 +156,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               <th className="px-2.5 py-2 whitespace-nowrap text-right font-semibold w-32">評価額</th>
               <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold">備考</th>
               {showConfirmed && <th className="px-2.5 py-2 whitespace-nowrap text-center font-semibold w-28">評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
+              {!orderSheetMode && <th className="px-2.5 py-2 whitespace-nowrap text-center font-semibold w-24">登記事項</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -169,9 +170,14 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
                   r={r}
                   setLocal={setLocal}
                   commit={commit}
+                  saveField={saveField}
                   onDelete={() => delRow(r)}
                   showMuni={showMuni}
                   showConfirmed={showConfirmed}
+                  orderSheetMode={orderSheetMode}
+                  colCount={colCount}
+                  open={expanded === r.id}
+                  onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   addrListId={addrListId}
                   addrOptions={addrOptions}
                   onRequestConfirm={() => reqConfirm(r)}
@@ -216,13 +222,18 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   )
 }
 
-function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrListId, addrOptions, onRequestConfirm, onCancelConfirm }: {
+function RealRow({ r, setLocal, commit, saveField, onDelete, showMuni, showConfirmed, orderSheetMode, colCount, open, onToggle, addrListId, addrOptions, onRequestConfirm, onCancelConfirm }: {
   r: RealEstatePropertyRow
   setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
+  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
   onDelete: () => void
   showMuni: boolean
   showConfirmed: boolean
+  orderSheetMode: boolean
+  colCount: number
+  open: boolean
+  onToggle: () => void
   addrListId: string
   addrOptions: string[]
   onRequestConfirm: () => void
@@ -258,11 +269,112 @@ function RealRow({ r, setLocal, commit, onDelete, showMuni, showConfirmed, addrL
               : <span className="text-[11px] text-gray-300">評価額待ち</span>}
           </td>
         )}
+        {/* 地番・地目・持分など、財産目録／固定資産申請書／登録免許税に効く項目はここから開く */}
+        {!orderSheetMode && (
+          <td className="px-2.5 py-1.5 text-center">
+            <button type="button" onClick={onToggle} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700">
+              {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}{open ? '閉じる' : '入力'}
+            </button>
+          </td>
+        )}
         <td className="px-2.5 py-1.5 text-center">
           <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
         </td>
       </tr>
+      {!orderSheetMode && open && (
+        <tr className="border-b border-gray-100 bg-gray-50/60">
+          <td colSpan={colCount} className="px-3 py-3">
+            <div className="space-y-3">
+              <PropertyDetail r={r} saveField={saveField} />
+            </div>
+          </td>
+        </tr>
+      )}
     </>
+  )
+}
+
+// 物件の詳細（登記事項・発見元）。PCの表の展開行とスマホのカードで同じものを使う。
+// 地番・地目・持分などは 財産目録／固定資産申請書／登録免許税の計算に共通で効くため、
+// PCからも必ず入力できるようにしている。
+function PropertyDetail({ r, saveField }: {
+  r: RealEstatePropertyRow
+  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
+}) {
+  return (
+    <>
+          <div>
+            <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
+            <FieldGrid cols={1}>
+              {/* 地番＝土地、家屋番号＝建物。区分マンションは「敷地の地番」と「専有部分の家屋番号」を
+                  両方持つため、表は分けず物件種別で出し分ける。 */}
+              {needsLotNumber(r.property_type) && (
+                <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
+              )}
+              {needsBuildingNumber(r.property_type) && (
+                <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
+              )}
+              {!r.property_type && (
+                <p className="text-[11.5px] text-gray-400 sm:col-span-2">物件種別を選ぶと、地番（土地）／家屋番号（建物）の入力欄が出ます。</p>
+              )}
+              {/* 登記簿の記載事項。財産目録の表と、登録免許税（評価額×持分×0.4%）の計算に使う。
+                  目録を作る段で登記簿を見直さずに済むよう、調査のこの時点で拾う。 */}
+              {needsLotNumber(r.property_type) && (
+                <>
+                  <InlineSelect label="地目" value={r.land_category} options={[...LAND_CATEGORIES]} onSave={v => saveField(r.id, 'land_category', v)} />
+                  <InlineNumber label="地積（㎡）" value={r.land_area} onSave={v => saveField(r.id, 'land_area', v)} suffix="㎡" />
+                </>
+              )}
+              {needsBuildingNumber(r.property_type) && (
+                <>
+                  <InlineSelect label="種類" value={r.building_kind} options={[...BUILDING_KINDS]} onSave={v => saveField(r.id, 'building_kind', v)} />
+                  <InlineEdit label="構造・床面積" value={r.building_structure} onSave={v => saveField(r.id, 'building_structure', v)} />
+                </>
+              )}
+              <ShareField r={r} saveField={saveField} />
+              <InlineEdit label="抵当権" value={r.mortgage} onSave={v => saveField(r.id, 'mortgage', v)} />
+              <InlineSelect label="使用状況" value={r.resident_status} options={[...OCCUPANCY_STATUSES]} onSave={v => saveField(r.id, 'resident_status', v)} />
+              <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
+              <InlineEdit label="築年数" value={r.building_age != null ? String(r.building_age) : null} onSave={v => saveField(r.id, 'building_age', v ? Number(v) : null)} />
+              <InlineSelect label="評価方法" value={r.evaluation_method} options={[...PROPERTY_EVALUATION_METHODS]} onSave={v => saveField(r.id, 'evaluation_method', v)} />
+              <InlineEdit label="売却仲介業者" value={r.sale_agent_name} onSave={v => saveField(r.id, 'sale_agent_name', v)} />
+              <InlineCheckbox label="マンション敷地注意" value={r.is_condo_land} onSave={v => saveField(r.id, 'is_condo_land', v)} />
+            </FieldGrid>
+          </div>
+          <div>
+            <SectionHeading title="発見元（どの資料から判明したか）" className="mb-2" />
+            <FieldGrid cols={1}>
+              <InlineCheckbox label="名寄せ参照" value={r.ref_nayose} onSave={v => saveField(r.id, 'ref_nayose', v)} />
+              <InlineCheckbox label="権利書参照" value={r.ref_title_deed} onSave={v => saveField(r.id, 'ref_title_deed', v)} />
+              <InlineCheckbox label="納税通知書参照" value={r.ref_tax_notice} onSave={v => saveField(r.id, 'ref_tax_notice', v)} />
+            </FieldGrid>
+          </div>
+    </>
+  )
+}
+
+// 被相続人の登記持分。分子/分母の2つで持つ（4567/1234567 のような分数が実在し、
+// 小数に丸めると 固定資産評価額×持分 が数円ずれるため）。未入力は「全部（1/1）」扱い。
+function ShareField({ r, saveField }: {
+  r: RealEstatePropertyRow
+  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
+}) {
+  const commitShare = (field: 'share_numerator' | 'share_denominator', v: string) =>
+    saveField(r.id, field, v.trim() === '' ? null : Number(v))
+  const text = shareText(r.share_numerator, r.share_denominator)
+  const pct = text ? `（${((r.share_numerator! / r.share_denominator!) * 100).toFixed(2)}%）` : ''
+  return (
+    <div className="py-1.5">
+      <label className="text-[12px] font-semibold text-gray-500 block mb-1">持分<span className="ml-1 font-normal text-gray-400">未入力なら全部所有</span></label>
+      <div className="flex items-center gap-1.5">
+        <input type="number" defaultValue={r.share_numerator ?? ''} onBlur={e => commitShare('share_numerator', e.target.value)}
+          placeholder="分子" className="w-24 px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
+        <span className="text-gray-400">/</span>
+        <input type="number" defaultValue={r.share_denominator ?? ''} onBlur={e => commitShare('share_denominator', e.target.value)}
+          placeholder="分母" className="w-28 px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
+        {text && <span className="text-[11.5px] text-gray-500 tabular-nums">{text} {pct}</span>}
+      </div>
+    </div>
   )
 }
 
@@ -379,35 +491,7 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
       )}
       {!orderSheetMode && open && (
         <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-3">
-          <div>
-            <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
-            <FieldGrid cols={1}>
-              {/* 地番＝土地、家屋番号＝建物。区分マンションは「敷地の地番」と「専有部分の家屋番号」を
-                  両方持つため、表は分けず物件種別で出し分ける。 */}
-              {needsLotNumber(r.property_type) && (
-                <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
-              )}
-              {needsBuildingNumber(r.property_type) && (
-                <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
-              )}
-              {!r.property_type && (
-                <p className="text-[11.5px] text-gray-400 sm:col-span-2">物件種別を選ぶと、地番（土地）／家屋番号（建物）の入力欄が出ます。</p>
-              )}
-              <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
-              <InlineEdit label="築年数" value={r.building_age != null ? String(r.building_age) : null} onSave={v => saveField(r.id, 'building_age', v ? Number(v) : null)} />
-              <InlineSelect label="評価方法" value={r.evaluation_method} options={[...PROPERTY_EVALUATION_METHODS]} onSave={v => saveField(r.id, 'evaluation_method', v)} />
-              <InlineEdit label="売却仲介業者" value={r.sale_agent_name} onSave={v => saveField(r.id, 'sale_agent_name', v)} />
-              <InlineCheckbox label="マンション敷地注意" value={r.is_condo_land} onSave={v => saveField(r.id, 'is_condo_land', v)} />
-            </FieldGrid>
-          </div>
-          <div>
-            <SectionHeading title="発見元（どの資料から判明したか）" className="mb-2" />
-            <FieldGrid cols={1}>
-              <InlineCheckbox label="名寄せ参照" value={r.ref_nayose} onSave={v => saveField(r.id, 'ref_nayose', v)} />
-              <InlineCheckbox label="権利書参照" value={r.ref_title_deed} onSave={v => saveField(r.id, 'ref_title_deed', v)} />
-              <InlineCheckbox label="納税通知書参照" value={r.ref_tax_notice} onSave={v => saveField(r.id, 'ref_tax_notice', v)} />
-            </FieldGrid>
-          </div>
+          <PropertyDetail r={r} saveField={saveField} />
         </div>
       )}
     </div>

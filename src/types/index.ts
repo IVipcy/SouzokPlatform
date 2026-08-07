@@ -587,6 +587,22 @@ export type HeirRow = {
   updated_at: string
 }
 
+// === 有価証券の銘柄明細（migration 226） ===
+// 1つの証券会社に複数銘柄がぶら下がる。財産目録の「合計評価額」はこの合計。
+export type SecuritiesHoldingRow = {
+  id: string
+  case_id: string
+  financial_asset_id: string
+  brand_name: string | null   // 銘柄名
+  quantity: number | null     // 株数・口数
+  unit_price: number | null   // 1株（1口）あたり評価額
+  base_date: string | null    // 評価の基準日
+  amount: number | null       // 評価額。未入力なら 株数×単価 を使う
+  note: string | null
+  sort_order: number
+  created_at: string
+}
+
 // === 戸籍請求（請求単位） ===
 export type KosekiRequestRow = {
   id: string
@@ -737,6 +753,14 @@ export type RealEstatePropertyRow = {
   expected_arrival_date: string | null             // 到着予定日（見込み。migration 085）
   sale_expected_date: string | null
   kaoku_bango: string | null                       // 家屋番号（固定資産申請書の家屋行。migration 098）
+  // 登記簿の記載事項（財産目録・登録免許税の計算に使う。migration 226）
+  land_category: string | null                     // 地目（土地）
+  land_area: number | null                         // 地積㎡（土地）
+  building_kind: string | null                     // 種類（建物）
+  building_structure: string | null                // 構造・床面積（建物）
+  share_numerator: number | null                   // 被相続人の登記持分（分子）。未入力＝持分1
+  share_denominator: number | null                 // 被相続人の登記持分（分母）
+  mortgage: string | null                          // 抵当権（設定内容）
   near_land_price: string | null                   // 近傍宅地価格の要否（要/不要。migration 098）
   // 相続登記（migration 100）
   registration_types: string[] | null              // 相続登記の種別（複数選択）

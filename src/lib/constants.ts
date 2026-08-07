@@ -824,6 +824,25 @@ export const OCCUPANCY_STATUSES = [
   '空き家', '相続人が居住', '第三者が居住（賃貸）', '第三者が居住（無償）', 'その他',
 ] as const
 
+// === 不動産: 登記簿の記載事項（財産目録・登録免許税の計算に使う） ===
+// 地目・地積は土地、種類・構造/床面積は建物。登記簿・評価証明を見ながら調査時に拾う。
+export const LAND_CATEGORIES = [
+  '宅地', '田', '畑', '山林', '雑種地', '原野', '公衆用道路', 'ため池', '墓地', 'その他',
+] as const
+export const BUILDING_KINDS = [
+  '居宅', '共同住宅', '店舗', '事務所', '倉庫', '車庫', '物置', 'その他',
+] as const
+/** 被相続人の持分（分子/分母）。未入力は 1（全部所有）として扱う */
+export function shareRatio(num: number | null | undefined, den: number | null | undefined): number {
+  if (!num || !den) return 1
+  return num / den
+}
+/** 「4567/1234567」形式の表示。持分未入力なら空文字 */
+export function shareText(num: number | null | undefined, den: number | null | undefined): string {
+  if (!num || !den) return ''
+  return `${num}/${den}`
+}
+
 // === 不動産: 名寄せ請求先 ===
 export const NAMEYOSE_TARGETS = [
   '市区町村', '都税事務所', '不要', '確認中',

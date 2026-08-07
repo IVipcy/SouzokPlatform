@@ -11,6 +11,7 @@ import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import FinancialAssetsTable from './FinancialAssetsTable'
+import SecuritiesHoldingsTable from './SecuritiesHoldingsTable'
 import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { FinancialAssetRow, TaskRow, ContractDocumentRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -161,6 +162,18 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                 <SectionHeading title="口座一覧（残高の入力・確定）" hint="各項目は横スクロールで見られます。表の上で直接編集できます。財産目録に載るのは確定済の口座だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
                 <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={instKey} showConfirmed />
               </div>
+              {/* 有価証券は1つの証券会社に複数銘柄がぶら下がる。財産目録の「合計評価額」＝明細の合計、
+                  「備考」＝株数×1株評価額（基準日）なので、銘柄の明細をここで持つ。 */}
+              {(kind === '証券' || kind === '信託銀行') && (
+                <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+                  <SectionHeading title="銘柄明細（財産目録の評価額の内訳）" hint="株数と1株あたりの評価額を入れると評価額を自動計算します。合計は「口座の評価額に反映」で口座側の残高に書き戻せます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                  <SecuritiesHoldingsTable
+                    caseId={caseId}
+                    assets={assets.filter(a => a.asset_type === kind && (a.institution_name ?? '').trim() === instKey.trim())}
+                    onRefresh={onRefresh}
+                  />
+                </div>
+              )}
             </div>
           )
         })}
