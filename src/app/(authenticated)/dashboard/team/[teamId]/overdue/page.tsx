@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, isSystemManager } from '@/lib/auth'
-import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
 import type { TaskRow } from '@/types'
 
@@ -69,7 +69,7 @@ export default async function TeamOverduePage({ params, searchParams }: { params
   type BillLite = { id: string; caseId: string; caseName: string; typeLabel: string; firmLabel: string; amount: number; dueDate: string; over: number; severity: OverdueSeverity }
   const firmLabel = (f: string | null | undefined) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
   const overdueBills: BillLite[] = invoices
-    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? billOverdueSeverity(inv.due_date, todayStr) : null }))
     .filter((x): x is { inv: typeof invoices[number]; sev: OverdueSeverity } => x.sev !== null)
     .map(({ inv, sev }) => ({
       id: inv.id, caseId: inv.case_id,
@@ -80,7 +80,7 @@ export default async function TeamOverduePage({ params, searchParams }: { params
     }))
 
   // 案件別の超過タスク集計。ケース出現は重い超過(kakunin/chui)、リスト表示は軽微も全件含む。
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' }
   const caseOverdue = new Map<string, {
     severity: OverdueSeverity
     countTasks: number; countCase: number; countSystem: number
@@ -96,9 +96,9 @@ export default async function TeamOverduePage({ params, searchParams }: { params
     if (sev === 'chui') cur.severity = 'chui'
     else if (sev === 'kakunin' && cur.severity !== 'chui') cur.severity = 'kakunin'
     cur.countTasks += 1
-    const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev }
-    if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
-    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
+    const base = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev, priority: t.priority ?? null }
+    if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push({ ...base, kind: 'case' }) }
+    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
     caseOverdue.set(t.case_id, cur)
   }
   for (const cid of [...caseOverdue.keys()]) {

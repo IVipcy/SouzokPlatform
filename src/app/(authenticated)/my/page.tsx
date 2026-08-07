@@ -14,7 +14,7 @@ import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import RankingBadges, { type RankBadge } from '@/components/features/dashboard/RankingBadges'
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
-import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
@@ -607,7 +607,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const caseNameById = new Map(myCaseRowsArr.map(r => [r.case_id, ((r.cases as { deal_name?: string } | null)?.deal_name) ?? '']))
   const firmLabelOf = (f: string | null) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
   const overdueBills: OverdueBill[] = invoices
-    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? billOverdueSeverity(inv.due_date, todayStr) : null }))
     .filter((x): x is { inv: typeof invoices[number]; sev: OverdueSeverity } => x.sev !== null)
     .map(({ inv, sev }) => ({
       id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',
@@ -634,8 +634,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         .in('case_id', myAllCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null)
     : { data: [] }
   const parcelAlerts = computeParcelArrivalAlerts(
-    ((parcelRows ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>)
-      .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '' })),
+    ((parcelRows ?? []) as unknown as Array<{ id: string; case_id: string; arrival_notified_at: string | null; cases: { case_number: string; deal_name: string } | null }>)
+      .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '', notified_at: p.arrival_notified_at })),
+    todayStr,
   )
 
   const bannerCaseAlerts = [
@@ -644,7 +645,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       todayStr,
     ),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
-    ...computeUrgentReportAlerts(allReports.filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+    ...computeUrgentReportAlerts(allReports.filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta, todayStr),
     // 到着物あり（未開封）→ 要確認(黄)
     ...parcelAlerts,
   ]

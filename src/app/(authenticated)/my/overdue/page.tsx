@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
-import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
 import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import type { TaskRow } from '@/types'
@@ -43,7 +43,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   type BillLite = { id: string; caseId: string; caseName: string; typeLabel: string; firmLabel: string; amount: number; dueDate: string; over: number; severity: OverdueSeverity }
   const firmLabel = (f: string | null | undefined) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
   const overdueBills: BillLite[] = invoices
-    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? billOverdueSeverity(inv.due_date, todayStr) : null }))
     .filter((x): x is { inv: typeof invoices[number]; sev: OverdueSeverity } => x.sev !== null)
     .map(({ inv, sev }) => ({
       id: inv.id, caseId: inv.case_id,
@@ -58,7 +58,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   //   ①案件の出現判定: 「kakunin/chui級の重い超過が1件以上」あるときのみ /my/overdue に出す (caseHasSevere)
   //   ②リスト表示: そのケースについて 期日超過(due_date < today) の未完了タスクは 全件 表示 (軽微=severity:null も含む)
   //   ③重要度(severity): ケース内で最も重い(chui > kakunin > null)
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null }
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' }
   const caseOverdue = new Map<string, {
     severity: OverdueSeverity        // ケース重要度 (chui/kakunin)
     countTasks: number; countCase: number; countSystem: number
@@ -81,9 +81,9 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     if (sev === 'chui') cur.severity = 'chui'
     else if (sev === 'kakunin' && cur.severity !== 'chui') cur.severity = 'kakunin'
     cur.countTasks += 1
-    const lite: OverdueTaskLite = { id: t.id, title: t.title, due_date: (t.due_date as string) || todayStr, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date as string, todayStr)) : 0, severity: sev }
-    if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push(lite) }
-    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push(lite) }
+    const base = { id: t.id, title: t.title, due_date: (t.due_date as string) || todayStr, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date as string, todayStr)) : 0, severity: sev, priority: t.priority ?? null }
+    if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push({ ...base, kind: 'case' }) }
+    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
     caseOverdue.set(t.case_id, cur)
   }
   // ケースが 重い超過1件でも無ければ、/my/overdue には出さない
@@ -99,8 +99,8 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   // 案件別の進捗（事務管理/受注管理を分けた分母・分子）— 完了含む全タスクが必要なため別クエリ
   const [progRes, urgentRepRes, parcelRes] = await Promise.all([
     myCaseIds.length ? supabase.from('tasks').select('case_id,status,task_kind').in('case_id', myCaseIds) : Promise.resolve({ data: [] }),
-    myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
-    myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : Promise.resolve({ data: [] }),
+    myCaseIds.length ? supabase.from('progress_reports').select('case_id, kind, report_state, status, created_at').in('case_id', myCaseIds).eq('status', '依頼中') : Promise.resolve({ data: [] }),
+    myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, arrival_notified_at, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : Promise.resolve({ data: [] }),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTasks = (progRes.data ?? []) as any[]
@@ -139,16 +139,17 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const salesCaseMeta = new Map(dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string }) => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
   const caseStateAlerts = [
     ...computeCaseStateAlerts(
-      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; manager_assign_skipped?: boolean | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) , managerAssignSkipped: c.manager_assign_skipped })),
+      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; manager_assign_skipped?: boolean | null; order_sheet_completed_at?: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id), managerAssignSkipped: c.manager_assign_skipped, order_sheet_completed_at: c.order_sheet_completed_at })),
       todayStr,
     ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...computeUrgentReportAlerts(((urgentRepRes.data ?? []) as any[]).filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta),
+    ...computeUrgentReportAlerts(((urgentRepRes.data ?? []) as any[]).filter(r => salesCaseIds.has(r.case_id)), salesCaseMeta, todayStr),
     // 到着物あり（未開封の郵送物一式）→ 要確認(黄)。自分が受注/管理担当の案件。
     ...computeParcelArrivalAlerts(
-      ((parcelRes.data ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>)
+      ((parcelRes.data ?? []) as unknown as Array<{ id: string; case_id: string; arrival_notified_at: string | null; cases: { case_number: string; deal_name: string } | null }>)
         .filter(p => salesCaseIds.has(p.case_id) || managerCaseIds.has(p.case_id))
-        .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '' })),
+        .map(p => ({ id: p.id, case_id: p.case_id, case_number: p.cases?.case_number ?? '', deal_name: p.cases?.deal_name ?? '', notified_at: p.arrival_notified_at })),
+      todayStr,
     ),
   ]
 
