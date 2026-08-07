@@ -179,7 +179,7 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
               <option value="delivery_confirm">納品確認申請</option>
             </select>
             <p className="text-[11px] text-gray-400 mt-1">
-              {reportKind === 'work_complete' && '受注担当の承認後に業務完了になります。全請求発行済＋他事業者請求済が必要。'}
+              {reportKind === 'work_complete' && '受注担当の承認後に業務完了になります。前受金・確定請求・立替実費が発行済であることが必要。'}
               {reportKind === 'case_reopen' && '業務完了/納品完了後に追加業務が発生した場合。案件が「作業進行中」に戻ります。'}
               {reportKind === 'delivery_confirm' && '納品対象書類が確定したら受注担当に確認依頼。承認後「納品待ち」になります。'}
               {reportKind === 'progress_check' && '受注担当に案件の進捗状況を確認してもらいます。'}
@@ -258,9 +258,6 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
         footer={
           <>
             <Button variant="secondary" onClick={() => setCompletionBlocked(null)}>閉じる</Button>
-            {completionBlocked?.missingReferrals?.length ? (
-              <Button variant="secondary" onClick={() => { setCompletionBlocked(null); router.push(`/cases/${caseData.id}?tab=referral`) }}>他事業者紹介タブを開く</Button>
-            ) : null}
             <Button variant="primary" onClick={() => { setCompletionBlocked(null); router.push(`/cases/${caseData.id}?tab=contract`) }}>請求タブを開く</Button>
           </>
         }
@@ -273,14 +270,6 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
                 <div className="text-[12px] font-semibold text-gray-600 mb-1">未発行の請求 ({completionBlocked.missing.length}件)</div>
                 <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
                   {completionBlocked.missing.map(m => <li key={m.id}>{m.firmLabel ? `[${m.firmLabel}] ` : ''}{m.typeLabel}</li>)}
-                </ul>
-              </div>
-            )}
-            {completionBlocked.missingReferrals.length > 0 && (
-              <div>
-                <div className="text-[12px] font-semibold text-gray-600 mb-1">他事業者紹介の請求未完了 ({completionBlocked.missingReferrals.length}件)</div>
-                <ul className="text-[12.5px] text-gray-700 list-disc pl-5 space-y-0.5">
-                  {completionBlocked.missingReferrals.map(r => <li key={r.id}>{r.partnerType}：{r.content || '（依頼内容未入力）'} ← 報酬請求状態 「{r.billingStatus}」</li>)}
                 </ul>
               </div>
             )}

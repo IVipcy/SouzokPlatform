@@ -7,8 +7,8 @@
 //   ②一括+実費 (lump_expense) : 前受金＋立替実費（発生分）すべて 発行済
 //   ③一括のみ (lump_only)  : 前受金のみ 発行済（実費・確定は発生させない前提）
 //
-// 追加ゲート:
-//   ・他事業者紹介(case_referrals) 全 partner で billing_status ≠ '未請求' であること
+// 他事業者紹介(case_referrals)の報酬請求は、この案件の業務そのものとは別に動くため
+// 完了の条件にしない（自社の 前受金・確定請求・立替実費 だけで判定する）。
 //
 // 返金の扱い：未実行の返金依頼(payment_check_requests kind='refund' status!='完了')
 // があれば「返金処理中」として完了不可。承認フロー中(pending_sales/pending_leader/approved) はすべて対象。
@@ -28,6 +28,7 @@ export type CompletableCheckInvoice = {
 export type CompletableCheckResult =
   | { ok: true }
   | { ok: false; missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean }
+// missingReferrals は常に空。型は呼び出し側の互換のため残す。
 
 export type MissingInvoice = {
   id: string
@@ -39,7 +40,7 @@ export type MissingInvoice = {
   status: string
 }
 
-// 他事業者紹介の請求未完了（billing_status = '未請求'）
+// 他事業者紹介の請求未完了。完了の条件から外したので常に空だが、型は呼び出し側の互換のため残す。
 export type MissingReferral = {
   id: string
   partnerType: string    // 税理士 / 不動産 等
@@ -90,11 +91,10 @@ export async function checkCaseCompletable(
   const pattern = billingPattern ?? 'staged'
   const required = REQUIRED_BY_PATTERN[pattern] ?? REQUIRED_BY_PATTERN.staged
 
-  // 請求 + 未処理の返金依頼 + 他事業者紹介 を同時に取得
-  const [invRes, refundRes, refRes] = await Promise.all([
+  // 請求 + 未処理の返金依頼（他事業者紹介は完了の条件にしないので見ない）
+  const [invRes, refundRes] = await Promise.all([
     supabase.from('invoices').select('id, invoice_type, status, amount, firm_type, issued_date, due_date').eq('case_id', caseId),
     supabase.from('payment_check_requests').select('id, refund_amount, reason_category, approval_status, status, requested_date').eq('case_id', caseId).eq('kind', 'refund').neq('status', '完了'),
-    supabase.from('case_referrals').select('id, partner_type, content, billing_status').eq('case_id', caseId),
   ])
   if (invRes.error) {
     // 取得失敗時は「ゲート通過」させず、UIで案内する意図で ok=false + hasInvoices=false を返す
@@ -102,8 +102,6 @@ export async function checkCaseCompletable(
   }
   const invoices = (invRes.data ?? []) as CompletableCheckInvoice[]
   const pendingRefunds = ((refundRes?.data ?? []) as PendingRefund[])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const referrals = ((refRes?.data ?? []) as Array<{ id: string; partner_type: string; content: string | null; billing_status: string | null }>)
 
   // 必要な請求種別ごとにチェック：立替実費は「発生していれば必須」・前受金/確定請求は「未発生なら未完了扱い」。
   // 発行済(issued_date あり)なら会計上「請求完了」= ゲート通過。未発行(issued_date IS NULL) は未完了扱い。
@@ -132,13 +130,8 @@ export async function checkCaseCompletable(
     }
   }
 
-  // 他事業者紹介の請求未完了
-  const missingReferrals: MissingReferral[] = referrals
-    .filter(r => (r.billing_status ?? '未請求') === '未請求')
-    .map(r => ({ id: r.id, partnerType: r.partner_type, content: r.content, billingStatus: r.billing_status ?? '未請求' }))
-
-  if (missing.length === 0 && pendingRefunds.length === 0 && missingReferrals.length === 0) return { ok: true }
-  return { ok: false, missing, pendingRefunds, missingReferrals, billingPattern: pattern, hasInvoices: invoices.length > 0 }
+  if (missing.length === 0 && pendingRefunds.length === 0) return { ok: true }
+  return { ok: false, missing, pendingRefunds, missingReferrals: [], billingPattern: pattern, hasInvoices: invoices.length > 0 }
 }
 
 export function billingPatternLabel(pattern: string | null | undefined): string {
