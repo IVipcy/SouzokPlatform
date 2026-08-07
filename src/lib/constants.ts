@@ -824,6 +824,11 @@ export const OCCUPANCY_STATUSES = [
   '空き家', '相続人が居住', '第三者が居住（賃貸）', '第三者が居住（無償）', 'その他',
 ] as const
 
+// 管理担当の割振り依頼の既定の通知先。
+// 本来は members.is_dispatcher（プロフィールの「割振り担当」）で運用する。
+// 誰にもフラグが立っていない環境で候補が空にならないよう、既定値としてこの2名を出す。
+export const DEFAULT_DISPATCHER_NAMES = ['菅家しずく', '上田拓海'] as const
+
 // === 不動産: 登記簿の記載事項（財産目録・登録免許税の計算に使う） ===
 // 地目・地積は土地、種類・構造/床面積は建物。登記簿・評価証明を見ながら調査時に拾う。
 export const LAND_CATEGORIES = [

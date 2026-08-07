@@ -6,10 +6,13 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
+import { DEFAULT_DISPATCHER_NAMES } from '@/lib/constants'
 import type { MemberRow } from '@/types'
 
-// 受注系（受注/戻り受注/即受注）＋依頼確定待ちにした瞬間の「管理担当の割振り依頼」ポップ。
+// 管理担当の割振り依頼ポップ。受注系（依頼確定待ちを含む）で管理担当が未アサインの案件を
+// 詳細画面で開くたびに出す。割り振られるまで出続けるので、依頼漏れがそのまま流れない。
 // 通知先＝割振り担当（members.is_dispatcher）。既定で表示するが両方は自動チェックしない（1人を選ぶ）。
+// 誰にもフラグが立っていない環境では既定の2名を候補に出す（フラグを立てればそちらが優先）。
 // 他の人が良いときは検索して選択。ステータスは変えない（管理担当のアサインは割振り担当が行う）。
 // 「この案件には管理担当を割り振らない」に✓すると確認の上、cases.manager_assign_skipped=true を保存し依頼は送らない。
 export default function AssignRequestModal({ isOpen, onClose, caseId, caseNumber, dealName, allMembers, onDone, onSkip }: {
@@ -22,7 +25,10 @@ export default function AssignRequestModal({ isOpen, onClose, caseId, caseNumber
   onDone?: () => void
   onSkip?: () => void   // 「割り振らない」確定後に親へ通知（caseState 反映用）
 }) {
-  const dispatchers = allMembers.filter(m => m.is_active && m.is_dispatcher)
+  const flagged = allMembers.filter(m => m.is_active && m.is_dispatcher)
+  const dispatchers = flagged.length > 0
+    ? flagged
+    : allMembers.filter(m => m.is_active && DEFAULT_DISPATCHER_NAMES.some(n => m.name.replace(/[\s　]/g, '') === n))
   const [selectedId, setSelectedId] = useState<string | null>(null)  // 既定は未選択（両方チェックしない）
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)

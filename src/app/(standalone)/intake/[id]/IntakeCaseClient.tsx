@@ -9,7 +9,6 @@ import { showToast } from '@/components/ui/Toast'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import AssignRequestModal from '@/components/features/cases/AssignRequestModal'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
@@ -22,11 +21,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow, CaseOtherAssetRow } from '@/types'
-
-// ②面談結果登録で受注系/依頼確定待ちになったら割振り依頼ポップを出す対象ステータス
-//   「依頼確定待ち」は表示ラベルで、ステータスkeyは「検討中（契約書待ち）」。
-const ASSIGN_TRIGGER_STATUSES = new Set(['受注', '戻り受注', '検討中（契約書待ち）'])
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, CaseOtherAssetRow } from '@/types'
 
 // 白紙メモ1枚のメタ情報（帯＝セクションの境界Y座標）。原本ビューアのセクションジャンプに使う。
 export type MemoBand = { key: string; label: string; y0: number; y1: number }
@@ -50,7 +45,6 @@ export type MeetingMemoRow = {
 type Props = {
   caseData: CaseRow
   currentMemberId: string | null
-  allMembers: MemberRow[]
   memos: MeetingMemoRow[]
   /** その他財産／相続債務／その他費用（case_other_assets・migration 224） */
   otherAssets?: CaseOtherAssetRow[]
@@ -103,7 +97,7 @@ function toSelectedCase(c: CaseRow, caseClients: CaseClientRow[] = []): NonNulla
   }
 }
 
-export default function IntakeCaseClient({ caseData, currentMemberId, allMembers, memos, ...rest }: Props) {
+export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...rest }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('sheet')
@@ -120,8 +114,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
   // 面談シートの手書きメモは①で作成、③でも参照するため親でstate管理。
   const [memoList, setMemos] = useState<MeetingMemoRow[]>(memos)
   const [discardOpen, setDiscardOpen] = useState(false)
-  // ②保存後のポップ：割振り依頼（受注系/依頼確定待ち）→ オーダーシートに進む？（はい/いいえ）
-  const [assignOpen, setAssignOpen] = useState(false)
+  // ②保存後のポップ：オーダーシートに進む？（はい/いいえ）
   const [orderChoiceOpen, setOrderChoiceOpen] = useState(false)
 
   // 新規（下書き未作成）モード：caseData.id が空。最初の入力で遅延作成する。
@@ -338,9 +331,9 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
               if (clientName && clientName !== '無題') await supabase.from('cases').update({ deal_name: clientName }).eq('id', caseId)
             }
             router.refresh()
-            // 受注系/依頼確定待ち → 割振り依頼ポップを先に。それ以外はそのままオーダーシート選択へ。
-            if (ASSIGN_TRIGGER_STATUSES.has(status) && !caseState.manager_assign_skipped) setAssignOpen(true)
-            else setOrderChoiceOpen(true)
+            // 管理担当の割振り依頼ポップは案件詳細を開いたときに出すので、ここでは出さない。
+            void status
+            setOrderChoiceOpen(true)
           }}
         />
       )}
@@ -368,18 +361,6 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
           ? 'この面談シート（下書き案件）を破棄して完全に削除します。入力内容・手書きメモも失われ、取り消せません。破棄しますか？'
           : 'この面談シートを閉じて入口に戻ります。まだ案件は作成されていません。'}
         onConfirm={discardDraft}
-      />
-
-      {/* ②保存後：受注系/依頼確定待ちなら 割振り依頼ポップ（閉じると次のオーダーシート選択へ） */}
-      <AssignRequestModal
-        isOpen={assignOpen}
-        onClose={() => { setAssignOpen(false); setOrderChoiceOpen(true) }}
-        caseId={caseState.id}
-        caseNumber={caseState.case_number}
-        dealName={caseState.deal_name ?? ''}
-        allMembers={allMembers}
-        onDone={() => router.refresh()}
-        onSkip={() => router.refresh()}
       />
 
       {/* ②保存後：このままオーダーシート作成に進む？ */}

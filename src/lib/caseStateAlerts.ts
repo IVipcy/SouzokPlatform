@@ -17,13 +17,14 @@ export type CaseStateAlert = {
 const PREP_STATUSES = new Set(['受注', '戻り受注', '作業着手準備'])
 
 export function computeCaseStateAlerts(
-  cases: Array<{ id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; managerExists: boolean }>,
+  cases: Array<{ id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; managerExists: boolean; managerAssignSkipped?: boolean | null }>,
   todayStr: string,
 ): CaseStateAlert[] {
   const out: CaseStateAlert[] = []
   for (const c of cases) {
     // 管理担当 未アサイン：受注〜作業着手準備 かつ 管理担当未設定 かつ 受注から2営業日超過 → 要注意(赤)。
-    if (PREP_STATUSES.has(c.status) && !c.managerExists && c.order_received_date && bizDaysOverdue(c.order_received_date, todayStr) >= 2) {
+    // 営業日＝日曜と祝日を除く（土曜は営業日）。「割り振らない」と決めた案件は対象外。
+    if (PREP_STATUSES.has(c.status) && !c.managerExists && !c.managerAssignSkipped && c.order_received_date && bizDaysOverdue(c.order_received_date, todayStr) >= 2) {
       out.push({ caseId: c.id, caseNumber: c.case_number, dealName: c.deal_name, category: '管理担当 未アサイン', severity: 'chui' })
     }
   }

@@ -150,6 +150,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     expected_completion_date: string | null
     completion_date: string | null
     order_received_date: string | null
+    manager_assign_skipped: boolean | null
     meeting_date: string | null
     meeting_executed_date: string | null
     client_response_due_date: string | null
@@ -639,7 +640,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   const bannerCaseAlerts = [
     ...computeCaseStateAlerts(
-      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) })),
+      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerByCase.has(c.id) , managerAssignSkipped: c.manager_assign_skipped })),
       todayStr,
     ),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。

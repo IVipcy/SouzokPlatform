@@ -139,7 +139,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const salesCaseMeta = new Map(dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string }) => [c.id, { case_number: c.case_number, deal_name: c.deal_name }]))
   const caseStateAlerts = [
     ...computeCaseStateAlerts(
-      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) })),
+      dedupCases.filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: { id: string; case_number: string; deal_name: string; status: string; order_received_date: string | null; manager_assign_skipped?: boolean | null }) => ({ id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status, order_received_date: c.order_received_date, managerExists: managerCaseIds.has(c.id) , managerAssignSkipped: c.manager_assign_skipped })),
       todayStr,
     ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

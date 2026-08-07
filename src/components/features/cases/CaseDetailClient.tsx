@@ -108,6 +108,9 @@ const TRIGGER_FIELDS = new Set(['status', 'client_response_due_date'])
 
 const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales', 'assignees', 'contractProc', 'meeting', 'clientInfo', 'tasks', 'deceased', 'legalInfo', 'contract', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate', 'referral', 'receipts', 'docs', 'documentCreate']
 
+// 管理担当の割振り依頼ポップを出すステータス。依頼確定待ちの段階から割り振っておく運用。
+const ASSIGN_PROMPT_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '検討中（契約書待ち）'])
+
 export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -117,7 +120,14 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })()
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
-  const [assignReqOpen, setAssignReqOpen] = useState(false)  // 受注系→管理担当の割振り依頼ポップ
+  // 管理担当の割振り依頼ポップ。受注系（依頼確定待ちを含む）で管理担当が未アサインなら、
+  // 案件詳細を開くたびに出す。面談結果登録の直後には出さない（登録した本人にしか届かず、
+  // 翌日以降に開いた人が気づけないため）。初期値で開くので useEffect は使わない。
+  const [assignReqOpen, setAssignReqOpen] = useState(() =>
+    ASSIGN_PROMPT_STATUSES.has(caseDataProp.status)
+    && !caseMembers.some(cm => cm.role === 'manager')
+    && !caseDataProp.manager_assign_skipped
+    && !gatesDisabled())
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 「業務完了申請中」へ変更しゲート通過後、受注担当へ承認依頼を送る確認ポップアップ

@@ -51,6 +51,7 @@ export function computeCaseAlerts(
     meeting_executed_date?: string | null
     client_response_due_date?: string | null
     order_received_date?: string | null
+    manager_assign_skipped?: boolean | null
     last_opened_at?: string | null   // 未対応日数（最終接触）用
     created_at?: string | null
   },
@@ -75,7 +76,7 @@ export function computeCaseAlerts(
   if (c.has_complaint && active) out.push({ severity: 'claim', category: 'クレーム' })
   if (ctx.overdueTaskCount > 0) out.push({ severity: 'high', category: `タスク期限超過${ctx.overdueTaskCount > 1 ? `(${ctx.overdueTaskCount})` : ''}` })
   // 管理担当 未アサイン：受注〜作業着手準備 かつ 管理担当未設定 かつ 受注から2営業日超過（要割振り）。
-  if (prep && !ctx.managerExists && c.order_received_date && bizDaysOverdue(c.order_received_date, ymd) >= 2) {
+  if (prep && !ctx.managerExists && !c.manager_assign_skipped && c.order_received_date && bizDaysOverdue(c.order_received_date, ymd) >= 2) {
     out.push({ severity: 'high', category: '管理担当 未アサイン' })
   }
   // 前受金 未請求：受注〜作業着手準備 かつ 前受金請求書 未発行 かつ 受注から5営業日超過。
