@@ -6,8 +6,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow,
-} from '@/types'
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
 type Props = { params: Promise<{ id: string }> }
@@ -43,7 +42,7 @@ export default async function IntakeCasePage({ params }: Props) {
     )
   }
 
-  const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, memosR] = await Promise.all([
+  const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, memosR, otherR] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', id).single(),
     supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
     supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
@@ -63,6 +62,8 @@ export default async function IntakeCasePage({ params }: Props) {
       .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id).order('received_date', { ascending: true }),
     supabase.from('meeting_memos').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
+    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
   ])
 
   if (caseR.error || !caseR.data) notFound()
@@ -73,6 +74,7 @@ export default async function IntakeCasePage({ params }: Props) {
       currentMemberId={currentUser?.memberId ?? null}
       allMembers={allMembers}
       memos={(memosR.data ?? []) as MeetingMemoRow[]}
+      otherAssets={(otherR.data ?? []) as CaseOtherAssetRow[]}
       heirs={(heirsR.data ?? []) as HeirRow[]}
       kosekiRequests={(kosekiR.data ?? []) as KosekiRequestRow[]}
       properties={(propsR.data ?? []) as RealEstatePropertyRow[]}

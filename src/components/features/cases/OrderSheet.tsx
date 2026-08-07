@@ -31,6 +31,7 @@ import type { TimelineReceipt } from './CaseTimeline'
 import type {
   CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow, SagyoDocumentRow,
+  CaseOtherAssetRow,
 } from '@/types'
 
 type Props = {
@@ -43,6 +44,7 @@ type Props = {
   properties: RealEstatePropertyRow[]
   acquisitions?: RealEstateAcquisitionRow[]
   financialAssets: FinancialAssetRow[]
+  otherAssets?: CaseOtherAssetRow[]
   divisionDetails: DivisionDetailRow[]
   agreementDispatches?: AgreementDispatchRow[]
   expenses: ExpenseRow[]
@@ -68,7 +70,7 @@ type Props = {
  */
 export default function OrderSheet({
   caseData, patchCase, patchClient, onRefresh,
-  heirs, kosekiRequests, properties, acquisitions = [], financialAssets, divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
+  heirs, kosekiRequests, properties, acquisitions = [], financialAssets, otherAssets = [], divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
   sagyoDocuments = [], receipts = [], guided = false, meetingMemos = [],
 }: Props) {
   const [memoViewerOpen, setMemoViewerOpen] = useState(false)
@@ -169,7 +171,7 @@ export default function OrderSheet({
     { title: '受注内容', workContentKey: 'order', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode hideOrderMemo={guided} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
     { title: '財産調査（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} /> },
-    { title: '財産調査（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} /> },
+    { title: '財産調査（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} /> },
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },

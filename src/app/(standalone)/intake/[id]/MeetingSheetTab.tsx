@@ -11,11 +11,12 @@ import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
-import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber } from '@/lib/constants'
+import OtherAssetsTable from '@/components/features/cases/OtherAssetsTable'
+import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, OTHER_ASSET_KINDS } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
-import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow } from '@/types'
+import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
 const BUCKET = 'meeting-memos'
@@ -406,6 +407,8 @@ type Props = {
   heirs: HeirRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
+  /** その他財産／相続債務／その他費用（case_other_assets） */
+  otherAssets?: CaseOtherAssetRow[]
   onRefresh?: () => void
 }
 
@@ -417,7 +420,7 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
 ]
 
 // currentMemberId は手書き画像の保存に使っていたが、手書きを白紙モードへ移したため未使用（Props型には残す）。
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, onRefresh }: Props) {
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [diagramOpen, setDiagramOpen] = useState(false)   // 相続関係図の開閉（既定は閉じる）
   const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
@@ -516,13 +519,33 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         </div>
       ))}
 
+      {/* その他財産／相続債務／その他費用。面談シートでは 項目・金額 だけを入力する
+          （根拠資料・精算・立替者は実務タブで詰める）。 */}
+      {OTHER_ASSET_KINDS.filter(k => extraFin.has(k.kind)).map(k => (
+        <div key={k.kind}>
+          {sec(`other_${k.kind}`, k.kind, k.negative ? 'マイナス' : '任意', (
+            <>
+              <p className="text-[11px] text-gray-400 mb-1.5">{k.hint}</p>
+              <OtherAssetsTable caseId={caseData.id} kind={k.kind} rows={otherAssets.filter(o => o.kind === k.kind)} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
+            </>
+          ), undefined, true)}
+        </div>
+      ))}
+
       {/* 財産の種類を追加 */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[12px] text-gray-500">財産の種類を追加：</span>
         {OPTIONAL_FIN.filter(f => !extraFin.has(f.kind)).map(f => (
           <button key={f.kind} type="button" onClick={() => setExtraFin(prev => new Set([...prev, f.kind]))} className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-brand-600 hover:border-brand-300"><Plus className="w-3.5 h-3.5" />{f.label}</button>
         ))}
-        {OPTIONAL_FIN.every(f => extraFin.has(f.kind)) && <span className="text-[11px] text-gray-300">すべて表示中</span>}
+        {/* 相続債務・その他費用はマイナス計上なので色で区別する */}
+        {OTHER_ASSET_KINDS.filter(k => !extraFin.has(k.kind)).map(k => (
+          <button key={k.kind} type="button" onClick={() => setExtraFin(prev => new Set([...prev, k.kind]))} title={k.hint}
+            className={`inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed ${k.negative ? 'border-red-300 text-red-600 hover:border-red-400' : 'border-gray-300 text-brand-600 hover:border-brand-300'}`}>
+            <Plus className="w-3.5 h-3.5" />{k.kind}
+          </button>
+        ))}
+        {OPTIONAL_FIN.every(f => extraFin.has(f.kind)) && OTHER_ASSET_KINDS.every(k => extraFin.has(k.kind)) && <span className="text-[11px] text-gray-300">すべて表示中</span>}
       </div>
 
       {sec('referral', '他事業者紹介', null, (

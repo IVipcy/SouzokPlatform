@@ -22,8 +22,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow,
-} from '@/types'
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, MemberRow, CaseOtherAssetRow } from '@/types'
 
 // ②面談結果登録で受注系/依頼確定待ちになったら割振り依頼ポップを出す対象ステータス
 //   「依頼確定待ち」は表示ラベルで、ステータスkeyは「検討中（契約書待ち）」。
@@ -53,6 +52,8 @@ type Props = {
   currentMemberId: string | null
   allMembers: MemberRow[]
   memos: MeetingMemoRow[]
+  /** その他財産／相続債務／その他費用（case_other_assets・migration 224） */
+  otherAssets?: CaseOtherAssetRow[]
   heirs: HeirRow[]
   kosekiRequests: KosekiRequestRow[]
   properties: RealEstatePropertyRow[]
@@ -297,7 +298,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, allMembers
             />
           ) : (
           <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
-            caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} onRefresh={() => router.refresh()} />
+            caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} otherAssets={rest.otherAssets} onRefresh={() => router.refresh()} />
           )}
           {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、
               明示的な「保存して次へ」を用意して迷わないように。押下で②面談結果登録タブへ遷移。 */}

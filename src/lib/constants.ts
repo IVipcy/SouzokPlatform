@@ -624,6 +624,43 @@ export const needsLotNumber = (propertyType: string | null | undefined) =>
 export const needsBuildingNumber = (propertyType: string | null | undefined) =>
   propertyType === '建物' || propertyType === 'マンション'
 
+// === その他財産／相続債務／その他費用（case_other_assets.kind） ===
+// negative=true は「財産目録でマイナス計上する」という意味。
+// amount は常に正で保存し、符号は表示・集計側で付ける（手入力のマイナスは事故のもと）。
+export const OTHER_ASSET_KINDS = [
+  { kind: 'その他財産', negative: false, hint: 'ゴルフ会員権・自動車・貴金属など' },
+  { kind: '相続債務', negative: true, hint: '被相続人が生前に負っていた借金。相続放棄の判断材料になる' },
+  { kind: 'その他費用', negative: true, hint: '葬儀費用・介護施設費用など。相続人が立て替えた分を遺産分割で精算する' },
+] as const
+export type OtherAssetKind = typeof OTHER_ASSET_KINDS[number]['kind']
+export const isNegativeKind = (kind: string) =>
+  OTHER_ASSET_KINDS.some(k => k.kind === kind && k.negative)
+/** 立替者を入力するのは「その他費用」だけ（誰に返すかが決まらないと精算できないため） */
+export const needsPayer = (kind: string) => kind === 'その他費用'
+
+// === 財産目録の分類（asset_inventory.asset_class） ===
+// 目録は「どの種類がいくら」を見るための表なので、財産調査の表と同じ粒度まで分ける。
+// 相続債務・その他費用はマイナス計上（金額は正で持ち、合計時に引く）。
+export const INVENTORY_CLASSES = [
+  '預金', '証券', '信託', '不動産（土地）', '不動産（建物）', 'その他財産', '相続債務', 'その他費用',
+] as const
+/** 旧データの区分（金融/不動産/その他）。選択肢には残すが、新規は上の分類を使う */
+export const INVENTORY_LEGACY_CLASSES = ['金融', '不動産', 'その他'] as const
+/** 合計時にマイナス計上する分類 */
+export const isNegativeClass = (c: string | null | undefined) =>
+  c === '相続債務' || c === 'その他費用'
+/** 財産調査の資産種別（financial_assets.asset_type）→ 目録の分類 */
+export function inventoryClassOfAsset(assetType: string | null | undefined): string {
+  if (assetType === '証券') return '証券'
+  if (assetType === '信託銀行' || assetType === '信託') return '信託'
+  if (assetType === '預貯金' || assetType === '預金') return '預金'
+  return 'その他財産'
+}
+/** 物件種別（real_estate_properties.property_type）→ 目録の分類。マンションは建物側に寄せる */
+export function inventoryClassOfProperty(propertyType: string | null | undefined): string {
+  return propertyType === '土地' ? '不動産（土地）' : '不動産（建物）'
+}
+
 // === 財産の根拠資料（財産目録に載せる金額の裏付け） ===
 // 種別ごとに選べるものが違う。いずれも「その他」はフリー入力（evidence_note）で補う。
 export const EVIDENCE_DOCS_DEPOSIT = [

@@ -889,6 +889,21 @@ export type FinancialAssetRow = {
 }
 
 // === 財産目録・請求・精算書・指図書（migration 143） ===
+// その他財産／相続債務／その他費用（migration 224）。
+// amount は常に正で、マイナス扱いかどうかは kind で決まる（OTHER_ASSET_KINDS 参照）。
+export type CaseOtherAssetRow = {
+  id: string; case_id: string
+  kind: string                       // その他財産 / 相続債務 / その他費用
+  label: string | null
+  amount: number | null
+  payer_heir_id: string | null       // 立替者（相続人）。未登録なら payer_name に手入力
+  payer_name: string | null
+  settle_between_heirs: boolean      // 遺産分割時に相続人間で精算する
+  has_evidence: boolean
+  note: string | null
+  sort_order: number; created_at: string
+}
+
 export type AssetInventoryRow = {
   id: string; case_id: string
   asset_class: string | null   // 金融 / 不動産 / その他

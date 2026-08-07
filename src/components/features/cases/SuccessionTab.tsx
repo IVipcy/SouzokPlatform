@@ -18,6 +18,7 @@ import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
 import { MoneyInput } from './FinancialAssetsTable'
+import { isNegativeClass } from '@/lib/constants'
 import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow, TaskRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
@@ -96,8 +97,16 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   // ── 収入 ──
   const importIncome = async () => {
     const existing = new Set(income.map(r => `${r.asset_class}|${r.detail}`))
+    // 精算書の収入は「被相続人のプラス財産」だけ。目録に載る相続債務・その他費用は
+    // 遺産分割時に相続人間で精算するものなので、ここには持ってこない。
+    // 目録の細かい分類（預金/証券/信託・不動産（土地）/（建物））は 金融/不動産/その他 に丸める。
+    const toIncomeClass = (c: string | null | undefined) =>
+      c === '預金' || c === '証券' || c === '信託' || c === '金融' ? '金融'
+        : (c ?? '').startsWith('不動産') ? '不動産' : 'その他'
     const rows = assetInventory
-      .filter(a => a.amount != null && !existing.has(`${a.asset_class}|${a.detail}`))
+      .filter(a => a.amount != null && !isNegativeClass(a.asset_class))
+      .map(a => ({ ...a, asset_class: toIncomeClass(a.asset_class) }))
+      .filter(a => !existing.has(`${a.asset_class}|${a.detail}`))
       .map((a, i) => ({ case_id: caseData.id, asset_class: a.asset_class, detail: a.detail, amount: a.amount ?? 0, sort_order: income.length + i }))
     if (rows.length === 0) { showToast('取り込む目録がありません（財産目録を作成してください）', 'info'); return }
     const { data, error } = await supabase.from('settlement_income_items').insert(rows).select('*')

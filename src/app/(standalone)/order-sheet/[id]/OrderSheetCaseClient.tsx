@@ -10,7 +10,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow,
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, CaseOtherAssetRow,
 } from '@/types'
 
 type Props = {
@@ -20,6 +20,7 @@ type Props = {
   properties: RealEstatePropertyRow[]
   acquisitions: RealEstateAcquisitionRow[]
   financialAssets: FinancialAssetRow[]
+  otherAssets?: CaseOtherAssetRow[]
   divisionDetails: DivisionDetailRow[]
   agreementDispatches: AgreementDispatchRow[]
   expenses: ExpenseRow[]

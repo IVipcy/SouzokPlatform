@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/InlineFields'
 import { municipalityOf } from './RealEstateSection'
 import {
-  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS,
+  FINANCIAL_SURVEY_START_CONDITIONS, INVESTIGATION_DOCUMENTS, OTHER_ASSET_KINDS, isNegativeKind,
 } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import RealEstateTable from './RealEstateTable'
@@ -16,12 +16,13 @@ import FinancialAssetsTable from './FinancialAssetsTable'
 import FinancialSection from './FinancialSection'
 import RealEstateSection from './RealEstateSection'
 import InventoryTab from './InventoryTab'
+import OtherAssetsTable from './OtherAssetsTable'
 import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { toReadinessReceipts } from '@/lib/taskReadiness'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
@@ -46,6 +47,10 @@ type Props = {
   // 受信簿＋タスク（金融資産の「関連タスク」リンク用）
   documentReceipts?: TimelineReceipt[]
   tasks?: TaskRow[]
+  // その他財産／相続債務／その他費用（migration 224）
+  otherAssets?: CaseOtherAssetRow[]
+  // その他費用の立替者候補
+  heirs?: HeirRow[]
 }
 
 /**
@@ -62,9 +67,14 @@ const ASSET_SUBTABS: { key: string; label: string }[] = [
 ]
 // 案件詳細では「財産目録」も種別と同じタブ列に並べる（第1層タブを廃止して3層→2層）。
 // 財産調査条件（案件で1つ）は上部の折りたたみ小セクションへ。
-const SUBTABS_FULL: { key: string; label: string }[] = [...ASSET_SUBTABS, { key: 'inventory', label: '財産目録' }]
+// その他財産／相続債務／その他費用（case_other_assets）。財産目録の手前に並べる。
+// 相続債務・その他費用はマイナス計上なので、タブ側でも色で区別する。
+const OTHER_SUBTABS = OTHER_ASSET_KINDS.map(k => ({ key: `other:${k.kind}`, label: k.kind }))
+const SUBTABS_FULL: { key: string; label: string }[] = [
+  ...ASSET_SUBTABS, ...OTHER_SUBTABS, { key: 'inventory', label: '財産目録' },
+]
 
-export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
   // 表示する種別のフィルタ (orderSheetMode の分割表示時のみ使用)
   const kindOn = (k: 'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance') => !showKinds || showKinds.includes(k)
   const save = async (field: string, value: unknown) => {
@@ -125,12 +135,52 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const showTrust = orderSheetMode ? (kindOn('trust') && (hasKind('信託銀行') || !!reveal.trust)) : sub === 'trust'
   const showInsurance = orderSheetMode ? (kindOn('insurance') && (hasInsurance || !!reveal.insurance)) : sub === 'insurance'
 
+  // その他財産／相続債務／その他費用。オーダーシートでは金融資産ブロックに同居させ、
+  // データが無ければ「＋◯◯を追加」を押すまで出さない（証券/信託/生命保険と同じ扱い）。
+  const otherRowsOf = (kind: string) => otherAssets.filter(r => r.kind === kind)
+  const [revealOther, setRevealOther] = useState<Record<string, boolean>>({})
+  const otherGroupOn = !showKinds || showKinds.includes('deposit')
+  const showOther = (kind: string) =>
+    orderSheetMode ? (otherGroupOn && (otherRowsOf(kind).length > 0 || !!revealOther[kind])) : sub === `other:${kind}`
+
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
   const RE_KW = ['不動産', '権利証', '固定資産', '登記', '公図']
   const isRE = (d: ContractDocumentRow) => RE_KW.some(k => (d.name ?? '').includes(k))
   const reContractDocs = contractDocuments.filter(d => d.category === '不動産' || (d.category === '財産' && isRE(d)))
   const finContractDocs = contractDocuments.filter(d => d.category === '金融' || (d.category === '財産' && !isRE(d)))
+
+  // 財産の合計（このタブに表示している種別だけを集計）。
+  // 実務タブは全種別、オーダーシートは 不動産ブロック/金融ブロック それぞれの合計になる。
+  // 金額は「確定済」に限らず、入力されている値をそのまま足す（調査中の概算を見たいため）。
+  const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
+  const finSum = (kind: string) => financialAssets.filter(a => a.asset_type === kind).reduce((s, a) => s + (a.balance_amount ?? 0), 0)
+  const summaryItems: Array<{ label: string; amount: number; negative?: boolean }> = [
+    ...(kindOn('realestate') ? [{ label: '不動産', amount: properties.reduce((s, p) => s + (p.appraisal_value ?? 0), 0) }] : []),
+    ...(kindOn('deposit') ? [{ label: '預金', amount: finSum('預貯金') }] : []),
+    ...(kindOn('securities') ? [{ label: '証券', amount: finSum('証券') }] : []),
+    ...(kindOn('trust') ? [{ label: '信託', amount: finSum('信託銀行') }] : []),
+    ...(otherGroupOn ? OTHER_ASSET_KINDS.map(k => ({
+      label: k.kind, amount: otherRowsOf(k.kind).reduce((s, r) => s + (r.amount ?? 0), 0), negative: k.negative,
+    })) : []),
+  ].filter(x => x.amount !== 0)
+  const summaryPositive = summaryItems.filter(x => !x.negative).reduce((s, x) => s + x.amount, 0)
+  const summaryNegative = summaryItems.filter(x => x.negative).reduce((s, x) => s + x.amount, 0)
+  const assetSummary = summaryItems.length > 0 ? (
+    <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+        {summaryItems.map(x => (
+          <span key={x.label} className={x.negative ? 'text-red-700' : 'text-gray-600'}>
+            {x.label} <span className="font-semibold tabular-nums">{x.negative ? `− ${yen(x.amount)}` : yen(x.amount)}</span>
+          </span>
+        ))}
+        <span className="ml-auto text-[12.5px] font-bold text-brand-800">
+          {summaryNegative > 0 ? '正味' : '合計'} <span className="tabular-nums">{yen(summaryPositive - summaryNegative)}</span>
+        </span>
+      </div>
+      <p className="mt-1 text-[10.5px] text-gray-400">入力済みの金額をそのまま集計した概算です（確定前の金額も含みます）。確定額は財産目録で管理します。</p>
+    </div>
+  ) : null
 
   return (
     <div className="space-y-3.5">
@@ -147,6 +197,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           receipts={toReadinessReceipts(documentReceipts)}
         />
       )}
+
+      {/* 財産の合計（このタブに出している種別の概算）。オーダーシート・実務タブ共通で先頭に置く。 */}
+      {assetSummary}
 
       {/* 財産調査条件（開始条件・使用書類）は 不動産セクション内（フリー欄の下）に移動。※下の realestate ブロックで描画 */}
 
@@ -232,6 +285,35 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             <InlineTextarea label="照会結果・保険金メモ" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth placeholder="例）受取人／保険金額／請求日／入金日／課税区分（みなし相続財産）／協会照会の結果 など" />
           </FieldGrid>
         </div>
+        {/* その他財産／相続債務／その他費用。実務タブは根拠資料・精算・立替者・備考まで、
+            オーダーシートは項目・金額だけ（面談中に根拠資料まで詰めるのは現実的でないため）。 */}
+        {OTHER_ASSET_KINDS.map(k => (
+          <div key={k.kind} className={showOther(k.kind) ? 'space-y-3' : 'hidden'}>
+            {!orderSheetMode && (
+              <WorkContentField caseData={caseData} gyomu={`assets_other_${k.kind}`} patchCase={patchCase} label={`作業内容・関連情報（${k.kind}／面談シートと共有）`} collapsible />
+            )}
+            <SectionHeading title={k.kind} hint={k.hint} className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            {isNegativeKind(k.kind) && (
+              <p className="text-[11.5px] text-red-700 bg-red-50 border border-red-100 rounded px-2.5 py-1.5">
+                金額はプラスで入力してください（合計は自動でマイナス計上されます）。
+              </p>
+            )}
+            <OtherAssetsTable
+              caseId={caseData.id} kind={k.kind} rows={otherRowsOf(k.kind)}
+              heirs={heirs} onRefresh={onRefresh} detailed={!orderSheetMode}
+            />
+          </div>
+        ))}
+        {orderSheetMode && otherGroupOn && OTHER_ASSET_KINDS.some(k => !showOther(k.kind)) && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {OTHER_ASSET_KINDS.filter(k => !showOther(k.kind)).map(k => (
+              <button key={k.kind} type="button" onClick={() => setRevealOther(r => ({ ...r, [k.kind]: true }))}
+                className={`inline-flex items-center gap-1 text-[12px] font-semibold border border-dashed rounded-lg px-3 py-1.5 ${isNegativeKind(k.kind) ? 'text-red-600 hover:text-red-700 border-red-300' : 'text-brand-600 hover:text-brand-700 border-brand-300'}`}>
+                ＋ {k.kind}を追加
+              </button>
+            ))}
+          </div>
+        )}
         {/* オーダーシート：証券/信託/生命保険が未表示なら追加ボタンで出す（優先度: 証券→信託→生命保険） */}
         {orderSheetMode && (kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (!showSecurities || !showTrust || !showInsurance) && (
           <div className="flex flex-wrap gap-2 pt-1">
@@ -252,7 +334,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
       {/* 財産目録（種別タブと同列・オーダーシートでは非表示） */}
       <div className={!orderSheetMode && sub === 'inventory' ? '' : 'hidden'}>
         <Section title="財産目録（協議書・精算書へ反映）">
-          <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} onRefresh={onRefresh} />
+          <InventoryTab caseId={caseData.id} rows={assetInventory} financialAssets={financialAssets} properties={properties} otherAssets={otherAssets} onRefresh={onRefresh} />
         </Section>
       </div>
     </div>

@@ -5,7 +5,7 @@ import CaseDetailClient from '@/components/features/cases/CaseDetailClient'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -16,7 +16,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult, otherAssetsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -114,6 +114,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('reward_items').select('amount').eq('case_id', id),
     // 白紙メモの原本（面談シートの白紙モードで保存した1枚画像）。migration 221 未適用環境では error → 空配列で degrade。
     supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).eq('section', 'whiteboard').order('created_at', { ascending: false }),
+    // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
+    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -186,6 +188,7 @@ export default async function CaseDetailPage({ params }: Props) {
       advancePaid={advInvRows.some(r => r.status === '入金済')}
       advanceInvoiceIssued={advInvRows.some(r => !!r.issued_date || r.status === '入金待ち' || r.status === '入金済')}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}
+      otherAssets={(otherAssetsResult.data ?? []) as CaseOtherAssetRow[]}
     />
   )
 }

@@ -5,7 +5,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
-  CaseClientRow, ContractDocumentRow, SagyoDocumentRow,
+  CaseClientRow, ContractDocumentRow, SagyoDocumentRow, CaseOtherAssetRow,
 } from '@/types'
 
 type Props = { params: Promise<{ id: string }> }
@@ -15,7 +15,7 @@ export default async function OrderSheetCasePage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR] = await Promise.all([
+  const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, otherR] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', id).single(),
     supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
     supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
@@ -35,6 +35,8 @@ export default async function OrderSheetCasePage({ params }: Props) {
       .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id)
       .order('received_date', { ascending: true }),
+    // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
+    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
   ])
 
   if (caseR.error || !caseR.data) notFound()
@@ -47,6 +49,7 @@ export default async function OrderSheetCasePage({ params }: Props) {
       properties={(propsR.data ?? []) as RealEstatePropertyRow[]}
       acquisitions={(acqR.data ?? []) as unknown as RealEstateAcquisitionRow[]}
       financialAssets={(finR.data ?? []) as FinancialAssetRow[]}
+      otherAssets={(otherR.data ?? []) as CaseOtherAssetRow[]}
       divisionDetails={(divR.data ?? []) as DivisionDetailRow[]}
       agreementDispatches={(agrR.data ?? []) as AgreementDispatchRow[]}
       expenses={(expR.data ?? []) as ExpenseRow[]}
