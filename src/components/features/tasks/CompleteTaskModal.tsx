@@ -22,7 +22,7 @@ import { getStartOkSuggestions } from '@/lib/startOkSuggest'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
-import { createManagerReviewTask, type HelpType } from '@/lib/managerReviewTask'
+import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
 import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null; task_kind?: string | null }
@@ -36,6 +36,10 @@ function pairedReadRid(rid: string | null | undefined): string | null {
   const m = rid.match(/^(koseki|re-muni|re-houmu|fin):(.+)$/)
   return m ? `${m[1]}-read:${m[2]}` : null
 }
+// 戸籍のタスクか（請求 koseki: / 読込 koseki-read:）。
+// 1通の戸籍で他の人の分まで判明したとき、いらなくなった戸籍タスクをまとめて完了できるようにする。
+const isKosekiRid = (rid: string | null | undefined): boolean => !!rid && /^koseki(-read)?:/.test(rid)
+
 // 読込/受領タスクか（source_rid が -read: か family-tree-recv）。
 const isReadRid = (rid: string | null | undefined): boolean => !!rid && (/-read:/.test(rid) || rid === 'family-tree-recv')
 
@@ -79,9 +83,11 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [newNote, setNewNote] = useState('')
 
   // 管理担当ヘルプ（完了時は①次を教えて／②巻き取り）
-  const [mgrOn, setMgrOn] = useState(false)
-  const [mgrType, setMgrType] = useState<Extract<HelpType, 'next_unknown' | 'too_hard'>>('next_unknown')
-  const [mgrContent, setMgrContent] = useState('')
+  // 相談は報連相で送る（ヘルプタスクの起票はやめた）
+  const [hourenSouOpen, setHourenSouOpen] = useState(false)
+  // この戸籍で不要になった他の戸籍タスク（まとめて完了する分）
+  const [dropIds, setDropIds] = useState<Record<string, boolean>>({})
+  const [dropAll, setDropAll] = useState<Cand[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -101,6 +107,12 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
           return true
         })
       setCands(rows)
+      // この戸籍で不要になる可能性がある他の戸籍タスク（着手前・対応中の両方）。
+      // 「次に着手」の候補とは別物なので、着手OK済みのものも対象に含める。
+      if (isKosekiRid(task.source_rid)) {
+        setDropAll(((tsData ?? []) as Array<Cand & { task_kind: string | null }>).filter(t =>
+          t.id !== task.id && isKosekiRid(t.source_rid) && normalizeTaskStatus(t.status) !== '完了'))
+      }
       // 中判定：条件が明確に揃っているタスクだけ提案。禁止期間絡み(requiresConfirmation)は完了モーダルでは扱わない（センター側で処理）。
       const todayYmd = new Date().toISOString().slice(0, 10)
       const suggestions = getStartOkSuggestions(
@@ -112,17 +124,17 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const reasonMap: Record<string, string> = {}
       const selInit: Record<string, boolean> = {}
       const noteInit: Record<string, string> = {}
+      // 提案（💡と理由）は出すが、チェックは自動で付けない。
+      // 勝手に選ばれていると、確かめずにそのまま完了してしまうため。選ぶのは人。
       for (const s of suggestions) {
         reasonMap[s.taskId] = s.reason
-        selInit[s.taskId] = true
-        noteInit[s.taskId] = s.reason  // ready_reason に自動で入る
+        noteInit[s.taskId] = s.reason  // 選んだときの ready_reason の初期値
       }
-      // 対になる読込/受領タスク：この請求タスクの完了で「受領次第OK」に設定して手渡す（自動チェック＋モード=受領次第）。
-      // 読込タスクは受信簿で受領が紐づくと自動着手するので、ここで受領次第OKにしておくのが筋。
+      // 対になる読込/受領タスクは、選んだときの初期値だけ「受領次第OK」にしておく（自動チェックはしない）。
       const modeInit: Record<string, Mode> = {}
       const pairRid = pairedReadRid(task.source_rid)
       const pairCand = pairRid ? rows.find(r => (r as Cand).source_rid === pairRid) : undefined
-      if (pairCand) { selInit[pairCand.id] = true; modeInit[pairCand.id] = 'receipt'; if (!noteInit[pairCand.id]) noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
+      if (pairCand) { modeInit[pairCand.id] = 'receipt'; if (!noteInit[pairCand.id]) noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
       // 読込/受領系タスクは（手動で選ぶ場合も）既定モードを「受領次第OK」に。
       for (const r of rows) if (isReadRid((r as Cand).source_rid)) modeInit[r.id] = modeInit[r.id] ?? 'receipt'
       setSuggestReasons(reasonMap)
@@ -152,9 +164,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   // 「受領次第OK」だけ何の受領待ちかの入力を必須にする。
   const selectedOk = selectedIds.every(id => modeOf(id) !== 'receipt' || (note[id] ?? '').trim().length > 0)
   const newOk = !newTitle.trim() || newMode !== 'receipt' || newNote.trim().length > 0
-  const mgrOk = !mgrOn || mgrContent.trim().length > 0
-  const hasAction = noNext || selectedIds.length > 0 || newTitle.trim().length > 0 || (mgrOn && mgrContent.trim().length > 0)
-  const canSubmit = result.trim().length > 0 && selectedOk && newOk && mgrOk && hasAction
+  const hasAction = noNext || selectedIds.length > 0 || newTitle.trim().length > 0
+  const canSubmit = result.trim().length > 0 && selectedOk && newOk && hasAction
 
   const toggle = (id: string) => { setNoNext(false); setSel(prev => ({ ...prev, [id]: !prev[id] })) }
 
@@ -193,9 +204,18 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       })
     }
 
-    // 4) 管理担当ヘルプタスク
-    if (mgrOn && mgrContent.trim()) {
-      await createManagerReviewTask({ caseId: task.case_id, content: mgrContent.trim(), helpType: mgrType, fromTaskTitle: task.title, fromTaskId: task.id, requestedBy: memberId })
+    // 4) この戸籍で不要になった戸籍タスクをまとめて完了
+    const dropTargets = Object.entries(dropIds).filter(([, on]) => on).map(([id]) => id)
+    if (dropTargets.length > 0) {
+      const { data: rows } = await supabase.from('tasks').select('id, ext_data').in('id', dropTargets)
+      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null }>) {
+        const next = {
+          ...(row.ext_data ?? {}),
+          execution_result: `「${task.title}」の読込で内容が判明したため不要（まとめて完了）`,
+          completed_at: new Date().toISOString(), completed_by_name: meName,
+        }
+        await supabase.from('tasks').update({ status: '完了', ext_data: next }).eq('id', row.id)
+      }
     }
 
     // 5) 活動履歴
@@ -209,7 +229,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     }
 
     setSaving(false)
-    showToast(`「${task.title}」を完了しました`, 'success')
+    showToast(dropTargets.length > 0
+      ? `「${task.title}」と、不要になった${dropTargets.length}件を完了しました`
+      : `「${task.title}」を完了しました`, 'success')
     onCompleted()
   }
 
@@ -321,39 +343,34 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             該当なし（次に進められるタスクはまだ無い）
           </label>
 
-          {/* 管理担当にヘルプ（完了時＝①次を教えて／②巻き取り） */}
-          <div className={`mt-2 rounded-lg border px-2.5 py-2 transition-colors ${mgrOn ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={mgrOn} onChange={e => setMgrOn(e.target.checked)} className="w-4 h-4 accent-amber-500" />
-              <HelpCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-              <span className="text-[12.5px] font-semibold text-amber-800">管理担当にヘルプを依頼</span>
-            </label>
-            {mgrOn && (
-              <div className="mt-2 space-y-1.5">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {([
-                    { key: 'next_unknown', label: '次が分からない', sub: '次を教えてほしい' },
-                    { key: 'too_hard', label: '次が難しい', sub: '巻き取ってほしい' },
-                  ] as const).map(o => {
-                    const on = mgrType === o.key
-                    return (
-                      <button key={o.key} type="button" onClick={() => setMgrType(o.key)}
-                        className={`text-left px-2.5 py-1.5 rounded-lg border text-[12px] transition-colors ${on ? 'border-2 border-amber-400 bg-white' : 'border-gray-200 bg-white hover:bg-amber-50/40'}`}>
-                        <div className={`font-semibold ${on ? 'text-amber-800' : 'text-gray-700'}`}>{o.label}</div>
-                        <div className="text-[10.5px] text-gray-500">{o.sub}</div>
-                      </button>
-                    )
-                  })}
-                </div>
-                <textarea
-                  value={mgrContent}
-                  onChange={e => setMgrContent(e.target.value)}
-                  rows={2}
-                  placeholder={mgrType === 'too_hard' ? '巻き取ってほしいタスク・難しい理由' : '次に何をすべきか分からない点・状況'}
-                  className="w-full px-2.5 py-1.5 text-[12px] border border-amber-200 bg-white rounded-lg outline-none focus:border-amber-400"
-                />
+          {/* この戸籍で不要になった他の戸籍タスクをまとめて完了 */}
+          {dropAll.length > 0 && (
+            <div className="mt-2 rounded-lg border border-gray-200 px-2.5 py-2">
+              <div className="text-[12.5px] font-semibold text-gray-700">この戸籍で不要になったタスク</div>
+              <p className="text-[11px] text-gray-400 mt-0.5 mb-1.5">
+                1通の戸籍で他の人の分まで分かったときは、ここでまとめて完了にできます。選ばなければ何も起きません。
+              </p>
+              <div className="space-y-1">
+                {dropAll.map(d => (
+                  <label key={d.id} className={`flex items-center gap-2 text-[12px] rounded-md px-2 py-1 cursor-pointer border ${dropIds[d.id] ? 'border-brand-300 bg-brand-50' : 'border-transparent hover:bg-gray-50'}`}>
+                    <input type="checkbox" checked={!!dropIds[d.id]} onChange={e => setDropIds(prev => ({ ...prev, [d.id]: e.target.checked }))} className="w-4 h-4 accent-brand-600" />
+                    <span className="flex-1 truncate text-gray-700">{d.title}</span>
+                    <span className="text-[10.5px] text-gray-400">{normalizeTaskStatus(d.status)}</span>
+                  </label>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* 迷ったら報連相で相談（ヘルプタスクは起票しない） */}
+          <div className="mt-2 rounded-lg border border-gray-200 px-2.5 py-2 flex items-center gap-2 flex-wrap">
+            <HelpCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+            <span className="text-[12.5px] text-gray-700">次が分からない・難しいときは</span>
+            <button type="button" onClick={() => setHourenSouOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50">
+              報連相を送る
+            </button>
+            <span className="text-[11px] text-gray-400">宛先を選んで送れます。完了はそのまま進められます。</span>
           </div>
 
           {/* 候補に無い → 新規追加（区分＋経路）。使用頻度が低いので一番下。 */}
@@ -380,6 +397,15 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
           </div>
         </div>
       </div>
+      {/* 相談用の報連相ウィンドウ（完了とは別に送れる） */}
+      <TaskHourenSouModal
+        isOpen={hourenSouOpen}
+        onClose={() => setHourenSouOpen(false)}
+        caseId={task.case_id}
+        currentMemberId={memberId}
+        taskTitle={task.title}
+        onSent={() => setHourenSouOpen(false)}
+      />
     </Modal>
   )
 }

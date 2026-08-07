@@ -845,6 +845,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         isOpen={bulkTaskModal.isOpen}
         onClose={bulkTaskModal.close}
         caseId={caseState.id}
+        deceasedName={caseState.deceased_name}
         intakeRoles={(caseState.intake_roles ?? []) as RoleRow[]}
         serviceCategory={caseState.service_category}
         serviceCategory2={caseState.service_category_2}

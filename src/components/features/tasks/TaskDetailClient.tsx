@@ -12,7 +12,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import CompleteTaskModal from './CompleteTaskModal'
 import CompletionCautionModal from './CompletionCautionModal'
-import ManagerHelpModal from './ManagerHelpModal'
+import TaskHourenSouModal from './TaskHourenSouModal'
 import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
 import { isFinanceFreezeTask } from '@/lib/financeFreeze'
@@ -330,7 +330,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">対応中に戻す</button>}
                 </div>
               )}
-              {/* 管理担当にヘルプ（systemタスクでは出さない）。ステータスの左に配置 */}
+              {/* 相談は報連相で送る（systemタスクでは出さない）。ステータスの左に配置 */}
               {!isSystemTask && (
                 <button
                   type="button"
@@ -338,7 +338,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
                 >
                   <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                  管理担当にヘルプ
+                  報連相を送る
                 </button>
               )}
 
@@ -563,16 +563,15 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         />
       )}
 
-      {/* 作業中の管理担当ヘルプ依頼 */}
+      {/* 作業中の相談は報連相で送る（ヘルプタスクの起票はやめた） */}
       {helpOpen && (
-        <ManagerHelpModal
+        <TaskHourenSouModal
           isOpen
           onClose={() => setHelpOpen(false)}
           caseId={task.case_id}
-          taskId={task.id}
+          currentMemberId={currentMemberId}
           taskTitle={task.title}
-          requestedBy={currentMemberId}
-          onSubmitted={() => router.refresh()}
+          onSent={() => { setHelpOpen(false); router.refresh() }}
         />
       )}
 

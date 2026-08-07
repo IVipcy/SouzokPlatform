@@ -20,12 +20,14 @@ type Props = {
   /** 通知先候補：この案件の受注担当（デフォルト送信先）＋ 自分と同じチームのメンバー */
   salesMemberId?: string | null
   allMembers: MemberRow[]
+  /** 本文の下書き（タスクから開いたときにタスク名を入れる） */
+  initialMessage?: string
   onSent?: () => void
 }
 
 const KIND_OPTIONS: CaseReportKind[] = ['報告', '連絡', '相談']
 
-export default function HourenSouModal({ isOpen, onClose, caseData, currentMemberId, salesMemberId = null, allMembers, onSent }: Props) {
+export default function HourenSouModal({ isOpen, onClose, caseData, currentMemberId, salesMemberId = null, allMembers, initialMessage = '', onSent }: Props) {
   const [kind, setKind] = useState<CaseReportKind>('報告')
   const [message, setMessage] = useState('')
   const [recipientIds, setRecipientIds] = useState<Set<string>>(new Set())
@@ -43,9 +45,9 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
   useEffect(() => {
     if (!isOpen) return
     setKind('報告')
-    setMessage('')
+    setMessage(initialMessage)
     setRecipientIds(new Set(salesMemberId ? [salesMemberId] : []))
-  }, [isOpen, salesMemberId])
+  }, [isOpen, salesMemberId, initialMessage])
 
   const toggleRecipient = (id: string) => {
     setRecipientIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })

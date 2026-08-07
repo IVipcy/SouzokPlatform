@@ -32,8 +32,17 @@ type Props = {
 
 const PRIORITIES = [
   { key: '通常', label: '通常', style: 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' },
-  { key: '急ぎ', label: '急ぎ', style: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' },
+  { key: '急ぎ', label: '急ぎ', style: 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100' },
+  { key: '超急ぎ', label: '超急ぎ', style: 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100' },
 ] as const
+
+// 生成時の着手フラグ。設定しない＝前のタスクが終わってから着手OKにする通常運用。
+const READY_OPTIONS = [
+  { key: 'none', label: '設定しない', hint: '前のタスクの完了時に設定する' },
+  { key: 'now', label: '着手OK', hint: 'すぐ取りかかれる' },
+  { key: 'receipt', label: '受領次第OK', hint: '書類が届いたら着手' },
+] as const
+type ReadyKey = typeof READY_OPTIONS[number]['key']
 
 export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase }: Props) {
   const currentMemberId = useCurrentMember(null)
@@ -44,6 +53,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     gyomu: defaultPhase ?? '',
     dueDate: '',
     priority: '通常' as string,
+    ready: 'none' as ReadyKey,
+    readyNote: '',
   })
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
   // 工程の選択肢（この案件の業務から導出）／選択中工程の業務
@@ -81,6 +92,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
 
     const supabase = createClient()
 
+    // 着手フラグ（着手OK＝ready_reason／受領次第OK＝ready_on_receipt）。設定しないなら何も入れない。
+    const readyExt: Record<string, unknown> | null =
+      form.ready === 'now' ? { ready_reason: form.readyNote.trim() || '着手OK', ready_on_receipt: false }
+      : form.ready === 'receipt' ? { ready_on_receipt: true, ready_wait_note: form.readyNote.trim() || null }
+      : null
+
     if (form.roleKind === 'assistant') {
       // 事務管理タスク（業務にひもづく通常タスク）
       const { error: taskErr } = await supabase
@@ -96,6 +113,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           due_date: form.dueDate || null,
           sort_order: 99,
           created_by: currentMemberId,
+          ...(readyExt ? { ext_data: readyExt } : {}),
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
     } else {
@@ -116,6 +134,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           due_date: form.dueDate || null,
           sort_order: 99,
           created_by: currentMemberId,
+          ...(readyExt ? { ext_data: readyExt } : {}),
         })
         .select('id')
         .single()
@@ -136,7 +155,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     }
 
     setSaving(false)
-    setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常' })
+    setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常', ready: 'none', readyNote: '' })
     onSaved()
     onClose()
   }
@@ -261,6 +280,33 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 着手フラグ */}
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">着手</label>
+          <div className="flex gap-1.5">
+            {READY_OPTIONS.map(o => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, ready: o.key }))}
+                className={`flex-1 px-2.5 py-1.5 text-[12.5px] font-medium rounded-lg border transition-colors ${form.ready === o.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                title={o.hint}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {form.ready !== 'none' && (
+            <input
+              type="text"
+              value={form.readyNote}
+              onChange={e => setForm(p => ({ ...p, readyNote: e.target.value }))}
+              placeholder={form.ready === 'receipt' ? '何の受領待ちか（例：戸籍の到着）' : '着手OKの理由（任意）'}
+              className="mt-1.5 w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+            />
+          )}
         </div>
 
         {form.roleKind === 'assistant' && (

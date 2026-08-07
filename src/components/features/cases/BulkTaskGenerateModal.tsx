@@ -31,6 +31,8 @@ type Props = {
   // 不動産・金融資産（左タブ単位＝市区町村/金融機関でタスクをまとめる）
   properties?: RealEstatePropertyRow[]
   financialAssets?: FinancialAssetRow[]
+  /** 被相続人の氏名。戸籍請求のうち被相続人あての1本だけ「着手OK」で生成するために使う。 */
+  deceasedName?: string | null
   /** 閲覧者のロール（primary_role）。管理担当は管理業務＋その他のみ、事務管理(assistant)は事務業務のみを候補にする。 */
   viewerRole?: string | null
   onSaved: () => void
@@ -74,7 +76,7 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
  * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], onSaved }: Props) {
+export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, onSaved }: Props) {
   // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -123,13 +125,11 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     const UNIT: Record<string, { units: string[]; own: Set<string>; tasks: UnitTask[] }> = {
       // 不動産は請求先で2系統（市区町村役場＝名寄帳・評価証明／法務局＝登記・公図・地積）。どちらも市区町村単位。
       // 資料（登記/公図/地積）はまとめて請求・まとめて届くので読込も1本。資料ごとの到着状況は実務タブの表で管理。
-      // 着手OK（起点）は「戸籍を待たずに並行請求できるもの」だけ。
-      //   ・戸籍請求／名寄帳・評価証明の請求（市区町村役場）＝ヒアリング段階の情報で着手可
-      //   ・登記・公図・地積（法務局）＝物件の地番が要る＝名寄帳到着後に着手
-      //   ・金融の資料請求＝金融機関が戸籍を求める＝戸籍到着後に着手
-      // 読込(-read)は最初はフラグ無し（着手前）。対になる請求タスクの完了モーダルで「次に着手＝受領次第OK」に設定する運用。
+      // 生成時に着手OKを付けるのは「被相続人の戸籍請求」だけ（下の戸籍収集の展開を参照）。
+      // それ以外は何もフラグを付けず、生成後にタスクタブで人が優先度・着手フラグを調整する。
+      // 読込(-read)も最初はフラグ無し。対になる請求タスクの完了モーダルで「受領次第OK」にする運用。
       '不動産': { units: muniUnits, own: muniOwn, tasks: [
-        { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true, ready: true },
+        { prefix: 're-muni', label: '名寄帳・評価証明を請求', onlyOwn: true },
         { prefix: 're-muni-read', label: '名寄帳・評価証明を読込' },
         { prefix: 're-houmu', label: '登記・公図・地積を請求', onlyOwn: true },
         { prefix: 're-houmu-read', label: '登記・公図・地積を読込' },
@@ -163,12 +163,17 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       }
       // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
       if (r.gyomu === '戸籍' && r.sagyou.includes('到着確認')) return
-      // 戸籍収集 → 請求先（役所）ごとに展開。請求グループ(自社取得のみ・着手OK)の後に読込グループ(全件・受領次第OK)。
+      // 戸籍収集 → 請求先（役所）ごとに展開。請求グループ(自社取得のみ)の後に読込グループ(全件)。
       // 依頼者取得の戸籍は請求タスクを作らず、読込（到着確認）のみ。source_rid で1対1リンク（重複生成を防ぐ）。
+      //
+      // 着手OKを付けるのは「被相続人の戸籍請求」だけ。相続人の戸籍は被相続人の戸籍を読んでから
+      // 請求先が決まることが多く、最初から着手OKにすると先走りの原因になる。
       const isKosekiCollect = r.gyomu === '戸籍' && r.sagyou.includes('戸籍収集')
       if (isKosekiCollect) {
         if (kosekiRequests.length > 0) {
-          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: true }))
+          const deceased = (deceasedName ?? '').replace(/[\s　]/g, '')
+          const isDeceased = (k: KosekiRequestRow) => !!deceased && (k.target_person ?? '').replace(/[\s　]/g, '') === deceased
+          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: isDeceased(k) }))
           kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}` }))
         } else {
           out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })

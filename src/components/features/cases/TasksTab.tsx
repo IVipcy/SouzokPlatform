@@ -157,8 +157,15 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     if (kind === 'case' && gyomuFilter.size > 0 && !gyomuFilter.has(gyomuOf(t))) return false
     return true
   }).sort((a, b) => {
-    // 事務管理は工程順 → 業務 → sort_order で並べる（テーブルの基本順）
     if (kind !== 'case') return 0
+    // 急ぎ・超急ぎだけを上に持ち上げる。通常どうしは工程順のまま並べる。
+    // 全部を優先度順にすると「請求→読込」のような工程の流れが崩れて追えなくなるため。
+    const pr = (t: TaskRow) => (t.priority === '超急ぎ' ? 0 : t.priority === '急ぎ' ? 1 : 2)
+    const done = (t: TaskRow) => (normalizeStatus(t.status) === '完了' ? 1 : 0)
+    // 完了したものは持ち上げない（急ぎでも終わっていれば下でよい）
+    const pd = (done(a) === 1 ? 2 : pr(a)) - (done(b) === 1 ? 2 : pr(b))
+    if (pd !== 0) return pd
+    // 以降は従来どおり 工程順 → 業務 → sort_order
     const kr = koteiRank(koteiOf(a.phase)) - koteiRank(koteiOf(b.phase))
     if (kr !== 0) return kr
     const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))

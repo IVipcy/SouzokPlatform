@@ -15,6 +15,13 @@ import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
  * 列は事務管理タスク一覧と同じ思想（案件/担当は案件内なので省略）。
  * 期限はその場で編集でき、選択した複数タスクへ期限を一括設定できる。
  */
+// 優先度セルの見た目。急ぎ＝黄／超急ぎ＝赤。
+function priorityCls(p: string | null | undefined) {
+  if (p === '超急ぎ') return 'bg-red-100 text-red-800 border-red-300'
+  if (p === '急ぎ') return 'bg-amber-100 text-amber-800 border-amber-300'
+  return 'bg-white text-gray-500 border-gray-200'
+}
+
 export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTaskId, receipts, docNamesByTask, onRefresh }: {
   tasks: TaskRow[]
   today: string
@@ -120,6 +127,14 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     if (error) { showToast(`一括設定に失敗: ${error.message}`, 'error'); return }
     showToast(`${sel.size}件に期限を設定しました`, 'success')
     setSel(new Set()); setBulkDate('')
+    onRefresh()
+  }
+
+  // 優先度は一覧の上で直接変える（一括生成は全部「通常」で作り、ここで調整する運用）。
+  const setPriority = async (t: TaskRow, priority: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('tasks').update({ priority }).eq('id', t.id)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh()
   }
 
@@ -318,15 +333,21 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               const gate = status === '着手前' ? gateOf(t) : { state: 'none' as const, reason: '' }
               const locked = gate.state === 'locked'
               return (
-                <tr key={t.id} className={`border-b border-gray-100 last:border-b-0 ${checked ? 'bg-brand-50/50' : overdue ? 'bg-red-50/30' : locked ? 'bg-gray-100/50' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <tr key={t.id} className={`border-b border-gray-100 last:border-b-0 ${
+                  checked ? 'bg-brand-50/50'
+                  : status !== '完了' && t.priority === '超急ぎ' ? 'bg-red-50'
+                  : status !== '完了' && t.priority === '急ぎ' ? 'bg-amber-50/70'
+                  : overdue ? 'bg-red-50/30' : locked ? 'bg-gray-100/50' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <td className="px-2.5 py-2 text-center"><input type="checkbox" checked={checked} onChange={() => toggle(t.id)} className="w-4 h-4 accent-brand-600 cursor-pointer" aria-label={`${t.title}を選択`} /></td>
                   <td className="px-2.5 py-2"><KoteiBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><GyomuBadge phase={t.phase} /></td>
                   <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className={`hover:text-brand-700 hover:underline ${locked ? 'text-gray-400' : 'text-gray-800'}`}>{t.title}</Link></td>
                   <td className="px-2.5 py-2">
-                    {t.priority === '急ぎ'
-                      ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">急ぎ</span>
-                      : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] text-gray-500 border border-gray-200 bg-white">通常</span>}
+                    <select value={t.priority ?? '通常'} onChange={e => setPriority(t, e.target.value)}
+                      className={`w-full px-1 py-0.5 rounded-full text-[11px] font-semibold border outline-none cursor-pointer ${priorityCls(t.priority)}`}
+                      title="優先度を変える">
+                      {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
                   </td>
                   <td className="px-2.5 py-2">
                     {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
