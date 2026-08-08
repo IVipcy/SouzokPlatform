@@ -103,8 +103,11 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
     }
   }
 
-  // ── 登記情報/法務局（物件単位）──
-  const findPropRow = (propId: string) => localAcq.find(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId)
+  // ── 登記情報/法務局（物件単位・1物件に複数行）──
+  // 同じ物件でも「民事法務協会で登記情報・公図」「国税局HPで路線価だけ」のように
+  // 請求先と取得資料の組み合わせが分かれるため、物件ごとに行を足せるようにしている。
+  const propRows = (propId: string) => localAcq.filter(a => (a.scope ?? 'property') === 'property' && a.target_property_id === propId)
+  const findPropRow = (propId: string) => propRows(propId)[0]
   const ensurePropRow = async (prop: RealEstatePropertyRow): Promise<RealEstateAcquisitionRow | null> => {
     const existing = findPropRow(prop.id)
     if (existing) return existing
@@ -142,9 +145,29 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
   const togglePropItem = async (prop: RealEstatePropertyRow, item: string) => {
     const row = await ensurePropRowOnce(prop)
     if (!row) return
+    await toggleRowItem(row, item)
+  }
+  /** 確定済みの行の資料チップを切り替える（追加行はこちらを使う） */
+  const toggleRowItem = async (row: RealEstateAcquisitionRow, item: string) => {
     const cur = itemsOf(row)
     const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
     await writePropRow(row, { item_types: next, item_type: next[0] ?? null })
+  }
+  /** 同じ物件にもう1行足す（例：国税局HPで路線価だけ取る行）。
+   *  まだ1行も保存されていない物件なら、画面に出ている既定の行も同時に作る。 */
+  const addPropRow = async (prop: RealEstatePropertyRow) => {
+    const base = await ensurePropRowOnce(prop)
+    if (!base) return
+    const propMuni = (prop.municipality ?? '').trim() || null
+    const seed = {
+      case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni,
+      item_type: null, item_types: [], request_to: RE_REQUEST_TO_DEFAULT, acquirer: '自社',
+      sort_order: propRows(prop.id).length,
+    }
+    const { data, error } = await supabase.from('real_estate_acquisitions').insert(seed).select().single()
+    if (error || !data) { showToast(`行の追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+    setLocalAcq(prev => [...prev, data as unknown as RealEstateAcquisitionRow])
+    onRefresh?.()
   }
 
   // ＋市区町村を追加（アプリ内モーダルで名称入力→空物件を1件作ってブロックを増やす。タスク生成なし）
@@ -218,39 +241,64 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                         </tr>
                       </thead>
                       <tbody>
-                        {muniProps.map((p, i) => {
-                          const row = findPropRow(p.id)
-                          const acquirer = row?.acquirer ?? '自社'
-                          const requestTo = row?.request_to ?? RE_REQUEST_TO_DEFAULT
-                          const dim = acquirer === '依頼者' || acquirer === '不要' ? 'opacity-40 pointer-events-none' : ''
-                          const items = requestTo === '国税局HP' ? KOKUZEI_ITEMS : HOUMU_ITEMS
-                          return (
-                            <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                              <td className="px-2.5 py-1.5">
-                                <select value={acquirer} onChange={e => patchProp(p, { acquirer: e.target.value })} className={acqSelectCls}>
-                                  {RE_ACQUIRERS.map(a => <option key={a} value={a}>{reAcquirerLabel(a)}</option>)}
-                                </select>
-                              </td>
-                              <td className={`px-2.5 py-1.5 ${dim}`}>
-                                <select value={requestTo} onChange={e => patchProp(p, { request_to: e.target.value })} className="w-32 px-1.5 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                                  {RE_REQUEST_TO.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                              </td>
-                              <td className="px-2.5 py-2 text-gray-600">
-                                <span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10.5px] mr-1.5">{p.property_type || '—'}</span>
-                                {propLabel(p)}
-                              </td>
-                              <td className={`px-2.5 py-2 ${dim}`}>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {items.map(item => {
-                                    const on = row ? itemsOf(row).includes(item) : false
-                                    return <button key={item} type="button" onClick={() => togglePropItem(p, item)} className={chipCls(on)}>{on && '✓'}{item}</button>
-                                  })}
-                                </div>
-                                {requestTo === '国税局HP' && <p className="text-[10.5px] text-gray-400 mt-1">路線価は請求先=国税局HPのときのみ選べます</p>}
-                              </td>
-                            </tr>
-                          )
+                        {muniProps.flatMap((p, i) => {
+                          // まだ1行も保存されていない物件は、既定値の行を1本だけ出す（触った時点で作られる）
+                          const saved = propRows(p.id)
+                          const list: (RealEstateAcquisitionRow | null)[] = saved.length > 0 ? saved : [null]
+                          return list.map((row, ri) => {
+                            const acquirer = row?.acquirer ?? '自社'
+                            const requestTo = row?.request_to ?? RE_REQUEST_TO_DEFAULT
+                            const dim = acquirer === '依頼者' || acquirer === '不要' ? 'opacity-40 pointer-events-none' : ''
+                            const items = requestTo === '国税局HP' ? KOKUZEI_ITEMS : HOUMU_ITEMS
+                            // 保存済みの行はその行へ、未保存の既定行は「作ってから」書き込む
+                            const write = (patch: Partial<RealEstateAcquisitionRow>) => row ? writePropRow(row, patch) : patchProp(p, patch)
+                            const toggle = (item: string) => row ? toggleRowItem(row, item) : togglePropItem(p, item)
+                            return (
+                              <tr key={row?.id ?? `new-${p.id}`} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                                <td className="px-2.5 py-1.5">
+                                  <select value={acquirer} onChange={e => write({ acquirer: e.target.value })} className={acqSelectCls}>
+                                    {RE_ACQUIRERS.map(a => <option key={a} value={a}>{reAcquirerLabel(a)}</option>)}
+                                  </select>
+                                </td>
+                                <td className={`px-2.5 py-1.5 ${dim}`}>
+                                  <select value={requestTo} onChange={e => write({ request_to: e.target.value })} className="w-32 px-1.5 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                                    {RE_REQUEST_TO.map(r => <option key={r} value={r}>{r}</option>)}
+                                  </select>
+                                </td>
+                                <td className="px-2.5 py-2 text-gray-600">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {ri > 0 && <span className="text-gray-300">↳</span>}
+                                    <span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10.5px]">{p.property_type || '—'}</span>
+                                    <span className={ri > 0 ? 'text-gray-400' : ''}>{propLabel(p)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {/* 「行を追加」はその物件の最後の行にだけ出す（各行に並ぶとうるさいため） */}
+                                    {ri === list.length - 1 && (
+                                      <button type="button" onClick={() => addPropRow(p)}
+                                        className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-600 hover:text-brand-700"
+                                        title="同じ物件で請求先・取得資料が違う行を足す（例：国税局HPで路線価だけ）">
+                                        <Plus className="w-3 h-3" strokeWidth={2.5} />行を追加
+                                      </button>
+                                    )}
+                                    {row && saved.length > 1 && (
+                                      <button type="button" onClick={() => deleteRow(row)} className="text-gray-300 hover:text-red-500" title="この行を削除">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className={`px-2.5 py-2 ${dim}`}>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {items.map(item => {
+                                      const on = row ? itemsOf(row).includes(item) : false
+                                      return <button key={item} type="button" onClick={() => toggle(item)} className={chipCls(on)}>{on && '✓'}{item}</button>
+                                    })}
+                                  </div>
+                                  {requestTo === '国税局HP' && <p className="text-[10.5px] text-gray-400 mt-1">路線価は請求先=国税局HPのときのみ選べます</p>}
+                                </td>
+                              </tr>
+                            )
+                          })
                         })}
                       </tbody>
                     </table>
