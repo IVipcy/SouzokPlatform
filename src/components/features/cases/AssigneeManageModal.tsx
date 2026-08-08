@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { notifyManagerAssigned } from '@/lib/managerAssignNotify'
 import Modal from '@/components/ui/Modal'
 import { ROLES } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
@@ -64,6 +65,12 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
       if (caseMemberInserts.length > 0) {
         const { error: insError } = await supabase.from('case_members').insert(caseMemberInserts)
         if (insError) throw insError
+      }
+
+      // 新しく管理担当が付いたら、受注担当へ「割振り完了」を知らせる（付け替え・追加のどちらも）
+      const before = new Set(caseMembers.filter(cm => cm.role === 'manager').map(cm => cm.member_id))
+      for (const id of caseRoles.manager) {
+        if (!before.has(id)) await notifyManagerAssigned(caseId, id)
       }
 
       for (const ta of taskAssignments) {

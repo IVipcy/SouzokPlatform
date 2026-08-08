@@ -52,7 +52,8 @@ function notificationHref(n: NotificationItem): string | null {
     return `/cases/${n.case_id}?tab=contract`
   }
   // チーム引き継ぎ／管理担当の割振り依頼：担当者タブへ飛ばし、その場で管理担当をアサインさせる
-  if (n.type === 'case_handoff' || n.type === 'manager_assign_request') return `/cases/${n.case_id}?tab=assignees`
+  // 割振り完了の知らせ（受注担当あて）も、誰が付いたか見えるよう担当者タブへ
+  if (n.type === 'case_handoff' || n.type === 'manager_assign_request' || n.type === 'manager_assigned') return `/cases/${n.case_id}?tab=assignees`
   // 確認簿での承認 → 該当実務タブへ直接遷移（見直しやすい導線）
   if (n.type === 'confirm_approved_koseki') return `/cases/${n.case_id}?tab=deceased&sub=koseki`
   if (n.type === 'confirm_approved_re')     return `/cases/${n.case_id}?tab=assets`

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { notifyManagerAssigned } from '@/lib/managerAssignNotify'
 import UserAvatar from '@/components/ui/UserAvatar'
 import HintTip from '@/components/ui/HintTip'
 import { toWareki } from '@/lib/wareki'
@@ -826,10 +827,12 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
     setSaving(true)
     const supabase = createClient()
     try {
+      let assignedManagerId: string | null = null
       if (!multi) {
         await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
         if (memberId) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          assignedManagerId = memberId
         }
       } else {
         const existing = assigned.find(cm => cm.member_id === memberId)
@@ -837,8 +840,11 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
           await supabase.from('case_members').delete().eq('id', existing.id)
         } else {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          assignedManagerId = memberId
         }
       }
+      // 管理担当が付いたら受注担当へ「割振り完了」を知らせる
+      if (roleKey === 'manager' && assignedManagerId) await notifyManagerAssigned(caseId, assignedManagerId)
       onRefresh?.()
       showToast('保存しました', 'success')
     } catch (e) {

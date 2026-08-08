@@ -6,7 +6,6 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { LOCATIONS } from '@/lib/constants'
 import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
 
@@ -65,6 +64,9 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const [storageTeamId, setStorageTeamId] = useState('')  // 原本格納先チーム（案件選択時に管理担当のチームを初期選択）
   const [location, setLocation] = useState(defaultLocation ?? '')  // 拠点
   const [parcelMode, setParcelMode] = useState(false)  // 受注/管理宛の郵送物一式（中身は本人が開封）
+  // 到着物のまとめて入力（同じ差出人から何通も届くことが多く、行ごとに打つと手間）
+  const [bulkQty, setBulkQty] = useState('')
+  const [bulkFrom, setBulkFrom] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   const [saving, setSaving] = useState(false)
@@ -82,6 +84,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     setDeliverables([])
     setLocation(defaultLocation ?? '')
     setParcelMode(false)
+    setBulkQty('')
+    setBulkFrom('')
     setError('')
     onClose()
   }
@@ -177,6 +181,18 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
 
   const updateItem = (key: string, patch: Partial<ItemDraft>) => {
     setItems(prev => prev.map(i => (i.key === key ? { ...i, ...patch } : i)))
+  }
+
+  // まとめて入力を全行へ。入れた欄だけ上書きする（通数だけ／差出人だけ でも使える）。
+  const applyBulk = () => {
+    const qty = bulkQty.trim()
+    const from = bulkFrom.trim()
+    if (!qty && !from) return
+    setItems(prev => prev.map(i => ({
+      ...i,
+      quantity: qty ? qty : i.quantity,
+      received_from: from ? from : i.received_from,
+    })))
   }
 
   const handleSubmit = async () => {
@@ -380,15 +396,13 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
           )}
         </div>
 
-        {/* 拠点 */}
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1">拠点</label>
-          <div className="flex gap-1.5 flex-wrap">
-            {LOCATIONS.map(l => (
-              <button key={l} type="button" onClick={() => setLocation(l)} className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${location === l ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}>{l}</button>
-            ))}
+        {/* 拠点：この画面に入る前に選んでいるので、選び直しではなく確認だけ出す */}
+        {location && (
+          <div className="flex items-center gap-2 text-[12.5px] text-gray-600">
+            <span className="font-semibold text-gray-500">拠点</span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 font-semibold text-gray-700">{location}</span>
           </div>
-        </div>
+        )}
 
         {/* 受注/管理宛の郵送物一式（新規登録時のみ） */}
         {!editReceipt ? (
@@ -448,6 +462,32 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
               到着物を追加
             </Button>
           </div>
+
+          {/* まとめて入力：同じ差出人から複数まとめて届くケース（契約書・料金表・委任状…）で行ごとに打たずに済む */}
+          {items.length > 1 && (
+            <div className="flex flex-wrap items-end gap-2 mb-2 px-2.5 py-2 rounded-md border border-dashed border-gray-300 bg-gray-50/60">
+              <span className="text-[11.5px] font-semibold text-gray-500 pb-1.5">まとめて入力</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bulkQty}
+                onChange={e => setBulkQty(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="通数"
+                className="w-20 px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400"
+              />
+              <input
+                type="text"
+                value={bulkFrom}
+                onChange={e => setBulkFrom(e.target.value)}
+                placeholder="差出人（例: 山田 一郎）"
+                className="flex-1 min-w-[160px] px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400"
+              />
+              <Button variant="secondary" size="sm" onClick={applyBulk} disabled={!bulkQty && !bulkFrom.trim()}>
+                全行に反映
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-2">
             {items.map(it => {
               const useSelect = deliverables.length > 0

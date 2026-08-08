@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { UserPlus, Star, Users, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { notifyManagerAssigned } from '@/lib/managerAssignNotify'
 import Modal from '@/components/ui/Modal'
 
 export type UnassignedCase = { id: string; caseNumber: string; dealName: string; orderSheetReady: boolean }
@@ -142,6 +143,7 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, una
     const { error } = await supabase.from('case_members').insert({ case_id: caseId, member_id: selectedMemberId, role: 'manager' })
     setAssigning(false)
     if (error) { showToast(`割り振りに失敗しました: ${error.message}`, 'error'); return }
+    await notifyManagerAssigned(caseId, selectedMemberId)   // 受注担当へ「割振り完了」
     showToast(`${selectedMember?.name ?? '担当者'} を管理担当に割り振りました`, 'success')
     setPickCaseOpen(false)
     router.push(`/cases/${caseId}`)
@@ -160,6 +162,7 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, una
     const { error } = await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: 'manager' })
     setAssigning(false)
     if (error) { showToast(`割り振りに失敗しました: ${error.message}`, 'error'); return }
+    await notifyManagerAssigned(caseId, memberId)   // 受注担当へ「割振り完了」
     const mgr = managers.find(m => m.memberId === memberId)
     showToast(`${mgr?.name ?? '管理担当'} を「${assignTarget.dealName}」の管理担当に割り振りました`, 'success')
     setCaseRows(prev => prev.filter(r => r.id !== caseId))
