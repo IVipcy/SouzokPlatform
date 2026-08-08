@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineCheckbox, InlineTextarea,
@@ -116,7 +116,14 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
 
   // その他財産／相続債務／その他費用。オーダーシートでは金融資産ブロックに同居させ、
   // データが無ければ「＋◯◯を追加」を押すまで出さない（証券/信託/生命保険と同じ扱い）。
-  const otherRowsOf = (kind: string) => otherAssets.filter(r => r.kind === kind)
+  // 種別ごとの行。毎回 filter すると別の配列になり、表側で行が作り直されて
+  // 「追加した行が一瞬消える」ため、識別子を固定してから渡す。
+  const otherByKind = useMemo(() => {
+    const m: Record<string, CaseOtherAssetRow[]> = {}
+    for (const k of OTHER_ASSET_KINDS) m[k.kind] = otherAssets.filter(r => r.kind === k.kind)
+    return m
+  }, [otherAssets])
+  const otherRowsOf = (kind: string) => otherByKind[kind] ?? []
   const [revealOther, setRevealOther] = useState<Record<string, boolean>>({})
   const otherGroupOn = !showKinds || showKinds.includes('deposit')
   const showOther = (kind: string) =>

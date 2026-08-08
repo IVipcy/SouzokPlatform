@@ -6,12 +6,12 @@
 //   実務タブ                 … ＋根拠資料・精算チェック・立替者・備考
 // 金額は常に正で保存し、マイナス表示（相続債務・その他費用）は kind から判断する。
 
-import { useState, useEffect } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isNegativeKind, needsPayer } from '@/lib/constants'
 import { MoneyInput } from './FinancialAssetsTable'
+import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseOtherAssetRow, HeirRow } from '@/types'
 
 const yen = (n: number) => `${n.toLocaleString('ja-JP')}円`
@@ -31,8 +31,7 @@ type Props = {
 
 export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = [], onRefresh, detailed = false, ensureCaseId }: Props) {
   const supabase = createClient()
-  const [rows, setRows] = useState<CaseOtherAssetRow[]>(initial)
-  useEffect(() => { setRows(initial) }, [initial])
+  const [rows, setRows] = useRowsFrom(initial)
 
   const negative = isNegativeKind(kind)
   const withPayer = detailed && needsPayer(kind)

@@ -4,7 +4,7 @@
 // 各セクションのメモ欄＝そのセクションのフリー作業欄(work_content)に統合。ここは【タイピング専用】。
 // 手書きは「白紙モード」(WhiteboardTab)に一本化した（原本が2か所に散らばるのを防ぐため）。
 // 構造化できる所は「AIで項目に反映」（createRunExtract を白紙モードと共通利用）。
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Sparkles, Trash2, Plus, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -16,6 +16,7 @@ import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
+import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 
@@ -208,8 +209,7 @@ function MemoField({ caseData, patchCase, section, memos, setMemos, onExtract }:
 // ── 相続人一覧（面談シート：氏名・続柄だけ・追加可） ──
 function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string; heirs: HeirRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
-  const [rows, setRows] = useState<HeirRow[]>(heirs)
-  useEffect(() => setRows(heirs), [heirs])
+  const [rows, setRows] = useRowsFrom(heirs)
   const save = (id: string, field: string, v: string) => {
     setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r))
     // 続柄を「前妻/前夫」にしたら相続人フラグを落とす（離婚しているので相続人ではない）
@@ -257,8 +257,7 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
 // ── 不動産（面談シート：物件種別・所在地・評価額・備考だけ） ──
 function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
-  const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
-  useEffect(() => setRows(properties), [properties])
+  const [rows, setRows] = useRowsFrom(properties)
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const saveNum = (id: string, v: string) => { supabase.from('real_estate_properties').update({ appraisal_value: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: cid }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
@@ -291,8 +290,9 @@ function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: strin
 type FinCol = { key: keyof FinancialAssetRow; label: string; money?: boolean }
 function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId }: { caseId: string; kind: string; cols: FinCol[]; addLabel: string; assets: FinancialAssetRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
-  const [rows, setRows] = useState<FinancialAssetRow[]>(assets.filter(a => a.asset_type === kind))
-  useEffect(() => setRows(assets.filter(a => a.asset_type === kind)), [assets, kind])
+  // 種別で絞った配列は毎回作ると別物になるので、識別子を固定してから渡す
+  const ofKind = useMemo(() => assets.filter(a => a.asset_type === kind), [assets, kind])
+  const [rows, setRows] = useRowsFrom(ofKind)
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as FinancialAssetRow : r)); supabase.from('financial_assets').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const saveNum = (id: string, v: string) => { supabase.from('financial_assets').update({ balance_amount: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('financial_assets').insert({ case_id: cid, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as FinancialAssetRow]); onRefresh?.() }
@@ -440,10 +440,33 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
 export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [diagramOpen, setDiagramOpen] = useState(false)   // 相続関係図の開閉（既定は閉じる）
-  const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set(OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind)))
+  // 追加表示中の財産種別。すでに1行でも入っている種別は開いた状態で始める。
+  // ここに その他財産／相続債務／その他費用 を含めていなかったため、
+  // 入力したあとに開き直すとセクションごと消えて見えていた。
+  const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set([
+    ...OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind),
+    ...OTHER_ASSET_KINDS.filter(k => otherAssets.some(o => o.kind === k.kind)).map(k => k.kind),
+  ]))
+  // その他財産／相続債務／その他費用 を種別ごとに分けておく。
+  // 描画のたびに filter すると毎回別の配列になり、表側の「行の状態を親に合わせる」処理が
+  // 毎レンダー走って入力中の行が作り直される（＝追加した行が一瞬消える）ため、識別子を固定する。
+  const otherByKind = useMemo(() => {
+    const m: Record<string, CaseOtherAssetRow[]> = {}
+    for (const k of OTHER_ASSET_KINDS) m[k.kind] = otherAssets.filter(o => o.kind === k.kind)
+    return m
+  }, [otherAssets])
   const cl = caseData.clients
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
+
+  // 財産の種類を足したとき、新しいセクションは「種類を追加」ボタンより上に生まれる。
+  // そのままだと画面外に増えるので「押しても何も起きない」ように見える。追加したセクションまで送る。
+  const showKind = (kind: string, sectionKey: string) => {
+    setExtraFin(prev => new Set([...prev, kind]))
+    setTimeout(() => {
+      document.getElementById(`sec-${sectionKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 0)
+  }
   // AIで項目に反映：手書き画像（dataUrl）またはタイピング本文（text）のどちらでも呼べる。
   // 単一項目(EXTRACT_SCHEMA) と 行データ(ROW_EXTRACT_SCHEMA) を同じメモから同時に抽出できる。
   // AIで項目に反映：共通ファクトリ（createRunExtract）を使う。白紙メモタブと同じ処理。
@@ -455,7 +478,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
   const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean) => (
-    <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div key={key} id={`sec-${key}`} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
         {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} setMemos={setMemos} onExtract={extract} />}
@@ -543,7 +566,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
           {sec(`other_${k.kind}`, k.kind, k.negative ? 'マイナス' : '任意', (
             <>
               <p className="text-[11px] text-gray-400 mb-1.5">{k.hint}</p>
-              <OtherAssetsTable caseId={caseData.id} kind={k.kind} rows={otherAssets.filter(o => o.kind === k.kind)} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
+              <OtherAssetsTable caseId={caseData.id} kind={k.kind} rows={otherByKind[k.kind] ?? []} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
             </>
           ), undefined, true)}
         </div>
@@ -553,11 +576,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[12px] text-gray-500">財産の種類を追加：</span>
         {OPTIONAL_FIN.filter(f => !extraFin.has(f.kind)).map(f => (
-          <button key={f.kind} type="button" onClick={() => setExtraFin(prev => new Set([...prev, f.kind]))} className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-brand-600 hover:border-brand-300"><Plus className="w-3.5 h-3.5" />{f.label}</button>
+          <button key={f.kind} type="button" onClick={() => showKind(f.kind, f.section)} className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-brand-600 hover:border-brand-300"><Plus className="w-3.5 h-3.5" />{f.label}</button>
         ))}
         {/* 相続債務・その他費用はマイナス計上なので色で区別する */}
         {OTHER_ASSET_KINDS.filter(k => !extraFin.has(k.kind)).map(k => (
-          <button key={k.kind} type="button" onClick={() => setExtraFin(prev => new Set([...prev, k.kind]))} title={k.hint}
+          <button key={k.kind} type="button" onClick={() => showKind(k.kind, `other_${k.kind}`)} title={k.hint}
             className={`inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed ${k.negative ? 'border-red-300 text-red-600 hover:border-red-400' : 'border-gray-300 text-brand-600 hover:border-brand-300'}`}>
             <Plus className="w-3.5 h-3.5" />{k.kind}
           </button>
@@ -569,8 +592,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         <p className="text-[12px] text-gray-400">紹介の要否はメモ欄に記録してください（不動産査定・税理士など。詳細は③オーダーシートの他事業者紹介で入力）。</p>
       ))}
 
-      {/* 遺産分割 / 遺言 / 相続登記 / 解約等 / 信託契約ほか：エクセル面談シート〇（メモ欄のみ）。
-          work_content キーはOS/実務タブと同一にして、面談で書いたメモが③受注内容以降の同名セクションと共有される。 */}
+      {/* 遺産分割 / 遺言 / 相続登記 / 解約等：メモ欄のみのセクション。
+          work_content キーはOS/実務タブと同一にして、面談で書いたメモが③受注内容以降の同名セクションと共有される。
+          ※「信託契約 ほか手続き」は廃止。7業務の寄せ集めで何を書く欄か分かりにくいうえ、
+            キー(trust_other)がOS・実務タブのどこからも読まれず、書いても引き継がれなかったため。
+            信託・放棄・調停・検認・後見などは「提案内容・手続き内容」のメモに書く（こちらはOSと共有される）。 */}
       {sec('division', '遺産分割', null, (
         <p className="text-[12px] text-gray-400">分割方針・分配イメージ等をメモ欄に記録してください（詳細は③オーダーシートで入力）。</p>
       ))}
@@ -582,9 +608,6 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       ))}
       {sec('cancellation', '解約等（銀行・証券・自動車）', null, (
         <p className="text-[12px] text-gray-400">解約したい口座・自動車の内容や優先順位をメモ欄に記録してください。</p>
-      ))}
-      {sec('trust_other', '信託契約 ほか手続き', null, (
-        <p className="text-[12px] text-gray-400">信託契約・相続放棄・調停・遺言検認・成年後見・手紙・執行通知・契約書作成 の要否/内容をメモ欄に記録してください（③OSでは専用項目なし＝フリー欄のみ）。</p>
       ))}
     </div>
   )
