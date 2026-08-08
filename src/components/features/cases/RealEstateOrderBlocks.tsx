@@ -9,8 +9,9 @@
 // 取得区分は 不要/自社取得/依頼者取得。
 // 名寄帳・評価証明の「面談時に受領✓」→ 契約手続きの書類に「受領済・受領日入り」で自動追加（contract_document_id で紐付け・✓解除で削除）。
 // 登記情報/法務局の請求先は JTN/民事法務協会/法務局/国税局HP。路線価は請求先=国税局HPのときだけ選べる。
+// 既定は「民事法務協会」。ほぼここで取るので、毎回選び直す手間をなくす（法務局へ行くのは例外）。
 
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Plus, Trash2, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -18,9 +19,12 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { RE_ACQUIRERS, reAcquirerLabel, RE_REQUEST_TO } from '@/lib/acquirer'
 import { municipalityOf } from './RealEstateSection'
+import { useRowsFrom } from '@/lib/useRowsFrom'
 import RealEstateTable from './RealEstateTable'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow } from '@/types'
 
+/** 登記情報/法務局ブロックの請求先の既定値 */
+const RE_REQUEST_TO_DEFAULT = '民事法務協会'
 const HOUMU_ITEMS = ['登記情報', '所有者事項', '公図', '地積測量図'] as const   // JTN/民事法務協会/法務局
 const KOKUZEI_ITEMS = ['路線価'] as const                                       // 国税局HP
 const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.property_type || '未入力の物件'
@@ -49,9 +53,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [adding, setAdding] = useState(false)
-  const [localAcq, setLocalAcq] = useState<RealEstateAcquisitionRow[]>(acquisitions)
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setLocalAcq(acquisitions) }, [acquisitions])
+  const [localAcq, setLocalAcq] = useRowsFrom(acquisitions)
 
   // 市区町村ブロック＝物件の市区町村 ∪ 市区町村スコープの取得行
   const propMunis = properties.map(municipalityOf).filter(Boolean)
@@ -107,26 +109,42 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
     const existing = findPropRow(prop.id)
     if (existing) return existing
     const propMuni = (prop.municipality ?? '').trim() || null
-    const seed = { case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni, item_type: null, item_types: [], request_to: '法務局', acquirer: '自社', sort_order: 0 }
+    const seed = { case_id: caseId, scope: 'property', target_property_id: prop.id, target_municipality: propMuni, item_type: null, item_types: [], request_to: RE_REQUEST_TO_DEFAULT, acquirer: '自社', sort_order: 0 }
     const { data, error } = await supabase.from('real_estate_acquisitions').insert(seed).select().single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return null }
     const row = data as unknown as RealEstateAcquisitionRow
     setLocalAcq(prev => [...prev, row])
     return row
   }
-  const patchProp = async (prop: RealEstatePropertyRow, patch: Partial<RealEstateAcquisitionRow>) => {
-    const row = await ensurePropRow(prop)
-    if (!row) return
+  // 物件の行が無い状態で資料チップを続けて押すと、作成が終わる前に次の作成が走って
+  // 同じ物件の行が2本できる（＝表示している行と書き込む行がずれて、請求先や資料が食い違う）。
+  // 物件ごとに作成中の処理を1本にまとめる。
+  const ensuringRef = useRef<Map<string, Promise<RealEstateAcquisitionRow | null>>>(new Map())
+  const ensurePropRowOnce = (prop: RealEstatePropertyRow): Promise<RealEstateAcquisitionRow | null> => {
+    const running = ensuringRef.current.get(prop.id)
+    if (running) return running
+    const task = ensurePropRow(prop).finally(() => { ensuringRef.current.delete(prop.id) })
+    ensuringRef.current.set(prop.id, task)
+    return task
+  }
+  // 行が確定したあとの書き込み。ここで再び行を作りにいかないよう、行そのものを受け取る。
+  const writePropRow = async (row: RealEstateAcquisitionRow, patch: Partial<RealEstateAcquisitionRow>) => {
     setLocalAcq(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } : r))
     const { error } = await supabase.from('real_estate_acquisitions').update(patch).eq('id', row.id)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
+  const patchProp = async (prop: RealEstatePropertyRow, patch: Partial<RealEstateAcquisitionRow>) => {
+    const row = await ensurePropRowOnce(prop)
+    if (!row) return
+    await writePropRow(row, patch)
+  }
   const togglePropItem = async (prop: RealEstatePropertyRow, item: string) => {
-    const row = findPropRow(prop.id)
-    const cur = row ? itemsOf(row) : []
+    const row = await ensurePropRowOnce(prop)
+    if (!row) return
+    const cur = itemsOf(row)
     const next = cur.includes(item) ? cur.filter(x => x !== item) : [...cur, item]
-    await patchProp(prop, { item_types: next, item_type: next[0] ?? null })
+    await writePropRow(row, { item_types: next, item_type: next[0] ?? null })
   }
 
   // ＋市区町村を追加（アプリ内モーダルで名称入力→空物件を1件作ってブロックを増やす。タスク生成なし）
@@ -203,7 +221,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                         {muniProps.map((p, i) => {
                           const row = findPropRow(p.id)
                           const acquirer = row?.acquirer ?? '自社'
-                          const requestTo = row?.request_to ?? '法務局'
+                          const requestTo = row?.request_to ?? RE_REQUEST_TO_DEFAULT
                           const dim = acquirer === '依頼者' || acquirer === '不要' ? 'opacity-40 pointer-events-none' : ''
                           const items = requestTo === '国税局HP' ? KOKUZEI_ITEMS : HOUMU_ITEMS
                           return (
