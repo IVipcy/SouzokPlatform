@@ -85,11 +85,12 @@ export function buildInventorySections(
   // 種別が土地でも建物でもない物件（未入力など）は落とさず土地側に寄せる
   const rest = properties.filter(p => !isLand(p.property_type) && !isBuilding(p.property_type))
 
-  const propRow = (p: Property, cells: InvCell[], subLine?: string | null): InventoryRow => ({
+  // 家屋番号は建物だけの項目。土地の行には出さない（withKaoku を立てたときだけ2段目を持たせる）。
+  const propRow = (p: Property, cells: InvCell[], withKaoku = false): InventoryRow => ({
     source: { table: 'real_estate_properties', id: p.id },
     cells, amount: p.appraisal_value ?? null, amountField: 'appraisal_value',
     note: p.notes ?? '', noteField: 'notes',
-    subLine: subLine ?? null, subField: 'kaoku_bango',
+    ...(withKaoku ? { subLine: p.kaoku_bango ? `家屋番号　${p.kaoku_bango}` : '', subField: 'kaoku_bango' } : {}),
   })
   const finRow = (f: FinAsset, cells: InvCell[]): InventoryRow => ({
     source: { table: 'financial_assets', id: f.id },
@@ -117,7 +118,7 @@ export function buildInventorySections(
         cell(p.building_kind, 'building_kind'),
         cell(p.building_structure, 'building_structure'),
         cell(shareText(p.share_numerator, p.share_denominator)),
-      ], p.kaoku_bango ? `家屋番号　${p.kaoku_bango}` : ''))),
+      ], true))),
     sec('deposit', '預貯金', ['金融機関', '支店', '種別', '口座番号等'], '金額',
       financialAssets.filter(f => f.asset_type === '預貯金').map(f => finRow(f, [
         cell(f.institution_name, 'institution_name'),
