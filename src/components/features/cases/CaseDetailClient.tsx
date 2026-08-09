@@ -7,7 +7,7 @@ import { CheckCircle2, ListChecks, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { kosekiOfficeFromAddress } from '@/lib/address'
 import { showToast } from '@/components/ui/Toast'
-import { normalizeTaskStatus } from '@/lib/taskReadiness'
+import { normalizeTaskStatus, toReadinessReceipts, getStartSignal } from '@/lib/taskReadiness'
 import { useModal } from '@/hooks/useModal'
 import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import CompletionCautionModal from '@/components/features/tasks/CompletionCautionModal'
@@ -53,7 +53,8 @@ import HandoffModal from './HandoffModal'
 import AssignRequestModal from './AssignRequestModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { getCaseTabVisibility } from '@/lib/caseTabs'
+import { getCaseTabVisibility, type TabVisibility } from '@/lib/caseTabs'
+import { toneOfTab, TONE_BG } from '@/lib/practiceTabTone'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
@@ -414,15 +415,47 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
   const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
   // 末尾に 案件情報 グループ (assignees/ownerSales/meeting) を追加。CaseTabs 側で InfoDropdown「案件情報」にまとめて表示される。
-  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'assignees', 'ownerSales', 'meeting']
+  // 到着物は管理担当も見る（受信の状況を確認する）。W-Check自体は事務管理の作業。
+  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting']
+  // 面談設定済（まだ受注もしていない段階）では管理担当も通常のタブ構成で見る。
+  // 請求・納品まで並ぶのは、この段階では早すぎるため。
+  const managerFixedTabs = isManagerViewer && caseState.status !== '面談設定済'
+
+  // 事務管理担当には、管理担当が手を動かす実務タブを既定で出さない（持ち場が違う）。
+  // 見たいときだけ「管理担当のタブも表示」で出せるようにして、閉じ込めない。
+  const isAssistantViewer = viewerRole === 'assistant'
+  const MANAGER_ONLY_PRACTICE: TabKey[] = ['legalInfo', 'will', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'letter', 'execution', 'contractCreate', 'division', 'registration']
+  const [showManagerTabs, setShowManagerTabs] = useState(false)
+  const hideForAssistant = (v: TabVisibility): TabVisibility =>
+    (!isAssistantViewer || showManagerTabs)
+      ? v
+      : { visible: v.visible.filter(t => !MANAGER_ONLY_PRACTICE.includes(t) || t === activeTab), collapsed: v.collapsed }
+
+  // タスクタブの数字＝いま着手できるものだけ。未着手を全部数えると
+  // 「やっていないタスクが山ほどある」ように見えて焦るため。
+  const tabTaskCount = (() => {
+    const rr = toReadinessReceipts(documentReceipts ?? [])
+    const open = tasks.filter(t => normalizeTaskStatus(t.status) !== '完了')
+    return isManagerViewer
+      ? open.filter(t => t.task_kind === 'system').length
+      : open.filter(t => getStartSignal(t, rr).ready).length
+  })()
+
+  // 隠している管理担当タブの数（トグルの表示判定・件数表示に使う）
+  const hiddenManagerTabCount = isAssistantViewer
+    ? tabVisRaw.visible.filter(t => MANAGER_ONLY_PRACTICE.includes(t) && t !== activeTab).length
+    : 0
+
   const tabVis = minimal
     ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
-    : isManagerViewer
+    : managerFixedTabs
       ? { visible: MANAGER_TABS, collapsed: [] as TabKey[] }
-      : tabVisRaw
+      : hideForAssistant(tabVisRaw)
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
   const HEADER_TABS: TabKey[] = ['receipts', 'docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
+  // 開いているタブの持ち場（ベージュ=オーダーシート／ピンク=事務管理／緑=管理担当）
+  const tabTone = toneOfTab(effectiveTab)
   // 検討中〜受注（＋失注）は固定順のフラット表示（グループ分けせず指定順のピルで見せる）
   const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
   const flatOrderTabs = minimal || FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
@@ -462,7 +495,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   return (
     <CaseComposeProvider caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={isCaseManager}>
-    <div>
+    {/* 開いているタブの持ち場で地色を変える（ベージュ=オーダーシート／ピンク=事務管理／緑=管理担当）。
+        誰の作業をしている画面なのかが、タブを見なくても分かるようにする。 */}
+    <div className={`${tabTone ? `${TONE_BG[tabTone]} -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6 pb-8 min-h-screen` : ''}`}>
       <CaseHeader
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
@@ -540,7 +575,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <CaseTabs
           activeTab={effectiveTab}
           onTabChange={setActiveTab}
-          taskCount={isManagerViewer ? tasks.filter(t => t.task_kind === 'system').length : tasks.length}
+          taskCount={tabTaskCount}
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
@@ -549,6 +584,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           flatOrder={flatOrderTabs}
           labelOverrides={showMeetingSheet ? { orderSheet: '面談シート' } : undefined}
         />
+
+        {/* 事務管理担当：管理担当が手を動かすタブは既定で隠している。見たいときだけ出す。 */}
+        {isAssistantViewer && !minimal && hiddenManagerTabCount > 0 && (
+          <div className="flex justify-end -mt-3 mb-3">
+            <button type="button" onClick={() => setShowManagerTabs(v => !v)}
+              className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-gray-500 hover:text-brand-700 border border-gray-200 rounded-md px-2 py-1 bg-white">
+              {showManagerTabs ? '管理担当のタブを隠す' : `管理担当のタブも表示（${hiddenManagerTabCount}）`}
+            </button>
+          </div>
+        )}
 
         {/* 受託フロー・ナビゲーター：受注案件を開くたび、作業着手準備への前提条件（OS作成/契約書類受領/料金表・前受金請求）を案内 */}
         {jutakuNavVisible && (

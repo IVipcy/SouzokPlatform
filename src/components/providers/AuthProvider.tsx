@@ -53,7 +53,8 @@ export function useIsManager() {
   )
 }
 
-// 到着物受信簿を操作できるか（管理担当に加え、事務スタッフ=assistant も新規登録〜受信確定まで可）。
+// 到着物受信簿を操作できるか。受信確定(W-Check)は事務管理担当の作業。
+// 管理担当も状況確認のため操作はできる（禁止する理由がないため）。
 export function useCanOperateReceipts() {
   const user = useAuth()
   if (!user) return false

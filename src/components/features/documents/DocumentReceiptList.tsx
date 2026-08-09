@@ -54,7 +54,7 @@ function formatReceiptDateHeader(ymd: string): string {
 }
 
 export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds, onReRegister }: Props) {
-  const globalCanManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は管理担当＋事務スタッフ(assistant)
+  const globalCanManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は事務管理担当の作業（管理担当も操作はできる）
   const opSet = useMemo(() => new Set(operableCaseIds ?? []), [operableCaseIds])
   // 全体権限が無くても、自分が担当の案件の受信簿だけは操作可（受注/管理担当の開封・紐付け）
   const canManageReceipt = (r: DocumentReceiptRow) => globalCanManage || opSet.has(r.case_id)
@@ -1059,7 +1059,7 @@ function ReceiptRow({
                     ><X className="w-2.5 h-2.5" /></button>
                   </span>
                 ) : !canManage ? (
-                  <span className="text-[11px] text-gray-300" title="受信確定(W-Check)は管理担当のみ">未確認</span>
+                  <span className="text-[11px] text-gray-300" title="受信確定(W-Check)は事務管理担当が行います">未確認</span>
                 ) : (
                   <button
                     type="button"

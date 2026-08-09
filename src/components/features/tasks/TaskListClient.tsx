@@ -96,8 +96,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
   // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
-  const [readyOnly, setReadyOnly] = useState(true)
-  const [waitOnly, setWaitOnly] = useState(true)
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
@@ -116,9 +114,15 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
   // 案件タスク（task_kind='case'）を担当区分(work_role)で振り分ける。
   // 受注/管理担当の初期タスク(task_kind='system')はどちらの一覧からも除外。
+  // 一覧に載せるのは「着手OK・対応中・完了」だけ。
+  // 着手できないタスク（受領待ち・前段が終わっていない）まで並べると、
+  // やり残しが山ほどあるように見えて手が止まるため、着手できるものだけを出す。
   const assistantTasks = useMemo(
-    () => tasks.filter(t => isTaskInRoleScope(t, roleScope)),
-    [tasks, roleScope],
+    () => tasks.filter(t => {
+      if (!isTaskInRoleScope(t, roleScope)) return false
+      return normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready
+    }),
+    [tasks, roleScope, receipts],
   )
 
   const filtered = useMemo(() => {
@@ -133,10 +137,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
     if (taskTab !== 'all') {
       result = result.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
-    }
-    // 着手OK／受領次第OK（着手前の中の絞り込み・両方ONなら和集合）。着手前タブのときだけ適用。
-    if (statusFilter === '着手前' && (readyOnly || waitOnly)) {
-      result = result.filter(t => (readyOnly && getStartSignal(t, receipts).ready) || (waitOnly && isWaitingReceipt(t)))
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -158,9 +158,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       if (kr !== 0) return kr
       const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
       if (gr !== 0) return gr
-      const aReady = getStartSignal(a, receipts).ready ? 0 : 1
-      const bReady = getStartSignal(b, receipts).ready ? 0 : 1
-      if (aReady !== bReady) return aReady - bReady
       const aOver = !!(a.due_date && a.due_date < today && normalizeStatus(a.status) !== '完了')
       const bOver = !!(b.due_date && b.due_date < today && normalizeStatus(b.status) !== '完了')
       if (aOver !== bOver) return aOver ? -1 : 1
@@ -168,14 +165,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, readyOnly, waitOnly, search, caseMap, currentMemberId, today, receipts])
-
-  const waitCount = useMemo(() => assistantTasks.filter(t => isWaitingReceipt(t)).length, [assistantTasks])
-
-  const readyCount = useMemo(
-    () => assistantTasks.filter(t => getStartSignal(t, receipts).ready).length,
-    [assistantTasks, receipts],
-  )
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today])
 
   // 業務タブごとの未完了件数（バッジ）。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -391,40 +381,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="未着手"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
-            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => { setStatusFilter('対応中'); setReadyOnly(false); setWaitOnly(false) }} />
-            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => { setStatusFilter('完了'); setReadyOnly(false); setWaitOnly(false) }} />
-            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => { setStatusFilter('all'); setReadyOnly(false); setWaitOnly(false) }} />
+            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
+            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
+            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
           </div>
-
-          {/* 着手OK（今すぐやれるもの）だけ。未着手のときのみ意味があるので未着手選択時に表示 */}
-          {statusFilter === '着手前' && (
-            <>
-              <span className="w-px h-6 bg-gray-200" />
-              <button
-                onClick={() => setReadyOnly(v => !v)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors whitespace-nowrap ${
-                  readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
-                title="書類が届いた等で今すぐ着手できるタスクだけ表示"
-              >
-                <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
-                着手OK
-                {readyCount > 0 && <span className="text-[12px] font-mono opacity-70">{readyCount}</span>}
-              </button>
-              <button
-                onClick={() => setWaitOnly(v => !v)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors whitespace-nowrap ${
-                  waitOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
-                title="資料が届いたら着手OKになる「受領次第OK」のタスクだけ表示"
-              >
-                <Package className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />
-                受領次第OK
-                {waitCount > 0 && <span className="text-[12px] font-mono opacity-70">{waitCount}</span>}
-              </button>
-            </>
-          )}
 
           <span className="w-px h-6 bg-gray-200" />
 

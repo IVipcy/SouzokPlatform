@@ -158,8 +158,11 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   const infoAll = all.filter(t => TAB_GROUP[t] === 'info')
   const infoTabs = infoAll.filter(t => !BASIC_INFO_TABS.includes(t))
 
+  // 1行目＝案件そのもの（オーダーシート〜タスク＋案件情報）／2行目＝実務タブ。
+  // 全部を1行に並べると横スクロールで端が見えず、目的のタブを探しにくかった。
   return (
-    <div data-tabbar className="flex items-center gap-0.5 border-b border-gray-200 mb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+    <div data-tabbar className="mb-5">
+    <div className="flex items-center gap-0.5 border-b border-gray-200 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
       {mainTabs.map(key => (
         <Tab key={key} tabKey={key} label={labelOf(key)}
           isActive={activeTab === key}
@@ -167,6 +170,24 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
           onClick={() => onTabChange(key)} />
       ))}
+      {groupInfoTabs ? (
+        infoAll.length > 0 && (
+          <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
+        )
+      ) : (
+        <>
+          {infoTabs.map(key => (
+            <Tab key={key} tabKey={key} label={labelOf(key)}
+              isActive={activeTab === key}
+              isHighlight={highlightSet.has(key)}
+              onClick={() => onTabChange(key)} />
+          ))}
+          {renderBasicInfo()}
+        </>
+      )}
+    </div>
+    {(practiceTabs.length > 0 || practiceCompletedCount > 0) && (
+    <div className="flex items-center gap-0.5 border-b border-gray-200 overflow-x-auto bg-gray-50/70" style={{ scrollbarWidth: 'none' }}>
       {practiceTabs.map(key => (
         <Tab key={key} tabKey={key} label={labelOf(key)}
           isActive={activeTab === key}
@@ -186,21 +207,8 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           <span className="text-[11px] font-mono font-bold">+{practiceCompletedCount}</span>
         </button>
       )}
-      {groupInfoTabs ? (
-        infoAll.length > 0 && (
-          <InfoDropdown tabs={infoAll} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
-        )
-      ) : (
-        <>
-          {infoTabs.map(key => (
-            <Tab key={key} tabKey={key} label={labelOf(key)}
-              isActive={activeTab === key}
-              isHighlight={highlightSet.has(key)}
-              onClick={() => onTabChange(key)} />
-          ))}
-          {renderBasicInfo()}
-        </>
-      )}
+    </div>
+    )}
     </div>
   )
 }
