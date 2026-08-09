@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { createClient } from '@/lib/supabase/server'
+import { buildInventorySections, buildInventoryNotes, inventoryNet } from '@/lib/inventorySheet'
 
 type Property = {
   property_type: string | null; address: string | null; lot_number: string | null; kaoku_bango: string | null
@@ -38,9 +39,6 @@ type OtherAsset = { kind: string | null; label: string | null; amount: number | 
 type Heir = { name: string; is_legal_heir: boolean; legal_share_num: number | null; legal_share_den: number | null }
 
 const F = 'ＭＳ Ｐゴシック'
-const isLand = (t: string | null) => !!t && (t.includes('土地') || t.includes('宅地'))
-const isBuilding = (t: string | null) => !!t && (t.includes('建物') || t.includes('マンション') || t.includes('区分'))
-const shareText = (n: number | null, d: number | null) => (n && d ? `${n}/${d}` : n ? String(n) : '')
 
 export async function GET(req: NextRequest) {
   const caseId = req.nextUrl.searchParams.get('caseId')
@@ -145,61 +143,29 @@ export async function GET(req: NextRequest) {
     return total
   }
 
-  // （土地）
-  const landTotal = section('（土地）',
-    [[1, '番号'], [2, '所在'], [3, '地番'], [4, '地目'], [5, '地積'], [6, '持分'], [7, '固定資産評価額', 2], [9, '備　考'], [10, '根拠資料']],
-    props.filter(p => isLand(p.property_type)).map(p => ({
-      cells: [[2, p.address], [3, p.lot_number], [4, p.land_category], [5, p.land_area], [6, shareText(p.share_numerator, p.share_denominator)], [9, p.notes]] as Array<[number, string | number | null, number?]>,
-      amount: p.appraisal_value,
-    })))
-
-  // （建物）※所在の下に家屋番号を書く2段組み
-  const buildingTotal = section('（建物）',
-    [[1, '番号'], [2, '不動産の所在'], [4, '種類'], [5, '構造・床面積'], [6, '持分'], [7, '評価額', 2], [9, '備考'], [10, '根拠資料']],
-    props.filter(p => isBuilding(p.property_type)).map(p => ({
-      cells: [[2, p.address, 2], [4, p.building_kind], [5, p.building_structure], [6, shareText(p.share_numerator, p.share_denominator)], [9, p.notes]] as Array<[number, string | number | null, number?]>,
-      amount: p.appraisal_value,
-      extraRow: [[2, p.kaoku_bango ? `家屋番号　${p.kaoku_bango}` : '', 2]] as Array<[number, string | number | null, number?]>,
-    })))
-
-  const evidence = (f: FinAsset) => (f.evidence_docs ?? []).join('・')
-  // （預貯金）
-  const depositTotal = section('（預貯金）',
-    [[1, '番号'], [2, '金融機関', 2], [4, '種別'], [5, '口座番号等', 2], [7, '金額', 2], [9, '備考'], [10, '根拠資料']],
-    fins.filter(f => f.asset_type === '預貯金').map(f => ({
-      cells: [[2, [f.institution_name, f.branch_name].filter(Boolean).join('　'), 2], [4, f.account_type], [5, f.account_number, 2], [9, f.notes], [10, evidence(f)]] as Array<[number, string | number | null, number?]>,
-      amount: f.balance_amount,
-    })))
-
-  // （有価証券）証券・信託
-  const securitiesTotal = section('（有価証券）',
-    [[1, '番号'], [2, '金融機関', 2], [4, '種別'], [5, '銘柄等', 2], [7, '金額', 2], [9, '備考'], [10, '根拠資料']],
-    fins.filter(f => f.asset_type === '証券' || f.asset_type === '信託銀行' || f.asset_type === '信託').map(f => ({
-      cells: [[2, [f.institution_name, f.branch_name].filter(Boolean).join('　'), 2], [4, f.asset_type], [5, f.account_number, 2], [9, f.notes], [10, evidence(f)]] as Array<[number, string | number | null, number?]>,
-      amount: f.balance_amount,
-    })))
-
-  // （その他財産）実物のシートには無いが、入力があるのに出力から落ちるのを避けるため区分として出す
-  const otherAssetRows = others.filter(o => o.kind === 'その他財産')
-  const otherTotal = otherAssetRows.length > 0
-    ? section('（その他財産）',
-      [[1, '番号'], [2, '品目', 4], [7, '金額', 2], [9, '備考'], [10, '根拠資料']],
-      otherAssetRows.map(o => ({
-        cells: [[2, o.label, 4], [9, o.note]] as Array<[number, string | number | null, number?]>,
-        amount: o.amount,
-      })))
-    : 0
-
-  // （債務）相続債務＋その他費用
-  const debtTotal = section('（債務）',
-    [[1, '番号'], [2, '品目', 4], [7, '金額', 2], [9, '備考'], [10, '根拠資料']],
-    others.filter(o => o.kind === '相続債務' || o.kind === 'その他費用').map(o => ({
-      cells: [[2, [o.kind === 'その他費用' ? '【費用】' : '', o.label].filter(Boolean).join(''), 4], [9, o.note]] as Array<[number, string | number | null, number?]>,
-      amount: o.amount,
-    })))
+  const built = buildInventorySections(props, fins, others)
+  const builtNotes = buildInventoryNotes(props, fins, others)
+  for (const b of built) {
+    // その他財産は実物のシートに無い区分。登録が無いときは出さない。
+    if (b.key === 'other' && b.rows.length === 0) continue
+    const ns = builtNotes[b.key] ?? []
+    section(
+      `（${b.title}）`,
+      [[1, '番号'], ...b.headers.map((h, i2) => [2 + i2, h] as [number, string]), [7, b.amountHeader, 2], [9, '備考'], [10, '根拠資料']],
+      b.rows.map((row, i2) => ({
+        cells: [
+          ...row.cells.map((v, ci) => [2 + ci, v] as [number, string | number | null]),
+          [9, ns[i2]?.note ?? ''] as [number, string],
+          [10, ns[i2]?.evidence ?? ''] as [number, string],
+        ],
+        amount: row.amount,
+        extraRow: row.subLine ? ([[2, row.subLine, 2]] as Array<[number, string | number | null, number?]>) : undefined,
+      })),
+    )
+  }
 
   // 取得合計（プラス財産 − 債務）
-  const net = landTotal + buildingTotal + depositTotal + securitiesTotal + otherTotal - debtTotal
+  const net = inventoryNet(built)
   r += 1
   ws.mergeCells(r, 5, r, 6)
   put(r, 5, '取得合計', f11b, { horizontal: 'center' })
