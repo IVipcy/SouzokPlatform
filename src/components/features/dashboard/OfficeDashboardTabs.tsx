@@ -6,20 +6,15 @@
 // そこで一日の入口をこの画面にまとめ、4つのタブに分けている。
 //   ① 作業着手待ち … 作業着手準備の案件（前受金入金・ファイル化が済めば着手OK）
 //   ② 郵便       … 本日届いてまだ対応していない到着物（受信簿と同じ中身）
-//   ③ 工程別     … システムの工程ごとのタスク。○△×で危ないところが一目で分かる
-//   ④ 報連相     … 自分が出した報告・連絡・相談と、その確認状況
+//   ③ 報連相     … 自分が出した報告・連絡・相談と、その確認状況
 //
-// 工程は独自に切らず、システムの工程（KOTEI_ORDER）をそのまま使う。
+// ※ 工程別タブは廃止。タスクの分類は事務管理タスク一覧側で作り直す。
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Mail, Layers, MessageSquare, PlayCircle } from 'lucide-react'
+import { ClipboardList, Mail, MessageSquare, PlayCircle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
-import TaskListClient, { isTaskInRoleScope, type CaseInfo } from '@/components/features/tasks/TaskListClient'
-import { KOTEI_ORDER, koteiOf } from '@/lib/kotei'
-import type { ReadinessReceipt } from '@/lib/taskReadiness'
-import type { TaskRow, MemberRow } from '@/types'
 
 export type MailRow = {
   id: string
@@ -49,21 +44,7 @@ export type HourenSouRow = {
   confirmedDate: string | null
 }
 
-type TabKey = 'start' | 'mail' | 'kotei' | 'hourensou'
-
-// 工程の状態。青○＝気をつけるものなし／黄△＝期限超過か急ぎ／赤×＝超急ぎ。
-function koteiMark(caution: number, urgent: number) {
-  if (urgent > 0) return { mark: '×', cls: 'bg-red-50 text-red-700 border-red-200', dot: 'text-red-600' }
-  if (caution > 0) return { mark: '△', cls: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'text-amber-600' }
-  return { mark: '○', cls: 'bg-brand-50 text-brand-700 border-brand-200', dot: 'text-brand-600' }
-}
-
-const normalizeStatus = (s: string) => {
-  if (s === '未着手') return '着手前'
-  if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'
-  if (s === 'キャンセル') return '完了'
-  return s
-}
+type TabKey = 'start' | 'mail' | 'hourensou'
 
 function TabBtn({ v, label, icon: Icon, count, current, onSelect }: {
   v: TabKey; label: string; icon: typeof Mail; count?: number; current: TabKey; onSelect: (t: TabKey) => void
@@ -87,53 +68,15 @@ function TabBtn({ v, label, icon: Icon, count, current, onSelect }: {
 
 export default function OfficeDashboardTabs({
   startRows, currentMemberId, currentMemberName, mails, hourenSou,
-  tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, today,
 }: {
   startRows: OfficeRow[]
   currentMemberId: string | null
   currentMemberName: string | null
   mails: MailRow[]
   hourenSou: HourenSouRow[]
-  tasks: TaskRow[]
-  caseMap: Record<string, CaseInfo>
-  allMembers: MemberRow[]
-  receipts: ReadinessReceipt[]
-  financeBlockedCaseIds: string[]
-  freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
-  today: string
 }) {
   const [tab, setTab] = useState<TabKey>('start')
 
-  // 工程ごとの件数。事務管理タスク一覧と同じ振り分け（work_role）で数える。
-  const koteiStats = useMemo(() => {
-    const stat = new Map<string, { open: number; caution: number; urgent: number }>()
-    for (const t of tasks) {
-      if (!isTaskInRoleScope(t, 'assistant')) continue
-      const st = normalizeStatus(t.status)
-      if (st === '完了') continue
-      const k = koteiOf(t.phase)
-      const cur = stat.get(k) ?? { open: 0, caution: 0, urgent: 0 }
-      cur.open += 1
-      const overdue = !!(t.due_date && t.due_date < today)
-      if (t.priority === '超急ぎ') cur.urgent += 1
-      if (t.priority === '超急ぎ' || t.priority === '急ぎ' || overdue) cur.caution += 1
-      stat.set(k, cur)
-    }
-    return stat
-  }, [tasks, today])
-
-  // タスクが1件でもある工程だけ出す（使っていない工程のタブが並ぶと探しにくい）
-  const koteiTabs = useMemo(
-    () => (KOTEI_ORDER as readonly string[]).filter(k => (koteiStats.get(k)?.open ?? 0) > 0),
-    [koteiStats],
-  )
-  const [kotei, setKotei] = useState<string | null>(null)
-  const activeKotei = kotei && koteiTabs.includes(kotei) ? kotei : koteiTabs[0] ?? null
-
-  const openTaskCount = useMemo(
-    () => [...koteiStats.values()].reduce((s, v) => s + v.open, 0),
-    [koteiStats],
-  )
   const pendingHourenSou = hourenSou.filter(h => h.status === '依頼中').length
 
   return (
@@ -142,13 +85,12 @@ export default function OfficeDashboardTabs({
         eyebrow="Dashboard"
         title="事務管理担当ダッシュボード"
         icon={ClipboardList}
-        description="作業着手待ち・本日の郵便・工程別のタスク・報連相をここにまとめています。"
+        description="作業着手待ち・本日の郵便・報連相をここにまとめています。"
       />
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
         <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={startRows.length} current={tab} onSelect={setTab} />
         <TabBtn v="mail" label="郵便" icon={Mail} count={mails.length} current={tab} onSelect={setTab} />
-        <TabBtn v="kotei" label="工程別" icon={Layers} count={openTaskCount} current={tab} onSelect={setTab} />
         <TabBtn v="hourensou" label="報連相" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={setTab} />
       </div>
 
@@ -157,60 +99,6 @@ export default function OfficeDashboardTabs({
       )}
 
       {tab === 'mail' && <MailTab rows={mails} />}
-
-      {tab === 'kotei' && (
-        <div>
-          {koteiTabs.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-6 py-16 text-center text-[13px] text-gray-400">
-              未完了の事務管理タスクはありません
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                {koteiTabs.map(k => {
-                  const st = koteiStats.get(k) ?? { open: 0, caution: 0, urgent: 0 }
-                  const m = koteiMark(st.caution, st.urgent)
-                  const on = activeKotei === k
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setKotei(k)}
-                      title={`${k}：未完了 ${st.open}件（うち 期限超過・急ぎ以上 ${st.caution}件）`}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${
-                        on ? 'bg-brand-600 text-white border-brand-600' : `${m.cls} hover:brightness-95`}`}
-                    >
-                      <span className={`text-[13px] font-bold ${on ? 'text-white' : m.dot}`}>{m.mark}</span>
-                      {k}
-                      <span className={`font-mono text-[11.5px] ${on ? 'text-white/80' : 'opacity-70'}`}>{st.caution}/{st.open}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-[11.5px] text-gray-400 mb-2">
-                件数は「気をつけるタスク数／未完了タスク数」。○＝気になるものなし、△＝期限超過か急ぎあり、×＝超急ぎあり。
-              </p>
-              {activeKotei && (
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-                  <TaskListClient
-                    key={activeKotei}
-                    tasks={tasks}
-                    caseMap={caseMap}
-                    allMembers={allMembers}
-                    currentMemberId={currentMemberId}
-                    receipts={receipts}
-                    financeBlockedCaseIds={financeBlockedCaseIds}
-                    freezeAssetsByCase={freezeAssetsByCase}
-                    roleScope="assistant"
-                    embedded
-                    koteiPreset={activeKotei}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {tab === 'hourensou' && <HourenSouTab rows={hourenSou} />}
     </div>
