@@ -20,6 +20,7 @@ import {
   ChevronsRight,
   Bell,
   Package,
+  Compass,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -39,22 +40,35 @@ const ROLE_LABEL: Record<string, string> = {
   system_manager: 'システム管理者',
 }
 
+// メニューの出し分けは この roles だけで決める（未指定＝全員に出す）。
+// 以前は「アシスタントは許可リスト」「管理担当は禁止リスト」と判定が散らばっていて、
+// 誰に何が出ているのか読み解けなかったため、項目ごとに出す相手を書く形に統一した。
+// システム管理者は roles に関わらず全部見える。相続登記チーム専任だけは別扱い（下の isTouKiOnly）。
+type Role = 'sales' | 'manager' | 'sub_manager' | 'assistant' | 'accounting' | 'lp'
+const SALES_MGR: Role[] = ['sales', 'manager', 'sub_manager']
+const SALES_MGR_LP: Role[] = ['sales', 'manager', 'sub_manager', 'lp']
+
 type NavItem = {
   href: string
   label: string
   Icon: LucideIcon
+  /** このメニューを出す担当区分。未指定＝全員 */
+  roles?: Role[]
 }
 
 const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: 'メイン',
     items: [
-      { href: '/my',       label: 'マイページ',     Icon: UserCircle },
+      // マイページ（アラート・案件報告の集約先）は受注/管理の画面構成なので、事務管理・経理には出さない
+      { href: '/my',       label: 'マイページ',     Icon: UserCircle, roles: SALES_MGR },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
-      { href: '/intake',   label: '面談登録', Icon: PenSquare },
-      { href: '/tasks',    label: '事務管理タスク一覧', Icon: ListChecks },
-      { href: '/dashboard/office', label: '事務管理ダッシュボード', Icon: ClipboardList },
+      { href: '/intake',   label: '面談登録',       Icon: PenSquare, roles: SALES_MGR_LP },
+      // それぞれの持ち場のタスク一覧・ダッシュボード。担当区分ごとに1本だけ出す
+      { href: '/manager-tasks',    label: '管理担当タスク一覧',   Icon: Compass,       roles: ['manager', 'sub_manager'] },
+      { href: '/tasks',            label: '事務管理タスク一覧',   Icon: ListChecks,    roles: ['assistant'] },
+      { href: '/dashboard/office', label: '事務管理ダッシュボード', Icon: ClipboardList, roles: ['assistant'] },
     ],
   },
   {
@@ -63,7 +77,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/confirm',   label: '確認簿',       Icon: ClipboardCheck },
       { href: '/documents', label: '到着物受信簿', Icon: FileText },
       { href: '/billing',   label: '請求・入金',   Icon: Receipt },
-      { href: '/workload',  label: '稼働状況一覧', Icon: Gauge },
+      // 稼働状況一覧＝割振りに使う。事務管理・経理は割り振らないので出さない
+      { href: '/workload',  label: '稼働状況一覧', Icon: Gauge, roles: SALES_MGR_LP },
       { href: '/manual',    label: 'マニュアル',   Icon: BookOpen },
     ],
   },
@@ -138,15 +153,8 @@ export default function Sidebar() {
 
       {/* ナビゲーション（マイページは 受注/管理/システム管理者 のみ表示） */}
       {(() => {
-        const canMyPage = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager') || ['sales', 'manager', 'sub_manager'].includes(user.primaryRole ?? ''))
-        // 事務管理（アシスタント／パート）と経理は、同じメインメニュー（ダッシュボード・案件一覧・
-        // 事務管理タスク・確認簿・到着物受信簿・請求入金）のみ表示。
-        const isAssistantLike = !!user && ['assistant', 'accounting'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
-        const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/confirm', '/documents', '/billing'])
-        // 管理担当は事務管理の持ち場（事務管理タスク一覧・事務管理ダッシュボード）を見ないので出さない。
-        // 管理担当の作業は マイページ／管理担当タスク一覧 側にある。
-        const isManagerLike = !!user && ['manager', 'sub_manager'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
-        const ASSISTANT_ONLY = new Set(['/tasks', '/dashboard/office'])
+        const isSysManager = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager'))
+        const myRole = (user?.primaryRole ?? '') as Role
         // 相続登記チームメンバー(システム管理者除く) は 相続登記チームダッシュボードだけ表示。
         // 他のメニュー(マイページ・案件一覧・タスク一覧・請求 等)はすべて非表示。
         const isTouKiOnly = !!user?.isTouKiTeam && !user.roles.includes('system_manager') && user.primaryRole !== 'system_manager'
@@ -178,10 +186,8 @@ export default function Sidebar() {
         }
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
-          if (isAssistantLike) return ASSISTANT_ALLOWED.has(it.href)
-          if (isManagerLike && ASSISTANT_ONLY.has(it.href)) return false
-          if (it.href === '/my') return canMyPage
-          return true
+          if (isSysManager) return true              // システム管理者は全部見える
+          return !it.roles || it.roles.includes(myRole)
         }) })).filter(s => s.items.length > 0)
         return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
