@@ -383,7 +383,8 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                         <select value={r.recipientHeirId ?? ''} onChange={e => setRecipient(r, e.target.value)} disabled={saving === r.key}
                           className="w-full px-1.5 py-1 text-[11.5px] border border-gray-200 rounded bg-white outline-none focus:border-brand-400">
                           <option value="">共通（全員）</option>
-                          {heirs.map(h => <option key={h.id} value={h.id}>{h.name || '（氏名未入力）'}</option>)}
+                          {/* 依頼者は窓口なので分かるように添える（納品物の多くはこの人あて） */}
+                          {heirs.map(h => <option key={h.id} value={h.id}>{h.name || '（氏名未入力）'}{h.is_client ? '（依頼者）' : ''}</option>)}
                         </select>
                         {r.recipientHeirId && (
                           <div className="mt-0.5 text-[10px] text-gray-400 truncate" title={heirs.find(h => h.id === r.recipientHeirId)?.address ?? ''}>

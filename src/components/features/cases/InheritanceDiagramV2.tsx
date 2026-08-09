@@ -264,7 +264,7 @@ export default function InheritanceDiagramV2({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
-            isApplicant={spouse.is_applicant}
+            isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}
 
@@ -283,7 +283,7 @@ export default function InheritanceDiagramV2({
             registeredAddress={heir.registered_address}
             isLegalHeir={heir.is_legal_heir}
             livedTogether={heir.lived_together}
-            isApplicant={heir.is_applicant}
+            isApplicant={heir.is_applicant} isClient={heir.is_client}
             noteBadge={groupKeyOf(heir) !== 'current' ? '前婚の子' : undefined}
           />
         ))}
@@ -372,7 +372,7 @@ function ParentsLayout({
             registeredAddress={p.registered_address}
             isLegalHeir={p.is_legal_heir}
             livedTogether={p.lived_together}
-            isApplicant={p.is_applicant}
+            isApplicant={p.is_applicant} isClient={p.is_client}
           />
         ))}
 
@@ -403,7 +403,7 @@ function ParentsLayout({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
-            isApplicant={spouse.is_applicant}
+            isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}
       </div>
@@ -536,7 +536,7 @@ function SiblingsLayout({
               registeredAddress={heir.registered_address}
               isLegalHeir={heir.is_legal_heir}
               livedTogether={heir.lived_together}
-              isApplicant={heir.is_applicant}
+              isApplicant={heir.is_applicant} isClient={heir.is_client}
               notHeir={isFormerSpouseHeir(heir)}
               noteBadge={isHalfBloodHeir(heir) ? '半血（相続分1/2）' : undefined}
             />
@@ -556,7 +556,7 @@ function SiblingsLayout({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
-            isApplicant={spouse.is_applicant}
+            isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}
       </div>
@@ -568,7 +568,7 @@ function SiblingsLayout({
 function PersonBox({
   x, y, width, label, labelBg, borderClass,
   name, birthDate, deathDate, address, registeredAddress,
-  isDeceased, isLegalHeir, isApplicant, livedTogether, notHeir, noteBadge,
+  isDeceased, isLegalHeir, isApplicant, isClient, livedTogether, notHeir, noteBadge,
 }: {
   x: number
   y: number
@@ -584,6 +584,8 @@ function PersonBox({
   isDeceased?: boolean
   isLegalHeir?: boolean
   isApplicant?: boolean
+  /** この案件を依頼した相続人（heirs.is_client）。誰が窓口かひと目で分かるように出す */
+  isClient?: boolean
   /** 被相続人と同居していた相続人。書類回収・連絡の起点になるため図で分かるようにする。 */
   livedTogether?: boolean
   /** 相続人ではない関係者（前妻・前夫）。「相続人ではない」と明記する。 */
@@ -614,6 +616,7 @@ function PersonBox({
         <div className="p-2 flex flex-col items-center gap-1">
           <div className="text-[13px] font-bold tracking-wider flex items-center gap-1 flex-wrap justify-center">
             {name ?? '—'}
+            {isClient && <span className="text-[9.5px] font-bold text-brand-700 bg-brand-50 border border-brand-200 rounded px-1 py-px">依頼者</span>}
             {isApplicant && <span className="text-[11px] font-semibold text-red-600">（申出人）</span>}
             {livedTogether && <span className="text-[9.5px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-px">同居</span>}
             {noteBadge && <span className="text-[9.5px] font-bold text-gray-600 bg-gray-100 border border-gray-200 rounded px-1 py-px">{noteBadge}</span>}
