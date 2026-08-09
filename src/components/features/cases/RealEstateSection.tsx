@@ -5,7 +5,7 @@
 // 各市区町村タブ＝進捗サマリー／物件一覧（評価額・確定済）／取得資料①市区町村請求→②物件取得。
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Check, Lock, ShieldCheck } from 'lucide-react'
+import { Plus, Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager, useAuth } from '@/components/providers/AuthProvider'
@@ -308,11 +308,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         </div>
       )}
 
-      {/* TOP（一覧）：確定済を集計した読み取り専用一覧 */}
+      {/* TOP（一覧）：各市区町村タブの物件を集計した読み取り専用一覧 */}
       {sub === 'top' && (
         <div className="space-y-3.5">
           <div>
-            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="財産目録に載るのは「確定済」の物件だけです。評価額の入力と確定は、各市区町村タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="評価額の入力は各市区町村タブで行います。ここに出ている物件はそのまま財産目録に載ります。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
                 <thead>
@@ -322,12 +322,11 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                     <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
                     <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                     <th className="px-2.5 py-2 text-right font-semibold w-36">評価額</th>
-                    <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
                   </tr>
                 </thead>
                 <tbody>
                   {properties.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
+                    <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
                   ) : properties.map((p, i) => (
                     <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                       <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
@@ -335,28 +334,17 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                       <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={p.survey_result ?? ''}>{p.survey_result || <span className="text-gray-300">—</span>}</td>
                       <td className="px-2.5 py-2 text-right">{yen(p.appraisal_value)}</td>
-                      <td className="px-2.5 py-2 text-center">
-                        {p.confirmed
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />確定済</span>
-                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200"><Lock className="w-3 h-3" />未確定</span>}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
-                {properties.length > 0 && (() => {
-                  const conf = properties.filter(p => p.confirmed)
-                  const confSum = conf.reduce((s, p) => s + (p.appraisal_value ?? 0), 0)
-                  const unconfSum = properties.filter(p => !p.confirmed).reduce((s, p) => s + (p.appraisal_value ?? 0), 0)
-                  return (
-                    <tfoot>
-                      <tr className="bg-gray-50 font-semibold text-gray-700">
-                        <td className="px-2.5 py-2 text-right" colSpan={4}>評価額 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
-                        <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
-                        <td className="px-2.5 py-2 text-center text-[11px] text-gray-500">{conf.length}/{properties.length}件</td>
-                      </tr>
-                    </tfoot>
-                  )
-                })()}
+                {properties.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-gray-50 font-semibold text-gray-700">
+                      <td className="px-2.5 py-2 text-right" colSpan={4}>評価額 合計<span className="ml-1 font-normal text-[11px] text-gray-400">{properties.length}件</span></td>
+                      <td className="px-2.5 py-2 text-right">{yen(properties.reduce((s, p) => s + (p.appraisal_value ?? 0), 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
@@ -386,7 +374,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 名寄帳で判明した追加物件もこの表に足す。読込タスク着地時のみハイライト。 */}
             <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
               <SectionHeading title="物件一覧（想定物件を入力／名寄帳で判明した物件もここに追加）" hint="同一市区町村内の物件はこの表にまとめて入力します。名寄帳（①）で新たに見つかった物件もここに追加してください。②の登記などが揃ったら評価額を入れて確定します。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} showConfirmed addressSuggestions={addressSuggestions} />
+              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} />
             </div>
             {/* ① 名寄帳・評価証明（役所へ請求）。各表は枠付きカードで区切る。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>

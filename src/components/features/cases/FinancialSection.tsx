@@ -1,10 +1,10 @@
 'use client'
 
 // 金融資産（実務タブ）：預金/証券/信託。左タブ＝金融機関ごと、中身＝その機関の口座を表で表示（横スクロールで全項目）。
-// TOP（一覧）＝この種別の全口座を集計（残高・確定済バッジ）。財産目録へ反映は確定済のみ。
+// TOP（一覧）＝この種別の全口座を集計（残高・受信状況）。入力した残高はそのまま財産目録に載る。
 
 import { useState } from 'react'
-import { Plus, Check, Lock } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { LeftRail } from './LeftRail'
@@ -84,10 +84,10 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
 
-        {/* TOP（一覧）：この種別の全口座を確定済バッジ付きで集計（読み取り専用） */}
+        {/* TOP（一覧）：この種別の全口座を集計（読み取り専用） */}
         {sub === 'top' && (
           <div>
-            <SectionHeading title="口座一覧（各金融機関の集計）" hint="財産目録に載るのは「確定済」の口座だけです。残高の入力と確定は、各金融機関タブで行います。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading title="口座一覧（各金融機関の集計）" hint="残高の入力は各金融機関タブで行います。ここに出ている口座はそのまま財産目録に載ります。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 680 }}>
                 <thead>
@@ -97,12 +97,11 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                     <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                     <th className="px-2.5 py-2 text-right font-semibold w-36">{balanceLabel}</th>
                     <th className="px-2.5 py-2 text-center font-semibold w-20">受信済</th>
-                    <th className="px-2.5 py-2 text-center font-semibold w-24">確定済</th>
                   </tr>
                 </thead>
                 <tbody>
                   {kindAssets.length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
+                    <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
                   ) : kindAssets.map((a, i) => (
                     <tr key={a.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                       <td className="px-2.5 py-2 font-medium text-gray-800">{(a.institution_name ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
@@ -114,28 +113,18 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
                           ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />受信済</span>
                           : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
                       </td>
-                      <td className="px-2.5 py-2 text-center">
-                        {a.balance_confirmed
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />確定済</span>
-                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200"><Lock className="w-3 h-3" />未確定</span>}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
-                {kindAssets.length > 0 && (() => {
-                  const conf = kindAssets.filter(a => a.balance_confirmed)
-                  const confSum = conf.reduce((s, a) => s + (a.balance_amount ?? 0), 0)
-                  const unconfSum = kindAssets.filter(a => !a.balance_confirmed).reduce((s, a) => s + (a.balance_amount ?? 0), 0)
-                  return (
-                    <tfoot>
-                      <tr className="bg-gray-50 font-semibold text-gray-700">
-                        <td className="px-2.5 py-2 text-right" colSpan={3}>{balanceLabel} 合計（確定済）{unconfSum > 0 && <span className="ml-1 font-normal text-[11px] text-gray-400">／未確定 {yen(unconfSum)}</span>}</td>
-                        <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confSum)}</td>
-                        <td className="px-2.5 py-2 text-center text-[11px] text-gray-500" colSpan={2}>確定 {conf.length}/{kindAssets.length}件</td>
-                      </tr>
-                    </tfoot>
-                  )
-                })()}
+                {kindAssets.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-gray-50 font-semibold text-gray-700">
+                      <td className="px-2.5 py-2 text-right" colSpan={3}>{balanceLabel} 合計<span className="ml-1 font-normal text-[11px] text-gray-400">{kindAssets.length}件</span></td>
+                      <td className="px-2.5 py-2 text-right">{yen(kindAssets.reduce((s, a) => s + (a.balance_amount ?? 0), 0))}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
@@ -159,8 +148,8 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
               })()}
               <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${instKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
               <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-                <SectionHeading title="口座一覧（残高の入力・確定）" hint="各項目は横スクロールで見られます。表の上で直接編集できます。財産目録に載るのは確定済の口座だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-                <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={instKey} showConfirmed />
+                <SectionHeading title="口座一覧（残高の入力）" hint="各項目は横スクロールで見られます。表の上で直接編集できます。入力した残高はそのまま財産目録に載ります。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                <FinancialAssetsTable caseId={caseId} kind={kind} assets={assets} onRefresh={onRefresh} progressMode roles={roles} receipts={receipts} tasks={tasks} contractDocs={contractDocs} institutionFilter={instKey} />
               </div>
               {/* 有価証券は1つの証券会社に複数銘柄がぶら下がる。財産目録の「合計評価額」＝明細の合計、
                   「備考」＝株数×1株評価額（基準日）なので、銘柄の明細をここで持つ。 */}
