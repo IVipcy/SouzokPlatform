@@ -73,6 +73,8 @@ export default async function DashboardTopPage() {
   const mgrTeams = sm ? teams : ((role === 'manager' || role === 'sub_manager') && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
   // 事務管理担当（assistant）は「相続事業部全体」＋「事務管理」の2つだけ表示する。
   const isAssistant = role === 'assistant'
+  // 管理担当は事務管理の持ち場を見ないので、事務管理ダッシュボードのカードも出さない（サイドバーと揃える）。
+  const isManagerLike = (role === 'manager' || role === 'sub_manager') && !sm
 
   const deptSection: CardSection = {
     title: '相続事業部全体',
@@ -166,7 +168,7 @@ export default async function DashboardTopPage() {
   // 事務管理担当（非システム管理者）は 全体＋事務管理 の2つだけ。それ以外は従来通り＋事務管理（管理系ユーザーに表示）。
   const sections: CardSection[] = isAssistant && !sm
     ? [deptSection, officeSection]
-    : [deptSection, salesSection, mgrSection, ...toukiSections, officeSection]
+    : [deptSection, salesSection, mgrSection, ...toukiSections, ...(isManagerLike ? [] : [officeSection])]
 
   const today = new Date()
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`

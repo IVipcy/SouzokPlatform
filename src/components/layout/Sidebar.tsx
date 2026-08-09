@@ -143,6 +143,10 @@ export default function Sidebar() {
         // 事務管理タスク・確認簿・到着物受信簿・請求入金）のみ表示。
         const isAssistantLike = !!user && ['assistant', 'accounting'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
         const ASSISTANT_ALLOWED = new Set(['/', '/cases', '/tasks', '/confirm', '/documents', '/billing'])
+        // 管理担当は事務管理の持ち場（事務管理タスク一覧・事務管理ダッシュボード）を見ないので出さない。
+        // 管理担当の作業は マイページ／管理担当タスク一覧 側にある。
+        const isManagerLike = !!user && ['manager', 'sub_manager'].includes(user.primaryRole ?? '') && !user.roles.includes('system_manager')
+        const ASSISTANT_ONLY = new Set(['/tasks', '/dashboard/office'])
         // 相続登記チームメンバー(システム管理者除く) は 相続登記チームダッシュボードだけ表示。
         // 他のメニュー(マイページ・案件一覧・タスク一覧・請求 等)はすべて非表示。
         const isTouKiOnly = !!user?.isTouKiTeam && !user.roles.includes('system_manager') && user.primaryRole !== 'system_manager'
@@ -175,6 +179,7 @@ export default function Sidebar() {
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (isAssistantLike) return ASSISTANT_ALLOWED.has(it.href)
+          if (isManagerLike && ASSISTANT_ONLY.has(it.href)) return false
           if (it.href === '/my') return canMyPage
           return true
         }) })).filter(s => s.items.length > 0)
