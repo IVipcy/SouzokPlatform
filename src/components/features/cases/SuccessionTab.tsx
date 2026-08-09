@@ -1,7 +1,8 @@
 'use client'
 
 // 遺産承継タブ。サブタブ＝精算書作成／指図書作成。
-//   精算書：収入（被相続人の財産。目録から取込）− 支出（報酬・立替＝請求タブ連動／代理支払＝受信簿連動）＝ 残余財産
+//   精算書：財産管理口座預かり金（銀行・証券の解約金等。目録から取込）
+//         − 費用（立替金・報酬＝請求タブ連動／振込手数料・代理支払＝受信簿連動）＝ 残余財産
 //   指図書：相続人一覧をコピーし、振込先・金額・振込済を管理
 // データは settlement_income_items / settlement_expense_items / instruction_items。
 
@@ -90,14 +91,14 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   const payTotal = selectedPay.reduce((s, r) => s + (r.amount ?? 0), 0)
 
   const incomeTotal = income.reduce((s, r) => s + (r.amount ?? 0), 0)
-  // 旧・receipt由来（代理支払）は下の到着物一覧に移行済みなので支出合計から除外し、代わりに payTotal を足す。
+  // 旧・receipt由来（代理支払）は下の到着物一覧に移行済みなので費用合計から除外し、代わりに payTotal を足す。
   const expenseTotal = expense.filter(r => r.source !== 'receipt').reduce((s, r) => s + (r.amount ?? 0), 0) + payTotal
   const remaining = incomeTotal - expenseTotal
 
-  // ── 収入 ──
+  // ── 財産管理口座預かり金（収入側） ──
   const importIncome = async () => {
     const existing = new Set(income.map(r => `${r.asset_class}|${r.detail}`))
-    // 精算書の収入は「被相続人のプラス財産」だけ。目録に載る相続債務・その他費用は
+    // 預かり金に入るのは「被相続人のプラス財産」だけ。目録に載る相続債務・その他費用は
     // 遺産分割時に相続人間で精算するものなので、ここには持ってこない。
     // 目録の細かい分類（預金/証券/信託・不動産（土地）/（建物））は 金融/不動産/その他 に丸める。
     const toIncomeClass = (c: string | null | undefined) =>
@@ -123,7 +124,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
   }
   const delIncome = async (id: string) => { await supabase.from('settlement_income_items').delete().eq('id', id); setIncome(prev => prev.filter(r => r.id !== id)) }
 
-  // ── 支出（報酬・立替を請求タブから取込） ──
+  // ── 費用（報酬・立替を請求タブから取込） ──
   const importExpense = async () => {
     const supa = supabase
     const [rew, exp] = await Promise.all([
@@ -180,7 +181,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="遺産承継" description="精算書（収入−支出＝残り）と指図書（相続人への振込）をここで作ります。" />
+      <TabHeader title="遺産承継" description="精算書（財産管理口座の預かり金 − 費用 ＝ 残り）と指図書（相続人への振込）をここで作ります。" />
       <div className="mb-3.5"><TabTasksSection gyomus={['精算書作成', '指図書作成']} tasks={tasks} /></div>
       <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
         <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
@@ -189,7 +190,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
       {/* 精算書 */}
       <div className={sub === 'settlement' ? 'space-y-3.5' : 'hidden'}>
-        <Section title="収入（被相続人の財産）">
+        <Section title="財産管理口座預かり金（銀行・証券の解約金等）">
           <div className="flex items-center gap-2 mb-2">
             <button type="button" onClick={importIncome} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 財産目録から取込</button>
           </div>
@@ -207,12 +208,12 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
                 </tr>
               ))}
             </tbody>
-            <tfoot><tr className="border-t border-emerald-200 bg-emerald-50/40 font-semibold text-emerald-800"><td className="px-2 py-1.5" colSpan={2}>収入合計</td><td className="px-2 py-1.5 text-right tabular-nums">{yen(incomeTotal)}</td><td colSpan={3} /></tr></tfoot>
+            <tfoot><tr className="border-t border-emerald-200 bg-emerald-50/40 font-semibold text-emerald-800"><td className="px-2 py-1.5" colSpan={2}>預かり金 合計</td><td className="px-2 py-1.5 text-right tabular-nums">{yen(incomeTotal)}</td><td colSpan={3} /></tr></tfoot>
           </table>
           <button type="button" onClick={addIncome} className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"><Plus className="w-3.5 h-3.5" /> 行を追加</button>
         </Section>
 
-        <Section title="支出（報酬・立替・代理支払）">
+        <Section title="費用（立替金・報酬・振込手数料等）">
           <div className="flex items-center gap-2 mb-2">
             <button type="button" onClick={importExpense} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 請求タブから取込</button>
             <span className="text-[11px] text-gray-400">報酬・立替（請求タブ）を取込。代理支払は下の「到着物から」で入れます</span>
@@ -238,7 +239,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[12px] font-semibold text-gray-700">代理支払（到着物から）</span>
-              <span className="text-[11px] font-normal text-gray-400 flex-1">当社が代理で支払った請求書。金額を入れると支出に入ります</span>
+              <span className="text-[11px] font-normal text-gray-400 flex-1">当社が代理で支払った請求書。金額を入れると費用に入ります</span>
               <button type="button" onClick={() => setPickerOpen(true)}
                 className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 flex-none">
                 <Plus className="w-3.5 h-3.5" />到着物から追加
@@ -268,7 +269,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
           </div>
 
           <div className="mt-3 flex items-center justify-end gap-3 border-t border-red-200 pt-2 font-semibold text-red-800">
-            <span className="text-[13px]">支出合計</span><span className="text-[15px] tabular-nums">{yen(expenseTotal)}</span>
+            <span className="text-[13px]">費用 合計</span><span className="text-[15px] tabular-nums">{yen(expenseTotal)}</span>
           </div>
         </Section>
 

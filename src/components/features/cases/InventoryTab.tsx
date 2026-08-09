@@ -229,7 +229,7 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
 
       <p className="text-[11px] text-gray-400 flex items-center gap-1">
         <ExternalLink className="w-3 h-3" />
-        誰がどれを取得するかは「遺産分割」タブで決めます。精算書の「収入」に入るのはプラス財産だけです。
+        誰がどれを取得するかは「遺産分割」タブで決めます。精算書の「財産管理口座預かり金」に入るのはプラス財産だけです。
       </p>
     </div>
   )
