@@ -20,7 +20,6 @@ import {
   ChevronsRight,
   Bell,
   Package,
-  Compass,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -43,7 +42,7 @@ const ROLE_LABEL: Record<string, string> = {
 // メニューの出し分けは この roles だけで決める（未指定＝全員に出す）。
 // 以前は「アシスタントは許可リスト」「管理担当は禁止リスト」と判定が散らばっていて、
 // 誰に何が出ているのか読み解けなかったため、項目ごとに出す相手を書く形に統一した。
-// システム管理者は roles に関わらず全部見える。相続登記チーム専任だけは別扱い（下の isTouKiOnly）。
+// システム管理者は roles に関わらず全部見える。相続登記チームは管理担当と同じ扱い＋専用メニュー1本。
 type Role = 'sales' | 'manager' | 'sub_manager' | 'assistant' | 'accounting' | 'lp'
 const SALES_MGR: Role[] = ['sales', 'manager', 'sub_manager']
 const SALES_MGR_LP: Role[] = ['sales', 'manager', 'sub_manager', 'lp']
@@ -54,6 +53,8 @@ type NavItem = {
   Icon: LucideIcon
   /** このメニューを出す担当区分。未指定＝全員 */
   roles?: Role[]
+  /** 相続登記チームのメンバーにだけ出す（担当区分とは別軸のフラグ） */
+  toukiOnly?: boolean
 }
 
 const navSections: { label: string; items: NavItem[] }[] = [
@@ -64,11 +65,13 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/my',       label: 'マイページ',     Icon: UserCircle, roles: SALES_MGR },
       { href: '/',         label: 'ダッシュボード', Icon: LayoutDashboard },
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
-      { href: '/intake',   label: '面談登録',       Icon: PenSquare, roles: SALES_MGR_LP },
-      // それぞれの持ち場のタスク一覧・ダッシュボード。担当区分ごとに1本だけ出す
-      { href: '/manager-tasks',    label: '管理担当タスク一覧',   Icon: Compass,       roles: ['manager', 'sub_manager'] },
+      // 面談登録は面談に出る人だけ（管理担当は面談に出ないので出さない）
+      { href: '/intake',   label: '面談登録',       Icon: PenSquare, roles: ['sales', 'lp'] },
+      // それぞれの持ち場のタスク一覧・ダッシュボード。担当区分ごとに1本だけ出す。
+      // 受注/管理担当のタスクはマイページの「タスク」タブに出るので、専用の一覧は持たない。
       { href: '/tasks',            label: '事務管理タスク一覧',   Icon: ListChecks,    roles: ['assistant'] },
       { href: '/dashboard/office', label: '事務管理ダッシュボード', Icon: ClipboardList, roles: ['assistant'] },
+      { href: '/dashboard/touki-team', label: '相続登記チーム',    Icon: Package,       toukiOnly: true },
     ],
   },
   {
@@ -155,39 +158,15 @@ export default function Sidebar() {
       {(() => {
         const isSysManager = !!user && (user.primaryRole === 'system_manager' || user.roles.includes('system_manager'))
         const myRole = (user?.primaryRole ?? '') as Role
-        // 相続登記チームメンバー(システム管理者除く) は 相続登記チームダッシュボードだけ表示。
-        // 他のメニュー(マイページ・案件一覧・タスク一覧・請求 等)はすべて非表示。
-        const isTouKiOnly = !!user?.isTouKiTeam && !user.roles.includes('system_manager') && user.primaryRole !== 'system_manager'
-        const TOUKI_ITEM: NavItem = { href: '/dashboard/touki-team', label: '相続登記チーム', Icon: Package }
-        if (isTouKiOnly) {
-          return (
-            <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
-              <div>
-                {!collapsed && <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 tracking-[0.18em] uppercase">相続登記チーム</div>}
-                {collapsed && <div className="h-px bg-gray-100 my-2" />}
-                <div className="space-y-0.5">
-                  {(() => {
-                    const it = TOUKI_ITEM
-                    const isActive = pathname.startsWith(it.href)
-                    const itemClass = `group relative flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`
-                    return (
-                      <Link href={it.href} title={collapsed ? it.label : undefined} className={itemClass}>
-                        <it.Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-500'}`} strokeWidth={isActive ? 2.25 : 1.9} />
-                        {!collapsed && <span className="truncate">{it.label}</span>}
-                      </Link>
-                    )
-                  })()}
-                </div>
-              </div>
-            </nav>
-          )
-        }
+        // 相続登記チームのメンバーは 管理担当と同じメニュー＋「相続登記チーム」。
+        // 以前は相続登記チームの画面1本だけにしていたが、案件・受信簿・請求も見るため揃えた。
+        const isTouKi = !!user?.isTouKiTeam
+        const myRoleForNav: Role = isTouKi && !SALES_MGR.includes(myRole) ? 'manager' : myRole
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
           if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
+          if (it.toukiOnly) return isTouKi || isSysManager
           if (isSysManager) return true              // システム管理者は全部見える
-          return !it.roles || it.roles.includes(myRole)
+          return !it.roles || it.roles.includes(myRoleForNav)
         }) })).filter(s => s.items.length > 0)
         return (
       <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-3'} space-y-5 overflow-y-auto overflow-x-hidden`}>
