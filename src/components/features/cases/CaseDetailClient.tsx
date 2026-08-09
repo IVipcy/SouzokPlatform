@@ -424,7 +424,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 事務管理担当には、管理担当が手を動かす実務タブを既定で出さない（持ち場が違う）。
   // 見たいときだけ「管理担当のタブも表示」で出せるようにして、閉じ込めない。
   const isAssistantViewer = viewerRole === 'assistant'
-  const MANAGER_ONLY_PRACTICE: TabKey[] = ['legalInfo', 'will', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'letter', 'execution', 'contractCreate', 'division', 'registration']
+  // 遺産分割は事務管理も使う（協議書を作るのは事務管理）ので出す。
+  // 相続登記は受領するだけ＝到着物受信簿で処理する話なので出さない。遺産承継も管理担当の持ち場。
+  const MANAGER_ONLY_PRACTICE: TabKey[] = ['legalInfo', 'will', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'referral', 'letter', 'execution', 'contractCreate', 'registration']
   const [showManagerTabs, setShowManagerTabs] = useState(false)
   const hideForAssistant = (v: TabVisibility): TabVisibility =>
     (!isAssistantViewer || showManagerTabs)
