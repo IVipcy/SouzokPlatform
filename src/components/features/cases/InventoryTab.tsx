@@ -9,7 +9,7 @@
 // 合計は協議書「分割内容」・精算書「収入」へ（精算書の収入はプラス財産のみ）。
 
 import { useState } from 'react'
-import { Trash2, Plus, DownloadCloud, Calculator, Wand2, ArrowRight } from 'lucide-react'
+import { Trash2, Plus, DownloadCloud, Calculator, FileSpreadsheet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
@@ -17,8 +17,7 @@ import {
   INVENTORY_CLASSES, INVENTORY_LEGACY_CLASSES, isNegativeClass,
   inventoryClassOfAsset, inventoryClassOfProperty, shareRatio,
 } from '@/lib/constants'
-import { computeLegalShares, fracText, fracValue, type Frac } from '@/lib/legalShare'
-import { computeHeirSettlement } from '@/lib/heirSettlement'
+import { computeLegalShares, fracValue, type Frac } from '@/lib/legalShare'
 import type {
   AssetInventoryRow, FinancialAssetRow, RealEstatePropertyRow, CaseOtherAssetRow, HeirRow,
 } from '@/types'
@@ -53,30 +52,16 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     })
   const rowsOf = (cls: string) => rows.filter(r => (r.asset_class ?? '（未分類）') === cls)
   const sumOf = (cls: string) => rowsOf(cls).reduce((s, r) => s + (r.amount ?? 0), 0)
-  const allocOf = (r: AssetInventoryRow, heirId: string) => r.allocations?.[heirId] ?? null
-  const allocSum = (r: AssetInventoryRow) => Object.values(r.allocations ?? {}).reduce((s, v) => s + (v ?? 0), 0)
-  const classAlloc = (cls: string, heirId: string) => rowsOf(cls).reduce((s, r) => s + (allocOf(r, heirId) ?? 0), 0)
+  // 取得者ごとの割付（allocations）は遺産分割タブへ移した。目録は財産・債務と金額の一覧に専念する。
 
   const positive = rows.filter(r => !isNegativeClass(r.asset_class)).reduce((s, r) => s + (r.amount ?? 0), 0)
   const negative = rows.filter(r => isNegativeClass(r.asset_class)).reduce((s, r) => s + (r.amount ?? 0), 0)
-  // 取得合計は 債務・費用をマイナスとして足す（その人が引き受けた負担なので手取りが減る）
-  const takerTotal = (heirId: string) => rows.reduce((s, r) => {
-    const v = allocOf(r, heirId) ?? 0
-    return s + (isNegativeClass(r.asset_class) ? -v : v)
-  }, 0)
   const netTotal = positive - negative
 
   const setLocal = (id: string, field: keyof AssetInventoryRow, value: unknown) =>
     setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } as AssetInventoryRow : r))
   const commit = async (id: string, field: keyof AssetInventoryRow, value: unknown) => {
     const { error } = await supabase.from('asset_inventory').update({ [field]: value === '' ? null : value }).eq('id', id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
-  }
-  const saveAlloc = async (r: AssetInventoryRow, heirId: string, v: number | null) => {
-    const next = { ...(r.allocations ?? {}) }
-    if (v == null) delete next[heirId]; else next[heirId] = v
-    setLocal(r.id, 'allocations', next)
-    const { error } = await supabase.from('asset_inventory').update({ allocations: next }).eq('id', r.id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
@@ -164,34 +149,8 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  // 法定相続分どおりに割り付ける。端数は先頭の相続人に寄せて、合計が金額とぴったり合うようにする。
-  const splitByLegalShare = async (target?: AssetInventoryRow) => {
-    const withShare = takers.filter(h => shareOf(h))
-    if (withShare.length === 0) { showToast('先に法定相続分を計算してください', 'info'); return }
-    const targets = target ? [target] : rows
-    setBusy(true)
-    const updated: AssetInventoryRow[] = []
-    for (const r of targets) {
-      const amt = r.amount ?? 0
-      if (!amt) continue
-      const next: Record<string, number> = {}
-      let rest = amt
-      withShare.forEach((h, i) => {
-        const v = i === withShare.length - 1 ? rest : Math.round(amt * fracValue(shareOf(h)!))
-        next[h.id] = v
-        rest -= v
-      })
-      await supabase.from('asset_inventory').update({ allocations: next }).eq('id', r.id)
-      updated.push({ ...r, allocations: next })
-    }
-    setRows(prev => prev.map(r => updated.find(u => u.id === r.id) ?? r))
-    setBusy(false)
-    showToast(target ? 'この行を法定相続分で割り付けました' : `${updated.length}件を法定相続分で割り付けました`, 'success')
-  }
 
-  const colCount = 3 + takers.length + 1
-  // 立替を考慮した精算（誰が誰にいくら渡すか）。立替が1件も無ければ何も出さない。
-  const settlement = computeHeirSettlement(rows, takers)
+  const colCount = 4
 
   return (
     <div className="space-y-3">
@@ -199,11 +158,11 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
         <button type="button" onClick={importFromAssets} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-50">
           <DownloadCloud className="w-3.5 h-3.5" /> 財産表から取込
         </button>
-        {takers.length > 0 && (
-          <button type="button" onClick={() => splitByLegalShare()} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-50">
-            <Wand2 className="w-3.5 h-3.5" /> 全行を法定相続分で割付
-          </button>
-        )}
+        {/* 実物のエクセル（財産・債務一覧表）と同じ体裁で書き出す。中身は財産調査の入力から組み立てる。 */}
+        <a href={`/api/documents/inventory?caseId=${caseId}`}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700">
+          <FileSpreadsheet className="w-3.5 h-3.5" /> 財産目録をExcelで出力
+        </a>
         <span className="text-[11px] text-gray-400">「確定済」にした残高・評価額と、その他財産／相続債務／その他費用を取り込みます（不動産は持分を掛けた額）</span>
       </div>
 
@@ -233,18 +192,12 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 + takers.length * 130 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-40">財産区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">詳細</th>
               <th className="px-2.5 py-2 text-right font-semibold w-36">金額</th>
-              {takers.map(h => (
-                <th key={h.id} className="px-2.5 py-2 text-right font-semibold w-32">
-                  {h.name || '（氏名未入力）'}
-                  <span className="block text-[10px] font-normal text-brand-500">{fracText(shareOf(h)) || '割合未設定'}</span>
-                </th>
-              ))}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -264,7 +217,6 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
                   </td>
                 </tr>
                 {groupRows.map(r => {
-                  const diff = (r.amount ?? 0) - allocSum(r)
                   return (
                     <tr key={r.id} className="border-b border-gray-100">
                       <td className="px-2.5 py-1.5">
@@ -293,19 +245,7 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
                       </td>
                       <td className="px-2.5 py-1.5">
                         <MoneyInput value={r.amount} onCommit={v => { setLocal(r.id, 'amount', v === '' ? null : Number(v)); commit(r.id, 'amount', v) }} />
-                        {takers.length > 0 && (r.amount ?? 0) !== 0 && (
-                          diff === 0
-                            ? <div className="text-right text-[10.5px] text-emerald-600 mt-0.5">割付済</div>
-                            : <button type="button" onClick={() => splitByLegalShare(r)} className="block ml-auto text-[10.5px] text-brand-600 hover:text-brand-700 mt-0.5">
-                                {allocSum(r) === 0 ? '法定で割付' : `残 ${yen(diff)}`}
-                              </button>
-                        )}
                       </td>
-                      {takers.map(h => (
-                        <td key={h.id} className="px-2.5 py-1.5">
-                          <MoneyInput value={allocOf(r, h.id)} onCommit={v => saveAlloc(r, h.id, v === '' ? null : Number(v))} />
-                        </td>
-                      ))}
                       <td className="px-2.5 py-1.5 text-center"><button type="button" onClick={() => delRow(r.id)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button></td>
                     </tr>
                   )
@@ -315,11 +255,6 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
                   <td className={`px-2.5 py-1.5 text-right tabular-nums text-[12.5px] font-semibold ${neg ? 'text-red-700' : 'text-gray-700'}`}>
                     {neg ? `− ${yen(sumOf(cls))}` : yen(sumOf(cls))}
                   </td>
-                  {takers.map(h => (
-                    <td key={h.id} className={`px-2.5 py-1.5 text-right tabular-nums text-[12px] ${neg ? 'text-red-600' : 'text-gray-600'}`}>
-                      {classAlloc(cls, h.id) ? (neg ? `− ${yen(classAlloc(cls, h.id))}` : yen(classAlloc(cls, h.id))) : ''}
-                    </td>
-                  ))}
                   <td />
                 </tr>
               </tbody>
@@ -329,47 +264,27 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
             <tr className="border-t border-brand-200 bg-brand-50/40 font-semibold text-brand-800">
               <td className="px-2.5 py-2" colSpan={2}>プラス財産 合計</td>
               <td className="px-2.5 py-2 text-right tabular-nums">{yen(positive)}</td>
-              <td colSpan={takers.length + 1} />
+              <td colSpan={1} />
             </tr>
             {negative > 0 && (
               <tr className="bg-red-50/40 font-semibold text-red-800">
                 <td className="px-2.5 py-2" colSpan={2}>控除（相続債務・その他費用）</td>
                 <td className="px-2.5 py-2 text-right tabular-nums">− {yen(negative)}</td>
-                <td colSpan={takers.length + 1} />
+                <td colSpan={1} />
               </tr>
             )}
             <tr className="border-t border-brand-300 bg-brand-50/70 font-bold text-brand-900">
               <td className="px-2.5 py-2" colSpan={2}>正味財産／取得合計</td>
               <td className="px-2.5 py-2 text-right tabular-nums">{yen(netTotal)}</td>
-              {takers.map(h => (
-                <td key={h.id} className="px-2.5 py-2 text-right tabular-nums">{yen(takerTotal(h.id))}</td>
-              ))}
               <td />
             </tr>
             {takers.some(h => shareOf(h)) && (
-              <>
-                <tr className="text-gray-500">
-                  <td className="px-2.5 py-1.5 text-[11.5px]" colSpan={3}>参考：法定相続分どおりなら</td>
-                  {takers.map(h => (
-                    <td key={h.id} className="px-2.5 py-1.5 text-right tabular-nums text-[12px]">
-                      {shareOf(h) ? yen(netTotal * fracValue(shareOf(h)!)) : '—'}
-                    </td>
-                  ))}
-                  <td />
-                </tr>
-                <tr className="text-gray-500 border-b border-gray-200">
-                  <td className="px-2.5 py-1.5 text-[11.5px]" colSpan={3}>法定相続分との差</td>
-                  {takers.map(h => {
-                    const d = takerTotal(h.id) - (shareOf(h) ? netTotal * fracValue(shareOf(h)!) : 0)
-                    return (
-                      <td key={h.id} className={`px-2.5 py-1.5 text-right tabular-nums text-[12px] ${Math.round(d) === 0 ? 'text-gray-400' : d > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {Math.round(d) === 0 ? '±0' : (d > 0 ? '+' : '−') + yen(Math.abs(d))}
-                      </td>
-                    )
-                  })}
-                  <td />
-                </tr>
-              </>
+              <tr className="text-gray-500 border-b border-gray-200">
+                <td className="px-2.5 py-1.5 text-[11.5px]" colSpan={2}>参考：法定相続分どおりなら</td>
+                <td className="px-2.5 py-1.5 text-[11.5px] text-right" colSpan={2}>
+                  {takers.filter(h => shareOf(h)).map(h => `${h.name || '相続人'} ${yen(netTotal * fracValue(shareOf(h)!))}`).join('　／　')}
+                </td>
+              </tr>
             )}
           </tfoot>
         </table>
@@ -380,63 +295,6 @@ export default function InventoryTab({ caseId, rows: initial, financialAssets, p
 
       {/* 相続人間の精算。取り分が合っていても、立て替えた人へ戻す現金の動きは別に出る。
           例）葬儀費用を長男が立替 → 二男は自分の負担分を長男に渡す。 */}
-      {settlement.hasAdvance && (
-        <div className="rounded-lg border border-brand-200 bg-brand-50/30 p-3.5">
-          <div className="text-[13px] font-semibold text-brand-800 mb-1">相続人間の精算</div>
-          <p className="text-[11.5px] text-gray-500 mb-2.5">
-            立て替えた額と引き受けた負担の差です。取り分（正味財産）はすでに上の表で合っているので、ここは実際に動かす現金の話になります。
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 560 }}>
-              <thead>
-                <tr className="text-[11px] text-gray-500 border-b border-gray-200">
-                  <th className="px-2 py-1.5 text-left font-medium">相続人</th>
-                  <th className="px-2 py-1.5 text-right font-medium w-32">財産の取得</th>
-                  <th className="px-2 py-1.5 text-right font-medium w-28">負担</th>
-                  <th className="px-2 py-1.5 text-right font-medium w-28">立替済</th>
-                  <th className="px-2 py-1.5 text-right font-medium w-32">取り分</th>
-                  <th className="px-2 py-1.5 text-right font-medium w-36">過不足</th>
-                </tr>
-              </thead>
-              <tbody>
-                {settlement.figures.map(f => (
-                  <tr key={f.heirId} className="border-b border-gray-100 last:border-b-0">
-                    <td className="px-2 py-1.5 text-gray-800">{f.name}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-600">{yen(f.gain)}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-red-700">{f.burden ? `− ${yen(f.burden)}` : '—'}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-600">{f.advanced ? yen(f.advanced) : '—'}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-gray-800">{yen(f.net)}</td>
-                    <td className={`px-2 py-1.5 text-right tabular-nums font-semibold ${Math.round(f.balance) === 0 ? 'text-gray-400' : f.balance > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                      {Math.round(f.balance) === 0 ? '±0'
-                        : f.balance > 0 ? `${yen(f.balance)} 受取` : `${yen(-f.balance)} 支払`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {settlement.transfers.length > 0 ? (
-            <div className="mt-2.5 pt-2.5 border-t border-brand-200">
-              <div className="text-[11.5px] font-semibold text-gray-600 mb-1.5">実際の受け渡し</div>
-              <div className="flex flex-wrap gap-2">
-                {settlement.transfers.map((t, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-brand-200 rounded px-2.5 py-1 text-[12.5px]">
-                    <span className="text-gray-700">{t.fromName}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-brand-500" />
-                    <span className="text-gray-700">{t.toName}</span>
-                    <span className="font-semibold tabular-nums text-brand-800">{yen(t.amount)}</span>
-                  </span>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[11px] text-gray-400">
-                この受け渡しをやめたい場合は、預金の割付をこの金額分だけ動かせば同じ結果になります（上の例なら受け取る側の預金を増やす）。
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2.5 pt-2.5 border-t border-brand-200 text-[12px] text-gray-500">全員の過不足が0なので、相続人どうしの受け渡しは不要です。</p>
-          )}
-        </div>
-      )}
       <p className="text-[11px] text-gray-400">※ 精算書の「収入」に取り込まれるのはプラス財産だけです（相続債務・その他費用は遺産分割時の精算で扱います）。</p>
     </div>
   )
