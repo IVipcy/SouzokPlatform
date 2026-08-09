@@ -51,11 +51,15 @@ export const ALERT_DAYS = {
   parcelOpen: 1,          // 到着連絡→開封
   inactivityMid: 5,       // 最終接触→未対応（要確認）
   inactivityHigh: 10,     // 最終接触→未対応（要注意）
-  billMid: 5,             // 入金期日超過（要確認）
+  billBase: 5,            // 入金期日超過→督促の起点（ここから暦日で数える）
   taskMid: 5,             // タスク期日超過（要確認）
 } as const
 /** 暦日で見るもの（営業日ではない） */
-export const ALERT_CAL_DAYS = { billHigh: 14, taskHigh: 14 } as const
+export const ALERT_CAL_DAYS = {
+  billKakunin: 3,         // 入金：起点から要確認まで
+  billChui: 10,           // 入金：起点から要注意まで
+  taskHigh: 14,
+} as const
 
 const PREP = new Set(['受注', '戻り受注', '作業着手準備'])
 const ACTIVE = new Set(['受注', '戻り受注', '作業着手準備', '対応中'])
@@ -124,8 +128,8 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
   if (ctx.billOverdue) {
     out.push({ key: 'bill_overdue', category: '入金期日 超過', severity: ctx.billOverdue, audience: 'sales',
       reason: ctx.billOverdue === 'high'
-        ? `入金期日から${ALERT_CAL_DAYS.billHigh}日以上たった未入金の請求があります`
-        : `入金期日を${ALERT_DAYS.billMid}営業日過ぎた未入金の請求があります`, href: '/my?tab=billing' })
+        ? `入金期日から${ALERT_DAYS.billBase}営業日＋${ALERT_CAL_DAYS.billChui}日たった未入金の請求があります`
+        : `入金期日から${ALERT_DAYS.billBase}営業日＋${ALERT_CAL_DAYS.billKakunin}日たった未入金の請求があります`, href: '/my?tab=billing' })
   }
 
   if (prep && orderDay && orderDays != null) {
@@ -257,7 +261,7 @@ export const ALERT_CATALOG: Array<{
   {
     group: '期日の超過',
     items: [
-      { label: '入金期日 超過', severity: 'mid', when: `期日を${ALERT_DAYS.billMid}営業日／${ALERT_CAL_DAYS.billHigh}日で赤` },
+      { label: '入金期日 超過', severity: 'mid', when: `期日から${ALERT_DAYS.billBase}営業日＋${ALERT_CAL_DAYS.billKakunin}日／さらに${ALERT_CAL_DAYS.billChui}日で赤（＋の日数は暦日）` },
       { label: 'タスク期限超過', severity: 'mid', when: `期日を${ALERT_DAYS.taskMid}営業日／${ALERT_CAL_DAYS.taskHigh}日で赤` },
       { label: '至急タスク', severity: 'high', when: '優先度が超急ぎで未完了' },
       { label: '完了予定日 超過', severity: 'high', when: '完了予定日を過ぎた' },
