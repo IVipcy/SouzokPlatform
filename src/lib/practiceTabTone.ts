@@ -6,7 +6,9 @@
 
 import type { TabKey } from '@/components/features/cases/CaseTabs'
 
-const ASSISTANT_TABS: TabKey[] = ['deceased', 'assets', 'division', 'registration', 'cancellation', 'delivery']
+// 相続登記は相続登記チームの持ち場（事務管理は受領するだけで到着物受信簿で処理する）。
+// 事務管理・管理担当のどちらでもないので地色は付けない。
+const ASSISTANT_TABS: TabKey[] = ['deceased', 'assets', 'division', 'cancellation', 'delivery']
 const MANAGER_TABS: TabKey[] = [
   'legalInfo', 'referral', 'will', 'trust', 'renunciation', 'mediation',
   'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate',
