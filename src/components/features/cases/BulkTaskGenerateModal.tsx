@@ -92,20 +92,27 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
 
   // 戸籍タスクに出す肩書き。依頼者 ＞ 被相続人 ＞ 続柄 の順で1つだけ添える。
   // 誰の戸籍なのかが名前だけでは分からず、どれから手を付けるか毎回聞かれていた。
+  // 依頼者かどうかは相続人のフラグ(heirs.is_client・migration 232)で判定する。
+  // 氏名の突き合わせだと表記ゆれで外れるため、面談時に押さえたフラグを正とする
+  // （フラグが1件も立っていない古い案件だけ、従来どおり case_clients の氏名と突き合わせる）。
+  const key = (v: string | null | undefined) => (v ?? '').replace(/[\s　]/g, '')
+  const hasClientFlag = heirs.some(h => h.is_client)
+  const isClientName = useCallback((n: string) => {
+    if (!n) return false
+    if (hasClientFlag) return heirs.some(h => h.is_client && key(h.name) === n)
+    return caseClients.some(c => key(c.name) === n)
+  }, [heirs, caseClients, hasClientFlag])
   const roleOfPerson = useCallback((rawName: string): string | null => {
-    const key = (s: string | null | undefined) => (s ?? '').replace(/[\s　]/g, '')
     const n = key(rawName)
     if (!n) return null
-    if (caseClients.some(c => key(c.name) === n)) return '依頼者'
+    if (isClientName(n)) return '依頼者'
     if (key(deceasedName) === n) return '被相続人'
     const h = heirs.find(x => key(x.name) === n)
     return h ? (h.relationship_type || h.relationship || null) : null
-  }, [caseClients, deceasedName, heirs])
-  /** 最初に出す戸籍タスク＝依頼者と被相続人の分だけ。他の相続人は被相続人の戸籍を読んでから。 */
-  const isFirstKosekiPerson = useCallback((rawName: string) => {
-    const r = roleOfPerson(rawName)
-    return r === '依頼者' || r === '被相続人'
-  }, [roleOfPerson])
+  }, [deceasedName, heirs, isClientName])
+  /** 最初に出す戸籍タスク＝依頼者の分だけ。
+   *  被相続人ほか他の人の戸籍は、依頼者の戸籍から辿って請求先が決まるので、その都度チェックして出す。 */
+  const isFirstKosekiPerson = useCallback((rawName: string) => isClientName(key(rawName)), [isClientName])
 
   const cats = categoriesOf(serviceCategory, serviceCategory2)
   const generatedRids = useMemo(() => new Set(existingTasks.map(t => t.source_rid).filter(Boolean) as string[]), [existingTasks])
@@ -196,9 +203,8 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       const isKosekiCollect = r.gyomu === '戸籍' && r.sagyou.includes('戸籍収集')
       if (isKosekiCollect) {
         if (kosekiRequests.length > 0) {
-          const deceased = (deceasedName ?? '').replace(/[\s　]/g, '')
-          const isDeceased = (k: KosekiRequestRow) => !!deceased && (k.target_person ?? '').replace(/[\s　]/g, '') === deceased
-          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: isDeceased(k), offByDefault: !isFirstKosekiPerson(k.target_person ?? '') }))
+          // 起点＝依頼者の戸籍請求。最初に出すのがこの1本なので、着手OKもここに付ける。
+          kosekiRequests.filter(k => isOwn(k.acquirer)).forEach(k => out.push({ key: `koseki:${k.id}`, gyomu: '戸籍', title: `戸籍請求：${kosekiLabel(k)}`, rid: `koseki:${k.id}`, ready: isFirstKosekiPerson(k.target_person ?? ''), offByDefault: !isFirstKosekiPerson(k.target_person ?? '') }))
           kosekiRequests.forEach(k => out.push({ key: `koseki-read:${k.id}`, gyomu: '戸籍', title: `戸籍読込：${kosekiLabel(k)}`, rid: `koseki-read:${k.id}`, offByDefault: !isFirstKosekiPerson(k.target_person ?? '') }))
         } else {
           out.push({ key: r.rid ?? `role:${idx}`, gyomu: '戸籍', title: '戸籍請求', roleIdx: idx, rid: r.rid, ready: true })
@@ -247,7 +253,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // 担当区分での絞り込みは撤廃：どのアカウントが一括生成しても全区分の候補を出す。
     // どのみち全タスクを生成する必要があるため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, deceasedName, roleOfPerson, isFirstKosekiPerson])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, roleOfPerson, isFirstKosekiPerson])
 
   // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
   const kosekiCoarse = useMemo(() =>
@@ -396,8 +402,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       )}
       {candidates.some(c => c.offByDefault && !isGenerated(c)) && (
         <div className="bg-brand-50 border border-brand-200 text-brand-800 text-[12.5px] rounded-lg p-3 mb-4">
-          <span className="font-semibold">戸籍は 依頼者・被相続人の分だけチェックしています。</span>
-          他の相続人の戸籍は、被相続人の戸籍を読んで請求先が決まってからで足りるため外してあります（今すぐ出したい分はチェックしてください）。
+          <span className="font-semibold">戸籍は 依頼者の分だけチェックしています。</span>
+          他の人の戸籍は、依頼者の戸籍を読んで請求先が決まってからで足りるため外してあります（今すぐ出したい分はチェックしてください）。
+          {!heirs.some(h => h.is_client) && <><br /><span className="text-[11.5px]">※ 相続人一覧で「依頼者」にチェックを入れておくと、ここが正しく絞り込まれます。</span></>}
         </div>
       )}
 

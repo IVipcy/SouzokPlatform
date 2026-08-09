@@ -584,6 +584,7 @@ export type HeirRow = {
   legal_share_num: number | null     // 法定相続割合（分子）。目録の参考行に使う（migration 227）
   legal_share_den: number | null     // 法定相続割合（分母）
   is_applicant: boolean
+  is_client: boolean                 // 依頼者（この案件を依頼した相続人）。続柄とは別軸（migration 232）
   notes: string | null
   sort_order: number
   created_at: string

@@ -76,6 +76,7 @@ const emptyHeirForm = () => ({
   email: '',
   is_legal_heir: true,
   is_applicant: false,
+  is_client: false,
   lived_together: false,
   // もう一方の親（前妻・前夫）。前婚の子だけ設定する。migration 225
   other_parent_heir_id: '',
@@ -204,6 +205,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       email: heir.email ?? (isMainClientHeir ? (mainClient?.email ?? caseData.clients?.email ?? '') : ''),
       is_legal_heir: heir.is_legal_heir,
       is_applicant: heir.is_applicant,
+      is_client: heir.is_client ?? false,
       lived_together: heir.lived_together ?? false,
       other_parent_heir_id: heir.other_parent_heir_id ?? '',
     })
@@ -479,6 +481,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">{heir.relationship_type ?? heir.relationship}</span>
                         )}
                         {heir.is_legal_heir && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">法定相続人</span>}
+                        {heir.is_client && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">依頼者</span>}
                         {heir.is_applicant && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">申出人</span>}
                       </div>
                     </div>
@@ -563,6 +566,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                           <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
                           申出人（法定相続情報一覧図）
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="この案件を依頼した相続人。戸籍タスクは この人の分から出します">
+                          <input type="checkbox" checked={heirForm.is_client} onChange={e => setHeirForm(f => ({ ...f, is_client: e.target.checked }))} className="rounded" />
+                          依頼者
                         </label>
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="相続関係図に「同居」バッジで表示されます">
                           <input type="checkbox" checked={heirForm.lived_together} onChange={e => setHeirForm(f => ({ ...f, lived_together: e.target.checked }))} className="rounded" />

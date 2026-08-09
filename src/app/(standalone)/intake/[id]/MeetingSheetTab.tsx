@@ -219,6 +219,8 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   }
   // 同居（boolean）。相関図に「同居」バッジで出る。書類回収・連絡の起点になるため面談中に拾う。
   const saveLived = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, lived_together: v } : r)); supabase.from('heirs').update({ lived_together: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
+  // 依頼者（boolean・migration 232）。続柄とは別軸。戸籍タスクはこの人の分から出すので面談中に押さえる。
+  const saveClient = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, is_client: v } : r)); supabase.from('heirs').update({ is_client: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('heirs').insert({ case_id: cid, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('heirs').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   // 前妻・前夫が入力されているときだけ「誰との子か」を聞く（未選択＝現配偶者との子）。
@@ -242,6 +244,9 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
                 {formerSpouses.map(f => <option key={f.id} value={f.id}>{f.name || '前配偶者'}との子</option>)}
               </select>
             )}
+            <label className={`inline-flex items-center gap-1 flex-none text-[11.5px] px-2 py-1.5 min-h-[40px] rounded border cursor-pointer whitespace-nowrap ${r.is_client ? 'bg-brand-50 border-brand-300 text-brand-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="この案件を依頼した相続人。戸籍タスクはこの人の分から出します">
+              <input type="checkbox" checked={!!r.is_client} onChange={e => saveClient(r.id, e.target.checked)} className="w-4 h-4 accent-brand-600" />依頼者
+            </label>
             <label className={`inline-flex items-center gap-1 flex-none text-[11.5px] px-2 py-1.5 min-h-[40px] rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
               <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-4 h-4 accent-amber-600" />同居
             </label>

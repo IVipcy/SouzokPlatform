@@ -11,6 +11,7 @@ import { useModal } from '@/hooks/useModal'
 import CreateCaseModal from './CreateCaseModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
+import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { useRouter } from 'next/navigation'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { CaseRow, MemberRow } from '@/types'
@@ -41,26 +42,8 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 
   const handleDeleteCase = async () => {
     if (!deleteCase) return
-    const supabase = createClient()
-    const { data: tasks } = await supabase.from('tasks').select('id').eq('case_id', deleteCase.id)
-    if (tasks) {
-      for (const t of tasks) {
-        await supabase.from('task_assignees').delete().eq('task_id', t.id)
-      }
-    }
-    await supabase.from('tasks').delete().eq('case_id', deleteCase.id)
-    await supabase.from('case_members').delete().eq('case_id', deleteCase.id)
-    await supabase.from('documents').delete().eq('case_id', deleteCase.id)
-    await supabase.from('events').delete().eq('case_id', deleteCase.id)
-    const { data: invoices } = await supabase.from('invoices').select('id').eq('case_id', deleteCase.id)
-    if (invoices) {
-      for (const inv of invoices) {
-        await supabase.from('payments').delete().eq('invoice_id', inv.id)
-      }
-    }
-    await supabase.from('invoices').delete().eq('case_id', deleteCase.id)
-    const { error } = await supabase.from('cases').delete().eq('id', deleteCase.id)
-    if (error) throw new Error(error.message)
+    // 消し漏れがあると最後の案件削除が外部キーで失敗して「消えない」ので、共通処理に任せる
+    await cascadeDeleteCase(createClient(), deleteCase.id)
     setDeleteCase(null)
     router.refresh()
   }
