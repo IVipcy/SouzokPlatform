@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
 import { gyomuForCategories } from '@/lib/serviceMaster'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import { koteiOf, koteiRank } from '@/lib/kotei'
+import { koteiOf } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
 
@@ -58,8 +58,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   })
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
   // 工程の選択肢（この案件の業務から導出）／選択中工程の業務
-  const koteiOptions = [...new Set(gyomuOptions.map(koteiOf))].sort((a, b) => koteiRank(a) - koteiRank(b))
-  const gyomusInKotei = gyomuOptions.filter(g => koteiOf(g) === form.kotei)
+  // 選べる業務区分＝この案件の実施業務 ＋ 常に選べる「納品」「その他」。
+  // その他＝どの業務にも属さない任意タスクの置き場（事務管理タスク一覧の「その他」タブに出る）。
+  const ALWAYS_SELECTABLE = ['納品', 'その他']
+  const gyomuChoices = [...gyomuOptions, ...ALWAYS_SELECTABLE.filter(g => !gyomuOptions.includes(g))]
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -203,34 +205,20 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           </div>
         </div>
 
-        {/* 工程 → 業務（事務管理タスクのときだけ。先に分類を選ぶ） */}
+        {/* 業務区分（事務管理タスクのときだけ）。工程の2段選択は廃止し、業務を直接選ぶ。 */}
         {form.roleKind === 'assistant' ? (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[13px] font-semibold text-gray-500 mb-1">工程</label>
-            <select
-              value={form.kotei}
-              onChange={e => { const k = e.target.value; const first = gyomuOptions.find(g => koteiOf(g) === k) ?? ''; setForm(p => ({ ...p, kotei: k, gyomu: first })) }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            >
-              {koteiOptions.length === 0 && <option value="">（工程なし）</option>}
-              {koteiOptions.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務区分</label>
-            <select
-              value={form.gyomu}
-              onChange={e => setForm(p => ({ ...p, gyomu: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-            >
-              {gyomusInKotei.length === 0 && <option value="">（業務なし）</option>}
-              {gyomusInKotei.map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務区分</label>
+          <select
+            value={form.gyomu}
+            onChange={e => setForm(p => ({ ...p, gyomu: e.target.value, kotei: koteiOf(e.target.value) }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          >
+            {gyomuChoices.map(g => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-gray-400">どの業務にも当てはまらないときは「その他」。事務管理タスク一覧の同じ名前のタブに入ります。</p>
         </div>
         ) : (
           <div className="text-[12px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">

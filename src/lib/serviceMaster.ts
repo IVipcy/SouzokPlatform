@@ -19,6 +19,7 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '協議書': 'division',
   '登記': 'registration',
   '解約': 'cancellation',
+  '納品': 'delivery',
   '手紙': 'letter',
   '遺言作成': 'will',
   '信託契約書作成': 'trust',
@@ -30,8 +31,10 @@ export const GYOMU_TAB: Record<string, TabKey | undefined> = {
   '執行通知': 'execution',
   '精算書作成': 'succession',
   '指図書作成': 'succession',
+  // 「その他」はどの実務タブにも紐づかない（任意タスクの置き場）
+  'その他': undefined,
 }
-export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知', '精算書作成', '指図書作成']
+export const GYOMU_ALL = ['戸籍', '相関図', '法定相続情報取得', '不動産', '金融資産', '目録', '協議書', '登記', '解約', '納品', '手紙', '遺言作成', '信託契約書作成', '放棄手続き', '調停手続き', '検認手続き', '後見手続き', '契約書作成', '執行通知', '精算書作成', '指図書作成', 'その他']
 
 // === オーダーシートの受注区分レイアウト（3行）。契約書は受注区分から外し実施業務へ格下げ ===
 // 型・SERVICE_ROWS は互換のため ORDER_CATEGORIES に「契約書」を残すが、UIの選択肢はこの3行だけ（契約書を出さない）。
@@ -63,11 +66,13 @@ export const GYOMU_SELECTOR_ROWS: GyomuSelectorItem[][] = [
     { label: '法定相続情報取得', gyomus: ['法定相続情報取得'] },
     { label: '不動産調査', gyomus: ['不動産'] },
     { label: '金融資産調査', gyomus: ['金融資産'] },
+    { label: '財産目録', gyomus: ['目録'] },
     { label: '協議書', gyomus: ['協議書'] },
     { label: '登記', gyomus: ['登記'] },
   ],
   [
     { label: '解約', gyomus: ['解約'] },
+    { label: '納品', gyomus: ['納品'] },
     { label: '手紙', gyomus: ['手紙'] },
     { label: '遺産承継', gyomus: ['精算書作成', '指図書作成'] },
     { label: '契約書', gyomus: ['契約書作成'] },
@@ -108,6 +113,8 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '手続き一式', gyomu: '登記', task: '権利書の製本', owner: '自社', hint: '相続登記チームタスク。識別情報受領後にチームメンバーが着手' },
   { category: '手続き一式', gyomu: '登記', task: '不動産登記簿の申請', owner: '自社', hint: '相続登記チームタスク。相続登記完了後分の全部事項証明書を法務局に申請' },
   { category: '手続き一式', gyomu: '登記', task: '不動産登記簿の受領', owner: '自社', hint: '法務局から届く登記簿を受信簿に登録（事務管理）。届いたら納品対象に' },
+  { category: '手続き一式', gyomu: '納品', task: '納品書類一式の作成', owner: '自社', hint: '納品タブで納品物・受領先を確定し、原本受領証まで用意する' },
+  { category: '手続き一式', gyomu: '納品', task: '納品物の発送', owner: '自社', hint: '受領先ごとに封筒・原本受領証を同封して発送する' },
   { category: '手続き一式', gyomu: '解約', task: '預貯金の解約', owner: '自社', hint: '半々くらい依頼者がやる' },
   { category: '手続き一式', gyomu: '解約', task: '証券の移管・売却', owner: '自社', hint: '半々くらい依頼者がやる' },
   { category: '手続き一式', gyomu: '解約', task: '投資信託の解約', owner: '自社', hint: '半々くらい依頼者がやる' },
@@ -129,12 +136,15 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '遺産承継', gyomu: '解約', task: '預貯金の解約', owner: '自社' },
   { category: '遺産承継', gyomu: '解約', task: '証券の移管・売却', owner: '自社' },
   { category: '遺産承継', gyomu: '解約', task: '投資信託の解約', owner: '自社' },
+  { category: '遺産承継', gyomu: '目録', task: '財産目録の作成', owner: '自社' },
   { category: '遺産承継', gyomu: '協議書', task: '遺産分割協議書の作成', owner: '自社' },
   { category: '遺産承継', gyomu: '登記', task: '相続登記の申請', owner: '自社', hint: '相続登記チームタスク' },
   { category: '遺産承継', gyomu: '登記', task: '識別情報通知の受領', owner: '自社', hint: '法務局から届く識別情報通知を受信簿に登録・権利書の製本と紐付け（事務管理）' },
   { category: '遺産承継', gyomu: '登記', task: '権利書の製本', owner: '自社', hint: '相続登記チームタスク' },
   { category: '遺産承継', gyomu: '登記', task: '不動産登記簿の申請', owner: '自社', hint: '相続登記チームタスク。相続登記完了後分の全部事項証明書を法務局に申請' },
   { category: '遺産承継', gyomu: '登記', task: '不動産登記簿の受領', owner: '自社', hint: '法務局から届く登記簿を受信簿に登録（事務管理）。届いたら納品対象に' },
+  { category: '遺産承継', gyomu: '納品', task: '納品書類一式の作成', owner: '自社', hint: '納品タブで納品物・受領先を確定し、原本受領証まで用意する' },
+  { category: '遺産承継', gyomu: '納品', task: '納品物の発送', owner: '自社', hint: '受領先ごとに封筒・原本受領証を同封して発送する' },
   { category: '遺産承継', gyomu: '手紙', task: '各相続人への通知・案内文の送付', owner: '自社' },
   { category: '遺産承継', gyomu: '精算書作成', task: '精算書作成', owner: '自社' },
   { category: '遺産承継', gyomu: '精算書作成', task: '精算書送付', owner: '自社' },
@@ -151,6 +161,8 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '登記', gyomu: '登記', task: '権利書の製本', owner: '自社', hint: '相続登記チームタスク。識別情報受領後にチームメンバーが着手' },
   { category: '登記', gyomu: '登記', task: '不動産登記簿の申請', owner: '自社', hint: '相続登記チームタスク。相続登記完了後分の全部事項証明書を法務局に申請' },
   { category: '登記', gyomu: '登記', task: '不動産登記簿の受領', owner: '自社', hint: '法務局から届く登記簿を受信簿に登録（事務管理）。届いたら納品対象に' },
+  { category: '登記', gyomu: '納品', task: '納品書類一式の作成', owner: '自社', hint: '納品タブで納品物・受領先を確定し、原本受領証まで用意する' },
+  { category: '登記', gyomu: '納品', task: '納品物の発送', owner: '自社', hint: '受領先ごとに封筒・原本受領証を同封して発送する' },
   { category: '遺言', gyomu: '戸籍', task: '戸籍収集（請求・取得）', owner: '自社', hint: 'オーシャン：依頼者＝6：4、7：3' },
   { category: '遺言', gyomu: '戸籍', task: '戸籍到着確認・チェック', owner: '自社', hint: 'オーシャン' },
   { category: '遺言', gyomu: '戸籍', task: '追加戸籍請求', owner: '自社', hint: '既存テンプレより（細かい手順）' },
@@ -249,6 +261,8 @@ export const SERVICE_ROWS: ServiceRow[] = [
   { category: '執行', gyomu: '登記', task: '権利書の製本', owner: '自社', hint: '相続登記チームタスク' },
   { category: '執行', gyomu: '登記', task: '不動産登記簿の申請', owner: '自社', hint: '相続登記チームタスク。相続登記完了後分の全部事項証明書を法務局に申請' },
   { category: '執行', gyomu: '登記', task: '不動産登記簿の受領', owner: '自社', hint: '法務局から届く登記簿を受信簿に登録（事務管理）。届いたら納品対象に' },
+  { category: '執行', gyomu: '納品', task: '納品書類一式の作成', owner: '自社', hint: '納品タブで納品物・受領先を確定し、原本受領証まで用意する' },
+  { category: '執行', gyomu: '納品', task: '納品物の発送', owner: '自社', hint: '受領先ごとに封筒・原本受領証を同封して発送する' },
   { category: '執行', gyomu: '解約', task: '預貯金の解約', owner: '自社', hint: '半々くらい依頼者がやる' },
   { category: '執行', gyomu: '解約', task: '証券の移管・売却', owner: '自社', hint: '半々くらい依頼者がやる' },
   { category: '執行', gyomu: '解約', task: '投資信託の解約', owner: '自社', hint: '半々くらい依頼者がやる' },

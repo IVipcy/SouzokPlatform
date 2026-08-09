@@ -3,18 +3,18 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Layers, PackageCheck, Package, Compass, HelpCircle } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
-import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import EditTaskModal from './EditTaskModal'
 import CompleteTaskModal from './CompleteTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
+import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
 import { koteiOf, koteiRank } from '@/lib/kotei'
-import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
+import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -92,7 +92,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
-  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
+  // 業務タブ（相続人調査／不動産調査／…／その他）。'all'＝すべて。
+  // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
+  const [taskTab, setTaskTab] = useState<string>('all')
   // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
   const [readyOnly, setReadyOnly] = useState(true)
   const [waitOnly, setWaitOnly] = useState(true)
@@ -128,9 +130,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
     }
-    // 工程（OR）: task.phase の導出工程が選択集合に含まれる
-    if (koteiFilter.size > 0) {
-      result = result.filter(t => koteiFilter.has(koteiOf(t.phase)))
+    // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
+    if (taskTab !== 'all') {
+      result = result.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     }
     // 着手OK／受領次第OK（着手前の中の絞り込み・両方ONなら和集合）。着手前タブのときだけ適用。
     if (statusFilter === '着手前' && (readyOnly || waitOnly)) {
@@ -166,7 +168,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, koteiFilter, readyOnly, waitOnly, search, caseMap, currentMemberId, today, receipts])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, readyOnly, waitOnly, search, caseMap, currentMemberId, today, receipts])
 
   const waitCount = useMemo(() => assistantTasks.filter(t => isWaitingReceipt(t)).length, [assistantTasks])
 
@@ -175,12 +177,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     [assistantTasks, receipts],
   )
 
-  // フィルタ選択肢: 実データに存在するものだけを、正準順序で出す
-  // 受注区分・業務区分での絞り込みは廃止（事務管理の手元では使わない絞り方だった）。
-  const koteiOptions = useMemo(() => {
-    const present = new Set<string>()
-    for (const t of assistantTasks) present.add(koteiOf(t.phase))
-    return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
+  // 業務タブごとの未完了件数（バッジ）。タブの並びは定義どおり固定で、0件でも出す
+  // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
+  const tabCounts = useMemo(() => {
+    const m: Record<string, number> = { all: 0 }
+    for (const t of assistantTasks) {
+      if (normalizeStatus(t.status) === '完了') continue
+      const k = tabKeyOfGyomu(gyomuOf(t))
+      m[k] = (m[k] ?? 0) + 1
+      m.all += 1
+    }
+    return m
   }, [assistantTasks])
 
   const kpis = useMemo(() => ({
@@ -421,17 +428,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <span className="w-px h-6 bg-gray-200" />
 
-          <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
-
-          {koteiFilter.size > 0 && (
-            <button
-              onClick={() => setKoteiFilter(new Set())}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[12px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <X className="w-3.5 h-3.5" strokeWidth={2} />クリア
-            </button>
-          )}
-
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setFilterMine(v => !v)}
@@ -452,18 +448,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
         </div>
 
-        {/* 選択中チップ */}
-        {koteiFilter.size > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap mt-2">
-            <span className="text-[12px] text-gray-400">絞り込み中:</span>
-            {[...koteiFilter].map(k => (
-              <span key={`k-${k}`} className="inline-flex items-center gap-1 text-[12px] text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
-                <Layers className="w-3 h-3" strokeWidth={2} />{k}
-                <button onClick={() => setKoteiFilter(prev => { const n = new Set(prev); n.delete(k); return n })} className="hover:text-brand-900"><X className="w-3 h-3" strokeWidth={2.5} /></button>
-              </span>
-            ))}
-          </div>
-        )}
+        {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける） */}
+        <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
+          {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map(t => {
+            const on = taskTab === t.key
+            const n = tabCounts[t.key] ?? 0
+            return (
+              <button key={t.key} type="button" onClick={() => setTaskTab(t.key)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors ${
+                  on ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                {t.label}
+                <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${on ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-400'}`}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <>
@@ -565,13 +564,12 @@ function ListView({
   roleScope: 'assistant' | 'manager'
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, kotei: 104, gyomu: 124, title: 220, priority: 84, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
+    select: 40, gyomu: 124, title: 220, priority: 84, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
     execResult: 200,
     action: 110, ops: 40,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
     { key: 'select',     label: '' },
-    { key: 'kotei',      label: '工程' },
     { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
     { key: 'priority',   label: '優先度' },
@@ -703,9 +701,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
         />
       </td>
-
-      {/* 工程 */}
-      <td className="px-3.5 py-2.5"><KoteiBadge phase={task.phase} /></td>
 
       {/* 業務区分 */}
       <td className="px-3.5 py-2.5"><GyomuBadge phase={task.phase} /></td>
