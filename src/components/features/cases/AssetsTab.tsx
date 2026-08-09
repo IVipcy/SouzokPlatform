@@ -155,8 +155,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   const assetSummary = summaryItems.length > 0 ? (
     <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+        {/* マイナス計上は「− 金額」の表記で分かるので赤字にはしない（赤は危険の色に取っておく） */}
         {summaryItems.map(x => (
-          <span key={x.label} className={x.negative ? 'text-red-700' : 'text-gray-600'}>
+          <span key={x.label} className="text-gray-600">
             {x.label} <span className="font-semibold tabular-nums">{x.negative ? `− ${yen(x.amount)}` : yen(x.amount)}</span>
           </span>
         ))}

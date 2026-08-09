@@ -14,8 +14,9 @@ export function LeftRail({ items, active, onChange, extra, onDelete }: {
   extra?: ReactNode
   onDelete?: (key: string) => void  // 指定時、TOP以外の各グループにホバーで削除ボタンを表示
 }) {
+  // タブの地色がレールまで回り込まないよう白で敷く（サブタブは中身の一部という見え方にする）
   return (
-    <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
+    <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2 bg-white">
       {items.map(it => {
         const isItem = it.key !== 'top'
         const dim = isItem && it.received === false  // 受信判定がある項目で未受信なら控えめ

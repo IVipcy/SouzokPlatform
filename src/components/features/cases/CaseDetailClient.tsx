@@ -497,9 +497,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   return (
     <CaseComposeProvider caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={isCaseManager}>
-    {/* 開いているタブの持ち場で地色を変える（ベージュ=オーダーシート／ピンク=事務管理／緑=管理担当）。
-        誰の作業をしている画面なのかが、タブを見なくても分かるようにする。 */}
-    <div className={`${tabTone ? `${TONE_BG[tabTone]} -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6 pb-8 min-h-screen` : ''}`}>
+    <div>
       <CaseHeader
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
@@ -658,6 +656,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         )}
       </div>
 
+      {/* 開いているタブの持ち場で地色を変える（ベージュ=オーダーシート／ピンク=事務管理／緑=管理担当）。
+          色を敷くのはタブの中身だけ。ヘッダー・タブ行までは白のままにする。
+          表やサブタブのレールは白で敷いてあるので、地色は余白にだけ出る。 */}
+      <div className={tabTone ? `case-tone ${TONE_BG[tabTone]} -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-8 min-h-[60vh]` : ''}>
+
       {/* 受注前でまだ作り始めていない案件は、この位置に面談シートを出す */}
       {effectiveTab === 'orderSheet' && showMeetingSheet && (
         <CaseMeetingSheetPanel
@@ -814,6 +817,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} tasks={tasks} />
       )}
 
+      </div>{/* /地色ラッパー */}
 
       {/* 検討中→（契約書待ち）/受託 へ進む前に、面談情報の更新を促すゲート */}
       <Modal

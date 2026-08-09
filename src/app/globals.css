@@ -286,3 +286,13 @@ body.is-handwriting-active button:not([data-handwriting-tool]):not(canvas *) {
     min-height: 44px;
   }
 }
+
+/* ─────────────────────────────────────────
+   案件詳細タブの地色（ベージュ/ピンク/緑）は「余白」にだけ出す。
+   表の中まで色が回り込むと、行の色分け（縞・強調）が読めなくなるため、
+   表そのものには白を敷いておく。
+   行に色が付いている箇所（bg-gray-50/40 や bg-red-50 など）は、この白の上に重なる。
+   ──────────────────────────────────────── */
+.case-tone table {
+  background-color: #fff;
+}
