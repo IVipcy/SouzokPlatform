@@ -15,7 +15,8 @@ import { Calculator, FileSpreadsheet, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { computeLegalShares, fracValue, type Frac } from '@/lib/legalShare'
-import { buildInventorySections, buildInventoryNotes, inventoryNet } from '@/lib/inventorySheet'
+import { buildInventorySections, buildEvidence, inventoryNet, type SourceTable } from '@/lib/inventorySheet'
+import { MoneyInput } from './FinancialAssetsTable'
 import type { FinancialAssetRow, RealEstatePropertyRow, CaseOtherAssetRow, HeirRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
@@ -32,9 +33,24 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
   const [heirRows, setHeirRows] = useState<HeirRow[]>(heirs)
   const [busy, setBusy] = useState(false)
 
-  const sections = buildInventorySections(properties, financialAssets, otherAssets)
-  const notes = buildInventoryNotes(properties, financialAssets, otherAssets)
+  // 元データ（財産調査の入力）を手元に持って、目録から直したらここも書き換える。
+  // 画面のちらつきを防ぐため、保存とローカル反映を同時にやる。
+  const [props, setProps] = useState(properties)
+  const [fins, setFins] = useState(financialAssets)
+  const [others, setOthers] = useState(otherAssets)
+
+  const sections = buildInventorySections(props, fins, others)
+  const evidence = buildEvidence(fins)
   const net = inventoryNet(sections)
+
+  // 目録で直した内容は元テーブル（財産調査）へ書き戻す。目録に写しは作らない。
+  const patch = async (table: SourceTable, id: string, field: string, value: string | number | null) => {
+    if (table === 'real_estate_properties') setProps(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
+    else if (table === 'financial_assets') setFins(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
+    else setOthers(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as CaseOtherAssetRow : r)))
+    const { error } = await supabase.from(table).update({ [field]: value }).eq('id', id)
+    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+  }
 
   // 法定相続人だけを参考欄に出す（前妻・前夫は is_legal_heir=false なので出ない）
   const takers = heirRows.filter(h => h.is_legal_heir)
@@ -65,12 +81,13 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
   }
 
   const TH = 'px-2.5 py-1.5 text-left font-semibold whitespace-nowrap'
+  const cellInput = 'w-full min-w-[80px] px-1.5 py-1 text-[12.5px] border border-transparent rounded bg-transparent hover:border-gray-200 focus:border-brand-500 focus:bg-white outline-none'
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-[11.5px] text-gray-500 flex-1 min-w-[280px] leading-relaxed">
-          財産調査の入力をそのまま並べています。直すときは各サブタブ（不動産・預金・証券・その他財産 など）で。
+          財産調査の入力をそのまま並べています。<strong>ここで直すと財産調査タブにも反映されます</strong>（写しは作りません）。
           ここに出ている内容がそのままExcelに出ます。
         </p>
         <a href={`/api/documents/inventory?caseId=${caseId}`}
@@ -80,7 +97,6 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
       </div>
 
       {sections.map(sec => {
-        const secNotes = notes[sec.key] ?? []
         return (
           <div key={sec.key} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className={`px-3 py-2 text-[13px] font-bold border-b ${sec.negative ? 'bg-red-50/60 text-red-800 border-red-100' : 'bg-brand-50/60 text-brand-800 border-brand-100'}`}>
@@ -102,20 +118,44 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
                   {sec.rows.length === 0 ? (
                     <tr><td colSpan={sec.headers.length + 4} className="px-3 py-5 text-center text-[12px] text-gray-400">この区分の登録はありません</td></tr>
                   ) : sec.rows.map((r, i) => (
-                    <tr key={i} className="hover:bg-gray-50/60">
+                    <tr key={r.source.id} className="hover:bg-gray-50/60">
                       <td className="px-2.5 py-1.5 text-center text-gray-500">{i + 1}</td>
-                      {r.cells.map((v, ci) => (
-                        <td key={ci} className="px-2.5 py-1.5 text-gray-800">
-                          {v === '' || v == null ? <span className="text-gray-300">—</span> : String(v)}
+                      {r.cells.map((c, ci) => (
+                        <td key={ci} className="px-2.5 py-1.5 text-gray-800 align-top">
+                          {c.field ? (
+                            <input type="text" defaultValue={c.value == null ? '' : String(c.value)}
+                              onBlur={e => {
+                                const v = e.target.value.trim()
+                                const cur = c.value == null ? '' : String(c.value)
+                                if (v === cur) return
+                                patch(r.source.table, r.source.id, c.field!, v === '' ? null : (c.numeric ? Number(v) : v))
+                              }}
+                              className={cellInput} />
+                          ) : (
+                            c.value === '' || c.value == null ? <span className="text-gray-300">—</span> : String(c.value)
+                          )}
                           {/* 建物は所在の下に家屋番号（実物のエクセルと同じ2段組み） */}
-                          {ci === 0 && r.subLine && <div className="text-[11px] text-gray-500 mt-0.5">{r.subLine}</div>}
+                          {ci === 0 && r.subField && (
+                            <input type="text" defaultValue={(r.subLine ?? '').replace('家屋番号　', '')}
+                              onBlur={e => {
+                                const v = e.target.value.trim()
+                                if (v === (r.subLine ?? '').replace('家屋番号　', '')) return
+                                patch(r.source.table, r.source.id, r.subField!, v === '' ? null : v)
+                              }}
+                              placeholder="家屋番号"
+                              className={`${cellInput} mt-1 text-[11.5px]`} />
+                          )}
                         </td>
                       ))}
-                      <td className={`px-2.5 py-1.5 text-right tabular-nums ${sec.negative ? 'text-red-700' : 'text-gray-800'}`}>
-                        {r.amount == null ? <span className="text-gray-300">—</span> : yen(r.amount)}
+                      <td className="px-2.5 py-1.5 align-top">
+                        <MoneyInput value={r.amount} onCommit={v => patch(r.source.table, r.source.id, r.amountField, v === '' ? null : Number(v))} />
                       </td>
-                      <td className="px-2.5 py-1.5 text-gray-600">{secNotes[i]?.note || <span className="text-gray-300">—</span>}</td>
-                      <td className="px-2.5 py-1.5 text-gray-600">{secNotes[i]?.evidence || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-2.5 py-1.5 align-top">
+                        <input type="text" defaultValue={r.note}
+                          onBlur={e => { if (e.target.value.trim() !== r.note) patch(r.source.table, r.source.id, r.noteField, e.target.value.trim() || null) }}
+                          className={cellInput} />
+                      </td>
+                      <td className="px-2.5 py-1.5 text-gray-600 align-top">{(evidence[sec.key] ?? [])[i] || <span className="text-gray-300">—</span>}</td>
                     </tr>
                   ))}
                 </tbody>

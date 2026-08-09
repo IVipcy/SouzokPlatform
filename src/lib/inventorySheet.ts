@@ -4,22 +4,37 @@
 // 画面（財産目録タブ）と Excel 出力の両方がこれを使うので、見えているものがそのまま出力される。
 //
 // 元データは財産調査の入力そのもの（不動産／金融資産／その他財産・相続債務・その他費用）。
-// 目録側で入れ直す必要はなく、財産調査を直せば目録も出力も追従する。
+// 目録に写しは作らない。目録で直した内容も元テーブルへ書き戻すので、二重管理にならない。
+// そのため各セルは「どのテーブルのどの列か」を持っている（field があるセルは目録から直せる）。
 //
 // 実物は金額欄が「相続開始日」「調査日」の2列だが、いまは残高を1つしか持たないため金額は1列。
 
+export type SourceTable = 'real_estate_properties' | 'financial_assets' | 'case_other_assets'
+
+export type InvCell = {
+  value: string | number | null
+  /** 元テーブルの列名。あれば目録から直接編集できる */
+  field?: string
+  /** 数値として保存する列（地積など） */
+  numeric?: boolean
+}
+
 export type InventoryRow = {
-  /** 明細の列（区分ごとの並び。セクションの headers と同じ数） */
-  cells: Array<string | number | null>
+  source: { table: SourceTable; id: string }
+  cells: InvCell[]
   amount: number | null
+  amountField: string
+  note: string
+  noteField: string
   /** 建物だけ使う2段目（家屋番号） */
   subLine?: string | null
+  subField?: string
 }
 
 export type InventorySection = {
   key: string
   title: string
-  /** 金額列より前の見出し */
+  /** 金額列より前の見出し（cells と同じ数・同じ順） */
   headers: string[]
   /** 金額列の見出し（区分で呼び方が違う） */
   amountHeader: string
@@ -30,6 +45,7 @@ export type InventorySection = {
 }
 
 type Property = {
+  id: string
   property_type?: string | null; address?: string | null; lot_number?: string | null; kaoku_bango?: string | null
   land_category?: string | null; land_area?: number | null
   building_kind?: string | null; building_structure?: string | null
@@ -37,17 +53,18 @@ type Property = {
   appraisal_value?: number | null; notes?: string | null
 }
 type FinAsset = {
+  id: string
   asset_type?: string | null; institution_name?: string | null; branch_name?: string | null
   account_type?: string | null; account_number?: string | null; balance_amount?: number | null
   notes?: string | null; evidence_docs?: string[] | null
 }
-type OtherAsset = { kind?: string | null; label?: string | null; amount?: number | null; note?: string | null }
+type OtherAsset = { id: string; kind?: string | null; label?: string | null; amount?: number | null; note?: string | null }
 
 const isLand = (t?: string | null) => !!t && (t.includes('土地') || t.includes('宅地'))
 const isBuilding = (t?: string | null) => !!t && (t.includes('建物') || t.includes('マンション') || t.includes('区分'))
 const shareText = (n?: number | null, d?: number | null) => (n && d ? `${n}/${d}` : n ? String(n) : '')
-const evidenceText = (f: FinAsset) => (f.evidence_docs ?? []).join('・')
-const inst = (f: FinAsset) => [f.institution_name, f.branch_name].filter(Boolean).join('　')
+const cell = (value: string | number | null | undefined, field?: string, numeric?: boolean): InvCell =>
+  ({ value: value ?? '', field, numeric })
 
 export function buildInventorySections(
   properties: Property[],
@@ -68,59 +85,67 @@ export function buildInventorySections(
   // 種別が土地でも建物でもない物件（未入力など）は落とさず土地側に寄せる
   const rest = properties.filter(p => !isLand(p.property_type) && !isBuilding(p.property_type))
 
+  const propRow = (p: Property, cells: InvCell[], subLine?: string | null): InventoryRow => ({
+    source: { table: 'real_estate_properties', id: p.id },
+    cells, amount: p.appraisal_value ?? null, amountField: 'appraisal_value',
+    note: p.notes ?? '', noteField: 'notes',
+    subLine: subLine ?? null, subField: 'kaoku_bango',
+  })
+  const finRow = (f: FinAsset, cells: InvCell[]): InventoryRow => ({
+    source: { table: 'financial_assets', id: f.id },
+    cells, amount: f.balance_amount ?? null, amountField: 'balance_amount',
+    note: f.notes ?? '', noteField: 'notes',
+  })
+  const otherRow = (o: OtherAsset, cells: InvCell[]): InventoryRow => ({
+    source: { table: 'case_other_assets', id: o.id },
+    cells, amount: o.amount ?? null, amountField: 'amount',
+    note: o.note ?? '', noteField: 'note',
+  })
+
   return [
     sec('land', '土地', ['所在', '地番', '地目', '地積', '持分'], '固定資産評価額',
-      [...land, ...rest].map(p => ({
-        cells: [p.address ?? '', p.lot_number ?? '', p.land_category ?? '', p.land_area ?? '', shareText(p.share_numerator, p.share_denominator)],
-        amount: p.appraisal_value ?? null,
-      }))),
+      [...land, ...rest].map(p => propRow(p, [
+        cell(p.address, 'address'),
+        cell(p.lot_number, 'lot_number'),
+        cell(p.land_category, 'land_category'),
+        cell(p.land_area, 'land_area', true),
+        cell(shareText(p.share_numerator, p.share_denominator)),
+      ]))),
     sec('building', '建物', ['不動産の所在', '種類', '構造・床面積', '持分'], '評価額',
-      building.map(p => ({
-        cells: [p.address ?? '', p.building_kind ?? '', p.building_structure ?? '', shareText(p.share_numerator, p.share_denominator)],
-        amount: p.appraisal_value ?? null,
-        subLine: p.kaoku_bango ? `家屋番号　${p.kaoku_bango}` : null,
-      }))),
-    sec('deposit', '預貯金', ['金融機関', '種別', '口座番号等'], '金額',
-      financialAssets.filter(f => f.asset_type === '預貯金').map(f => ({
-        cells: [inst(f), f.account_type ?? '', f.account_number ?? ''],
-        amount: f.balance_amount ?? null,
-      }))),
-    sec('securities', '有価証券', ['金融機関', '種別', '銘柄等'], '金額',
-      financialAssets.filter(f => f.asset_type === '証券' || f.asset_type === '信託銀行' || f.asset_type === '信託').map(f => ({
-        cells: [inst(f), f.asset_type ?? '', f.account_number ?? ''],
-        amount: f.balance_amount ?? null,
-      }))),
+      building.map(p => propRow(p, [
+        cell(p.address, 'address'),
+        cell(p.building_kind, 'building_kind'),
+        cell(p.building_structure, 'building_structure'),
+        cell(shareText(p.share_numerator, p.share_denominator)),
+      ], p.kaoku_bango ? `家屋番号　${p.kaoku_bango}` : ''))),
+    sec('deposit', '預貯金', ['金融機関', '支店', '種別', '口座番号等'], '金額',
+      financialAssets.filter(f => f.asset_type === '預貯金').map(f => finRow(f, [
+        cell(f.institution_name, 'institution_name'),
+        cell(f.branch_name, 'branch_name'),
+        cell(f.account_type, 'account_type'),
+        cell(f.account_number, 'account_number'),
+      ]))),
+    sec('securities', '有価証券', ['金融機関', '支店', '種別', '銘柄等'], '金額',
+      financialAssets.filter(f => f.asset_type === '証券' || f.asset_type === '信託銀行' || f.asset_type === '信託').map(f => finRow(f, [
+        cell(f.institution_name, 'institution_name'),
+        cell(f.branch_name, 'branch_name'),
+        cell(f.asset_type),
+        cell(f.account_number, 'account_number'),
+      ]))),
     sec('other', 'その他財産', ['品目'], '金額',
-      otherAssets.filter(o => o.kind === 'その他財産').map(o => ({
-        cells: [o.label ?? ''],
-        amount: o.amount ?? null,
-      }))),
+      otherAssets.filter(o => o.kind === 'その他財産').map(o => otherRow(o, [cell(o.label, 'label')]))),
     sec('debt', '債務', ['品目'], '金額',
-      otherAssets.filter(o => o.kind === '相続債務' || o.kind === 'その他費用').map(o => ({
-        cells: [[o.kind === 'その他費用' ? '【費用】' : '', o.label ?? ''].filter(Boolean).join('')],
-        amount: o.amount ?? null,
-      })), true),
+      otherAssets.filter(o => o.kind === '相続債務' || o.kind === 'その他費用').map(o => otherRow(o, [
+        cell(o.kind === 'その他費用' ? `【費用】${o.label ?? ''}` : (o.label ?? ''), 'label'),
+      ])), true),
   ]
 }
 
-/** 備考・根拠資料（区分ごとに元データが違うので、行と同じ並びで別に返す） */
-export function buildInventoryNotes(
-  properties: Property[],
-  financialAssets: FinAsset[],
-  otherAssets: OtherAsset[],
-): Record<string, Array<{ note: string; evidence: string }>> {
-  const land = properties.filter(p => isLand(p.property_type))
-  const rest = properties.filter(p => !isLand(p.property_type) && !isBuilding(p.property_type))
-  const fin = (types: string[]) => financialAssets.filter(f => types.includes(f.asset_type ?? ''))
-  const other = (kinds: string[]) => otherAssets.filter(o => kinds.includes(o.kind ?? ''))
-  return {
-    land: [...land, ...rest].map(p => ({ note: p.notes ?? '', evidence: '' })),
-    building: properties.filter(p => isBuilding(p.property_type)).map(p => ({ note: p.notes ?? '', evidence: '' })),
-    deposit: fin(['預貯金']).map(f => ({ note: f.notes ?? '', evidence: evidenceText(f) })),
-    securities: fin(['証券', '信託銀行', '信託']).map(f => ({ note: f.notes ?? '', evidence: evidenceText(f) })),
-    other: other(['その他財産']).map(o => ({ note: o.note ?? '', evidence: '' })),
-    debt: other(['相続債務', 'その他費用']).map(o => ({ note: o.note ?? '', evidence: '' })),
-  }
+/** 根拠資料（金融資産だけ持っている。行の並びはセクションと同じ） */
+export function buildEvidence(financialAssets: FinAsset[]): Record<string, string[]> {
+  const of = (types: string[]) =>
+    financialAssets.filter(f => types.includes(f.asset_type ?? '')).map(f => (f.evidence_docs ?? []).join('・'))
+  return { deposit: of(['預貯金']), securities: of(['証券', '信託銀行', '信託']) }
 }
 
 /** プラス財産 − 債務 */

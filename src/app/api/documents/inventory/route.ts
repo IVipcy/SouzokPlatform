@@ -21,9 +21,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { createClient } from '@/lib/supabase/server'
-import { buildInventorySections, buildInventoryNotes, inventoryNet } from '@/lib/inventorySheet'
+import { buildInventorySections, buildEvidence, inventoryNet } from '@/lib/inventorySheet'
 
 type Property = {
+  id: string
   property_type: string | null; address: string | null; lot_number: string | null; kaoku_bango: string | null
   land_category: string | null; land_area: number | null
   building_kind: string | null; building_structure: string | null
@@ -31,11 +32,12 @@ type Property = {
   appraisal_value: number | null; notes: string | null
 }
 type FinAsset = {
+  id: string
   asset_type: string | null; institution_name: string | null; branch_name: string | null
   account_type: string | null; account_number: string | null; balance_amount: number | null
   notes: string | null; evidence_docs: string[] | null
 }
-type OtherAsset = { kind: string | null; label: string | null; amount: number | null; note: string | null }
+type OtherAsset = { id: string; kind: string | null; label: string | null; amount: number | null; note: string | null }
 type Heir = { name: string; is_legal_heir: boolean; legal_share_num: number | null; legal_share_den: number | null }
 
 const F = 'ＭＳ Ｐゴシック'
@@ -144,19 +146,19 @@ export async function GET(req: NextRequest) {
   }
 
   const built = buildInventorySections(props, fins, others)
-  const builtNotes = buildInventoryNotes(props, fins, others)
+  const evidence = buildEvidence(fins)
   for (const b of built) {
     // その他財産は実物のシートに無い区分。登録が無いときは出さない。
     if (b.key === 'other' && b.rows.length === 0) continue
-    const ns = builtNotes[b.key] ?? []
+    const ev = evidence[b.key] ?? []
     section(
       `（${b.title}）`,
       [[1, '番号'], ...b.headers.map((h, i2) => [2 + i2, h] as [number, string]), [7, b.amountHeader, 2], [9, '備考'], [10, '根拠資料']],
       b.rows.map((row, i2) => ({
         cells: [
-          ...row.cells.map((v, ci) => [2 + ci, v] as [number, string | number | null]),
-          [9, ns[i2]?.note ?? ''] as [number, string],
-          [10, ns[i2]?.evidence ?? ''] as [number, string],
+          ...row.cells.map((cl, ci) => [2 + ci, cl.value] as [number, string | number | null]),
+          [9, row.note] as [number, string],
+          [10, ev[i2] ?? ''] as [number, string],
         ],
         amount: row.amount,
         extraRow: row.subLine ? ([[2, row.subLine, 2]] as Array<[number, string | number | null, number?]>) : undefined,
