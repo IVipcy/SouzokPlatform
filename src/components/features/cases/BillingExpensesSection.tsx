@@ -14,7 +14,8 @@ import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
 import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
-import type { BillingExpenseItemRow } from '@/types'
+import { registrationTax } from '@/lib/registrationTax'
+import type { BillingExpenseItemRow, RealEstatePropertyRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 // 司法=青 / 行政=緑（請求料金内訳と統一。アイコン・ドットは付けず文字色で区別）
@@ -75,7 +76,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     const [{ data: kos }, { data: rea }, { data: props }] = await Promise.all([
       supabase.from('koseki_requests').select('id, target_person, request_to, acquirer, cost_budget, cost_refund, cost_confirmed').eq('case_id', caseId),
       supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, cost_confirmed').eq('case_id', caseId),
-      supabase.from('real_estate_properties').select('id, address, lot_number, registration_cost').eq('case_id', caseId),
+      supabase.from('real_estate_properties').select('id, address, lot_number, appraisal_value, share_numerator, share_denominator, registration_cost').eq('case_id', caseId),
     ])
     // 既存の取り込み分から前回の選択を保持（source_kind:source_id をキーに）
     const prior = new Map<string, { shigyo: string; taxable: boolean }>()
@@ -97,8 +98,13 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
       const amt = (a.cost_confirmed as number | null) ?? 0
       if (amt > 0) add('real_estate_acq', a.id as string, `${(a.item_type as string) || '取得資料'}${a.target_municipality ? `（${a.target_municipality}）` : ''}`, amt)
     }
+    // 登録免許税は物件の評価額×持分×0.4%（概算）から計算する。
+    // 相続登記タブで納付額を入れてあればそちらを優先（実際の納付額は端数処理でずれるため）。
     for (const p of (props ?? []) as Record<string, unknown>[]) {
-      const amt = (p.registration_cost as number | null) ?? 0
+      const fixed = p.registration_cost as number | null
+      const amt = fixed != null && fixed > 0
+        ? fixed
+        : Math.round(registrationTax(p as unknown as RealEstatePropertyRow))
       if (amt > 0) add('registration', p.id as string, `登録免許税（${(p.address as string) || (p.lot_number as string) || '物件'}）`, amt)
     }
     setImporting(false)

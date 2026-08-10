@@ -13,6 +13,7 @@ import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
 import { DateCell, MoneyCell, DcCell } from './PracticeTableCells'
 import { municipalityOf } from './RealEstateSection'
+import { registrationTax } from '@/lib/registrationTax'
 import type { RealEstatePropertyRow, HeirRow } from '@/types'
 
 const collator = new Intl.Collator('ja')
@@ -47,7 +48,11 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
     ...(hasUnset ? [{ key: '__unset__', label: '市区町村 未設定' }] : []),
   ]
   const activeMuni = sub === '__unset__' ? '' : sub
-  const costTotal = properties.reduce((s, p) => s + (p.registration_cost ?? 0), 0)
+  // 登録免許税は、納付額を入れていなければ 評価額×持分×0.4% の概算で見せる。
+  // 概算は財産調査タブのTOPと請求タブの立替実費でも同じ計算を使っているので、数字が食い違わない。
+  const regCost = (p: RealEstatePropertyRow) => p.registration_cost ?? Math.round(registrationTax(p))
+  const isEstimate = (p: RealEstatePropertyRow) => p.registration_cost == null && registrationTax(p) > 0
+  const costTotal = properties.reduce((s, p) => s + regCost(p), 0)
   // 管轄法務局の予測候補：この案件で入力済みの法務局（自由入力も可）。
   const officeListId = `reg-office-${caseId}`
   const officeOptions = [...new Set(properties.map(p => (p.registration_office ?? '').trim()).filter(Boolean))]
@@ -82,7 +87,11 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
                         <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={p.registration_result ?? ''}>{p.registration_result || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{p.registration_apply_date?.slice(5).replace('-', '/') || '—'}</td>
-                        <td className="px-2.5 py-2 text-right">{p.registration_cost != null ? `¥${Math.round(p.registration_cost).toLocaleString('ja-JP')}` : '—'}</td>
+                        <td className="px-2.5 py-2 text-right">
+                          {regCost(p) > 0
+                            ? <>¥{regCost(p).toLocaleString('ja-JP')}{isEstimate(p) && <span className="ml-1 text-[10px] text-gray-400">概算</span>}</>
+                            : '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
