@@ -15,8 +15,8 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
-import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, TASK_CHUI_BIZ_DAYS, type TaskSeverity } from '@/lib/taskSeverity'
-import { bizDaysOverdue, bizDaysUntil } from '@/lib/overdue'
+import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_LABEL, type TaskSeverity } from '@/lib/taskSeverity'
+import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -61,12 +61,12 @@ type Props = {
 export type TaskJump = {
   /** 押すたびに変わる値。同じ条件をもう一度押しても効くようにするため。 */
   key: string
-  due?: DueFilter
+  sev?: SevFilter
   priorities?: string[]
 }
 
-/** 期限の絞り込み。over=1〜4営業日超過 / big=5営業日以上超過 */
-export type DueFilter = 'all' | 'over' | 'big'
+/** 遅れの絞り込み。タブの点と同じ4段階 */
+export type SevFilter = 'all' | TaskSeverity
 
 /**
  * 並び順。
@@ -111,7 +111,21 @@ const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : 
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-// 期限・優先度の絞り込みチップ。押すたびにON/OFF。
+// 遅れの絞り込みチップ。タブの点と同じ4色・同じ判定。
+const SEV_CHIPS: TaskSeverity[] = ['blue', 'green', 'orange', 'red']
+function SevChip({ sev, on, onClick }: { sev: TaskSeverity; on: boolean; onClick: () => void }) {
+  const c = SEVERITY_TAB[sev]
+  return (
+    <button type="button" onClick={onClick} title={SEVERITY_TAB_NOTE[sev]}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-semibold border transition-colors ${
+        on ? `${c.badge} border-current` : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />
+      {SEVERITY_LABEL[sev]}
+    </button>
+  )
+}
+
+// 優先度の絞り込みチップ。押すたびにON/OFF。
 const CHIP_ON: Record<string, string> = {
   green: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   amber: 'bg-amber-100 text-amber-800 border-amber-300',
@@ -172,8 +186,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 業務タブ（相続人調査／不動産調査／…／その他）。'all'＝すべて。
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
-  // 期限・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
-  const [dueFilter, setDueFilter] = useState<DueFilter>('all')
+  // 遅れ・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
+  const [sevFilter, setSevFilter] = useState<SevFilter>('all')
   const [priFilter, setPriFilter] = useState<Set<string>>(() => new Set())
   // 並び替え。見出しを押すと切り替わる。同じ列をもう一度押すと昇順⇔降順。
   const [sortKey, setSortKey] = useState<SortKey>('default')
@@ -211,7 +225,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       setStatusFilter('all')   // バナーには対応中のタスクも入るため、着手OK縛りを外す
       setFilterMine(false)
       setSearch('')
-      setDueFilter(jump.due ?? 'all')
+      setSevFilter(jump.sev ?? 'all')
       setPriFilter(new Set(jump.priorities ?? []))
     }
   }
@@ -244,12 +258,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (taskTab !== 'all') {
       result = result.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     }
-    // 期限・優先度の絞り込み（業務タブに関係なく効く）
-    if (dueFilter !== 'all') {
-      result = result.filter(t => {
-        const over = t.due_date ? bizDaysOverdue(t.due_date, today) : 0
-        return dueFilter === 'big' ? over >= TASK_CHUI_BIZ_DAYS : over > 0 && over < TASK_CHUI_BIZ_DAYS
-      })
+    // 遅れ・優先度の絞り込み（業務タブに関係なく効く）
+    if (sevFilter !== 'all') {
+      result = result.filter(t => taskSeverity(t, today) === sevFilter)
     }
     if (priFilter.size > 0) {
       result = result.filter(t => priFilter.has(t.priority || '通常'))
@@ -296,7 +307,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, dueFilter, priFilter, sortKey, sortDir])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, sortKey, sortDir])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -539,13 +550,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
           <span className="w-px h-6 bg-gray-200" />
 
-          {/* 期限・優先度の絞り込み。業務タブを切り替えても外れない。 */}
+          {/* 遅れ・優先度の絞り込み。業務タブを切り替えても外れない。 */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11.5px] font-semibold text-gray-400">期限</span>
-            <Chip label="超過" note="1〜4営業日" tone="green"
-              on={dueFilter === 'over'} onClick={() => setDueFilter(v => (v === 'over' ? 'all' : 'over'))} />
-            <Chip label="大幅超過" note={`${TASK_CHUI_BIZ_DAYS}営業日〜`} tone="amber"
-              on={dueFilter === 'big'} onClick={() => setDueFilter(v => (v === 'big' ? 'all' : 'big'))} />
+            <span className="text-[11.5px] font-semibold text-gray-400">遅れ</span>
+            {SEV_CHIPS.map(s => (
+              <SevChip key={s} sev={s} on={sevFilter === s}
+                onClick={() => setSevFilter(v => (v === s ? 'all' : s))} />
+            ))}
             <span className="text-[11.5px] font-semibold text-gray-400 ml-1.5">優先度</span>
             {TASK_PRIORITIES.map(p => (
               <Chip key={p.key} label={p.label}
@@ -557,9 +568,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                   return next
                 })} />
             ))}
-            {(dueFilter !== 'all' || priFilter.size > 0) && (
+            {(sevFilter !== 'all' || priFilter.size > 0) && (
               <button type="button"
-                onClick={() => { setDueFilter('all'); setPriFilter(new Set()) }}
+                onClick={() => { setSevFilter('all'); setPriFilter(new Set()) }}
                 className="inline-flex items-center gap-0.5 text-[11.5px] font-semibold text-gray-500 hover:text-gray-800 ml-0.5">
                 <X className="w-3 h-3" strokeWidth={2.5} />解除
               </button>

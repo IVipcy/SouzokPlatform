@@ -11,8 +11,8 @@
 //
 // 上部には要注意／要確認のバナーを出す。自分の持ち場のタスクだけを見た判定なので、
 // マイページの案件アラート（案件全体の遅れ）とは別物。
-// バナーとタスクタブの色は同じ4段階（taskSeverity）で動く。
-//   赤=急ぎ・超急ぎ → 要注意 ／ 黄=5営業日以上超過 → 要確認 ／ 緑=期限超過 → 色だけ ／ 薄い青=期限内
+// バナーとタスクタブの色は同じ4段階（taskSeverity）で動く。何営業日で色が上がるかは業務ごとに違う。
+//   赤=大きく遅れ（＋急ぎ・超急ぎ）→ 要注意 ／ オレンジ=遅れが目立つ → 要確認 ／ 緑・青 → 色だけ
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -26,7 +26,7 @@ import TaskListClient, { isTaskInRoleScope, type CaseInfo, type TaskJump } from 
 import { bizDaysOverdue } from '@/lib/overdue'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import {
-  taskSeverity, worstSeverity, SEVERITY_TAB, SEVERITY_TAB_NOTE, TASK_CHUI_BIZ_DAYS, type TaskSeverity,
+  taskSeverity, worstSeverity, SEVERITY_TAB, SEVERITY_TAB_NOTE, type TaskSeverity,
 } from '@/lib/taskSeverity'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -127,16 +127,16 @@ export default function OfficeDashboardTabs({
 
   // 要注意／要確認バナー。タスクタブに出ているもの（着手OK・対応中）だけを見る。
   // タブと同じ4段階で判定する。
-  //   要注意（赤）… 急ぎ・超急ぎ
-  //   要確認（黄）… 期限を5営業日以上超過
-  //   緑（期限超過・5営業日未満）はバナーを出さず、タブの色だけで知らせる
+  //   要注意（赤）… 大きく遅れているタスク／急ぎ・超急ぎ
+  //   要確認（オレンジ）… 遅れが目立つタスク
+  //   緑・青はバナーを出さず、タブの色だけで知らせる
   const listedTasks = tasks.filter(t =>
     isTaskInRoleScope(t, 'assistant')
     && (normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready))
   const openTasks = listedTasks.filter(t => normalizeStatus(t.status) !== '完了')
   const readyCount = listedTasks.filter(t => normalizeStatus(t.status) === '着手前').length
   const chuiTasks = openTasks.filter(t => taskSeverity(t, today) === 'red')
-  const kakuninTasks = openTasks.filter(t => taskSeverity(t, today) === 'amber')
+  const kakuninTasks = openTasks.filter(t => taskSeverity(t, today) === 'orange')
   const taskSev = worstSeverity(openTasks, today)
 
   // バナー →「すべて」タブを同じ条件で絞った状態にする。
@@ -162,14 +162,14 @@ export default function OfficeDashboardTabs({
       {chuiTasks.length > 0 && (
         <TaskBanner tone="chui" tasks={chuiTasks} caseMap={caseMap} today={today}
           title={`要注意 ${chuiTasks.length}件`}
-          note="急ぎ・超急ぎのタスク"
-          onJump={() => jumpTo({ priorities: ['急ぎ', '超急ぎ'] })} />
+          note="大きく遅れているタスク／急ぎ・超急ぎ"
+          onJump={() => jumpTo({ sev: 'red' })} />
       )}
       {kakuninTasks.length > 0 && (
         <TaskBanner tone="kakunin" tasks={kakuninTasks} caseMap={caseMap} today={today}
           title={`要確認 ${kakuninTasks.length}件`}
-          note={`期限を${TASK_CHUI_BIZ_DAYS}営業日以上超過したタスク`}
-          onJump={() => jumpTo({ due: 'big' })} />
+          note="遅れが目立つタスク"
+          onJump={() => jumpTo({ sev: 'orange' })} />
       )}
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
@@ -361,16 +361,16 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today, onJump }: {
   const sorted = [...tasks].sort((a, b) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31'))
   const shown = sorted.slice(0, BANNER_PREVIEW)
   return (
-    <div className={`rounded-lg border px-3.5 py-2.5 mb-3 ${chui ? 'border-red-200 bg-red-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
+    <div className={`rounded-lg border px-3.5 py-2.5 mb-3 ${chui ? 'border-red-200 bg-red-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
       <div className="flex items-center gap-2 flex-wrap">
-        <Icon className={`w-4 h-4 flex-none ${chui ? 'text-red-600' : 'text-amber-600'}`} strokeWidth={2.25} />
-        <span className={`text-[13px] font-bold ${chui ? 'text-red-800' : 'text-amber-800'}`}>{title}</span>
+        <Icon className={`w-4 h-4 flex-none ${chui ? 'text-red-600' : 'text-orange-600'}`} strokeWidth={2.25} />
+        <span className={`text-[13px] font-bold ${chui ? 'text-red-800' : 'text-orange-800'}`}>{title}</span>
         <span className="text-[11.5px] text-gray-500">{note}</span>
         <HelpHint title="バナーに出る条件">
           <span className="block mb-2.5">
             {chui
-              ? '優先度が急ぎ・超急ぎのタスクを出しています。期限を過ぎていなくても出ます。'
-              : `期限を${TASK_CHUI_BIZ_DAYS}営業日以上過ぎたタスクを出しています。急ぎ・超急ぎのものは要注意バナーのほうに出ます。`}
+              ? '色が赤になったタスクを出しています。急ぎ・超急ぎは、期限を過ぎていなくても赤になります。'
+              : '色がオレンジになったタスクを出しています。赤まで進んだものは要注意バナーのほうに出ます。'}
           </span>
           <SeverityLegend />
           <span className="block mt-1.5 text-gray-500">
@@ -394,7 +394,7 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today, onJump }: {
               {t.due_date && (
                 <span className="text-gray-500 font-mono flex-none">
                   期限 {t.due_date.slice(5).replace('-', '/')}
-                  {over > 0 && <span className={chui ? 'text-red-700' : 'text-amber-700'}>（{over}営業日超過）</span>}
+                  {over > 0 && <span className={chui ? 'text-red-700' : 'text-orange-700'}>（{over}営業日超過）</span>}
                 </span>
               )}
             </Link>
@@ -402,7 +402,7 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today, onJump }: {
         })}
       </div>
       <button type="button" onClick={onJump}
-        className={`mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold hover:underline ${chui ? 'text-red-700' : 'text-amber-800'}`}>
+        className={`mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold hover:underline ${chui ? 'text-red-700' : 'text-orange-800'}`}>
         {sorted.length > BANNER_PREVIEW ? `ほか ${sorted.length - BANNER_PREVIEW} 件を含めて一覧で見る` : '一覧で見る'}
         <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
       </button>
