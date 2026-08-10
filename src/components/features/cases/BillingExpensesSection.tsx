@@ -12,12 +12,16 @@ import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
-import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS } from '@/lib/constants'
+import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
 import { registrationTax } from '@/lib/registrationTax'
 import type { BillingExpenseItemRow, RealEstatePropertyRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
+
+// 不動産の取得資料は請求先で税区分が変わる。民事法務協会（登記情報）も役所も非課税。
+const acqTaxItem = (requestTo: string | null | undefined) =>
+  (requestTo ?? '').includes('民事法務協会') ? '民事法務協会' : '市役所等で取得した戸籍や住民票'
 // 司法=青 / 行政=緑（請求料金内訳と統一。アイコン・ドットは付けず文字色で区別）
 const SHIGYO = [
   { key: '行政', color: '#0F6E56', bg: '#E1F5EE', text: '#085041' },
@@ -75,28 +79,31 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     setImporting(true)
     const [{ data: kos }, { data: rea }, { data: props }] = await Promise.all([
       supabase.from('koseki_requests').select('id, target_person, request_to, acquirer, cost_budget, cost_refund, cost_confirmed').eq('case_id', caseId),
-      supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, cost_confirmed').eq('case_id', caseId),
+      supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, request_to, cost_confirmed').eq('case_id', caseId),
       supabase.from('real_estate_properties').select('id, address, lot_number, appraisal_value, share_numerator, share_denominator, registration_cost').eq('case_id', caseId),
     ])
     // 既存の取り込み分から前回の選択を保持（source_kind:source_id をキーに）
     const prior = new Map<string, { shigyo: string; taxable: boolean }>()
     for (const r of rows) if (r.source_kind && r.source_id) prior.set(`${r.source_kind}:${r.source_id}`, { shigyo: r.shigyo ?? '司法', taxable: r.taxable })
     const items: PendingItem[] = []
-    const add = (source_kind: string, source_id: string, label: string, amount: number) => {
+    const add = (source_kind: string, source_id: string, label: string, amount: number, taxItem?: string) => {
       const key = `${source_kind}:${source_id}`
       const p = prior.get(key)
-      // 初期値：司法／非課税（相続の立替実費はほぼ非課税）。前回選択があればそれを優先。
-      items.push({ key, source_kind, source_id, label, amount, shigyo: p?.shigyo ?? '司法', taxable: p?.taxable ?? false })
+      // 税区分は名目から決める（expenseItemTaxable）。取り込みの名目は「戸籍等取得（山田一郎）」のように
+      // 対象名が付くので、判定には元の名目（taxItem）を渡す。名目が分からなければ非課税に倒す。
+      // 前回ここで手直ししていれば、その選択を優先する。
+      const auto = (taxItem ? expenseItemTaxable(taxItem) : undefined) ?? false
+      items.push({ key, source_kind, source_id, label, amount, shigyo: p?.shigyo ?? '司法', taxable: p?.taxable ?? auto })
     }
     for (const k of (kos ?? []) as Record<string, unknown>[]) {
       if (k.acquirer === '依頼者') continue  // 依頼者負担は立替に含めない
       const b = k.cost_budget as number | null, rf = k.cost_refund as number | null, c = k.cost_confirmed as number | null
       const amt = (b != null || rf != null) ? (b ?? 0) - (rf ?? 0) : (c ?? 0)
-      if (amt > 0) add('koseki', k.id as string, `戸籍等取得（${(k.target_person as string) || (k.request_to as string) || '戸籍'}）`, amt)
+      if (amt > 0) add('koseki', k.id as string, `戸籍等取得（${(k.target_person as string) || (k.request_to as string) || '戸籍'}）`, amt, '市役所等で取得した戸籍や住民票')
     }
     for (const a of (rea ?? []) as Record<string, unknown>[]) {
       const amt = (a.cost_confirmed as number | null) ?? 0
-      if (amt > 0) add('real_estate_acq', a.id as string, `${(a.item_type as string) || '取得資料'}${a.target_municipality ? `（${a.target_municipality}）` : ''}`, amt)
+      if (amt > 0) add('real_estate_acq', a.id as string, `${(a.item_type as string) || '取得資料'}${a.target_municipality ? `（${a.target_municipality}）` : ''}`, amt, acqTaxItem(a.request_to as string | null))
     }
     // 登録免許税は物件の評価額×持分×0.4%（概算）から計算する。
     // 相続登記タブで納付額を入れてあればそちらを優先（実際の納付額は端数処理でずれるため）。
@@ -105,7 +112,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
       const amt = fixed != null && fixed > 0
         ? fixed
         : Math.round(registrationTax(p as unknown as RealEstatePropertyRow))
-      if (amt > 0) add('registration', p.id as string, `登録免許税（${(p.address as string) || (p.lot_number as string) || '物件'}）`, amt)
+      if (amt > 0) add('registration', p.id as string, `登録免許税（${(p.address as string) || (p.lot_number as string) || '物件'}）`, amt, '登録免許税')
     }
     setImporting(false)
     if (!items.length) { showToast('取り込める確定済の立替実費がありませんでした', 'info'); return }
