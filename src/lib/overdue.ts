@@ -21,6 +21,14 @@ export function bizDaysOverdue(dueDate: string, todayStr: string): number {
 // 日付を 'YYYY-MM-DD' に戻す（ローカル日付のまま。UTCずれを避けるため toISOString は使わない）
 const toYmd = (d: Date) => d.toLocaleDateString('sv-SE')
 
+/** その日の1つ前の営業日（日曜・祝日は飛ばす）。月曜なら土曜が返る。 */
+export function prevBizDay(fromDate: string): string | null {
+  const d = new Date(fromDate + 'T00:00:00')
+  if (isNaN(d.getTime())) return null
+  do { d.setDate(d.getDate() - 1) } while (isNonBusinessDay(d))
+  return toYmd(d)
+}
+
 /** その日から n 営業日あとの日付（日曜・祝日は数えない）。n=0 は当日。 */
 export function addBizDays(fromDate: string, n: number): string | null {
   const d = new Date(fromDate + 'T00:00:00')

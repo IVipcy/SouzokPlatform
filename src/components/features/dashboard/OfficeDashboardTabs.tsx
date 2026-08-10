@@ -6,7 +6,7 @@
 // そこで一日の入口をこの画面にまとめ、4つのタブに分けている。
 //   ① 作業着手待ち … 作業着手準備の案件（前受金入金・ファイル化が済めば着手OK）
 //   ② タスク     … 事務管理タスク一覧（既定。朝いちで一番見る画面なので最初に出す）
-//   ③ 郵便       … 本日届いてまだ対応していない到着物（受信簿と同じ中身）
+//   ③ 郵便       … 前営業日と本日に届いて、まだ対応していない到着物（受信簿と同じ中身）
 //   ④ 報連相     … 自分が出した報告・連絡・相談と、その確認状況
 //
 // 上部には要注意／要確認のバナーを出す。自分の持ち場のタスクだけを見た判定なので、
@@ -19,6 +19,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ClipboardList, Mail, MessageSquare, PlayCircle, ListChecks, AlertTriangle, AlertCircle } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
+import HelpHint from '@/components/ui/HelpHint'
+import { SeverityLegend } from '@/components/ui/TaskSeverityHelp'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
 import TaskListClient, { isTaskInRoleScope, type CaseInfo } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
@@ -33,6 +35,7 @@ export type MailRow = {
   caseId: string
   caseNumber: string
   dealName: string
+  receivedDate: string        // 'YYYY-MM-DD'。本日でなければ「前営業日」と出す
   numberText: string          // 受信簿と同じ「0513/001」形式
   location: string | null
   postalType: string | null
@@ -144,7 +147,7 @@ export default function OfficeDashboardTabs({
         eyebrow="Dashboard"
         title="事務管理担当ダッシュボード"
         icon={ClipboardList}
-        description="作業着手待ち・本日の郵便・報連相をここにまとめています。"
+        description="作業着手待ち・タスク・郵便・報連相をここにまとめています。"
       />
 
       {/* 要注意／要確認バナー（自分の持ち場のタスクだけ） */}
@@ -179,25 +182,37 @@ export default function OfficeDashboardTabs({
         />
       )}
 
-      {tab === 'mail' && <MailTab rows={mails} />}
+      {tab === 'mail' && <MailTab rows={mails} today={today} />}
 
       {tab === 'hourensou' && <HourenSouTab rows={hourenSou} />}
     </div>
   )
 }
 
-// ── 郵便：本日届いてまだ対応していない到着物。中身は受信簿と同じ並び。 ──
-function MailTab({ rows }: { rows: MailRow[] }) {
+// ── 郵便：前営業日と本日に届いて、まだ対応していない到着物。中身は受信簿と同じ並び。 ──
+function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
   const TH = 'px-2.5 py-2 text-left font-semibold whitespace-nowrap'
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <span className="text-[14px] font-bold text-gray-900">本日の郵便（未対応）</span>
+        <span className="text-[14px] font-bold text-gray-900">郵便（未対応）</span>
         <span className="text-[12px] font-normal text-gray-400">{rows.length}件</span>
+        <HelpHint title="ここに出るもの">
+          <span className="block mb-1.5">
+            <b className="font-bold text-gray-900">前営業日と本日</b>に届いた到着物のうち、まだ対応していないものです。
+          </span>
+          <span className="block mb-1.5 text-gray-500">
+            受信簿で受信の確定をすると、ここから消えます。
+          </span>
+          <span className="block text-gray-500">
+            月曜は前営業日が土曜になるので、土日に届いたぶんもここに残ります。
+            それより前のものは受信簿で探してください。
+          </span>
+        </HelpHint>
         <Link href="/documents" className="ml-auto text-[12px] font-semibold text-brand-700 hover:underline">受信簿を開く</Link>
       </div>
       {rows.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-gray-400">本日届いて未対応の郵便はありません</div>
+        <div className="px-4 py-12 text-center text-[13px] text-gray-400">前営業日・本日に届いて未対応の郵便はありません</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 900 }}>
@@ -216,7 +231,12 @@ function MailTab({ rows }: { rows: MailRow[] }) {
             <tbody className="divide-y divide-gray-100">
               {rows.map(r => (
                 <tr key={r.id} className={`hover:bg-gray-50/60 ${r.isParcel && !r.opened ? 'bg-amber-50/60' : ''}`}>
-                  <td className="px-2.5 py-2 font-mono text-gray-600">{r.numberText}</td>
+                  <td className="px-2.5 py-2 font-mono text-gray-600 whitespace-nowrap">
+                    {r.numberText}
+                    {r.receivedDate !== today && (
+                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-sans font-semibold bg-gray-100 text-gray-600">前営業日</span>
+                    )}
+                  </td>
                   <td className="px-2.5 py-2 text-gray-700">{r.location ?? <span className="text-gray-300">—</span>}</td>
                   <td className="px-2.5 py-2 font-mono text-gray-500">{r.caseNumber}</td>
                   <td className="px-2.5 py-2">
@@ -333,6 +353,18 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
         <Icon className={`w-4 h-4 flex-none ${chui ? 'text-red-600' : 'text-amber-600'}`} strokeWidth={2.25} />
         <span className={`text-[13px] font-bold ${chui ? 'text-red-800' : 'text-amber-800'}`}>{title}</span>
         <span className="text-[11.5px] text-gray-500">{note}</span>
+        <HelpHint title="バナーに出る条件">
+          <span className="block mb-2.5">
+            {chui
+              ? '優先度が急ぎ・超急ぎのタスクを出しています。期限を過ぎていなくても出ます。'
+              : `期限を${TASK_CHUI_BIZ_DAYS}営業日以上過ぎたタスクを出しています。急ぎ・超急ぎのものは要注意バナーのほうに出ます。`}
+          </span>
+          <SeverityLegend />
+          <span className="block mt-1.5 text-gray-500">
+            対象はタスクタブに出ている自分の持ち場のタスク（着手OK・対応中）です。
+            期限が近い順に5件まで並べ、続きはタスクタブで見ます。
+          </span>
+        </HelpHint>
       </div>
       <div className="mt-1.5 flex flex-col gap-0.5">
         {shown.map(t => {

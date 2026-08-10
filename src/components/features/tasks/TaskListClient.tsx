@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
+import HelpHint from '@/components/ui/HelpHint'
+import { TaskTabHelp } from '@/components/ui/TaskSeverityHelp'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import CompleteTaskModal from './CompleteTaskModal'
@@ -452,6 +454,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
               </button>
             )
           })}
+          <span className="ml-1.5 self-center">
+            <HelpHint title="この数字と色の見かた"><TaskTabHelp /></HelpHint>
+          </span>
         </div>
       </div>
 

@@ -1,18 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { loadTaskListData } from '@/lib/loadTaskListData'
+import { prevBizDay } from '@/lib/overdue'
 import OfficeDashboardTabs, { type MailRow, type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 
 // 事務管理担当ダッシュボード。
 //   ① 作業着手待ち … status=作業着手準備 の案件（前受金入金＋ファイル化で着手OK）
-//   ② 郵便       … 本日届いてまだ対応していない到着物
+//   ② 郵便       … 前営業日と本日に届いて、まだ対応していない到着物
 //   ③ タスク     … 事務管理タスク一覧（既定タブ）
 //   ④ 報連相     … 自分が出した報告・連絡・相談
 export default async function OfficeDashboardPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
   const today = new Date().toLocaleDateString('sv-SE')
+  const mailFrom = prevBizDay(today) ?? today
 
   const { data: casesData } = await supabase
     .from('cases')
@@ -32,12 +34,16 @@ export default async function OfficeDashboardPage() {
   const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
-    // 郵便：本日届いた到着物。対応（started_at）が付いていないものだけ出す。
+    // 郵便：前営業日と本日に届いた到着物のうち、対応（started_at）が付いていないもの。
+    // 本日だけだと、前日の夕方に届いて手つかずのものが翌朝に消えてしまうため2日ぶん見る。
+    // 月曜は前営業日＝土曜なので、土日ぶんもここに残る。
     supabase
       .from('document_receipts')
       .select('id, case_id, received_date, sequence_no, location, postal_type, is_parcel, opened_at, started_at, items:document_receipt_items(item_name, quantity, received_from, sort_order), case:cases(case_number, deal_name)')
-      .eq('received_date', today)
+      .gte('received_date', mailFrom)
+      .lte('received_date', today)
       .is('started_at', null)
+      .order('received_date')
       .order('sequence_no'),
     // 報連相：自分が出したもの（新しい順）
     currentUser?.memberId
@@ -87,6 +93,7 @@ export default async function OfficeDashboardPage() {
       caseId: r.case_id,
       caseNumber: r.case?.case_number ?? '—',
       dealName: r.case?.deal_name ?? '—',
+      receivedDate: r.received_date,
       numberText: receiptNumber(r.received_date, r.sequence_no),
       location: r.location ?? null,
       postalType: r.postal_type ?? null,
