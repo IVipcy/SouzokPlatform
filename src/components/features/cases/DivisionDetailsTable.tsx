@@ -87,6 +87,15 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
     onRefresh?.()
   }
 
+  // 並びは協議書の条項の順（財産を分ける → 債務を負担する → 代償金を支払う）。
+  // 債務が財産の行に混ざると、誰が何を取るのかが読み取れなくなるので下にまとめる。
+  const KIND_ORDER = ['財産', '債務', '精算']
+  const ordered = [...rows].sort((a, b) => {
+    const ai = KIND_ORDER.indexOf(a.entry_kind || '財産')
+    const bi = KIND_ORDER.indexOf(b.entry_kind || '財産')
+    return (ai < 0 ? KIND_ORDER.length : ai) - (bi < 0 ? KIND_ORDER.length : bi)
+  })
+
   const setLocal = (id: string, field: keyof DivisionDetailRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as DivisionDetailRow : r)))
 
@@ -136,8 +145,10 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
             {rows.length === 0 ? (
               <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">分割内容が登録されていません</td></tr>
             ) : (
-              rows.map(r => (
-                <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
+              ordered.map((r, i) => (
+                // 区分が切り替わるところに線を入れて、財産と債務のかたまりを分かりやすくする
+                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${
+                  i > 0 && (ordered[i - 1].entry_kind || '財産') !== (r.entry_kind || '財産') ? 'border-t-2 border-t-gray-200' : ''}`}>
                   <td className="px-2.5 py-1.5">
                     <select value={r.entry_kind || '財産'} onChange={e => { setLocal(r.id, 'entry_kind', e.target.value); commit(r.id, 'entry_kind', e.target.value) }}
                       className={`w-full px-1 py-1 text-[11.5px] font-semibold border rounded outline-none ${kindCls(r.entry_kind)}`}>
