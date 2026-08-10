@@ -45,6 +45,7 @@ import type { MemoLite } from './MeetingMemoViewer'
 import ProgressBoard from './ProgressBoard'
 import CaseComposeProvider from './CaseComposeProvider'
 import { buildProgressBoard } from '@/lib/caseProgressBoard'
+import { buildProgressDetail } from '@/lib/caseProgressDetail'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
@@ -734,6 +735,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         return (
           <ProgressBoard
             board={buildProgressBoard(caseState, tasks, financialAssets)}
+            detail={buildProgressDetail({
+              tasks, kosekiRequests, acquisitions, properties, financialAssets,
+              today: new Date().toLocaleDateString('sv-SE'),
+            })}
             dealName={caseState.deal_name ?? ''}
             caseData={caseState}
             tasks={tasks}

@@ -7,6 +7,8 @@ import { Check, Sparkles, Wand2 } from 'lucide-react'
 import { SubTabs } from '@/components/ui/SubTabs'
 import HistoryTab from './HistoryTab'
 import ComplaintsTab from './ComplaintsTab'
+import ProgressDetail from './ProgressDetail'
+import type { ProgressDetail as Detail } from '@/lib/caseProgressDetail'
 import type { ProgressBoard as Board, ItemStatus } from '@/lib/caseProgressBoard'
 import type { CaseRow, TaskRow, MemberRow } from '@/types'
 
@@ -47,6 +49,8 @@ function Dot({ st }: { st: ItemStatus }) {
 
 type ProgressBoardProps = {
   board: Board
+  /** 実務タブの入力から作る明細（誰の戸籍・どの銀行・どの市区町村が今どこまで進んだか） */
+  detail: Detail
   dealName: string
   // 進捗報告・メモ（サブタブ）用。
   caseData: CaseRow
@@ -65,7 +69,7 @@ type ProgressBoardProps = {
   autoOpenPending?: boolean
 }
 
-export default function ProgressBoard({ board, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId, autoOpenPending = false }: ProgressBoardProps) {
+export default function ProgressBoard({ board, detail, dealName, caseData, tasks, allMembers, currentMemberId, salesMemberId = null, canRequestReview = false, renderOfficeProgress, initialSub, openReportId, autoOpenPending = false }: ProgressBoardProps) {
   const [sub, setSub] = useState<'board' | 'office' | 'report' | 'memo' | 'complaint'>(initialSub ?? 'board')
   const [aiOverall, setAiOverall] = useState<string | null>(null)
   const [aiByKotei, setAiByKotei] = useState<Record<string, string>>({})
@@ -139,8 +143,15 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
         {err && <p className="mt-1.5 text-[11.5px] text-red-600">{err}</p>}
       </div>
 
-      {/* 工程グループ（1相続人調査→2財産調査→…）。少数案件は1列・多い案件は2列。 */}
-      <div className="grid gap-2.5 items-start" style={{ gridTemplateColumns: gridCols }}>
+      {/* 明細：各実務タブのTOPを見に行かないと分からなかった中身をここに出す。 */}
+      <ProgressDetail detail={detail} />
+
+      {/* 工程グループ（1相続人調査→2財産調査→…）。明細で足りるので既定は畳んでおく。 */}
+      <details className="group">
+        <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 hover:text-brand-700">
+          <span className="group-open:rotate-90 transition-transform">▸</span>工程ごとの進み具合を見る
+        </summary>
+      <div className="grid gap-2.5 items-start mt-2.5" style={{ gridTemplateColumns: gridCols }}>
         {board.koteiGroups.map((kg, ki) => {
           const leaves = kg.groups.flatMap(g => g.items)
           const aiLine = aiByKotei[kg.kotei]
@@ -189,6 +200,7 @@ export default function ProgressBoard({ board, dealName, caseData, tasks, allMem
           )
         })}
       </div>
+      </details>
       </div>
       )}
     </div>
