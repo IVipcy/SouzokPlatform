@@ -118,6 +118,38 @@ const STATUS_TABS = [
 ] as const
 type StatusTabKey = typeof STATUS_TABS[number]['key']
 
+// 今日と当月。レンダー中に new Date() を直接書くと React コンパイラに止められるので関数に包む。
+const todayYmd = () => new Date().toLocaleDateString('sv-SE')
+const thisMonthYm = () => todayYmd().slice(0, 7)
+
+// 完了予定日までの残り日数（暦日）。過ぎていればマイナス。
+// タスクの「残り」は営業日で数えているが、完了予定日はお客様に伝えた期日で
+// 数か月先まであるため、暦日のほうが実感に合う。
+const daysLeft = (due: string, today: string) =>
+  Math.round((new Date(due + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
+
+// 「残り」セル。超過は赤、近いものは琥珀。完了した案件は色を付けない。
+function RemainCell({ due, today, muted }: { due: string | null; today: string; muted: boolean }) {
+  if (!due) return <span className="text-gray-300">—</span>
+  const n = daysLeft(due, today)
+  if (muted) return <span className="text-[12px] text-gray-400">{n < 0 ? `${-n}日超過` : '—'}</span>
+  if (n < 0) {
+    return (
+      <span className="inline-flex items-baseline gap-0.5 text-red-600 whitespace-nowrap">
+        <span className="text-[16px] font-bold leading-none tabular-nums">{-n}</span>
+        <span className="text-[10.5px] font-bold">日超過</span>
+      </span>
+    )
+  }
+  if (n === 0) return <span className="text-[14px] font-bold text-amber-700 leading-none">本日</span>
+  return (
+    <span className={`inline-flex items-baseline gap-0.5 whitespace-nowrap ${n <= 14 ? 'text-amber-700' : 'text-gray-700'}`}>
+      <span className="text-[16px] font-bold leading-none tabular-nums">{n}</span>
+      <span className="text-[10.5px] font-semibold">日</span>
+    </span>
+  )
+}
+
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの未対応 営業日数
 // 青: <5営業日 / 黄: 5営業日〜 / 赤: 10営業日〜（案件色をアラート深刻度に合わせた統一ルール）
 
@@ -147,6 +179,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [statusTab, setStatusTab] = useState<StatusTabKey>('active')
+  // 当月に業務完了予定の案件だけに絞る（作業進行中のときだけ意味がある）
+  const [thisMonthOnly, setThisMonthOnly] = useState(false)
+  const today = todayYmd()
+  const thisMonth = thisMonthYm()
 
   const rows = cases.map(c => ({
     ...c,
@@ -163,8 +199,13 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 
   // 行の絞り込み。ステータスフィルタ時は選択タブのステータス群で、そうでなければ従来どおり。
   const activeTabDef = STATUS_TABS.find(t => t.key === statusTab)!
+  const isThisMonth = (r: MyCaseRow) => (r.expected_completion_date ?? '').startsWith(thisMonth)
+  const monthFilterOn = withStatusFilter && statusTab === 'active' && thisMonthOnly
+  const thisMonthCount = withStatusFilter
+    ? rows.filter(r => STATUS_TABS[0].match(r.status) && isThisMonth(r)).length
+    : 0
   const visibleRows = withStatusFilter
-    ? rows.filter(r => activeTabDef.match(r.status))
+    ? rows.filter(r => activeTabDef.match(r.status) && (!monthFilterOn || isThisMonth(r)))
     : (showCompleted ? [...rows] : rows.filter(r => r.flag !== null))
   // ソート: 完了系ビューは案件番号順、進行中はフラグ優先度 → 完了予定日昇順
   visibleRows.sort((a, b) => {
@@ -217,11 +258,28 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
           </button>
         )
       })}
+      {/* 当月業完予定。今月中に終わらせる約束の案件だけを見たいとき用。 */}
+      {statusTab === 'active' && (
+        <>
+          <span className="w-px h-6 bg-gray-200 mx-0.5" />
+          <button
+            type="button"
+            onClick={() => { setThisMonthOnly(v => !v); setSelected(new Set()) }}
+            title={`完了予定日が ${thisMonth.replace('-', '年')}月 の案件だけに絞る`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${
+              thisMonthOnly ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'}`}
+          >
+            当月業完予定
+            <span className={`inline-flex items-center justify-center min-w-[20px] px-1 h-5 rounded-full text-[11px] font-bold ${
+              thisMonthOnly ? 'bg-amber-200/70 text-amber-900' : 'bg-gray-100 text-gray-500'}`}>{thisMonthCount}</span>
+          </button>
+        </>
+      )}
     </div>
   ) : null
 
   const emptyLabel = withStatusFilter
-    ? `${activeTabDef.label}の案件はありません`
+    ? `${activeTabDef.label}${monthFilterOn ? '（当月業完予定）' : ''}の案件はありません`
     : (showCompleted ? '業務完了・納品完了 案件はありません' : '作業進行中の案件はありません')
 
   if (visibleRows.length === 0) {
@@ -275,6 +333,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap" title="完了予定日までの残り日数（暦日）">残り</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
             {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">事務管理タスク進捗</th>}
             {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注/管理タスク進捗</th>}
@@ -373,6 +432,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                     ))}
                   </div>
                 ) : <span className="text-gray-300">—</span>}
+              </td>
+              {/* 残り（完了予定日までの暦日）。完了済みの案件は色を付けない。 */}
+              <td className="px-3 py-2.5 whitespace-nowrap">
+                <RemainCell due={c.expected_completion_date} today={today} muted={isCompletedView} />
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
