@@ -51,7 +51,7 @@ type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; 
 // 候補の担当区分（生成時の task_kind と同じ判定）。バッジ表示に使う。
 function kindOfCandidate(c: Candidate): 'case' | 'system' | 'touki_team' {
   if (TOUKI_TEAM_TASK_TITLES.has(c.title)) return 'touki_team'
-  if (c.custom || MANAGER_GYOMU.has(c.gyomu)) return 'system'
+  if (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title)) return 'system'
   return 'case'
 }
 
@@ -71,6 +71,29 @@ const MANAGER_GYOMU = new Set<string>([
 //   ①相続登記の申請 ③権利書の製本 ④不動産登記簿の申請 が相続登記チーム。
 //   （②識別情報通知の受領 ⑤不動産登記簿の受領 は事務管理タスク=受信簿で受領）
 const TOUKI_TEAM_TASK_TITLES = new Set<string>(['相続登記の申請', '権利書の製本', '不動産登記簿の申請'])
+
+// 事務管理の業務でも、このタスク名だけは管理担当タスク(system)として生成する。
+// 作るのは事務管理、最後に見るのは管理担当、という分担のため業務単位では振り分けられない。
+const MANAGER_TASK_TITLES = new Set<string>([
+  '相関図最終チェック', '不動産の調査結果の最終確認', '金融財産の調査結果の最終確認',
+  '財産目録の最終確認', '協議書の最終確認',
+])
+
+// 業務ごとに最後へ足す「管理担当の最終確認」タスク。
+// 事務管理が作ったものを管理担当が見る、という一手間が今までタスクになっておらず、
+// 見落としたまま次へ進んでいた。業務をやる案件にだけ1件ずつ足す。
+const MANAGER_CHECK_TASKS: Record<string, { title: string; rid: string }> = {
+  '相関図':   { title: '相関図最終チェック',           rid: 'chart-check' },
+  '不動産':   { title: '不動産の調査結果の最終確認',   rid: 're-check' },
+  '金融資産': { title: '金融財産の調査結果の最終確認', rid: 'fin-check' },
+  '目録':     { title: '財産目録の最終確認',           rid: 'inv-check' },
+  '協議書':   { title: '協議書の最終確認',             rid: 'div-check' },
+}
+
+// 一括生成でのタスク名の読み替え。
+// 相関図は「一次作成（事務管理）」と「最終チェック（管理担当）」に分かれるので、
+// 実施業務の名前のままだと どちらを指すのか分からなくなる。
+const TITLE_REWRITE: Record<string, string> = { '相関図作成': '相関図一次作成' }
 
 // 機関単位ではない「案件で1回」の調査（金融）。機関ごとの請求/読込（unit展開）に飲み込ませず、個別タスクとして必ず作る。
 // 全店調査・残高証明・経過利息・取引履歴は銀行ごとにまとめて請求するため、機関単位の「資料請求」に内包（対象外）。
@@ -169,10 +192,11 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       // 登記は市区町村1本展開を廃止。serviceMaster の5タスク（相続登記の申請/識別情報通知の受領/
       // 権利書の製本/不動産登記簿の申請/不動産登記簿の受領）を個別生成し、担当区分(相続登記チーム/事務管理)を
       // kindOfCandidate で正しく振る。※以前は 'reg:{muni}' 1本に潰れて 全部が事務管理扱いになっていた。
-      // 金融は 凍結してよいか確認（管理担当へ）→ 凍結依頼（電話）→ 資料請求 → 資料読込 の順。
-      //   凍結してよいか確認＝調査禁止ホールド解除で着手OK提案／凍結依頼＝freeze_confirmed で着手OK（startOkSuggest）。
+      // 金融は 凍結依頼（電話）→ 資料請求 → 資料読込 の順。
+      //   凍結依頼＝freeze_confirmed で着手OK（startOkSuggest）。
+      // ※「凍結してよいか確認」はタスクにしない。財産調査タブと確認簿の依頼→確認で回すもので、
+      //   銀行ごとにタスクが増えるわりに事務側の作業が無く、一覧を埋めるだけだった。
       '金融資産': { units: instUnits, own: instOwn, tasks: [
-        { prefix: 'fin-freeze-confirm', label: '凍結してよいか確認（管理担当へ）', onlyOwn: true },
         { prefix: 'fin-freeze', label: '凍結依頼（電話で凍結）', onlyOwn: true },
         { prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true },
         { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' },
@@ -188,8 +212,12 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       return `${dest}（${person}${role ? `・${role}` : ''}）`
     }
 
+    // 実際にやる業務（最終確認タスクを足す対象）
+    const activeGyomus = new Set<string>()
+
     intakeRoles.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
+      if (!r.custom) activeGyomus.add(r.gyomu)
       // その他（自由入力）＝名もなき業務。業務名＝タスク名、内容(note)＝作業内容。管理担当タスクとして生成。
       if (r.custom) {
         out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: `custom:${r.gyomu}`, custom: true, work: r.note })
@@ -244,8 +272,13 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
         }))
         return
       }
-      out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: r.sagyou, roleIdx: idx, rid: r.rid })
+      out.push({ key: r.rid ?? `role:${idx}`, gyomu: r.gyomu, title: TITLE_REWRITE[r.sagyou] ?? r.sagyou, roleIdx: idx, rid: r.rid })
     })
+    // 管理担当の最終確認（業務の最後に1件）。作った本人ではなく管理担当が見る、という手順をタスクにする。
+    for (const [gyomu, t] of Object.entries(MANAGER_CHECK_TASKS)) {
+      if (!activeGyomus.has(gyomu)) continue
+      out.push({ key: t.rid, gyomu, title: t.title, rid: t.rid })
+    }
     // 経理タスクは一括生成の対象外（今後アラートで対応）。
     // 他事業者紹介で登録した業者への「依頼／引継ぎ」タスク
     for (const r of caseReferrals) {
@@ -335,7 +368,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
     const rows = picked.map((c, i) => {
       const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
-      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu))
+      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
       const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
       return {
         case_id: caseId,
