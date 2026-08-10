@@ -1,17 +1,17 @@
 'use client'
 
 // 相続登記（実務）：市区町村単位の左レール＋カード。TOP＝物件別の登記状況。
-// 物件は財産調査(real_estate_properties)を共有。確定費用＝登録免許税＋申請時ダブルチェック。
+// 物件は財産調査(real_estate_properties)を共有。登録免許税は 評価額×持分×0.4% の概算を出し、
+// 納付額を入れたらそちらを優先する。
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { useAuth } from '@/components/providers/AuthProvider'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { REGISTRATION_TYPES } from '@/lib/constants'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
-import { DateCell, MoneyCell, DcCell } from './PracticeTableCells'
+import { DateCell, MoneyCell } from './PracticeTableCells'
 import { municipalityOf } from './RealEstateSection'
 import { registrationTax } from '@/lib/registrationTax'
 import type { RealEstatePropertyRow, HeirRow } from '@/types'
@@ -25,8 +25,6 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
   onRefresh?: () => void
 }) {
   const supabase = createClient()
-  const authUser = useAuth()
-  const me = authUser?.memberName ?? authUser?.email ?? '担当者'  // 申請時DBチェックの記録者
   const [sub, setSub] = useState('top')
 
   const munis = [...new Set(properties.map(p => municipalityOf(p)).filter(Boolean))].sort(collator.compare)
@@ -34,10 +32,6 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
 
   const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
     const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
-    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
-  }
-  const saveMany = async (id: string, patch: Partial<RealEstatePropertyRow>) => {
-    const { error } = await supabase.from('real_estate_properties').update(patch).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
 
@@ -126,7 +120,6 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
                         <th className="px-2 py-2 text-left font-semibold w-28">申請日</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">完了日</th>
                         <th className="px-2 py-2 text-right font-semibold w-28">登録免許税</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">申請時W-Check</th>
                         {/* 削除: 備考・結果（Phase 5e） */}
                       </tr>
                     </thead>
@@ -148,7 +141,6 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
                           <td className="px-2 py-1.5"><DateCell value={p.registration_apply_date} onCommit={v => saveField(p.id, 'registration_apply_date', v)} /></td>
                           <td className="px-2 py-1.5"><DateCell value={p.registration_complete_date} onCommit={v => saveField(p.id, 'registration_complete_date', v)} /></td>
                           <td className="px-2 py-1.5"><MoneyCell value={p.registration_cost} onCommit={v => saveField(p.id, 'registration_cost', v === '' ? null : Number(v))} /></td>
-                          <td className="px-2 py-1.5"><DcCell name={p.registration_check_name} at={p.registration_check_at} me={me} onSet={(n, a) => saveMany(p.id, { registration_check_name: n, registration_check_at: a })} /></td>
                         </tr>
                       ))}
                     </tbody>
