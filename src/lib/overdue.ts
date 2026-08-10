@@ -18,6 +18,19 @@ export function bizDaysOverdue(dueDate: string, todayStr: string): number {
   return n
 }
 
+// 期限までの残り営業日。今日が期限なら0、過ぎていればマイナス（＝超過営業日数）。
+// 一覧の「残り」列で使う。超過側と単位をそろえたいので、こちらも営業日で数える。
+export function bizDaysUntil(dueDate: string, todayStr: string): number {
+  const due = new Date(dueDate + 'T00:00:00')
+  const today = new Date(todayStr + 'T00:00:00')
+  if (isNaN(due.getTime()) || isNaN(today.getTime())) return 0
+  if (today > due) return -bizDaysOverdue(dueDate, todayStr)
+  let n = 0
+  const d = new Date(today)
+  while (d < due) { d.setDate(d.getDate() + 1); if (!isNonBusinessDay(d)) n++ }
+  return n
+}
+
 // 日付を 'YYYY-MM-DD' に戻す（ローカル日付のまま。UTCずれを避けるため toISOString は使わない）
 const toYmd = (d: Date) => d.toLocaleDateString('sv-SE')
 

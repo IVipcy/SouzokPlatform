@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -16,7 +16,7 @@ import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
 import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, TASK_CHUI_BIZ_DAYS, type TaskSeverity } from '@/lib/taskSeverity'
-import { bizDaysOverdue } from '@/lib/overdue'
+import { bizDaysOverdue, bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -68,6 +68,14 @@ export type TaskJump = {
 /** 期限の絞り込み。over=1〜4営業日超過 / big=5営業日以上超過 */
 export type DueFilter = 'all' | 'over' | 'big'
 
+/**
+ * 並び順。
+ *   default  … 急ぎ→工程→業務→期限（今までの並び。何を先にやるかの標準）
+ *   remain   … 期限までの残り営業日（asc＝ヤバい順。超過がいちばん上）
+ *   priority … 優先度（asc＝超急ぎが上）
+ */
+export type SortKey = 'default' | 'remain' | 'priority'
+
 // 一覧に載せるタスクかどうか（担当区分スコープでの振り分け）。
 //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
 //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
@@ -91,10 +99,11 @@ const normalizeStatus = (status: string) => {
 }
 
 // 優先度セルの見た目。急ぎ＝黄／超急ぎ＝赤（案件詳細のタスクタブと同じ）。
+// 急ぎ・超急ぎだけ太字にして、通常の行に埋もれないようにする。
 function priorityCls(p: string | null | undefined) {
-  if (p === '超急ぎ') return 'bg-red-100 text-red-800 border-red-300'
-  if (p === '急ぎ') return 'bg-amber-100 text-amber-800 border-amber-300'
-  return 'bg-white text-gray-500 border-gray-200'
+  if (p === '超急ぎ') return 'bg-red-100 text-red-800 border-red-300 font-bold'
+  if (p === '急ぎ') return 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
+  return 'bg-white text-gray-500 border-gray-200 font-medium'
 }
 // 急ぎ・超急ぎだけを上へ持ち上げる。通常のタスクは今までどおり工程順のまま。
 const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : p === '急ぎ' ? 1 : 2)
@@ -109,6 +118,35 @@ const CHIP_ON: Record<string, string> = {
   red: 'bg-red-100 text-red-800 border-red-300',
   gray: 'bg-gray-200 text-gray-800 border-gray-300',
 }
+// 「残り」列。期限までの営業日を大きめに出す。
+//   超過      赤で「7日超過」（何日ほったらかしかが一番知りたい情報）
+//   当日      琥珀で「本日」
+//   2営業日以内 琥珀
+//   それ以降   グレー
+// 完了したタスクは色を付けない（もう急ぐ必要がないため）。
+function RemainCell({ dueDate, today, done }: { dueDate: string | null; today: string; done: boolean }) {
+  if (!dueDate) return <span className="text-[12px] text-gray-300">—</span>
+  const n = bizDaysUntil(dueDate, today)
+  if (done) {
+    return <span className="text-[12px] text-gray-400">{n < 0 ? `${-n}日超過` : '—'}</span>
+  }
+  if (n < 0) {
+    return (
+      <span className="inline-flex items-baseline gap-0.5 text-red-600">
+        <span className="text-[19px] font-bold leading-none tabular-nums">{-n}</span>
+        <span className="text-[11px] font-bold">日超過</span>
+      </span>
+    )
+  }
+  if (n === 0) return <span className="text-[15px] font-bold text-amber-700 leading-none">本日</span>
+  return (
+    <span className={`inline-flex items-baseline gap-0.5 ${n <= 2 ? 'text-amber-700' : 'text-gray-700'}`}>
+      <span className="text-[19px] font-bold leading-none tabular-nums">{n}</span>
+      <span className="text-[11px] font-semibold">日</span>
+    </span>
+  )
+}
+
 function Chip({ label, note, tone, on, onClick }: {
   label: string; note?: string; tone: keyof typeof CHIP_ON; on: boolean; onClick: () => void
 }) {
@@ -137,6 +175,16 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 期限・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
   const [dueFilter, setDueFilter] = useState<DueFilter>('all')
   const [priFilter, setPriFilter] = useState<Set<string>>(() => new Set())
+  // 並び替え。見出しを押すと切り替わる。同じ列をもう一度押すと昇順⇔降順。
+  const [sortKey, setSortKey] = useState<SortKey>('default')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const handleSort = useCallback((k: SortKey) => {
+    setSortKey(prev => {
+      if (prev === k) { setSortDir(d => (d === 'asc' ? 'desc' : 'asc')); return k }
+      setSortDir('asc')   // 期限も優先度も「ヤバい順」が既定
+      return k
+    })
+  }, [])
   // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
@@ -216,7 +264,22 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                caseNumber.toLowerCase().includes(q)
       })
     }
-    // 並び: 急ぎ・超急ぎ（未完了のみ）→ 工程順 → 業務 → 着手OK → 期限超過 → 期限近い順
+    // 見出しで選んだ並び。期限なしは常に最後（並べる基準がないため）。
+    if (sortKey !== 'default') {
+      const sign = sortDir === 'asc' ? 1 : -1
+      const val = (t: TaskRow) =>
+        sortKey === 'remain'
+          ? (t.due_date ? bizDaysUntil(t.due_date, today) : null)
+          : priorityRank(t.priority)
+      return [...result].sort((a, b) => {
+        const av = val(a), bv = val(b)
+        if (av === null || bv === null) return av === bv ? 0 : av === null ? 1 : -1
+        if (av !== bv) return (av - bv) * sign
+        // 同じ値のときは期限が近い順で落ち着かせる
+        return (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31')
+      })
+    }
+    // 既定の並び: 急ぎ・超急ぎ（未完了のみ）→ 工程順 → 業務 → 着手OK → 期限超過 → 期限近い順
     return [...result].sort((a, b) => {
       // 急ぎ・超急ぎは工程を飛び越えて先頭へ。完了済みは持ち上げない。
       const ap = normalizeStatus(a.status) === '完了' ? 2 : priorityRank(a.priority)
@@ -233,7 +296,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, dueFilter, priFilter])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, dueFilter, priFilter, sortKey, sortDir])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -578,6 +641,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
         roleScope={roleScope}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
       />
       </>
 
@@ -632,6 +698,9 @@ function ListView({
   onToggleSelect,
   onToggleSelectAll,
   roleScope,
+  sortKey,
+  sortDir,
+  onSort,
 }: {
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
@@ -647,23 +716,28 @@ function ListView({
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
   roleScope: 'assistant' | 'manager'
+  sortKey: SortKey
+  sortDir: 'asc' | 'desc'
+  onSort: (key: SortKey) => void
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, gyomu: 124, title: 220, priority: 84, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100,
+    select: 40, gyomu: 124, title: 220, priority: 96, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100, remain: 96,
     execResult: 200,
     action: 110, ops: 40,
   })
-  const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
+  // sort を持つ列は見出しを押すと並び替えできる。
+  const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
     { key: 'gyomu',      label: '業務区分' },
     { key: 'title',      label: 'タスク名' },
-    { key: 'priority',   label: '優先度' },
+    { key: 'priority',   label: '優先度', sort: 'priority' },
     { key: 'status',     label: 'ステータス' },
     { key: 'readyReason', label: '着手OK理由' },
     { key: 'caseCol',    label: '案件' },
     { key: 'sales',      label: '受注担当' },
     { key: 'manager',    label: '管理担当' },
     { key: 'due',        label: '期限' },
+    { key: 'remain',     label: '残り', sort: 'remain' },
     { key: 'execResult', label: '実施結果' },
     { key: 'action',     label: '操作' },
     { key: 'ops',        label: '' },
@@ -714,6 +788,15 @@ function ListView({
                       onChange={() => onToggleSelectAll(visibleIds)}
                       className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
                     />
+                  ) : h.sort ? (
+                    <button type="button" onClick={() => onSort(h.sort!)}
+                      title={`${h.label}で並び替え`}
+                      className={`inline-flex items-center gap-0.5 truncate hover:text-brand-900 ${sortKey === h.sort ? 'text-brand-900' : ''}`}>
+                      {h.label}
+                      {sortKey === h.sort
+                        ? <ChevronDown className={`w-3 h-3 flex-none transition-transform ${sortDir === 'asc' ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+                        : <ChevronsUpDown className="w-3 h-3 flex-none opacity-40" strokeWidth={2.5} />}
+                    </button>
                   ) : (
                     <span className="truncate block">{h.label}</span>
                   )}
@@ -834,12 +917,12 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         )}
       </td>
 
-      {/* 優先度（その場で変えられる） */}
-      <td className="px-3.5 py-2.5">
+      {/* 優先度（その場で変えられる）。急ぎ・超急ぎは離れて見ても分かるよう大きめに。 */}
+      <td className="px-2.5 py-2.5">
         <select
           value={task.priority ?? '通常'}
           onChange={e => onSetPriority(task, e.target.value)}
-          className={`w-full px-1 py-0.5 rounded-full text-[11px] font-semibold border outline-none cursor-pointer ${priorityCls(task.priority)}`}
+          className={`w-full px-1.5 py-1 rounded-md text-[14px] text-center border outline-none cursor-pointer ${priorityCls(task.priority)}`}
           title="優先度を変える"
         >
           {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
@@ -916,6 +999,11 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
         )}
+      </td>
+
+      {/* 残り（期限までの営業日）。超過は赤で日数を出す。完了したタスクは急がせない。 */}
+      <td className="px-2.5 py-2.5">
+        <RemainCell dueDate={task.due_date} today={today} done={status === '完了'} />
       </td>
 
       {/* 実施結果（ext_data.execution_result） */}
