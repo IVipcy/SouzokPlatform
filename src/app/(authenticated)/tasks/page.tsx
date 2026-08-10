@@ -1,21 +1,8 @@
 import { redirect } from 'next/navigation'
-import TaskListClient from '@/components/features/tasks/TaskListClient'
-import { loadTaskListData } from '@/lib/loadTaskListData'
-import { isMinimalMode } from '@/lib/featureMode'
 
-export default async function TasksPage() {
-  if (isMinimalMode()) redirect('/my')
-  const { tasks, caseMap, allMembers, currentMemberId, receipts, financeBlockedCaseIds, freezeAssetsByCase } = await loadTaskListData()
-  return (
-    <TaskListClient
-      tasks={tasks}
-      caseMap={caseMap}
-      allMembers={allMembers}
-      currentMemberId={currentMemberId}
-      receipts={receipts}
-      financeBlockedCaseIds={financeBlockedCaseIds}
-      freezeAssetsByCase={freezeAssetsByCase}
-      roleScope="assistant"
-    />
-  )
+// 事務管理タスク一覧は事務管理ダッシュボードの「タスク」タブに統合した。
+// 朝いちで 作業着手待ち → タスク → 郵便 と見るのに画面を行き来していたため。
+// 旧URLのブックマーク・既存リンク対策としてダッシュボードへ転送する。
+export default function TasksPage() {
+  redirect('/dashboard/office')
 }

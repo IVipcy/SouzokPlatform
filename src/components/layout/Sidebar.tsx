@@ -8,7 +8,6 @@ import {
   UserCircle,
   Briefcase,
   PenSquare,
-  ListChecks,
   ClipboardList,
   ClipboardCheck,
   FileText,
@@ -67,9 +66,9 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/cases',    label: '案件一覧',       Icon: Briefcase },
       // 面談登録は面談に出る人だけ（管理担当は面談に出ないので出さない）
       { href: '/intake',   label: '面談登録',       Icon: PenSquare, roles: ['sales', 'lp'] },
-      // それぞれの持ち場のタスク一覧・ダッシュボード。担当区分ごとに1本だけ出す。
+      // それぞれの持ち場の入口。担当区分ごとに1本だけ出す。
+      // 事務管理タスク一覧は事務管理ダッシュボードの「タスク」タブに入れたので、単体では出さない。
       // 受注/管理担当のタスクはマイページの「タスク」タブに出るので、専用の一覧は持たない。
-      { href: '/tasks',            label: '事務管理タスク一覧',   Icon: ListChecks,    roles: ['assistant'] },
       { href: '/dashboard/office', label: '事務管理ダッシュボード', Icon: ClipboardList, roles: ['assistant'] },
       { href: '/dashboard/touki-team', label: '相続登記チーム',    Icon: Package,       toukiOnly: true },
     ],

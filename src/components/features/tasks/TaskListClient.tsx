@@ -47,6 +47,8 @@ type Props = {
   financeBlockedCaseIds?: string[]
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
   freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
+  /** 事務管理ダッシュボードのタブに埋め込むとき。ページ見出しを出さず、検索欄だけ上に置く。 */
+  embedded?: boolean
 }
 
 // 一覧に載せるタスクかどうか（担当区分スコープでの振り分け）。
@@ -83,7 +85,7 @@ const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : 
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {} }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -358,7 +360,15 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   return (
     <div>
       {/* ===== Sticky top zone ===== */}
-      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4">
+      <div className={embedded ? 'pb-3 mb-3 border-b border-gray-200' : 'sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white border-b border-gray-200 mb-4'}>
+        {embedded ? (
+          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[280px] mb-2.5">
+            <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="タスク名・案件名・番号で検索"
+              className="bg-transparent border-none outline-none text-xs text-gray-700 w-full placeholder:text-gray-400" />
+          </div>
+        ) : (
         <PageHeader
           eyebrow="Tasks"
           title={roleScope === 'manager' ? '管理担当タスク一覧' : '事務管理タスク一覧'}
@@ -377,6 +387,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             </div>
           }
         />
+        )}
 
         {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">

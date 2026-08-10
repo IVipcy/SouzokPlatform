@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { loadTaskListData } from '@/lib/loadTaskListData'
 import OfficeDashboardTabs, { type MailRow, type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 
 // 事務管理担当ダッシュボード。
 //   ① 作業着手待ち … status=作業着手準備 の案件（前受金入金＋ファイル化で着手OK）
 //   ② 郵便       … 本日届いてまだ対応していない到着物
-//   ③ 報連相     … 自分が出した報告・連絡・相談
+//   ③ タスク     … 事務管理タスク一覧（既定タブ）
+//   ④ 報連相     … 自分が出した報告・連絡・相談
 export default async function OfficeDashboardPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
@@ -27,7 +29,7 @@ export default async function OfficeDashboardPage() {
 
   // 作業着手準備→作業進行中 の着手ゲート：前受金入金（前受金invoiceが入金済）＋ファイル化。
   //   ※オーダーシート最終化・タスク出しは受注→作業着手準備 の前段で済ませる想定に変更（着手条件から除外）。
-  const [invRes, teamsRes, mailRes, reportRes, memberRes] = await Promise.all([
+  const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
     // 郵便：本日届いた到着物。対応（started_at）が付いていないものだけ出す。
@@ -47,6 +49,7 @@ export default async function OfficeDashboardPage() {
           .limit(100)
       : Promise.resolve({ data: [] }),
     supabase.from('members').select('id, name'),
+    loadTaskListData(),
   ])
 
   const invs = (invRes.data ?? []) as Array<{ case_id: string; invoice_type: string; status: string }>
@@ -121,6 +124,13 @@ export default async function OfficeDashboardPage() {
       currentMemberName={currentUser?.memberName ?? null}
       mails={mails}
       hourenSou={hourenSou}
+      tasks={taskData.tasks}
+      caseMap={taskData.caseMap}
+      allMembers={taskData.allMembers}
+      receipts={taskData.receipts}
+      financeBlockedCaseIds={taskData.financeBlockedCaseIds}
+      freezeAssetsByCase={taskData.freezeAssetsByCase}
+      today={today}
     />
   )
 }
