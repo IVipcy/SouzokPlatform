@@ -4,9 +4,8 @@ import { useState } from 'react'
 import { Trash2, Plus, DownloadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { DIVISION_METHODS, isNegativeClass } from '@/lib/constants'
+import { isNegativeClass } from '@/lib/constants'
 import { computeHeirSettlement } from '@/lib/heirSettlement'
-import { MoneyInput } from './FinancialAssetsTable'
 import type { DivisionDetailRow, HeirRow, AssetInventoryRow } from '@/types'
 
 type Props = {
@@ -15,6 +14,17 @@ type Props = {
   heirs: HeirRow[]
   assetInventory?: AssetInventoryRow[]
   onRefresh?: () => void
+}
+
+// 財産区分の入力候補（自由入力は今までどおりできる）。目録の区分＋債務・その他費用。
+const ASSET_CATEGORY_CHOICES = ['土地', '建物', '預貯金', '有価証券', 'その他財産', '債務', 'その他費用']
+
+/** 金額の割付から取得割合の分数を作る。全部その人のものなら null（＝書かない）。 */
+function ratioFraction(part: number, total: number | null): string | null {
+  if (!total || part <= 0 || part >= total) return null
+  const n = Math.round(part), d = Math.round(total)
+  const g = gcd(n, d) || 1
+  return `${n / g}/${d / g}`
 }
 
 /** 分割内容を表形式でインライン編集・行追加する。取得者は相続人の選択リスト。 */
@@ -54,9 +64,9 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
         continue
       }
       for (const [heirId, v] of alloc) {
-        // 取得割合は「その財産のうち何割か」。100%なら書かない（協議書の文面が冗長になるため）。
-        const ratio = a.amount ? Math.round((v / a.amount) * 1000) / 10 : 0
-        add(kind, label, v, heirName(heirId) || null, { share_ratio: ratio > 0 && ratio < 100 ? `${ratio}%` : null })
+        // 取得割合は「その財産のうち何分か」。協議書は分数で書くので分数のまま入れる。
+        // 全部その人のものなら書かない（「持分1分の1」は文面が冗長になるため）。
+        add(kind, label, v, heirName(heirId) || null, { share_ratio: ratioFraction(v, a.amount) })
       }
     }
 
@@ -108,23 +118,23 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
         <button type="button" onClick={importInventory} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 財産目録から取込</button>
         <span className="text-[11px] text-gray-400">目録の割付から、財産の取得・債務の負担・立替の精算金まで取り込みます</span>
       </div>
+      <datalist id="division-asset-categories">
+        {ASSET_CATEGORY_CHOICES.map(c => <option key={c} value={c} />)}
+      </datalist>
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 940 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-20">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">財産区分</th>
-              <th className="px-2.5 py-2 text-right font-semibold w-32">金額</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-32">分割方法</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">取得者<span className="block text-[10px] font-normal text-brand-500">債務＝負担者／精算＝支払う人</span></th>
-              <th className="px-2.5 py-2 text-left font-semibold w-28">取得割合</th>
-              <th className="px-2.5 py-2 text-left font-semibold">確定内容</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-32">取得割合</th>
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">分割内容が登録されていません</td></tr>
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">分割内容が登録されていません</td></tr>
             ) : (
               rows.map(r => (
                 <tr key={r.id} className="border-b border-gray-100 last:border-b-0">
@@ -134,14 +144,7 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
                       {['財産', '債務', '精算'].map(k => <option key={k} value={k}>{k}</option>)}
                     </select>
                   </td>
-                  <Cell value={r.asset_category} onChange={v => setLocal(r.id, 'asset_category', v)} onCommit={v => commit(r.id, 'asset_category', v)} placeholder="不動産, 預貯金 等" />
-                  <td className="px-2.5 py-1.5"><MoneyInput value={r.amount} onCommit={v => { setLocal(r.id, 'amount', (v === '' ? null : Number(v)) as unknown as string); commit(r.id, 'amount', v) }} /></td>
-                  <td className="px-2.5 py-1.5">
-                    <select value={r.division_method ?? ''} onChange={e => { setLocal(r.id, 'division_method', e.target.value); commit(r.id, 'division_method', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                      <option value="">—</option>
-                      {DIVISION_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </td>
+                  <Cell value={r.asset_category} onChange={v => setLocal(r.id, 'asset_category', v)} onCommit={v => commit(r.id, 'asset_category', v)} placeholder="不動産, 預貯金, 債務, その他費用 等" list="division-asset-categories" />
                   <td className="px-2.5 py-1.5">
                     <select value={r.recipient ?? ''} onChange={e => { setLocal(r.id, 'recipient', e.target.value); commit(r.id, 'recipient', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                       <option value="">—</option>
@@ -150,8 +153,7 @@ export default function DivisionDetailsTable({ caseId, details, heirs, assetInve
                       {heirNames.map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </td>
-                  <Cell value={r.share_ratio} onChange={v => setLocal(r.id, 'share_ratio', v)} onCommit={v => commit(r.id, 'share_ratio', v)} placeholder="1/2, 100% 等" />
-                  <Cell value={r.description} onChange={v => setLocal(r.id, 'description', v)} onCommit={v => commit(r.id, 'description', v)} placeholder="確定内容" />
+                  <FractionCell value={r.share_ratio} onChange={v => setLocal(r.id, 'share_ratio', v)} onCommit={() => commit(r.id, 'share_ratio', r.share_ratio ?? '')} />
                   <td className="px-2.5 py-1.5 text-center">
                     <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
@@ -176,7 +178,7 @@ function kindCls(kind: string | null | undefined) {
     : 'bg-gray-50 text-gray-600 border-gray-200'
 }
 
-function Cell({ value, onChange, onCommit, placeholder }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string }) {
+function Cell({ value, onChange, onCommit, placeholder, list }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; list?: string }) {
   return (
     <td className="px-2.5 py-1.5">
       <input
@@ -185,8 +187,48 @@ function Cell({ value, onChange, onCommit, placeholder }: { value: string | null
         onChange={e => onChange(e.target.value)}
         onBlur={e => onCommit(e.target.value)}
         placeholder={placeholder}
+        list={list}
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
       />
+    </td>
+  )
+}
+
+// 取得割合。協議書は「持分2分の1」のように分数で書くので、分子・分母を別々に入れる。
+// 保存は今までどおり share_ratio の1列に "1/2" の形で入れる（列は増やさない）。
+// 目録から取り込んだ古い "50%" 表記も分数に直して見せる。
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
+function parseFraction(value: string | null): { num: string; den: string } {
+  const v = (value ?? '').trim()
+  const f = /^(\d*)\s*\/\s*(\d*)$/.exec(v)
+  if (f) return { num: f[1], den: f[2] }
+  const p = /^(\d+(?:\.\d+)?)\s*%$/.exec(v)
+  if (p) {
+    const n = Math.round(Number(p[1]) * 10)
+    const g = gcd(n, 1000) || 1
+    return { num: String(n / g), den: String(1000 / g) }
+  }
+  return { num: '', den: '' }
+}
+
+function FractionCell({ value, onChange, onCommit }: {
+  value: string | null
+  onChange: (v: string) => void
+  onCommit: () => void
+}) {
+  const { num, den } = parseFraction(value)
+  const digits = (s: string) => s.replace(/[^\d]/g, '')
+  const set = (n: string, d: string) => onChange(n || d ? `${n}/${d}` : '')
+  const cls = 'w-12 px-1 py-1.5 text-[12px] text-center bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
+  return (
+    <td className="px-2.5 py-1.5">
+      <div className="flex items-center gap-1">
+        <input type="text" inputMode="numeric" value={num} placeholder="1" aria-label="分子"
+          onChange={e => set(digits(e.target.value), den)} onBlur={onCommit} className={cls} />
+        <span className="text-gray-400">/</span>
+        <input type="text" inputMode="numeric" value={den} placeholder="2" aria-label="分母"
+          onChange={e => set(num, digits(e.target.value))} onBlur={onCommit} className={cls} />
+      </div>
     </td>
   )
 }
