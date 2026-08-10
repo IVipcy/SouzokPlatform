@@ -17,9 +17,12 @@ import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import CheckRequestControl from './CheckRequestControl'
-import InheritanceDiagramV2, { type DiagramImage } from './InheritanceDiagramV2'
+import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
+import KosekiImageViewer, { type ViewerImage } from './KosekiImageViewer'
+import ImageAnnotator from './ImageAnnotator'
 import { useKosekiImages } from '@/lib/useKosekiImages'
+import type { Anno } from '@/lib/imageAnnotations'
 import Modal from '@/components/ui/Modal'
 import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { KosekiRequestRow, HeirRow, CaseRow, TaskRow } from '@/types'
@@ -40,14 +43,39 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
-  // 相続関係説明図の各人の右に出す戸籍画像（対象者ごとにまとめる）
-  const { rows: kosekiImages, urls: kosekiImageUrls } = useKosekiImages(caseId)
-  const [diagramImage, setDiagramImage] = useState<DiagramImage | null>(null)
-  const imagesByName: Record<string, DiagramImage[]> = {}
+  // 戸籍画像は取得状況の表（行＝対象者）から開く。
+  // 以前は TOPの右上パネル・相関図のサムネイル・対象者タブ の3か所にあり、
+  // どこから開いたかで見え方が変わっていたので、表の行に一本化した。
+  const { rows: kosekiImages, urls: kosekiImageUrls, setRows: setKosekiImages } = useKosekiImages(caseId)
+  const [viewerId, setViewerId] = useState<string | null>(null)
+  const [editImageId, setEditImageId] = useState<string | null>(null)
+  const imagesByName: Record<string, typeof kosekiImages> = {}
   for (const r of kosekiImages) {
-    const key = (r.target_person ?? '').trim()
-    if (!key) continue
-    ;(imagesByName[key] ??= []).push({ id: r.id, url: kosekiImageUrls[r.id], annos: r.annotations ?? [], label: r.file_name })
+    ;(imagesByName[(r.target_person ?? '').trim()] ??= []).push(r)
+  }
+  // ビューアの並びは表と同じ（表の上から順に、その人の画像）。
+  // 表と順番がずれると、横送りしたときにどこにいるのか分からなくなる。
+  const viewerImages: ViewerImage[] = (() => {
+    const seen = new Set<string>()
+    const out: ViewerImage[] = []
+    const push = (person: string) => {
+      if (seen.has(person)) return
+      seen.add(person)
+      for (const r of imagesByName[person] ?? []) {
+        out.push({ id: r.id, person, url: kosekiImageUrls[r.id], annos: r.annotations ?? [], fileName: r.file_name })
+      }
+    }
+    for (const r of requests) push((r.target_person ?? '').trim())
+    for (const person of Object.keys(imagesByName)) push(person)   // 請求が無い人の画像も後ろに足す
+    return out
+  })()
+  const editImage = editImageId ? kosekiImages.find(r => r.id === editImageId) ?? null : null
+  const saveImageAnnotations = async (id: string, annos: Anno[]) => {
+    const { error } = await supabase.from('koseki_images')
+      .update({ annotations: annos, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
+    setKosekiImages(prev => prev.map(r => (r.id === id ? { ...r, annotations: annos } : r)))
+    showToast('書き込みを保存しました', 'success')
   }
   const memberId = useCurrentMember(null)
   // タスク詳細からの着地：?focus=戸籍請求ID。該当行の対象者レールを開き、行をハイライト。
@@ -287,13 +315,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            {/* 左＝進捗/結果、右＝各対象者タブで登録した戸籍画像をまとめて表示 */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-3.5 items-start">
-              <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
-              <div className="bg-white border border-gray-200 rounded-lg p-3">
-                <KosekiImagePanel caseId={caseId} compact />
-              </div>
-            </div>
+            <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
             <div>
               <SectionHeading title="戸籍の取得状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="overflow-x-auto">
@@ -306,11 +328,12 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                       <th className="px-2.5 py-2 text-left font-semibold w-20">到着日</th>
                       <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
                       <th className="px-2.5 py-2 text-right font-semibold w-28">確定費用</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-24">戸籍画像</th>
                     </tr>
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')}>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
@@ -319,6 +342,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[240px] truncate" title={r.read_result ?? ''}>{r.read_result || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
+                        {/* 戸籍画像：押すとビューアが開き、そこから全員ぶんを横送りできる */}
+                        <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
+                          <KosekiImageCell
+                            images={imagesByName[(r.target_person ?? '').trim()] ?? []}
+                            urls={kosekiImageUrls}
+                            onOpen={id => setViewerId(id)}
+                            onAdd={() => setSub((r.target_person ?? '').trim() || '__unset__')}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -326,6 +358,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                     <tr className="bg-gray-50 font-semibold text-gray-700">
                       <td className="px-2.5 py-2 text-right" colSpan={5}>確定費用 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confirmedTotal)}</td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
@@ -334,15 +367,12 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 
             {/* 戸籍取得状況図：相続関係説明図に状態を枠色で反映＋ホバーで進捗/結果 */}
             <div>
-              <SectionHeading title="戸籍の取得状況（相続関係説明図）" hint="枠の色＝戸籍の取得状況（緑=完了／青=対応中／橙=追加調査中／灰=未着手）。図の人物にマウスを乗せると、進み具合や結果が出ます。各人の右にはその人の戸籍画像が並び、押すと拡大できます（印刷には出ません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="戸籍の取得状況（相続関係説明図）" hint="枠の色＝戸籍の取得状況（緑=完了／青=対応中／橙=追加調査中／灰=未着手）。図の人物にマウスを乗せると、進み具合や結果が出ます。戸籍の画像は上の表の「戸籍画像」から開けます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {heirs.length === 0 ? (
                 <p className="text-[12px] text-gray-400 text-center py-4">相続人が未登録です。「相続人」タブで登録すると、ここに相続関係説明図が表示されます。</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <InheritanceDiagramV2
-                    deceased={caseData} heirs={heirs} statusByName={statusByName}
-                    imagesByName={imagesByName} onOpenImage={setDiagramImage}
-                  />
+                  <InheritanceDiagramV2 deceased={caseData} heirs={heirs} statusByName={statusByName} />
                 </div>
               )}
             </div>
@@ -400,12 +430,58 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       </div>
       {addOpen && <AddKosekiModal targetOptions={targetOptions} defaultPerson={activePerson} onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
 
-      {/* 相関図のサムネイルを押したときの拡大表示（書き込み込み） */}
-      <Modal isOpen={!!diagramImage} onClose={() => setDiagramImage(null)} title={diagramImage?.label ?? '戸籍の画像'} maxWidth="max-w-5xl">
-        {diagramImage && <AnnotatedImage url={diagramImage.url} annos={diagramImage.annos} />}
-      </Modal>
+      {/* 戸籍画像のビューア。閉じずに全員ぶんを横送りできる */}
+      {viewerId && (
+        <KosekiImageViewer
+          images={viewerImages}
+          startId={viewerId}
+          onClose={() => setViewerId(null)}
+          onEdit={id => { setViewerId(null); setEditImageId(id) }}
+        />
+      )}
+      {editImage && (
+        <ImageAnnotator
+          isOpen
+          onClose={() => setEditImageId(null)}
+          imageUrl={kosekiImageUrls[editImage.id] ?? ''}
+          initial={editImage.annotations ?? []}
+          title={`${editImage.target_person ? `${editImage.target_person}の戸籍 — ` : ''}${editImage.file_name ?? '画像'}`}
+          onSave={annos => saveImageAnnotations(editImage.id, annos)}
+        />
+      )}
     </div>
     </div>
+  )
+}
+
+// 取得状況の表の「戸籍画像」セル。1枚目のサムネイル＋枚数。無ければ対象者タブへ誘導する。
+function KosekiImageCell({ images, urls, onOpen, onAdd }: {
+  images: Array<{ id: string; annotations: Anno[] | null }>
+  urls: Record<string, string>
+  onOpen: (id: string) => void
+  onAdd: () => void
+}) {
+  if (images.length === 0) {
+    return (
+      <button type="button" onClick={onAdd}
+        title="この対象者のタブを開いて画像を追加します"
+        className="text-[11px] text-gray-400 border border-dashed border-gray-300 rounded px-1.5 py-0.5 hover:text-brand-700 hover:border-brand-300">
+        ＋ 追加
+      </button>
+    )
+  }
+  const first = images[0]
+  return (
+    <button type="button" onClick={() => onOpen(first.id)}
+      title={`戸籍の画像 ${images.length}枚を見る`}
+      className="inline-flex items-center gap-1.5 group">
+      <span className="block w-10 h-8 rounded border border-gray-300 overflow-hidden bg-gray-50 group-hover:border-brand-500">
+        {urls[first.id]
+          ? <AnnotatedImage url={urls[first.id]} annos={first.annotations ?? []} className="w-full h-full object-cover" />
+          : <span className="block w-full h-full" />}
+      </span>
+      <span className="text-[11px] text-gray-500 group-hover:text-brand-700">{images.length}</span>
+    </button>
   )
 }
 

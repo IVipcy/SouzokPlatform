@@ -5,27 +5,31 @@
 // 元画像は書き換えず、書いた内容（座標・色・文字）だけを保存する。
 // 座標は画像に対する 0〜1 の割合なので、拡大しても位置がずれない。
 //
-// ・ペン（黒・赤）／蛍光ペン（緑・黄）… ドラッグで線を引く
-// ・テキスト … クリックで箱を作り打ち込む。置いたあとは
-//               ドラッグで移動 / 右下の■で箱幅 / A-・A+で文字サイズ / ○をドラッグで引き出し線
+// ・蛍光ペン（黄・緑・水色）… ドラッグで線を引く。色に意味があるので画面に対応表を出す
+// ・テキスト … クリックで定型の枠を置く。中身（証明期間・対象者）は最初から入っていて、
+//               書けるのは空欄だけ。ドラッグで移動 / 右下の■で大きさ / ○をドラッグで引き出し線
 // ・消す … 線・箱を1つずつ選んで消す
 // ・戻す … 直前の操作を取り消す
+//
+// ペンと文字サイズの指定は廃止した。自由に書けると人によって書き方が変わり、
+// あとから読む人が読めなくなるため。文字の大きさは枠の大きさに連動する。
+// （過去に引いたペンの線は消さず、そのまま表示する）
 //
 // 描画は canvas に集約（src/lib/imageAnnotations.ts）。編集中のテキストだけは
 // 打ち込みやすさのため HTML の入力欄を重ねて出し、確定したら canvas 側で描く。
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Undo2, Trash2, Type, X, Move } from 'lucide-react'
+import { Undo2, Trash2, Type, X, Move, Plus } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import {
-  PEN_COLORS, MARKER_COLORS, PEN_WIDTH, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT,
-  TEXT_FONT_STEPS, TEXT_BOX_MIN_W, fontOf,
+  MARKER_COLORS, MARKER_BLUE_NOTE, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT, TEXT_COLOR,
+  TEXT_BOX_MIN_W, TEXT_DEFAULT, TEXT_TARGET_LINE, fontOf, fontForWidth,
   drawAnnotations, textBoxHeight, getMeasureCtx, newId,
   type Anno, type PenAnno, type TextAnno,
 } from '@/lib/imageAnnotations'
 
-type Tool = { kind: 'pen' | 'marker'; color: string } | { kind: 'text' } | { kind: 'erase' }
+type Tool = { kind: 'marker'; color: string } | { kind: 'text' } | { kind: 'erase' }
 
 function ToolBtn({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label: string }) {
   return (
@@ -54,7 +58,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
 }) {
   const [annos, setAnnos] = useState<Anno[]>(initial)
   const [history, setHistory] = useState<Anno[][]>([])
-  const [tool, setTool] = useState<Tool>({ kind: 'marker', color: MARKER_COLORS[1].css })
+  const [tool, setTool] = useState<Tool>({ kind: 'marker', color: MARKER_COLORS[0].css })
   const [editingId, setEditingId] = useState<string | null>(null)
   // 選択中のメモ（掴んだ／編集した箱）。選択中だけ操作用のつまみとミニ道具を出す。
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -141,7 +145,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
       return
     }
     if (tool.kind === 'text') {
-      const t: TextAnno = { id: newId(), type: 'text', color: PEN_COLORS[1].css, x: Math.min(p.x, 1 - TEXT_BOX_W), y: p.y, w: TEXT_BOX_W, font: TEXT_FONT, text: '', leader: null }
+      // 中身は定型（証明期間／対象者）。空の枠を置いて自由に書かせない。
+      const t: TextAnno = { id: newId(), type: 'text', color: TEXT_COLOR, x: Math.min(p.x, 1 - TEXT_BOX_W), y: p.y, w: TEXT_BOX_W, font: TEXT_FONT, text: TEXT_DEFAULT, leader: null }
       push([...annos, t])
       setEditingId(t.id)
       setSelectedId(t.id)
@@ -151,8 +156,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setSelectedId(null)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     drawingRef.current = {
-      id: newId(), type: tool.kind, color: tool.color,
-      width: tool.kind === 'marker' ? MARKER_WIDTH : PEN_WIDTH,
+      id: newId(), type: 'marker', color: tool.color,
+      width: MARKER_WIDTH,
       points: [p.x, p.y],
     }
   }
@@ -185,14 +190,9 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setHistory(h => [...h.slice(-29), annos])
     patchText(id, patch)
   }
-  const bumpFont = (a: TextAnno, dir: 1 | -1) => {
-    const cur = fontOf(a)
-    // いま一番近い段を探して1段ずらす
-    let i = 0
-    TEXT_FONT_STEPS.forEach((v, k) => { if (Math.abs(v - cur) < Math.abs(TEXT_FONT_STEPS[i] - cur)) i = k })
-    const next = TEXT_FONT_STEPS[Math.max(0, Math.min(TEXT_FONT_STEPS.length - 1, i + dir))]
-    editText(a.id, { font: next })
-  }
+  /** 「対象者（　）：…」の行を1行足す。人数ぶん並べたいときに使う */
+  const addTargetLine = (a: TextAnno) =>
+    editText(a.id, { text: `${a.text}${a.text.endsWith('\n') ? '' : '\n'}${TEXT_TARGET_LINE}` })
 
   // 画像に対する割合座標（つまみのドラッグはcanvasの外にも出るのでclient座標から引き直す）
   const relCanvas = (clientX: number, clientY: number) => {
@@ -219,7 +219,11 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setAnnos(prev => prev.map(a => {
       if (a.id !== d.id || a.type !== 'text') return a
       if (d.mode === 'move') return { ...a, x: Math.max(0, Math.min(1 - a.w, p.x - d.dx)), y: Math.max(0, Math.min(1, p.y - d.dy)) }
-      if (d.mode === 'resize') return { ...a, w: Math.max(TEXT_BOX_MIN_W, Math.min(1 - a.x, p.x - a.x)) }
+      // 幅を変えると文字も同じ比率で変わる（文字サイズを別に指定させないため）
+      if (d.mode === 'resize') {
+        const w = Math.max(TEXT_BOX_MIN_W, Math.min(1 - a.x, p.x - a.x))
+        return { ...a, w, font: fontForWidth(a, w) }
+      }
       return { ...a, leader: { x: p.x, y: p.y } }
     }))
   }
@@ -251,32 +255,38 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
       }>
       <div className="space-y-2.5">
         {/* 道具 */}
-        <div className="flex items-center gap-2 flex-wrap border-b border-gray-100 pb-2.5">
-          <span className="text-[12px] text-gray-500">ペン</span>
-          {PEN_COLORS.map(c => (
-            <ColorDot key={c.key} css={c.css} label={`ペン ${c.label}`}
-              on={tool.kind === 'pen' && tool.color === c.css}
-              onClick={() => setTool({ kind: 'pen', color: c.css })} />
-          ))}
-          <span className="w-px h-5 bg-gray-200" />
-          <span className="text-[12px] text-gray-500">蛍光ペン</span>
-          {MARKER_COLORS.map(c => (
-            <ColorDot key={c.key} css={c.css} label={`蛍光ペン ${c.label}`}
-              on={tool.kind === 'marker' && tool.color === c.css}
-              onClick={() => setTool({ kind: 'marker', color: c.css })} />
-          ))}
-          <span className="w-px h-5 bg-gray-200" />
-          <ToolBtn on={tool.kind === 'text'} onClick={() => setTool({ kind: 'text' })} label="テキスト"><Type className="w-3.5 h-3.5" />テキスト</ToolBtn>
-          <ToolBtn on={tool.kind === 'erase'} onClick={() => setTool({ kind: 'erase' })} label="消す"><Trash2 className="w-3.5 h-3.5" />消す</ToolBtn>
-          <button type="button" onClick={undo} disabled={history.length === 0}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300 disabled:opacity-40">
-            <Undo2 className="w-3.5 h-3.5" />戻す
-          </button>
-          <span className="ml-auto text-[11px] text-gray-400">
-            {tool.kind === 'text' ? 'クリックでメモを置く。置いたあとは ドラッグで移動／■で幅／A±で文字サイズ／○で引き出し線'
-              : tool.kind === 'erase' ? '消したい線・メモをクリック'
-              : 'ドラッグで書く'}
-          </span>
+        <div className="border-b border-gray-100 pb-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] text-gray-500">蛍光ペン</span>
+            {MARKER_COLORS.map(c => (
+              <ColorDot key={c.key} css={c.css} label={`${c.label}：${c.use}`}
+                on={tool.kind === 'marker' && tool.color === c.css}
+                onClick={() => setTool({ kind: 'marker', color: c.css })} />
+            ))}
+            <span className="w-px h-5 bg-gray-200" />
+            <ToolBtn on={tool.kind === 'text'} onClick={() => setTool({ kind: 'text' })} label="テキスト枠"><Type className="w-3.5 h-3.5" />テキスト枠</ToolBtn>
+            <ToolBtn on={tool.kind === 'erase'} onClick={() => setTool({ kind: 'erase' })} label="消す"><Trash2 className="w-3.5 h-3.5" />消す</ToolBtn>
+            <button type="button" onClick={undo} disabled={history.length === 0}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300 disabled:opacity-40">
+              <Undo2 className="w-3.5 h-3.5" />戻す
+            </button>
+            <span className="ml-auto text-[11px] text-gray-400">
+              {tool.kind === 'text' ? 'クリックで枠を置く。置いたあとは ドラッグで移動／右下の■で大きさ／○で引き出し線'
+                : tool.kind === 'erase' ? '消したい線・枠をクリック'
+                : 'ドラッグで塗る'}
+            </span>
+          </div>
+          {/* 色の意味。人によって塗り分けが変わらないよう、常に出しておく */}
+          <div className="mt-1.5 flex items-center gap-3 flex-wrap text-[11px] text-gray-500">
+            {MARKER_COLORS.map(c => (
+              <span key={c.key} className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 rounded-sm border border-black/10" style={{ background: c.css }} />
+                <span className="font-semibold text-gray-700">{c.label}</span>
+                <span>{c.use}</span>
+                {c.key === 'blue' && <span className="text-gray-400">（{MARKER_BLUE_NOTE}）</span>}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* 画像＋書き込み */}
@@ -306,7 +316,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                       value={a.text}
                       onChange={e => updateText(e.target.value)}
                       onBlur={() => setEditingId(null)}
-                      placeholder="メモを入力"
+                      placeholder="空欄を埋めてください"
                       className="w-full px-1.5 py-1 rounded border-2 bg-white/95 outline-none resize-none block"
                       style={{ borderColor: a.color, color: a.color, fontSize: fontPx, lineHeight: 1.45, height: Math.max(h, fontPx * 2.4) }}
                     />
@@ -332,17 +342,10 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                       onPointerDown={e => e.stopPropagation()}
                     >
                       <Move className="w-3 h-3 text-gray-300" />
-                      <button type="button" title="文字を小さく" onClick={() => bumpFont(a, -1)}
-                        className="px-1.5 text-[11px] font-bold text-gray-600 hover:text-brand-700">A-</button>
-                      <button type="button" title="文字を大きく" onClick={() => bumpFont(a, 1)}
-                        className="px-1.5 text-[14px] font-bold text-gray-600 hover:text-brand-700">A+</button>
-                      <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
-                      {PEN_COLORS.map(c => (
-                        <button key={c.key} type="button" title={`文字と枠を${c.label}に`} aria-label={`${c.label}にする`}
-                          onClick={() => editText(a.id, { color: c.css })}
-                          className={`w-3.5 h-3.5 rounded-full border ${a.color === c.css ? 'border-brand-600 scale-110' : 'border-gray-200'}`}
-                          style={{ background: c.css }} />
-                      ))}
+                      <button type="button" title="「対象者（　）：…」の行を1行足す" onClick={() => addTargetLine(a)}
+                        className="inline-flex items-center gap-0.5 px-1.5 text-[11px] font-semibold text-gray-600 hover:text-brand-700 whitespace-nowrap">
+                        <Plus className="w-3 h-3" />対象者の行
+                      </button>
                       <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
                       <button type="button" title="このメモを削除"
                         onClick={() => { push(annos.filter(x => x.id !== a.id)); setEditingId(null); setSelectedId(null) }}
@@ -353,9 +356,9 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                   {/* 箱幅を変えるつまみ（右下） */}
                   {(isSelected || isEditing) && (
                     <div
-                      className="absolute w-3 h-3 bg-white border-2 rounded-sm cursor-ew-resize"
+                      className="absolute w-3 h-3 bg-white border-2 rounded-sm cursor-nwse-resize"
                       style={{ borderColor: a.color, left: w - 6, top: h - 6, touchAction: 'none', zIndex: 5 }}
-                      title="ドラッグで箱の幅を変える"
+                      title="ドラッグで大きさを変える（文字も一緒に変わります）"
                       onPointerDown={e => startDrag(e, a, 'resize')}
                       onPointerMove={moveDrag}
                       onPointerUp={endDrag}

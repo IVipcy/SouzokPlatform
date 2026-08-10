@@ -33,31 +33,57 @@ export type TextAnno = {
 
 export type Anno = PenAnno | TextAnno
 
-/** 蛍光ペンの色（下の文字が読める濃さで塗る） */
+/**
+ * 蛍光ペンの色（下の文字が読める濃さで塗る）。
+ * 色そのものに意味を持たせているので、画面にもこの use をそのまま出す。
+ * 人によって塗り分けが変わると、あとから見た人が読めなくなるため。
+ */
 export const MARKER_COLORS = [
-  { key: 'green', label: '緑', css: '#97C459' },
-  { key: 'yellow', label: '黄', css: '#FAC775' },
+  { key: 'yellow', label: '黄', css: '#FAC775', use: '被相続人' },
+  { key: 'green', label: '緑', css: '#97C459', use: '相続人' },
+  { key: 'blue', label: '水色', css: '#7FC4E8', use: '亡くなっている相続人' },
 ] as const
-/** ペンの色 */
+/** 水色の補足（被代襲者・数次相続の被相続人 など） */
+export const MARKER_BLUE_NOTE = '被代襲者・数次相続の被相続人 など'
+
+/** ペンの色。ペン機能は廃止したが、過去に引いた線を描くために色定義は残す */
 export const PEN_COLORS = [
   { key: 'black', label: '黒', css: '#1F2937' },
   { key: 'red', label: '赤', css: '#DC2626' },
 ] as const
+/** テキスト枠の色（固定）。色を選ばせると書き方が揃わないので1色にする */
+export const TEXT_COLOR = '#DC2626'
 
 export const MARKER_ALPHA = 0.42
 /** 既定の線幅（画像幅に対する割合） */
 export const PEN_WIDTH = 0.004
 export const MARKER_WIDTH = 0.022
 /** テキスト箱の既定幅・文字サイズ（画像幅に対する割合） */
-export const TEXT_BOX_W = 0.26
-export const TEXT_FONT = 0.026
-/** 文字サイズの段階（小さい順）。A-／A+ で1段ずつ動かす */
-export const TEXT_FONT_STEPS = [0.014, 0.018, 0.022, 0.026, 0.032, 0.040, 0.050] as const
+export const TEXT_BOX_W = 0.44
+export const TEXT_FONT = 0.019
 /** 箱幅の下限（割合） */
-export const TEXT_BOX_MIN_W = 0.06
+export const TEXT_BOX_MIN_W = 0.12
+/** 文字サイズの上下限（割合）。箱幅に連動して動く */
+export const TEXT_FONT_MIN = 0.008
+export const TEXT_FONT_MAX = 0.06
+
+// テキスト枠の定型。戸籍に書き添える内容は毎回この2行なので、最初から入れておく。
+// 自由に何でも書けると人によって書き方が変わり、あとから読む人が困る。
+export const TEXT_PERIOD_LINE = '証明期間：　　年　　月　　日 ～ 　　年　　月　　日'
+export const TEXT_TARGET_LINE = '対象者（　　　　　　）：　　年　　月　　日 ～ 　　年　　月　　日'
+export const TEXT_DEFAULT = `${TEXT_PERIOD_LINE}\n${TEXT_TARGET_LINE}`
 
 /** その箱の文字サイズ（未指定なら既定） */
 export const fontOf = (a: TextAnno) => a.font ?? TEXT_FONT
+
+/**
+ * 箱幅を変えたときの文字サイズ。幅と同じ比率で動かす。
+ * 「枠を広げれば字も大きくなる」ので、文字サイズを別に指定させなくてよい。
+ */
+export const fontForWidth = (a: TextAnno, nextW: number) => {
+  const ratio = a.w > 0 ? nextW / a.w : 1
+  return Math.max(TEXT_FONT_MIN, Math.min(TEXT_FONT_MAX, fontOf(a) * ratio))
+}
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
 
