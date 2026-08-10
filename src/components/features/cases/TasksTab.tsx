@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useTransition } from 'react'
+import { systemTaskGroup, SYSTEM_GROUP_LABEL, SYSTEM_GROUP_NOTE, type SystemTaskGroup } from '@/lib/systemTaskGroup'
 import { useRouter } from 'next/navigation'
 import { ClipboardList, Plus, Briefcase, Layers, PackageCheck } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -55,6 +56,9 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const isManagementPhase = caseStatus === '対応中' || caseStatus === '完了'
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
   const [kind, setKind] = useState<'system' | 'case'>(hideCaseTasks ? 'system' : isManagementPhase ? 'case' : 'system')
+  // 受注担当/管理担当タスクの内訳（業務＝案件を進めるもの／その他＝随時発生）。
+  // 既定は「業務」。案件がどこまで進んだかを見る用が主なので。
+  const [sysGroup, setSysGroup] = useState<SystemTaskGroup>('gyomu')
   // ステータス絞り込み（/tasks と同じ：単一選択 'all'/着手前/対応中/完了）＋着手OKトグル
   const [statusFilter, setStatusFilter] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
   const [readyOnly, setReadyOnly] = useState(false)
@@ -151,6 +155,7 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
 
   const filtered = useMemo(() => tasks.filter(t => {
     if (t.task_kind !== kind) return false
+    if (kind === 'system' && systemTaskGroup(t) !== sysGroup) return false
     if (statusFilter !== 'all' && normalizeStatus(t.status) !== statusFilter) return false
     if (readyOnly && !getStartSignal(t, receipts).ready) return false
     if (kind === 'case' && koteiFilter.size > 0 && !koteiFilter.has(koteiOf(t.phase))) return false
@@ -171,10 +176,18 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
     const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
     if (gr !== 0) return gr
     return (a.sort_order ?? 0) - (b.sort_order ?? 0)
-  }), [tasks, kind, statusFilter, readyOnly, receipts, koteiFilter, gyomuFilter])
+  }), [tasks, kind, sysGroup, statusFilter, readyOnly, receipts, koteiFilter, gyomuFilter])
 
   // ステータス別件数・着手OK件数（現在の区分タブのタスクに対して）
-  const kindTasks = useMemo(() => tasks.filter(t => t.task_kind === kind), [tasks, kind])
+  const kindTasks = useMemo(
+    () => tasks.filter(t => t.task_kind === kind && (kind !== 'system' || systemTaskGroup(t) === sysGroup)),
+    [tasks, kind, sysGroup])
+  // サブタブの件数
+  const sysGroupCounts = useMemo(() => {
+    const m = { gyomu: 0, other: 0 }
+    for (const t of tasks) { if (t.task_kind === 'system') m[systemTaskGroup(t)] += 1 }
+    return m
+  }, [tasks])
   const counts = useMemo(() => ({
     all: kindTasks.length,
     着手前: kindTasks.filter(t => normalizeStatus(t.status) === '着手前').length,
@@ -253,6 +266,23 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
           {/* 区分タブ＋ステータス＋業務区分絞り込み */}
           <div className="flex items-center gap-3 flex-wrap">
             <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'system' | 'case')} />
+            {/* 受注担当/管理担当タスクの内訳。業務＝案件を進めるもの／その他＝随時発生。 */}
+            {kind === 'system' && (
+              <div className="flex gap-1 bg-white border border-gray-200 rounded-full p-0.5 shadow-sm">
+                {(['gyomu', 'other'] as SystemTaskGroup[]).map(g => {
+                  const on = sysGroup === g
+                  return (
+                    <button key={g} type="button" onClick={() => setSysGroup(g)}
+                      title={SYSTEM_GROUP_NOTE[g]}
+                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${
+                        on ? 'bg-brand-100 text-brand-800' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                      {SYSTEM_GROUP_LABEL[g]}
+                      {sysGroupCounts[g] > 0 && <span className="ml-1 text-[11px] font-mono opacity-70">{sysGroupCounts[g]}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {/* ステータス（/tasks と同じ：単一選択＋件数＋すべて） */}
             <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
               {([['着手前', '未着手'], ['対応中', '対応中'], ['完了', '完了'], ['all', 'すべて']] as const).map(([key, label]) => {

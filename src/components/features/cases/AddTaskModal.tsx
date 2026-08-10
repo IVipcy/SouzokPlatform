@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
-import { gyomuForCategories } from '@/lib/serviceMaster'
+import { gyomuForCategories, GYOMU_ALL } from '@/lib/serviceMaster'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { koteiOf } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
@@ -55,6 +55,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     priority: '通常' as string,
     ready: 'none' as ReadyKey,
     readyNote: '',
+    work: '',
   })
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
   // 工程の選択肢（この案件の業務から導出）／選択中工程の業務
@@ -62,6 +63,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   // その他＝どの業務にも属さない任意タスクの置き場（事務管理タスク一覧の「その他」タブに出る）。
   const ALWAYS_SELECTABLE = ['納品', 'その他']
   const gyomuChoices = [...gyomuOptions, ...ALWAYS_SELECTABLE.filter(g => !gyomuOptions.includes(g))]
+  // 管理担当/受注担当タスクは、案件の実施業務にかかわらず全業務から選べるようにする。
+  // 精算書作成のように受注区分に出てこない業務でも、あとから足したくなるため。
+  const managerGyomuChoices = [...GYOMU_ALL.filter(g => g !== 'その他'), 'その他']
+  const choices = form.roleKind === 'assistant' ? gyomuChoices : managerGyomuChoices
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -74,11 +79,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       const { data } = await supabase.from('cases').select('service_category, service_category_2, service_parts, intake_roles').eq('id', caseId).single()
       if (!active || !data) return
       const roles = (data.intake_roles ?? []) as Array<{ gyomu?: string | null }>
-      let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g))]
+      // 実施業務の「その他（自由入力）」は業務名が自由文なので、業務区分の選択肢には入れない。
+      let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g && GYOMU_ALL.includes(g)))]
       if (gyomus.length === 0) gyomus = gyomuForCategories(activePartKeys(partsForCase(data)))
       setGyomuOptions(gyomus)
       const g0 = (defaultPhase && gyomus.includes(defaultPhase)) ? defaultPhase : (gyomus[0] ?? '')
-      setForm(p => ({ ...p, gyomu: g0, kotei: koteiOf(g0) }))
+      setForm(p => ({ ...p, gyomu: p.roleKind === 'assistant' ? g0 : 'その他', kotei: koteiOf(g0) }))
     })()
     return () => { active = false }
   }, [isOpen, caseId, defaultPhase])
@@ -115,6 +121,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           due_date: form.dueDate || null,
           sort_order: 99,
           created_by: currentMemberId,
+          procedure_text: form.work.trim() || null,
           ...(readyExt ? { ext_data: readyExt } : {}),
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
@@ -129,13 +136,15 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           assign_role: role,
           work_role: role,   // work_role と assign_role を両方セット（/manager-tasks・区分ラベルの両方で正しく出す）
           title: form.title.trim(),
-          phase: '',
+          // 業務区分を入れる。「その他」＝本流と関係ない随時タスクで、一覧のサブタブが分かれる。
+          phase: form.gyomu || 'その他',
           category: '',
           status: '着手前',
           priority: form.priority,
           due_date: form.dueDate || null,
           sort_order: 99,
           created_by: currentMemberId,
+          procedure_text: form.work.trim() || null,
           ...(readyExt ? { ext_data: readyExt } : {}),
         })
         .select('id')
@@ -157,7 +166,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     }
 
     setSaving(false)
-    setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常', ready: 'none', readyNote: '' })
+    setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常', ready: 'none', readyNote: '', work: '' })
     onSaved()
     onClose()
   }
@@ -191,7 +200,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
                 <button
                   key={rk.key}
                   type="button"
-                  onClick={() => setForm(p => ({ ...p, roleKind: rk.key }))}
+                  onClick={() => setForm(p => ({
+                    ...p,
+                    roleKind: rk.key,
+                    // 事務管理＝案件の業務、管理担当/受注担当＝その他（随時）を既定にする
+                    gyomu: rk.key === 'assistant' ? (gyomuOptions[0] ?? 'その他') : 'その他',
+                  }))}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${on ? 'border-2 border-brand-400 bg-brand-50' : 'border border-gray-200 hover:bg-gray-50'}`}
                 >
                   <div className="flex-1 min-w-0">
@@ -205,8 +219,9 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           </div>
         </div>
 
-        {/* 業務区分（事務管理タスクのときだけ）。工程の2段選択は廃止し、業務を直接選ぶ。 */}
-        {form.roleKind === 'assistant' ? (
+        {/* 業務区分。工程の2段選択は廃止し、業務を直接選ぶ。
+            管理担当/受注担当タスクでも選べる。「その他」を選ぶと一覧の「その他」サブタブに入り、
+            案件を進める本流のタスクと混ざらない。 */}
         <div>
           <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務区分</label>
           <select
@@ -214,17 +229,16 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
             onChange={e => setForm(p => ({ ...p, gyomu: e.target.value, kotei: koteiOf(e.target.value) }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
-            {gyomuChoices.map(g => (
+            {choices.map(g => (
               <option key={g} value={g}>{g}</option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-gray-400">どの業務にも当てはまらないときは「その他」。事務管理タスク一覧の同じ名前のタブに入ります。</p>
+          <p className="mt-1 text-[11px] text-gray-400">
+            {form.roleKind === 'assistant'
+              ? 'どの業務にも当てはまらないときは「その他」。事務管理タスク一覧の同じ名前のタブに入ります。'
+              : 'お客様とのやりとりなど、案件を進める工程と関係ないものは「その他」。一覧の「その他」サブタブに入ります。'}
+          </p>
         </div>
-        ) : (
-          <div className="text-[12px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
-            業務区分は不要です。案件の{form.roleKind === 'manager' ? '管理担当' : '受注担当'}へ自動で割り当て・通知します。
-          </div>
-        )}
 
         {/* Task name（分類のあとに入力） */}
         <div>
@@ -237,6 +251,18 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
           <TaskKeywordNudge title={form.title} caseId={caseId} />
+        </div>
+
+        {/* 作業内容。手順や伝えたいことを書いておくと、担当が開いたときにそのまま読める。 */}
+        <div>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">作業内容</label>
+          <textarea
+            value={form.work}
+            onChange={e => setForm(p => ({ ...p, work: e.target.value }))}
+            rows={3}
+            placeholder="何をするか・気をつけることを書いておく（任意）"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[13px] focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y"
+          />
         </div>
 
         {/* Due date */}

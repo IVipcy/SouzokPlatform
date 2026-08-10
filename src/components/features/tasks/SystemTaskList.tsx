@@ -60,7 +60,11 @@ type Props = {
   showMeta?: boolean
   /** タスク期日の残り/超過日数を大きく表示する列（要対応一覧で使用） */
   showRemain?: boolean
+  /** 「業務／その他」のサブタブを出す。案件を進めるタスクと随時タスクが混ざるリストで使う。 */
+  groupTabs?: boolean
 }
+
+import { systemTaskGroup, SYSTEM_GROUP_LABEL, SYSTEM_GROUP_NOTE, type SystemTaskGroup } from '@/lib/systemTaskGroup'
 
 const STATUS_BADGE: Record<string, string> = {
   '着手前': 'bg-gray-100 text-gray-600 border-gray-200',
@@ -106,17 +110,27 @@ export default function SystemTaskList({
   gyomuBadge = false,
   showMeta = false,
   showRemain = false,
+  groupTabs = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // 業務（案件を進めるもの）／その他（随時）。既定は業務。
+  const [sysGroup, setSysGroup] = useState<SystemTaskGroup>('gyomu')
   const today = new Date().toISOString().split('T')[0]
 
+  const groupCounts = useMemo(() => {
+    const m = { gyomu: 0, other: 0 }
+    for (const t of tasks) { if (includeCompleted || normalizeStatus(t.status) !== '完了') m[systemTaskGroup(t)] += 1 }
+    return m
+  }, [tasks, includeCompleted])
+
   const visible = useMemo(() => {
-    const filtered = includeCompleted
+    let filtered = includeCompleted
       ? tasks
       : tasks.filter(t => normalizeStatus(t.status) !== '完了')
+    if (groupTabs) filtered = filtered.filter(t => systemTaskGroup(t) === sysGroup)
     // ソート: 期限超過 → 期限近い順 → なし末尾
     return [...filtered].sort((a, b) => {
       const aOver = !!(a.due_date && a.due_date < today)
@@ -126,7 +140,7 @@ export default function SystemTaskList({
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [tasks, includeCompleted, today])
+  }, [tasks, includeCompleted, today, groupTabs, sysGroup])
 
   const shown = limit ? visible.slice(0, limit) : visible
 
@@ -191,6 +205,22 @@ export default function SystemTaskList({
         <span className="text-[12px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
           {visible.length}
         </span>
+        {groupTabs && (
+          <div className="flex gap-1 bg-gray-50 border border-gray-200 rounded-full p-0.5 ml-1">
+            {(['gyomu', 'other'] as SystemTaskGroup[]).map(g => {
+              const on = sysGroup === g
+              return (
+                <button key={g} type="button" onClick={() => setSysGroup(g)}
+                  title={SYSTEM_GROUP_NOTE[g]}
+                  className={`px-2.5 py-0.5 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${
+                    on ? 'bg-brand-100 text-brand-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                  {SYSTEM_GROUP_LABEL[g]}
+                  {groupCounts[g] > 0 && <span className="ml-1 text-[11px] font-mono opacity-70">{groupCounts[g]}</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
         {selectable && selected.size > 0 && (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>

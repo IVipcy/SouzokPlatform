@@ -1252,6 +1252,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             includeCompleted={false}
             currentMemberId={memberId}
             showMeta={true}
+            groupTabs={true}
           />
         </div>
       )}
