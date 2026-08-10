@@ -529,6 +529,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
         {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11.5px] font-semibold text-gray-400">ステータス</span>
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
             <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
@@ -1141,11 +1142,11 @@ function FilterTab({ label, active, onClick, count, accent }: { label: string; a
   return (
     <button
       onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${active ? activeCls : inactiveCls}`}
+      className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors whitespace-nowrap ${active ? activeCls : inactiveCls}`}
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span className={`ml-1.5 text-[13px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
+        <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
       )}
     </button>
   )
