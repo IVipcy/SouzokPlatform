@@ -19,6 +19,7 @@ import HistoryTab from './HistoryTab'
 import TabHeader from './TabHeader'
 import { normalizeTaskStatus, toReadinessReceipts, isWaitingForDocument, getStartSignal } from '@/lib/taskReadiness'
 import { itemNeedsTaskLink } from '@/lib/receiptLink'
+import { systemTaskGroup } from '@/lib/systemTaskGroup'
 
 type Props = {
   caseData: CaseRow
@@ -59,7 +60,10 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
 
   // ── 進行状態サマリー用の集計 ──
   const todayYmd = todayJstYmd(new Date())
-  const caseTasks = tasks.filter(t => t.task_kind !== 'system')
+  // 数える対象は下の線表に出しているものと同じ集合にする（表と数字が食い違わないように）。
+  //   事務管理担当タスク ＋ 管理担当タスクのうち業務区分が入っているもの。
+  //   「その他」の随時タスク（お客様連絡・引継ぎ 等）は案件の進み具合と別なので数えない。
+  const caseTasks = tasks.filter(t => t.task_kind !== 'system' || systemTaskGroup(t) === 'gyomu')
   const totalTasks = caseTasks.length
   const completedTasks = caseTasks.filter(t => t.status === '完了').length
   const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0

@@ -7,10 +7,9 @@ import { todayJstYmd, computeCaseFlag } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
+import { systemTaskGroup } from '@/lib/systemTaskGroup'
 import type { CaseRow, TaskRow, RealEstatePropertyRow } from '@/types'
 
-// この案件ステータスでは「受注/管理担当タスク」レーンを既定で折りたたむ（主役が事務管理タスクに移るため）
-const SYSTEM_LANE_COLLAPSED = new Set(['対応中', '完了', '失注'])
 
 // 業務区分の正規化: "PhaseN:" 接頭辞を除き、旧Phase値(phase1..6)や空は「未分類」に寄せる。
 function normGyomu(phase: string | null | undefined): string {
@@ -69,12 +68,25 @@ function classifyTask(t: TaskRow, todayYmd: string): TaskState {
 }
 
 // ノード丸（書類到着と統一）の状態色。text-* は中のアイコン/ドット色。
-const NODE_CIRCLE: Record<TaskState, string> = {
-  done:    'bg-brand-600 border-brand-600 text-white',
-  active:  'bg-white border-brand-500 text-brand-500 ring-4 ring-brand-100',
-  overdue: 'bg-white border-red-500 text-red-500',
-  pending: 'bg-white border-gray-300 text-gray-300',
+// 形と大きさは変えず、色みだけ担当区分で分ける。事務管理＝ピンク／管理担当＝みどり。
+// 期限超過だけは両方とも赤。誰の担当かより「遅れている」ことを先に見せたいため。
+type NodeRole = 'assistant' | 'manager'
+const NODE_CIRCLE: Record<NodeRole, Record<TaskState, string>> = {
+  assistant: {
+    done:    'bg-pink-600 border-pink-600 text-white',
+    active:  'bg-white border-pink-500 text-pink-500 ring-4 ring-pink-100',
+    overdue: 'bg-white border-red-500 text-red-500',
+    pending: 'bg-white border-pink-200 text-pink-200',
+  },
+  manager: {
+    done:    'bg-emerald-600 border-emerald-600 text-white',
+    active:  'bg-white border-emerald-500 text-emerald-500 ring-4 ring-emerald-100',
+    overdue: 'bg-white border-red-500 text-red-500',
+    pending: 'bg-white border-emerald-200 text-emerald-200',
+  },
 }
+/** その丸を誰の色で塗るか。管理担当タスク(system)はみどり、それ以外はピンク。 */
+const roleOfTask = (t: TaskRow): NodeRole => (t.task_kind === 'system' ? 'manager' : 'assistant')
 // 連結線は淡いグレーで統一（情報過多を避ける）
 const CONNECTOR = 'bg-gray-200'
 // タスク名の色: 既定はニュートラル、超過のみ赤、対応中は強調、完了は淡く
@@ -308,8 +320,10 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
   const cardTitle = variant === 'detail' ? '作業の進捗（タスク・書類）' : '案件タイムライン'
   const todayYmd = todayJstYmd(new Date())
 
-  const caseTasks = tasks.filter(t => t.task_kind !== 'system')
-  const systemTasks = tasks.filter(t => t.task_kind === 'system')
+  // 業務のタスクだけを1本のレーンにまとめる。
+  //   事務管理担当タスク（case）＋ 管理担当タスク（system のうち業務区分が入っているもの）
+  // 「その他」の随時タスク（お客様連絡・引継ぎ 等）は案件の進み具合と別なのでここには出さない。
+  const caseTasks = tasks.filter(t => t.task_kind !== 'system' || systemTaskGroup(t) === 'gyomu')
   const visibleProperties = properties.filter(p => p.appraisal_status !== '不要')
 
   // 業務区分別タスク（Phase概念は廃止。task.phase を業務区分として扱う）
@@ -356,11 +370,8 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
     .filter(r => r.received_date)
     .sort((a, b) => (a.received_date ?? '').localeCompare(b.received_date ?? ''))
 
-  const sortedSystem = systemTasks.slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-
   // detail セクションの区切り線: マイルストーン非表示時は先頭セクションだけ上線・余白なし
   const detailKeys: string[] = []
-  if (sortedSystem.length > 0) detailKeys.push('system')
   if (receipts.length > 0) detailKeys.push('receipts')
   if (orderedPhases.length > 0) detailKeys.push('phases')
   if (visibleProperties.length > 0) detailKeys.push('props')
@@ -392,11 +403,6 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
       )}
 
       {showDetail && (<>
-      {/* ② 受注/管理担当タスク（系統タスク）。対応中以降は主役が事務管理タスクになるので既定で折りたたむ */}
-      {sortedSystem.length > 0 && (
-        <TaskLane title="受注/管理担当タスク" tasks={sortedSystem} todayYmd={todayYmd} sepCls={sepCls('system')} collapsible defaultCollapsed={SYSTEM_LANE_COLLAPSED.has(caseData.status)} />
-      )}
-
       {/* ③ 書類到着（実績ベース） */}
       {receipts.length > 0 && (
         <div className={sepCls('receipts')}>
@@ -430,10 +436,10 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
         </div>
       )}
 
-      {/* ④ 事務管理担当タスク（工程 ＞ 業務 ＞ 作業の3階層） */}
+      {/* ④ 業務ごとのタスク（工程 ＞ 業務 ＞ 作業の3階層）。事務管理＝ピンク／管理担当＝みどりの丸で見分ける。 */}
       {koteiGroups.length > 0 && (
         <div className={`${sepCls('phases')} space-y-5`}>
-          <LaneHeading title="事務管理担当タスク" />
+          <LaneHeading title="業務ごとのタスク" />
           {koteiGroups.map(kg => {
             const allTasks = kg.gyomus.flatMap(g => g.tasks)
             const koteiDone = allTasks.filter(t => t.status === '完了').length
@@ -512,23 +518,6 @@ function LaneHeading({ title, count, collapsible, collapsed, onToggle }: { title
   return <div className="flex items-center gap-2 mb-3">{inner}</div>
 }
 
-// ───────── タスクレーン（横並び。任意で折りたたみ） ─────────
-function TaskLane({ title, tasks, todayYmd, sepCls, collapsible, defaultCollapsed }: { title: string; tasks: TaskRow[]; todayYmd: string; sepCls: string; collapsible?: boolean; defaultCollapsed?: boolean }) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false)
-  const done = tasks.filter(t => t.status === '完了').length
-  return (
-    <div className={sepCls}>
-      <LaneHeading title={title} count={`${done}/${tasks.length}`} collapsible={collapsible} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
-      {!collapsed && (
-        <div className="overflow-x-auto pb-1">
-          <div className="inline-flex items-start gap-0">
-            {tasks.map((t, idx) => <TaskNode key={t.id} task={t} todayYmd={todayYmd} isFirst={idx === 0} isLast={idx === tasks.length - 1} />)}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ───────── タスクノード（ドット中央・中央下にタスク名/日付/担当/超過） ─────────
 function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd: string; isFirst: boolean; isLast: boolean }) {
@@ -550,7 +539,7 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
       {/* ノード行: アイコン丸を中央に、左右へ連結線（書類到着と統一） */}
       <div className="flex items-center w-full">
         <span className={`flex-1 h-[2px] ${isFirst ? 'opacity-0' : CONNECTOR}`} />
-        <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${NODE_CIRCLE[state]}`} title={`${task.title}（${task.status}）`}>
+        <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${NODE_CIRCLE[roleOfTask(task)][state]}`} title={`${task.title}（${task.status}）`}>
           {state === 'done'
             ? <Check className="w-3.5 h-3.5" strokeWidth={2.75} />
             : <span className="w-2 h-2 rounded-full" style={{ background: 'currentColor' }} />}
@@ -625,10 +614,11 @@ function PropertyRow({ property, index }: { property: RealEstatePropertyRow; ind
 
 function Legend() {
   const items: { cls: string; label: string }[] = [
-    { cls: 'bg-brand-600', label: '完了' },
-    { cls: 'bg-brand-500 ring-2 ring-brand-100', label: '対応中' },
-    { cls: 'bg-red-500', label: '期限超過' },
-    { cls: 'bg-white border border-gray-300', label: '未着手' },
+    { cls: 'bg-pink-600', label: '事務管理' },
+    { cls: 'bg-emerald-600', label: '管理担当' },
+    { cls: 'bg-white border-2 border-pink-500 ring-2 ring-pink-100', label: '対応中' },
+    { cls: 'bg-white border-2 border-red-500', label: '期限超過' },
+    { cls: 'bg-white border-2 border-pink-200', label: '未着手' },
   ]
   return (
     <span className="text-[11px] text-gray-400 ml-auto flex items-center gap-3 flex-wrap">
