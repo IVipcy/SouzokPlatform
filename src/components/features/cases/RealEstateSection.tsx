@@ -15,7 +15,8 @@ import { SectionHeading } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ProgressSummary from './ProgressSummary'
-import RegistrationTaxTable from './RegistrationTaxTable'
+import { taxableValue, registrationTax, isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
+import { shareText } from '@/lib/constants'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import EvalCertTable from './EvalCertTable'
@@ -37,7 +38,51 @@ type Props = {
   addressSuggestions?: string[]  // 所在地の予測住所（被相続人の住所・本籍など）
 }
 
-const yen = (n: number | null) => (n == null ? '—' : `¥${n.toLocaleString('ja-JP')}`)
+const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
+
+// TOPの一覧の土地／建物のかたまり。小計（評価額・登録免許税）まで出す。
+function PropertyGroup({ title, rows, municipalityOf }: {
+  title: string
+  rows: RealEstatePropertyRow[]
+  municipalityOf: (p: { municipality: string | null; address: string | null }) => string
+}) {
+  if (rows.length === 0) return null
+  const land = title === '土地'
+  return (
+    <tbody>
+      <tr className="bg-gray-50 border-b border-gray-100">
+        <td colSpan={10} className="px-2.5 py-1.5 text-[11.5px] font-semibold text-gray-600">
+          {title}<span className="ml-2 font-normal text-gray-400">{rows.length}件</span>
+        </td>
+      </tr>
+      {rows.map(p => (
+        <tr key={p.id} className="border-b border-gray-100">
+          <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
+          <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
+          <td className="px-2.5 py-2 text-gray-600">{(land ? p.lot_number : p.kaoku_bango) || <span className="text-gray-300">—</span>}</td>
+          <td className="px-2.5 py-2 text-gray-600">{(land ? p.land_category : p.building_kind) || <span className="text-gray-300">—</span>}</td>
+          <td className="px-2.5 py-2 text-gray-600">
+            {land
+              ? (p.land_area != null ? `${p.land_area}㎡` : <span className="text-gray-300">—</span>)
+              : (p.building_structure || <span className="text-gray-300">—</span>)}
+          </td>
+          <td className="px-2.5 py-2 text-center text-gray-600 tabular-nums">{shareText(p.share_numerator, p.share_denominator) || '全部'}</td>
+          <td className="px-2.5 py-2 text-right tabular-nums">{yen(p.appraisal_value)}</td>
+          <td className="px-2.5 py-2 text-right tabular-nums">{yen(taxableValue(p))}</td>
+          <td className="px-2.5 py-2 text-right tabular-nums font-semibold text-brand-800">{yen(registrationTax(p))}</td>
+          <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[200px] truncate" title={p.survey_result ?? ''}>{p.survey_result || <span className="text-gray-300">—</span>}</td>
+        </tr>
+      ))}
+      <tr className="border-b border-gray-200 bg-gray-50/60">
+        <td colSpan={6} className="px-2.5 py-1.5 text-right text-[11.5px] text-gray-500">{title} 小計</td>
+        <td className="px-2.5 py-1.5 text-right text-[12.5px] font-semibold text-gray-700 tabular-nums">{yen(rows.reduce((s, p) => s + (p.appraisal_value ?? 0), 0))}</td>
+        <td className="px-2.5 py-1.5 text-right text-[12.5px] font-semibold text-gray-700 tabular-nums">{yen(rows.reduce((s, p) => s + taxableValue(p), 0))}</td>
+        <td className="px-2.5 py-1.5 text-right text-[12.5px] font-semibold text-brand-800 tabular-nums">{yen(rows.reduce((s, p) => s + registrationTax(p), 0))}</td>
+        <td />
+      </tr>
+    </tbody>
+  )
+}
 const collator = new Intl.Collator('ja')
 
 // 市区町村キー：明示の municipality があればそれ、無ければ所在地から「都道府県＋市区町村」を抽出。
@@ -52,6 +97,9 @@ export function municipalityOf(p: { municipality: string | null; address: string
 export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [] }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
+  // TOPの一覧は財産目録と同じ土地／建物の並び。種別が未設定の物件は土地側に出す（見落とさないように）。
+  const landProps = properties.filter(p => isLandProperty(p.property_type) || !p.property_type)
+  const buildingProps = properties.filter(p => isBuildingProperty(p.property_type))
   // タスク詳細から着地したとき、対象の表（①/②）を青枠点滅→点滅後も枠は残す。
   // 併せて対象の表を自動スクロールで画面中央へ（下までスクロールしても消えない）。
   const isFocusCard = (office: 'muni' | 'houmu') => !!focusOffice && focusOffice === office && !!focus && sub === focus
@@ -311,45 +359,50 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
       {/* TOP（一覧）：各市区町村タブの物件を集計した読み取り専用一覧 */}
       {sub === 'top' && (
         <div className="space-y-3.5">
+          {/* 物件一覧＋登録免許税（概算）。同じ物件を2つの表に並べるのをやめ、
+              評価額から登録免許税まで1つの表で読めるようにしている。土地・建物で分けるのは
+              入れる項目が違うためと、登録免許税の小計を土地・建物で出すため。 */}
           <div>
-            <SectionHeading title="物件一覧（各市区町村タブの集計）" hint="評価額の入力は各市区町村タブで行います。ここに出ている物件はそのまま財産目録に載ります。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+            <SectionHeading
+              title="物件一覧・登録免許税【概算】（各市区町村タブの集計）"
+              hint="入力は各市区町村タブで行います。ここに出ている物件はそのまま財産目録に載ります。登録免許税は 評価額×持分×0.4% の概算です（端数処理なし。実際の納付額は課税価格を1,000円未満切捨→税額を100円未満切捨で決まるため、申請時に別途確認してください）。"
+              className="mb-2.5 pb-1.5 border-b border-gray-200" />
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
+              <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1080 }}>
                 <thead>
                   <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                    <th className="px-2.5 py-2 text-left font-semibold w-40">市区町村</th>
-                    <th className="px-2.5 py-2 text-left font-semibold w-28">物件種別</th>
-                    <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
-                    <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
-                    <th className="px-2.5 py-2 text-right font-semibold w-36">評価額</th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-36">市区町村</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">所在</th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-28">地番・家屋番号</th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-24">地目・種類</th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-40">地積・構造</th>
+                    <th className="px-2.5 py-2 text-center font-semibold w-24">持分</th>
+                    <th className="px-2.5 py-2 text-right font-semibold w-32">評価額</th>
+                    <th className="px-2.5 py-2 text-right font-semibold w-32">価格×持分</th>
+                    <th className="px-2.5 py-2 text-right font-semibold w-32">登録免許税<span className="block text-[10px] font-normal text-brand-500">×4/1000</span></th>
+                    <th className="px-2.5 py-2 text-left font-semibold w-40">進捗/メモ</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {properties.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr>
-                  ) : properties.map((p, i) => (
-                    <tr key={p.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                      <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
-                      <td className="px-2.5 py-2">{p.property_type || <span className="text-gray-300">—</span>}</td>
-                      <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
-                      <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[220px] truncate" title={p.survey_result ?? ''}>{p.survey_result || <span className="text-gray-300">—</span>}</td>
-                      <td className="px-2.5 py-2 text-right">{yen(p.appraisal_value)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                {properties.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-gray-50 font-semibold text-gray-700">
-                      <td className="px-2.5 py-2 text-right" colSpan={4}>評価額 合計<span className="ml-1 font-normal text-[11px] text-gray-400">{properties.length}件</span></td>
-                      <td className="px-2.5 py-2 text-right">{yen(properties.reduce((s, p) => s + (p.appraisal_value ?? 0), 0))}</td>
-                    </tr>
-                  </tfoot>
+                {properties.length === 0 ? (
+                  <tbody><tr><td colSpan={10} className="px-3 py-6 text-center text-[13px] text-gray-400">物件が登録されていません</td></tr></tbody>
+                ) : (
+                  <>
+                    <PropertyGroup title="土地" rows={landProps} municipalityOf={municipalityOf} />
+                    <PropertyGroup title="建物" rows={buildingProps} municipalityOf={municipalityOf} />
+                    <tfoot>
+                      <tr className="bg-gray-50 font-semibold text-gray-700 border-t-2 border-gray-200">
+                        <td className="px-2.5 py-2 text-right" colSpan={6}>合計<span className="ml-1 font-normal text-[11px] text-gray-400">{properties.length}件</span></td>
+                        <td className="px-2.5 py-2 text-right">{yen(properties.reduce((s, p) => s + (p.appraisal_value ?? 0), 0))}</td>
+                        <td className="px-2.5 py-2 text-right">{yen(properties.reduce((s, p) => s + taxableValue(p), 0))}</td>
+                        <td className="px-2.5 py-2 text-right text-brand-800">{yen(properties.reduce((s, p) => s + registrationTax(p), 0))}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </>
                 )}
               </table>
             </div>
           </div>
-          {/* 登録免許税の計算書【概算】。評価額×持分×0.4%。相続登記の見込み費用の根拠になる。 */}
-          <RegistrationTaxTable properties={properties} onRefresh={onRefresh} />
         </div>
       )}
 

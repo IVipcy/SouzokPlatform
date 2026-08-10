@@ -1,24 +1,34 @@
 'use client'
 
+// 不動産の物件一覧（財産調査／オーダーシート）。
+//
+// 財産調査では土地と建物で表を分ける。入れる項目が半分ちがい（地番・地目・地積／家屋番号・種類・構造）、
+// 1つの表だと必ず半分が空欄になるため。列は財産目録の土地・建物の表とそろえてあるので、
+// ここを埋めればそのまま目録に載る。
+//
+// 以前は「登記事項」のアコーディオンを開いて入力する作りだったが、
+// 開かないと入っていないことに気づけず、目録を作る段になって空欄が判明していた。
+// 表に出して、その場で埋められるようにした。
+//
+// オーダーシート（受注前の想定物件）は今までどおり1つの簡易表。登記の項目はまだ分からないため。
+
 import { useState, type ReactNode } from 'react'
-import { Trash2, Plus, ChevronRight, ChevronDown } from 'lucide-react'
+import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { FieldGrid, SectionHeading, InlineEdit, InlineSelect, InlineCheckbox, InlineNumber } from '@/components/ui/InlineFields'
-import { PROPERTY_EVALUATION_METHODS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, LAND_CATEGORIES, BUILDING_KINDS, OCCUPANCY_STATUSES, shareText } from '@/lib/constants'
+import { PROPERTY_TYPES, LAND_CATEGORIES, BUILDING_KINDS } from '@/lib/constants'
+import { isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
 import CheckRequestControl from './CheckRequestControl'
 import type { RealEstatePropertyRow } from '@/types'
 
-const REQ = ['要', '不要', '確認中']
-
 type Props = {
   caseId: string
   properties: RealEstatePropertyRow[]
   onRefresh?: () => void
-  /** オーダーシート（調査前）では備考・結果列を出さない */
+  /** オーダーシート（調査前）では登記の項目を出さず、1つの簡易表にする */
   orderSheetMode?: boolean
   /** 市区町村タブで使用：この市区町村の物件だけ表示し、新規行もこの市区町村にする */
   municipalityFilter?: string
@@ -28,16 +38,13 @@ type Props = {
   addressSuggestions?: string[]
 }
 
-/** 不動産を表形式でインライン編集・行追加。行展開で詳細項目も編集できる（財産調査） */
+/** 不動産を表形式でインライン編集・行追加（財産調査／オーダーシート） */
 export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false, addressSuggestions = [] }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
-  // 予測住所：被相続人の住所・本籍＋この案件で既に入力済みの所在地。datalistで候補表示（自由入力可）。
-  const addrListId = `re-addr-${caseId}`
   const addrOptions = [...new Set([...addressSuggestions, ...rows.map(r => r.address ?? '')].map(s => s.trim()).filter(Boolean))]
-  const [expanded, setExpanded] = useState<string | null>(null)
   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）。
   // オーダーシートでは所在地だけ入力し、市区町村は所在地から自動抽出するため列を隠す。
   const showMuni = !municipalityFilter && !orderSheetMode
@@ -52,8 +59,9 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const visibleRows = municipalityFilter != null
     ? rows.filter(r => muniOf(r) === municipalityFilter)
     : rows
-  // [市区町村] +物件種別 +所在地 +評価額 +備考 +[確定済] +削除
-  const colCount = (showMuni ? 1 : 0) + 5 + (showConfirmed ? 1 : 0) + (orderSheetMode ? 0 : 1) + 1
+  // 種別が未設定の行は土地側に置く。種別を選べばもう一方の表へ移る。
+  const landRows = visibleRows.filter(r => isLandProperty(r.property_type) || !r.property_type)
+  const buildingRows = visibleRows.filter(r => isBuildingProperty(r.property_type))
 
   // 評価額確定は「確認簿で確認」に一本化。ここでは依頼（confirm_requested_at）を出す／取り消すだけ。
   const patchConfirmReq = async (row: RealEstatePropertyRow, patch: Partial<RealEstatePropertyRow>) => {
@@ -104,15 +112,19 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     }
   }
 
-  const saveField = async (id: string, field: keyof RealEstatePropertyRow, value: unknown) => {
+  /** 数値の列（地積・持分）。空欄は null に戻す。 */
+  const saveNumber = async (id: string, field: keyof RealEstatePropertyRow, raw: string) => {
+    const value = raw.trim() === '' ? null : Number(raw)
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
-    const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
+    const { error } = await supabase.from('real_estate_properties').update({ [field]: value }).eq('id', id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
-  const addRow = async () => {
+  const addRow = async (propertyType?: string) => {
     setBusy(true)
-    const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: municipalityFilter ?? null }).select('*').single()
+    const { data, error } = await supabase.from('real_estate_properties')
+      .insert({ case_id: caseId, municipality: municipalityFilter ?? null, property_type: propertyType ?? null })
+      .select('*').single()
     if (error || !data) { setBusy(false); showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     const prop = data as RealEstatePropertyRow
     const propMuni = (prop.municipality ?? municipalityFilter ?? '').trim() || null
@@ -141,244 +153,269 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
     onRefresh?.()
   }
 
+  const rowProps = (r: RealEstatePropertyRow) => ({
+    r, setLocal, commit, saveNumber,
+    onDelete: () => delRow(r),
+    showMuni, showConfirmed, addrOptions,
+    onRequestConfirm: () => reqConfirm(r),
+    onCancelConfirm: () => cancelConfirm(r),
+  })
+
+  // ── オーダーシート：登記の項目はまだ分からないので1つの簡易表のまま ──
+  if (orderSheetMode) {
+    return (
+      <div>
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                <th className={TH + ' w-28'}>物件種別</th>
+                <th className={TH + ' w-28'}>取得区分</th>
+                <th className={TH}>所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
+                <th className={TH + ' text-right w-32'}>評価額</th>
+                <th className={TH}>備考</th>
+                <th className="px-2.5 py-2 w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+              ) : visibleRows.map(r => (
+                <tr key={r.id} className="border-b border-gray-100">
+                  <TypeCell r={r} setLocal={setLocal} commit={commit} />
+                  <AcquirerCell r={r} setLocal={setLocal} commit={commit} />
+                  <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
+                  <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
+                  <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向 等" />
+                  <DeleteCell onDelete={() => delRow(r)} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="sm:hidden space-y-2.5">
+          {visibleRows.length === 0
+            ? <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
+            : visibleRows.map(r => <RealCard key={r.id} {...rowProps(r)} saveNumber={saveNumber} orderSheetMode />)}
+        </div>
+        <AddButton label="不動産を追加" busy={busy} onClick={() => addRow()} />
+      </div>
+    )
+  }
+
+  // ── 財産調査：土地／建物で表を分ける ──
+  return (
+    <div className="space-y-4">
+      <div className="hidden sm:block space-y-4">
+        <PropertyTable
+          title="土地" kind="land" rows={landRows}
+          showMuni={showMuni} showConfirmed={showConfirmed}
+          renderRow={r => <LandRow key={r.id} {...rowProps(r)} />}
+          onAdd={() => addRow('土地')} busy={busy}
+        />
+        <PropertyTable
+          title="建物" kind="building" rows={buildingRows}
+          showMuni={showMuni} showConfirmed={showConfirmed}
+          renderRow={r => <BuildingRow key={r.id} {...rowProps(r)} />}
+          onAdd={() => addRow('建物')} busy={busy}
+        />
+      </div>
+
+      {/* スマホは1件＝1カード（表の代わり） */}
+      <div className="sm:hidden space-y-2.5">
+        {visibleRows.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
+        ) : visibleRows.map(r => <RealCard key={r.id} {...rowProps(r)} saveNumber={saveNumber} orderSheetMode={false} />)}
+        <AddButton label="不動産を追加" busy={busy} onClick={() => addRow()} />
+      </div>
+    </div>
+  )
+}
+
+const TH = 'px-2.5 py-2 whitespace-nowrap text-left font-semibold'
+
+function AddButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} disabled={busy}
+      className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
+      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {label}
+    </button>
+  )
+}
+
+// 土地／建物の表の枠。見出し・列見出し・空状態・追加ボタンをまとめる。
+function PropertyTable({ title, kind, rows, showMuni, showConfirmed, renderRow, onAdd, busy }: {
+  title: string
+  kind: 'land' | 'building'
+  rows: RealEstatePropertyRow[]
+  showMuni: boolean
+  showConfirmed: boolean
+  renderRow: (r: RealEstatePropertyRow) => ReactNode
+  onAdd: () => void
+  busy: boolean
+}) {
+  const land = kind === 'land'
+  // 市区町村 +種別 +取得区分 +所在地 +番号 +区分 +面積 +持分 +評価額 +備考 [+確定] +削除
+  const colCount = (showMuni ? 1 : 0) + 10 + (showConfirmed ? 1 : 0)
   return (
     <div>
-      {/* 所在地の予測住所（被相続人の住所・本籍＋入力済み。自由入力も可）— CellInputに suggestions を渡してカスタムドロップダウンで表示（datalistは廃止） */}
-      {/* PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一）。 */}
-      <div className="hidden sm:block overflow-x-auto">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[12.5px] font-semibold text-gray-700">{title}</span>
+        <span className="text-[11px] text-gray-400">{rows.length}件</span>
+      </div>
+      <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {showMuni && <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-40">市区町村</th>}
-              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-28">物件種別</th>
-              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-28">取得区分</th>
-              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold">所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
-              <th className="px-2.5 py-2 whitespace-nowrap text-right font-semibold w-32">評価額</th>
-              <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold">備考</th>
-              {showConfirmed && <th className="px-2.5 py-2 whitespace-nowrap text-center font-semibold w-28">評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
-              {!orderSheetMode && <th className="px-2.5 py-2 whitespace-nowrap text-center font-semibold w-24">登記事項</th>}
+              {showMuni && <th className={TH + ' w-40'}>市区町村</th>}
+              <th className={TH + ' w-24'}>物件種別</th>
+              <th className={TH + ' w-28'}>取得区分</th>
+              <th className={TH}>所在<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
+              <th className={TH + ' w-32'}>{land ? '地番' : '家屋番号'}</th>
+              <th className={TH + ' w-28'}>{land ? '地目' : '種類'}</th>
+              <th className={TH + (land ? ' text-right w-28' : ' w-44')}>{land ? '地積（㎡）' : '構造・床面積'}</th>
+              <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-gray-400">空欄＝全部</span></th>
+              <th className={TH + ' text-right w-32'}>{land ? '固定資産評価額' : '評価額'}</th>
+              <th className={TH}>備考</th>
+              {showConfirmed && <th className={TH + ' text-center w-28'}>評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
           <tbody>
-            {visibleRows.length === 0 ? (
-              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
-            ) : (
-              visibleRows.map(r => (
-                <RealRow
-                  key={r.id}
-                  r={r}
-                  setLocal={setLocal}
-                  commit={commit}
-                  saveField={saveField}
-                  onDelete={() => delRow(r)}
-                  showMuni={showMuni}
-                  showConfirmed={showConfirmed}
-                  orderSheetMode={orderSheetMode}
-                  colCount={colCount}
-                  open={expanded === r.id}
-                  onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
-                  addrListId={addrListId}
-                  addrOptions={addrOptions}
-                  onRequestConfirm={() => reqConfirm(r)}
-                  onCancelConfirm={() => cancelConfirm(r)}
-                />
-              ))
-            )}
+            {rows.length === 0
+              ? <tr><td colSpan={colCount} className="px-3 py-5 text-center text-[12.5px] text-gray-400">{title}が登録されていません</td></tr>
+              : rows.map(renderRow)}
           </tbody>
         </table>
       </div>
-
-      {/* カード表示（1件＝1カード・縦積み）。スマホのみ（PCは上の表）。 */}
-      <div className="sm:hidden space-y-2.5">
-        {visibleRows.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</div>
-        ) : (
-          visibleRows.map(r => (
-            <RealCard
-              key={r.id}
-              r={r}
-              open={expanded === r.id}
-              onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
-              setLocal={setLocal}
-              commit={commit}
-              saveField={saveField}
-              onDelete={() => delRow(r)}
-              orderSheetMode={orderSheetMode}
-              showMuni={showMuni}
-              showConfirmed={showConfirmed}
-              addrListId={addrListId}
-              onRequestConfirm={() => reqConfirm(r)}
-              onCancelConfirm={() => cancelConfirm(r)}
-            />
-          ))
-        )}
-      </div>
-
-      <button type="button" onClick={addRow} disabled={busy} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
-        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 不動産を追加
-      </button>
+      <AddButton label={`${title}を追加`} busy={busy} onClick={onAdd} />
     </div>
   )
 }
 
-function RealRow({ r, setLocal, commit, saveField, onDelete, showMuni, showConfirmed, orderSheetMode, colCount, open, onToggle, addrListId, addrOptions, onRequestConfirm, onCancelConfirm }: {
+type RowProps = {
   r: RealEstatePropertyRow
   setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
   commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
-  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
+  saveNumber: (id: string, field: keyof RealEstatePropertyRow, raw: string) => Promise<void>
   onDelete: () => void
   showMuni: boolean
   showConfirmed: boolean
-  orderSheetMode: boolean
-  colCount: number
-  open: boolean
-  onToggle: () => void
-  addrListId: string
   addrOptions: string[]
   onRequestConfirm: () => void
   onCancelConfirm: () => void
-}) {
-  const sel = (field: keyof RealEstatePropertyRow, options: readonly string[]) => (
+}
+
+function LandRow(p: RowProps) {
+  const { r, setLocal, commit, saveNumber } = p
+  return (
+    <tr className="border-b border-gray-100">
+      <HeadCells {...p} />
+      <CellInput value={r.lot_number} onChange={v => setLocal(r.id, 'lot_number', v)} onCommit={v => commit(r.id, 'lot_number', v)} placeholder="12番3" />
+      <SelectCell value={r.land_category} options={LAND_CATEGORIES} onPick={v => { setLocal(r.id, 'land_category', v); commit(r.id, 'land_category', v) }} />
+      <td className="px-2.5 py-1.5">
+        <input type="number" step="0.01" defaultValue={r.land_area ?? ''} onBlur={e => saveNumber(r.id, 'land_area', e.target.value)}
+          placeholder="0.00" className="w-full px-1.5 py-1.5 text-[12px] text-right bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition" />
+      </td>
+      <TailCells {...p} />
+    </tr>
+  )
+}
+
+function BuildingRow(p: RowProps) {
+  const { r, setLocal, commit } = p
+  return (
+    <tr className="border-b border-gray-100">
+      <HeadCells {...p} />
+      <CellInput value={r.kaoku_bango} onChange={v => setLocal(r.id, 'kaoku_bango', v)} onCommit={v => commit(r.id, 'kaoku_bango', v)} placeholder="12番3" />
+      <SelectCell value={r.building_kind} options={BUILDING_KINDS} onPick={v => { setLocal(r.id, 'building_kind', v); commit(r.id, 'building_kind', v) }} />
+      <CellInput value={r.building_structure} onChange={v => setLocal(r.id, 'building_structure', v)} onCommit={v => commit(r.id, 'building_structure', v)} placeholder="木造2階建 95.20㎡" />
+      <TailCells {...p} />
+    </tr>
+  )
+}
+
+/** 土地・建物で共通の左側（市区町村・種別・取得区分・所在） */
+function HeadCells({ r, setLocal, commit, showMuni, addrOptions }: RowProps) {
+  return (
+    <>
+      {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
+      <TypeCell r={r} setLocal={setLocal} commit={commit} />
+      <AcquirerCell r={r} setLocal={setLocal} commit={commit} />
+      <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
+    </>
+  )
+}
+
+/** 土地・建物で共通の右側（持分・評価額・備考・確定・削除） */
+function TailCells({ r, setLocal, commit, saveNumber, showConfirmed, onDelete, onRequestConfirm, onCancelConfirm }: RowProps) {
+  return (
+    <>
+      <td className="px-2.5 py-1.5">
+        <div className="flex items-center gap-1">
+          <input type="number" defaultValue={r.share_numerator ?? ''} onBlur={e => saveNumber(r.id, 'share_numerator', e.target.value)}
+            placeholder="1" aria-label="持分の分子" className={SHARE_CLS} />
+          <span className="text-gray-400">/</span>
+          <input type="number" defaultValue={r.share_denominator ?? ''} onBlur={e => saveNumber(r.id, 'share_denominator', e.target.value)}
+            placeholder="2" aria-label="持分の分母" className={SHARE_CLS} />
+        </div>
+      </td>
+      <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
+      <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
+      {showConfirmed && (
+        <td className="px-2.5 py-1.5 text-center">
+          {r.appraisal_value != null
+            ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
+            : <span className="text-[11px] text-gray-300">評価額待ち</span>}
+        </td>
+      )}
+      <DeleteCell onDelete={onDelete} />
+    </>
+  )
+}
+
+const SHARE_CLS = 'w-12 px-1 py-1.5 text-[12px] text-center bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
+
+function TypeCell({ r, setLocal, commit }: Pick<RowProps, 'r' | 'setLocal' | 'commit'>) {
+  return (
+    <SelectCell value={r.property_type} options={PROPERTY_TYPES}
+      onPick={v => { setLocal(r.id, 'property_type', v); commit(r.id, 'property_type', v) }} />
+  )
+}
+
+function AcquirerCell({ r, setLocal, commit }: Pick<RowProps, 'r' | 'setLocal' | 'commit'>) {
+  return (
     <td className="px-2.5 py-1.5">
-      <select value={(r[field] as string) ?? ''} onChange={e => { setLocal(r.id, field, e.target.value); commit(r.id, field, e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+      <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }}
+        className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+        {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
+      </select>
+    </td>
+  )
+}
+
+function SelectCell({ value, options, onPick }: { value: string | null; options: readonly string[]; onPick: (v: string) => void }) {
+  return (
+    <td className="px-2.5 py-1.5">
+      <select value={value ?? ''} onChange={e => onPick(e.target.value)}
+        className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
         <option value="">—</option>
-        {r[field] && !options.includes(r[field] as string) && <option value={r[field] as string}>{r[field] as string}</option>}
+        {value && !options.includes(value) && <option value={value}>{value}</option>}
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </td>
   )
+}
 
+function DeleteCell({ onDelete }: { onDelete: () => void }) {
   return (
-    <>
-      <tr className="border-b border-gray-100">
-        {showMuni && <CellInput value={r.municipality} onChange={v => setLocal(r.id, 'municipality', v)} onCommit={v => commit(r.id, 'municipality', v)} placeholder="例: 東京都墨田区" />}
-        {sel('property_type', PROPERTY_TYPES)}
-        <td className="px-2.5 py-1.5">
-          <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-            {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
-          </select>
-        </td>
-        <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
-        <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
-        <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
-        {showConfirmed && (
-          <td className="px-2.5 py-1.5 text-center">
-            {r.appraisal_value != null
-              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
-              : <span className="text-[11px] text-gray-300">評価額待ち</span>}
-          </td>
-        )}
-        {/* 地番・地目・持分など、財産目録／固定資産申請書／登録免許税に効く項目はここから開く */}
-        {!orderSheetMode && (
-          <td className="px-2.5 py-1.5 text-center">
-            <button type="button" onClick={onToggle} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700">
-              {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}{open ? '閉じる' : '入力'}
-            </button>
-          </td>
-        )}
-        <td className="px-2.5 py-1.5 text-center">
-          <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
-        </td>
-      </tr>
-      {!orderSheetMode && open && (
-        <tr className="border-b border-gray-100 bg-gray-50/60">
-          <td colSpan={colCount} className="px-3 py-3">
-            <div className="space-y-3">
-              <PropertyDetail r={r} saveField={saveField} />
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+    <td className="px-2.5 py-1.5 text-center">
+      <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
+    </td>
   )
 }
 
-// 物件の詳細（登記事項・発見元）。PCの表の展開行とスマホのカードで同じものを使う。
-// 地番・地目・持分などは 財産目録／固定資産申請書／登録免許税の計算に共通で効くため、
-// PCからも必ず入力できるようにしている。
-function PropertyDetail({ r, saveField }: {
-  r: RealEstatePropertyRow
-  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
-}) {
-  return (
-    <>
-          <div>
-            <SectionHeading title="物件詳細（固定資産申請書にも連携）" className="mb-2" />
-            <FieldGrid cols={1}>
-              {/* 地番＝土地、家屋番号＝建物。区分マンションは「敷地の地番」と「専有部分の家屋番号」を
-                  両方持つため、表は分けず物件種別で出し分ける。 */}
-              {needsLotNumber(r.property_type) && (
-                <InlineEdit label="所在（登記上の地番）" value={r.lot_number} onSave={v => saveField(r.id, 'lot_number', v || null)} />
-              )}
-              {needsBuildingNumber(r.property_type) && (
-                <InlineEdit label="家屋番号" value={r.kaoku_bango} onSave={v => saveField(r.id, 'kaoku_bango', v || null)} />
-              )}
-              {!r.property_type && (
-                <p className="text-[11.5px] text-gray-400 sm:col-span-2">物件種別を選ぶと、地番（土地）／家屋番号（建物）の入力欄が出ます。</p>
-              )}
-              {/* 登記簿の記載事項。財産目録の表と、登録免許税（評価額×持分×0.4%）の計算に使う。
-                  目録を作る段で登記簿を見直さずに済むよう、調査のこの時点で拾う。 */}
-              {needsLotNumber(r.property_type) && (
-                <>
-                  <InlineSelect label="地目" value={r.land_category} options={[...LAND_CATEGORIES]} onSave={v => saveField(r.id, 'land_category', v)} />
-                  <InlineNumber label="地積（㎡）" value={r.land_area} onSave={v => saveField(r.id, 'land_area', v)} suffix="㎡" />
-                </>
-              )}
-              {needsBuildingNumber(r.property_type) && (
-                <>
-                  <InlineSelect label="種類" value={r.building_kind} options={[...BUILDING_KINDS]} onSave={v => saveField(r.id, 'building_kind', v)} />
-                  <InlineEdit label="構造・床面積" value={r.building_structure} onSave={v => saveField(r.id, 'building_structure', v)} />
-                </>
-              )}
-              <ShareField r={r} saveField={saveField} />
-              <InlineEdit label="抵当権" value={r.mortgage} onSave={v => saveField(r.id, 'mortgage', v)} />
-              <InlineSelect label="使用状況" value={r.resident_status} options={[...OCCUPANCY_STATUSES]} onSave={v => saveField(r.id, 'resident_status', v)} />
-              <InlineSelect label="近傍宅地価格 要否" value={r.near_land_price} options={REQ} onSave={v => saveField(r.id, 'near_land_price', v)} />
-              <InlineEdit label="築年数" value={r.building_age != null ? String(r.building_age) : null} onSave={v => saveField(r.id, 'building_age', v ? Number(v) : null)} />
-              <InlineSelect label="評価方法" value={r.evaluation_method} options={[...PROPERTY_EVALUATION_METHODS]} onSave={v => saveField(r.id, 'evaluation_method', v)} />
-              <InlineEdit label="売却仲介業者" value={r.sale_agent_name} onSave={v => saveField(r.id, 'sale_agent_name', v)} />
-              <InlineCheckbox label="マンション敷地注意" value={r.is_condo_land} onSave={v => saveField(r.id, 'is_condo_land', v)} />
-            </FieldGrid>
-          </div>
-          <div>
-            <SectionHeading title="発見元（どの資料から判明したか）" className="mb-2" />
-            <FieldGrid cols={1}>
-              <InlineCheckbox label="名寄せ参照" value={r.ref_nayose} onSave={v => saveField(r.id, 'ref_nayose', v)} />
-              <InlineCheckbox label="権利書参照" value={r.ref_title_deed} onSave={v => saveField(r.id, 'ref_title_deed', v)} />
-              <InlineCheckbox label="納税通知書参照" value={r.ref_tax_notice} onSave={v => saveField(r.id, 'ref_tax_notice', v)} />
-            </FieldGrid>
-          </div>
-    </>
-  )
-}
-
-// 被相続人の登記持分。分子/分母の2つで持つ（4567/1234567 のような分数が実在し、
-// 小数に丸めると 固定資産評価額×持分 が数円ずれるため）。未入力は「全部（1/1）」扱い。
-function ShareField({ r, saveField }: {
-  r: RealEstatePropertyRow
-  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
-}) {
-  const commitShare = (field: 'share_numerator' | 'share_denominator', v: string) =>
-    saveField(r.id, field, v.trim() === '' ? null : Number(v))
-  const text = shareText(r.share_numerator, r.share_denominator)
-  const pct = text ? `（${((r.share_numerator! / r.share_denominator!) * 100).toFixed(2)}%）` : ''
-  return (
-    <div className="py-1.5">
-      <label className="text-[12px] font-semibold text-gray-500 block mb-1">持分<span className="ml-1 font-normal text-gray-400">未入力なら全部所有</span></label>
-      <div className="flex items-center gap-1.5">
-        <input type="number" defaultValue={r.share_numerator ?? ''} onBlur={e => commitShare('share_numerator', e.target.value)}
-          placeholder="分子" className="w-24 px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
-        <span className="text-gray-400">/</span>
-        <input type="number" defaultValue={r.share_denominator ?? ''} onBlur={e => commitShare('share_denominator', e.target.value)}
-          placeholder="分母" className="w-28 px-2 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500" />
-        {text && <span className="text-[11.5px] text-gray-500 tabular-nums">{text} {pct}</span>}
-      </div>
-    </div>
-  )
-}
-
-function CellInput({ value, onChange, onCommit, placeholder, list, suggestions }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; list?: string; suggestions?: string[] }) {
+function CellInput({ value, onChange, onCommit, placeholder, suggestions }: { value: string | null; onChange: (v: string) => void; onCommit: (v: string) => void; placeholder?: string; suggestions?: string[] }) {
   // 候補が渡されたら「datalistの▼」ではなく自前のクリック候補ドロップダウンを表示（アプリのUIトーンに揃える）。
   const [open, setOpen] = useState(false)
   const cur = value ?? ''
@@ -393,7 +430,6 @@ function CellInput({ value, onChange, onCommit, placeholder, list, suggestions }
           onFocus={() => suggestions && suggestions.length > 0 && setOpen(true)}
           onBlur={e => { setTimeout(() => setOpen(false), 150); onCommit(e.target.value) }}
           placeholder={placeholder}
-          list={list}
           className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition"
         />
         {open && filtered.length > 0 && (
@@ -422,22 +458,10 @@ function FieldBlock({ label, children }: { label: string; children: ReactNode })
 }
 
 // スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
-function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, orderSheetMode, showMuni, showConfirmed, addrListId, onRequestConfirm, onCancelConfirm }: {
-  r: RealEstatePropertyRow
-  open: boolean
-  onToggle: () => void
-  setLocal: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
-  commit: (id: string, field: keyof RealEstatePropertyRow, value: string) => void
-  saveField: (id: string, field: keyof RealEstatePropertyRow, value: unknown) => Promise<void>
-  onDelete: () => void
-  orderSheetMode: boolean
-  showMuni: boolean
-  showConfirmed: boolean
-  addrListId: string
-  onRequestConfirm: () => void
-  onCancelConfirm: () => void
-}) {
+function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: RowProps & { orderSheetMode: boolean }) {
   const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selCls = 'w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  const land = isLandProperty(r.property_type) || !r.property_type
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
       <div className="flex items-center justify-end mb-1.5">
@@ -445,14 +469,14 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
       </div>
       <div className="space-y-2.5">
         <FieldBlock label="物件種別">
-          <select value={(r.property_type as string) ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className="w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500">
+          <select value={r.property_type ?? ''} onChange={e => { setLocal(r.id, 'property_type', e.target.value); commit(r.id, 'property_type', e.target.value) }} className={selCls}>
             <option value="">種別を選択</option>
             {r.property_type && !(PROPERTY_TYPES as readonly string[]).includes(r.property_type) && <option value={r.property_type}>{r.property_type}</option>}
             {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </FieldBlock>
         <FieldBlock label="取得区分">
-          <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className={inputCls}>
+          <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className={selCls}>
             {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
           </select>
         </FieldBlock>
@@ -461,21 +485,56 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
             <input type="text" value={r.municipality ?? ''} onChange={e => setLocal(r.id, 'municipality', e.target.value)} onBlur={e => commit(r.id, 'municipality', e.target.value)} placeholder="例: 東京都墨田区" className={inputCls} />
           </FieldBlock>
         )}
-        <FieldBlock label="所在地">
+        <FieldBlock label="所在">
           <input type="text" value={r.address ?? ''} onChange={e => setLocal(r.id, 'address', e.target.value)} onBlur={e => commit(r.id, 'address', e.target.value)} placeholder="所在地（住所を予測）" className={inputCls} />
           <p className="mt-0.5 text-[11px] text-gray-400">名寄帳取得後に地番を要確認</p>
         </FieldBlock>
+        {!orderSheetMode && (land ? (
+          <>
+            <FieldBlock label="地番">
+              <input type="text" value={r.lot_number ?? ''} onChange={e => setLocal(r.id, 'lot_number', e.target.value)} onBlur={e => commit(r.id, 'lot_number', e.target.value)} placeholder="12番3" className={inputCls} />
+            </FieldBlock>
+            <FieldBlock label="地目">
+              <select value={r.land_category ?? ''} onChange={e => { setLocal(r.id, 'land_category', e.target.value); commit(r.id, 'land_category', e.target.value) }} className={selCls}>
+                <option value="">—</option>
+                {LAND_CATEGORIES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FieldBlock>
+            <FieldBlock label="地積（㎡）">
+              <input type="number" step="0.01" defaultValue={r.land_area ?? ''} onBlur={e => saveNumber(r.id, 'land_area', e.target.value)} placeholder="0.00" className={inputCls} />
+            </FieldBlock>
+          </>
+        ) : (
+          <>
+            <FieldBlock label="家屋番号">
+              <input type="text" value={r.kaoku_bango ?? ''} onChange={e => setLocal(r.id, 'kaoku_bango', e.target.value)} onBlur={e => commit(r.id, 'kaoku_bango', e.target.value)} placeholder="12番3" className={inputCls} />
+            </FieldBlock>
+            <FieldBlock label="種類">
+              <select value={r.building_kind ?? ''} onChange={e => { setLocal(r.id, 'building_kind', e.target.value); commit(r.id, 'building_kind', e.target.value) }} className={selCls}>
+                <option value="">—</option>
+                {BUILDING_KINDS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FieldBlock>
+            <FieldBlock label="構造・床面積">
+              <input type="text" value={r.building_structure ?? ''} onChange={e => setLocal(r.id, 'building_structure', e.target.value)} onBlur={e => commit(r.id, 'building_structure', e.target.value)} placeholder="木造2階建 95.20㎡" className={inputCls} />
+            </FieldBlock>
+          </>
+        ))}
+        {!orderSheetMode && (
+          <FieldBlock label="持分（空欄なら全部）">
+            <div className="flex items-center gap-2">
+              <input type="number" defaultValue={r.share_numerator ?? ''} onBlur={e => saveNumber(r.id, 'share_numerator', e.target.value)} placeholder="分子" className={inputCls} />
+              <span className="text-gray-400">/</span>
+              <input type="number" defaultValue={r.share_denominator ?? ''} onBlur={e => saveNumber(r.id, 'share_denominator', e.target.value)} placeholder="分母" className={inputCls} />
+            </div>
+          </FieldBlock>
+        )}
         <FieldBlock label="評価額">
           <MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} />
         </FieldBlock>
         <FieldBlock label="備考">
           <input type="text" value={r.notes ?? ''} onChange={e => setLocal(r.id, 'notes', e.target.value)} onBlur={e => commit(r.id, 'notes', e.target.value)} placeholder="住人・売却意向・ランク・査定状況 等" className={inputCls} />
         </FieldBlock>
-        {!orderSheetMode && (
-          <FieldBlock label="備考・結果">
-            <input type="text" value={r.survey_result ?? ''} onChange={e => setLocal(r.id, 'survey_result', e.target.value)} onBlur={e => commit(r.id, 'survey_result', e.target.value)} placeholder="この物件で分かったこと" className={inputCls} />
-          </FieldBlock>
-        )}
         {showConfirmed && (
           <FieldBlock label="評価額確定（確認簿で確認）">
             {r.appraisal_value != null
@@ -484,16 +543,6 @@ function RealCard({ r, open, onToggle, setLocal, commit, saveField, onDelete, or
           </FieldBlock>
         )}
       </div>
-      {!orderSheetMode && (
-        <button type="button" onClick={onToggle} className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-gray-200 text-[12.5px] font-semibold text-gray-600 hover:bg-gray-50">
-          {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}{open ? '詳細を閉じる' : '詳細を入力'}
-        </button>
-      )}
-      {!orderSheetMode && open && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-3">
-          <PropertyDetail r={r} saveField={saveField} />
-        </div>
-      )}
     </div>
   )
 }
