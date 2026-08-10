@@ -9,13 +9,14 @@ import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
 import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
 import {
-  Section, FieldGrid, Field,
+  Section,
   InlineTextarea,
 } from '@/components/ui/InlineFields'
 import HintTip from '@/components/ui/HintTip'
 import type { CaseRow, ExpenseRow, TaskRow, CaseReferralRow } from '@/types'
 import TabHeader from './TabHeader'
 import RewardBreakdownSection from './RewardBreakdownSection'
+import { MoneyInput } from './FinancialAssetsTable'
 import BillingExpensesSection from './BillingExpensesSection'
 import KakuteiInvoiceModal from './KakuteiInvoiceModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
@@ -38,7 +39,8 @@ type Props = {
 const yen = (v: number | null | undefined) =>
   v != null ? `¥${v.toLocaleString()}` : '未設定'
 
-export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false, referrals = [] }: Props) {
+// expenses / referrals は受け取るだけ（付帯収益・パートナー報酬の削除で参照しなくなった。呼び出し側の互換のため型には残す）
+export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false }: Props) {
   // ミニマム運用モードでは請求サマリー・付帯収益・パートナー報酬・案件トータル収益見込を非表示
   const minimal = isMinimalMode()
   // 請求書の発行は受注確定（受注／戻り受注）以降のみ。依頼確定待ち以前は不可。
@@ -224,19 +226,38 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
         </div>
       )}
 
-      {/* 請求料金内訳（司法/行政。割引後合計＝確定報酬・前受金組込） */}
+      {/* 前受金。契約時にもらう額なので、請求パターンのすぐ下（時系列の順）に置く。
+          パターン②③（一括）は前受金＝確定報酬で入力する値がないため出さない。 */}
+      {pattern.value === 'staged' && (
+        <Section title="前受金（契約時に受け取る額）">
+          <div className="flex items-center gap-5 flex-wrap text-[12.5px]">
+            <span className="inline-flex items-center gap-2">
+              <span className="text-gray-500">行政</span>
+              <span className="w-28"><MoneyInput value={caseData.advance_payment_administrative} onCommit={v => save('advance_payment_administrative', v === '' ? null : Number(v))} /></span>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="text-gray-500">司法</span>
+              <span className="w-28"><MoneyInput value={caseData.advance_payment_judicial} onCommit={v => save('advance_payment_judicial', v === '' ? null : Number(v))} /></span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-gray-500">計</span>
+              <span className="font-mono font-semibold text-[14px] text-gray-800 tabular-nums">{yen(advanceTotal(caseData))}</span>
+            </span>
+            {!orderSheetMode && invLegs && <span className="ml-auto">{legChip('前受金請求書', invLegs.advance)}</span>}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2">
+            この額を「前受金請求書を作成」で請求します。業務が終わったあと、報酬＋立替実費からこの額を差し引いたものが確定請求になります。
+          </p>
+        </Section>
+      )}
+
+      {/* 請求料金内訳（司法/行政。小計−割引＝確定報酬） */}
       <Section title="請求料金内訳（司法／行政）">
-        <RewardBreakdownSection
-          caseId={caseData.id}
-          onTotals={applyRewardTotals}
-          advance={{ 司法: caseData.advance_payment_judicial, 行政: caseData.advance_payment_administrative }}
-          onAdvanceChange={(shigyo, v) => save(shigyo === '司法' ? 'advance_payment_judicial' : 'advance_payment_administrative', v)}
-          hideAdvance={pattern.value !== 'staged'}
-        />
+        <RewardBreakdownSection caseId={caseData.id} onTotals={applyRewardTotals} />
         <p className="text-[11px] text-gray-400 mt-2">
           {pattern.value === 'staged'
-            ? '各士業の「割引後」合計が確定報酬になり、前受金を差し引いた額が確定請求になります。'
-            : '一括のため、各士業の「割引後」合計（確定報酬）をそのまま前受金として請求します。'}
+            ? '各士業の「小計−割引」が確定報酬になり、前受金を差し引いた額が確定請求になります。'
+            : '一括のため、各士業の確定報酬（小計−割引）をそのまま前受金として請求します。'}
         </p>
       </Section>
 
