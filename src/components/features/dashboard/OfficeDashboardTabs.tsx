@@ -11,6 +11,8 @@
 //
 // 上部には要注意／要確認のバナーを出す。自分の持ち場のタスクだけを見た判定なので、
 // マイページの案件アラート（案件全体の遅れ）とは別物。
+// バナーとタスクタブの色は同じ4段階（taskSeverity）で動く。
+//   赤=急ぎ・超急ぎ → 要注意 ／ 黄=5営業日以上超過 → 要確認 ／ 緑=期限超過 → 色だけ ／ 薄い青=期限内
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -20,11 +22,11 @@ import PageHeader from '@/components/ui/PageHeader'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
 import TaskListClient, { isTaskInRoleScope, type CaseInfo } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
-import type { ReadinessReceipt } from '@/lib/taskReadiness'
+import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
+import {
+  taskSeverity, worstSeverity, SEVERITY_TAB, SEVERITY_TAB_NOTE, TASK_CHUI_BIZ_DAYS, type TaskSeverity,
+} from '@/lib/taskSeverity'
 import type { TaskRow, MemberRow } from '@/types'
-
-/** タスク期限を何営業日超過したら要注意にするか */
-const TASK_CHUI_BIZ_DAYS = 5
 
 export type MailRow = {
   id: string
@@ -63,21 +65,30 @@ const normalizeStatus = (s: string) => {
   return s
 }
 
-function TabBtn({ v, label, icon: Icon, count, current, onSelect }: {
-  v: TabKey; label: string; icon: typeof Mail; count?: number; current: TabKey; onSelect: (t: TabKey) => void
+// sev を渡すと、タスクタブと同じ4色の点が付く（他のタブは点なし）。
+function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev }: {
+  v: TabKey; label: string; icon: typeof Mail; count?: number; current: TabKey
+  onSelect: (t: TabKey) => void; sev?: TaskSeverity
 }) {
   const on = current === v
+  const c = sev ? SEVERITY_TAB[sev] : null
+  const colored = c && sev !== 'blue'
   return (
     <button
       type="button"
       onClick={() => onSelect(v)}
+      title={sev ? SEVERITY_TAB_NOTE[sev] : undefined}
       className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 transition-colors ${
-        on ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        on
+          ? `border-brand-600 ${colored ? c.text : 'text-brand-700'}`
+          : `border-transparent ${colored ? c.text : 'text-gray-500'} hover:text-gray-800`}`}
     >
       <Icon className="w-4 h-4" strokeWidth={2} />
+      {c && <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />}
       {label}
       {count != null && count > 0 && (
-        <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${on ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+        <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${
+          colored ? c.badge : on ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
       )}
     </button>
   )
@@ -111,14 +122,19 @@ export default function OfficeDashboardTabs({
     router.replace(t === 'tasks' ? '/dashboard/office' : `/dashboard/office?tab=${t}`, { scroll: false })
   }
 
-  // 要注意／要確認バナー。自分の持ち場（事務管理タスク）の未完了だけを見る。
-  //   要注意（赤）… 期限を5営業日超過 ／ 優先度が急ぎ・超急ぎ
-  //   要確認（黄）… 期限を過ぎている（超過日数は問わない）
-  const openTasks = tasks.filter(t => isTaskInRoleScope(t, 'assistant') && normalizeStatus(t.status) !== '完了')
-  const overdueOf = (t: TaskRow) => (t.due_date ? bizDaysOverdue(t.due_date, today) : 0)
-  const chuiTasks = openTasks.filter(t => overdueOf(t) >= TASK_CHUI_BIZ_DAYS || t.priority === '急ぎ' || t.priority === '超急ぎ')
-  const chuiIds = new Set(chuiTasks.map(t => t.id))
-  const kakuninTasks = openTasks.filter(t => !chuiIds.has(t.id) && overdueOf(t) > 0)
+  // 要注意／要確認バナー。タスクタブに出ているもの（着手OK・対応中）だけを見る。
+  // タブと同じ4段階で判定する。
+  //   要注意（赤）… 急ぎ・超急ぎ
+  //   要確認（黄）… 期限を5営業日以上超過
+  //   緑（期限超過・5営業日未満）はバナーを出さず、タブの色だけで知らせる
+  const listedTasks = tasks.filter(t =>
+    isTaskInRoleScope(t, 'assistant')
+    && (normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready))
+  const openTasks = listedTasks.filter(t => normalizeStatus(t.status) !== '完了')
+  const readyCount = listedTasks.filter(t => normalizeStatus(t.status) === '着手前').length
+  const chuiTasks = openTasks.filter(t => taskSeverity(t, today) === 'red')
+  const kakuninTasks = openTasks.filter(t => taskSeverity(t, today) === 'amber')
+  const taskSev = worstSeverity(openTasks, today)
 
   const pendingHourenSou = hourenSou.filter(h => h.status === '依頼中').length
 
@@ -135,17 +151,17 @@ export default function OfficeDashboardTabs({
       {chuiTasks.length > 0 && (
         <TaskBanner tone="chui" tasks={chuiTasks} caseMap={caseMap} today={today}
           title={`要注意 ${chuiTasks.length}件`}
-          note={`期限を${TASK_CHUI_BIZ_DAYS}営業日超過／急ぎ・超急ぎのタスク`} />
+          note="急ぎ・超急ぎのタスク" />
       )}
       {kakuninTasks.length > 0 && (
         <TaskBanner tone="kakunin" tasks={kakuninTasks} caseMap={caseMap} today={today}
           title={`要確認 ${kakuninTasks.length}件`}
-          note="期限を過ぎているタスク" />
+          note={`期限を${TASK_CHUI_BIZ_DAYS}営業日以上超過したタスク`} />
       )}
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
         <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={startRows.length} current={tab} onSelect={selectTab} />
-        <TabBtn v="tasks" label="タスク" icon={ListChecks} count={openTasks.length} current={tab} onSelect={selectTab} />
+        <TabBtn v="tasks" label="タスク" icon={ListChecks} count={readyCount} current={tab} onSelect={selectTab} sev={taskSev} />
         <TabBtn v="mail" label="郵便" icon={Mail} count={mails.length} current={tab} onSelect={selectTab} />
         <TabBtn v="hourensou" label="報連相" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
       </div>

@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
+import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, type TaskSeverity } from '@/lib/taskSeverity'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -169,18 +170,27 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     })
   }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today])
 
-  // 業務タブごとの未完了件数（バッジ）。タブの並びは定義どおり固定で、0件でも出す
+  // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
-  const tabCounts = useMemo(() => {
-    const m: Record<string, number> = { all: 0 }
+  //
+  // 数字 … 着手OK（いま手をつけられるもの）だけ。対応中は数えない。
+  // 色   … そのタブの未完了タスクのいちばん重い段階。判定はダッシュボード上部のバナーと同じ。
+  const tabInfo = useMemo(() => {
+    const m: Record<string, { ready: number; sev: TaskSeverity }> = {}
+    const touch = (k: string) => (m[k] ??= { ready: 0, sev: 'blue' })
+    touch('all')
     for (const t of assistantTasks) {
       if (normalizeStatus(t.status) === '完了') continue
-      const k = tabKeyOfGyomu(gyomuOf(t))
-      m[k] = (m[k] ?? 0) + 1
-      m.all += 1
+      const sev = taskSeverity(t, today)
+      const isReady = normalizeStatus(t.status) === '着手前'
+      for (const k of [tabKeyOfGyomu(gyomuOf(t)), 'all']) {
+        const e = touch(k)
+        if (isReady) e.ready += 1
+        if (SEVERITY_RANK[sev] < SEVERITY_RANK[e.sev]) e.sev = sev
+      }
     }
     return m
-  }, [assistantTasks])
+  }, [assistantTasks, today])
 
   const kpis = useMemo(() => ({
     total: assistantTasks.length,
@@ -420,17 +430,25 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
         </div>
 
-        {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける） */}
+        {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける）。左の点＝そのタブでいちばん重いタスク。 */}
         <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
           {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map(t => {
             const on = taskTab === t.key
-            const n = tabCounts[t.key] ?? 0
+            const info = tabInfo[t.key]
+            const n = info?.ready ?? 0
+            const sev = info?.sev ?? 'blue'
+            const c = SEVERITY_TAB[sev]
             return (
               <button key={t.key} type="button" onClick={() => setTaskTab(t.key)}
+                title={SEVERITY_TAB_NOTE[sev]}
                 className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors ${
-                  on ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                  on
+                    ? `border-brand-600 ${sev === 'blue' ? 'text-brand-700' : c.text}`
+                    : `border-transparent ${c.text} hover:text-gray-800`}`}>
+                <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />
                 {t.label}
-                <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${on ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-400'}`}>{n}</span>
+                <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${
+                  sev === 'blue' && on ? 'bg-brand-100 text-brand-700' : c.badge}`}>{n}</span>
               </button>
             )
           })}
