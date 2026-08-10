@@ -12,10 +12,11 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import CompleteTaskModal from './CompleteTaskModal'
 import { createClient } from '@/lib/supabase/client'
-import { TASK_STATUSES, getWorkRoleDef } from '@/lib/constants'
+import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
-import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, type TaskSeverity } from '@/lib/taskSeverity'
+import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, TASK_CHUI_BIZ_DAYS, type TaskSeverity } from '@/lib/taskSeverity'
+import { bizDaysOverdue } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -52,7 +53,20 @@ type Props = {
   freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
   /** 事務管理ダッシュボードのタブに埋め込むとき。ページ見出しを出さず、検索欄だけ上に置く。 */
   embedded?: boolean
+  /** バナーから飛んできたときの絞り込み指定。key が変わるたびに反映する。 */
+  jump?: TaskJump | null
 }
+
+/** ダッシュボードのバナー →「すべて」タブを指定条件で絞った状態にする指示 */
+export type TaskJump = {
+  /** 押すたびに変わる値。同じ条件をもう一度押しても効くようにするため。 */
+  key: string
+  due?: DueFilter
+  priorities?: string[]
+}
+
+/** 期限の絞り込み。over=1〜4営業日超過 / big=5営業日以上超過 */
+export type DueFilter = 'all' | 'over' | 'big'
 
 // 一覧に載せるタスクかどうか（担当区分スコープでの振り分け）。
 //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
@@ -88,7 +102,27 @@ const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : 
 // 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
 const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false }: Props) {
+// 期限・優先度の絞り込みチップ。押すたびにON/OFF。
+const CHIP_ON: Record<string, string> = {
+  green: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  amber: 'bg-amber-100 text-amber-800 border-amber-300',
+  red: 'bg-red-100 text-red-800 border-red-300',
+  gray: 'bg-gray-200 text-gray-800 border-gray-300',
+}
+function Chip({ label, note, tone, on, onClick }: {
+  label: string; note?: string; tone: keyof typeof CHIP_ON; on: boolean; onClick: () => void
+}) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-semibold border transition-colors ${
+        on ? CHIP_ON[tone] : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}`}>
+      {label}
+      {note && <span className={`text-[10.5px] font-normal ${on ? 'opacity-70' : 'text-gray-400'}`}>{note}</span>}
+    </button>
+  )
+}
+
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -100,6 +134,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 業務タブ（相続人調査／不動産調査／…／その他）。'all'＝すべて。
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
+  // 期限・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
+  const [dueFilter, setDueFilter] = useState<DueFilter>('all')
+  const [priFilter, setPriFilter] = useState<Set<string>>(() => new Set())
   // 「着手OK」「受領次第OK」トグル（着手前の中の絞り込み）。既定は両方ON＝今やれる/もうすぐやれるものだけ表示。
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
@@ -114,6 +151,22 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   useEffect(() => {
     if (searchParams.get('assignee') === 'mine') setFilterMine(true)
   }, [searchParams])
+
+  // ダッシュボードのバナーから飛んできたら、その条件で絞った「すべて」タブを開く。
+  // effect の中で setState すると lint に止められるので、レンダー中に前回値と比べて入れ直す。
+  const jumpKey = jump?.key ?? ''
+  const [appliedJump, setAppliedJump] = useState(jumpKey)
+  if (jumpKey !== appliedJump) {
+    setAppliedJump(jumpKey)
+    if (jump) {
+      setTaskTab('all')
+      setStatusFilter('all')   // バナーには対応中のタスクも入るため、着手OK縛りを外す
+      setFilterMine(false)
+      setSearch('')
+      setDueFilter(jump.due ?? 'all')
+      setPriFilter(new Set(jump.priorities ?? []))
+    }
+  }
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -143,6 +196,16 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (taskTab !== 'all') {
       result = result.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     }
+    // 期限・優先度の絞り込み（業務タブに関係なく効く）
+    if (dueFilter !== 'all') {
+      result = result.filter(t => {
+        const over = t.due_date ? bizDaysOverdue(t.due_date, today) : 0
+        return dueFilter === 'big' ? over >= TASK_CHUI_BIZ_DAYS : over > 0 && over < TASK_CHUI_BIZ_DAYS
+      })
+    }
+    if (priFilter.size > 0) {
+      result = result.filter(t => priFilter.has(t.priority || '通常'))
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -170,7 +233,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, dueFilter, priFilter])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -411,6 +474,33 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
 
           <span className="w-px h-6 bg-gray-200" />
+
+          {/* 期限・優先度の絞り込み。業務タブを切り替えても外れない。 */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11.5px] font-semibold text-gray-400">期限</span>
+            <Chip label="超過" note="1〜4営業日" tone="green"
+              on={dueFilter === 'over'} onClick={() => setDueFilter(v => (v === 'over' ? 'all' : 'over'))} />
+            <Chip label="大幅超過" note={`${TASK_CHUI_BIZ_DAYS}営業日〜`} tone="amber"
+              on={dueFilter === 'big'} onClick={() => setDueFilter(v => (v === 'big' ? 'all' : 'big'))} />
+            <span className="text-[11.5px] font-semibold text-gray-400 ml-1.5">優先度</span>
+            {TASK_PRIORITIES.map(p => (
+              <Chip key={p.key} label={p.label}
+                tone={p.key === '超急ぎ' ? 'red' : p.key === '急ぎ' ? 'amber' : 'gray'}
+                on={priFilter.has(p.key)}
+                onClick={() => setPriFilter(prev => {
+                  const next = new Set(prev)
+                  if (next.has(p.key)) next.delete(p.key); else next.add(p.key)
+                  return next
+                })} />
+            ))}
+            {(dueFilter !== 'all' || priFilter.size > 0) && (
+              <button type="button"
+                onClick={() => { setDueFilter('all'); setPriFilter(new Set()) }}
+                className="inline-flex items-center gap-0.5 text-[11.5px] font-semibold text-gray-500 hover:text-gray-800 ml-0.5">
+                <X className="w-3 h-3" strokeWidth={2.5} />解除
+              </button>
+            )}
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             <button

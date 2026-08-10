@@ -46,6 +46,10 @@ export function TaskTabHelp() {
       <span className="block mt-1.5 text-gray-500">
         タブの点は、そのタブでいちばん重いタスクの色です。
       </span>
+      <span className="block mt-2.5 text-gray-500">
+        上の「期限」「優先度」の絞り込みは、どのタブでも同じように効きます。
+        タブを切り替えても外れないので、業務をまたいで同じ条件で見られます。
+      </span>
     </span>
   )
 }

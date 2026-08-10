@@ -17,12 +17,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ClipboardList, Mail, MessageSquare, PlayCircle, ListChecks, AlertTriangle, AlertCircle } from 'lucide-react'
+import { ClipboardList, Mail, MessageSquare, PlayCircle, ListChecks, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
 import { SeverityLegend } from '@/components/ui/TaskSeverityHelp'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
-import TaskListClient, { isTaskInRoleScope, type CaseInfo } from '@/components/features/tasks/TaskListClient'
+import TaskListClient, { isTaskInRoleScope, type CaseInfo, type TaskJump } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import {
@@ -139,6 +139,14 @@ export default function OfficeDashboardTabs({
   const kakuninTasks = openTasks.filter(t => taskSeverity(t, today) === 'amber')
   const taskSev = worstSeverity(openTasks, today)
 
+  // バナー →「すべて」タブを同じ条件で絞った状態にする。
+  // key を毎回変えることで、同じバナーをもう一度押しても効く。
+  const [jump, setJump] = useState<TaskJump | null>(null)
+  const jumpTo = (j: Omit<TaskJump, 'key'>) => {
+    setJump({ key: crypto.randomUUID(), ...j })
+    selectTab('tasks')
+  }
+
   const pendingHourenSou = hourenSou.filter(h => h.status === '依頼中').length
 
   return (
@@ -154,12 +162,14 @@ export default function OfficeDashboardTabs({
       {chuiTasks.length > 0 && (
         <TaskBanner tone="chui" tasks={chuiTasks} caseMap={caseMap} today={today}
           title={`要注意 ${chuiTasks.length}件`}
-          note="急ぎ・超急ぎのタスク" />
+          note="急ぎ・超急ぎのタスク"
+          onJump={() => jumpTo({ priorities: ['急ぎ', '超急ぎ'] })} />
       )}
       {kakuninTasks.length > 0 && (
         <TaskBanner tone="kakunin" tasks={kakuninTasks} caseMap={caseMap} today={today}
           title={`要確認 ${kakuninTasks.length}件`}
-          note={`期限を${TASK_CHUI_BIZ_DAYS}営業日以上超過したタスク`} />
+          note={`期限を${TASK_CHUI_BIZ_DAYS}営業日以上超過したタスク`}
+          onJump={() => jumpTo({ due: 'big' })} />
       )}
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
@@ -178,7 +188,7 @@ export default function OfficeDashboardTabs({
           embedded
           tasks={tasks} caseMap={caseMap} allMembers={allMembers} currentMemberId={currentMemberId}
           receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase}
-          roleScope="assistant"
+          roleScope="assistant" jump={jump}
         />
       )}
 
@@ -333,23 +343,23 @@ function HourenSouTab({ rows }: { rows: HourenSouRow[] }) {
 }
 
 // ── 要注意／要確認のバナー ──
-// 期限が近い順に並べる。最初は5件だけ出し、それ以上は「ほかN件を見る」で開く。
-// 全部を最初から並べると、件数が多い日にバナーだけで画面が埋まってタブに届かないため。
+// 期限が近い順に5件だけ出す。バナーで全部を並べると画面が埋まってタブに届かないので、
+// 続きは「一覧で見る」でタスクタブへ飛び、同じ条件で絞られた状態から見る。
 const BANNER_PREVIEW = 5
 
-function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
+function TaskBanner({ tone, title, note, tasks, caseMap, today, onJump }: {
   tone: 'chui' | 'kakunin'
   title: string
   note: string
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
   today: string
+  onJump: () => void
 }) {
   const chui = tone === 'chui'
   const Icon = chui ? AlertTriangle : AlertCircle
-  const [expanded, setExpanded] = useState(false)
   const sorted = [...tasks].sort((a, b) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31'))
-  const shown = expanded ? sorted : sorted.slice(0, BANNER_PREVIEW)
+  const shown = sorted.slice(0, BANNER_PREVIEW)
   return (
     <div className={`rounded-lg border px-3.5 py-2.5 mb-3 ${chui ? 'border-red-200 bg-red-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
       <div className="flex items-center gap-2 flex-wrap">
@@ -365,13 +375,12 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
           <SeverityLegend />
           <span className="block mt-1.5 text-gray-500">
             対象はタスクタブに出ている自分の持ち場のタスク（着手OK・対応中）です。
-            期限が近い順に並べます。最初は{BANNER_PREVIEW}件だけ出しますが、
-            下の「ほか◯件を見る」で全部出せます。
+            期限が近い順に{BANNER_PREVIEW}件だけ出します。
+            下の「一覧で見る」を押すと、タスクタブの「すべて」が同じ条件で絞られた状態になります。
           </span>
         </HelpHint>
       </div>
-      {/* 開いたときだけ高さを止めて中でスクロールさせる。バナーが画面を占領しないように。 */}
-      <div className={`mt-1.5 flex flex-col gap-0.5 ${expanded ? 'max-h-64 overflow-y-auto pr-1' : ''}`}>
+      <div className="mt-1.5 flex flex-col gap-0.5">
         {shown.map(t => {
           const c = caseMap[t.case_id]
           const over = t.due_date ? bizDaysOverdue(t.due_date, today) : 0
@@ -392,12 +401,11 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
           )
         })}
       </div>
-      {sorted.length > BANNER_PREVIEW && (
-        <button type="button" onClick={() => setExpanded(v => !v)}
-          className={`mt-1 text-[11.5px] font-semibold hover:underline ${chui ? 'text-red-700' : 'text-amber-800'}`}>
-          {expanded ? '表示を減らす' : `ほか ${sorted.length - BANNER_PREVIEW} 件を見る`}
-        </button>
-      )}
+      <button type="button" onClick={onJump}
+        className={`mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold hover:underline ${chui ? 'text-red-700' : 'text-amber-800'}`}>
+        {sorted.length > BANNER_PREVIEW ? `ほか ${sorted.length - BANNER_PREVIEW} 件を含めて一覧で見る` : '一覧で見る'}
+        <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
+      </button>
     </div>
   )
 }
