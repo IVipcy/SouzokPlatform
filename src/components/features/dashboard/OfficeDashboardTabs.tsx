@@ -333,7 +333,10 @@ function HourenSouTab({ rows }: { rows: HourenSouRow[] }) {
 }
 
 // ── 要注意／要確認のバナー ──
-// 件数と、期限が近い順に5件だけ並べる。全部出すと画面が埋まるので、続きはタスクタブで見る。
+// 期限が近い順に並べる。最初は5件だけ出し、それ以上は「ほかN件を見る」で開く。
+// 全部を最初から並べると、件数が多い日にバナーだけで画面が埋まってタブに届かないため。
+const BANNER_PREVIEW = 5
+
 function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
   tone: 'chui' | 'kakunin'
   title: string
@@ -344,9 +347,9 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
 }) {
   const chui = tone === 'chui'
   const Icon = chui ? AlertTriangle : AlertCircle
-  const shown = [...tasks]
-    .sort((a, b) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31'))
-    .slice(0, 5)
+  const [expanded, setExpanded] = useState(false)
+  const sorted = [...tasks].sort((a, b) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31'))
+  const shown = expanded ? sorted : sorted.slice(0, BANNER_PREVIEW)
   return (
     <div className={`rounded-lg border px-3.5 py-2.5 mb-3 ${chui ? 'border-red-200 bg-red-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
       <div className="flex items-center gap-2 flex-wrap">
@@ -362,11 +365,13 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
           <SeverityLegend />
           <span className="block mt-1.5 text-gray-500">
             対象はタスクタブに出ている自分の持ち場のタスク（着手OK・対応中）です。
-            期限が近い順に5件まで並べ、続きはタスクタブで見ます。
+            期限が近い順に並べます。最初は{BANNER_PREVIEW}件だけ出しますが、
+            下の「ほか◯件を見る」で全部出せます。
           </span>
         </HelpHint>
       </div>
-      <div className="mt-1.5 flex flex-col gap-0.5">
+      {/* 開いたときだけ高さを止めて中でスクロールさせる。バナーが画面を占領しないように。 */}
+      <div className={`mt-1.5 flex flex-col gap-0.5 ${expanded ? 'max-h-64 overflow-y-auto pr-1' : ''}`}>
         {shown.map(t => {
           const c = caseMap[t.case_id]
           const over = t.due_date ? bizDaysOverdue(t.due_date, today) : 0
@@ -386,10 +391,13 @@ function TaskBanner({ tone, title, note, tasks, caseMap, today }: {
             </Link>
           )
         })}
-        {tasks.length > shown.length && (
-          <span className="text-[11.5px] text-gray-500">ほか {tasks.length - shown.length} 件（タスクタブで確認）</span>
-        )}
       </div>
+      {sorted.length > BANNER_PREVIEW && (
+        <button type="button" onClick={() => setExpanded(v => !v)}
+          className={`mt-1 text-[11.5px] font-semibold hover:underline ${chui ? 'text-red-700' : 'text-amber-800'}`}>
+          {expanded ? '表示を減らす' : `ほか ${sorted.length - BANNER_PREVIEW} 件を見る`}
+        </button>
+      )}
     </div>
   )
 }
