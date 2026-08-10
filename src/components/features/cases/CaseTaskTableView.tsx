@@ -235,7 +235,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
               <th className="px-2.5 py-2 text-left font-semibold w-24">工程</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">業務区分</th>
               <th className="px-2.5 py-2 text-left font-semibold">タスク名</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-16">優先度</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">ステータス</th>
               <th className="px-2.5 py-2 text-left font-semibold w-44">着手フラグ</th>
               <th className="px-2.5 py-2 text-left font-semibold w-36">期限</th>
@@ -268,7 +268,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                   <td className="px-2.5 py-2"><Link href={`/tasks/${t.id}`} className={`hover:text-brand-700 hover:underline ${locked ? 'text-gray-400' : 'text-gray-800'}`}>{t.title}</Link></td>
                   <td className="px-2.5 py-2">
                     <select value={t.priority ?? '通常'} onChange={e => setPriority(t, e.target.value)}
-                      className={`w-full px-1 py-0.5 rounded-full text-[11px] font-semibold border outline-none cursor-pointer ${priorityCls(t.priority)}`}
+                      className={`w-full pl-2 pr-5 py-0.5 rounded-full text-[11px] font-semibold border outline-none cursor-pointer ${priorityCls(t.priority)}`}
                       title="優先度を変える">
                       {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
                     </select>

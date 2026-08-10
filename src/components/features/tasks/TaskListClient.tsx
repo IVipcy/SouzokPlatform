@@ -934,7 +934,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         <select
           value={task.priority ?? '通常'}
           onChange={e => onSetPriority(task, e.target.value)}
-          className={`w-full px-1.5 py-1 rounded-md text-[14px] text-center border outline-none cursor-pointer ${priorityCls(task.priority)}`}
+          className={`w-full pl-2 pr-5 py-1 rounded-md text-[14px] border outline-none cursor-pointer ${priorityCls(task.priority)}`}
           title="優先度を変える"
         >
           {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
