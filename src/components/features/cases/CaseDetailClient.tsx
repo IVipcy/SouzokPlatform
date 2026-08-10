@@ -122,13 +122,20 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   })()
   const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl)
   const [caseState, setCaseState] = useState<CaseRow>(caseDataProp)
+  // 割振り担当（プロフィールの「割振り担当」）本人か。
+  // この人は依頼を出す側ではなく受ける側なので、下の割振り依頼ポップを出さない。
+  const isDispatcher = !!allMembers.find(m => m.id === currentMemberId)?.is_dispatcher
   // 管理担当の割振り依頼ポップ。受注系（依頼確定待ちを含む）で管理担当が未アサインなら、
   // 案件詳細を開くたびに出す。面談結果登録の直後には出さない（登録した本人にしか届かず、
   // 翌日以降に開いた人が気づけないため）。初期値で開くので useEffect は使わない。
+  //
+  // ただし割振り担当には出さない。通知から開いた本人に「割振りを依頼してください」と出ると、
+  // アサインしに来たのに閉じる操作から始めることになるため。
   const [assignReqOpen, setAssignReqOpen] = useState(() =>
     ASSIGN_PROMPT_STATUSES.has(caseDataProp.status)
     && !caseMembers.some(cm => cm.role === 'manager')
     && !caseDataProp.manager_assign_skipped
+    && !allMembers.find(m => m.id === currentMemberId)?.is_dispatcher
     && !gatesDisabled())
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
@@ -265,7 +272,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       }
       setNavDismissed(false)
       // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサイン かつ 割り振らない指定でない ときだけ）
-      if (!managerAssigned && !caseState.manager_assign_skipped && !gatesDisabled()) setAssignReqOpen(true)
+      // 割振り担当本人には出さない（自分で割り振れるので依頼する相手がいない）
+      if (!managerAssigned && !caseState.manager_assign_skipped && !isDispatcher && !gatesDisabled()) setAssignReqOpen(true)
     }
     // （タスク出しは作業着手準備の「タスク出し」ゲートで管理担当が行うため、
     //   対応中化の際の「タスクを設定してください」ポップアップは廃止）
@@ -383,7 +391,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 管理担当ビュー: 作業進行中(=対応中)に引き継がれた直後で管理担当未アサインなら『案件情報→担当者』を強調。
   //   isManagerViewer は下方で定義するため、ここでは viewerRole から直接判定して先読みする。
   const isManagerViewerEarly = viewerRole === 'manager' || viewerRole === 'sub_manager'
-  const managerAssignNav = isManagerViewerEarly && caseState.status === '対応中' && !managerAssigned && !caseState.manager_assign_skipped
+  // 割振り担当には、どのステータスでも管理担当が空なら『担当者』タブを光らせる
+  // （通知から来てすぐアサインできるように）。
+  const managerAssignNav = !managerAssigned && !caseState.manager_assign_skipped
+    && (isDispatcher || (isManagerViewerEarly && caseState.status === '対応中'))
   const navHighlightTabs: TabKey[] = [
     ...activeNavSteps.filter(s => !s.done).flatMap(s => s.targets.map(t => t.tab)),
     ...(kickoffNeeded ? ['progress' as TabKey] : []),
