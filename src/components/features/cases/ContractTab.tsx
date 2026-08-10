@@ -48,21 +48,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   const [kakuteiOpen, setKakuteiOpen] = useState(false)
   const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   const [importShihoOpen, setImportShihoOpen] = useState(false)
-  // 紹介元（面談ルートの詳細）の紹介料率を取得 → パートナー報酬の自動計算に使う
-  const [referralRate, setReferralRate] = useState<number | null>(null)
-  useEffect(() => {
-    const route = caseData.order_route
-    const name = caseData.order_route_detail
-    let alive = true
-    ;(async () => {
-      if (!route || !name) { if (alive) setReferralRate(null); return }
-      const supabase = createClient()
-      const { data } = await supabase.from('referral_sources').select('referral_rate').eq('route', route).eq('name', name).maybeSingle()
-      if (alive) setReferralRate((data?.referral_rate ?? null) as number | null)
-    })()
-    return () => { alive = false }
-  }, [caseData.order_route, caseData.order_route_detail])
-
   // 返金（請求タブで記録されたマイナス入金）を案件単位で集計し、読み取り表示する。
   // 入力は請求タブ一本。ここは派生表示（前受金/確定 × 行政/司法 の内訳＋理由）。
   type RefundInfo = {
@@ -149,15 +134,6 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
   const confirmedAmount = feeSubtotal + billingExpTotal - advanceTotal(caseData)
-  const partnerName = caseData.order_route_detail
-  const partnerCompensation = referralRate != null
-    ? (caseData.fee_administrative ?? 0) * referralRate / 100
-    : null
-  const expenseTotal = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0)
-  // 他事業者紹介の見込み報酬（紹介料）を付帯収益として集計。
-  // ※ 旧「不動産売却手数料見込(fee_real_estate)」は他事業者紹介 紹介料(不動産)と重複のため廃止。
-  const referralFeeTotal = referrals.reduce((s, r) => s + (r.estimated_fee ?? 0), 0)
-  const totalRevenue = feeSubtotal + referralFeeTotal
 
   // 請求完了判定：会計上、請求書発行=売掛計上=請求完了扱いとする。
   // 前受金が発行済(=送付済)＋（①②は確定/立替も発行済）。③は前受金のみで完了。
@@ -280,19 +256,23 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
           {!minimal && (<>
           {/* 請求サマリー（報酬・前受金は上の内訳から自動。契約日は受注内容へ・特記事項は廃止） */}
           <Section title="請求サマリー" icon="💳">
-            <FieldGrid cols={1}>
-              <Field label="確定報酬（行政）＝内訳合計" value={yen(caseData.fee_administrative)} mono />
-              <Field label="確定報酬（司法）＝内訳合計" value={yen(caseData.fee_judicial)} mono />
-              <Field label="報酬小計" value={yen(feeSubtotal)} mono />
-              <Field label="前受金小計" value={yen(advanceTotal(caseData))} mono />
-              <Field label="立替実費 小計" value={yen(billingExpTotal)} mono />
-              <Field label="請求金額（確定＝報酬＋立替実費−前受金）" value={yen(confirmedAmount)} mono />
-              <InlineTextarea
-                label="メモ"
-                value={caseData.invoice_memo}
-                onSave={v => save('invoice_memo', v)}
-              />
-            </FieldGrid>
+            {/* 計算の流れ（報酬＋実費−前受金＝請求金額）を横一列で読めるようにする。
+                縦に並べると、どれが足し算でどれが引き算かが行の名前を読まないと分からなかった。 */}
+            <div className="flex items-stretch flex-wrap bg-gray-50 rounded-lg py-3.5 px-1">
+              <SumCell label="報酬小計" value={yen(feeSubtotal)}
+                sub={<>行政 <b className="font-normal tabular-nums">{yen(caseData.fee_administrative)}</b><br />司法 <b className="font-normal tabular-nums">{yen(caseData.fee_judicial)}</b></>} />
+              <SumOp>＋</SumOp>
+              <SumCell label="立替実費" value={yen(billingExpTotal)} sub="司法・行政の合計" />
+              <SumOp>−</SumOp>
+              <SumCell label="前受金" value={yen(advanceTotal(caseData))}
+                sub={<>行政 <b className="font-normal tabular-nums">{yen(caseData.advance_payment_administrative)}</b><br />司法 <b className="font-normal tabular-nums">{yen(caseData.advance_payment_judicial)}</b></>} />
+              <SumOp>＝</SumOp>
+              <SumCell label="請求金額（確定）" value={yen(confirmedAmount)} sub="報酬＋立替実費−前受金" final />
+            </div>
+            <div className="flex items-start gap-2.5 mt-3">
+              <span className="text-[12px] text-gray-500 flex-none pt-1.5">メモ</span>
+              <div className="flex-1"><InlineTextarea label="" value={caseData.invoice_memo} onSave={v => save('invoice_memo', v)} /></div>
+            </div>
 
             {/* 返金（請求タブで記録されたマイナス入金の読み取り表示。前受金/確定×行/司の内訳＋理由） */}
             {refund && (
@@ -337,89 +317,29 @@ export default function ContractTab({ caseData, expenses, tasks, onRefresh: _onR
             )}
           </Section>
 
-          {/* 3. 付帯収益（他事業者紹介の紹介料・見込み。入力は「他事業者紹介」タブ） */}
-          <Section title="付帯収益（他事業者紹介 紹介料・見込み）" icon="💹">
-            {referrals.length === 0 ? (
-              <div className="text-[12px] text-gray-300">他事業者紹介はありません（「他事業者紹介」タブで登録）</div>
-            ) : (
-              <div className="max-w-md space-y-1">
-                {referrals.map(r => (
-                  <div key={r.id} className="flex justify-between gap-4 text-[13px]">
-                    <span className="text-gray-500">{r.partner_type}{r.firm_name ? `（${r.firm_name}）` : ''}</span>
-                    <span className="font-mono text-gray-700">{yen(r.estimated_fee)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between gap-4 text-[13px] border-t border-gray-100 pt-1 mt-1">
-                  <span className="text-gray-500 font-medium">紹介料合計</span>
-                  <span className="font-mono font-semibold text-gray-800">{yen(referralFeeTotal || null)}</span>
-                </div>
-              </div>
-            )}
-          </Section>
-
-          {/* 4. パートナー報酬（紹介元の紹介料率で自動計算） */}
-          <Section title="パートナー報酬" icon="🤝">
-            <FieldGrid cols={1}>
-              <Field label="紹介元パートナー" value={partnerName || '未設定'} />
-              <Field label="パートナー報酬割合" value={referralRate != null ? `${referralRate}%` : '—'} mono />
-              <Field
-                label="パートナー報酬金額"
-                value={partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
-                mono
-              />
-            </FieldGrid>
-            <div className="text-[12px] text-gray-400 mt-2">
-              ※ 紹介元は「面談ルート → 詳細（紹介元）」で選択します。報酬金額は「確定金額（行政）× 紹介料率」で自動計算（紹介料率は紹介元マスタで管理）。
-            </div>
-          </Section>
-
-          {/* 収益サマリーカード（パートナー報酬の下に配置。フラット＝ブランド淡色＋枠線） */}
-          <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
-            <div className="text-[12px] font-semibold text-brand-700 mb-1.5">案件トータル収益見込</div>
-            <div className="text-[26px] font-bold tracking-tight text-brand-800 mb-2.5">
-              {totalRevenue > 0 ? `¥${totalRevenue.toLocaleString()}` : '—'}
-            </div>
-            <div className="max-w-md space-y-1 text-[13px]">
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">確定金額合計（行政＋司法）</span>
-                <span className="font-mono text-gray-700">{feeSubtotal > 0 ? `¥${feeSubtotal.toLocaleString()}` : '—'}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">他事業者紹介 紹介料</span>
-                <span className="font-mono text-gray-700">{referralFeeTotal > 0 ? `¥${referralFeeTotal.toLocaleString()}` : '—'}</span>
-              </div>
-            </div>
-          </div>
           </>)}
 
-      {/* ─── 請求サマリー（下部）。オーダーシート埋め込み時・ミニマム時は非表示。フラット＝ブランド淡色＋枠線 ─── */}
-      {!orderSheetMode && !minimal && (
-      <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
-        <div className="text-[12px] font-semibold text-brand-700 mb-2.5">請求サマリー</div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <div className="text-[12px] text-gray-500 mb-0.5">報酬小計</div>
-            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(feeSubtotal)}</div>
-          </div>
-          <div>
-            <div className="text-[12px] text-gray-500 mb-0.5">立替実費合計</div>
-            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(expenseTotal)}</div>
-          </div>
-          <div>
-            <div className="text-[12px] text-gray-500 mb-0.5">請求金額（確定）</div>
-            <div className="text-lg font-bold tracking-tight text-brand-800">{yen(confirmedAmount)}</div>
-          </div>
-          <div>
-            <div className="text-[12px] text-gray-500 mb-0.5">パートナー報酬額</div>
-            <div className="text-lg font-bold tracking-tight text-brand-800">
-              {partnerCompensation != null ? yen(Math.round(partnerCompensation)) : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
-      )}
     </div>
   )
+}
+
+// 請求サマリーの1マス。金額を大きく、内訳を下に小さく。
+function SumCell({ label, value, sub, final = false }: {
+  label: string
+  value: string
+  sub?: React.ReactNode
+  final?: boolean
+}) {
+  return (
+    <div className={`flex-1 min-w-[130px] px-3.5 ${final ? 'border-l border-gray-300' : ''}`}>
+      <div className={`text-[11.5px] mb-1 ${final ? 'text-brand-700 font-semibold' : 'text-gray-500'}`}>{label}</div>
+      <div className={`font-semibold tabular-nums leading-tight ${final ? 'text-[23px] text-brand-800' : 'text-[19px] text-gray-800'}`}>{value}</div>
+      {sub && <div className="mt-1 text-[11px] text-gray-400 leading-relaxed">{sub}</div>}
+    </div>
+  )
+}
+function SumOp({ children }: { children: React.ReactNode }) {
+  return <div className="flex-none w-5 flex items-center justify-center text-[15px] text-gray-400">{children}</div>
 }
 
 // ─── 経理入力欄（migration 200） ───
