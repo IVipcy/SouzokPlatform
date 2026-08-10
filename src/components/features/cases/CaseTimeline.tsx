@@ -530,6 +530,9 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
   const assignee = taskAssignee(task)
   const od = overdueDays(task, todayYmd)
   // 日付ラベル（完了 > 着手 > 期限 の優先）。各メタ行は固定高さで揃える。
+  // 見出し（完了/着手/期限）は小さいまま、日付だけ大きく太くする。線表で一番追いたいのが日付のため。
+  const dateKind = (state === 'done' && completed) ? '完了' : started ? '着手' : task.due_date ? '期限' : ''
+  const dateValue = (state === 'done' && completed) ? completed : started ? started : task.due_date ?? ''
   const dateText = (state === 'done' && completed) ? `完了 ${completed}`
     : started ? `着手 ${started}`
     : task.due_date ? `期限 ${task.due_date}`
@@ -557,7 +560,14 @@ function TaskNode({ task, todayYmd, isFirst, isLast }: { task: TaskRow; todayYmd
           {hasResult && <FileText className="inline-block w-3 h-3 ml-0.5 text-brand-500 align-[-1px]" />}
         </Link>
         <div className="mt-1.5">
-          <div className="h-[15px] leading-[15px] text-[11px] text-gray-400 truncate">{dateText}</div>
+          <div className="h-[18px] leading-[18px] truncate" title={dateText}>
+            {dateValue && (
+              <>
+                <span className="text-[10.5px] text-gray-400 mr-1">{dateKind}</span>
+                <span className={`text-[13px] font-semibold tabular-nums ${state === 'overdue' ? 'text-red-600' : 'text-gray-700'}`}>{dateValue}</span>
+              </>
+            )}
+          </div>
           <div className="h-[15px] leading-[15px] text-[11px] text-gray-500 truncate">{assignee ?? ''}</div>
           <div className="h-[20px] flex items-start justify-center">
             {od !== null && (
