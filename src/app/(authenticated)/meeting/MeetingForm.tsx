@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { toKatakana } from '@/lib/kana'
@@ -522,6 +523,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
+        // 下書きで採番した番号は経路が未確定で XX。ここで経路が入ったら実コードに直す。
+        await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute)
         // 受注担当が未設定なら、相談結果を登録した本人を受注担当に紐付ける。
         // （LP連携案件は case_members が未作成のため、マイページの担当一覧に出てこない問題の対策）
         if (currentMemberId) {

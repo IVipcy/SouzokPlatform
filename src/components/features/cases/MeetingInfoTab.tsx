@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import { showToast } from '@/components/ui/Toast'
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
@@ -99,7 +100,12 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
               label="受注ルート"
               value={caseData.order_route}
               options={[...ORDER_ROUTES]}
-              onSave={async v => { await patchCase({ order_route: v, order_route_detail: null }) }}
+              onSave={async v => {
+                await patchCase({ order_route: v, order_route_detail: null })
+                // 番号が XX（経路未確定）のままなら、ここで実コードに直す
+                await applyRouteToCaseNumber(createClient(), caseData.id, v, caseData.case_number)
+                onRefresh?.()
+              }}
             />
           )}
           <InlineEdit label="紹介元" value={caseData.order_route_detail} onSave={v => saveCaseField('order_route_detail', v)} />

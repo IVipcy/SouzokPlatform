@@ -125,7 +125,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   const draftPending = caseState.id === ''
 
   // 下書き案件を遅延作成（clients=無題 + cases intake_draft=true, meeting_owner_id=自分, case_members はまだ付けない）。
-  // 案件番号は当日連番。経路コードは②で確定するため 'XX'。
+  // 案件番号は当日連番。この時点では受注ルートが未入力なので経路コードは仮の 'XX'。
+  // ②で受注ルートを保存したとき applyRouteToCaseNumber が実コード(LP/SD/HP/PC/ZE/OT)に直す。
   const createDraftCase = useCallback(async (): Promise<string> => {
     const { data: client, error: ce } = await supabase.from('clients').insert({ name: '無題' }).select('id').single()
     if (ce || !client) throw new Error(ce?.message ?? '依頼者の作成に失敗しました')
