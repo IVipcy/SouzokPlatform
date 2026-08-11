@@ -12,6 +12,7 @@ import BillingClient from '@/components/features/billing/BillingClient'
 import type { BillingRequestRow } from '@/components/features/billing/BillingRequestsPanel'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
 import RankingBadges, { type RankBadge } from '@/components/features/dashboard/RankingBadges'
+import MyTargetChip from '@/components/features/my/MyTargetChip'
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
@@ -117,7 +118,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // === 月間ランキングのバッジ（自分の名前の右）===
   // 綜合1位＝月間MVP、各ランキング1位＝「◯◯ 1位」。受注担当=受注軸、管理担当=業完軸。
-  let myBadges: RankBadge[] = []
+  const myBadges: RankBadge[] = []
   if (isSales || isManager) {
     const [{ data: rCases }, { data: rMembers }, { data: rTeams }] = await Promise.all([
       supabase.from('cases').select('id,order_received_date,completion_date,contract_type,fee_administrative,fee_judicial,fee_total'),
@@ -552,6 +553,30 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       ? computeSalesMetricsForDay(salesDashCases, salesChanges, today, salesProps)
       : computeSalesMetrics(salesDashCases, salesChanges, selectedPeriod, salesProps)
 
+  // === 月間目標（受注担当のみ・新規受注件数の1つだけ。管理担当に目標は無い）===
+  // 期間切替に関係なく「当月」で判定する。先月ぶんは入力時の参考表示に使う。
+  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const prevYm = `${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth() + 1)}`
+  let myTargetThis: number | null = null
+  let myTargetPrev: number | null = null
+  if (isSales) {
+    const { data: mtRaw } = await supabase
+      .from('member_targets')
+      .select('ym,new_orders_count')
+      .eq('member_id', memberId)
+      .in('ym', [ymToday, prevYm])
+    for (const r of (mtRaw ?? []) as Array<{ ym: string; new_orders_count: number | null }>) {
+      if (r.ym === ymToday) myTargetThis = r.new_orders_count ?? null
+      if (r.ym === prevYm) myTargetPrev = r.new_orders_count ?? null
+    }
+  }
+  const monthSalesMetrics = isSales ? computeSalesMetrics(salesDashCases, salesChanges, ymToday, salesProps) : null
+  // 先月は activity_log の取得範囲（年度初〜）に入っているときだけ出す
+  const prevSalesMetrics = isSales && fiscalMonths.includes(prevYm)
+    ? computeSalesMetrics(salesDashCases, salesChanges, prevYm, salesProps)
+    : null
+  const targetAchieved = !!(myTargetThis && myTargetThis > 0 && monthSalesMetrics && monthSalesMetrics.newOrdersCount >= myTargetThis)
+
   let consultCasesArr = myCases.filter(c => salesCaseIds.has(c.id) && CONSULT_STATUSES.has(c.status))
   // 集計基準日：面談実施日 → 面談予定日 → 案件作成日（面談日未入力の案件も期間から漏れないようにフォールバック）
   const consultBaseDate = (c: MyCase): string | null =>
@@ -931,13 +956,34 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       <div className="mb-5">
         <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">My</p>
         <div className="flex items-center gap-4 mt-1 flex-wrap">
-          {/* 氏名＋バッジ＋アラート（左） */}
-          <div className="flex items-center gap-2.5 flex-wrap flex-none">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-              <UserCircle className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />
-              <span className="truncate">{user.memberName ?? 'マイページ'}</span>
-            </h1>
-            <RankingBadges badges={myBadges} />
+          {/* 氏名＋目標チップ＋アラート（左）。称号は名前の真上にアイコンだけ並べる。 */}
+          <div className="flex items-end gap-2.5 flex-wrap flex-none">
+            <div className="flex flex-col items-start">
+              <div className="ml-8">
+                <RankingBadges
+                  badges={myBadges}
+                  achieved={targetAchieved}
+                  achievedTitle={`${today.getMonth() + 1}月の目標を達成！`}
+                />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                <UserCircle className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />
+                <span className="truncate">{user.memberName ?? 'マイページ'}</span>
+              </h1>
+            </div>
+            {/* 月間目標は受注担当のみ（管理担当に目標は無い） */}
+            {isSales && (
+              <MyTargetChip
+                memberId={memberId}
+                ym={ymToday}
+                monthLabel={`${today.getMonth() + 1}月`}
+                target={myTargetThis}
+                actual={monthSalesMetrics?.newOrdersCount ?? 0}
+                lastMonth={prevSalesMetrics
+                  ? { monthLabel: `${prevMonthDate.getMonth() + 1}月`, target: myTargetPrev, actual: prevSalesMetrics.newOrdersCount }
+                  : null}
+              />
+            )}
             <MyAlertCenter />
           </div>
           {/* 要対応バナー（残りスペースの中央に、氏名と同じ行の高さで） */}
@@ -1027,7 +1073,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           {/* KPIサマリ（選択期間） */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <MeetingKpi label="面談数" value={salesMetrics.meetingsCount} suffix="件" />
-            <MeetingKpi label="受注数" value={salesMetrics.newOrdersCount} suffix="件" />
+            {/* 目標は月単位なので「当月」を見ているときだけ添える */}
+            <MeetingKpi
+              label="受注数"
+              value={salesMetrics.newOrdersCount}
+              suffix="件"
+              target={selectedPeriod === ymToday ? myTargetThis : null}
+            />
             <MeetingKpi label="受注率" value={salesMetrics.conversionRate === null ? null : Math.round(salesMetrics.conversionRate * 1000) / 10} suffix="%" />
             <MeetingKpi label="受注単価" value={salesMetrics.avgOrderUnit === null ? null : Math.round(salesMetrics.avgOrderUnit / 10000)} suffix="万円" />
             <MeetingKpi label="不動産査定" value={salesMetrics.propertyAppraisalCount} suffix="件" />
@@ -1260,14 +1312,24 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   )
 }
 
-function MeetingKpi({ label, value, suffix }: { label: string; value: number | null; suffix: string }) {
+function MeetingKpi({ label, value, suffix, target }: { label: string; value: number | null; suffix: string; target?: number | null }) {
+  // target を渡したカードだけ、下に「目標 ◯件 ／ 達成率」を出す（当月ビューのみ）
+  const showTarget = target !== null && target !== undefined && target > 0
+  const rate = showTarget && value !== null ? Math.round((value / target) * 100) : null
+  const achieved = rate !== null && rate >= 100
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+    <div className={`bg-white border rounded-xl p-4 shadow-sm ${achieved ? 'border-emerald-300' : 'border-gray-200'}`}>
       <div className="text-[12px] font-semibold text-gray-500 mb-1.5">{label}</div>
       <div className="text-[24px] font-extrabold tracking-tight text-brand-700 leading-none">
         {value === null ? '—' : value.toLocaleString()}
         <span className="text-[12px] text-gray-400 ml-1 font-normal">{suffix}</span>
       </div>
+      {showTarget && (
+        <div className="mt-2 pt-2 border-t border-gray-100 text-[11.5px] text-gray-500">
+          目標 <span className="font-semibold text-gray-700 tabular-nums">{target}</span>件 ／{' '}
+          <span className={`font-semibold tabular-nums ${achieved ? 'text-emerald-600' : 'text-amber-600'}`}>{rate}%</span>
+        </div>
+      )}
     </div>
   )
 }

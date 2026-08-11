@@ -7,7 +7,6 @@ import SalesTeamTable, {
   type SalesTeamGroup,
   type SalesMemberRow,
 } from '@/components/features/dashboard/SalesTeamTable'
-import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import SalesDailyKpis from '@/components/features/dashboard/SalesDailyKpis'
 import SalesYearMatrixTable, {
@@ -24,7 +23,6 @@ import {
   monthHeaderLabel,
   fiscalYearMonthsToDate,
   EMPTY_SALES_TARGET,
-  isSalesAchieved,
   applyReferralFlags,
   type DashCase,
   type DashCaseMember,
@@ -305,8 +303,7 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
     }
   })
 
-  // 達成判定（目標が1つでも設定されていればポップアップ表示）。当月のみ。
-  const achievement = isSalesAchieved(overall, initialTarget)
+  // 達成/未達のポップアップは一旦なし（部全体ダッシュボードと同じ理由）。判定関数は残してある。
 
   // 本日 / 年度累計 用の全体6指標（目標なしのカード表示用）
   const overallToday = computeSalesDailyMetrics(overallScoped.cases, overallScoped.changes, overallScoped.properties, today)
@@ -327,12 +324,6 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
 
   return (
     <div>
-      {currentPeriod === 'month' && achievement.hasTargets && (
-        <DashboardAchievementPopup
-          isAchieved={achievement.achieved}
-          storageKey={`dash-popup-sales-${ym}`}
-        />
-      )}
       <PageHeader
         eyebrow="Sales"
         title={`受注担当ダッシュボード ${periodLabel}`}

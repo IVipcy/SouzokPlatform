@@ -5,7 +5,6 @@ import PageHeader from '@/components/ui/PageHeader'
 import DeptDashboardTabs from '@/components/features/dashboard/DeptDashboardTabs'
 import MemberPerformanceTable, { type MemberWithProfile } from '@/components/features/dashboard/MemberPerformanceTable'
 import SalesTeamTable, { type SalesTeamGroup, type SalesMemberRow } from '@/components/features/dashboard/SalesTeamTable'
-import DashboardAchievementPopup from '@/components/features/dashboard/DashboardAchievementPopup'
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import { parsePeriod } from '@/lib/dashboardPeriod'
 import {
@@ -17,7 +16,6 @@ import {
   formatMan,
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
-  isDeptAchieved,
   applyReferralFlags,
   type DashCase,
   type DashCaseMember,
@@ -233,17 +231,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
   })
 
-  // 達成判定（目標が1つでも設定されていればポップアップ表示）
-  const achievement = isDeptAchieved(summary, initialTarget)
+  // 達成/未達のポップアップは一旦なし。月末を待たずに毎回判定するので、月の前半は
+  // ほぼ未達（怒った画像）が出続けてしまうため。部品と判定関数（isDeptAchieved）は残してある。
 
   return (
     <div>
-      {currentPeriod === 'month' && achievement.hasTargets && (
-        <DashboardAchievementPopup
-          isAchieved={achievement.achieved}
-          storageKey={`dash-popup-dept-${thisYm}`}
-        />
-      )}
       <PageHeader
         eyebrow="Department"
         title={`部全体ダッシュボード ${periodLabel}`}
