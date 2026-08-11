@@ -2,7 +2,6 @@ import Link from 'next/link'
 import {
   Building2,
   Megaphone,
-  Compass,
   Users,
   LayoutDashboard,
   Trophy,
@@ -69,8 +68,6 @@ export default async function DashboardTopPage() {
   const sm = isSystemManager(user)
   const role = user?.primaryRole ?? null
   const myTeamId = user?.teamId ?? null
-  const salesTeams = sm ? teams : (role === 'sales' && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
-  const mgrTeams = sm ? teams : ((role === 'manager' || role === 'sub_manager') && myTeamId ? teams.filter(t => t.id === myTeamId) : [])
   // 事務管理担当（assistant）は「相続事業部全体」＋「事務管理」の2つだけ表示する。
   const isAssistant = role === 'assistant'
 
@@ -110,7 +107,7 @@ export default async function DashboardTopPage() {
   }
   const salesSection: CardSection = {
     title: '受注担当',
-    description: '受注担当の月次・本日成績。面談数・新規受注・受注率・平均単価など。チーム別表示でメンバー個別の数値も。',
+    description: '受注担当の月次・本日成績。面談数・新規受注・受注率・平均単価など。',
     cards: [
       {
         href: '/dashboard/sales',
@@ -119,18 +116,11 @@ export default async function DashboardTopPage() {
         Icon: Megaphone,
         tone: 'green',
       },
-      ...salesTeams.map(t => ({
-        href: `/dashboard/team/${t.id}`,
-        title: `${t.name}（受注担当）`,
-        description: `${t.name}のダッシュボード。受注担当タブ＝メンバー別の本日 / 当月 / 年度累計 / 月別。管理担当タブにも切り替えられます。`,
-        Icon: Users,
-        tone: 'green' as const,
-      })),
     ],
   }
   const mgrSection: CardSection = {
     title: '管理担当',
-    description: '管理担当の月間進捗管理ボード。フラグ別（紫/赤/黄/青）案件監視と請求件数・完了割合・サイクルの可視化。',
+    description: '管理担当の月間進捗管理ボード。案件の色（クレーム/要注意/要確認/なし）での監視と、請求件数・完了割合・サイクルの可視化。',
     cards: [
       {
         href: '/dashboard/manager',
@@ -139,15 +129,27 @@ export default async function DashboardTopPage() {
         Icon: Building2,
         tone: 'purple',
       },
-      ...mgrTeams.map(t => ({
-        href: `/dashboard/team/${t.id}/progress`,
-        title: `${t.name}（管理担当）`,
-        description: `${t.name}のダッシュボード。管理担当タブ＝担当案件・案件の色・完了割合・サイクル・請求件数。受注担当タブにも切り替えられます。`,
-        Icon: Compass,
-        tone: 'purple' as const,
-      })),
     ],
   }
+  // チームのダッシュボードは受注担当・管理担当のタブで1画面になっているので、カードも1チーム1枚。
+  // 着地するタブは見る人の担当に合わせる（受注担当→受注担当タブ／それ以外→管理担当タブ）。
+  const visibleTeams = sm
+    ? teams
+    : (myTeamId && (role === 'sales' || role === 'manager' || role === 'sub_manager')
+        ? teams.filter(t => t.id === myTeamId)
+        : [])
+  const teamSection: CardSection = {
+    title: 'チーム',
+    description: 'チームごとのダッシュボード。1つの画面を受注担当・管理担当のタブで切り替えて、両方を見られます。',
+    cards: visibleTeams.map(t => ({
+      href: role === 'sales' ? `/dashboard/team/${t.id}` : `/dashboard/team/${t.id}/progress`,
+      title: `${t.name}`,
+      description: '受注担当タブ＝メンバー別の本日 / 当月 / 年度累計。管理担当タブ＝担当案件・案件の色・完了割合・サイクル・請求件数。',
+      Icon: Users,
+      tone: 'green' as const,
+    })),
+  }
+
   const toukiSections: CardSection[] = (user?.isTouKiTeam || sm) ? [{
     title: '相続登記チーム',
     description: '相続登記チーム メンバー専用。task_kind=touki_team のタスク（権利書の製本 等）を全案件横断で表示。',
@@ -167,7 +169,7 @@ export default async function DashboardTopPage() {
   // 事務管理ダッシュボードは事務管理担当の持ち場。サイドバーと揃えて、他の担当区分には出さない。
   const sections: CardSection[] = isAssistant && !sm
     ? [deptSection, officeSection]
-    : [deptSection, salesSection, mgrSection, ...toukiSections, ...(sm ? [officeSection] : [])]
+    : [deptSection, salesSection, mgrSection, ...(teamSection.cards.length > 0 ? [teamSection] : []), ...toukiSections, ...(sm ? [officeSection] : [])]
 
   const today = new Date()
   const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
