@@ -77,6 +77,9 @@ const CATEGORY_BADGE: Record<string, string> = {
   '契約':       'bg-purple-50 text-purple-700 border-purple-200',
   '初期対応':   'bg-sky-50    text-sky-700    border-sky-200',
   '定期進捗連絡': 'bg-pink-50  text-pink-700   border-pink-200',
+  // 自動生成タスクのカテゴリ（前受金入金御礼＝連絡／領収書＝経理）
+  '連絡':       'bg-pink-50   text-pink-700   border-pink-200',
+  '経理':       'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
 const normalizeStatus = (s: string) => {

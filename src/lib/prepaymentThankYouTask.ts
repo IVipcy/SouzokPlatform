@@ -14,14 +14,15 @@ export async function ensurePrepaymentThankYouTask(invoiceId: string): Promise<v
     .single()
   if (!inv || inv.invoice_type !== '前受金' || inv.status !== '入金済') return
 
-  // 重複防止：この請求の御礼タスクが既にあれば作らない
+  // 重複防止：この案件に未完了の御礼タスクが既にあれば作らない。
+  // 前受金の請求が司法・行政で2本あると請求ごとに1つずつ出てしまい、
+  // お客様への御礼連絡は1回なのにタスクが2つ並んでいた（請求単位→案件単位に変更）。
   const { data: existing } = await supabase
     .from('tasks')
-    .select('id')
+    .select('id, status')
     .eq('case_id', inv.case_id)
-    .contains('ext_data', { invoice_id: invoiceId, doc: 'prepay_thanks' })
-    .limit(1)
-  if (existing && existing.length > 0) return
+    .contains('ext_data', { doc: 'prepay_thanks' })
+  if ((existing ?? []).some(t => (t as { status: string }).status !== '完了' && (t as { status: string }).status !== 'キャンセル')) return
 
   // 期限＝入金確定日（本日）
   const today = new Date().toISOString().slice(0, 10)
@@ -33,7 +34,8 @@ export async function ensurePrepaymentThankYouTask(invoiceId: string): Promise<v
       case_id: inv.case_id,
       title: '前受金入金御礼連絡',
       task_kind: 'system',       // 受注担当/管理担当タスク
-      phase: '受注',
+      // 案件を進める工程ではなく、随時発生するお客様連絡なので「その他」タブに置く。
+      phase: 'その他',
       category: '連絡',
       status: '未着手',
       priority: '超急ぎ',
