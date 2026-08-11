@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Plus, Trash2, Search } from 'lucide-react'
+import { Plus, Trash2, Search, ListChecks } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
@@ -173,6 +173,27 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
 
   const addItem = () => {
     setItems(prev => [...prev, newItem()])
+  }
+
+  // 受領待ちの到着物をまとめて選ぶ。1通ずつ「到着物を追加」→ プルダウンを開く、を
+  // 繰り返すのが面倒なので、チェックした数だけ行をまとめて作る。
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkChecked, setBulkChecked] = useState<string[]>([])
+  const toggleBulk = (value: string) =>
+    setBulkChecked(prev => (prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]))
+  const applyBulkPick = () => {
+    const picked = bulkChecked
+      .map(v => deliverables.find(o => o.value === v))
+      .filter((o): o is DeliverableOption => !!o)
+    if (picked.length === 0) { setBulkOpen(false); return }
+    const rows: ItemDraft[] = picked.map(o => ({ ...newItem(), linked: o.value, item_name: o.label }))
+    setItems(prev => {
+      // 何も入っていない行（最初の1行など）は置き換える
+      const kept = prev.filter(i => i.item_name.trim() !== '' || i.linked !== '' || i.received_from.trim() !== '')
+      return [...kept, ...rows]
+    })
+    setBulkChecked([])
+    setBulkOpen(false)
   }
 
   const removeItem = (key: string) => {
@@ -453,15 +474,65 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-[12px] font-semibold text-gray-500">到着物 <span className="text-red-500">*</span></label>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Plus className="w-3.5 h-3.5" />}
-              onClick={addItem}
-            >
-              到着物を追加
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {deliverables.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<ListChecks className="w-3.5 h-3.5" />}
+                  onClick={() => setBulkOpen(o => !o)}
+                >
+                  {bulkOpen ? '閉じる' : 'まとめて選ぶ'}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={addItem}
+              >
+                到着物を追加
+              </Button>
+            </div>
           </div>
+
+          {/* 受領待ちの到着物からまとめて選ぶ。チェックした数だけ行ができる。 */}
+          {bulkOpen && (
+            <div className="mb-2 rounded-md border border-brand-200 bg-brand-50/40 p-2.5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[12px] font-semibold text-brand-800">受領待ちの到着物から選ぶ</span>
+                <span className="text-[11px] text-brand-700">{bulkChecked.length}件</span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <button type="button" onClick={() => setBulkChecked(deliverables.map(o => o.value))}
+                    className="text-[11.5px] text-brand-700 hover:underline">すべて選ぶ</button>
+                  <span className="text-gray-300">/</span>
+                  <button type="button" onClick={() => setBulkChecked([])}
+                    className="text-[11.5px] text-gray-500 hover:underline">解除</button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                {groupedDeliverables.map(([group, opts]) => (
+                  <div key={group}>
+                    <div className="text-[11px] font-semibold text-gray-500 mb-0.5">{group}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
+                      {opts.map(o => (
+                        <label key={o.value} className="flex items-center gap-1.5 text-[12.5px] text-gray-700 cursor-pointer py-0.5">
+                          <input type="checkbox" checked={bulkChecked.includes(o.value)} onChange={() => toggleBulk(o.value)}
+                            className="w-3.5 h-3.5 accent-brand-600" />
+                          <span className="truncate">{o.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button variant="primary" size="sm" onClick={applyBulkPick} disabled={bulkChecked.length === 0}>
+                  {bulkChecked.length}件を追加
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* まとめて入力：同じ差出人から複数まとめて届くケース（契約書・料金表・委任状…）で行ごとに打たずに済む */}
           {items.length > 1 && (
