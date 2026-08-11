@@ -9,9 +9,11 @@ type ModalProps = {
   children: React.ReactNode
   footer?: React.ReactNode
   maxWidth?: string
+  /** 高さの上限。既定 max-h-[85vh]。画像の書き込みなど広く使いたい画面で上げる。 */
+  maxHeight?: string
 }
 
-export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = 'max-w-lg' }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = 'max-w-lg', maxHeight = 'max-h-[85vh]' }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
     >
-      <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full mx-4 max-h-[85vh] flex flex-col`}>
+      <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full mx-4 ${maxHeight} flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h2 className="text-base font-bold text-gray-900">{title}</h2>
           <button

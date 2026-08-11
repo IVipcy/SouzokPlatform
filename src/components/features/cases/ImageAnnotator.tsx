@@ -246,7 +246,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title ?? '画像に書き込む'} maxWidth="max-w-5xl"
+    <Modal isOpen={isOpen} onClose={onClose} title={title ?? '画像に書き込む'} maxWidth="max-w-[96vw]" maxHeight="max-h-[95vh]"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>閉じる</Button>
@@ -290,7 +290,9 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
         </div>
 
         {/* 画像＋書き込み */}
-        <div ref={wrapRef} className="relative bg-gray-50 border border-gray-200 rounded-lg overflow-auto" style={{ maxHeight: '62vh' }}>
+        {/* 画像は画面の高さいっぱいまで使う（戸籍は細かい字を追うので、大きいほど読みやすい）。
+            引くのはヘッダー・道具バー・フッターぶん。 */}
+        <div ref={wrapRef} className="relative bg-gray-50 border border-gray-200 rounded-lg overflow-auto" style={{ maxHeight: 'calc(95vh - 250px)' }}>
           <div className="relative mx-auto" style={{ width: size.w, height: size.h }}>
             <canvas
               ref={canvasRef}
