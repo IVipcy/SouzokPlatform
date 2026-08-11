@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { BookOpen } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, ListOrdered } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { getAllArticles, MANUAL_CATEGORY_ORDER } from '@/lib/manual'
 import ManualIndex from '@/components/features/manual/ManualIndex'
@@ -23,6 +24,11 @@ export default function ManualPage() {
         title="マニュアル"
         icon={BookOpen}
         description="業務の流れに沿ったシステムの使い方・ナレッジベース。キーワード検索でも探せます。"
+        right={
+          <Link href="/manual/steps" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            <ListOrdered className="w-3.5 h-3.5" />操作ステップ
+          </Link>
+        }
       />
       {items.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-[13px] text-gray-400">
