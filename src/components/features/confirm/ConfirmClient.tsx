@@ -65,11 +65,11 @@ export type ConfirmItem = {
 
 type PropLite = { id: string; municipality: string | null; address: string | null }
 
+// 評価・残高の確定／凍結してよいか確認 は確認簿から廃止。
+// 評価額・残高は財産調査タブでそのまま確定し、凍結の可否も財産調査タブで扱う。
 const TABS: { key: ConfirmItem['tab']; label: string }[] = [
   { key: 'request', label: '請求（発送・着）' },
-  { key: 'confirm', label: '評価・残高の確定' },
   { key: 'approve', label: '追加請求承認' },
-  { key: 'freeze', label: '凍結してよいか確認' },
 ]
 
 const GYOMU_CLS: Record<string, string> = {

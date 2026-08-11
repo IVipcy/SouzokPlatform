@@ -28,11 +28,11 @@ export default async function ConfirmPage() {
     return <ConfirmClient items={[]} properties={[]} />
   }
 
-  const [{ data: kosekiRaw }, { data: acqRaw }, { data: propRaw }, { data: finRaw }, { data: memRaw }] = await Promise.all([
+  // 金融資産は確認簿の対象から外した（残高の確定・凍結してよいか確認を廃止したため）
+  const [{ data: kosekiRaw }, { data: acqRaw }, { data: propRaw }, { data: memRaw }] = await Promise.all([
     supabase.from('koseki_requests').select('*').in('case_id', caseIds),
     supabase.from('real_estate_acquisitions').select('*').in('case_id', caseIds),
     supabase.from('real_estate_properties').select('*').in('case_id', caseIds),
-    supabase.from('financial_assets').select('*').in('case_id', caseIds),
     supabase.from('members').select('id,name'),
   ])
 
@@ -116,24 +116,6 @@ export default async function ConfirmPage() {
     if (r.is_additional && !r.additional_approved_at) {
       items.push({ ...b, key: `pa-${id}`, tab: 'approve', action: 're_prop_approve', target: muni || '市区町村', content: '市区町村追加', amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { municipality: muni } })
       continue
-    }
-    if (r.confirm_requested_at && !r.confirmed) {
-      items.push({ ...b, stamp: (r.confirm_requested_at as string) ?? b.stamp, key: `pc-${id}`, tab: 'confirm', action: 're_confirm', target: muni || '未設定', content: `${(r.property_type as string) || ''} ${address}`.trim() || '物件', amount: yen(r.appraisal_value as number), workerId: null, workerName: null, reviewer: 'jimu', requestedAt: (r.confirm_requested_at as string) ?? null, requestedBy: (r.confirm_requested_by as string) ?? null, requestedByName: nameOf(r.confirm_requested_by as string) })
-    }
-  }
-
-  // ── 金融（残高の確定／口座凍結確認） ──
-  for (const r of (finRaw ?? []) as Record<string, unknown>[]) {
-    const id = r.id as string, caseId = r.case_id as string
-    if (!caseMap.has(caseId)) continue
-    const b = base({ id, case_id: caseId }, '金融')
-    const inst = ((r.institution_name as string) ?? '').trim()
-    const sub = ((r.branch_name as string) || (r.stock_name as string) || '') as string
-    if (r.balance_confirm_requested_at && !r.balance_confirmed) {
-      items.push({ ...b, stamp: (r.balance_confirm_requested_at as string) ?? b.stamp, key: `fc-${id}`, tab: 'confirm', action: 'fin_confirm', target: inst || '未設定', content: sub || '口座', amount: yen(r.balance_amount as number), workerId: null, workerName: null, reviewer: 'jimu', requestedAt: (r.balance_confirm_requested_at as string) ?? null, requestedBy: (r.balance_confirm_requested_by as string) ?? null, requestedByName: nameOf(r.balance_confirm_requested_by as string) })
-    }
-    if (r.freeze_confirm_requested_at && !r.freeze_confirmed) {
-      items.push({ ...b, stamp: (r.freeze_confirm_requested_at as string) ?? b.stamp, key: `ff-${id}`, tab: 'freeze', action: 'fin_freeze', target: inst || '未設定', content: sub || '口座', amount: null, workerId: null, workerName: null, reviewer: 'manager', requestedAt: (r.freeze_confirm_requested_at as string) ?? null, requestedBy: (r.freeze_confirm_requested_by as string) ?? null, requestedByName: nameOf(r.freeze_confirm_requested_by as string) })
     }
   }
 
