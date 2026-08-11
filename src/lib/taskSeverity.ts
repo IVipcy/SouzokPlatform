@@ -31,6 +31,21 @@ const THRESHOLDS_BY_GYOMU: Record<string, SeverityThresholds> = {
   '戸籍': THRESHOLDS_HEIRS,
 }
 
+/**
+ * ヘルプに出す「タブごとのしきい値」。事務管理タスク一覧の業務タブと同じ並び。
+ * 業務区分ではなくタブ単位で書くのは、利用者が見ているのがタブだから。
+ */
+export const TAB_THRESHOLDS: Array<{ tab: string; th: SeverityThresholds; note?: string }> = [
+  { tab: '相続人調査', th: THRESHOLDS_HEIRS, note: '役所への請求待ちが読めるぶん、遅れに厳しい' },
+  { tab: '不動産調査', th: THRESHOLDS_ASSETS },
+  { tab: '金融資産調査', th: THRESHOLDS_ASSETS },
+  { tab: '解約手続', th: THRESHOLDS_ASSETS },
+  { tab: '相続登記', th: THRESHOLDS_ASSETS },
+  { tab: '各種作成物', th: THRESHOLDS_ASSETS, note: '遺産分割協議書・相関図・財産目録' },
+  { tab: '納品', th: THRESHOLDS_ASSETS },
+  { tab: 'その他', th: THRESHOLDS_ASSETS },
+]
+
 /** 期限の絞り込みチップ「大幅超過」の境目（営業日） */
 export const TASK_CHUI_BIZ_DAYS = 5
 
@@ -85,8 +100,10 @@ export const SEVERITY_TAB: Record<TaskSeverity, { dot: string; badge: string; te
   blue: { dot: 'bg-sky-300', badge: 'bg-sky-50 text-sky-600', text: 'text-gray-500' },
 }
 
+// 絞り込みチップ・ヘルプに出す言葉。色の名前（赤・青）では何のことか分からないので、
+// 遅れ具合そのものを名前にする。色は点で示し、タブの点と同じ色でつなぐ。
 export const SEVERITY_LABEL: Record<TaskSeverity, string> = {
-  red: '赤', orange: 'オレンジ', green: '緑', blue: '青',
+  red: '大幅遅れ・急ぎ', orange: '遅れ', green: '少し遅れ', blue: '期限内',
 }
 
 /** しきい値を「3〜4営業日超過」のような文にする（説明用） */
