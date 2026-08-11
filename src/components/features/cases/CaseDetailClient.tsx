@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, ListChecks, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { applyRouteToCaseNumber, isPendingRouteCaseNumber } from '@/lib/caseNumber'
 import { kosekiOfficeFromAddress } from '@/lib/address'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, toReadinessReceipts, getStartSignal } from '@/lib/taskReadiness'
@@ -197,6 +198,22 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 2人目以降は戸籍請求タブの「戸籍を追加」からその場で足す（相続人一覧にも同時に登録される）。
   //
   // 取得区分は既定「自社取得」、請求先は本籍地から自動推定。
+  // 案件番号の経路コードの取りこぼしを拾う。
+  // /intake の下書きは経路が決まる前に採番するので XX で始まる。受注ルートを保存した時点で
+  // 実コードに直しているが、それより前に作られた案件や、直す処理を通らずにルートが入った案件が残る。
+  // 案件詳細を開いたときに、番号が XX のままでルートが入っていれば静かに直す。
+  const fixNumberRef = useRef(false)
+  useEffect(() => {
+    if (fixNumberRef.current) return
+    if (!isPendingRouteCaseNumber(caseState.case_number) || !caseState.order_route) return
+    fixNumberRef.current = true
+    ;(async () => {
+      const next = await applyRouteToCaseNumber(createClient(), caseState.id, caseState.order_route)
+      if (next) handleSaved()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseState.id, caseState.case_number, caseState.order_route])
+
   const kosekiSeededRef = useRef(false)
   useEffect(() => {
     if (kosekiSeededRef.current) return
