@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Printer, Pencil, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { MANUAL_BUCKET, numberOf, itemRangeOf, type ManualStepRow } from '@/lib/manualStep'
+import { MANUAL_BUCKET, numberOf, itemRangeOf, rolesOfShots, type ManualStepRow } from '@/lib/manualStep'
 
 export default function ManualStepView({ step, embedded = false }: {
   step: ManualStepRow
@@ -59,7 +59,7 @@ export default function ManualStepView({ step, embedded = false }: {
         {/* 見出し＋ロール */}
         <div className="flex items-center gap-3 flex-wrap mb-4">
           <h2 className="text-[19px] font-bold text-gray-900">{step.title || '（無題）'}</h2>
-          {(step.roles ?? []).map(r => (
+          {rolesOfShots(shots).map(r => (
             <span key={r} className="text-[12px] font-semibold text-white bg-brand-600 rounded-full px-3.5 py-0.5">{r}</span>
           ))}
           {embedded && (
@@ -85,7 +85,15 @@ export default function ManualStepView({ step, embedded = false }: {
               const mine = items.slice(start, start + count)
               return (
                 <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-7 items-start print:break-inside-avoid">
-                  {/* 左：この画面 */}
+                  {/* 左：この画面。担当はページ全体ではなく画面ごとに出す（章の中で担当が混ざるため） */}
+                  <div>
+                    {(s.roles ?? []).length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                        {(s.roles ?? []).map(r => (
+                          <span key={r} className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2.5 py-0.5">{r}</span>
+                        ))}
+                      </div>
+                    )}
                   <div className="relative border border-gray-200 rounded overflow-hidden">
                     {urls[s.id]
                       // eslint-disable-next-line @next/next/no-img-element
@@ -99,6 +107,7 @@ export default function ManualStepView({ step, embedded = false }: {
                         </span>
                       </span>
                     ))}
+                  </div>
                   </div>
 
                   {/* 右：この画面に対応する操作方法だけ */}

@@ -21,7 +21,7 @@ import { showToast } from '@/components/ui/Toast'
 import PageHeader from '@/components/ui/PageHeader'
 import Button from '@/components/ui/Button'
 import {
-  MANUAL_BUCKET, MANUAL_ROLES, newId, numberOf, markCount, syncItems, itemRangeOf,
+  MANUAL_BUCKET, MANUAL_ROLES, newId, numberOf, markCount, syncItems, itemRangeOf, rolesOfShots,
   type ManualStepRow, type Shot, type MarkBox, type StepItem,
 } from '@/lib/manualStep'
 
@@ -31,7 +31,6 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
 
   const [chapter, setChapter] = useState(step.chapter)
   const [title, setTitle] = useState(step.title)
-  const [roles, setRoles] = useState<string[]>(step.roles ?? [])
   const [shots, setShots] = useState<Shot[]>(step.shots ?? [])
   const [items, setItems] = useState<StepItem[]>(step.items ?? [])
   const [urls, setUrls] = useState<Record<string, string>>({})
@@ -96,6 +95,15 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
     return () => window.removeEventListener('paste', onPaste)
   }, [addFiles])
 
+  const toggleShotRole = (shotId: string, role: string) => {
+    setShots(prev => prev.map(s => {
+      if (s.id !== shotId) return s
+      const cur = s.roles ?? []
+      return { ...s, roles: cur.includes(role) ? cur.filter(r => r !== role) : [...cur, role] }
+    }))
+    setDirty(true)
+  }
+
   const removeShot = async (shotId: string) => {
     const target = shots.find(s => s.id === shotId)
     if (!target) return
@@ -140,8 +148,9 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
 
   const save = async () => {
     setSaving(true)
+    // ページ全体の担当は、載っている画面の担当をまとめたもの（絞り込み・一覧表示に使う）
     const { error } = await supabase.from('manual_steps')
-      .update({ chapter, title, roles, shots, items })
+      .update({ chapter, title, roles: rolesOfShots(shots), shots, items })
       .eq('id', step.id)
     setSaving(false)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
@@ -176,20 +185,8 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
         <input value={title} onChange={e => { setTitle(e.target.value); touch() }}
           placeholder="例: STEP①：面談内容の登録"
           className="w-full px-2.5 py-1.5 text-[15px] font-semibold border border-gray-300 rounded-md outline-none focus:border-brand-400" />
-        <div className="flex items-center gap-2 flex-wrap mt-2.5">
-          <span className="text-[11.5px] text-gray-500">誰向けの手順か</span>
-          {MANUAL_ROLES.map(r => {
-            const on = roles.includes(r)
-            return (
-              <button key={r} type="button"
-                onClick={() => { setRoles(on ? roles.filter(x => x !== r) : [...roles, r]); touch() }}
-                className={`px-2.5 py-1 rounded-full text-[11.5px] font-semibold border transition-colors ${
-                  on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300'}`}>
-                {r}
-              </button>
-            )
-          })}
-          {roles.length === 0 && <span className="text-[11px] text-gray-400">選ばなければ全員に出ます</span>}
+        <div className="flex items-center gap-2 flex-wrap mt-2">
+          <span className="text-[11px] text-gray-400">誰向けの手順かは、画面ごとに選びます</span>
           {/* 章は入ってきたタブで決まっているので、ふだんは触らない。別の章へ移したいときだけ使う。 */}
           <span className="ml-auto inline-flex items-center gap-1.5">
             <span className="text-[11px] text-gray-400">章</span>
@@ -227,6 +224,7 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
                 onAddMark={box => addMark(s.id, box)}
                 onRemoveMark={removeMark}
                 onRemoveShot={() => removeShot(s.id)}
+                onToggleRole={r => toggleShotRole(s.id, r)}
               />
               <div className="space-y-3">
                 {mine.length === 0 ? (
@@ -292,7 +290,7 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
 }
 
 // 1枚の画面キャプチャ。ドラッグで枠を引き、枠をクリックで選ぶ。
-function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, onRemoveMark, onRemoveShot }: {
+function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, onRemoveMark, onRemoveShot, onToggleRole }: {
   shot: Shot
   url?: string
   index: number
@@ -302,6 +300,7 @@ function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, on
   onAddMark: (box: Omit<MarkBox, 'id'>) => void
   onRemoveMark: (id: string) => void
   onRemoveShot: () => void
+  onToggleRole: (role: string) => void
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [draw, setDraw] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
@@ -343,12 +342,28 @@ function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, on
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 border-b border-gray-100">
-        <span className="text-[11.5px] font-semibold text-gray-600">画面 {index + 1}</span>
-        <span className="text-[11px] text-gray-400">赤枠 {shot.marks.length}個</span>
-        <button type="button" onClick={onRemoveShot} className="ml-auto p-1 text-gray-300 hover:text-red-500" title="この画面を削除">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+      <div className="px-2.5 py-1.5 bg-gray-50 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <span className="text-[11.5px] font-semibold text-gray-600">画面 {index + 1}</span>
+          <span className="text-[11px] text-gray-400">赤枠 {shot.marks.length}個</span>
+          <button type="button" onClick={onRemoveShot} className="ml-auto p-1 text-gray-300 hover:text-red-500" title="この画面を削除">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        {/* 誰向けの手順か。同じ章に受注担当と管理担当の手順が混ざるので、画面ごとに持つ。 */}
+        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+          {MANUAL_ROLES.map(r => {
+            const on = (shot.roles ?? []).includes(r)
+            return (
+              <button key={r} type="button" onClick={() => onToggleRole(r)}
+                className={`px-2 py-0.5 rounded-full text-[10.5px] font-semibold border transition-colors ${
+                  on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-400 border-gray-200 hover:border-brand-300'}`}>
+                {r}
+              </button>
+            )
+          })}
+          {(shot.roles ?? []).length === 0 && <span className="text-[10.5px] text-gray-400">選ばなければ全員に出ます</span>}
+        </div>
       </div>
       <div
         ref={wrapRef}

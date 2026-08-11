@@ -20,6 +20,11 @@ export type Shot = {
   id: string
   /** storage のパス（バケットは manual-images 固定） */
   path: string
+  /**
+   * この画面が誰向けの手順か。空＝全員。
+   * 同じ章の中に受注担当と管理担当の手順が混ざるので、ページ単位ではなく画面単位で持つ。
+   */
+  roles?: string[]
   marks: MarkBox[]
 }
 
@@ -76,6 +81,13 @@ export const markCount = (shots: Shot[]) => flatMarks(shots).length
  * 画像と説明を同じ高さで横に並べるために使う（2枚目の画像の説明が1枚目の隣に来ると、
  * どの画像の話なのか読めなくなるため）。
  */
+/** ページ全体の担当＝載っている画面の担当をまとめたもの（表示・絞り込み用に自動で決める） */
+export function rolesOfShots(shots: Shot[]): string[] {
+  const out: string[] = []
+  for (const s of shots) for (const r of s.roles ?? []) if (!out.includes(r)) out.push(r)
+  return out
+}
+
 export function itemRangeOf(shots: Shot[], shotIndex: number): { start: number; count: number } {
   let start = 0
   for (let i = 0; i < shotIndex; i++) start += shots[i].marks.length

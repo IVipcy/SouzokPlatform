@@ -1,6 +1,5 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { ListOrdered, ArrowLeft } from 'lucide-react'
+import { ListOrdered } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import ManualStepsClient from '@/components/features/manual/ManualStepsClient'
@@ -21,14 +20,9 @@ export default async function ManualStepsPage() {
     <div>
       <PageHeader
         eyebrow="Manual"
-        title="操作ステップ"
+        title="マニュアル"
         icon={ListOrdered}
         description="画面キャプチャに赤枠と番号を振り、右に操作方法を書いたページです。章ごとに上から通して読めます。"
-        right={
-          <Link href="/manual" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <ArrowLeft className="w-3.5 h-3.5" />マニュアルへ
-          </Link>
-        }
       />
       <Suspense fallback={<p className="text-[12px] text-gray-400">読み込み中…</p>}>
         <ManualStepsClient chapters={chapters} steps={steps} />
