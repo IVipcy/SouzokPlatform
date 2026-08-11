@@ -12,6 +12,8 @@ import ClientInfoTab from './ClientInfoTab'
 import OrderContentTab from './OrderContentTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
+import AssetsTotalBand from './AssetsTotalBand'
+import { OTHER_ASSET_KINDS } from '@/lib/constants'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
 import RegistrationTab from './RegistrationTab'
@@ -170,8 +172,18 @@ export default function OrderSheet({
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
     { title: '受注内容', workContentKey: 'order', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode hideOrderMemo={guided} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
-    { title: '財産調査（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} /> },
-    { title: '財産調査（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} /> },
+    // 財産調査は「合計 → 不動産 → 金融資産 → その他財産 → 相続債務 → その他費用」の順に並べる。
+    // 合計は先頭の1か所だけ（各ブロックの合計バンドは hideSummary で消す）。
+    // その他財産・相続債務・その他費用は金融資産ではないので、金融ブロックから出して別に置く。
+    { title: '財産調査（合計）', gate: 'assets', workContentKey: 'assets', node: <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} /> },
+    { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /> },
+    { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
+    ...OTHER_ASSET_KINDS.map(k => ({
+      title: k.kind,
+      gate: 'assets' as TabKey,
+      workContentKey: `assets_other_${k.kind}`,
+      node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />,
+    })),
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },

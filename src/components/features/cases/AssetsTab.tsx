@@ -35,6 +35,14 @@ type Props = {
   //   ['deposit','securities','trust','insurance'] → 金融資産(預金・証券・信託・生命保険)
   //   未指定=全種別（従来動作）
   showKinds?: Array<'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance'>
+  /**
+   * その他財産／相続債務／その他費用のうち、このブロックで出すもの。
+   * オーダーシートでは金融資産と分けて別ブロックに置くため、明示的に渡す。
+   * 未指定なら従来どおり（実務タブ＝サブタブ選択、オーダーシート＝金融ブロックにまとめて表示）。
+   */
+  showOtherKinds?: string[]
+  /** 合計バンドを出さない。合計は財産調査セクションの先頭に1つだけ置くため。 */
+  hideSummary?: boolean
   // 契約残手続きの書類（区分=財産 を「契約時受領」として表示）
   contractDocuments?: ContractDocumentRow[]
   // 不動産の取得資料管理
@@ -71,7 +79,7 @@ const SUBTABS_FULL: { key: string; label: string }[] = [
   ...ASSET_SUBTABS, ...OTHER_SUBTABS, { key: 'inventory', label: '財産目録' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, showOtherKinds, hideSummary = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
   // 表示する種別のフィルタ (orderSheetMode の分割表示時のみ使用)
   const kindOn = (k: 'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance') => !showKinds || showKinds.includes(k)
   const save = async (field: string, value: unknown) => {
@@ -124,9 +132,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
   }, [otherAssets])
   const otherRowsOf = (kind: string) => otherByKind[kind] ?? []
   const [revealOther, setRevealOther] = useState<Record<string, boolean>>({})
-  const otherGroupOn = !showKinds || showKinds.includes('deposit')
+  // showOtherKinds を渡されたら、その種別だけをこのブロックで出す（合計にも同じ範囲を使う）
+  const otherGroupOn = showOtherKinds ? showOtherKinds.length > 0 : (!showKinds || showKinds.includes('deposit'))
+  const otherKindOn = (kind: string) => (showOtherKinds ? showOtherKinds.includes(kind) : otherGroupOn)
   const showOther = (kind: string) =>
-    orderSheetMode ? (otherGroupOn && (otherRowsOf(kind).length > 0 || !!revealOther[kind])) : sub === `other:${kind}`
+    orderSheetMode
+      ? (otherKindOn(kind) && (!!showOtherKinds || otherRowsOf(kind).length > 0 || !!revealOther[kind]))
+      : sub === `other:${kind}`
 
   // 契約時受領の書類を各表の先頭に取り込む。区分=金融/不動産は確実に振り分け。
   // 旧データ（区分=財産）は名称キーワードでフォールバック振り分け。
@@ -145,13 +157,13 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
     ...(kindOn('deposit') ? [{ label: '預金', amount: finSum('預貯金') }] : []),
     ...(kindOn('securities') ? [{ label: '証券', amount: finSum('証券') }] : []),
     ...(kindOn('trust') ? [{ label: '信託', amount: finSum('信託銀行') }] : []),
-    ...(otherGroupOn ? OTHER_ASSET_KINDS.map(k => ({
+    ...OTHER_ASSET_KINDS.filter(k => otherKindOn(k.kind)).map(k => ({
       label: k.kind, amount: otherRowsOf(k.kind).reduce((s, r) => s + (r.amount ?? 0), 0), negative: k.negative,
-    })) : []),
+    })),
   ].filter(x => x.amount !== 0)
   const summaryPositive = summaryItems.filter(x => !x.negative).reduce((s, x) => s + x.amount, 0)
   const summaryNegative = summaryItems.filter(x => x.negative).reduce((s, x) => s + x.amount, 0)
-  const assetSummary = summaryItems.length > 0 ? (
+  const assetSummary = !hideSummary && summaryItems.length > 0 ? (
     <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-3 py-2">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
         {/* マイナス計上は「− 金額」の表記で分かるので赤字にはしない（赤は危険の色に取っておく） */}
@@ -285,7 +297,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             />
           </div>
         ))}
-        {orderSheetMode && otherGroupOn && OTHER_ASSET_KINDS.some(k => !showOther(k.kind)) && (
+        {orderSheetMode && !showOtherKinds && otherGroupOn && OTHER_ASSET_KINDS.some(k => !showOther(k.kind)) && (
           <div className="flex flex-wrap gap-2 pt-1">
             {OTHER_ASSET_KINDS.filter(k => !showOther(k.kind)).map(k => (
               <button key={k.kind} type="button" onClick={() => setRevealOther(r => ({ ...r, [k.kind]: true }))}
