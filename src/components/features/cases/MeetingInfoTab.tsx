@@ -8,7 +8,9 @@ import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect,
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
+import ReferralSourceLookup from './ReferralSourceLookup'
 import {
+  MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES, PAST_CLIENT_ROUTE,
   CONSIDERATION_DECLINE_REASONS, ORDER_ROUTES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
   CONSIDERATION_PERIODS, considerationDueMax,
@@ -112,7 +114,14 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
               }}
             />
           )}
-          <InlineEdit label="紹介元" value={caseData.order_route_detail} onSave={v => saveCaseField('order_route_detail', v)} />
+          {/* 紹介元。面談ルートで中身が決まる（面談結果登録の画面と同じ選択肢）。
+              葬儀社・税理士は一覧から選び、HPは種別、過去客経由は既存の依頼者から選ぶ。
+              「その他」だけ自由入力（遺品整理業者・介護事業者など業種を書く）。 */}
+          <ReferralDetailField
+            route={caseData.order_route}
+            value={caseData.order_route_detail}
+            onSave={v => saveCaseField('order_route_detail', v)}
+          />
           <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
           <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
@@ -212,6 +221,44 @@ function ReferralToggles({ caseId, referrals, onRefresh }: {
       <p className="text-[11px] text-gray-400 mt-1.5">
         チェックすると「他事業者紹介」タブに業者ごとのサブタブが作成されます。
       </p>
+    </div>
+  )
+}
+
+// 紹介元。面談ルートによって選ぶものが変わるので、ここで出し分ける。
+// 面談結果登録の画面（MeetingForm）と同じ選択肢を使う。
+function ReferralDetailField({ route, value, onSave }: {
+  route: string | null
+  value: string | null
+  onSave: (v: string) => Promise<void>
+}) {
+  if (!route) {
+    return <Field label="紹介元" value="（受注ルートを選ぶと入力できます）" />
+  }
+  if (route === 'その他') {
+    return <InlineEdit label="紹介元（その他）" value={value} onSave={onSave} hint="遺品整理業者、介護事業者等の業種" />
+  }
+  if (route === 'HP経由') {
+    return <InlineSelect label="紹介元（HP）" value={value} options={[...HP_SOURCES]} onSave={onSave} />
+  }
+  if (route === PAST_CLIENT_ROUTE) {
+    // 過去客経由は既存の依頼者名を書く（面談結果登録では依頼者検索から選ぶ）
+    return <InlineEdit label="紹介元（過去の依頼者）" value={value} onSave={onSave} hint="過去の依頼者名" />
+  }
+  const staticOptions =
+    route === '主要取引先葬儀社' ? [...MAIN_FUNERAL_COMPANIES]
+      : route === 'その他葬儀社' ? [...OTHER_FUNERAL_COMPANIES]
+        : route === '税理士経由' ? [...TAX_ADVISOR_COMPANIES]
+          : undefined
+  return (
+    <div className="py-1.5">
+      <ReferralSourceLookup
+        label="紹介元"
+        route={route}
+        value={value ?? ''}
+        onChange={name => onSave(name)}
+        staticOptions={staticOptions}
+      />
     </div>
   )
 }
