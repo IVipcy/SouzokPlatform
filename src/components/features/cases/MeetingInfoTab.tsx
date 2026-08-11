@@ -92,14 +92,17 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
       {/* 面談結果（報告書式の項目をそのまま） */}
       <Section title="面談結果">
         <FieldGrid>
-          {/* 受注ルート。LP経由はLP連携で自動設定されるため編集不可（読み取り表示）。 */}
-          {caseData.order_route === 'LP経由' ? (
+          {/* 受注ルート。
+              LP経由は相続ステーションからの連携でしか付かない値なので、手では選ばせない
+              （選べると、選んだ瞬間に読み取り専用になって戻せなくなる）。
+              読み取り専用にするのは、実際に連携された案件（lp_case_number あり）だけ。 */}
+          {caseData.lp_case_number ? (
             <Field label="受注ルート" value="LP経由（LP連携のため変更不可）" />
           ) : (
             <InlineSelect
               label="受注ルート"
               value={caseData.order_route}
-              options={[...ORDER_ROUTES]}
+              options={ORDER_ROUTES.filter(r => r !== 'LP経由')}
               onSave={async v => {
                 await patchCase({ order_route: v, order_route_detail: null })
                 // 番号が XX（経路未確定）のままなら、ここで実コードに直す

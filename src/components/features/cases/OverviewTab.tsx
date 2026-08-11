@@ -164,7 +164,7 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
         {/* 7. 受注ルート・紹介 */}
         <Section title="受注ルート・紹介" icon="🔗">
           <FieldGrid>
-            <InlineSelect label="受注ルート" value={caseData.order_route} options={[...ORDER_ROUTES]} onSave={async v => {
+            <InlineSelect label="受注ルート" value={caseData.order_route} options={ORDER_ROUTES.filter(r => r !== 'LP経由')} onSave={async v => {
               await saveCaseField('order_route', v)
               // 番号が XX（経路未確定）のままなら、ここで実コードに直す
               await applyRouteToCaseNumber(createClient(), caseData.id, v as string, caseData.case_number)
