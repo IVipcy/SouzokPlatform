@@ -16,6 +16,7 @@ import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
+  HEIR_RELATIONSHIPS,
 } from '@/lib/constants'
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
@@ -123,7 +124,20 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   }
 
   // 戸籍の追加は1本に統一。needsApproval=true（予定外の追加）なら管理担当の承認待ち＋通知。
-  const submitAdd = async (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean }) => {
+  // 戸籍を読むと知らない人が出てくる。その場で対象者として足せるようにし、
+  // 同時に相続人一覧にも登録する（続柄は分からなければ未設定のまま。あとで直す）。
+  // 相続人ではない人（被代襲者・数次相続の被相続人）も、戸籍は取るのでここに入る。
+  const submitAdd = async (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean; isNewPerson?: boolean; relationship?: string }) => {
+    const person = (form.target_person ?? '').trim()
+    // 同じ名前が既にいれば作らない（戸籍を読むと同じ人が何度も出てくるため）
+    if (form.isNewPerson && person && !heirs.some(h => (h.name ?? '').trim() === person)) {
+      const { error: he } = await supabase.from('heirs').insert({
+        case_id: caseId, name: person,
+        relationship_type: form.relationship || null,
+        sort_order: heirs.length,
+      })
+      if (he) { showToast(`相続人一覧への追加に失敗: ${he.message}`, 'error'); return }
+    }
     const { data, error } = await supabase.from('koseki_requests')
       .insert({ case_id: caseId, sort_order: requests.length, is_additional: form.needsApproval, additional_reason: form.needsApproval ? (form.reason || null) : null, target_person: form.target_person || null, request_to: form.request_to || null })
       .select('id').single()
@@ -239,6 +253,15 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     ...(hasUnsetPerson ? [{ id: '__unset__', label: '対象者 未設定' }] : []),
   ]
   const activePerson = sub === '__unset__' ? '' : sub
+  // 左レール・見出しで使う続柄。被相続人は続柄を持たないので出さない。
+  const heirByName = new Map(heirs.map(h => [(h.name ?? '').trim(), h]))
+  const relOf = (name: string) => heirByName.get(name.trim())?.relationship_type ?? ''
+  const activeHeir = sub !== 'top' && sub !== '__unset__' ? heirByName.get(activePerson.trim()) : undefined
+  const saveRelationship = async (heirId: string, v: string) => {
+    const { error } = await supabase.from('heirs').update({ relationship_type: v || null }).eq('id', heirId)
+    if (error) { showToast(`続柄の保存に失敗: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
   const personRequests = requests.filter(r => personKey(r) === activePerson)
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
@@ -320,7 +343,14 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
               <button type="button" onClick={() => setSub(t.id)}
                 className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
-                <span className="flex-1 break-words leading-tight">{t.label}</span>
+                <span className="flex-1 break-words leading-tight">
+                  {t.label}
+                  {!isTop && t.id !== '__unset__' && (
+                    <span className={`block text-[10px] font-normal leading-tight ${relOf(t.id) ? 'text-gray-400' : 'text-amber-600'}`}>
+                      {relOf(t.id) || '続柄 未設定'}
+                    </span>
+                  )}
+                </span>
                 {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
                 {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
               </button>
@@ -409,7 +439,10 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
               onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）`} hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）`}
+                hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。"
+                right={activeHeir ? <RelationshipPicker value={activeHeir.relationship_type} onChange={v => saveRelationship(activeHeir.id, v)} /> : undefined}
+                className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この人の戸籍請求がありません。「戸籍を追加」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
@@ -515,26 +548,56 @@ function KosekiImageCell({ images, urls, onOpen, onAdd }: {
   )
 }
 
+const NEW_PERSON = '__new__'
+
 function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
   targetOptions: string[]
   defaultPerson: string
   onClose: () => void
-  onSubmit: (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean }) => void
+  onSubmit: (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean; isNewPerson: boolean; relationship: string }) => void
 }) {
   const [target, setTarget] = useState(defaultPerson || '')
+  // 戸籍を読んで出てきた人をその場で足す。相続人一覧にも同時に登録される。
+  const [newName, setNewName] = useState('')
+  const [newRel, setNewRel] = useState('')
   const [reqTo, setReqTo] = useState('')
   const [reason, setReason] = useState('')
   const [needsApproval, setNeedsApproval] = useState(false)
   const [busy, setBusy] = useState(false)
   const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
-  const canSubmit = !!target.trim() && (!needsApproval || !!reason.trim())
+  const isNew = target === NEW_PERSON
+  const personName = isNew ? newName.trim() : target.trim()
+  const canSubmit = !!personName && (!needsApproval || !!reason.trim())
   return (
     <Modal isOpen onClose={onClose} title="戸籍を追加">
       <div className="space-y-3">
         <div><label className="block text-[11px] text-gray-500 mb-1">対象者（誰の戸籍か）</label>
-          <select value={target} onChange={e => setTarget(e.target.value)} className={inp}><option value="">選択…</option>{targetOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
-          <p className="text-[10.5px] text-gray-400 mt-1">一覧にない場合は「相続人」タブで追加してください。</p>
+          <select value={target} onChange={e => setTarget(e.target.value)} className={inp}>
+            <option value="">選択…</option>
+            <option value={NEW_PERSON}>＋ 新しい人を入力</option>
+            {targetOptions.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+          {!isNew && <p className="text-[10.5px] text-gray-400 mt-1">戸籍を読んで出てきた人は「＋ 新しい人を入力」から足せます。</p>}
         </div>
+        {isNew && (
+          <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2.5 space-y-2">
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">氏名</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="例: 土曜二郎" className={inp} autoFocus />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-1">続柄（あとで直せます）</label>
+              <select value={newRel} onChange={e => setNewRel(e.target.value)} className={inp}>
+                <option value="">未設定</option>
+                {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <p className="text-[10.5px] text-gray-400 mt-1">
+                この人は相続人一覧にも登録されます。分からなければ未設定のままで構いません。
+                被代襲者や数次相続の被相続人など、相続人ではない人もここに入れてください。
+              </p>
+            </div>
+          </div>
+        )}
         <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
         <label className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 cursor-pointer">
           <input type="checkbox" checked={needsApproval} onChange={e => setNeedsApproval(e.target.checked)} className="w-4 h-4 accent-amber-500 mt-0.5" />
@@ -545,7 +608,7 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
-          <button type="button" disabled={busy || !canSubmit} onClick={() => { setBusy(true); onSubmit({ target_person: target, request_to: reqTo, reason: reason.trim(), needsApproval }) }}
+          <button type="button" disabled={busy || !canSubmit} onClick={() => { setBusy(true); onSubmit({ target_person: personName, request_to: reqTo, reason: reason.trim(), needsApproval, isNewPerson: isNew, relationship: newRel }) }}
             className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold text-white rounded-md disabled:opacity-50 ${needsApproval ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-600 hover:bg-brand-700'}`}>
             {needsApproval ? <><ShieldCheck className="w-3.5 h-3.5" />申請する（要承認）</> : <><Plus className="w-3.5 h-3.5" />追加する</>}
           </button>
@@ -641,5 +704,25 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
         <button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
       </td>
     </tr>
+  )
+}
+
+// 人ごとの見出しの右に置く続柄。戸籍は「1行=1戸籍」なので表の列には入れない
+// （同じ値がその人の行すべてに並び、1つ直すと他も変わって見えるため）。
+function RelationshipPicker({ value, onChange }: { value: string | null; onChange: (v: string) => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[11px] text-gray-500">続柄</span>
+      <select
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value)}
+        title="この人の被相続人との続柄。相続人一覧・相関図と同じ値です"
+        className={`border rounded-md px-2 py-1 text-[12px] outline-none focus:border-brand-400 ${
+          value ? 'border-gray-300 bg-white text-gray-700' : 'border-amber-300 bg-amber-50 text-amber-800'}`}
+      >
+        <option value="">未設定</option>
+        {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+    </span>
   )
 }
