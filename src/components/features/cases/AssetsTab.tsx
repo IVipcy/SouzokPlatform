@@ -183,8 +183,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         />
       )}
 
-      {/* 財産の合計（このタブに出している種別の概算）。オーダーシート・実務タブ共通で先頭に置く。 */}
-      {assetSummary}
+      {/* 財産の合計（概算）。オーダーシート（調査前のヒアリング）だけに置く。
+          実務タブでは財産目録が確定額を持っているので、概算を上に出すと数字が2つ並んで紛らわしい。 */}
+      {orderSheetMode && assetSummary}
 
 
       {/* 種別タブ（不動産 / 預金 / 証券 / 信託 / 生命保険 / 財産目録）。案件詳細のみタブ表示、
