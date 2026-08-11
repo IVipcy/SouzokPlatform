@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, FileSpreadsheet, Wallet, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/client'
 import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
@@ -69,6 +69,9 @@ type Props = {
 }
 
 // 手動で選べるステータス。入金済は「入金消込」／CSV突合で payments を伴って確定するためここには含めない。
+// ツールバーのリンク。隣の「入金突合」ボタン（Button variant=secondary size=sm）と見た目を揃える。
+const TOOLBAR_LINK = 'inline-flex items-center justify-center gap-1.5 h-8 px-3 text-sm font-medium rounded-md shadow-sm transition bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+
 const EDITABLE_STATUSES: InvoiceStatus[] = ['作成済', '入金待ち']
 
 function fmt(n: number) {
@@ -492,19 +495,13 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
         </Button>
       )}
       {canReconcile && !embedded && (
-        <Link
-          href="/billing/sales-report"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition"
-        >
-          📊 確定売上表
+        <Link href="/billing/sales-report" className={TOOLBAR_LINK}>
+          <FileSpreadsheet className="w-3.5 h-3.5" strokeWidth={2} />確定売上表
         </Link>
       )}
       {canReconcile && !embedded && (
-        <Link
-          href="/billing/payment-detail"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition"
-        >
-          🧾 入金明細
+        <Link href="/billing/payment-detail" className={TOOLBAR_LINK}>
+          <Wallet className="w-3.5 h-3.5" strokeWidth={2} />入金明細
         </Link>
       )}
     </>
