@@ -148,7 +148,6 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
               includeCompleted
               selectable
               hideCategory={false}
-              gyomuBadge
               showMeta
               groupTabs
               currentMemberId={currentMemberId ?? undefined}

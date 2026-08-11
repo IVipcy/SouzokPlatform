@@ -44,7 +44,8 @@ export async function createManagerReviewTask(opts: {
       case_id: opts.caseId,
       title: `【ヘルプ】${label}${opts.fromTaskTitle ? `：${opts.fromTaskTitle}` : ''}`,
       task_kind: 'system',
-      phase: 'system',
+      // 業務区分は GYOMU_ALL の範囲で持つ。管理担当への確認依頼は随時なので「その他」。
+      phase: 'その他',
       category: 'system',
       assign_role: 'manager',
       status: '着手前',

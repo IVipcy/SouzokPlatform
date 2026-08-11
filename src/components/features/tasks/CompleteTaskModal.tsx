@@ -22,6 +22,7 @@ import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
+import { notifyTasksReady, type ReadyTaskLite } from '@/lib/taskReadyNotify'
 import type { TaskRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null; task_kind?: string | null }
@@ -158,28 +159,48 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     const { error } = await supabase.from('tasks').update({ status: '完了', ext_data: ext }).eq('id', task.id)
     if (error) { setSaving(false); showToast(`完了に失敗しました: ${error.message}`, 'error'); return }
 
+    // 着手OKにしたタスク。あとで担当者への通知＆割り当てに使う。
+    const readied: ReadyTaskLite[] = []
+
     // 2) 選んだ既存タスクに着手OK / 受領次第OK を付与（着手前のものだけ）
     if (selectedIds.length > 0) {
-      const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', selectedIds)
-      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
+      const { data: rows } = await supabase.from('tasks').select('id, title, case_id, ext_data, status, task_kind, assign_role, work_role').in('id', selectedIds)
+      for (const row of (rows ?? []) as Array<{ id: string; title: string; case_id: string; ext_data: Record<string, unknown> | null; status: string; task_kind: string | null; assign_role: string | null; work_role: string | null }>) {
         if (normalizeTaskStatus(row.status) !== '着手前') continue
         const next = extForMode(row.ext_data ?? {}, modeOf(row.id), note[row.id] ?? '', task.id)
         const patch: Record<string, unknown> = { ext_data: next }
         const wc = (work[row.id] ?? '').trim()
         if (wc) patch.procedure_text = wc  // 先に記入した作業内容を次タスクへ反映
         await supabase.from('tasks').update(patch).eq('id', row.id)
+        readied.push({
+          id: row.id, title: row.title, case_id: row.case_id,
+          task_kind: row.task_kind, assign_role: row.assign_role, work_role: row.work_role,
+          mode: modeOf(row.id), note: note[row.id] ?? '',
+        })
       }
     }
 
     // 3) 新規タスクを追加して着手OK / 受領次第OK
     if (newTitle.trim()) {
       const newExt = extForMode({}, newMode, newNote, task.id)
-      await supabase.from('tasks').insert({
+      const { data: created } = await supabase.from('tasks').insert({
         case_id: task.case_id, title: newTitle.trim(), task_kind: 'case', work_role: newRole,
         phase: task.phase ?? '', category: task.phase ?? '', status: '着手前', priority: '通常',
         ext_data: newExt, sort_order: 99,
-      })
+      }).select('id').single()
+      if (created) {
+        readied.push({
+          id: (created as { id: string }).id, title: newTitle.trim(), case_id: task.case_id,
+          task_kind: 'case', assign_role: null, work_role: newRole,
+          mode: newMode, note: newNote,
+        })
+      }
     }
+
+    // 2') 3') 着手OKにしたタスクを担当者へ届ける。
+    // 管理担当/受注担当のタスクは、担当者が付いていなければ案件の担当者を付けたうえで通知する
+    // （マイページのタスクタブに出ないと本人が気づけないため）。
+    await notifyTasksReady(readied, task.title)
 
     // 4) この戸籍で不要になった戸籍タスクをまとめて完了
     const dropTargets = Object.entries(dropIds).filter(([, on]) => on).map(([id]) => id)

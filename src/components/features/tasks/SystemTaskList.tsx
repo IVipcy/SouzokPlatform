@@ -48,9 +48,9 @@ type Props = {
   teamMode?: boolean
   /** チェックボックスで選択して一括削除できるようにする（案件詳細のタスク一覧で使用） */
   selectable?: boolean
-  /** カテゴリ列に担当区分（受注/管理担当・事務管理担当）を task_kind から表示する */
+  /** 業務区分の列に担当区分（受注/管理担当・事務管理担当）を task_kind から表示する */
   showKindLabel?: boolean
-  /** カテゴリ列自体を非表示にする（区分はタブで切り替える場合など） */
+  /** 業務区分の列自体を非表示にする（区分はタブで切り替える場合など） */
   hideCategory?: boolean
   /** 最左に「業務」列（task.phase の業務名）を表示する（事務管理タスク一覧で使用） */
   showGyomu?: boolean
@@ -70,16 +70,6 @@ const STATUS_BADGE: Record<string, string> = {
   '着手前': 'bg-gray-100 text-gray-600 border-gray-200',
   '対応中': 'bg-sky-50  text-sky-700  border-sky-200',
   '完了':   'bg-green-50 text-green-700 border-green-200',
-}
-
-const CATEGORY_BADGE: Record<string, string> = {
-  '面談':       'bg-amber-50  text-amber-700  border-amber-200',
-  '契約':       'bg-purple-50 text-purple-700 border-purple-200',
-  '初期対応':   'bg-sky-50    text-sky-700    border-sky-200',
-  '定期進捗連絡': 'bg-pink-50  text-pink-700   border-pink-200',
-  // 自動生成タスクのカテゴリ（前受金入金御礼＝連絡／領収書＝経理）
-  '連絡':       'bg-pink-50   text-pink-700   border-pink-200',
-  '経理':       'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
 const normalizeStatus = (s: string) => {
@@ -254,7 +244,7 @@ export default function SystemTaskList({
                 )}
                 {showGyomu && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">業務</th>}
                 {showCase && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>}
-                {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">カテゴリ</th>}
+                {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">業務区分</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
@@ -312,7 +302,7 @@ export default function SystemTaskList({
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                     )}
-                    {/* カテゴリ（＋担当区分ラベル） */}
+                    {/* 業務区分（＋担当区分ラベル）。業務区分が空のタスクは「その他」タブに入るので、そう表示する。 */}
                     {!hideCategory && (
                     <td className="px-3 py-2.5 align-top whitespace-nowrap">
                       <div className="flex flex-col gap-1 items-start">
@@ -321,11 +311,9 @@ export default function SystemTaskList({
                             {task.task_kind === 'system' ? '受注/管理担当' : '事務管理担当'}
                           </span>
                         )}
-                        {task.category && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${CATEGORY_BADGE[task.category] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                            {task.category}
-                          </span>
-                        )}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${task.phase ? 'bg-brand-50 text-brand-700' : 'bg-gray-50 text-gray-500'}`}>
+                          {task.phase ? gyomuLabel(task.phase) : 'その他'}
+                        </span>
                         {assignDef && (
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${assignDef.pill}`}>
                             {assignDef.label}

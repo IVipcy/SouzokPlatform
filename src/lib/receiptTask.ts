@@ -31,7 +31,8 @@ export async function ensureReceiptTask(invoiceId: string): Promise<void> {
       case_id: inv.case_id,
       title: '領収書の作成・送付',
       task_kind: 'case',
-      phase: '経理',
+      // 業務区分は GYOMU_ALL の範囲で持つ。領収書送付は案件を進める工程ではないので「その他」。
+      phase: 'その他',
       category: '経理',
       status: '未着手',
       priority: '通常',
