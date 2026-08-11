@@ -18,7 +18,6 @@ import KosekiRequestsTable from './KosekiRequestsTable'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
-import { toReadinessReceipts } from '@/lib/taskReadiness'
 import { SubTabs } from '@/components/ui/SubTabs'
 import KosekiSection from './KosekiSection'
 import {
@@ -317,7 +316,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
           <TabTasksSection
             gyomus={['戸籍', '相関図']}
             tasks={tasks}
-            receipts={toReadinessReceipts(documentReceipts)}
           />
         </div>
       )}

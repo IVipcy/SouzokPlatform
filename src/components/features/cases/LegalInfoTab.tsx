@@ -7,7 +7,6 @@ import { Section, FieldGrid, InlineEdit, InlineDate, InlineNumber, InlineTextare
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
-import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -35,7 +34,6 @@ export default function LegalInfoTab({ caseData, patchCase, tasks = [], document
         <TabTasksSection
           gyomus={['法定相続情報取得']}
           tasks={tasks}
-          receipts={toReadinessReceipts(documentReceipts)}
         />
       </div>
 

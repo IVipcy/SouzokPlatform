@@ -9,7 +9,6 @@ import ProcedureDocsTable from './ProcedureDocsTable'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
-import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { RoleRow } from './ProcedureIntakeSection'
 import type { CaseRow, HeirRow, SagyoDocumentRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -81,7 +80,6 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
       <TabTasksSection
         gyomus={[gyomu]}
         tasks={tasks ?? []}
-        receipts={toReadinessReceipts(receipts)}
       />
       {body}
     </div>

@@ -19,7 +19,6 @@ import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
-import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -181,7 +180,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
         <TabTasksSection
           gyomus={['金融資産', '不動産', '目録']}
           tasks={tasks}
-          receipts={toReadinessReceipts(documentReceipts)}
         />
       )}
 

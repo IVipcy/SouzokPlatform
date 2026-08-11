@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, FileText, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
 import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -478,7 +478,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           <div className="lg:sticky lg:top-[90px] flex flex-col gap-3">
             {caseData && (
               <AccordionPanel title="案件サマリー" defaultOpen>
-                <CaseSummaryPanel bare caseData={caseData} taskPhase={task.phase} caseTasks={caseTasks} currentTaskId={task.id} />
+                <CaseSummaryPanel bare taskPhase={task.phase} caseTasks={caseTasks} currentTaskId={task.id} />
               </AccordionPanel>
             )}
 
@@ -694,17 +694,17 @@ function AccordionPanel({ title, defaultOpen = false, children }: { title: React
 }
 
 // タスク詳細の「案件サマリー」パネル。
-// このタスクが属する業務（gyomu）にフォーカスして、完了タスクの実施結果／未着手・対応中を出す。
+// このタスクが属する業務（gyomu）の「これまでの作業」＝完了タスクとその実施結果だけを出す。
+// 進行中・残作業と、案件全体の直近の動きは廃止。これから何をやるかはタスク一覧と
+// 案件詳細の実務タブで見るもので、ここに並べても同じ情報が3か所に散るだけだった。
 // bare=true のときは外側の Section 見出しを付けず、アコーディオンの中身として描画する。
-function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare = false }: {
-  caseData: CaseRow
+function CaseSummaryPanel({ taskPhase, caseTasks, currentTaskId, bare = false }: {
   taskPhase: string | null
   caseTasks: TaskRow[]
   /** 今開いているタスク。一覧から自分自身を除外するため。 */
   currentTaskId: string
   bare?: boolean
 }) {
-  const [globalOpen, setGlobalOpen] = useState(false)
   const normalize = (s: string) => {
     if (s === '未着手') return '着手前'
     if (['Wチェック待ち', '保留', '差戻し'].includes(s)) return '対応中'
@@ -728,19 +728,6 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare 
   const doneTasks = otherTasks
     .filter(t => normalize(t.status) === '完了')
     .sort((a, b) => (b.completed_at ?? b.updated_at ?? '').localeCompare(a.completed_at ?? a.updated_at ?? ''))
-  const doingTasks = otherTasks.filter(t => normalize(t.status) === '対応中')
-  const todoTasks = otherTasks.filter(t => normalize(t.status) === '着手前')
-
-  // 案件全体（業務横断）の直近活動: 事務管理タスク（task_kind='case'）のみをタイムライン化。
-  // 受注担当/管理担当の初期対応タスク（task_kind/phase='system'）は対象外。
-  type Event = { kind: 'completed' | 'started'; at: string; task: TaskRow }
-  const events: Event[] = []
-  for (const t of caseTasks) {
-    if (t.task_kind !== 'case') continue
-    if (t.completed_at) events.push({ kind: 'completed', at: t.completed_at, task: t })
-    if (t.started_at) events.push({ kind: 'started', at: t.started_at, task: t })
-  }
-  events.sort((a, b) => b.at.localeCompare(a.at))
 
   const body = (
     <>
@@ -790,30 +777,6 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare 
             </div>
           )}
 
-          {/* 進行中・残作業 */}
-          {(doingTasks.length > 0 || todoTasks.length > 0) && (
-            <div>
-              <div className="text-[11px] font-semibold text-gray-500 mb-1.5 tracking-wide">進行中・残作業</div>
-              <ul className="space-y-1">
-                {doingTasks.map(t => (
-                  <li key={t.id} className="flex items-center gap-2 text-[12px]">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />
-                    <Link href={`/tasks/${t.id}`} className="text-gray-800 hover:text-brand-600 hover:underline truncate">{t.title}</Link>
-                    <span className="text-[10px] font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded">対応中</span>
-                    {t.due_date && <span className="text-[10px] font-mono text-gray-400 ml-auto flex-shrink-0">期限 {t.due_date}</span>}
-                  </li>
-                ))}
-                {todoTasks.map(t => (
-                  <li key={t.id} className="flex items-center gap-2 text-[12px]">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
-                    <Link href={`/tasks/${t.id}`} className="text-gray-700 hover:text-brand-600 hover:underline truncate">{t.title}</Link>
-                    {t.due_date && <span className="text-[10px] font-mono text-gray-400 ml-auto flex-shrink-0">期限 {t.due_date}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {otherTasks.length === 0 && (
             <div className="text-[12px] text-gray-400">この業務には、今開いているタスク以外のタスクはありません</div>
           )}
@@ -822,48 +785,6 @@ function CaseSummaryPanel({ caseData, taskPhase, caseTasks, currentTaskId, bare 
         <div className="text-[12px] text-gray-400">業務が紐づいていません（システムタスク等）</div>
       )}
 
-      {/* 案件全体の直近の動き（折りたたみ） */}
-      <div className="mt-3 pt-3 border-t border-gray-100">
-        <button
-          type="button"
-          onClick={() => setGlobalOpen(o => !o)}
-          className="inline-flex items-center gap-1 text-[12px] font-semibold text-gray-500 hover:text-brand-700"
-        >
-          {globalOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          案件全体の直近の動きを{globalOpen ? '閉じる' : '見る'}
-          <span className="text-[10px] font-mono text-gray-400">（{events.length} 件）</span>
-        </button>
-        {globalOpen && (
-          <div className="mt-2">
-            {events.length === 0 ? (
-              <div className="text-[11px] text-gray-400">まだ動きはありません</div>
-            ) : (
-              <ul className="space-y-1">
-                {events.slice(0, 12).map((e, i) => (
-                  <li key={`${e.task.id}-${e.kind}-${i}`} className="flex items-center gap-2 text-[11px]">
-                    <span className="font-mono text-gray-400 w-20 flex-shrink-0">{e.at.slice(0, 10)}</span>
-                    {e.kind === 'completed' ? (
-                      <Check className="w-3 h-3 text-emerald-600 flex-shrink-0" strokeWidth={2.5} />
-                    ) : (
-                      <FileText className="w-3 h-3 text-brand-500 flex-shrink-0" strokeWidth={2.25} />
-                    )}
-                    {e.task.phase && (
-                      <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded flex-shrink-0">{stripPhasePrefix(e.task.phase)}</span>
-                    )}
-                    <Link href={`/tasks/${e.task.id}`} className="text-gray-700 hover:text-brand-600 hover:underline truncate">
-                      {e.task.title}
-                    </Link>
-                    <span className="text-gray-400">{e.kind === 'completed' ? '完了' : '着手'}</span>
-                  </li>
-                ))}
-                {events.length > 12 && (
-                  <li className="text-[11px] text-gray-400 pl-22">ほか {events.length - 12} 件</li>
-                )}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
     </>
   )
   return bare ? body : (<div><Section title="案件サマリー">{body}</Section></div>)
