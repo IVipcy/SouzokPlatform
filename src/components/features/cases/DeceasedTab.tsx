@@ -335,8 +335,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {(orderSheetMode || sub === 'heirs') && (
       <div>
       <div className="space-y-3.5">
-          {/* 4. 被相続人情報 */}
-          <Section title="被相続人情報" icon="🏛️">
+          {/* 4. 被相続人情報。最初に一度入れたら見返す頻度が低いので、既定は閉じておく。 */}
+          <Section title="被相続人情報" icon="🏛️" collapsible defaultOpen={false}>
             <FieldGrid>
               <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
               <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
