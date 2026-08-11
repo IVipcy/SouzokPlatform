@@ -1,29 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Noto_Sans_JP, JetBrains_Mono } from "next/font/google";
+// 日本語: Noto Sans JP。next/font/google は「ビルドするたびに Google からフォントを取りに行く」ため、
+// 外に出られないビルド環境だと落ちる（Renderのビルドがこれで失敗した）。
+// @fontsource は npm パッケージにフォント本体が入っていて、ビルド時に外部へ取りに行かない。
+// ※ Inter / JetBrains Mono も読んでいたが、globals.css のフォントスタックで使っていなかったので外した。
+// 使う字だけ（日本語＋ラテン）×4ウェイト。全サブセットを読むとファイル数が跳ね上がるので絞る。
+import "@fontsource/noto-sans-jp/japanese-400.css";
+import "@fontsource/noto-sans-jp/japanese-500.css";
+import "@fontsource/noto-sans-jp/japanese-600.css";
+import "@fontsource/noto-sans-jp/japanese-700.css";
+import "@fontsource/noto-sans-jp/latin-400.css";
+import "@fontsource/noto-sans-jp/latin-500.css";
+import "@fontsource/noto-sans-jp/latin-600.css";
+import "@fontsource/noto-sans-jp/latin-700.css";
 import "./globals.css";
 import PwaRegister from "@/components/PwaRegister";
-
-// 英数字: Inter（数字や英字を端正に）
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// 日本語: Noto Sans JP（業務系SaaS定番）
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-noto-sans-jp",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-// 等幅: JetBrains Mono（数字・コード用、視認性高）
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "相続案件管理",
@@ -50,10 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ja"
-      className={`${inter.variable} ${notoSansJP.variable} ${jetbrainsMono.variable} h-full antialiased`}
-    >
+    <html lang="ja" className="h-full antialiased">
       <body className="min-h-full bg-gray-50">{children}<PwaRegister /></body>
     </html>
   );

@@ -10,7 +10,7 @@
 //   いずれの次タスクにも ext_data.ready_from_task_id（このタスク）を記録し前段表示に使う。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package, Lightbulb } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
@@ -18,12 +18,11 @@ import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { normalizeTaskStatus, getStartSignal, isWaitingReceipt } from '@/lib/taskReadiness'
-import { getStartOkSuggestions } from '@/lib/startOkSuggest'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
-import type { TaskRow, KosekiRequestRow, FinancialAssetRow } from '@/types'
+import type { TaskRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null; task_kind?: string | null }
 type Mode = 'now' | 'receipt'
@@ -61,8 +60,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [cands, setCands] = useState<Cand[]>([])
-  // 着手OK提案（中判定）：候補行に💡バッジ＋理由。提案対象はデフォルトチェックONに。
-  const [suggestReasons, setSuggestReasons] = useState<Record<string, string>>({})
 
   const initialResult = (() => {
     const ext = (task.ext_data ?? {}) as Record<string, unknown>
@@ -92,11 +89,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const [{ data: tsData }, { data: kkData }, { data: faData }] = await Promise.all([
-        supabase.from('tasks').select('id,title,phase,sort_order,status,task_kind,ext_data,case_id,source_rid').eq('case_id', task.case_id).order('sort_order').order('created_at'),
-        supabase.from('koseki_requests').select('*').eq('case_id', task.case_id),
-        supabase.from('financial_assets').select('*').eq('case_id', task.case_id),
-      ])
+      const { data: tsData } = await supabase
+        .from('tasks').select('id,title,phase,sort_order,status,task_kind,ext_data,case_id,source_rid')
+        .eq('case_id', task.case_id).order('sort_order').order('created_at')
       // 全担当区分（事務管理/受注管理/相続登記チーム）を次タスク候補に出す。区分はバッジで判別。
       const rows = ((tsData ?? []) as Array<Cand & { task_kind: string | null }>)
         .filter(t => {
@@ -113,35 +108,17 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         setDropAll(((tsData ?? []) as Array<Cand & { task_kind: string | null }>).filter(t =>
           t.id !== task.id && isKosekiRid(t.source_rid) && normalizeTaskStatus(t.status) !== '完了'))
       }
-      // 中判定：条件が明確に揃っているタスクだけ提案。禁止期間絡み(requiresConfirmation)は完了モーダルでは扱わない（センター側で処理）。
-      const todayYmd = new Date().toISOString().slice(0, 10)
-      const suggestions = getStartOkSuggestions(
-        (tsData ?? []) as unknown as TaskRow[],
-        (kkData ?? []) as KosekiRequestRow[],
-        (faData ?? []) as FinancialAssetRow[],
-        todayYmd,
-      ).filter(s => !s.requiresConfirmation && rows.some(r => r.id === s.taskId))
-      const reasonMap: Record<string, string> = {}
-      const selInit: Record<string, boolean> = {}
-      const noteInit: Record<string, string> = {}
-      // 提案（💡と理由）は出すが、チェックは自動で付けない。
-      // 勝手に選ばれていると、確かめずにそのまま完了してしまうため。選ぶのは人。
-      for (const s of suggestions) {
-        reasonMap[s.taskId] = s.reason
-        noteInit[s.taskId] = s.reason  // 選んだときの ready_reason の初期値
-      }
+      // 着手OKの提案文（「不動産の請求は戸籍不要」等）はこのモーダルでは出さない。
+      // 次に着手するタスクを選ぶのは人で、うんちくを読ませる場ではないため。
       // 対になる読込/受領タスクは、選んだときの初期値だけ「受領次第OK」にしておく（自動チェックはしない）。
+      const noteInit: Record<string, string> = {}
       const modeInit: Record<string, Mode> = {}
       const pairRid = pairedReadRid(task.source_rid)
       const pairCand = pairRid ? rows.find(r => (r as Cand).source_rid === pairRid) : undefined
-      if (pairCand) { modeInit[pairCand.id] = 'receipt'; if (!noteInit[pairCand.id]) noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
+      if (pairCand) { modeInit[pairCand.id] = 'receipt'; noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
       // 読込/受領系タスクは（手動で選ぶ場合も）既定モードを「受領次第OK」に。
       for (const r of rows) if (isReadRid((r as Cand).source_rid)) modeInit[r.id] = modeInit[r.id] ?? 'receipt'
-      setSuggestReasons(reasonMap)
-      if (Object.keys(selInit).length > 0) {
-        setSel(prev => ({ ...prev, ...selInit }))
-        setNote(prev => ({ ...prev, ...noteInit }))
-      }
+      if (Object.keys(noteInit).length > 0) setNote(prev => ({ ...prev, ...noteInit }))
       if (Object.keys(modeInit).length > 0) setMode(prev => ({ ...prev, ...modeInit }))
       setLoading(false)
     })()
@@ -256,20 +233,14 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
 
   const renderCand = (c: Cand) => {
     const on = !!sel[c.id]
-    const reason = suggestReasons[c.id]
     return (
-      <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : reason ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`}>
+      <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : 'border-gray-200'}`}>
         <label className="flex items-center gap-2 px-2.5 py-2 cursor-pointer flex-wrap">
           <input type="checkbox" checked={on} onChange={() => toggle(c.id)} className="w-4 h-4 accent-brand-600" />
           <TantoKubunBadge task={c} size="xs" />
           <KoteiBadge phase={c.phase} width={92} />
           <GyomuBadge phase={c.phase} width={52} />
           <span className="text-[13px] text-gray-800 truncate">{c.title}</span>
-          {reason && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-amber-800 bg-amber-100 border border-amber-200" title={reason}>
-              <Lightbulb className="w-2.5 h-2.5" />{reason}
-            </span>
-          )}
         </label>
         {on && (
           <div className="px-2.5 pb-2 space-y-1.5">
