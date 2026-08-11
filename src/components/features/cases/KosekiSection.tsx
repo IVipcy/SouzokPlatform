@@ -66,11 +66,26 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const viewerImages: ViewerImage[] = (() => {
     const seen = new Set<string>()
     const out: ViewerImage[] = []
+    // 並びは「人ごと → その人の請求（役所）ごと」。パネルの仕切りと同じ順にする。
+    const reqLabelOf = (id: string | null) => {
+      if (!id) return null
+      const rq = requests.find(x => x.id === id)
+      return rq ? ((rq.request_to ?? '').trim() || '請求先未設定') : null
+    }
     const push = (person: string) => {
       if (seen.has(person)) return
       seen.add(person)
-      for (const r of imagesByName[person] ?? []) {
-        out.push({ id: r.id, person, url: kosekiImageUrls[r.id], annos: r.annotations ?? [], fileName: r.file_name })
+      const mine = imagesByName[person] ?? []
+      const order = requests.filter(r => (r.target_person ?? '').trim() === person).map(r => r.id)
+      const rank = (r: { koseki_request_id: string | null }) => {
+        const i = r.koseki_request_id ? order.indexOf(r.koseki_request_id) : -1
+        return i < 0 ? order.length : i   // 請求 未指定は後ろ
+      }
+      for (const r of [...mine].sort((a, b) => rank(a) - rank(b))) {
+        out.push({
+          id: r.id, person, requestLabel: reqLabelOf(r.koseki_request_id),
+          url: kosekiImageUrls[r.id], annos: r.annotations ?? [], fileName: r.file_name,
+        })
       }
     }
     for (const r of requests) push((r.target_person ?? '').trim())
@@ -486,7 +501,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             </div>
             {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`} />
+              <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} requests={personRequests} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`} />
             </div>
           </div>
         )}

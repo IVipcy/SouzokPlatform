@@ -9,7 +9,7 @@
 // サムネイルは画像＋書き込みを canvas で重ねて描くので、拡大表示と同じ絵になる。
 
 import { useState, useRef } from 'react'
-import { Upload, Pencil, Trash2, Download } from 'lucide-react'
+import { Upload, Pencil, Trash2, Download, FolderInput } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
@@ -18,13 +18,17 @@ import ImageAnnotator from './ImageAnnotator'
 import AnnotatedImage from './AnnotatedImage'
 import { drawAnnotations, type Anno } from '@/lib/imageAnnotations'
 import { useKosekiImages, KOSEKI_BUCKET as BUCKET, type KosekiImageRow } from '@/lib/useKosekiImages'
+import { REQUEST_KIND_BADGE } from '@/lib/constants'
+import type { KosekiRequestRow } from '@/types'
 
 export type { KosekiImageRow }
 
-export default function KosekiImagePanel({ caseId, targetPerson, compact = false, title }: {
+export default function KosekiImagePanel({ caseId, targetPerson, requests = [], compact = false, title }: {
   caseId: string
   /** 指定するとその人の画像だけ。未指定なら案件の全画像（TOP用・アップロードは出さない） */
   targetPerson?: string
+  /** その人の戸籍請求（役所ごと）。渡すと請求ごとに仕切って並べる */
+  requests?: KosekiRequestRow[]
   /** TOPの右列など狭い場所向け。サムネイルを小さく並べる */
   compact?: boolean
   title?: string
@@ -35,9 +39,41 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
   const [editing, setEditing] = useState<KosekiImageRow | null>(null)
   const [askEdit, setAskEdit] = useState<KosekiImageRow[] | null>(null)
   const [preview, setPreview] = useState<KosekiImageRow | null>(null)
+  // アップロード先の請求。null=請求 未指定。上部の「画像を追加」から入れるときは
+  // 請求が複数ある人だけ、どの請求かを先に聞く。
+  const [askRequest, setAskRequest] = useState<FileList | null>(null)
+  const [moving, setMoving] = useState<KosekiImageRow | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // 各請求の「＋ 追加」から入れたときの行き先。押した直後に file input を開くため ref で持つ。
+  const pendingReqRef = useRef<string | null>(null)
 
-  const upload = async (files: FileList | null) => {
+  // 画像を請求ごとに仕分ける。請求が無ければ仕切らない（今までどおりの1列）。
+  const groups = requests.map(rq => ({ req: rq, items: rows.filter(r => r.koseki_request_id === rq.id) }))
+  const unassigned = rows.filter(r => !r.koseki_request_id || !requests.some(rq => rq.id === r.koseki_request_id))
+  const grouped = requests.length > 0 && targetPerson !== undefined
+
+  const reqLabel = (rq: KosekiRequestRow) => (rq.request_to ?? '').trim() || '請求先未設定'
+
+  const startUpload = (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    // 請求の「＋ 追加」から開いたときは、その請求へ入れる
+    const pending = pendingReqRef.current
+    pendingReqRef.current = null
+    if (pending) { upload(files, pending); return }
+    // 請求が1件だけなら聞かずにそこへ入れる
+    if (grouped && requests.length === 1) { upload(files, requests[0].id); return }
+    if (grouped) { setAskRequest(files); return }
+    upload(files, null)
+  }
+
+  const moveTo = async (row: KosekiImageRow, requestId: string | null) => {
+    const { error } = await supabase.from('koseki_images').update({ koseki_request_id: requestId }).eq('id', row.id)
+    if (error) { showToast(`移動に失敗: ${error.message}`, 'error'); return }
+    setRows(prev => prev.map(r => (r.id === row.id ? { ...r, koseki_request_id: requestId } : r)))
+    setMoving(null)
+  }
+
+  const upload = async (files: FileList | null, requestId: string | null) => {
     if (!files || files.length === 0) return
     setBusy(true)
     const created: KosekiImageRow[] = []
@@ -48,6 +84,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
       if (upErr) { showToast(`アップロードに失敗: ${upErr.message}`, 'error'); continue }
       const { data, error } = await supabase.from('koseki_images').insert({
         case_id: caseId, target_person: targetPerson ?? null,
+        koseki_request_id: requestId,
         image_path: path, image_bucket: BUCKET, file_name: file.name,
         sort_order: rows.length + created.length,
       }).select('*').single()
@@ -111,7 +148,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
         <span className="text-[11px] text-gray-400">{rows.length}枚</span>
         {targetPerson !== undefined && (
           <>
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => upload(e.target.files)} />
+            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => startUpload(e.target.files)} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
               className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-brand-300 rounded px-2 py-1 disabled:opacity-50">
               <Upload className="w-3.5 h-3.5" />{busy ? 'アップロード中…' : '画像を追加'}
@@ -120,10 +157,65 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
         )}
       </div>
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && !grouped ? (
         <p className="text-[11.5px] text-gray-400 py-3 text-center">
           {targetPerson !== undefined ? '「画像を追加」から戸籍のスキャンを登録できます' : '戸籍の画像がまだありません'}
         </p>
+      ) : grouped ? (
+        // 請求（役所）ごとに仕切る。どの請求で届いた戸籍かを読めるようにするため。
+        <div className="space-y-2.5">
+          {groups.map(({ req, items }) => (
+            <div key={req.id} className="border border-gray-200 rounded-md">
+              <div className="flex items-center gap-2 flex-wrap px-2.5 py-1.5 bg-gray-50 border-b border-gray-100">
+                <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full border ${REQUEST_KIND_BADGE[req.request_kind ?? '通常請求'] ?? REQUEST_KIND_BADGE['通常請求']}`}>
+                  {req.request_kind ?? '通常請求'}
+                </span>
+                <span className="text-[12px] font-semibold text-gray-700">{reqLabel(req)}</span>
+                <span className="text-[11px] text-gray-400">
+                  {req.request_date ? `請求 ${req.request_date.slice(5).replace('-', '/')}` : '請求日なし'}
+                  {req.arrival_date ? ` ・ 到着 ${req.arrival_date.slice(5).replace('-', '/')}` : ''}
+                </span>
+                <span className="ml-auto text-[11px] text-gray-400">{items.length}枚</span>
+              </div>
+              <div className="p-2">
+                {items.length > 0 && (
+                  <div className={`grid ${gridCls} gap-1.5 mb-1.5`}>
+                    {items.map(r => (
+                      <Thumb key={r.id} row={r} url={urls[r.id]} className={thumbCls}
+                        onOpen={() => setPreview(r)} onEdit={() => setEditing(r)} onDelete={() => del(r)} onDownload={() => download(r)}
+                        onMove={() => setMoving(r)}
+                        showPerson={targetPerson === undefined} compact={compact} />
+                    ))}
+                  </div>
+                )}
+                <button type="button" disabled={busy} onClick={() => { pendingReqRef.current = req.id; fileRef.current?.click() }}
+                  className="w-full py-2 text-[11.5px] text-gray-400 border border-dashed border-gray-200 rounded hover:text-brand-700 hover:border-brand-300 disabled:opacity-50">
+                  ＋ この請求で届いた画像を追加
+                </button>
+              </div>
+            </div>
+          ))}
+          {/* 請求 未指定。中身があるときだけ出す（空の箱を常時出しても邪魔なだけ） */}
+          {unassigned.length > 0 && (
+            <div className="border border-dashed border-amber-300 rounded-md">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50/60 border-b border-amber-100">
+                <span className="text-[12px] font-semibold text-amber-800">請求 未指定</span>
+                <span className="text-[11px] text-amber-700">どの請求で届いたぶんか決まっていない画像です</span>
+                <span className="ml-auto text-[11px] text-amber-700">{unassigned.length}枚</span>
+              </div>
+              <div className="p-2">
+                <div className={`grid ${gridCls} gap-1.5`}>
+                  {unassigned.map(r => (
+                    <Thumb key={r.id} row={r} url={urls[r.id]} className={thumbCls}
+                      onOpen={() => setPreview(r)} onEdit={() => setEditing(r)} onDelete={() => del(r)} onDownload={() => download(r)}
+                      onMove={() => setMoving(r)}
+                      showPerson={targetPerson === undefined} compact={compact} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className={`grid ${gridCls} gap-1.5`}>
           {rows.map(r => (
@@ -134,6 +226,47 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
         </div>
       )}
       {!compact && <p className="mt-1.5 text-[11px] text-gray-400">元の画像には書き込みません。書いた内容は別に保存され、いつでも消せます。</p>}
+
+      {/* どの請求で届いたぶんかを選ぶ（アップロード時） */}
+      <Modal isOpen={!!askRequest} onClose={() => setAskRequest(null)} title="どの請求で届いた戸籍ですか" maxWidth="max-w-sm"
+        footer={<Button variant="secondary" onClick={() => setAskRequest(null)}>キャンセル</Button>}>
+        <div className="space-y-1.5">
+          {requests.map(rq => (
+            <button key={rq.id} type="button"
+              onClick={() => { const f = askRequest; setAskRequest(null); upload(f, rq.id) }}
+              className="w-full text-left px-3 py-2 rounded-md border border-gray-200 hover:border-brand-300 hover:bg-brand-50/40">
+              <span className="text-[13px] font-semibold text-gray-800">{reqLabel(rq)}</span>
+              <span className="block text-[11px] text-gray-500">
+                {rq.request_kind ?? '通常請求'}
+                {rq.request_date ? ` ・ 請求 ${rq.request_date}` : ''}
+                {rq.arrival_date ? ` ・ 到着 ${rq.arrival_date}` : ''}
+              </span>
+            </button>
+          ))}
+          <button type="button" onClick={() => { const f = askRequest; setAskRequest(null); upload(f, null) }}
+            className="w-full text-left px-3 py-2 rounded-md border border-dashed border-gray-300 text-[12.5px] text-gray-500 hover:text-brand-700">
+            あとで決める（請求 未指定に入れる）
+          </button>
+        </div>
+      </Modal>
+
+      {/* 画像を別の請求へ移す */}
+      <Modal isOpen={!!moving} onClose={() => setMoving(null)} title="どの請求のぶんに移しますか" maxWidth="max-w-sm"
+        footer={<Button variant="secondary" onClick={() => setMoving(null)}>キャンセル</Button>}>
+        <div className="space-y-1.5">
+          {requests.map(rq => (
+            <button key={rq.id} type="button" onClick={() => moving && moveTo(moving, rq.id)}
+              className={`w-full text-left px-3 py-2 rounded-md border hover:border-brand-300 hover:bg-brand-50/40 ${moving?.koseki_request_id === rq.id ? 'border-brand-400 bg-brand-50' : 'border-gray-200'}`}>
+              <span className="text-[13px] font-semibold text-gray-800">{reqLabel(rq)}</span>
+              <span className="block text-[11px] text-gray-500">{rq.request_kind ?? '通常請求'}{rq.arrival_date ? ` ・ 到着 ${rq.arrival_date}` : ''}</span>
+            </button>
+          ))}
+          <button type="button" onClick={() => moving && moveTo(moving, null)}
+            className="w-full text-left px-3 py-2 rounded-md border border-dashed border-gray-300 text-[12.5px] text-gray-500 hover:text-brand-700">
+            請求 未指定に戻す
+          </button>
+        </div>
+      </Modal>
 
       {/* アップロード直後の確認 */}
       <Modal isOpen={!!askEdit} onClose={() => setAskEdit(null)} title={`${askEdit?.length ?? 0}枚をアップロードしました`} maxWidth="max-w-sm"
@@ -169,9 +302,11 @@ export default function KosekiImagePanel({ caseId, targetPerson, compact = false
   )
 }
 
-function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, showPerson, compact }: {
+function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, onMove, showPerson, compact }: {
   row: KosekiImageRow; url?: string; className?: string
   onOpen: () => void; onEdit: () => void; onDelete: () => void; onDownload: () => void
+  /** 別の請求へ移す（請求ごとに仕切っているときだけ） */
+  onMove?: () => void
   showPerson: boolean; compact: boolean
 }) {
   const hasAnno = (row.annotations ?? []).length > 0
@@ -190,6 +325,7 @@ function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, show
         <div className="absolute inset-x-0 bottom-0 hidden group-hover:flex justify-center gap-1 bg-white/90 py-1">
           <button type="button" onClick={onEdit} className="p-1 text-gray-500 hover:text-brand-700" title="書き込む"><Pencil className="w-3.5 h-3.5" /></button>
           <button type="button" onClick={onDownload} className="p-1 text-gray-500 hover:text-brand-700" title="書き込み込みでダウンロード"><Download className="w-3.5 h-3.5" /></button>
+          {onMove && <button type="button" onClick={onMove} className="p-1 text-gray-500 hover:text-brand-700" title="別の請求のぶんに移す"><FolderInput className="w-3.5 h-3.5" /></button>}
           <button type="button" onClick={onDelete} className="p-1 text-gray-400 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       )}

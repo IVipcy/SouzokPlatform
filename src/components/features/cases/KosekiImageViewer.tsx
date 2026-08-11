@@ -17,6 +17,8 @@ export type ViewerImage = {
   id: string
   /** 対象者（帯の区切りに使う） */
   person: string
+  /** どの請求で届いたぶんか（役所名など）。見出しに出す */
+  requestLabel?: string | null
   url?: string
   annos: Anno[]
   fileName: string | null
@@ -68,6 +70,8 @@ export default function KosekiImageViewer({ images, startId, onClose, onEdit }: 
         {/* 見出し */}
         <div className="flex items-center gap-2 text-white mb-2.5 flex-wrap">
           <span className="text-[15px] font-semibold">{cur.person || '対象者 未設定'}</span>
+          {/* どの請求（役所）で届いた戸籍か。転籍を追うと同じ人に何件も並ぶため。 */}
+          <span className="text-[12px] px-2 py-0.5 rounded-full bg-white/10 text-white/85">{cur.requestLabel ?? '請求 未指定'}</span>
           <span className="text-[12px] text-white/60">{noInPerson}／{sameCount}枚</span>
           <span className="text-[12px] text-white/40 truncate max-w-[280px]">{cur.fileName ?? ''}</span>
           <span className="text-[11.5px] text-white/40 ml-2 hidden sm:inline">← → で送る</span>

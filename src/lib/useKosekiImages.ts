@@ -13,6 +13,8 @@ export type KosekiImageRow = {
   id: string
   case_id: string
   target_person: string | null
+  /** どの戸籍請求（役所）で届いたぶんか。null=請求 未指定（migration 235） */
+  koseki_request_id: string | null
   image_path: string
   image_bucket: string
   file_name: string | null
