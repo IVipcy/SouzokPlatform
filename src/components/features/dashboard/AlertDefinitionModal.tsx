@@ -61,8 +61,9 @@ export default function AlertDefinitionModal({ isOpen, onClose }: { isOpen: bool
                 <td colSpan={3} className="px-2.5 py-2 text-[12px] text-gray-600">
                   その案件に出ているアラートで<strong className="text-gray-800">一番重い色</strong>が、そのまま案件の色になります
                   （クレーム ＞ 要注意 ＞ 要確認 ＞ なし）。何も出ていなければ「なし」。
-                  要注意・要確認は<strong className="text-gray-800">上のバナーと同じ色</strong>で、バナーの件数＝その色の案件数です。
-                  何が出ているかは一覧の案件名の下、または案件詳細のバッジに出ます。
+                  要注意・要確認は<strong className="text-gray-800">上のバナーと同じ色</strong>です。
+                  ただし数え方は違い、<strong className="text-gray-800">バナーはアラートの数</strong>（1つの案件に3つ出ていれば3件）、
+                  進捗管理ボードの色件数は案件の数です。何が出ているかは一覧の案件名の下、または案件詳細のバッジに出ます。
                 </td>
               </tr>
             </tbody>

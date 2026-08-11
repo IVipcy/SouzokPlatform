@@ -25,17 +25,10 @@ export default function OverdueAttention({ bills, tasks, caseAlerts = [], hrefBa
 }) {
   // 条件を思い出すためのポップアップ。定義は alertRules.ts の1か所だけなので画面と資料がずれない。
   const [defOpen, setDefOpen] = useState(false)
-  // 数えるのは「案件の数」。1つの案件に何個アラートが出ていても1件で、重いほうに寄せる。
-  // 進捗管理ボードの色件数（要注意/要確認）と同じ数え方にして、画面どうしで数字が食い違わないようにする。
-  const worst = new Map<string, OverdueSeverity>()
-  const put = (caseId: string, s: OverdueSeverity) => {
-    if (s === 'chui' || !worst.has(caseId)) worst.set(caseId, s === 'chui' ? 'chui' : (worst.get(caseId) ?? s))
-  }
-  for (const b of bills) put(b.caseId, b.severity)
-  for (const t of tasks) put(t.task.case_id, t.severity)
-  for (const a of caseAlerts) put(a.caseId, a.severity)
-  const nKakunin = [...worst.values()].filter(v => v === 'kakunin').length
-  const nChui = [...worst.values()].filter(v => v === 'chui').length
+  // 数えるのは「アラートの数」＝これから片づける件数。1つの案件に3つ出ていれば3件。
+  // 進捗管理ボードの色件数は案件単位なので、こちらの数字のほうが大きくなることがある。
+  const cnt = (s: OverdueSeverity) => bills.filter(b => b.severity === s).length + tasks.filter(t => t.severity === s).length + caseAlerts.filter(a => a.severity === s).length
+  const nKakunin = cnt('kakunin'), nChui = cnt('chui')
   const hasAny = nKakunin + nChui > 0
 
   // バナー（1件以上で点灯＋赤丸件数・リンクで /my/overdue?sev=xxx へ遷移）
