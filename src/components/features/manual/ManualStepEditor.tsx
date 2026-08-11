@@ -173,15 +173,9 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
 
       {/* ページの見出し（章・タイトル・ロール） */}
       <div className="bg-white border border-gray-200 rounded-lg p-3.5 mb-3.5">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <select value={chapter} onChange={e => { setChapter(e.target.value); touch() }}
-            className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400">
-            {[...new Set([chapter, ...chapters])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <input value={title} onChange={e => { setTitle(e.target.value); touch() }}
-            placeholder="例: STEP①：面談内容の登録"
-            className="flex-1 min-w-[240px] px-2.5 py-1.5 text-[15px] font-semibold border border-gray-300 rounded-md outline-none focus:border-brand-400" />
-        </div>
+        <input value={title} onChange={e => { setTitle(e.target.value); touch() }}
+          placeholder="例: STEP①：面談内容の登録"
+          className="w-full px-2.5 py-1.5 text-[15px] font-semibold border border-gray-300 rounded-md outline-none focus:border-brand-400" />
         <div className="flex items-center gap-2 flex-wrap mt-2.5">
           <span className="text-[11.5px] text-gray-500">誰向けの手順か</span>
           {MANUAL_ROLES.map(r => {
@@ -196,6 +190,15 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
             )
           })}
           {roles.length === 0 && <span className="text-[11px] text-gray-400">選ばなければ全員に出ます</span>}
+          {/* 章は入ってきたタブで決まっているので、ふだんは触らない。別の章へ移したいときだけ使う。 */}
+          <span className="ml-auto inline-flex items-center gap-1.5">
+            <span className="text-[11px] text-gray-400">章</span>
+            <select value={chapter} onChange={e => { setChapter(e.target.value); touch() }}
+              title="別の章へ移すときだけ変えてください"
+              className="px-2 py-1 text-[11.5px] text-gray-600 border border-gray-200 rounded-md bg-white outline-none focus:border-brand-400">
+              {[...new Set([chapter, ...chapters])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </span>
         </div>
       </div>
 
