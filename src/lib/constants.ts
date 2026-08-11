@@ -724,6 +724,33 @@ export const PAYMENT_STATUSES = [
   '未請求', '作成済', '入金待ち', '入金済',
 ] as const
 
+// === 請求区分（戸籍・不動産資料。migration 234） ===
+// 「なぜ出した請求か」の記録。お金の扱いが変わるのは 誤請求 だけで、
+// 誤請求の費用はお客様に請求せず、自社の経費として案件別に集計する。
+export const MISTAKEN_REQUEST = '誤請求'
+export const KOSEKI_REQUEST_KINDS = ['通常請求', MISTAKEN_REQUEST, '追加請求', '再請求'] as const
+// 不動産は資料の種類と対象で行が分かれるため、追加・再取得はそのまま別の行になる。
+// 区分で分ける必要があるのは誤請求だけなので2つに絞る。
+export const RE_REQUEST_KINDS = ['通常請求', MISTAKEN_REQUEST] as const
+
+export const REQUEST_KIND_HELP: Record<string, string> = {
+  '通常請求': '最初に出す請求。費用はお客様への立替実費になります',
+  '誤請求': '請求先や対象者を間違えて取ってしまったもの。費用はお客様に請求せず、自社の経費として集計します',
+  '追加請求': '読んだ結果、足りないぶんを追加で取るもの。費用は立替実費になります',
+  '再請求': '同じ条件・同じ役所へもう一度出すもの（紛失・不達など）。費用は立替実費になります',
+}
+
+/** 誤請求か（NULL・空は通常請求として扱う） */
+export const isMistakenRequest = (kind: string | null | undefined) => kind === MISTAKEN_REQUEST
+
+/** 区分バッジの色。誤請求だけ赤で目立たせる。 */
+export const REQUEST_KIND_BADGE: Record<string, string> = {
+  '通常請求': 'bg-gray-50 text-gray-600 border-gray-200',
+  '誤請求': 'bg-red-50 text-red-700 border-red-200',
+  '追加請求': 'bg-orange-50 text-orange-700 border-orange-200',
+  '再請求': 'bg-blue-50 text-blue-700 border-blue-200',
+}
+
 // === 士業（司法／行政）の色。行政＝青／司法＝赤 ===
 // 請求・入金タブの法人サマリーカードがこの色なので、案件詳細の請求タブ（報酬内訳・立替実費）も同じにする。
 // 「行政は青／司法は赤」を画面をまたいで固定し、どちらの数字かを色だけで追えるようにする。

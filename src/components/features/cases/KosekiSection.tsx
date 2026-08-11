@@ -5,14 +5,21 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split, Copy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS } from '@/lib/constants'
+import HintTip from '@/components/ui/HintTip'
+import {
+  KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
+  KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
+} from '@/lib/constants'
+
+// 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
+const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
@@ -151,6 +158,26 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 90 + i,
     }))
     if (toInsert.length > 0) await supabase.from('tasks').insert(toInsert)
+    onRefresh?.()
+  }
+
+  // 同じ条件でもう一度出す（再請求）。請求先・対象者・範囲・種別・理由だけ引き継ぎ、
+  // 日付・費用・チェック・読込結果は空で作る。区分は「再請求」を初期値にする。
+  const copyRequest = async (r: KosekiRequestRow) => {
+    const { error } = await supabase.from('koseki_requests').insert({
+      case_id: caseId,
+      target_person: r.target_person,
+      request_to: r.request_to,
+      range_text: r.range_text,
+      doc_types: r.doc_types,
+      request_reason: r.request_reason,
+      request_reason_other: r.request_reason_other,
+      acquirer: r.acquirer,
+      request_kind: '再請求',
+      sort_order: (r.sort_order ?? 0) + 1,
+    })
+    if (error) { showToast(`コピーに失敗: ${error.message}`, 'error'); return }
+    showToast('再請求の行を作りました', 'success')
     onRefresh?.()
   }
 
@@ -390,6 +417,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   <table className="text-[12px] border-collapse" style={{ minWidth: 1660, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                        <th className="px-2 py-2 text-left font-semibold w-24">
+                          <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
+                        </th>
                         <th className="px-2 py-2 text-left font-semibold w-20">取得区分</th>
                         <th className="px-2 py-2 text-left font-semibold w-40">請求先（役所）</th>
                         <th className="px-2 py-2 text-left font-semibold w-32">範囲</th>
@@ -414,7 +444,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                           rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
                           onRefresh={onRefresh}
                           saveField={saveField} saveMany={saveMany}
-                          onDelete={() => delRequest(r)} />
+                          onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} />
                       ))}
                     </tbody>
                   </table>
@@ -526,7 +556,7 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete }: {
+function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete, onCopy }: {
   r: KosekiRequestRow
   i: number
   meId: string | null
@@ -536,6 +566,7 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
+  onCopy: () => void
 }) {
   const rowRef = useRef<HTMLTableRowElement | null>(null)
   useEffect(() => { if (highlight && rowRef.current) rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [highlight])
@@ -543,7 +574,7 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
   if (r.is_additional && !r.additional_approved_at) {
     return (
       <tr className="border-b border-gray-100 last:border-b-0">
-        <td colSpan={14} className="p-0">
+        <td colSpan={15} className="p-0">
           <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-50 border-l-[3px] border-amber-400">
             <Lock className="w-4 h-4 flex-none text-amber-600" />
             <span className="flex-1 text-[12px] text-amber-800"><strong className="font-semibold">{r.request_to || '役所未定'}（追加・要承認）</strong> — 上部の「承認待ちの追加戸籍請求」で管理担当が承認すると、この行で各項目を編集できます。</span>
@@ -555,9 +586,11 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
   }
 
   const isClient = r.acquirer === '依頼者'  // 依頼者取得＝請求日・費用・DCは依頼者負担
+  const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝費用はお客様に請求せず自社の経費
   const muted = <span className="text-[11px] text-gray-400">—</span>
   return (
-    <tr ref={rowRef} className={`border-b border-gray-100 last:border-b-0 ${highlight ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+    <tr ref={rowRef} className={`border-b border-gray-100 last:border-b-0 ${highlight ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : mistaken ? 'bg-red-50/40' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+      <td className="px-2 py-1.5"><SelCell value={r.request_kind ?? '通常請求'} options={[...KOSEKI_REQUEST_KINDS]} onChange={v => saveField(r.id, 'request_kind', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} /></td>
       <td className="px-2 py-1.5"><TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" /></td>
       <td className="px-2 py-1.5"><SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} /></td>
@@ -577,7 +610,11 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
         <>
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} /></td>
           <td className="px-2 py-1.5"><MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} /></td>
-          <td className="px-2 py-1.5 text-right"><span className="inline-block px-2 py-1 rounded text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">{yen(effConfirmed(r))}</span></td>
+          <td className="px-2 py-1.5 text-right">
+            <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
+              title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
+            {mistaken && <span className="block text-[10px] text-purple-600 mt-0.5">経費</span>}
+          </td>
           {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
           <td className="px-2 py-1.5">{r.request_date
             ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name}
@@ -598,7 +635,11 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
           ? <div className="flex flex-col gap-1 items-start">{rowTasks.map(t => <RowTaskChip key={t.id} task={t} onRefresh={onRefresh} />)}</div>
           : <span className="text-[11px] text-gray-300">—</span>}
       </td>
-      <td className="px-2 py-1.5 text-center"><button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></td>
+      <td className="px-2 py-1.5 text-center whitespace-nowrap">
+        <button type="button" onClick={onCopy} title="この行をコピーして再請求を作る（請求先・対象者・範囲・種別・理由を引き継ぎ、日付と費用は空）"
+          className="text-gray-300 hover:text-brand-600 mr-1.5"><Copy className="w-3.5 h-3.5" /></button>
+        <button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+      </td>
     </tr>
   )
 }

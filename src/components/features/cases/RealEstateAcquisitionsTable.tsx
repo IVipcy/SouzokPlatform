@@ -5,7 +5,10 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { ACQUISITION_ITEMS } from '@/lib/constants'
+import { ACQUISITION_ITEMS, RE_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest } from '@/lib/constants'
+
+// 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
+const KIND_HINT = RE_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { receiptFilesFor } from '@/lib/relatedTasks'
@@ -200,7 +203,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
   // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
-  const colCount = progressMode ? (fullCost ? 12 : 10) : 4  // 取得物/対象/請求先(+日付/費用/W-Check/受領)/削除
+  const colCount = progressMode ? (fullCost ? 13 : 11) : 4  // 請求区分/対象/請求先/取得資料(+日付/費用/W-Check/受領)/削除
 
   return (
     <div>
@@ -210,6 +213,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1190 : 970) : 640 }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">
+                <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
+              </th>}
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-40">対象</th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
@@ -240,8 +246,16 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
               const dash = <span className="text-gray-300 text-[11px]">—</span>
               return (
-                <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
-                  {/* 対象（先頭列。物件select は [土地]/[建物] 付きで判別可能に） */}
+                <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${isMistakenRequest(r.request_kind) ? 'bg-red-50/40' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                  {/* 請求区分（誤請求＝費用はお客様に請求せず自社の経費） */}
+                  {progressMode && (
+                    <td className="px-2 py-1.5">
+                      <select value={r.request_kind ?? '通常請求'} onChange={e => save(r.id, 'request_kind', e.target.value)} className={selCls}>
+                        {RE_REQUEST_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {/* 対象（物件select は [土地]/[建物] 付きで判別可能に） */}
                   <td className="px-2 py-1.5">
                     {(scope === 'property' || (scope === 'all' && isProp)) ? (
                       <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={selCls}>
@@ -285,8 +299,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   {progressMode && (
                     <td className="px-2 py-1.5 text-right">
                       {isRef ? dash : fullCost
-                        ? <span className="font-semibold text-emerald-700 tabular-nums">{yen(confirmedOf(r))}</span>
+                        ? <span className={`font-semibold tabular-nums ${isMistakenRequest(r.request_kind) ? 'text-purple-700' : 'text-emerald-700'}`}>{yen(confirmedOf(r))}</span>
                         : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
+                      {isMistakenRequest(r.request_kind) && <span className="block text-[10px] text-purple-600 mt-0.5">経費</span>}
                     </td>
                   )}
                   {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
@@ -319,7 +334,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           {progressMode && visibleRows.length > 0 && (
             <tfoot>
               <tr className="bg-gray-50 font-semibold text-gray-700">
-                <td className="px-2 py-2 text-right" colSpan={fullCost ? 7 : 5}>確定費用 合計（立替実費の実績）</td>
+                <td className="px-2 py-2 text-right" colSpan={fullCost ? 8 : 6}>確定費用 合計（誤請求ぶんは経費として別集計）</td>
                 <td className="px-2 py-2 text-right text-emerald-700 tabular-nums">{yen(confirmedTotal)}</td>
                 <td colSpan={4} />
               </tr>

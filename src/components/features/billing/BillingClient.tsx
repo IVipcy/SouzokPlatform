@@ -504,6 +504,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           <Wallet className="w-3.5 h-3.5" strokeWidth={2} />入金明細
         </Link>
       )}
+      {canReconcile && !embedded && (
+        <Link href="/billing/expense-report" className={TOOLBAR_LINK} title="お客様に請求しない自社負担の費用（誤請求ぶん）">
+          <Receipt className="w-3.5 h-3.5" strokeWidth={2} />経費
+        </Link>
+      )}
     </>
   )
 

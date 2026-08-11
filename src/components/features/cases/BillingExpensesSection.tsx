@@ -12,7 +12,8 @@ import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
-import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable, SHIGYO_COLORS } from '@/lib/constants'
+import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable, SHIGYO_COLORS, isMistakenRequest } from '@/lib/constants'
+import { fetchCaseExpenses, type CaseExpenseRow } from '@/lib/caseExpenses'
 import { isMinimalMode } from '@/lib/featureMode'
 import { registrationTax } from '@/lib/registrationTax'
 import type { BillingExpenseItemRow, RealEstatePropertyRow } from '@/types'
@@ -78,8 +79,8 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   const openImport = async () => {
     setImporting(true)
     const [{ data: kos }, { data: rea }, { data: props }] = await Promise.all([
-      supabase.from('koseki_requests').select('id, target_person, request_to, acquirer, cost_budget, cost_refund, cost_confirmed').eq('case_id', caseId),
-      supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, request_to, cost_confirmed').eq('case_id', caseId),
+      supabase.from('koseki_requests').select('id, target_person, request_to, acquirer, cost_budget, cost_refund, cost_confirmed, request_kind').eq('case_id', caseId),
+      supabase.from('real_estate_acquisitions').select('id, item_type, target_municipality, request_to, cost_confirmed, request_kind').eq('case_id', caseId),
       supabase.from('real_estate_properties').select('id, address, lot_number, appraisal_value, share_numerator, share_denominator, registration_cost').eq('case_id', caseId),
     ])
     // 既存の取り込み分から前回の選択を保持（source_kind:source_id をキーに）
@@ -97,11 +98,13 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
     }
     for (const k of (kos ?? []) as Record<string, unknown>[]) {
       if (k.acquirer === '依頼者') continue  // 依頼者負担は立替に含めない
+      if (isMistakenRequest(k.request_kind as string | null)) continue  // 誤請求は自社の経費。お客様に請求しない
       const b = k.cost_budget as number | null, rf = k.cost_refund as number | null, c = k.cost_confirmed as number | null
       const amt = (b != null || rf != null) ? (b ?? 0) - (rf ?? 0) : (c ?? 0)
       if (amt > 0) add('koseki', k.id as string, `戸籍等取得（${(k.target_person as string) || (k.request_to as string) || '戸籍'}）`, amt, '市役所等で取得した戸籍や住民票')
     }
     for (const a of (rea ?? []) as Record<string, unknown>[]) {
+      if (isMistakenRequest(a.request_kind as string | null)) continue  // 誤請求は自社の経費
       const amt = (a.cost_confirmed as number | null) ?? 0
       if (amt > 0) add('real_estate_acq', a.id as string, `${(a.item_type as string) || '取得資料'}${a.target_municipality ? `（${a.target_municipality}）` : ''}`, amt, acqTaxItem(a.request_to as string | null))
     }
@@ -235,6 +238,9 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
         )
       })}
 
+      {/* 経費（誤請求ぶん）。お客様に請求しないので立替実費とは別に出す。 */}
+      <CaseExpenseBlock caseId={caseId} />
+
       {pending && (
         <ImportModal
           items={pending}
@@ -311,5 +317,57 @@ function ImportModal({ items, importing, onClose, onSetShigyo, onToggleTaxable, 
         </div>
       </div>
     </Modal>
+  )
+}
+
+// 案件の経費（お客様に請求しない自社負担）。いまの発生源は戸籍・不動産資料の「誤請求」。
+// 立替実費の下に置き、請求書には載らないことを明示する。
+function CaseExpenseBlock({ caseId }: { caseId: string }) {
+  const [rows, setRows] = useState<CaseExpenseRow[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const r = await fetchCaseExpenses(createClient(), [caseId])
+      if (alive) { setRows(r); setLoading(false) }
+    })()
+    return () => { alive = false }
+  }, [caseId])
+
+  if (loading || rows.length === 0) return null
+  const total = rows.reduce((n, r) => n + r.amount, 0)
+  return (
+    <div className="border border-purple-200 rounded-lg">
+      <div className="px-3 py-2 bg-purple-50/60 flex items-center gap-2 border-l-4 border-purple-500 rounded-t-lg">
+        <span className="text-[12.5px] font-semibold text-purple-800">経費（お客様に請求しない自社負担）</span>
+        <span className="text-[11px] text-purple-600">立替実費には含めません</span>
+        <span className="ml-auto text-[12.5px] font-semibold text-purple-800">小計 {yen(total)}</span>
+      </div>
+      <div className="px-3 pb-3 pt-2">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="text-[11px] text-gray-500 border-b border-gray-100">
+              <th className="px-2 py-1.5 text-left font-semibold w-24">発生源</th>
+              <th className="px-2 py-1.5 text-left font-semibold">内容</th>
+              <th className="px-2 py-1.5 text-left font-semibold w-28">日付</th>
+              <th className="px-2 py-1.5 text-right font-semibold w-24">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
+                <td className="px-2 py-1.5">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-red-50 text-red-700 border border-red-200">{r.kind}</span>
+                </td>
+                <td className="px-2 py-1.5 text-gray-700">{r.label}</td>
+                <td className="px-2 py-1.5 font-mono text-gray-500">{r.date ?? '—'}</td>
+                <td className="px-2 py-1.5 text-right font-mono text-purple-700">{yen(r.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[11px] text-gray-400 mt-1.5">戸籍・不動産資料の請求区分を「誤請求」にすると、その費用がここに入ります。</p>
+      </div>
+    </div>
   )
 }
