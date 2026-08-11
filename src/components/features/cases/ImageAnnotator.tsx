@@ -25,7 +25,7 @@ import Button from '@/components/ui/Button'
 import {
   MARKER_COLORS, MARKER_BLUE_NOTE, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT, TEXT_COLOR,
   TEXT_BOX_MIN_W, TEXT_DEFAULT, TEXT_TARGET_LINE, fontOf, fontForWidth,
-  drawAnnotations, textBoxHeight, getMeasureCtx, newId,
+  drawAnnotations, textBoxHeight, textFontPx, getMeasureCtx, newId,
   type Anno, type PenAnno, type TextAnno,
 } from '@/lib/imageAnnotations'
 
@@ -309,7 +309,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
               const isEditing = a.id === editingId
               const isSelected = a.id === selectedId
               const h = boxPx(a)
-              const fontPx = Math.max(11, fontOf(a) * size.w)
+              const mctx = getMeasureCtx()
+              const fontPx = mctx && size.w > 0 ? Math.max(11, textFontPx(mctx, a, size.w)) : Math.max(11, fontOf(a) * size.w)
               return (
                 <div key={a.id} className="absolute" style={{ left, top, width: w }}>
                   {isEditing ? (
@@ -320,7 +321,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                       onBlur={() => setEditingId(null)}
                       placeholder="空欄を埋めてください"
                       className="w-full px-1.5 py-1 rounded border-2 bg-white/95 outline-none resize-none block"
-                      style={{ borderColor: a.color, color: a.color, fontSize: fontPx, lineHeight: 1.45, height: Math.max(h, fontPx * 2.4) }}
+                      style={{ borderColor: a.color, color: a.color, fontSize: fontPx, lineHeight: 1.45, height: Math.max(h, fontPx * 2.4), whiteSpace: 'pre', overflowX: 'auto' }}
                     />
                   ) : (
                     <div

@@ -59,7 +59,7 @@ export const MARKER_ALPHA = 0.42
 export const PEN_WIDTH = 0.004
 export const MARKER_WIDTH = 0.022
 /** テキスト箱の既定幅・文字サイズ（画像幅に対する割合） */
-export const TEXT_BOX_W = 0.44
+export const TEXT_BOX_W = 0.58
 export const TEXT_FONT = 0.019
 /** 箱幅の下限（割合） */
 export const TEXT_BOX_MIN_W = 0.12
@@ -87,18 +87,29 @@ export const fontForWidth = (a: TextAnno, nextW: number) => {
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
 
-/** テキストを箱幅に合わせて折り返す */
-export function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const out: string[] = []
-  for (const paragraph of (text ?? '').split('\n')) {
-    let line = ''
-    for (const ch of paragraph) {
-      if (ctx.measureText(line + ch).width > maxWidth && line) { out.push(line); line = ch }
-      else line += ch
-    }
-    out.push(line)
-  }
-  return out
+/**
+ * テキスト箱の行組み。折り返しはしない。
+ *
+ * 中身は「証明期間：　年　月　日 ～ …」のような決まった1行で、途中で折り返すと
+ * 「日」だけが次の行に落ちて読めなくなる。そこで、いちばん長い行が枠に収まるまで
+ * 文字を小さくして、1行は必ず1行のまま出す（枠を広げれば字は大きくなる）。
+ */
+export function layoutText(ctx: CanvasRenderingContext2D, a: TextAnno, w: number): {
+  lines: string[]; fontPx: number; padding: number; lineH: number; boxH: number
+} {
+  const lines = (a.text ?? '').split('\n')
+  const basePx = Math.max(9, fontOf(a) * w)
+  const padding = basePx * 0.45
+  const inner = Math.max(1, a.w * w - padding * 2)
+  ctx.save()
+  ctx.font = `${basePx}px sans-serif`
+  let longest = 0
+  for (const ln of lines) longest = Math.max(longest, ctx.measureText(ln).width)
+  ctx.restore()
+  // 収まらないぶんだけ縮める。拡大はしない（枠より字が大きく見えるのを防ぐ）。
+  const fontPx = longest > inner ? Math.max(6, basePx * (inner / longest)) : basePx
+  const lineH = fontPx * 1.45
+  return { lines, fontPx, padding, lineH, boxH: lines.length * lineH + padding * 2 }
 }
 
 /**
@@ -136,14 +147,10 @@ export function drawAnnotations(
 
 /** テキストの箱＋引き出し線を描く */
 export function drawTextAnno(ctx: CanvasRenderingContext2D, a: TextAnno, w: number, h: number) {
-  const fontPx = Math.max(9, fontOf(a) * w)
-  const padding = fontPx * 0.45
+  const { lines, fontPx, padding, lineH, boxH } = layoutText(ctx, a, w)
   const boxW = a.w * w
   ctx.save()
   ctx.font = `${fontPx}px sans-serif`
-  const lines = wrapText(ctx, a.text || '', boxW - padding * 2)
-  const lineH = fontPx * 1.45
-  const boxH = lines.length * lineH + padding * 2
   const x = a.x * w
   const y = a.y * h
 
@@ -187,11 +194,10 @@ export function getMeasureCtx(): CanvasRenderingContext2D | null {
 
 /** テキスト箱の高さ（割合）。当たり判定・ドラッグ範囲に使う */
 export function textBoxHeight(ctx: CanvasRenderingContext2D, a: TextAnno, w: number, h: number): number {
-  const fontPx = Math.max(9, fontOf(a) * w)
-  const padding = fontPx * 0.45
-  ctx.save()
-  ctx.font = `${fontPx}px sans-serif`
-  const lines = wrapText(ctx, a.text || '', a.w * w - padding * 2)
-  ctx.restore()
-  return (lines.length * fontPx * 1.45 + padding * 2) / h
+  return layoutText(ctx, a, w).boxH / h
+}
+
+/** 編集中の入力欄で使う実文字サイズ（枠に収めるため縮めたあとの値） */
+export function textFontPx(ctx: CanvasRenderingContext2D, a: TextAnno, w: number): number {
+  return layoutText(ctx, a, w).fontPx
 }
