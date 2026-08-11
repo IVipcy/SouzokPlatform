@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type ReactNode } from 'react'
-import { Loader2, Upload, Sparkles, AlertTriangle, Check, Clock } from 'lucide-react'
+import { Loader2, Upload, Sparkles, AlertTriangle, Check, Clock, Layers } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
@@ -52,6 +52,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
   const [reviewText, setReviewText] = useState<Record<string, string>>({})     // ②③の要確認理由（編集可）
   const [leftoverPick, setLeftoverPick] = useState<Record<number, string>>({}) // CSVのみ行→紐付ける invoiceId
   const [leftoverDismiss, setLeftoverDismiss] = useState<Set<number>>(new Set()) // CSVのみ行→対象外
+  const [groupChecked, setGroupChecked] = useState<Set<number>>(new Set())      // まとめ払い→この入金で消し込む
 
   const todayStr = today()
 
@@ -98,7 +99,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
     return () => { alive = false }
   }, [isOpen])
 
-  const resetCsv = () => { setResults(null); setFileName(''); setPayChecked(new Set()); setReviewText({}); setLeftoverPick({}); setLeftoverDismiss(new Set()) }
+  const resetCsv = () => { setResults(null); setFileName(''); setPayChecked(new Set()); setReviewText({}); setLeftoverPick({}); setLeftoverDismiss(new Set()); setGroupChecked(new Set()) }
   const closeAll = () => { resetCsv(); setInvoices(null); onClose() }
 
   const handleFile = async (file: File) => {
@@ -119,6 +120,8 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         if (r.invoiceId && r.kind === 'review') rev[r.invoiceId] = r.reason
       }
       setPayChecked(pay); setReviewText(rev); setLeftoverPick({}); setLeftoverDismiss(new Set())
+      // まとめ払い（合計一致）は既定でチェックON。内訳が見えるので、外したければ外せる。
+      setGroupChecked(new Set(res.map((r, i) => (r.kind === 'group' ? i : -1)).filter(i => i >= 0)))
     } finally {
       setParsing(false)
     }
@@ -132,13 +135,19 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       if (!prev || (prev.kind === 'review' && r.kind === 'matched')) byInvoice.set(r.invoiceId, r)
     }
   }
-  const leftover = results ? results.map((r, idx) => ({ r, idx })).filter(x => !x.r.invoiceId) : []
+  // まとめ払い（1件の入金＝複数請求の合計）。請求ごとの行にも印を付けたいので索引を作る。
+  const groups = results ? results.map((r, idx) => ({ r, idx })).filter(x => x.r.kind === 'group') : []
+  const groupNoByInvoice = new Map<string, number>()
+  groups.forEach(({ r }, n) => (r.groupIds ?? []).forEach(id => groupNoByInvoice.set(id, n + 1)))
+  const leftover = results ? results.map((r, idx) => ({ r, idx })).filter(x => !x.r.invoiceId && x.r.kind !== 'group') : []
 
   const matchedIds = [...byInvoice].filter(([, r]) => r.kind === 'matched').map(([id]) => id)
   const reviewIds = [...byInvoice].filter(([, r]) => r.kind === 'review').map(([id]) => id)
-  const confirmCount = matchedIds.filter(id => payChecked.has(id)).length
+  const groupInvoiceCount = groups.filter(g => groupChecked.has(g.idx)).reduce((s, g) => s + (g.r.groupIds?.length ?? 0), 0)
+  const confirmCount = matchedIds.filter(id => payChecked.has(id)).length + groupInvoiceCount
 
   const togglePay = (id: string) => setPayChecked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleGroup = (idx: number) => setGroupChecked(prev => { const n = new Set(prev); if (n.has(idx)) n.delete(idx); else n.add(idx); return n })
   const toggleDismiss = (idx: number) => setLeftoverDismiss(prev => { const n = new Set(prev); if (n.has(idx)) n.delete(idx); else n.add(idx); return n })
 
   const handleApply = async () => {
@@ -148,11 +157,13 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
     const invById = new Map(invoices.map(i => [i.id, i]))
     let paid = 0, reviewed = 0, deposits = 0
 
-    const confirmPay = async (inv: InvoiceRich, row: MatchResult['row'], by: 'ai' | 'human') => {
-      const note = `振込人:${row.name || '—'} / 摘要:${row.memo || '—'} / CSV取込${today()}`
-      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount: row.amount, payment_date: today(), payment_method: '振込', matched_by: by, match_note: note, bank: row.bank || null })
+    // amountOverride … まとめ払いのとき。1回の入金を請求ごとの金額に割り付けて消し込む。
+    const confirmPay = async (inv: InvoiceRich, row: MatchResult['row'], by: 'ai' | 'human', amountOverride?: number, noteExtra?: string) => {
+      const amount = amountOverride ?? row.amount
+      const note = `振込人:${row.name || '—'} / 摘要:${row.memo || '—'} / CSV取込${today()}${noteExtra ? ` / ${noteExtra}` : ''}`
+      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount, payment_date: today(), payment_method: '振込', matched_by: by, match_note: note, bank: row.bank || null })
       if (error) { showToast(`入金記録に失敗: ${error.message}`, 'error'); return }
-      const status = row.amount >= inv.amount ? '入金済' : '入金待ち'
+      const status = amount >= inv.amount ? '入金済' : '入金待ち'
       await supabase.from('invoices').update({ status, needs_review: false, review_reason: null }).eq('id', inv.id)
       // 入金元の銀行を案件へ自動記録（売上表のシート分け＝振り分け）
       if (row.bank) await supabase.from('cases').update({ bank: row.bank }).eq('id', inv.case_id)
@@ -164,7 +175,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         if (recipients.size > 0) {
           await supabase.from('notifications').insert([...recipients].map(mid => ({
             member_id: mid, type: 'payment_confirmed', case_id: inv.case_id, title: '入金確定',
-            body: `${inv.case_number} ${inv.deal_name} の入金（${yen(row.amount)}）が入金済になりました。請求タブで確認してください。`,
+            body: `${inv.case_number} ${inv.deal_name} の入金（${yen(amount)}）が入金済になりました。請求タブで確認してください。`,
           })))
         }
         paid++
@@ -180,6 +191,15 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         await supabase.from('invoices').update({ needs_review: true, review_reason: reviewText[id] ?? res.reason }).eq('id', inv.id)
         reviewed++
       }
+    }
+
+    // まとめ払い（チェック分）：1回の入金を請求ごとに割り付けて、まとめて入金済にする
+    for (const { r, idx } of groups) {
+      if (!groupChecked.has(idx)) continue
+      const members = (r.groupIds ?? []).map(id => invById.get(id)).filter((i): i is InvoiceRich => !!i)
+      if (members.length === 0) continue
+      const breakdown = `まとめ入金 ${yen(r.row.amount)} の内訳（${members.map(m => `${m.case_number} ${yen(m.amount)}`).join(' / ')}）`
+      for (const m of members) await confirmPay(m, r.row, 'ai', m.amount, breakdown)
     }
 
     // CSVのみ：紐付け＝手動確定／それ以外は unmatched_deposits へ（対象外はdismissed）
@@ -233,6 +253,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
             <span className="text-gray-500 mr-auto">{fileName}</span>
             {chip('bg-emerald-50 text-emerald-700 border-emerald-200', '①確定', matchedIds.length, <Sparkles className="w-3 h-3" />)}
             {chip('bg-amber-50 text-amber-700 border-amber-200', '②③要確認', reviewIds.length, <AlertTriangle className="w-3 h-3" />)}
+            {groups.length > 0 && chip('bg-indigo-50 text-indigo-700 border-indigo-200', 'まとめ払い', groups.length, <Layers className="w-3 h-3" />)}
             {chip('bg-brand-50 text-brand-700 border-brand-200', 'CSVのみ', leftover.length)}
             <button type="button" onClick={resetCsv} className="ml-1 text-brand-600 hover:underline">別のCSV</button>
           </div>
@@ -249,9 +270,10 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
             <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[24rem] overflow-y-auto">
               {invoices.map(inv => {
                 const res = byInvoice.get(inv.id)
+                const gno = groupNoByInvoice.get(inv.id)   // まとめ払いの何番目に含まれるか
                 const overdue = !!inv.due_date && inv.due_date < todayStr
                 return (
-                  <div key={inv.id} className={`px-3 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-center ${res?.kind === 'review' ? 'bg-amber-50/50' : overdue && !res ? 'bg-rose-50/40' : ''}`}>
+                  <div key={inv.id} className={`px-3 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-center ${res?.kind === 'review' ? 'bg-amber-50/50' : gno ? 'bg-indigo-50/40' : overdue && !res ? 'bg-rose-50/40' : ''}`}>
                     <div className="min-w-0">
                       <div className="text-[13px]"><span className="font-mono text-brand-700">{inv.case_number}</span> <span className="text-gray-800">{inv.deal_name || inv.client_name}</span></div>
                       <div className="text-[11px] text-gray-500">{inv.invoice_type} {yen(inv.amount)} ・ 期日 {mdOf(inv.due_date)}{res ? ` ・ 入金 ${yen(res.row.amount)}` : ''}</div>
@@ -268,11 +290,50 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
                         </label>
                       ) : res?.kind === 'review' ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-white text-amber-700 border border-amber-300">要確認</span>
+                      ) : gno ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200" title="下の「まとめ払いの可能性」で確認してください"><Layers className="w-3 h-3" />まとめ払い {gno}</span>
                       ) : overdue ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200"><Clock className="w-3 h-3" />未入金（期日超過）</span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未入金</span>
                       )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* まとめ払いの可能性（1回の入金＝複数請求の合計。司法＋行政をまとめて振り込まれた等） */}
+        {results && groups.length > 0 && (
+          <div>
+            <div className="text-[12px] font-semibold text-gray-500 mb-1.5">まとめ払いの可能性（{groups.length}件）</div>
+            <div className="border border-indigo-200 rounded-lg divide-y divide-indigo-100">
+              {groups.map(({ r, idx }, n) => {
+                const on = groupChecked.has(idx)
+                return (
+                  <div key={idx} className={`px-3 py-2.5 ${on ? 'bg-indigo-50/40' : 'opacity-60'}`}>
+                    <div className="flex items-start gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer pt-0.5">
+                        <input type="checkbox" checked={on} onChange={() => toggleGroup(idx)} className="accent-indigo-600" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"><Layers className="w-3 h-3" />まとめ払い {n + 1}</span>
+                      </label>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] text-gray-800">{r.row.name || '（振込人なし）'} ・ <span className="font-semibold">{yen(r.row.amount)}</span></div>
+                        <div className="text-[11px] text-gray-500">{r.row.date || '—'} ・ 摘要: {r.row.memo || '—'}</div>
+                        <div className="text-[11.5px] text-indigo-800 mt-1">{r.reason}</div>
+                        <div className="mt-1 space-y-0.5">
+                          {r.candidates.map(c => (
+                            <div key={c.id} className="text-[11.5px] text-gray-600 flex items-center gap-2">
+                              <span className="font-mono text-brand-700">{c.case_number}</span>
+                              <span className="truncate">{c.deal_name || c.client_name}</span>
+                              <span className="ml-auto font-mono">{yen(c.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-[11px] text-gray-400 mt-1">チェックしたまま反映すると、この入金を上の内訳どおりに割り付けて、それぞれ入金済にします。</div>
+                      </div>
                     </div>
                   </div>
                 )
@@ -312,7 +373,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
           </div>
         )}
 
-        <p className="text-[11px] text-gray-400">①確定＝チェック分を入金済に（受注/管理へ通知）。②③要確認＝入金済にせず「要確認」で保存し、後で個別確定。CSVのみ＝紐付け or 対象外、未処理はそのまま残ります。</p>
+        <p className="text-[11px] text-gray-400">①確定＝チェック分を入金済に（受注/管理へ通知）。②③要確認＝入金済にせず「要確認」で保存し、後で個別確定。まとめ払い＝1回の入金を複数の請求へ割り付けて消し込み。CSVのみ＝紐付け or 対象外、未処理はそのまま残ります。</p>
       </div>
     </Modal>
   )

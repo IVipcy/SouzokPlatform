@@ -24,6 +24,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { isNavVisible } from '@/lib/featureMode'
 import { useConfirmPendingCount } from '@/lib/useConfirmPendingCount'
+import { useStartWaitingCount } from '@/lib/useStartWaitingCount'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useAlertCenter } from '@/components/providers/AlertCenterProvider'
 import MyAlertCenter from '@/components/features/my/MyAlertCenter'
@@ -95,6 +96,9 @@ export default function Sidebar() {
   const user = useAuth()
   const { totalCount } = useAlertCenter()
   const confirmPending = useConfirmPendingCount()
+  // 事務管理ダッシュボードのメニューに出す「作業着手待ち」の件数（そのメニューが出る人だけ数える）
+  const seesOfficeNav = !!user && (user.primaryRole === 'assistant' || user.primaryRole === 'system_manager' || user.roles.includes('system_manager'))
+  const startWaiting = useStartWaitingCount(seesOfficeNav)
   // 初期値は false。マウント後 localStorage から復元 + body の data 属性を同期。
   const [collapsed, setCollapsed] = useState(false)
 
@@ -186,6 +190,8 @@ export default function Sidebar() {
                 }`
                 const showAlertBadge = item.href === '/my' && totalCount > 0
                 const showConfirmBadge = item.href === '/confirm' && confirmPending > 0
+                // 事務管理ダッシュボード＝作業着手待ちの件数を赤字で（着手させるまで残る数）
+                const showStartCount = item.href === '/dashboard/office' && startWaiting > 0
                 return (
                   <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} className={itemClass}>
                     {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand-600 rounded-r-full" />}
@@ -200,6 +206,13 @@ export default function Sidebar() {
                     )}
                     {showAlertBadge && collapsed && (
                       <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">{totalCount > 99 ? '99+' : totalCount}</span>
+                    )}
+                    {/* 事務管理ダッシュボードの作業着手待ち件数。赤字の数字＋「件」 */}
+                    {showStartCount && !collapsed && (
+                      <span className="ml-auto text-[12px] font-bold text-red-600 tabular-nums" title={`作業着手待ち ${startWaiting}件`}>{startWaiting > 99 ? '99+' : startWaiting}件</span>
+                    )}
+                    {showStartCount && collapsed && (
+                      <span className="absolute top-0.5 right-0.5 text-[10px] font-bold text-red-600 leading-none" title={`作業着手待ち ${startWaiting}件`}>{startWaiting > 99 ? '99+' : startWaiting}</span>
                     )}
                     {/* 確認簿の未処理件数（新規の確認依頼）。赤バッジで件数表示。 */}
                     {showConfirmBadge && !collapsed && (

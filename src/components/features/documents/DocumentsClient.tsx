@@ -181,6 +181,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         onChanged={refresh}
         operableCaseIds={operableCaseIds}
         onReRegister={r => setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null })}
+        singleDay={!!dateFilter}
       />
 
       <NewDocumentReceiptModal

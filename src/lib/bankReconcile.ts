@@ -26,12 +26,14 @@ export type InvoiceLite = {
 export type MatchResult = {
   row: BankRow
   invoiceId: string | null
-  // matched=自信あり(AI) / review=要確認(人が選ぶ) / unmatched=該当なし
-  kind: 'matched' | 'review' | 'unmatched'
+  // matched=自信あり(AI) / review=要確認(人が選ぶ) / group=まとめ払い（複数請求の合計と一致） / unmatched=該当なし
+  kind: 'matched' | 'review' | 'unmatched' | 'group'
   by: 'ai' | 'human'
   reason: string
-  // review時の候補（人が選べるように）
+  // review時の候補（人が選べるように）。group のときは内訳になる請求。
   candidates: InvoiceLite[]
+  // group のとき、この入金で消し込む請求ID（司法＋行政をまとめて振り込まれた場合など）
+  groupIds?: string[]
 }
 
 // 全角→半角・空白除去で緩く比較するための正規化
@@ -187,14 +189,44 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
         : `名義人一致・金額が${dir}（金額相違・要確認）`
     }
 
+    // まとめ払い（司法＋行政をまとめて1回で振り込まれる等）の検出。
+    // 候補の中から「合計が入金額とぴったり一致する組み合わせ」を探す。2〜3件まで。
+    // 組み合わせが1通りに決まるときだけ採用する（複数見つかったら曖昧なので従来の要確認に流す）。
+    const findCombo = (cands: InvoiceLite[]): InvoiceLite[] | null => {
+      const pool = cands.slice(0, 12)   // 総当たりが膨らまないよう上限を置く
+      if (pool.length < 2) return null
+      const hits: InvoiceLite[][] = []
+      for (let a = 0; a < pool.length; a++) {
+        for (let b = a + 1; b < pool.length; b++) {
+          if (pool[a].amount + pool[b].amount === row.amount) hits.push([pool[a], pool[b]])
+          for (let c = b + 1; c < pool.length; c++) {
+            if (pool[a].amount + pool[b].amount + pool[c].amount === row.amount) hits.push([pool[a], pool[b], pool[c]])
+          }
+        }
+      }
+      if (hits.length !== 1) return null
+      return hits[0]
+    }
+    const groupResult = (combo: InvoiceLite[], head: string): MatchResult => ({
+      row,
+      invoiceId: null,
+      kind: 'group',
+      by: 'ai',
+      reason: `${head}・${combo.length}件の請求の合計と一致（まとめ払いの可能性）`,
+      candidates: combo,
+      groupIds: combo.map(i => i.id),
+    })
+
     // 1) 案件番号一致 ＋ 金額一致 → 確定（AI）
     const byCaseNo = unpaid.filter(i => i.case_number && hayAlnum.includes(norm(i.case_number)))
     const caseAmt = byCaseNo.filter(amountEq)
     if (caseAmt.length === 1) {
       return { row, invoiceId: caseAmt[0].id, kind: 'matched', by: 'ai', reason: '案件番号・金額が一致', candidates: caseAmt }
     }
-    // 2) 案件番号一致だが金額不一致 → 要確認（差額・過不足を明示。候補1件なら先に選択）
+    // 2) 案件番号一致だが金額不一致 → まとめ払い（合計一致）→ 要確認（差額・過不足を明示。候補1件なら先に選択）
     if (byCaseNo.length > 0 && caseAmt.length === 0) {
+      const combo = findCombo(byCaseNo)
+      if (combo) return groupResult(combo, '案件番号一致')
       if (byCaseNo.length === 1) {
         return { row, invoiceId: byCaseNo[0].id, kind: 'review', by: 'human', reason: `案件番号一致・金額が${diffNote(byCaseNo[0].amount)}`, candidates: byCaseNo }
       }
@@ -209,8 +241,10 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     if (kanaAmt.length > 1) {
       return { row, invoiceId: null, kind: 'review', by: 'human', reason: '振込人カナ・金額一致が複数。選択してください', candidates: kanaAmt }
     }
-    // 4) 振込人カナは一致するが金額が違う → 要確認（差額・過不足を明示。候補1件なら先に選択）
+    // 4) 振込人カナは一致するが金額が違う → まとめ払い（合計一致）→ 要確認（差額・過不足を明示）
     if (kanaCands.length > 0) {
+      const combo = findCombo(kanaCands)
+      if (combo) return groupResult(combo, '振込人カナ一致')
       if (kanaCands.length === 1) {
         return { row, invoiceId: kanaCands[0].id, kind: 'review', by: 'human', reason: payerAmountReason(kanaCands[0].amount), candidates: kanaCands }
       }

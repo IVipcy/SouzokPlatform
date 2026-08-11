@@ -196,6 +196,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const [editInvoice, setEditInvoice] = useState<InvoiceWithRelations | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceWithRelations | null>(null)
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceWithRelations | null>(null)
+  // 消し込みの取り消し（間違えて紐付けた入金を消して、請求を入金待ちに戻す）
+  const [undoPayment, setUndoPayment] = useState<{ payment: PaymentRow; invoice: InvoiceWithRelations } | null>(null)
 
   // 一覧で選択中の「未請求」行（請求書発行ボタンで使う）
   const [checkedInvoiceId, setCheckedInvoiceId] = useState<string | null>(null)
@@ -370,6 +372,24 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     router.refresh()
   }
 
+
+  // 消し込みの取り消し。入金レコードを消して、残額があれば「入金待ち」に戻す。
+  // （金額を間違えて紐付けた・別の請求に付けてしまった、を直すための出口）
+  const handleUndoPayment = async () => {
+    if (!undoPayment) return
+    const { payment, invoice } = undoPayment
+    const supabase = createClient()
+    const { error } = await supabase.from('payments').delete().eq('id', payment.id)
+    if (error) throw new Error(`取り消しに失敗しました: ${error.message}`)
+    // 残りの入金額で入金済かどうかを付け直す（返金行も含めた実額で判定）
+    const rest = (invoice.payments ?? []).filter(p => p.id !== payment.id).reduce((s, p) => s + p.amount, 0)
+    if (rest < invoice.amount && invoice.status === '入金済') {
+      await supabase.from('invoices').update({ status: '入金待ち' }).eq('id', invoice.id)
+    }
+    setUndoPayment(null)
+    showToast(`入金 ${fmt(payment.amount)} の消し込みを取り消しました`, 'success')
+    router.refresh()
+  }
 
   // 備考のインライン保存
   const handleNotesCommit = async (invoiceId: string, value: string) => {
@@ -887,6 +907,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           {(inv.payments ?? []).some(p => p.matched_by === 'ai') && (
                             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-slate-100 text-slate-600" title="銀行CSVでAIが自動突合した入金です">AI判定</span>
                           )}
+                          {diff < 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-100" title={`請求額より ${fmt(-diff)} 多く入金されています`}>過入金</span>
+                          )}
                           {refundTotal > 0 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-rose-50 text-rose-700" title={`返金 ¥${refundTotal.toLocaleString()}`}>
                               {paidAmount <= 0 ? '全額返金' : '一部返金'}
@@ -929,8 +952,15 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
                         {refundTotal > 0 ? <span className="text-rose-600">−{fmt(refundTotal)}</span> : <span className="text-gray-300">—</span>}
                       </td>
+                      {/* 差額。不足＝赤、過入金（請求額より多い）＝琥珀で「+◯◯」 */}
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono">
-                        {inv.amount > 0 ? <span className={diff > 0 ? 'text-red-500' : 'text-gray-400'}>{diff > 0 ? fmt(diff) : '—'}</span> : <span className="text-gray-300">—</span>}
+                        {inv.amount > 0
+                          ? diff > 0
+                            ? <span className="text-red-500">{fmt(diff)}</span>
+                            : diff < 0
+                              ? <span className="text-amber-600 font-semibold" title={`請求額より ${fmt(-diff)} 多く入金されています`}>+{fmt(-diff)}</span>
+                              : <span className="text-gray-400">—</span>
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
                       {/* 請求書（公式Excelに一本化。無い旧データは開く時に生成） */}
@@ -1024,7 +1054,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   )}
                   <DetailRow label="入金済額" value={fmt(selPaidAmount)} className="text-green-600" />
                   {selRefund > 0 && <DetailRow label="返金額" value={`−${fmt(selRefund)}`} className="text-rose-600" />}
-                  <DetailRow label="差額" value={selected.amount > 0 ? fmt(selDiff) : '—'} className={selDiff > 0 ? 'text-red-500' : ''} />
+                  {/* 差額。マイナス＝請求額より多く入っている（過入金） */}
+                  <DetailRow
+                    label={selDiff < 0 ? '差額（過入金）' : '差額'}
+                    value={selected.amount > 0 ? (selDiff < 0 ? `+${fmt(-selDiff)}` : fmt(selDiff)) : '—'}
+                    className={selDiff > 0 ? 'text-red-500' : selDiff < 0 ? 'text-amber-600 font-semibold' : ''}
+                  />
                   <DetailRow label="請求日" value={selected.issued_date || '—'} />
                   {(() => {
                     const sOd = overdueDays(selected.due_date, selected.status, Date.now())
@@ -1040,11 +1075,25 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                 {selected.payments && selected.payments.length > 0 && (
                   <DetailSection title="入金履歴">
                     {selected.payments.map(p => (
-                      <div key={p.id} className="flex justify-between items-center py-1 text-xs border-b border-gray-50 last:border-b-0">
+                      <div key={p.id} className="flex justify-between items-center gap-2 py-1 text-xs border-b border-gray-50 last:border-b-0">
                         <span className="text-gray-400 font-mono">{p.payment_date}</span>
-                        <span className="font-mono text-green-600">{fmt(p.amount)}</span>
+                        <span className={`font-mono ml-auto ${p.is_refund ? 'text-rose-600' : 'text-green-600'}`}>{fmt(p.amount)}</span>
+                        {/* 消し込みの取り消し。返金行は返金依頼の側で管理するのでここでは触らない。 */}
+                        {!p.is_refund && (
+                          <button type="button" onClick={() => setUndoPayment({ payment: p, invoice: selected })}
+                            className="px-1.5 py-0.5 text-[11px] text-gray-500 border border-gray-200 rounded hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
+                            title="この入金の消し込みを取り消す（入金待ちに戻る）">取消</button>
+                        )}
                       </div>
                     ))}
+                    {(() => {
+                      const over = selPaidAmount - selected.amount
+                      return over > 0 ? (
+                        <div className="mt-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded px-2 py-1 leading-snug">
+                          請求額より {fmt(over)} 多く入金されています。まとめ払い（他の請求ぶんを含む）でないか確認し、違う場合は取り消して付け直すか、返金を依頼してください。
+                        </div>
+                      ) : null
+                    })()}
                   </DetailSection>
                 )}
                 <div className="flex flex-col gap-2 pt-2">
@@ -1144,6 +1193,17 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
         title="請求書削除"
         message={`この請求書を削除しますか？関連する入金記録も削除されます。`}
         onConfirm={handleDeleteInvoice}
+      />
+      {/* 消し込みの取り消し（入金レコードを1件消して入金待ちへ戻す） */}
+      <DeleteConfirmModal
+        isOpen={!!undoPayment}
+        onClose={() => setUndoPayment(null)}
+        title="入金の消し込みを取り消す"
+        message={undoPayment
+          ? `${undoPayment.payment.payment_date} の入金 ${fmt(undoPayment.payment.amount)} の消し込みを取り消します。\nこの入金記録は削除され、入金明細からも消えます。残額があれば請求は「入金待ち」に戻ります。`
+          : ''}
+        confirmLabel="取り消す"
+        onConfirm={handleUndoPayment}
       />
       {/* Bulk Delete Confirm */}
       <DeleteConfirmModal

@@ -33,6 +33,8 @@ type Props = {
   operableCaseIds?: string[]
   /** 郵送物一式（未開封）の「開封して再登録」ボタン押下 */
   onReRegister?: (r: DocumentReceiptRow) => void
+  /** 上の「到着日」で1日に絞り込んでいる状態。当日分/過去日分のタブは意味が無くなるので出さない。 */
+  singleDay?: boolean
 }
 
 // 「0513/001」形式の番号を生成
@@ -53,7 +55,7 @@ function formatReceiptDateHeader(ymd: string): string {
   return `${m}月${d}日（${wd}）`
 }
 
-export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds, onReRegister }: Props) {
+export default function DocumentReceiptList({ receipts, currentMemberId, currentMember, teams, onChanged, operableCaseIds, onReRegister, singleDay }: Props) {
   const globalCanManage = useCanOperateReceipts()  // 受信確定(W-Check)・タスク紐づけ等は事務管理担当の作業（管理担当も操作はできる）
   const opSet = useMemo(() => new Set(operableCaseIds ?? []), [operableCaseIds])
   // 全体権限が無くても、自分が担当の案件の受信簿だけは操作可（受注/管理担当の開封・紐付け）
@@ -78,7 +80,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
     else pastGroups.push({ date: d, rows: [r] })
   }
 
-  if (receipts.length === 0) {
+  if (receipts.length === 0 && !singleDay) {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
         <p className="text-[13px] text-gray-500">まだ受信記録はありません。</p>
@@ -87,19 +89,24 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
     )
   }
 
-  const list = tab === 'today' ? todayReceipts : pastReceipts
+  // 到着日で1日に絞っているときは、その日の分をそのまま並べる（当日/過去の区別は要らない）
+  const oneDayList = [...receipts].sort((a, b) =>
+    (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no))
+  const list = singleDay ? oneDayList : tab === 'today' ? todayReceipts : pastReceipts
 
   return (
     <div>
-      {/* タブ: 当日分 / 過去日分 */}
-      <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
-        <TabButton active={tab === 'today'} onClick={() => setTab('today')} label="当日分" count={todayReceipts.length} />
-        <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} />
-      </div>
+      {/* タブ: 当日分 / 過去日分。到着日で1日に絞っているときは出さない（絞り込みと二重になる） */}
+      {!singleDay && (
+        <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
+          <TabButton active={tab === 'today'} onClick={() => setTab('today')} label="当日分" count={todayReceipts.length} />
+          <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} />
+        </div>
+      )}
 
       {list.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-[13px] text-gray-400">
-          {tab === 'today' ? '本日到着の到着物はありません。' : '過去日分の未処理の到着物はありません。'}
+          {singleDay ? 'この日の到着物はありません。' : tab === 'today' ? '本日到着の到着物はありません。' : '過去日分の未処理の到着物はありません。'}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
@@ -133,7 +140,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               </tr>
             </thead>
             <tbody>
-              {tab === 'past'
+              {tab === 'past' && !singleDay
                 ? pastGroups.map(g => (
                     <Fragment key={g.date}>
                       <tr className="bg-brand-50/50 border-y border-brand-100">
@@ -171,6 +178,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                       onStartRequest={setStartingReceipt}
                       onCancelRequest={setCancelingReceipt}
                       canManage={canManageReceipt(r)}
+                      onReRegister={onReRegister}
                     />
                   ))}
             </tbody>
