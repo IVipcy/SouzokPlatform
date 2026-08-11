@@ -18,7 +18,7 @@ import {
   REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
   TAX_ADVISOR_REFERRAL_REASONS, REAL_ESTATE_APPRAISAL_RANKS, OTHER_REFERRAL_PARTNERS,
   CONSIDERATION_DECLINE_REASONS,
-  ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE,
+  ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE, isOrderRouteLocked,
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, PROSPECT_LEVELS, considerationDueMax, HEARING_MEMO_SAMPLE,
   CLIENT_TRAIT_OPTIONS, DIFFICULTY_LEVELS,
@@ -525,7 +525,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
         // 下書きで採番した番号は経路が未確定で XX。ここで経路が入ったら実コードに直す。
         {
-          const r = await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute)
+          // 受注前なら経路コードを差し替える。受注以降は番号が外に出ているので触らない。
+          const r = await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute, null, !isOrderRouteLocked(formData.caseStatus))
           if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
         }
         // 受注担当が未設定なら、相談結果を登録した本人を受注担当に紐付ける。

@@ -9,7 +9,7 @@ import {
   ROLES, TASK_STATUSES, CASE_STATUSES, getCaseStatusLabel,
   LOCATIONS, TEAMS, PROCEDURE_TYPES, ADDITIONAL_SERVICES, TAX_FILING_OPTIONS,
   KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_PATTERNS, KOSEKI_REQUEST_TYPES,
-  ORDER_ROUTES, MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS,
+  ORDER_ROUTES, MAILING_DESTINATIONS, INVESTIGATION_DOCUMENTS, isOrderRouteLocked,
   WILL_TYPES, WILL_STORAGE_OPTIONS, WILL_EXECUTION_OPTIONS, WILL_CREATION_PLACES,
   TRUST_CONTRACT_TYPES, LIFE_INSURANCE_PROPOSAL_OPTIONS, TAX_ADVISOR_REFERRAL_OPTIONS,
   CONSIDERATION_DECLINE_REASONS,
@@ -165,13 +165,18 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
         {/* 7. 受注ルート・紹介 */}
         <Section title="受注ルート・紹介" icon="🔗">
           <FieldGrid>
-            <InlineSelect label="受注ルート" value={caseData.order_route} options={ORDER_ROUTES.filter(r => r !== 'LP経由')} onSave={async v => {
-              await saveCaseField('order_route', v)
-              // 番号が XX（経路未確定）のままなら、ここで実コードに直す
-              const r = await applyRouteToCaseNumber(createClient(), caseData.id, v as string, caseData.case_number)
-              if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
-              onRefresh?.()
-            }} />
+            {/* 受注ルート。受注以降は案件番号と食い違わないよう固定する。 */}
+            {caseData.lp_case_number || isOrderRouteLocked(caseData.status) ? (
+              <Field label="受注ルート" value={`${caseData.order_route ?? '未設定'}（${caseData.lp_case_number ? 'LP連携' : '受注後'}のため変更不可）`} />
+            ) : (
+              <InlineSelect label="受注ルート" value={caseData.order_route} options={ORDER_ROUTES.filter(r => r !== 'LP経由')} onSave={async v => {
+                await saveCaseField('order_route', v)
+                // 受注前なので、案件番号の経路コードもこのルートに合わせる
+                const r = await applyRouteToCaseNumber(createClient(), caseData.id, v as string, caseData.case_number, true)
+                if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
+                onRefresh?.()
+              }} />
+            )}
             <InlineEdit label="受注ルート（LP名）" value={caseData.order_route_lp_name} onSave={v => saveCaseField('order_route_lp_name', v)} />
             <InlineEdit label="受注ルート担当者" value={caseData.order_route_person} onSave={v => saveCaseField('order_route_person', v)} />
             <InlineEdit label="紹介先" value={caseData.referral_name} onSave={v => saveCaseField('referral_name', v)} />

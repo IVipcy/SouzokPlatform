@@ -17,6 +17,10 @@ export const PENDING_ROUTE_CODE = 'XX'
 export const isPendingRouteCaseNumber = (caseNumber: string | null | undefined): boolean =>
   /^\d{4}XX\d{4}$/.test(caseNumber ?? '')
 
+/** システムが振った形の番号か（YYMM + 英大文字2 + 連番4桁）。手で書き換えた番号は対象外。 */
+export const isSystemCaseNumber = (caseNumber: string | null | undefined): boolean =>
+  /^\d{4}[A-Z]{2}\d{4}$/.test(caseNumber ?? '')
+
 /** 経路コードを引く。定義が無ければ null（＝番号は書き換えない） */
 export const routeCodeOf = (orderRoute: string | null | undefined): string | null =>
   orderRoute ? ORDER_ROUTE_CODES[orderRoute] ?? null : null
@@ -41,6 +45,12 @@ export async function applyRouteToCaseNumber(
   caseId: string,
   orderRoute: string | null | undefined,
   knownCaseNumber?: string | null,
+  /**
+   * true にすると、既に経路コードが入っている番号でも差し替える。
+   * 受注する前（番号がまだ外に出ていない段階）でルートを直したときに使う。
+   * 受注以降はそもそもルートを変えられないので、ここへは来ない。
+   */
+  recode = false,
 ): Promise<{ number: string | null; error: string | null }> {
   const code = routeCodeOf(orderRoute)
   if (!code || code === PENDING_ROUTE_CODE) return { number: null, error: null }
@@ -50,7 +60,9 @@ export async function applyRouteToCaseNumber(
     const { data } = await supabase.from('cases').select('case_number').eq('id', caseId).single()
     current = (data as { case_number: string | null } | null)?.case_number ?? null
   }
-  if (!isPendingRouteCaseNumber(current)) return { number: null, error: null }
+  const target = recode ? isSystemCaseNumber(current) : isPendingRouteCaseNumber(current)
+  if (!target) return { number: null, error: null }
+  if (current!.slice(4, 6) === code) return { number: null, error: null }   // 既に同じコード
 
   const head = current!.slice(0, 4)
   let seq = parseInt(current!.slice(6), 10)

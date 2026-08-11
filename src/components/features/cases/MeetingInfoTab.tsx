@@ -11,6 +11,7 @@ import {
 import ReferralSourceLookup from './ReferralSourceLookup'
 import {
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES, PAST_CLIENT_ROUTE,
+  isOrderRouteLocked,
   CONSIDERATION_DECLINE_REASONS, ORDER_ROUTES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
   CONSIDERATION_PERIODS, considerationDueMax,
@@ -100,6 +101,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
               読み取り専用にするのは、実際に連携された案件（lp_case_number あり）だけ。 */}
           {caseData.lp_case_number ? (
             <Field label="受注ルート" value="LP経由（LP連携のため変更不可）" />
+          ) : isOrderRouteLocked(caseData.status) ? (
+            <Field label="受注ルート" value={`${caseData.order_route ?? '未設定'}（受注後は変更不可）`} />
           ) : (
             <InlineSelect
               label="受注ルート"
@@ -108,7 +111,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
               onSave={async v => {
                 await patchCase({ order_route: v, order_route_detail: null })
                 // 番号が XX（経路未確定）のままなら、ここで実コードに直す
-                const r = await applyRouteToCaseNumber(createClient(), caseData.id, v, caseData.case_number)
+                // 受注前なので、案件番号の経路コードもこのルートに合わせる
+                const r = await applyRouteToCaseNumber(createClient(), caseData.id, v, caseData.case_number, true)
                 if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
                 onRefresh?.()
               }}

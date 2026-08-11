@@ -504,6 +504,16 @@ export const ACQUISITION_ITEMS = [
 
 export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
 
+// 受注ルートを固定するステータス。
+// 案件管理番号の真ん中は受注ルートのコードで、受注した時点から請求書・封筒に出る。
+// あとからルートを変えると番号と食い違うので、受注以降はルートを変えられないようにする。
+// 受注する前（面談設定済・検討中・依頼確定待ち）は自由に変えられ、番号もルートに追随する。
+export const ROUTE_LOCKED_STATUSES = [
+  '受注', '戻り受注', '作業着手準備', '対応中', '業務完了申請中', '完了', '納品完了',
+] as const
+export const isOrderRouteLocked = (status: string | null | undefined) =>
+  !!status && (ROUTE_LOCKED_STATUSES as readonly string[]).includes(status)
+
 // === 受注ルート（＝面談ルート。新規案件登録フォームでは「面談ルート」と表記） ===
 // 葬儀社経由は「主要取引先葬儀社／その他葬儀社」に分割（はせがわ等のLP直/OC直を面談ルートで識別するため）。
 export const ORDER_ROUTES = ['LP経由', '主要取引先葬儀社', 'その他葬儀社', 'HP経由', '過去客経由', '税理士経由', 'その他'] as const

@@ -32,7 +32,8 @@ export default function OwnerSalesTab({ caseData, patchCase }: Props) {
           {/* 案件管理番号は自動採番（YYMM＋経路コード＋当日連番）。請求書・封筒にも出る識別子なので、
               画面からは直せないようにする。経路コードは受注ルートを入れた時点で自動で入る。 */}
           <Field label="案件管理番号（自動採番）" value={caseData.case_number} mono />
-          <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => save('lp_case_number', v)} />
+          {/* LP案件管理番号は相続ステーションから連携される元番号。手では入れない。 */}
+          <Field label="LP案件管理番号" value={caseData.lp_case_number} mono />
           <InlineSelect label="難易度" value={caseData.difficulty} options={[...DIFFICULTY_LEVELS]} onSave={v => save('difficulty', v)} />
           <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => save('location', v)} required />
           <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => save('order_received_date', v || null)} />
