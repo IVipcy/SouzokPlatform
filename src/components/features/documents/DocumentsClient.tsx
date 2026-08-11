@@ -85,15 +85,18 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
     return (
       <div className="pb-8">
         <PageHeader eyebrow="Documents" title="到着物受信簿" icon={Inbox} description="拠点を選んでください。拠点ごとに到着物を管理します。" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl">
           {tiles.map(t => (
             <button key={t.key} type="button" onClick={() => setLocation(t.key)}
               className="flex items-center justify-between gap-3 px-5 py-5 rounded-xl border-2 border-brand-100 bg-brand-50/40 hover:bg-brand-50 active:bg-brand-100 transition text-left">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-11 h-11 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0"><Building2 className="w-5 h-5 text-white" /></div>
-                <div><div className="text-[15px] font-bold text-gray-900">{t.label}</div><div className="text-[12px] text-gray-500">この拠点の受信簿</div></div>
+                <div className="min-w-0">
+                  <div className="text-[15px] font-bold text-gray-900 whitespace-nowrap truncate">{t.label}</div>
+                  <div className="text-[12px] text-gray-500 whitespace-nowrap">この拠点の受信簿</div>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5"><span className="text-[12px] font-bold text-brand-700 bg-white border border-brand-200 rounded-full px-2.5 py-0.5">{locCounts[t.key] ?? 0}</span><ChevronRight className="w-5 h-5 text-brand-400" /></div>
+              <div className="flex items-center gap-1.5 flex-shrink-0"><span className="text-[12px] font-bold text-brand-700 bg-white border border-brand-200 rounded-full px-2.5 py-0.5">{locCounts[t.key] ?? 0}</span><ChevronRight className="w-5 h-5 text-brand-400" /></div>
             </button>
           ))}
         </div>
