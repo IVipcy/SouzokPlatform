@@ -3,7 +3,7 @@ import UserAvatar from '@/components/ui/UserAvatar'
 import type { ProgressKpiBundle } from '@/lib/dashboardMetrics'
 
 // 受注担当の SalesTeamTable と同じ「チーム別／個人別＋チーム小計」構成の管理担当版。
-// 指標は進捗KPI（担当件数／青／黄／赤／紫／完了割合／サイクル／請求件数）。
+// 指標は進捗KPI（担当件数／なし／要確認／要注意／クレーム／完了割合／サイクル／請求件数）。
 
 export type ManagerMemberRow = {
   id: string
@@ -45,10 +45,10 @@ export default function ManagerTeamTable({ groups, title = 'チーム別／個�
               <th className="px-2.5 py-2 text-left font-semibold">所属チーム</th>
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="担当件数">担当</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="青件数（順調）">青</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="黄件数（要フォロー）">黄</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="赤件数（早急対応）">赤</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="紫件数（クレーム・最優先）">紫</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="アラートが出ていない案件">なし</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="要確認のアラートが出ている案件">要確認</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="要注意のアラートが出ている案件">要注意</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="クレームが発生している案件">クレーム</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="完了割合（本日時点の完了／業完対象）">完了割合</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="平均サイクル（カ月）">サイクル</th>
               <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月発行の請求件数">請求</th>
@@ -105,9 +105,9 @@ function KpiCells({ kpis: k, bold }: { kpis: ProgressKpiBundle; bold?: boolean }
   return (
     <>
       <td className={`${base} text-gray-900`}>{k.totalAssigned > 0 ? k.totalAssigned : dim}</td>
-      <td className={base}>{num(k.blueCount, 'text-blue-600')}</td>
-      <td className={base}>{num(k.yellowCount, 'text-amber-600')}</td>
-      <td className={base}>{num(k.redCount, 'text-red-600')}</td>
+      <td className={base}>{num(k.blueCount, 'text-sky-600')}</td>
+      <td className={base}>{num(k.yellowCount, 'text-[#B98410]')}</td>
+      <td className={base}>{num(k.redCount, 'text-[#D96A16]')}</td>
       <td className={base}>{num(k.purpleCount, 'text-purple-600')}</td>
       <td className={`${base} text-gray-700`}>
         {k.monthCompletionTarget > 0 ? `${k.monthCompleted}/${k.monthCompletionTarget}` : dim}

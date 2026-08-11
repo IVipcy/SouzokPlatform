@@ -6,9 +6,12 @@ import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import MonthSelector from '@/components/features/dashboard/MonthSelector'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts } from '@/lib/alertRules'
 import {
   computeProgressKpis,
   computeCaseFlag,
+  todayJstYmd,
   type CaseFlag,
   type DashCase,
   type DashTask,
@@ -110,7 +113,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
 
   const caseIdArray = Array.from(myCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at').in('id', caseIdArray),
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,order_sheet_completed_at,meeting_date,meeting_executed_date,client_response_due_date,management_started_at,manager_assign_skipped').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase.from('invoices').select('case_id,issued_date').in('case_id', caseIdArray),
   ])
@@ -119,7 +122,12 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as Array<{ case_id: string; issued_date: string | null }>
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）
+  const todayStr = todayJstYmd(today)
+  const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
+  const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
+
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
 
   // case → manager マップ
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
@@ -150,7 +158,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
       const mgr = managerByCase.get(c.id) ?? null
       // クレームありは紫を最優先（完了予定日未設定でも紫扱い）
       const flag = (c.has_complaint || c.expected_completion_date)
-        ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+        ? computeCaseFlag(c, alertsByCase.get(c.id) ?? [])
         : null
       const myRoles = Array.from(myRolesPerCase.get(c.id) ?? [])
       return {

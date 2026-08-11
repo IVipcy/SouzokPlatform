@@ -118,19 +118,28 @@ export function daysSince(ref: string | null | undefined, today: Date = new Date
   return Math.floor((today.getTime() - refTime) / 86_400_000)
 }
 
-// 案件単位のフラグ判定。
-//   色＝アラートの最大深刻度（紫=クレーム > 赤=要注意 > 黄=要確認 > 青=無し）。
-//   alerts を渡せばアラート駆動（相談/管理/各ダッシュボードで共通化）。
-//   渡さない場合のフォールバック＝クレーム＋未対応日数（営業日）。5営業日→黄、10営業日→赤。
+// 案件単位のフラグ判定。色＝その案件に出ているアラートの一番重い色。
+//   紫 = クレーム
+//   赤 = 要注意バナーに入るアラート(high)が1つ以上
+//   黄 = 要確認バナーに入るアラート(mid)が1つ以上
+//   青 = 何も出ていない
+// バナーと同じ判定（alertRules.ts）を使うので、色とバナーの件数が食い違わない。
+// 「最後に開いてから◯営業日」は alertRules の inactivity アラートとして数えられる。
 export function computeCaseFlag(
-  caseRow: { has_complaint?: boolean | null; last_opened_at?: string | null; created_at?: string | null },
-  _tasks: DashTask[] = [],
-  today: Date = new Date(),
-  alerts?: CaseAlertChip[],
+  caseRow: { has_complaint?: boolean | null },
+  alerts: CaseAlertChip[],
 ): CaseFlag {
   if (caseRow.has_complaint) return 'purple'
-  if (alerts) return caseFlagFromAlerts(alerts)
-  // フォールバック：未対応日数（最終接触＝最後に開いた日）を営業日で。
+  return caseFlagFromAlerts(alerts)
+}
+
+// 案件詳細のタイムライン用。受注→現在の矢印を「最後に触ってからの営業日」で色づけする。
+// 案件の色とは別物（こちらは鮮度そのものを見せる線）。
+export function freshnessFlag(
+  caseRow: { has_complaint?: boolean | null; last_opened_at?: string | null; created_at?: string | null },
+  today: Date = new Date(),
+): CaseFlag {
+  if (caseRow.has_complaint) return 'purple'
   const ref = (caseRow.last_opened_at ?? caseRow.created_at ?? '')?.slice(0, 10)
   if (!ref) return 'blue'
   const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -327,6 +336,8 @@ export function computeProgressKpis(
   // 既定はアクティブ全体（受注/対応中）。一覧を「対応中のみ」に揃えたい
   // 画面では new Set(['対応中']) を渡す。完了割合・サイクルは scopedCases 全体を使うので影響しない。
   activeStatuses: Set<string> = ACTIVE_STATUSES,
+  // 案件ID → その案件に出ているアラート。色件数はこれで数える（バナーと同じ判定）。
+  alertsByCase: Map<string, CaseAlertChip[]> = new Map(),
 ): ProgressKpiBundle {
   const tasksByCase = new Map<string, DashTask[]>()
   for (const t of scopedTasks) {
@@ -350,11 +361,11 @@ export function computeProgressKpis(
         )
       })()
 
-  // 各案件のフラグ集計（フラグ＝最終接触からの鮮度。月フィルタとは無関係に
+  // 各案件のフラグ集計（フラグ＝出ているアラートの一番重い色。月フィルタとは無関係に
   // 全アクティブ案件で集計する。これで青+黄+赤+紫＝担当件数となり一覧の表示と一致する）
   let blueCount = 0, yellowCount = 0, redCount = 0, purpleCount = 0
   for (const c of activeCases) {
-    const flag = computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+    const flag = computeCaseFlag(c, alertsByCase.get(c.id) ?? [])
     if (flag === 'purple') purpleCount++
     else if (flag === 'red') redCount++
     else if (flag === 'yellow') yellowCount++

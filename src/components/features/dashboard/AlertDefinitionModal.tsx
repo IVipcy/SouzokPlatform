@@ -59,8 +59,10 @@ export default function AlertDefinitionModal({ isOpen, onClose }: { isOpen: bool
               </tr>
               <tr>
                 <td colSpan={3} className="px-2.5 py-2 text-[12px] text-gray-600">
-                  その案件に出ているアラートで<strong className="text-gray-800">一番重い色</strong>が、そのまま案件の色になります（紫 ＞ 赤 ＞ 黄 ＞ 青）。
-                  何も出ていなければ青。何が赤くしているかは案件詳細のバッジに出ます。
+                  その案件に出ているアラートで<strong className="text-gray-800">一番重い色</strong>が、そのまま案件の色になります
+                  （クレーム ＞ 要注意 ＞ 要確認 ＞ なし）。何も出ていなければ「なし」。
+                  要注意・要確認は<strong className="text-gray-800">上のバナーと同じ色</strong>で、バナーの件数＝その色の案件数です。
+                  何が出ているかは一覧の案件名の下、または案件詳細のバッジに出ます。
                 </td>
               </tr>
             </tbody>

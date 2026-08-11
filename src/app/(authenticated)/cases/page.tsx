@@ -3,6 +3,9 @@ import { Briefcase } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import CaseViewsClient from '@/components/features/cases/CaseViewsClient'
 import type { MyCaseRow } from '@/components/features/my/MyPageCasesTab'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts } from '@/lib/alertRules'
+import { computeCaseFlag } from '@/lib/dashboardMetrics'
 import type { ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
@@ -121,6 +124,10 @@ export default async function CasesPage() {
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   const todayStr = today.toISOString().slice(0, 10)
+
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）
+  const alertCtx = await fetchCaseAlertContexts(supabase, cases.map(c => c.id), todayStr)
+  const caseAlertHits = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
   const progressByCase = new Map<string, {
     nextCaseTaskId: string | null; nextCaseTaskTitle: string | null
     nextSystemTaskId: string | null; nextSystemTaskTitle: string | null
@@ -198,6 +205,7 @@ export default async function CasesPage() {
   const toMyCaseRow = (c: CaseRowRaw): MyCaseRow => {
     const prog = progressByCase.get(c.id)
     const lc = lastCommByCase.get(c.id)
+    const hits = caseAlertHits.get(c.id) ?? []
     return {
       id: c.id,
       case_number: c.case_number,
@@ -232,6 +240,12 @@ export default async function CasesPage() {
       hasOverdueTask: prog?.hasOverdue ?? false,
       reopenCount: reopenCountByCase.get(c.id) ?? 0,
       weeklyStatus: weeklyStatusOf(c.id),
+      // 案件の色＝出ているアラートの一番重い色（要注意/要確認バナーと同じ判定）
+      flag: MANAGEMENT_ACTIVE.has(c.status) || c.status === '業務完了申請中' ? computeCaseFlag(c, hits) : null,
+      alertChips: hits.map(h => ({
+        key: h.key, label: h.category, severity: h.severity,
+        href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : `/cases/${c.id}`),
+      })),
       lastCommDate: lc?.date ?? null,
       lastCommDetail: lc?.detail ?? null,
     }

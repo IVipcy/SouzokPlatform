@@ -235,13 +235,35 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
   return out.sort((a, b) => ALERT_SEVERITY_ORDER[a.severity] - ALERT_SEVERITY_ORDER[b.severity])
 }
 
-/** アラート群 → 案件色。紫 > 赤 > 黄 > 青。案件色は「一番重いアラートの色」でしかない。 */
+/** アラート群 → 案件色。紫 > 要注意 > 要確認 > 青。案件色は「一番重いアラートの色」でしかない。 */
 export type CaseColorFlag = 'purple' | 'red' | 'yellow' | 'blue'
 export function caseColorOf(hits: Array<{ severity: AlertSeverity }>): CaseColorFlag {
   if (hits.some(h => h.severity === 'claim')) return 'purple'
   if (hits.some(h => h.severity === 'high')) return 'red'
   if (hits.some(h => h.severity === 'mid')) return 'yellow'
   return 'blue'
+}
+
+// 案件色の見た目。要注意・要確認はバナーとまったく同じ色にして、
+// 「この色の案件＝このバナーに入っている案件」と目で追えるようにする。
+export const CASE_FLAG_LABEL: Record<CaseColorFlag, string> = {
+  purple: 'クレーム',
+  red:    '要注意',
+  yellow: '要確認',
+  blue:   'なし',
+}
+export const CASE_FLAG_BG: Record<CaseColorFlag, string> = {
+  purple: 'bg-purple-600 text-white',
+  red:    'bg-[#F5842A] text-[#3a2600]',
+  yellow: 'bg-[#F7B733] text-[#3a2600]',
+  blue:   'bg-sky-100 text-sky-700',
+}
+/** 数字だけ出すところ（KPIカード・チーム表）の文字色 */
+export const CASE_FLAG_TEXT: Record<CaseColorFlag, string> = {
+  purple: 'text-purple-600',
+  red:    'text-[#D96A16]',
+  yellow: 'text-[#B98410]',
+  blue:   'text-sky-600',
 }
 
 /** 深刻度 → バナーの区分。info はバナーに出さない。 */

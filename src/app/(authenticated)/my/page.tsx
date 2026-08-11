@@ -16,7 +16,9 @@ import MyTargetChip from '@/components/features/my/MyTargetChip'
 import { buildRankings } from '@/lib/rankingMetrics'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
-import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
+import { computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
@@ -25,6 +27,7 @@ import {
   computeSalesMetrics,
   computeSalesMetricsForDay,
   computeProgressKpis,
+  computeCaseFlag,
   fiscalYearMonthsToDate,
   applyReferralFlags,
   type DashCase,
@@ -35,8 +38,6 @@ import {
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
 import type { TaskRow, ProgressReportRow } from '@/types'
-import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
-import { buildAlertChips, type ManagerAlertKey } from '@/lib/managerAlerts'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -240,15 +241,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let allReports: ProgressReportRow[] = []
   // チーム案件の案件報告（自分が担当していない案件の分）。案件名の表示用に cases も一緒に取る。
   let teamReports: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
-  let reviewReportsRaw: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
   let comms: Array<{ case_id: string; communicated_at: string | null; detail: string | null }> = []
-  let contractDocs: Array<{ case_id: string; status: string | null; arrival_date: string | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, reviewReportsRes, wonRes, assigneeRes, commsRes, contractDocsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date,task_kind').in('case_id', caseIdArray),
         supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date,needs_review').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
@@ -264,7 +263,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           ? supabase.from('case_referrals').select('case_id,partner_type,content').in('case_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
         supabase.from('progress_reports').select('*').in('case_id', caseIdArray),
-        supabase.from('progress_reports').select('*, cases(case_number, deal_name)').eq('confirmer_id', memberId).order('requested_date', { ascending: false }),
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,created_at').eq('entity_type', 'case').eq('action', 'status_change').eq('new_value', '受注').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
@@ -272,7 +270,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           ? supabase.from('activity_log').select('entity_id,metadata').eq('entity_type', 'case').eq('action', 'assignee_change').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
         supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
-        supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIdArray),
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
@@ -281,11 +278,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       salesProps = (propsRes.data ?? []) as DashProperty[]
       salesReferrals = (referralsRes.data ?? []) as DashReferral[]
       allReports = (reportsRes.data ?? []) as ProgressReportRow[]
-      reviewReportsRaw = (reviewReportsRes.data ?? []) as typeof reviewReportsRaw
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
       comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
-      contractDocs = (contractDocsRes.data ?? []) as typeof contractDocs
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -354,9 +349,14 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     last_opened_at: c.last_opened_at,
     created_at: c.created_at,
   }))
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーとまったく同じ判定）。
+  // 判定は alertRules.ts、判定材料の取得は caseAlertContext.ts の1か所ずつ。
+  const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
+  const caseAlertHits = new Map(myCases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
+
   // 一覧（MyPageCasesTab）は対応中のみ表示するため、サマリも対応中のみで集計して件数を揃える。
   // 完了割合・サイクルは scopedCases 全体（完了案件含む）で計算されるので影響しない。
-  const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices, new Set(['対応中']))
+  const boardKpis = computeProgressKpis(boardDashCases, boardTasks, ymToday, today, invoices, new Set(['対応中']), caseAlertHits)
 
   // タスクを案件ごとにグルーピング（進捗・次タスク算出用）
   const tasksByCase = new Map<string, BoardTask[]>()
@@ -456,35 +456,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
   }
 
-  // 週次報告アラートは「作業進行中（対応中）に入って1週間経過」からカウント（受注段階・直後は対象外）。
-  const weekAgoMs = today.getTime() - 7 * 24 * 60 * 60 * 1000
-  // 案件行のアラートチップ用シグナル
+  // 案件行のアラートチップ用シグナル（前受金の状態は他の表示でも使う）
   const advanceStatusByCase = new Map<string, string>()
   for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
-  const hasCaseTasks = new Set(boardTasks.map(t => t.case_id))
-  const contractPendingSet = new Set(contractDocs.filter(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date).map(d => d.case_id))
-  const reviewPendingSet = new Set(reviewReportsRaw.filter(r => r.status === '依頼中').map(r => r.case_id))
 
   const myCasesEnriched = myCases.map(c => {
-    // アラートは管理担当のマイページ（自分が管理担当の案件）にのみ表示
-    const isMgrCase = isManager && managerCaseIds.has(c.id) && MGMT_ACTIVE_STATUSES.has(c.status)
-    // 週次報告の漏れ：対応中 かつ 管理開始(management_started_at)から1週間経過 かつ 直近確認なし
-    const weeklyEligible = c.status === '対応中' && !!c.management_started_at && new Date(c.management_started_at).getTime() <= weekAgoMs
-    // 案件行のアラート（色＝重大度・クリックで該当箇所へ）
-    const alertKeys: ManagerAlertKey[] = []
-    if (isMgrCase) {
-      const advSt = advanceStatusByCase.get(c.id)
-      if (c.has_complaint) alertKeys.push('complaint')
-      if (c.status === '対応中' && advSt === undefined) alertKeys.push('advanceMissing')
-      if (c.status === '対応中' && advSt === '作成済') alertKeys.push('advanceSend')
-      if (c.expected_completion_date && c.expected_completion_date < todayStr && c.status !== '完了' && c.status !== '失注') alertKeys.push('completionOverdue')
-      if (overdueCaseIds.has(c.id)) alertKeys.push('taskOverdue')
-      if (c.status === '対応中' && !hasCaseTasks.has(c.id)) alertKeys.push('noTasks')
-      if (weeklyEligible && !reportConfirmedRecent.has(c.id)) alertKeys.push('weeklyMissing')
-      if (contractPendingSet.has(c.id)) alertKeys.push('contractPending')
-      if (reviewPendingSet.has(c.id)) alertKeys.push('reviewRequest')
-    }
-    const alertChips = buildAlertChips(c.id, alertKeys)
+    // 案件行のアラートチップ。案件の状態そのものなので、受注担当ぶんも管理担当ぶんも同じに出す。
+    const hits = caseAlertHits.get(c.id) ?? []
+    const alertChips = hits.map(h => ({
+      key: h.key,
+      label: h.category,
+      severity: h.severity,
+      href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : `/cases/${c.id}`),
+    }))
     const prog = progressByCase.get(c.id)
     const lastComm = lastCommByCase.get(c.id)
     return {
@@ -526,6 +510,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       lastCommDate: lastComm?.date ?? null,
       lastCommDetail: lastComm?.detail ?? null,
       alertChips,
+      flag: MGMT_ACTIVE_STATUSES.has(c.status) ? computeCaseFlag(c, hits) : null,
     }
   })
 
@@ -693,31 +678,18 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     todayStr,
   )
 
-  // 直近7日に「確認済」の案件報告がある案件（週次報告の漏れ判定用）
-  const weekAgoStr = new Date(today.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
-  const recentWeeklyCaseIds = new Set(allReports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
-
   const bannerCaseAlerts = [
-    // 案件アラート。判定は alertRules.ts に集約。請求・タスクの超過は上の2タブで
-    // 別に出しているので、ここでは案件の状態だけを渡す（二重に数えない）。
-    ...computeCaseStateAlerts(
-      myCases.filter(c => salesCaseIds.has(c.id)).map(c => ({
-        id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
-        has_complaint: c.has_complaint,
-        order_received_date: c.order_received_date,
-        order_sheet_completed_at: c.order_sheet_completed_at,
-        expected_completion_date: c.expected_completion_date,
-        meeting_date: c.meeting_date,
-        meeting_executed_date: c.meeting_executed_date,
-        client_response_due_date: c.client_response_due_date,
-        management_started_at: c.management_started_at,
-        manager_assign_skipped: c.manager_assign_skipped,
-        managerExists: managerByCase.has(c.id),
-        advanceInvoiceStatus: advanceStatusByCase.get(c.id) ?? null,
-        recentWeeklyConfirmed: recentWeeklyCaseIds.has(c.id),
-      })),
-      todayStr,
-    ),
+    // 案件アラート。案件の色（進捗管理ボードのフラグ）とまったく同じ判定・同じ材料を使う。
+    // 判定は alertRules.ts、材料の取得は caseAlertContext.ts。ここで別に組み立てない。
+    ...myCases.flatMap(c => (caseAlertHits.get(c.id) ?? []).flatMap(h => {
+      const sev = bannerOf(h.severity)
+      if (!sev) return []
+      return [{
+        caseId: c.id, caseNumber: c.case_number, dealName: c.deal_name,
+        category: h.category, severity: sev, since: h.since, days: h.days, reason: h.reason,
+        href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : undefined),
+      }]
+    })),
     // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
     // 案件報告のアラートはチームの案件まで広げる。受注担当が確認できないまま3営業日たったものを
     // チーム全員の要確認バナーに出し、手が空いている人が代わりに確認できるようにする。

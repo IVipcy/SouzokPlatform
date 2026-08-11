@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
-import { todayJstYmd, computeCaseFlag } from '@/lib/dashboardMetrics'
+import { todayJstYmd, freshnessFlag } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
@@ -141,14 +141,14 @@ function monthDayDiff(from: Date, to: Date): { months: number; days: number; tot
 const fmtMonthDay = (d: { months: number; days: number }) => d.months > 0 ? `${d.months}ヶ月${d.days}日` : `${d.days}日`
 
 // 稼働中案件の 受注 → 現在 → 業務完了予定 の3点軸。
-// 受注→現在の矢印は 最終接触の鮮度(computeCaseFlag)で 青/黄/赤 に色分け、上に経過日数。
+// 受注→現在の矢印は 最終接触の鮮度(freshnessFlag)で 青/黄/赤 に色分け、上に経過日数。
 // 現在→業務完了予定 は淡い水色、上に残り日数。
 function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact: boolean }) {
   const parse = (s: string | null | undefined) => { if (!s) return null; const d = new Date(s); return Number.isNaN(d.getTime()) ? null : d }
   const orderDate = parse(ymd(caseData.order_received_date) ?? ymd(caseData.order_date))
   const goalDate = parse(ymd(caseData.expected_completion_date))
   const now = new Date()
-  const flag = computeCaseFlag(caseData, [], now)   // 'purple' | 'red' | 'yellow' | 'blue'
+  const flag = freshnessFlag(caseData, now)   // 'purple' | 'red' | 'yellow' | 'blue'
   const elapsedCls = flag === 'red' ? '#ef4444' : flag === 'yellow' ? '#f59e0b' : flag === 'purple' ? '#7c3aed' : '#38bdf8'
   const elapsedDiff = orderDate ? monthDayDiff(orderDate, now) : null
   const remainOver = !!goalDate && goalDate.getTime() < now.getTime()

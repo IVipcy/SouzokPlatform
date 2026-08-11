@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
-import { computeCaseStateAlerts, computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
+import { computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
 import type { TaskRow } from '@/types'
 
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
@@ -25,7 +27,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const todayStr = today.toISOString().slice(0, 10)
 
   // 自分が担当する全案件
-  const { data: myCaseMembers } = await supabase.from('case_members').select('case_id, role, cases(id, case_number, deal_name, status, expected_completion_date, completion_date, has_complaint, procedure_type, order_sheet_completed_at, order_received_date, order_route_detail, meeting_executed_date, client_response_due_date, created_at, last_opened_at, fee_total, total_revenue_estimate, tax_filing_required, client_id, clients(name))').eq('member_id', memberId)
+  const { data: myCaseMembers } = await supabase.from('case_members').select('case_id, role, cases(id, case_number, deal_name, status, expected_completion_date, completion_date, has_complaint, procedure_type, order_sheet_completed_at, order_received_date, order_route_detail, meeting_executed_date, client_response_due_date, meeting_date, management_started_at, manager_assign_skipped, created_at, last_opened_at, fee_total, total_revenue_estimate, tax_filing_required, client_id, clients(name))').eq('member_id', memberId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = ((myCaseMembers ?? []) as any[])
   const myCaseIds = [...new Set(rows.map(r => r.case_id))]
@@ -167,23 +169,22 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   )
   const caseStateAlerts = [
     // 案件アラート。判定は alertRules.ts に集約。
-    ...computeCaseStateAlerts(
+    // 案件アラート。バナー・案件の色とまったく同じ判定・同じ材料を使う（alertRules.ts / caseAlertContext.ts）。
+    ...(await (async () => {
+      const ids = (dedupCases as Array<{ id: string }>).map(c => c.id)
+      const ctx = await fetchCaseAlertContexts(supabase, ids, todayStr)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (dedupCases as any[]).filter((c: { id: string }) => salesCaseIds.has(c.id)).map((c: any) => ({
-        id: c.id, case_number: c.case_number, deal_name: c.deal_name, status: c.status,
-        has_complaint: c.has_complaint,
-        order_received_date: c.order_received_date,
-        order_sheet_completed_at: c.order_sheet_completed_at,
-        expected_completion_date: c.expected_completion_date,
-        meeting_date: c.meeting_date,
-        meeting_executed_date: c.meeting_executed_date,
-        client_response_due_date: c.client_response_due_date,
-        manager_assign_skipped: c.manager_assign_skipped,
-        managerExists: managerCaseIds.has(c.id),
-        advanceInvoiceStatus: advanceStatusByCase.get(c.id) ?? null,
-      })),
-      todayStr,
-    ),
+      return (dedupCases as any[]).flatMap((c: any) =>
+        evaluateCaseAlerts(c, ctx.get(c.id) ?? {}, todayStr).flatMap(h => {
+          const sev = bannerOf(h.severity)
+          if (!sev) return []
+          return [{
+            caseId: c.id, caseNumber: c.case_number, dealName: c.deal_name,
+            category: h.category, severity: sev, since: h.since, days: h.days, reason: h.reason,
+            href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : undefined),
+          }]
+        }))
+    })()),
     ...computeUrgentReportAlerts(teamReportRows, teamCaseMeta, todayStr),
     // 到着物あり（未開封の郵送物一式）→ 要確認(黄)。自分が受注/管理担当の案件。
     ...computeParcelArrivalAlerts(

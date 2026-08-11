@@ -4,13 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Trash2 } from 'lucide-react'
-import { ALERT_CHIP_CLS, type ManagerAlertChip } from '@/lib/managerAlerts'
+import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
+import { CASE_FLAG_LABEL, CASE_FLAG_BG, type AlertSeverity } from '@/lib/alertRules'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
-import { bizDaysOverdue } from '@/lib/overdue'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -63,8 +63,8 @@ export type MyCaseRow = {
   lastCommDetail?: string | null
   /** 最終更新日 */
   updated_at?: string | null
-  /** 管理担当向けアラート（色＝重大度・クリックで該当箇所へ） */
-  alertChips?: ManagerAlertChip[]
+  /** 案件に出ているアラート（色＝重大度・クリックで該当箇所へ）。判定は alertRules.ts */
+  alertChips?: Array<{ key: string; label: string; severity: AlertSeverity; href: string }>
   /** 進捗管理ダッシュボード経由で計算済の場合 */
   flag?: CaseFlag
 }
@@ -88,26 +88,13 @@ type Props = {
   withStatusFilter?: boolean
 }
 
-const FLAG_LABEL: Record<NonNullable<CaseFlag>, string> = {
-  purple: '紫',
-  red:    '赤',
-  yellow: '黄',
-  blue:   '青',
-}
-const FLAG_BG: Record<NonNullable<CaseFlag>, string> = {
-  purple: 'bg-purple-600 text-white',
-  red:    'bg-red-500 text-white',
-  yellow: 'bg-yellow-400 text-gray-900',
-  blue:   'bg-blue-600 text-white',
-}
+const FLAG_LABEL = CASE_FLAG_LABEL
+const FLAG_BG = CASE_FLAG_BG
 
 const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
 
-// 鮮度フラグの付与対象 = 稼働中（対応中・業務完了申請中）。完了・相談案件・個別管理案件にはフラグを出さない。
-// ※ 一覧の行の絞り込みは呼び出し側 or 下記ステータスタブで実施。ここはフラグ判定スコープのみ。
-const MANAGEMENT_ACTIVE = new Set(['対応中', '業務完了申請中'])
 
 // ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
 const STATUS_TABS = [
@@ -152,18 +139,6 @@ function RemainCell({ due, today, muted }: { due: string | null; today: string; 
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの未対応 営業日数
 // 青: <5営業日 / 黄: 5営業日〜 / 赤: 10営業日〜（案件色をアラート深刻度に合わせた統一ルール）
 
-function computeFlagSimple(c: MyCaseRow): CaseFlag {
-  if (!MANAGEMENT_ACTIVE.has(c.status)) return null
-  if (c.has_complaint) return 'purple'
-  const ref = (c.last_opened_at ?? c.created_at ?? '')?.slice(0, 10)
-  if (!ref) return 'blue'
-  const d = new Date()
-  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const biz = bizDaysOverdue(ref, ymd)
-  if (biz >= 10) return 'red'
-  if (biz >= 5) return 'yellow'
-  return 'blue'
-}
 
 /**
  * マイページの担当案件タブ
@@ -183,7 +158,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 
   const rows = cases.map(c => ({
     ...c,
-    flag: c.flag ?? computeFlagSimple(c),
+    flag: c.flag ?? null,
   }))
 
   // 各ステータスタブの該当件数（バッジ表示用）
@@ -356,7 +331,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               )}
               <td className="px-3 py-2.5 text-center">
                 {c.flag ? (
-                  <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center w-11 py-0.5 rounded text-[12px] font-bold hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
+                  <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
                     {FLAG_LABEL[c.flag]}
                   </Link>
                 ) : (
@@ -386,7 +361,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                         key={a.key}
                         href={a.href}
                         title="クリックで該当箇所へ"
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition ${ALERT_CHIP_CLS[a.severity]}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition ${ALERT_SEVERITY_STYLE[a.severity].chip}`}
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />{a.label}
                       </Link>

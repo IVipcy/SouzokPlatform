@@ -11,6 +11,8 @@ import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -175,7 +177,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,contract_type,advance_payment,fee_administrative,fee_judicial')
+      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,contract_type,advance_payment,fee_administrative,fee_judicial,order_sheet_completed_at,meeting_date,meeting_executed_date,client_response_due_date,management_started_at,manager_assign_skipped')
       .in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase
@@ -234,7 +236,22 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   }
 
   // KPI計算
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）
+  const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
+  const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
+
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
+
+  // バナーもボードの色件数と同じアラートから数える（案件単位・重いほうに寄せる）
+  const teamCaseAlerts = cases.flatMap(c => (alertsByCase.get(c.id) ?? []).flatMap(h => {
+    const sev = bannerOf(h.severity)
+    if (!sev) return []
+    return [{
+      caseId: c.id, caseNumber: c.case_number, dealName: c.deal_name,
+      category: h.category, severity: sev, since: h.since, days: h.days, reason: h.reason,
+      href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : undefined),
+    }]
+  }))
 
   // 案件IDごとに manager を引く（進捗テーブル表示用）
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
@@ -262,7 +279,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       const sales = salesByCase.get(c.id) ?? null
       // クレームありは紫を最優先で返す（expected_completion_date 未設定でも紫扱い）
       const flag = (c.has_complaint || c.expected_completion_date)
-        ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today)
+        ? computeCaseFlag(c, alertsByCase.get(c.id) ?? [])
         : null
       return {
         id: c.id,
@@ -315,7 +332,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         icon={AlertTriangle}
         description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
         center={currentView === 'progress'
-          ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
+          ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} caseAlerts={teamCaseAlerts} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
           : undefined}
       />
       {/* サマリ・メンバー切替は進捗タブのみ（請求タブでは出さない） */}

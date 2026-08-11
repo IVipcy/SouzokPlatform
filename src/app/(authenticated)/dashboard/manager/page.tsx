@@ -10,6 +10,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import { todayJstYmd } from '@/lib/dashboardMetrics'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
+import { evaluateCaseAlerts } from '@/lib/alertRules'
 import type { TaskRow } from '@/types'
 import { CASE_STATUSES } from '@/lib/constants'
 import {
@@ -39,6 +41,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const { month, view: viewParam, status: statusParam, pstatus: pstatusParam } = await searchParams
   const supabase = await createClient()
   const today = new Date()
+  const todayStr = todayJstYmd(today)
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
   const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
@@ -113,7 +116,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
 
   const caseIdArray = Array.from(scopeCaseIds)
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
-    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,order_route,order_route_detail').in('id', caseIdArray),
+    supabase.from('cases').select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,order_route,order_route_detail,order_sheet_completed_at,meeting_date,meeting_executed_date,client_response_due_date,management_started_at,manager_assign_skipped').in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase.from('invoices').select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,expenses_amount,advance_deduction,notes,receipt_issued_date').in('case_id', caseIdArray),
   ])
@@ -142,7 +145,11 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const urgentTeamTasks = ((systemTasksRaw ?? []) as TaskRow[])
     .filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices)
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）
+  const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
+  const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
+
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
 
   // 案件→管理担当 / 受注担当
   const managerByCase = new Map<string, MemberRow>()
@@ -171,7 +178,7 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const allRows: ProgressCaseRow[] = baseCases.map(c => {
     const mgr = managerByCase.get(c.id) ?? null
     const sales = salesByCase.get(c.id) ?? null
-    const flag = (c.has_complaint || c.expected_completion_date) ? computeCaseFlag(c, tasksByCase.get(c.id) ?? [], today) : null
+    const flag = (c.has_complaint || c.expected_completion_date) ? computeCaseFlag(c, alertsByCase.get(c.id) ?? []) : null
     return {
       id: c.id,
       caseNumber: c.case_number,
