@@ -9,7 +9,6 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
-import { isMinimalMode } from '@/lib/featureMode'
 import { getCaseStatusLabel } from '@/lib/constants'
 import { bizDaysOverdue } from '@/lib/overdue'
 
@@ -172,8 +171,6 @@ function computeFlagSimple(c: MyCaseRow): CaseFlag {
  *   フラグ / 案件管理番号 / 案件名 / 担当者(受注/管理 別列) / 完了予定日 / 依頼者名
  */
 export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false, withStatusFilter = false }: Props) {
-  // ミニマム運用モードでは進捗列（タスクへ飛ぶ）を非表示
-  const minimal = isMinimalMode()
   void _memberId
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -335,8 +332,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap" title="完了予定日までの残り日数（暦日）">残り</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
-            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">事務管理タスク進捗</th>}
-            {!minimal && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注/管理タスク進捗</th>}
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
@@ -345,19 +340,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
         </thead>
         <tbody className="divide-y divide-gray-100">
           {visibleRows.map(c => {
-            const totalCase = c.progressCaseTotal ?? 0
-            const doneCase = c.progressCaseDone ?? 0
-            const pctCase = totalCase > 0 ? Math.round((doneCase / totalCase) * 100) : 0
-            const totalSys = c.progressSystemTotal ?? 0
-            const doneSys = c.progressSystemDone ?? 0
-            const pctSys = totalSys > 0 ? Math.round((doneSys / totalSys) * 100) : 0
-            // 列(task_kind)ごとの遅延タスク有無で赤化を判定。案件全体のhasOverdueTaskは互換のため残置。
-            const caseOverdueList = c.overdueCaseTasks ?? []
-            const systemOverdueList = c.overdueSystemTasks ?? []
-            const caseOverdue = caseOverdueList.length > 0
-            const systemOverdue = systemOverdueList.length > 0
-            const barClsCase = caseOverdue ? 'bg-red-500' : 'bg-brand-500'
-            const barClsSys = systemOverdue ? 'bg-red-500' : 'bg-brand-500'
             const weekly = c.weeklyStatus ?? '未対応'
             const isSelected = selected.has(c.id)
             return (
@@ -439,46 +421,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>
-              {/* 事務管理タスク進捗（分母=事務管理のみ）＋遅延タスク全件 or 次の1件 — 事務管理側の遅延だけで赤化 */}
-              {!minimal && <td className="px-3 py-2.5">
-                {totalCase > 0 ? (
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                        <div className={`h-full ${barClsCase} rounded-full`} style={{ width: `${pctCase}%` }} />
-                      </div>
-                      <span className={`text-[11px] font-mono flex-shrink-0 ${caseOverdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneCase}/{totalCase}</span>
-                    </div>
-                    <ProgressTaskList
-                      overdueTasks={caseOverdueList}
-                      nextId={c.nextCaseTaskId ?? null}
-                      nextTitle={c.nextCaseTaskTitle ?? null}
-                    />
-                  </div>
-                ) : (
-                  <span className="text-[12px] text-gray-300">—</span>
-                )}
-              </td>}
-              {/* 受注/管理タスク進捗（分母=system）＋遅延タスク全件 or 次の1件 — 受注/管理側の遅延だけで赤化 */}
-              {!minimal && <td className="px-3 py-2.5">
-                {totalSys > 0 ? (
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[60px]">
-                        <div className={`h-full ${barClsSys} rounded-full`} style={{ width: `${pctSys}%` }} />
-                      </div>
-                      <span className={`text-[11px] font-mono flex-shrink-0 ${systemOverdue ? 'text-red-600 font-bold' : 'text-gray-400'}`}>{doneSys}/{totalSys}</span>
-                    </div>
-                    <ProgressTaskList
-                      overdueTasks={systemOverdueList}
-                      nextId={c.nextSystemTaskId ?? null}
-                      nextTitle={c.nextSystemTaskTitle ?? null}
-                    />
-                  </div>
-                ) : (
-                  <span className="text-[12px] text-gray-300">—</span>
-                )}
-              </td>}
               {/* 週次報告状況 */}
               <td className="px-3 py-2.5 text-center">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${WEEKLY_BADGE[weekly]}`}>{weekly}</span>
@@ -525,34 +467,3 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
 
 // 進捗列に表示するタスク行群。
 // 遅延タスクがあれば全件を赤太字で列挙（古い順・severity別配色）、なければ「次の1件」を通常青で1件だけ。
-function ProgressTaskList({ overdueTasks, nextId, nextTitle }: {
-  overdueTasks: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }>
-  nextId: string | null
-  nextTitle: string | null
-}) {
-  if (overdueTasks.length > 0) {
-    return (
-      <div className="mt-1 space-y-0.5">
-        {overdueTasks.map(t => {
-          // 濃赤(2週間以上) / 琥珀(5営業日以上) / 明るい赤(1〜4営業日=軽微)
-          const cls = t.severity === 'chui' ? 'text-[#C0392B]' : t.severity === 'kakunin' ? 'text-[#B5651D]' : 'text-red-600'
-          const dateShort = t.due_date.slice(5).replace('-', '/')
-          return (
-            <div key={t.id} className="flex items-center gap-2 max-w-[240px]">
-              <Link href={`/tasks/${t.id}`} className={`text-[11px] font-bold hover:underline truncate flex-1 ${cls}`} title={t.title}>▶ {t.title}</Link>
-              <span className={`text-[10px] font-mono flex-none ${cls}`}>{dateShort} −{t.over}日</span>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-  if (nextId && nextTitle) {
-    return (
-      <Link href={`/tasks/${nextId}`} className="text-[11px] text-brand-600 hover:underline truncate block max-w-[220px] mt-0.5" title={nextTitle}>
-        ▶ {nextTitle}
-      </Link>
-    )
-  }
-  return <span className="text-[11px] text-gray-400 mt-0.5 block">未完了タスクなし</span>
-}
