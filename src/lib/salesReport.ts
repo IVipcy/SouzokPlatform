@@ -49,6 +49,7 @@ export type SalesRow = {
   issuedDate: string | null
   caseNumber: string
   clientName: string
+  billingPattern: string  // 案件の請求パターン（staged/lump_expense/lump_only）。画面表示のみ
   rewardInclTax: number   // F 報酬額（税込）
   rewardTax: number       // G （消費税）内税
   expNonTax: number       // H 立替実費 非課税分
@@ -213,6 +214,7 @@ export function buildSalesReport(
       issuedDate: inv.issued_date,
       caseNumber: c?.case_number ?? '',
       clientName: client?.name ?? c?.deceased_name ?? '',
+      billingPattern: pattern ?? 'staged',
       rewardInclTax,
       rewardTax: innerTax(rewardInclTax),
       expNonTax,

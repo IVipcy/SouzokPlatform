@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FileSpreadsheet, Download, ArrowLeft, CalendarClock, Building2 } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import { SALES_DIVISIONS } from '@/lib/constants'
+import { SALES_DIVISIONS, billingPatternOf } from '@/lib/constants'
+import HelpHint from '@/components/ui/HelpHint'
 import {
   buildSalesReport, isSaleInvoice,
   type SalesReportRaw, type ExpenseItem, type RewardItem, type TeamMeta, type SalesBook, type SalesSheet, type SalesTotals,
@@ -92,7 +93,8 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         eyebrow="Billing"
         title="確定売上表"
         icon={FileSpreadsheet}
-        description="計上月ごとの売上一覧。シート＝営業部（受注担当のチーム）×入金銀行、book＝司法/行政。Excel出力可"
+        afterTitle={<SalesReportHelp />}
+        description="請求書を発行した月＝売上を立てた月として並べた一覧です。行政書士法人／司法書士法人を切り替え、営業部と入金銀行ごとの表をExcelに出せます。"
         right={
           <Link href="/billing" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
             <ArrowLeft className="w-3.5 h-3.5" /> 請求・入金へ
@@ -272,7 +274,7 @@ function SheetTable({ sheet, onSaveDeduct, onSaveBankOverride }: { sheet: SalesS
           <thead>
             <tr>
               <th className={TH} rowSpan={2}>計上日</th><th className={TH} rowSpan={2}>No</th><th className={TH} rowSpan={2}>発行日</th>
-              <th className={TH} rowSpan={2}>案件番号</th><th className={TH} rowSpan={2}>クライアント</th>
+              <th className={TH} rowSpan={2}>案件番号</th><th className={TH} rowSpan={2} title="案件の請求パターン。①は確定請求で計上し前受金を差し引く／②③は前受金で計上する">請求<br />パターン</th><th className={TH} rowSpan={2}>クライアント</th>
               <th className={TH} colSpan={2}>報酬額</th>
               <th className={TH} colSpan={4}>立替実費</th>
               <th className={TH} colSpan={2}>立替実費差引額</th>
@@ -295,6 +297,7 @@ function SheetTable({ sheet, onSaveDeduct, onSaveBankOverride }: { sheet: SalesS
                 <td className={TXT}>{i + 1}</td>
                 <td className={TXT}>{r.issuedDate ?? ''}</td>
                 <td className={TXT + ' font-mono'}>{r.caseNumber}</td>
+                <td className={TXT + ' text-center text-gray-500'} title={billingPatternOf(r.billingPattern).label}>{billingPatternOf(r.billingPattern).no}</td>
                 <td className={TXT}>{r.clientName}</td>
                 <td className={NUM}>{yen(r.rewardInclTax)}</td>
                 <td className={NUM + ' text-gray-400'}>{yen(r.rewardTax)}</td>
@@ -332,7 +335,7 @@ function SheetTable({ sheet, onSaveDeduct, onSaveBankOverride }: { sheet: SalesS
 function TotalRow({ t }: { t: SalesTotals }) {
   return (
     <tr className="border-t-2 border-gray-300 bg-amber-50 font-bold text-gray-800">
-      <td className={TXT} colSpan={5}>合　計</td>
+      <td className={TXT} colSpan={6}>合　計</td>
       <td className={NUM}>{yen(t.rewardInclTax)}</td>
       <td className={NUM}>{yen(t.rewardTax)}</td>
       <td className={NUM}>{yen(t.expNonTax)}</td>
@@ -430,5 +433,40 @@ function UnpostedPanel({ invoices, onDone }: { invoices: SalesReportRaw[]; onDon
         })}
       </div>
     </div>
+  )
+}
+
+// タイトル横の「?」。確定売上表と入金明細の違い・載る条件・①の前受金の扱いを置く。
+// 3つの表（請求・入金一覧／確定売上表／入金明細）の役割は毎回聞かれるので、ここで一度に答える。
+function SalesReportHelp() {
+  return (
+    <HelpHint title="この表は何か" width={420}>
+      <span className="block mb-2">
+        <b className="text-gray-900">確定売上表</b>は「いつ売上を立てたか」の帳票です。1行＝請求書1枚。
+        <b className="text-gray-900">請求書に発行日が入った時点</b>で載り、入金の有無は関係ありません
+        （未入金の行は入金日が「未入金」になります）。
+      </span>
+      <span className="block mb-2">
+        <b className="text-gray-900">入金明細</b>は「いつ・どの銀行に・いくら入ったか」の帳票です。1行＝入金1本。
+        銀行CSVの突合や手動の入金記録でお金が動いたときに載ります。返金は別シートです。
+      </span>
+      <span className="block mb-2 pt-2 border-t border-gray-100">
+        <b className="text-gray-900">請求パターンによる載り方の違い</b>
+      </span>
+      <span className="block mb-1.5">
+        <b className="text-gray-900">①段階請求</b>… <b className="text-gray-900">確定請求を発行した月</b>に1行載ります。
+        報酬の全額（前受金でもらったぶんを含む）を「合計」に立て、受け取り済みの前受金は
+        「前受金」列で差し引いて「差引請求」を出します。前受金は単体では行になりません。
+        二重に計上しないためで、前受金をもらっただけの月には売上は立ちません。
+      </span>
+      <span className="block mb-2">
+        <b className="text-gray-900">②一括＋実費・③一括のみ</b>… 前受金＝確定なので、
+        <b className="text-gray-900">前受金を発行した月</b>に載ります。
+      </span>
+      <span className="block text-gray-500">
+        報酬額は案件の報酬内訳、立替実費は立替実費の登録から拾います。
+        銀行は入金のあった銀行で決まり、未入金のうちは右端の欄で手動指定できます。
+      </span>
+    </HelpHint>
   )
 }
